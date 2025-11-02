@@ -20,7 +20,7 @@ domain_name           = "api.trigpointing.uk"
 enable_cloudflare_ssl = true
 
 log_level                = "INFO"
-cors_origins             = ["https://trigpointing.uk", "https://api.trigpointing.uk"]
+cors_origins             = ["https://trigpointing.uk", "https://api.trigpointing.uk", "https://preview.trigpointing.uk"]
 spa_container_image      = "ghcr.io/trigpointinguk/platform/web:main"
 db_pool_size             = 10
 db_pool_recycle          = 300

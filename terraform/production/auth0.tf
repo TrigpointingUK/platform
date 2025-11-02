@@ -123,11 +123,11 @@ module "auth0" {
 
   # Web SPA Callbacks
   web_spa_callback_urls = [
-    "https://trigpointing.uk/app/",
+    "https://preview.trigpointing.uk/",
   ]
 
   web_spa_allowed_origins = [
-    "https://trigpointing.uk",
+    "https://preview.trigpointing.uk",
   ]
 
   # Website Callbacks

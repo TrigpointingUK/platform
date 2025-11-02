@@ -6,7 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class TrigMinimal(BaseModel):
@@ -67,20 +67,28 @@ class TrigDetails(BaseModel):
 class TrigStats(BaseModel):
     """Statistics for a trigpoint."""
 
-    logged_first: date
-    logged_last: date
+    logged_first: Optional[date] = None
+    logged_last: Optional[date] = None
     logged_count: int
-    found_last: date
+    found_last: Optional[date] = None
     found_count: int
     photo_count: int
     score_mean: Decimal
     score_baysian: Decimal
 
+    @field_validator("logged_first", "logged_last", "found_last", mode="before")
+    @classmethod
+    def handle_invalid_dates(cls, v):
+        """Convert invalid MySQL dates (0000-00-00) to None."""
+        if v in ("0000-00-00", "", None):
+            return None
+        return v
+
     class Config:
         from_attributes = True
         json_encoders = {
             Decimal: str,
-            date: lambda v: v.isoformat(),
+            date: lambda v: v.isoformat() if v else None,
             datetime: lambda v: v.isoformat() if v else None,
         }
 
