@@ -224,7 +224,9 @@ def get_current_user_profile(
             total_photos = (
                 db.query(TPhoto)
                 .join(user_crud.TLog, TPhoto.tlog_id == user_crud.TLog.id)
-                .filter(user_crud.TLog.user_id == current_user.id)
+                .filter(
+                    user_crud.TLog.user_id == current_user.id, TPhoto.deleted_ind != "Y"
+                )
                 .count()
             )
 
@@ -649,7 +651,7 @@ def get_user(
         total_photos = (
             db.query(TPhoto)
             .join(user_crud.TLog, TPhoto.tlog_id == user_crud.TLog.id)
-            .filter(user_crud.TLog.user_id == user_id)
+            .filter(user_crud.TLog.user_id == user_id, TPhoto.deleted_ind != "Y")
             .count()
         )
 
@@ -816,7 +818,7 @@ def list_users(
             total_photos_query = (
                 db.query(user_crud.TLog.user_id, func.count(TPhoto.id))
                 .join(TPhoto, TPhoto.tlog_id == user_crud.TLog.id)
-                .filter(user_crud.TLog.user_id.in_(user_ids))
+                .filter(user_crud.TLog.user_id.in_(user_ids), TPhoto.deleted_ind != "Y")
                 .group_by(user_crud.TLog.user_id)
                 .all()
             )

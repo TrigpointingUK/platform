@@ -55,8 +55,25 @@ def list_photos(
     items = tphoto_crud.list_photos_filtered(
         db, trig_id=trig_id, log_id=log_id, user_id=user_id, skip=skip, limit=limit
     )
-    # total estimate with same filters
-    total = len(items) if len(items) < limit else (db.query(tphoto_crud.TPhoto).count())
+    # total estimate with same filters - properly exclude deleted photos
+    if len(items) < limit:
+        total = len(items)
+    else:
+        # Need to count with same filters as list_photos_filtered
+        total_query = db.query(tphoto_crud.TPhoto).filter(
+            tphoto_crud.TPhoto.deleted_ind != "Y"
+        )
+        if log_id is not None:
+            total_query = total_query.filter(tphoto_crud.TPhoto.tlog_id == log_id)
+        if user_id is not None:
+            total_query = total_query.join(
+                TLog, TLog.id == tphoto_crud.TPhoto.tlog_id
+            ).filter(TLog.user_id == user_id)
+        if trig_id is not None:
+            total_query = total_query.join(
+                TLog, TLog.id == tphoto_crud.TPhoto.tlog_id
+            ).filter(TLog.trig_id == trig_id)
+        total = total_query.count()
 
     # Serialise with URLs populated
     result_items = []
