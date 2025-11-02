@@ -12,6 +12,7 @@ module "valkey" {
   ecs_task_role_arn             = aws_iam_role.ecs_task_role.arn
   private_subnet_ids            = aws_subnet.private[*].id
   valkey_security_group_id      = aws_security_group.valkey_ecs.id
+  efs_security_group_id         = aws_security_group.efs_valkey.id
   service_discovery_service_arn = aws_service_discovery_service.valkey.arn
 
   # Resource allocation

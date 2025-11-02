@@ -1,5 +1,39 @@
 # EFS for phpBB persistent storage
 
+# Security group for Valkey EFS
+resource "aws_security_group" "efs_valkey" {
+  name        = "${var.project_name}-efs-valkey-sg"
+  description = "Security group for Valkey EFS"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description     = "NFS from Valkey ECS tasks"
+    from_port       = 2049
+    to_port         = 2049
+    protocol        = "tcp"
+    security_groups = [aws_security_group.valkey_ecs.id]
+  }
+
+  ingress {
+    description     = "NFS from bastion"
+    from_port       = 2049
+    to_port         = 2049
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project_name}-efs-valkey-sg"
+  }
+}
+
 # Security group for phpBB EFS
 resource "aws_security_group" "efs_phpbb" {
   name        = "${var.project_name}-efs-phpbb-sg"

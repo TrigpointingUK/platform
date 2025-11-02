@@ -22,3 +22,13 @@ output "valkey_task_definition_arn" {
   description = "Task definition ARN for Valkey"
   value       = aws_ecs_task_definition.valkey.arn
 }
+
+output "efs_file_system_id" {
+  description = "EFS file system ID for Valkey data"
+  value       = aws_efs_file_system.valkey.id
+}
+
+output "efs_access_point_id" {
+  description = "EFS access point ID for Valkey"
+  value       = aws_efs_access_point.valkey.id
+}

@@ -40,7 +40,11 @@ class TPhotoBase(BaseModel):
 
 
 class TPhotoResponse(TPhotoBase):
-    pass
+    # Denormalized fields for convenience (populated via JOINs)
+    user_name: Optional[str] = None
+    trig_id: Optional[int] = None
+    trig_name: Optional[str] = None
+    log_date: Optional[date] = None
 
 
 class TPhotoUpdate(BaseModel):
