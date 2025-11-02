@@ -15,11 +15,11 @@ class TestSecurityFunctions:
     def test_extract_scopes_valid_token(self):
         """Test extracting scopes from a valid JWT token."""
         token_payload = {
-            "scope": "trig:read trig:write user:admin",
+            "scope": "api:read api:write api:admin",
             "token_type": "auth0",
         }
         scopes = extract_scopes(token_payload)
-        assert scopes == {"trig:read", "trig:write", "user:admin"}
+        assert scopes == {"api:read", "api:write", "api:admin"}
 
     def test_extract_scopes_empty_scope(self):
         """Test extracting scopes from token with empty scope."""
@@ -36,11 +36,11 @@ class TestSecurityFunctions:
     def test_extract_scopes_whitespace_scope(self):
         """Test extracting scopes with whitespace."""
         token_payload = {
-            "scope": "  trig:read   trig:write  user:admin  ",
+            "scope": "  api:read   api:write  api:admin  ",
             "token_type": "auth0",
         }
         scopes = extract_scopes(token_payload)
-        assert scopes == {"trig:read", "trig:write", "user:admin"}
+        assert scopes == {"api:read", "api:write", "api:admin"}
 
     def test_verify_password_valid(self):
         """Test password verification with valid password."""

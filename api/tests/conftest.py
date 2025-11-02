@@ -77,7 +77,7 @@ def client(monkeypatch):
             return {
                 "token_type": "auth0",
                 "auth0_user_id": "auth0|admin",
-                "scope": "user:admin",
+                "scope": "api:admin",
             }
         return None
 

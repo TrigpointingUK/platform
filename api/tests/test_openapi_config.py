@@ -44,7 +44,7 @@ def test_openapi_schema_has_security_requirements(client: TestClient):
                     assert "security" in endpoint
                     if endpoint_path.startswith(f"{settings.API_V1_STR}/legacy/"):
                         assert endpoint["security"] == [
-                            {"OAuth2": ["openid", "profile", "user:admin"]}
+                            {"OAuth2": ["openid", "profile", "api:admin"]}
                         ]
                     else:
                         assert endpoint["security"] == [{"OAuth2": []}]

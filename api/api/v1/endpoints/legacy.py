@@ -282,10 +282,10 @@ def login_for_access_token(
 
 @router.get(
     "/username-duplicates",
-    dependencies=[Depends(require_scopes("user:admin"))],
+    dependencies=[Depends(require_scopes("api:admin"))],
     openapi_extra={
         **openapi_lifecycle("beta"),
-        "security": [{"OAuth2": ["openid", "profile", "user:admin"]}],
+        "security": [{"OAuth2": ["openid", "profile", "api:admin"]}],
     },
 )
 def username_duplicates(
@@ -300,10 +300,10 @@ def username_duplicates(
 
 @router.get(
     "/email-duplicates",
-    dependencies=[Depends(require_scopes("user:admin"))],
+    dependencies=[Depends(require_scopes("api:admin"))],
     openapi_extra={
         **openapi_lifecycle("beta"),
-        "security": [{"OAuth2": ["openid", "profile", "user:admin"]}],
+        "security": [{"OAuth2": ["openid", "profile", "api:admin"]}],
     },
 )
 def email_duplicates(
