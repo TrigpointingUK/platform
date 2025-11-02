@@ -480,6 +480,7 @@ def merge_users(
                 user_id=int(primary_user.id),
                 username=str(primary_user.name),
                 last_activity=primary_activity,
+                days_since_primary=0.0,
             ),
             conflicting_users=conflicting_users,
             threshold_days=request.activity_threshold_days,

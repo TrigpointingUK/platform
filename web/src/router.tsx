@@ -15,6 +15,7 @@ const UserLogs = lazy(() => import("./routes/UserLogs"));
 const UserPhotos = lazy(() => import("./routes/UserPhotos"));
 const About = lazy(() => import("./routes/About"));
 const AppDetail = lazy(() => import("./routes/AppDetail"));
+const FindTrigs = lazy(() => import("./routes/FindTrigs"));
 
 function LoadingFallback() {
   return (
@@ -42,6 +43,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <Logs />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/find",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <FindTrigs />
         </Suspense>
       ),
     },

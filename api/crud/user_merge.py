@@ -91,7 +91,7 @@ def get_user_last_activity(db: Session, user_id: int) -> Optional[datetime]:
 
     # Return the most recent timestamp
     if timestamps:
-        return max(timestamps)
+        return max([t for t in timestamps if t is not None], default=None)
     return None
 
 
@@ -192,13 +192,13 @@ def check_merge_conflicts(
     if primary_activity is None:
         # Use user creation date as fallback
         primary_activity = datetime.combine(
-            primary_user.crt_date, primary_user.crt_time
+            primary_user.crt_date, primary_user.crt_time  # type: ignore[arg-type]
         ).replace(tzinfo=timezone.utc)
 
     for user, last_activity in users_with_activity[1:]:
         if last_activity is None:
             # User with no activity - use creation date
-            last_activity = datetime.combine(user.crt_date, user.crt_time).replace(
+            last_activity = datetime.combine(user.crt_date, user.crt_time).replace(  # type: ignore[arg-type]
                 tzinfo=timezone.utc
             )
 
@@ -235,9 +235,9 @@ def select_best_profile_values(
     users = db.query(User).filter(User.id.in_(user_ids)).all()
 
     # Sort by update timestamp (most recent first)
-    users.sort(key=lambda u: u.upd_timestamp, reverse=True)
+    users.sort(key=lambda u: u.upd_timestamp, reverse=True)  # type: ignore[arg-type,return-value]
 
-    result = {}
+    result: Dict[str, Optional[str]] = {}
     for field in fields:
         result[field] = None
         for user in users:
@@ -378,7 +378,7 @@ def merge_users(
             logger.info(f"Updated primary user {field} to: {value}")
 
     if profile_updated:
-        primary_user.upd_timestamp = datetime.now()
+        primary_user.upd_timestamp = datetime.now()  # type: ignore[assignment]
         db.add(primary_user)
 
     # Delete secondary users

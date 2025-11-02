@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from api.core.config import settings
-from api.models.server import Server
 from api.models.tphoto import TPhoto
 from api.models.user import TLog, User
 

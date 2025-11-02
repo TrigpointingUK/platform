@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
 from sqlalchemy.orm import Session
 
-from api.api.deps import get_db
+from api.api.deps import get_current_user_optional, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
 from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
@@ -132,14 +132,37 @@ def list_trigs(
         None, ge=0, description="Max distance from centre (km)"
     ),
     order: Optional[str] = Query(None, description="id | name | distance"),
+    physical_types: Optional[str] = Query(
+        None, description="Comma-separated physical types to include"
+    ),
+    exclude_found: Optional[bool] = Query(
+        False, description="Exclude trigpoints already logged by authenticated user"
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_optional),
 ):
     """
     Filtered collection endpoint for trigs returning envelope with items, pagination, links.
+
+    New filters:
+    - physical_types: Filter by physical type (e.g., "Pillar,Bolt,FBM")
+    - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
     """
+    # Parse physical types
+    physical_types_list = None
+    if physical_types:
+        physical_types_list = [
+            pt.strip() for pt in physical_types.split(",") if pt.strip()
+        ]
+
+    # Get user ID for exclude_found filter
+    exclude_found_by_user_id = None
+    if exclude_found and current_user:
+        exclude_found_by_user_id = int(current_user.id)
+
     items = trig_crud.list_trigs_filtered(
         db,
         name=name,
@@ -150,6 +173,8 @@ def list_trigs(
         center_lon=lon,
         max_km=max_km,
         order=order,
+        physical_types=physical_types_list,
+        exclude_found_by_user_id=exclude_found_by_user_id,
     )
     total = trig_crud.count_trigs_filtered(
         db,
@@ -158,6 +183,8 @@ def list_trigs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
+        physical_types=physical_types_list,
+        exclude_found_by_user_id=exclude_found_by_user_id,
     )
 
     # serialise
@@ -187,6 +214,10 @@ def list_trigs(
         params.append(f"max_km={max_km}")
     if order:
         params.append(f"order={order}")
+    if physical_types:
+        params.append(f"physical_types={physical_types}")
+    if exclude_found:
+        params.append("exclude_found=true")
     params.append(f"limit={limit}")
     # self link
     self_link = base + "?" + "&".join(params + [f"skip={skip}"])
