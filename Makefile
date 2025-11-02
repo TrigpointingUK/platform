@@ -6,6 +6,7 @@ orientation-model:
 .PHONY: help install install-dev test test-cov lint format type-check security build run clean docker-build docker-run docker-down mysql-client diff-cov \
 	run-staging db-tunnel-staging-start db-tunnel-staging-stop mysql-staging \
 	bastion-ssm-shell db-tunnel-staging-ssm-start bastion-allow-my-ip bastion-revoke-my-ip \
+	redis-tunnel-staging-ssm-start redis-cli-staging \
 	web-install web-dev web-build web-test web-lint web-type-check
 
 # Default target
@@ -26,6 +27,7 @@ SSH_BASTION_HOST ?= bastion.trigpointing.uk
 SSH_BASTION_USER ?= ec2-user
 SSH_KEY_PATH ?= ~/.ssh/trigpointing-bastion.pem
 LOCAL_DB_TUNNEL_PORT ?= 3307
+LOCAL_REDIS_TUNNEL_PORT ?= 6379
 BASTION_SG_ID ?=
 
 # Discover bastion instance id (cached per invocation) using Name tag contains 'bastion'
@@ -71,10 +73,12 @@ run-staging: ## Run FastAPI locally against staging DB (requires db-tunnel-stagi
 	DB_PASSWORD=$$(echo "$$SECRET_JSON" | jq -r '.password'); \
 	DB_NAME=$$(echo "$$SECRET_JSON" | jq -r '.dbname // .database'); \
 	echo "🚀 Starting FastAPI with hot reload on http://127.0.0.1:8000"; \
+	echo "💡 Note: If using Redis tunnel, make sure redis-tunnel-staging-ssm-start is running"; \
 	. venv/bin/activate && \
 	ENVIRONMENT=development \
 	DB_HOST=127.0.0.1 DB_PORT=$(LOCAL_DB_TUNNEL_PORT) \
 	DB_USER="$$DB_USER" DB_PASSWORD="$$DB_PASSWORD" DB_NAME="$$DB_NAME" \
+	REDIS_URL=redis://127.0.0.1:$(LOCAL_REDIS_TUNNEL_PORT) \
 	uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 
 # Open a MySQL client to staging via the tunnel
@@ -110,6 +114,29 @@ db-tunnel-staging-ssm-start: ## Start SSM remote host port forward to RDS → lo
 	  --target "$(_bastion_instance)" \
 	  --document-name AWS-StartPortForwardingSessionToRemoteHost \
 	  --parameters "host=[$$RDS_HOST],portNumber=['3306'],localPortNumber=['$(LOCAL_DB_TUNNEL_PORT)']"
+
+redis-tunnel-staging-ssm-start: ## Start SSM remote host port forward to Valkey → localhost:$(LOCAL_REDIS_TUNNEL_PORT)
+	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
+	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
+	@echo "🔎 Fetching Valkey endpoint from Terraform outputs"
+	@cd terraform/common && terraform init -backend-config=backend.conf >/dev/null 2>&1 || true
+	@VALKEY_HOST=$$(cd terraform/common && terraform output -raw valkey_endpoint 2>/dev/null); \
+	VALKEY_PORT=$$(cd terraform/common && terraform output -raw valkey_port 2>/dev/null || echo "6379"); \
+	if [ -z "$$VALKEY_HOST" ] || [ "$$VALKEY_HOST" = "" ]; then \
+	  echo "❌ Could not fetch Valkey endpoint from Terraform. Make sure common infrastructure is deployed."; \
+	  exit 1; \
+	fi; \
+	echo "🔐 SSM forwarding: 127.0.0.1:$(LOCAL_REDIS_TUNNEL_PORT) → $$VALKEY_HOST:$$VALKEY_PORT via $(_bastion_instance)"; \
+	aws --region $(AWS_REGION) ssm start-session \
+	  --target "$(_bastion_instance)" \
+	  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+	  --parameters "host=[$$VALKEY_HOST],portNumber=['$$VALKEY_PORT'],localPortNumber=['$(LOCAL_REDIS_TUNNEL_PORT)']"
+
+redis-cli-staging: ## Open redis-cli against staging via tunnel (requires redis-tunnel-staging-ssm-start)
+	@command -v redis-cli >/dev/null 2>&1 || { echo "❌ redis-cli not found. Install redis-tools: sudo apt install redis-tools"; exit 1; }
+	@echo "🔗 Connecting redis-cli to 127.0.0.1:$(LOCAL_REDIS_TUNNEL_PORT)"
+	@echo "💡 Common commands: KEYS *, GET key, SET key value, DEL key, FLUSHDB, INFO, PING"
+	redis-cli -h 127.0.0.1 -p $(LOCAL_REDIS_TUNNEL_PORT)
 
 # ---------------------------------------------------------------------------
 # Security Group helpers for dynamic admin IP (SSH) with Terraform ignore_changes

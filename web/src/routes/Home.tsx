@@ -58,24 +58,28 @@ function SiteStatsSection() {
       value: stats.total_trigs.toLocaleString(),
       icon: "📍",
       color: "text-trig-green-600",
+      link: "/browse",
     },
     {
       label: "Registered Users",
       value: stats.total_users.toLocaleString(),
       icon: "👥",
       color: "text-blue-600",
+      link: "/users",
     },
     {
       label: "Visit Logs",
       value: stats.total_logs.toLocaleString(),
       icon: "📝",
       color: "text-purple-600",
+      link: "/logs",
     },
     {
       label: "Photos",
       value: stats.total_photos.toLocaleString(),
       icon: "📷",
       color: "text-orange-600",
+      link: "/photos",
     },
   ];
 
@@ -84,16 +88,17 @@ function SiteStatsSection() {
       <h2 className="text-2xl font-bold text-gray-800 mb-4">Site Statistics</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statItems.map((item) => (
-          <div
+          <Link
             key={item.label}
-            className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            to={item.link}
+            className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors block"
           >
             <div className="text-3xl mb-2">{item.icon}</div>
             <div className={`text-3xl font-bold ${item.color} mb-1`}>
               {item.value}
             </div>
             <div className="text-sm text-gray-600">{item.label}</div>
-          </div>
+          </Link>
         ))}
       </div>
       {stats.recent_logs_7d > 0 && (

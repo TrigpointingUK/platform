@@ -15,7 +15,7 @@ def _build_app():
     app = FastAPI()
     router = APIRouter()
 
-    @router.get("/admin", dependencies=[Depends(require_scopes("user:admin"))])
+    @router.get("/admin", dependencies=[Depends(require_scopes("api:admin"))])
     def admin():
         return {"ok": True}
 

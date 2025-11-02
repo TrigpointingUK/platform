@@ -40,6 +40,7 @@ from api.schemas.user import (
     UserWithIncludes,
 )
 from api.services.badge_service import BadgeService
+from api.utils.cache_decorator import cached
 from api.utils.condition_mapping import get_condition_counts_by_description
 from api.utils.geocalibrate import CalibrationResult
 from api.utils.url import join_url
@@ -550,6 +551,9 @@ def update_current_user_profile(
         note="Generates a 200x50px PNG badge showing user statistics including nickname, trigpoints logged, and photos uploaded.",
     ),
 )
+@cached(
+    resource_type="user", ttl=300, resource_id_param="user_id", subresource="badge"
+)  # 5 minutes
 def get_user_badge(
     user_id: int,
     scale: float = Query(
@@ -593,6 +597,7 @@ def get_user_badge(
 
 
 @router.get("/{user_id}", response_model=UserWithIncludes)
+@cached(resource_type="user", ttl=21600, resource_id_param="user_id")  # 6 hours
 def get_user(
     user_id: int,
     include: Optional[str] = Query(
@@ -718,6 +723,7 @@ def get_user(
 
 
 @router.get("")
+@cached(resource_type="users", ttl=43200, subresource="list")  # 12 hours
 def list_users(
     name: Optional[str] = Query(None, description="Filter by username (contains)"),
     include: Optional[str] = Query(None, description="Comma-separated includes: stats"),
@@ -860,6 +866,9 @@ def list_users(
 
 
 @router.get("/{user_id}/logs", openapi_extra=openapi_lifecycle("beta"))
+@cached(
+    resource_type="user", ttl=7200, resource_id_param="user_id", subresource="logs"
+)  # 2 hours
 def list_logs_for_user(
     user_id: int,
     skip: int = Query(0, ge=0),
@@ -941,6 +950,9 @@ def list_logs_for_user(
 
 
 @router.get("/{user_id}/photos", openapi_extra=openapi_lifecycle("beta"))
+@cached(
+    resource_type="user", ttl=7200, resource_id_param="user_id", subresource="photos"
+)  # 2 hours
 def list_photos_for_user(
     user_id: int,
     skip: int = Query(0, ge=0),
@@ -1019,6 +1031,9 @@ def list_photos_for_user(
         ),
     ),
 )
+@cached(
+    resource_type="user", ttl=14400, resource_id_param="user_id", subresource="map"
+)  # 4 hours
 def get_user_map(
     user_id: int,
     found_colour: Optional[str] = Query(

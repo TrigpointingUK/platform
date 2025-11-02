@@ -5,6 +5,7 @@ import Spinner from "./components/ui/Spinner";
 import NotFound from "./routes/NotFound";
 
 const Home = lazy(() => import("./routes/Home"));
+const Logs = lazy(() => import("./routes/Logs"));
 const PhotoAlbum = lazy(() => import("./routes/PhotoAlbum"));
 const PhotoDetail = lazy(() => import("./routes/PhotoDetail"));
 const TrigDetail = lazy(() => import("./routes/TrigDetail"));
@@ -37,6 +38,22 @@ const router = createBrowserRouter(
       ),
     },
     {
+      path: "/logs",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <Logs />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/logs/:logId",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <LogDetail />
+        </Suspense>
+      ),
+    },
+    {
       path: "/photos",
       element: (
         <Suspense fallback={<LoadingFallback />}>
@@ -57,14 +74,6 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <TrigDetail />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/logs/:logId",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <LogDetail />
         </Suspense>
       ),
     },

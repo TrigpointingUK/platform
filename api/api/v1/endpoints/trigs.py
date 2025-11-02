@@ -31,6 +31,7 @@ from api.schemas.trig import TrigStats as TrigStatsSchema
 from api.schemas.trig import (
     TrigWithIncludes,
 )
+from api.utils.cache_decorator import cached
 from api.utils.geocalibrate import CalibrationResult
 from api.utils.url import join_url
 
@@ -44,6 +45,7 @@ router = APIRouter()
         "beta", note="Shape may change; fieldset stabilising"
     ),
 )
+@cached(resource_type="trig", ttl=86400, resource_id_param="trig_id")  # 24 hours
 def get_trig(
     trig_id: int,
     include: Optional[str] = Query(
@@ -120,6 +122,7 @@ def get_trig_by_waypoint(
     "",
     openapi_extra=openapi_lifecycle("beta", note="Filtered collection listing"),
 )
+@cached(resource_type="trigs", ttl=43200, subresource="list")  # 12 hours
 def list_trigs(
     name: Optional[str] = Query(None, description="Filter by trig name (contains)"),
     county: Optional[str] = Query(None, description="Filter by county (exact)"),
@@ -238,6 +241,9 @@ def list_trigs(
         ),
     ),
 )
+@cached(
+    resource_type="trig", ttl=14400, resource_id_param="trig_id", subresource="map"
+)  # 4 hours
 async def get_trig_map(
     trig_id: int,
     style: str = Query(
@@ -330,6 +336,9 @@ async def get_trig_map(
     "/{trig_id}/logs",
     openapi_extra=openapi_lifecycle("beta", note="List logs for a trig"),
 )
+@cached(
+    resource_type="trig", ttl=7200, resource_id_param="trig_id", subresource="logs"
+)  # 2 hours
 def list_logs_for_trig(
     trig_id: int,
     include: Optional[str] = Query(
@@ -414,6 +423,9 @@ def list_logs_for_trig(
     "/{trig_id}/photos",
     openapi_extra=openapi_lifecycle("beta", note="List photos for a trig"),
 )
+@cached(
+    resource_type="trig", ttl=7200, resource_id_param="trig_id", subresource="photos"
+)  # 2 hours
 def list_photos_for_trig(
     trig_id: int,
     skip: int = Query(0, ge=0),

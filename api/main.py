@@ -154,7 +154,7 @@ def custom_openapi():
                 # Add security requirement to write endpoints and admin endpoints
                 if path in admin_endpoints:
                     endpoint["security"] = [
-                        {"OAuth2": ["openid", "profile", "user:admin"]}
+                        {"OAuth2": ["openid", "profile", "api:admin"]}
                     ]
                 elif method in ["post", "put", "patch", "delete"]:
                     # Require authentication for write operations

@@ -19,6 +19,7 @@ from api.models.user import TLog as TLogModel
 from api.models.user import User
 from api.schemas.tlog import TLogCreate, TLogResponse, TLogUpdate, TLogWithIncludes
 from api.schemas.tphoto import TPhotoResponse
+from api.utils.cache_decorator import cached
 from api.utils.url import join_url
 
 router = APIRouter()
@@ -62,6 +63,7 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
 
 
 @router.get("", openapi_extra=openapi_lifecycle("beta"))
+@cached(resource_type="logs", ttl=3600, subresource="list")  # 1 hour
 def list_logs(
     trig_id: Optional[int] = Query(None),
     user_id: Optional[int] = Query(None),
@@ -159,6 +161,7 @@ def list_logs(
     response_model=TLogWithIncludes,
     openapi_extra=openapi_lifecycle("beta"),
 )
+@cached(resource_type="log", ttl=21600, resource_id_param="log_id")  # 6 hours
 def get_log(
     log_id: int,
     include: Optional[str] = Query(
