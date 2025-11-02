@@ -191,26 +191,31 @@ def get_log(
             )
         if "photos" in tokens:
             photos = tphoto_crud.list_all_photos_for_log(db, log_id=int(log.id))
-            photos_out = [
-                TPhotoResponse(
-                    id=int(p.id),
-                    log_id=int(p.tlog_id),
-                    user_id=int(log.user_id),
-                    type=str(p.type) if p.type and p.type.strip() else "O",
-                    filesize=int(p.filesize),
-                    height=int(p.height),
-                    width=int(p.width),
-                    icon_filesize=int(p.icon_filesize),
-                    icon_height=int(p.icon_height),
-                    icon_width=int(p.icon_width),
-                    name=str(p.name),
-                    text_desc=str(p.text_desc),
-                    public_ind=str(p.public_ind),
-                    photo_url="",
-                    icon_url="",
+            photos_out = []
+            for p in photos:
+                server: Server | None = (
+                    db.query(Server).filter(Server.id == p.server_id).first()
                 )
-                for p in photos
-            ]
+                base_url = str(server.url) if server and server.url else ""
+                photos_out.append(
+                    TPhotoResponse(
+                        id=int(p.id),
+                        log_id=int(p.tlog_id),
+                        user_id=int(log.user_id),
+                        type=str(p.type) if p.type and p.type.strip() else "O",
+                        filesize=int(p.filesize),
+                        height=int(p.height),
+                        width=int(p.width),
+                        icon_filesize=int(p.icon_filesize),
+                        icon_height=int(p.icon_height),
+                        icon_width=int(p.icon_width),
+                        name=str(p.name),
+                        text_desc=str(p.text_desc),
+                        public_ind=str(p.public_ind),
+                        photo_url=join_url(base_url, str(p.filename)),
+                        icon_url=join_url(base_url, str(p.icon_filename)),
+                    )
+                )
 
     return TLogWithIncludes(**base, photos=photos_out)
 
