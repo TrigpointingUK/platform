@@ -13,12 +13,9 @@ export default defineConfig({
   // Base URL for the app:
   // - Development: '/'
   // - Staging: '/' (trigpointing.me root)
-  // - Production: '/app/' (trigpointing.uk/app/)
+  // - Production: '/' (preview.trigpointing.uk root)
   // Set VITE_BASE_URL env var to override
-  base: process.env.VITE_BASE_URL || 
-        (process.env.NODE_ENV === 'production' 
-          ? (process.env.VITE_ENVIRONMENT === 'production' ? '/app/' : '/')
-          : '/'),
+  base: process.env.VITE_BASE_URL || '/',
   server: {
     port: 5173,
     strictPort: true,
