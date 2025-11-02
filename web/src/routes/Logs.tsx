@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import Layout from "../components/layout/Layout";
 import LogCard from "../components/logs/LogCard";
@@ -27,8 +27,11 @@ export default function Logs() {
     rootMargin: "600px", // Start loading 600px before reaching the trigger
   });
 
-  // Flatten all pages into a single array
-  const allLogs = data?.pages.flatMap((page) => page.items) || [];
+  // Flatten all pages into a single array (memoized to prevent re-creation on every render)
+  const allLogs = useMemo(
+    () => data?.pages.flatMap((page) => page.items) || [],
+    [data?.pages]
+  );
 
   // Auto-fetch when scrolling into view
   useEffect(() => {
