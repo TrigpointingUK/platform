@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import Layout from "../components/layout/Layout";
-import LogList from "../components/logs/LogList";
+import LogCard from "../components/logs/LogCard";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
@@ -15,6 +15,11 @@ export default function Logs() {
     isLoading,
     error,
   } = useInfiniteLogs();
+
+  const [centerLogIndex, setCenterLogIndex] = useState<number | null>(null);
+  const [featuredTrigId, setFeaturedTrigId] = useState<number>(24266);
+  const [featuredTrigName, setFeaturedTrigName] = useState<string>("");
+  const logRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Intersection observer to trigger loading more logs
   const { ref: loadMoreRef, inView } = useInView({
@@ -32,10 +37,64 @@ export default function Logs() {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // Track which log is closest to center of viewport
+  useEffect(() => {
+    const handleScroll = () => {
+      if (allLogs.length === 0) return;
+
+      const viewportCenter = window.innerHeight / 2;
+      let closestIndex: number | null = null;
+      let closestDistance = Infinity;
+
+      logRefs.current.forEach((element, index) => {
+        const rect = element.getBoundingClientRect();
+        const elementCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(elementCenter - viewportCenter);
+
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+
+      if (closestIndex !== null && closestIndex !== centerLogIndex) {
+        setCenterLogIndex(closestIndex);
+        // Update the featured trig based on the centered log
+        if (allLogs[closestIndex]) {
+          setFeaturedTrigId(allLogs[closestIndex].trig_id);
+          setFeaturedTrigName(allLogs[closestIndex].trig_name || "");
+        }
+      }
+    };
+
+    // Initial check
+    handleScroll();
+
+    // Listen for scroll events with throttling
+    let timeoutId: number;
+    const throttledScroll = () => {
+      if (timeoutId) {
+        window.cancelAnimationFrame(timeoutId);
+      }
+      timeoutId = window.requestAnimationFrame(handleScroll);
+    };
+
+    window.addEventListener("scroll", throttledScroll, { passive: true });
+    window.addEventListener("resize", throttledScroll);
+
+    return () => {
+      window.removeEventListener("scroll", throttledScroll);
+      window.removeEventListener("resize", throttledScroll);
+      if (timeoutId) {
+        window.cancelAnimationFrame(timeoutId);
+      }
+    };
+  }, [allLogs.length, allLogs, centerLogIndex]);
+
   if (error) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">Visit Logs</h1>
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
             <p className="text-red-600 mb-4">
@@ -48,9 +107,11 @@ export default function Logs() {
     );
   }
 
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto relative">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Visit Logs</h1>
@@ -74,7 +135,27 @@ export default function Logs() {
         {/* Log List */}
         {!isLoading && allLogs.length > 0 && (
           <>
-            <LogList logs={allLogs} />
+            <div className="space-y-4">
+              {allLogs.map((log, index) => (
+                <div
+                  key={log.id}
+                  ref={(el) => {
+                    if (el) {
+                      logRefs.current.set(index, el);
+                    } else {
+                      logRefs.current.delete(index);
+                    }
+                  }}
+                  className={`transition-all duration-300 ${
+                    centerLogIndex === index
+                      ? "border-2 border-trig-green-300 rounded-xl shadow-lg"
+                      : "border-2 border-transparent"
+                  }`}
+                >
+                  <LogCard log={log} />
+                </div>
+              ))}
+            </div>
 
             {/* Load More Trigger */}
             <div ref={loadMoreRef} className="py-8 text-center">
@@ -99,6 +180,25 @@ export default function Logs() {
           <div className="text-center py-12">
             <div className="text-6xl mb-4">📝</div>
             <p className="text-gray-600 text-lg">No logs found</p>
+          </div>
+        )}
+
+        {/* Floating Map Overlay - Fixed position on desktop */}
+        {!isLoading && allLogs.length > 0 && (
+          <div className="fixed top-22 right-2 lg:right-8 z-40">
+            <div className="bg-white rounded-lg border-2 border-gray-300 shadow-2xl overflow-hidden">
+              <div className="relative">
+                <img
+                  key={featuredTrigId}
+                  src={`${apiBase}/v1/trigs/${featuredTrigId}/map`}
+                  alt={`Trigpoint ${featuredTrigId} map`}
+                  className="w-[160px] h-[160px] lg:w-[190px] lg:h-[190px]"
+                />
+                <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs font-mono text-gray-700 max-w-[calc(100%-1rem)] truncate shadow-sm">
+                  {featuredTrigName && `${featuredTrigName}`}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
