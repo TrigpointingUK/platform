@@ -13,7 +13,8 @@ resource "aws_security_group_rule" "spa_from_alb" {
 }
 
 # Deploy SPA ECS Service
-# Production: serves from /app/* path only (root stays with nginx proxy/legacy)
+# Production: serves on preview.trigpointing.uk subdomain for smoke testing
+# Main trigpointing.uk domain continues to serve legacy site
 module "spa_ecs_service" {
   source = "../modules/spa-ecs-service"
 
@@ -34,9 +35,9 @@ module "spa_ecs_service" {
 
   # ALB Configuration
   alb_listener_arn  = data.terraform_remote_state.common.outputs.https_listener_arn
-  alb_rule_priority = 55 # Changed from 50 to avoid conflict with staging (priority 50 = trigpointing.me)
-  host_headers      = ["trigpointing.uk"]
-  path_patterns     = ["/app", "/app/*"] # Match both /app and /app/* paths
+  alb_rule_priority = 55 # After API priority (200) but before legacy
+  host_headers      = ["preview.trigpointing.uk"]
+  path_patterns     = null # Match all paths (serves from root like staging)
 
   # Container Configuration
   image_uri = var.spa_container_image
