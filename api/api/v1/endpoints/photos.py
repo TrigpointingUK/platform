@@ -34,6 +34,7 @@ from api.schemas.tphoto import (
 from api.services.image_processor import ImageProcessor
 from api.services.rekognition import RekognitionService, get_image_dimensions
 from api.services.s3_service import S3Service
+from api.utils.cache_decorator import cached
 from api.utils.url import join_url
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ router = APIRouter()
 
 
 @router.get("", openapi_extra=openapi_lifecycle("beta"))
+@cached(resource_type="photos", ttl=3600, subresource="list")  # 1 hour
 def list_photos(
     trig_id: int | None = Query(None),
     log_id: int | None = Query(None),
@@ -305,6 +307,7 @@ def create_photo(
     response_model=TPhotoResponse,
     openapi_extra=openapi_lifecycle("beta"),
 )
+@cached(resource_type="photo", ttl=43200, resource_id_param="photo_id")  # 12 hours
 def get_photo(photo_id: int, db: Session = Depends(get_db)):
     photo = tphoto_crud.get_photo_by_id(db, photo_id=photo_id)
     if not photo:

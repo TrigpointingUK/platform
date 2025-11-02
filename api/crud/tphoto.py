@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from api.models.tphoto import TPhoto
 from api.models.user import TLog
+from api.services.cache_invalidator import invalidate_photo_caches
 
 
 def get_photo_by_id(db: Session, photo_id: int) -> Optional[TPhoto]:
@@ -25,6 +26,10 @@ def update_photo(db: Session, photo_id: int, updates: dict) -> Optional[TPhoto]:
     if not photo:
         return None
 
+    # Get related IDs for cache invalidation before update
+    log_id = int(photo.tlog_id)
+    tlog = db.query(TLog).filter(TLog.id == log_id).first()
+
     for key, value in updates.items():
         if hasattr(photo, key):
             setattr(photo, key, value)
@@ -32,6 +37,16 @@ def update_photo(db: Session, photo_id: int, updates: dict) -> Optional[TPhoto]:
     db.add(photo)
     db.commit()
     db.refresh(photo)
+
+    # Invalidate related caches
+    if tlog:
+        invalidate_photo_caches(
+            trig_id=int(tlog.trig_id),
+            user_id=int(tlog.user_id),
+            log_id=log_id,
+            photo_id=photo_id,
+        )
+
     return photo
 
 
@@ -41,6 +56,10 @@ def delete_photo(db: Session, photo_id: int, soft: bool = True) -> bool:
     if not photo:
         return False
 
+    # Get related IDs for cache invalidation before delete
+    log_id = int(photo.tlog_id)
+    tlog = db.query(TLog).filter(TLog.id == log_id).first()
+
     if soft:
         # Use setattr to avoid mypy Column type inference issues
         setattr(photo, "deleted_ind", "Y")
@@ -49,6 +68,16 @@ def delete_photo(db: Session, photo_id: int, soft: bool = True) -> bool:
         db.delete(photo)
 
     db.commit()
+
+    # Invalidate related caches
+    if tlog:
+        invalidate_photo_caches(
+            trig_id=int(tlog.trig_id),
+            user_id=int(tlog.user_id),
+            log_id=log_id,
+            photo_id=photo_id,
+        )
+
     return True
 
 
@@ -94,4 +123,15 @@ def create_photo(
     db.add(photo)
     db.commit()
     db.refresh(photo)
+
+    # Invalidate related caches
+    tlog = db.query(TLog).filter(TLog.id == log_id).first()
+    if tlog:
+        invalidate_photo_caches(
+            trig_id=int(tlog.trig_id),
+            user_id=int(tlog.user_id),
+            log_id=log_id,
+            photo_id=int(photo.id),
+        )
+
     return photo

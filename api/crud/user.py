@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from api.core.logging import get_logger
 from api.models.user import TLog, User
 from api.services.auth0_service import auth0_service
+from api.services.cache_invalidator import invalidate_user_caches
 
 logger = get_logger(__name__)
 
@@ -555,6 +556,9 @@ def create_user(db: Session, username: str, email: str, auth0_user_id: str) -> U
             "auth0_user_id": auth0_user_id,
         },
     )
+
+    # Invalidate user-related caches
+    invalidate_user_caches(user_id=int(new_user.id))
 
     return new_user
 

@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 
 from api.models.tphoto import TPhoto
 from api.models.user import TLog
+from api.services.cache_invalidator import (
+    invalidate_log_caches,
+    invalidate_photo_caches,
+)
 
 
 def get_log_by_id(db: Session, log_id: int) -> Optional[TLog]:
@@ -75,6 +79,10 @@ def create_log(
     db.add(log)
     db.commit()
     db.refresh(log)
+
+    # Invalidate related caches
+    invalidate_log_caches(trig_id=trig_id, user_id=user_id, log_id=int(log.id))
+
     return log
 
 
@@ -88,6 +96,12 @@ def update_log(db: Session, *, log_id: int, updates: dict) -> Optional[TLog]:
     db.add(log)
     db.commit()
     db.refresh(log)
+
+    # Invalidate related caches
+    invalidate_log_caches(
+        trig_id=int(log.trig_id), user_id=int(log.user_id), log_id=log_id
+    )
+
     return log
 
 
@@ -95,8 +109,17 @@ def delete_log_hard(db: Session, *, log_id: int) -> bool:
     log = db.query(TLog).filter(TLog.id == log_id).first()
     if not log:
         return False
+
+    # Store IDs for cache invalidation before deleting
+    trig_id = int(log.trig_id)
+    user_id = int(log.user_id)
+
     db.delete(log)
     db.commit()
+
+    # Invalidate related caches
+    invalidate_log_caches(trig_id=trig_id, user_id=user_id, log_id=log_id)
+
     return True
 
 
@@ -108,11 +131,24 @@ def soft_delete_photos_for_log(db: Session, *, log_id: int) -> int:
         .all()
     )
     count = 0
+
+    # Get trig_id and user_id from the log for cache invalidation
+    from api.models.user import TLog as TLogModel
+
+    log = db.query(TLogModel).filter(TLogModel.id == log_id).first()
+
     for p in photos:
         setattr(p, "deleted_ind", "Y")
         db.add(p)
         count += 1
     db.commit()
+
+    # Invalidate photo-related caches if any photos were deleted
+    if count > 0 and log:
+        invalidate_photo_caches(
+            trig_id=int(log.trig_id), user_id=int(log.user_id), log_id=log_id
+        )
+
     return count
 
 

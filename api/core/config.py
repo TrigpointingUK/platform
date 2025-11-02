@@ -86,6 +86,7 @@ class Settings(BaseSettings):
 
     # Redis/ElastiCache Configuration
     REDIS_URL: Optional[str] = None  # e.g., redis://host:6379
+    CACHE_ENABLED: bool = True  # Enable/disable caching globally
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
