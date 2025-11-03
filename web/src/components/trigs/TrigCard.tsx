@@ -20,32 +20,26 @@ interface TrigCardProps {
   centerLon?: number;
 }
 
-// Helper function to get condition label
-function getConditionLabel(code: string): string {
-  const conditions: Record<string, string> = {
-    G: "Good",
-    S: "Slightly damaged",
-    D: "Damaged",
-    T: "Toppled",
-    M: "Missing",
-    P: "Possibly missing",
-    U: "Unknown",
+// Helper function to get condition icon and label
+function getConditionInfo(code: string): { icon: string; label: string } {
+  const conditions: Record<string, { icon: string; label: string }> = {
+    Z: { icon: "c_unknown.png", label: "Not Logged" },
+    N: { icon: "c_possiblymissing.png", label: "Couldn't Find" },
+    G: { icon: "c_good.png", label: "Good" },
+    S: { icon: "c_slightlydamaged.png", label: "Slightly Damaged" },
+    C: { icon: "c_slightlydamaged.png", label: "Converted" },
+    D: { icon: "c_damaged.png", label: "Damaged" },
+    R: { icon: "c_toppled.png", label: "Remains" },
+    T: { icon: "c_toppled.png", label: "Toppled" },
+    M: { icon: "c_toppled.png", label: "Moved" },
+    Q: { icon: "c_possiblymissing.png", label: "Possibly Missing" },
+    X: { icon: "c_definitelymissing.png", label: "Destroyed" },
+    V: { icon: "c_unreachablebutvisible.png", label: "Unreachable but Visible" },
+    P: { icon: "c_unknown.png", label: "Inaccessible" },
+    U: { icon: "c_unknown.png", label: "Unknown" },
+    "-": { icon: "c_nolog.png", label: "Not Visited" },
   };
-  return conditions[code] || code;
-}
-
-// Helper function to get condition color
-function getConditionColor(code: string): string {
-  const colors: Record<string, string> = {
-    G: "text-green-600",
-    S: "text-yellow-600",
-    D: "text-orange-600",
-    T: "text-red-600",
-    M: "text-red-700",
-    P: "text-red-500",
-    U: "text-gray-500",
-  };
-  return colors[code] || "text-gray-500";
+  return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
 // Helper to get physical type abbreviation
@@ -92,6 +86,8 @@ export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: Tr
     }
   }
   
+  const conditionInfo = getConditionInfo(trig.condition);
+  
   return (
     <Link
       to={`/trig/${trig.id}`}
@@ -112,9 +108,12 @@ export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: Tr
             </h3>
             
             {/* Condition indicator */}
-            <span className={`text-sm ${getConditionColor(trig.condition)}`} title={getConditionLabel(trig.condition)}>
-              ●
-            </span>
+            <img 
+              src={`/icons/conditions/${conditionInfo.icon}`}
+              alt={conditionInfo.label}
+              title={conditionInfo.label}
+              className="w-4 h-4"
+            />
           </div>
           
           {/* Grid reference & waypoint */}
