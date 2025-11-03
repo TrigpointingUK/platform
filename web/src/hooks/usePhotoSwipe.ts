@@ -106,12 +106,7 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
       
       // Click/tap behavior
       clickToCloseNonZoomable: true,
-      tapAction: () => {
-        // Single tap/click closes the viewer
-        if (pswpRef.current && pswpRef.current.currSlide?.currZoomLevel === pswpRef.current.currSlide?.zoomLevels.initial) {
-          pswpRef.current.close();
-        }
-      },
+      tapAction: 'close' as const, // Single tap/click closes the viewer when not zoomed
       doubleTapAction: 'zoom' as const, // Double-click/tap to zoom
       
       // Mouse wheel zoom
