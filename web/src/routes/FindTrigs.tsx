@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInfiniteTrigs } from "../hooks/useInfiniteTrigs";
 import { LocationSearch } from "../components/trigs/LocationSearch";
@@ -111,6 +111,32 @@ export default function FindTrigs() {
 
   const allTrigs = data?.pages.flatMap((page) => page.items) || [];
   const totalCount = data?.pages[0]?.pagination.total || 0;
+
+  // Infinite scroll: observe the sentinel element
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // If the sentinel is visible and we have more pages, fetch next page
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      {
+        rootMargin: "200px", // Start loading 200px before reaching the sentinel
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <Layout>
@@ -236,24 +262,21 @@ export default function FindTrigs() {
                 />
               ))}
             </div>
+
+            {/* Infinite scroll sentinel - invisible element to trigger loading */}
+            {hasNextPage && <div ref={sentinelRef} className="h-px" />}
+
+            {/* Loading indicator for infinite scroll */}
+            {isFetchingNextPage && (
+              <div className="mx-4 my-6 text-center">
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <p className="mt-2 text-sm text-gray-500">Loading more...</p>
+              </div>
+            )}
           </>
         )}
 
-        {/* Load more button */}
-        {hasNextPage && (
-          <div className="mx-4 my-6 text-center">
-            <button
-              type="button"
-              onClick={() => fetchNextPage()}
-              disabled={isFetchingNextPage}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {isFetchingNextPage ? "Loading..." : "Load More"}
-            </button>
-          </div>
-        )}
-
-        {/* Loading indicator */}
+        {/* Initial loading indicator */}
         {isLoading && (
           <div className="mx-4 my-12 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
