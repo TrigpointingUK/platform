@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
+import { GlobalSearch } from "./GlobalSearch";
 
 export default function Header() {
   const { isAuthenticated, user, loginWithRedirect, logout } = useAuth0();
@@ -14,6 +15,10 @@ export default function Header() {
         federated: true,
       },
     });
+  };
+
+  const handleSearchComplete = () => {
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -61,10 +66,9 @@ export default function Header() {
 
           {/* Search Bar - Desktop */}
           <div className="hidden md:flex flex-1 max-w-md mx-4">
-            <input
-              type="search"
-              placeholder="Search trig points..."
-              className="w-full px-4 py-2 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-trig-green-400"
+            <GlobalSearch
+              placeholder="Search trigs, places, users..."
+              onSearch={handleSearchComplete}
             />
           </div>
 
@@ -154,11 +158,12 @@ export default function Header() {
         {mobileMenuOpen && (
           <div className="md:hidden pb-4 border-t border-trig-green-500 mt-2 pt-2">
             <nav className="flex flex-col gap-2">
-              <input
-                type="search"
-                placeholder="Search trig points..."
-                className="w-full px-4 py-2 rounded-md text-gray-900 mb-2"
-              />
+              <div className="mb-2">
+                <GlobalSearch
+                  placeholder="Search trigs, places, users..."
+                  onSearch={handleSearchComplete}
+                />
+              </div>
               <a
                 href="https://trigpointing.uk/wiki"
                 target="_blank"

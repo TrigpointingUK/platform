@@ -127,7 +127,7 @@ export default function FindTrigs() {
         }
       },
       {
-        rootMargin: "200px", // Start loading 200px before reaching the sentinel
+        rootMargin: "400px", // Start loading 200px before reaching the sentinel
       }
     );
 

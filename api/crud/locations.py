@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from api.models.location import Postcode6, Postcode8, Town
+from api.models.location import Postcode, Postcode6, Town
 from api.models.trig import Trig
 
 # OSGB Grid reference mapping for 100km squares
@@ -118,9 +118,9 @@ def search_towns(db: Session, query: str, limit: int = 10) -> List[Town]:
 
 def search_postcodes(
     db: Session, query: str, limit: int = 10
-) -> Tuple[List[Postcode6], List[Postcode8]]:
+) -> Tuple[List[Postcode6], List[Postcode]]:
     """
-    Search postcodes in both 6 and 8 character tables.
+    Search postcodes in both postcode6 and postcodes tables.
 
     Args:
         db: Database session
@@ -128,28 +128,33 @@ def search_postcodes(
         limit: Maximum results to return per table
 
     Returns:
-        Tuple of (Postcode6 list, Postcode8 list)
+        Tuple of (Postcode6 list, Postcode list)
     """
-    # Normalize postcode: uppercase, remove spaces
-    query_norm = query.upper().replace(" ", "")
+    # Normalize postcode: uppercase
+    query_upper = query.upper().strip()
 
-    # Search postcode6
+    # For postcode6 table (no spaces in codes)
+    query_no_space = query_upper.replace(" ", "")
+
+    # Search postcode6 (codes stored without spaces)
     pc6_results = (
         db.query(Postcode6)
-        .filter(Postcode6.code.like(f"{query_norm}%"))
+        .filter(Postcode6.code.like(f"{query_no_space}%"))
         .limit(limit)
         .all()
     )
 
-    # Search postcode8
-    pc8_results = (
-        db.query(Postcode8)
-        .filter(Postcode8.code.like(f"{query_norm}%"))
+    # Search postcodes table (codes stored WITH spaces like "PE27 4AB")
+    # Replace multiple spaces with single space and search as-is
+    query_normalized = " ".join(query_upper.split())
+    postcodes_results = (
+        db.query(Postcode)
+        .filter(Postcode.code.like(f"{query_normalized}%"))
         .limit(limit)
         .all()
     )
 
-    return pc6_results, pc8_results
+    return pc6_results, postcodes_results
 
 
 def osgb_to_wgs84(eastings: int, northings: int) -> Tuple[float, float]:

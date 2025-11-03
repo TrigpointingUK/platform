@@ -1,4 +1,4 @@
-from .location import Postcode6, Postcode8, Town
+from .location import Postcode, Postcode6, Postcode8, Town
 from .server import Server
 from .tphoto import TPhoto
 from .trig import Trig
@@ -14,6 +14,7 @@ __all__ = [
     "TPhoto",
     "Server",
     "Town",
+    "Postcode",
     "Postcode6",
     "Postcode8",
 ]

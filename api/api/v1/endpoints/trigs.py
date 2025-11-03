@@ -5,6 +5,7 @@ Trig endpoints for trigpoint data.
 import io
 import json
 import os
+from datetime import date as date_type
 from math import cos, radians, sqrt
 from typing import Optional
 
@@ -22,6 +23,8 @@ from api.crud import tphoto as tphoto_crud
 from api.crud import trig as trig_crud
 from api.crud import trigstats as trigstats_crud
 from api.models.server import Server
+from api.models.trig import Trig
+from api.models.user import TLog, User
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.trig import (
     TrigDetails,
@@ -475,10 +478,15 @@ def list_photos_for_trig(
         .count()
     )
     result_items = []
+    # Get trig info once (for all photos)
+    trig = db.query(Trig).filter(Trig.id == trig_id).first()
+
     for p in items:
         # Defer URLs; provide minimal fields consistent with collection shape
         # Resolve user via TLog join
-        # Caution: join already filtered; just map
+        tlog = db.query(TLog).filter(TLog.id == p.tlog_id).first()
+        user = db.query(User).filter(User.id == tlog.user_id).first() if tlog else None
+
         server: Server | None = (
             db.query(Server).filter(Server.id == p.server_id).first()
         )
@@ -489,7 +497,7 @@ def list_photos_for_trig(
             TPhotoResponse(
                 id=int(p.id),
                 log_id=int(p.tlog_id),
-                user_id=0,  # omitted to avoid per-item query; can be enriched later
+                user_id=int(tlog.user_id) if tlog else 0,
                 type=photo_type,
                 filesize=int(p.filesize),
                 height=int(p.height),
@@ -502,6 +510,14 @@ def list_photos_for_trig(
                 public_ind=str(p.public_ind),
                 photo_url=join_url(base_url, str(p.filename)),
                 icon_url=join_url(base_url, str(p.icon_filename)),
+                user_name=str(user.name) if user else None,
+                trig_id=trig_id,
+                trig_name=str(trig.name) if trig else None,
+                log_date=(
+                    date_type(tlog.date.year, tlog.date.month, tlog.date.day)
+                    if tlog and tlog.date
+                    else None
+                ),
             ).model_dump()
         )
 

@@ -12,13 +12,16 @@ class LocationSearchResult(BaseModel):
 
     type: str = Field(
         ...,
-        description="Type of location: trigpoint, town, postcode, gridref, latlon",
+        description="Type of location: trigpoint, town, postcode, gridref, latlon, user",
     )
     name: str = Field(..., description="Display name for the location")
     lat: float = Field(..., description="WGS84 latitude")
     lon: float = Field(..., description="WGS84 longitude")
     description: Optional[str] = Field(
         None, description="Additional descriptive information"
+    )
+    id: Optional[str] = Field(
+        None, description="ID for routing (trig ID, user ID, etc.)"
     )
 
     class Config:

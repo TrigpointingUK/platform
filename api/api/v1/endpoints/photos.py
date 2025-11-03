@@ -105,7 +105,7 @@ def list_photos(
                 "photo_url": join_url(base_url, str(p.filename)),
                 "icon_url": join_url(base_url, str(p.icon_filename)),
                 "user_name": str(user.name) if user else None,
-                "trig_id": int(trig.id) if trig else None,
+                "trig_id": int(tlog.trig_id) if tlog and tlog.trig_id else None,
                 "trig_name": str(trig.name) if trig else None,
                 "log_date": tlog.date if tlog else None,
             }
@@ -380,7 +380,7 @@ def get_photo(photo_id: int, db: Session = Depends(get_db)):
         "photo_url": join_url(base_url, str(photo.filename)),
         "icon_url": join_url(base_url, str(photo.icon_filename)),
         "user_name": str(user.name) if user else None,
-        "trig_id": int(trig.id) if trig else None,
+        "trig_id": int(tlog.trig_id) if tlog and tlog.trig_id else None,
         "trig_name": str(trig.name) if trig else None,
         "log_date": tlog.date if tlog else None,
     }

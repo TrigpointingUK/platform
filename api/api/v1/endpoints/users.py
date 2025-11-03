@@ -5,6 +5,7 @@ User endpoints with permission-based field filtering.
 import io
 import json
 import os
+from datetime import date as date_type
 from typing import Dict, Optional, Union
 
 import numpy as np
@@ -27,7 +28,7 @@ from api.crud import user as user_crud
 from api.models.server import Server
 from api.models.tphoto import TPhoto
 from api.models.trig import Trig
-from api.models.user import User
+from api.models.user import TLog, User
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.user import (
     UserBreakdown,
@@ -974,6 +975,15 @@ def list_photos_for_user(
     )
     result_items = []
     for p in items:
+        # Get log and trig info for this photo
+        tlog = db.query(TLog).filter(TLog.id == p.tlog_id).first()
+        trig = (
+            db.query(Trig).filter(Trig.id == tlog.trig_id).first()
+            if tlog and tlog.trig_id
+            else None
+        )
+        user = db.query(User).filter(User.id == user_id).first()
+
         server: Server | None = (
             db.query(Server).filter(Server.id == p.server_id).first()
         )
@@ -997,6 +1007,14 @@ def list_photos_for_user(
                 public_ind=str(p.public_ind),
                 photo_url=join_url(base_url, str(p.filename)),
                 icon_url=join_url(base_url, str(p.icon_filename)),
+                user_name=str(user.name) if user else None,
+                trig_id=int(tlog.trig_id) if tlog and tlog.trig_id else None,
+                trig_name=str(trig.name) if trig else None,
+                log_date=(
+                    date_type(tlog.date.year, tlog.date.month, tlog.date.day)
+                    if tlog and tlog.date
+                    else None
+                ),
             ).model_dump()
         )
     has_more = (skip + len(items)) < total

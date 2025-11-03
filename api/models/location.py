@@ -47,7 +47,7 @@ class Postcode6(Base):
 
 
 class Postcode8(Base):
-    """Postcode model for 8-character postcodes."""
+    """Postcode model for 8-character postcodes (legacy)."""
 
     __tablename__ = "postcode8"
 
@@ -58,3 +58,16 @@ class Postcode8(Base):
 
     def __repr__(self):
         return f"<Postcode8(code='{self.code}')>"
+
+
+class Postcode(Base):
+    """Postcode model for all UK postcodes from NSPL dataset."""
+
+    __tablename__ = "postcodes"
+
+    code = Column(String(10), primary_key=True, nullable=False)
+    lat: Any = Column(DECIMAL(10, 7), nullable=False)
+    long: Any = Column(DECIMAL(11, 7), nullable=False)
+
+    def __repr__(self):
+        return f"<Postcode(code='{self.code}')>"

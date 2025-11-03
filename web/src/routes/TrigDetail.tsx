@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
@@ -272,6 +272,16 @@ export default function TrigDetail() {
                   </>
                 )}
               </div>
+
+              {/* Nearby Trigpoints Link */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <Link
+                  to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
+                  className="text-trig-green-600 hover:underline font-semibold"
+                >
+                  🗺️ View Nearby Trigpoints
+                </Link>
+              </div>
             </div>
 
             {/* Right: Map Thumbnail */}
@@ -329,12 +339,15 @@ export default function TrigDetail() {
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <Link
+                to={`/trig/${trigIdNum}/photos`}
+                className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors block"
+              >
                 <div className="text-sm text-gray-600 mb-1">Photos</div>
                 <div className="text-2xl font-bold text-trig-green-600">
                   {trig.stats.photo_count}
                 </div>
-              </div>
+              </Link>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-sm text-gray-600 mb-1">Mean Score</div>

@@ -37,7 +37,10 @@ function SiteStatsSection() {
   if (error) {
     return (
       <Card className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Site Statistics</h2>
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-gray-800 inline">Site Statistics</h2>
+          <span className="text-sm font-normal text-gray-600 ml-2">(Click to browse)</span>
+        </div>
         <p className="text-red-600">Failed to load statistics</p>
       </Card>
     );
@@ -46,7 +49,10 @@ function SiteStatsSection() {
   if (isLoading || !stats) {
     return (
       <Card className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Site Statistics</h2>
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-gray-800 inline">Site Statistics</h2>
+          <span className="text-sm font-normal text-gray-600 ml-2">(Click to browse)</span>
+        </div>
         <Spinner size="md" />
       </Card>
     );
@@ -85,7 +91,10 @@ function SiteStatsSection() {
 
   return (
     <Card className="mb-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Site Statistics</h2>
+      <div className="mb-4">
+        <h2 className="text-2xl font-bold text-gray-800 inline">Site Statistics</h2>
+        <span className="text-sm font-normal text-gray-600 ml-2">(Click to browse)</span>
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statItems.map((item) => (
           <Link
