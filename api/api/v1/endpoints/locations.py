@@ -96,7 +96,7 @@ def search_locations(
                 name=str(town.name).title(),
                 lat=float(town.wgs_lat),
                 lon=float(town.wgs_long),
-                description=f"{town.county}",
+                description="UK Town",
             )
         )
 

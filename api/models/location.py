@@ -15,16 +15,15 @@ class Town(Base):
 
     __tablename__ = "town"
 
-    name = Column(String(50), primary_key=True, nullable=False)
+    name = Column(String(25), primary_key=True, nullable=False)
     wgs_lat: Any = Column(DECIMAL(6, 5), nullable=False)
     wgs_long: Any = Column(DECIMAL(6, 5), nullable=False)
     osgb_eastings = Column(Integer, nullable=False)
     osgb_northings = Column(Integer, nullable=False)
     osgb_gridref = Column(CHAR(14), nullable=False)
-    county = Column(String(20), nullable=False)
 
     def __repr__(self):
-        return f"<Town(name='{self.name}', county='{self.county}')>"
+        return f"<Town(name='{self.name}')>"
 
 
 class Postcode6(Base):
