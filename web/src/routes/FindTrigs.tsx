@@ -219,6 +219,8 @@ export default function FindTrigs() {
                 key={trig.id}
                 trig={trig}
                 showDistance={!!centerLat && !!centerLon}
+                centerLat={centerLat}
+                centerLon={centerLon}
               />
             ))}
           </div>

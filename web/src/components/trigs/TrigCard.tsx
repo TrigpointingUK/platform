@@ -16,6 +16,8 @@ interface Trig {
 interface TrigCardProps {
   trig: Trig;
   showDistance?: boolean;
+  centerLat?: number;
+  centerLon?: number;
 }
 
 // Helper function to get condition label
@@ -60,7 +62,36 @@ function getPhysicalTypeAbbrev(type: string): string {
   return abbrevs[type] || type.charAt(0).toUpperCase();
 }
 
-export function TrigCard({ trig, showDistance = true }: TrigCardProps) {
+// Calculate bearing from one point to another (in degrees, 0 = North)
+function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRadians = (degrees: number) => degrees * Math.PI / 180;
+  const toDegrees = (radians: number) => radians * 180 / Math.PI;
+  
+  const dLon = toRadians(lon2 - lon1);
+  const lat1Rad = toRadians(lat1);
+  const lat2Rad = toRadians(lat2);
+  
+  const y = Math.sin(dLon) * Math.cos(lat2Rad);
+  const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+            Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+  
+  const bearing = toDegrees(Math.atan2(y, x));
+  
+  // Normalize to 0-360 degrees
+  return (bearing + 360) % 360;
+}
+
+export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: TrigCardProps) {
+  // Calculate bearing if we have center coordinates
+  let bearing: number | null = null;
+  if (centerLat !== undefined && centerLon !== undefined) {
+    const trigLat = parseFloat(trig.wgs_lat);
+    const trigLon = parseFloat(trig.wgs_long);
+    if (!isNaN(trigLat) && !isNaN(trigLon)) {
+      bearing = calculateBearing(centerLat, centerLon, trigLat, trigLon);
+    }
+  }
+  
   return (
     <Link
       to={`/trig/${trig.id}`}
@@ -94,13 +125,35 @@ export function TrigCard({ trig, showDistance = true }: TrigCardProps) {
           </div>
         </div>
         
-        {/* Right side: Distance */}
+        {/* Right side: Direction arrow and Distance */}
         {showDistance && trig.distance_km !== undefined && (
-          <div className="flex-shrink-0 text-right">
-            <div className="text-lg font-semibold text-gray-900">
-              {trig.distance_km.toFixed(1)}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Direction arrow */}
+            {bearing !== null && (
+              <div className="text-gray-600" title={`Bearing: ${bearing.toFixed(0)}°`}>
+                <svg 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ transform: `rotate(${bearing}deg)` }}
+                >
+                  <path d="M12 5l0 14M12 5l-4 4M12 5l4 4" />
+                </svg>
+              </div>
+            )}
+            
+            {/* Distance */}
+            <div className="text-right">
+              <div className="text-lg font-semibold text-gray-900">
+                {trig.distance_km.toFixed(1)}
+              </div>
+              <div className="text-xs text-gray-500">km</div>
             </div>
-            <div className="text-xs text-gray-500">km</div>
           </div>
         )}
       </div>
