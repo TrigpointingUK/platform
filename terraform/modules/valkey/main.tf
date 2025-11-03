@@ -12,6 +12,58 @@ resource "aws_cloudwatch_log_group" "valkey" {
   }
 }
 
+# EFS File System for Valkey persistence
+resource "aws_efs_file_system" "valkey" {
+  creation_token = "${var.project_name}-valkey-data"
+  encrypted      = true
+
+  performance_mode = "generalPurpose"
+  throughput_mode  = "bursting"
+
+  lifecycle_policy {
+    transition_to_ia = "AFTER_30_DAYS"
+  }
+
+  tags = {
+    Name        = "${var.project_name}-valkey-efs"
+    Environment = var.environment
+    Purpose     = "Valkey RDB persistence"
+  }
+}
+
+# EFS Mount Targets (one per private subnet)
+resource "aws_efs_mount_target" "valkey" {
+  count           = length(var.private_subnet_ids)
+  file_system_id  = aws_efs_file_system.valkey.id
+  subnet_id       = var.private_subnet_ids[count.index]
+  security_groups = [var.efs_security_group_id]
+}
+
+# EFS Access Point for Valkey
+# Valkey Alpine runs as 'redis' user with uid=999, gid=999
+resource "aws_efs_access_point" "valkey" {
+  file_system_id = aws_efs_file_system.valkey.id
+
+  root_directory {
+    path = "/valkey-data"
+    creation_info {
+      owner_gid   = 999
+      owner_uid   = 999
+      permissions = "755"
+    }
+  }
+
+  posix_user {
+    gid = 999
+    uid = 999
+  }
+
+  tags = {
+    Name        = "${var.project_name}-valkey-access-point"
+    Environment = var.environment
+  }
+}
+
 # ECS Task Definition for Valkey + Redis Commander
 resource "aws_ecs_task_definition" "valkey" {
   family                   = "${var.project_name}-valkey"
@@ -22,10 +74,25 @@ resource "aws_ecs_task_definition" "valkey" {
   execution_role_arn       = var.ecs_task_execution_role_arn
   task_role_arn            = var.ecs_task_role_arn
 
+  # EFS volume for persistence
+  volume {
+    name = "valkey-data"
+
+    efs_volume_configuration {
+      file_system_id     = aws_efs_file_system.valkey.id
+      transit_encryption = "ENABLED"
+      authorization_config {
+        access_point_id = aws_efs_access_point.valkey.id
+        iam             = "ENABLED"
+      }
+    }
+  }
+
   container_definitions = jsonencode([
     {
       name   = "valkey"
       image  = "valkey/valkey:7-alpine"
+      user   = "999:999" # Run as valkey user to avoid chown issues with EFS
       cpu    = var.valkey_cpu
       memory = var.valkey_memory
       portMappings = [
@@ -34,14 +101,25 @@ resource "aws_ecs_task_definition" "valkey" {
           protocol      = "tcp"
         }
       ]
+      mountPoints = [
+        {
+          sourceVolume  = "valkey-data"
+          containerPath = "/data"
+          readOnly      = false
+        }
+      ]
       command = [
         "valkey-server",
         "--maxmemory", "${var.valkey_max_memory}",
         "--maxmemory-policy", "allkeys-lru",
-        "--save", "",            # Disable RDB snapshots (no persistence)
-        "--oom-score-adj", "no", # Disable OOM killer adjustments
-        "--tcp-keepalive", "60", # Keep connections alive
-        "--timeout", "0"         # Disable client timeout
+        "--dir", "/data",                      # Store RDB files in EFS
+        "--save", "900 1 300 10 60 10000",     # Save snapshots: 15min/1key, 5min/10keys, 1min/10000keys
+        "--dbfilename", "dump.rdb",            # RDB filename
+        "--rdbcompression", "yes",             # Compress RDB files
+        "--stop-writes-on-bgsave-error", "no", # Don't stop writes on save errors
+        "--oom-score-adj", "no",               # Disable OOM killer adjustments
+        "--tcp-keepalive", "60",               # Keep connections alive
+        "--timeout", "0"                       # Disable client timeout
       ]
       logConfiguration = {
         logDriver = "awslogs"

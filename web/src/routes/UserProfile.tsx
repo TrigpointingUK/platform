@@ -100,7 +100,7 @@ export default function UserProfile() {
             {/* Left column: All user info */}
             <div className="flex-1">
               {/* Top: Username, Member Since, and Statistics */}
-              <div className="flex items-start gap-6 flex-wrap mb-6">
+              <div className="flex items-start gap-6 flex-col sm:flex-row mb-6">
                 <div className="flex-shrink-0">
                   <h1 className="text-3xl font-bold text-gray-800 mb-2">
                     {user.name}
@@ -144,7 +144,7 @@ export default function UserProfile() {
               </div>
 
               {/* User details fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <EditableField
                   label="Username"
                   value={user.name}

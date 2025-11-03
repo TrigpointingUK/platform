@@ -5,6 +5,7 @@ Trig endpoints for trigpoint data.
 import io
 import json
 import os
+from datetime import date as date_type
 from math import cos, radians, sqrt
 from typing import Optional
 
@@ -14,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
 from sqlalchemy.orm import Session
 
-from api.api.deps import get_db
+from api.api.deps import get_current_user_optional, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
 from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
@@ -22,6 +23,8 @@ from api.crud import tphoto as tphoto_crud
 from api.crud import trig as trig_crud
 from api.crud import trigstats as trigstats_crud
 from api.models.server import Server
+from api.models.trig import Trig
+from api.models.user import TLog, User
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.trig import (
     TrigDetails,
@@ -132,14 +135,37 @@ def list_trigs(
         None, ge=0, description="Max distance from centre (km)"
     ),
     order: Optional[str] = Query(None, description="id | name | distance"),
+    physical_types: Optional[str] = Query(
+        None, description="Comma-separated physical types to include"
+    ),
+    exclude_found: Optional[bool] = Query(
+        False, description="Exclude trigpoints already logged by authenticated user"
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_optional),
 ):
     """
     Filtered collection endpoint for trigs returning envelope with items, pagination, links.
+
+    New filters:
+    - physical_types: Filter by physical type (e.g., "Pillar,Bolt,FBM")
+    - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
     """
+    # Parse physical types
+    physical_types_list = None
+    if physical_types:
+        physical_types_list = [
+            pt.strip() for pt in physical_types.split(",") if pt.strip()
+        ]
+
+    # Get user ID for exclude_found filter
+    exclude_found_by_user_id = None
+    if exclude_found and current_user:
+        exclude_found_by_user_id = int(current_user.id)
+
     items = trig_crud.list_trigs_filtered(
         db,
         name=name,
@@ -150,6 +176,8 @@ def list_trigs(
         center_lon=lon,
         max_km=max_km,
         order=order,
+        physical_types=physical_types_list,
+        exclude_found_by_user_id=exclude_found_by_user_id,
     )
     total = trig_crud.count_trigs_filtered(
         db,
@@ -158,6 +186,8 @@ def list_trigs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
+        physical_types=physical_types_list,
+        exclude_found_by_user_id=exclude_found_by_user_id,
     )
 
     # serialise
@@ -187,6 +217,10 @@ def list_trigs(
         params.append(f"max_km={max_km}")
     if order:
         params.append(f"order={order}")
+    if physical_types:
+        params.append(f"physical_types={physical_types}")
+    if exclude_found:
+        params.append("exclude_found=true")
     params.append(f"limit={limit}")
     # self link
     self_link = base + "?" + "&".join(params + [f"skip={skip}"])
@@ -444,10 +478,15 @@ def list_photos_for_trig(
         .count()
     )
     result_items = []
+    # Get trig info once (for all photos)
+    trig = db.query(Trig).filter(Trig.id == trig_id).first()
+
     for p in items:
         # Defer URLs; provide minimal fields consistent with collection shape
         # Resolve user via TLog join
-        # Caution: join already filtered; just map
+        tlog = db.query(TLog).filter(TLog.id == p.tlog_id).first()
+        user = db.query(User).filter(User.id == tlog.user_id).first() if tlog else None
+
         server: Server | None = (
             db.query(Server).filter(Server.id == p.server_id).first()
         )
@@ -458,7 +497,7 @@ def list_photos_for_trig(
             TPhotoResponse(
                 id=int(p.id),
                 log_id=int(p.tlog_id),
-                user_id=0,  # omitted to avoid per-item query; can be enriched later
+                user_id=int(tlog.user_id) if tlog else 0,
                 type=photo_type,
                 filesize=int(p.filesize),
                 height=int(p.height),
@@ -471,6 +510,14 @@ def list_photos_for_trig(
                 public_ind=str(p.public_ind),
                 photo_url=join_url(base_url, str(p.filename)),
                 icon_url=join_url(base_url, str(p.icon_filename)),
+                user_name=str(user.name) if user else None,
+                trig_id=trig_id,
+                trig_name=str(trig.name) if trig else None,
+                log_date=(
+                    date_type(tlog.date.year, tlog.date.month, tlog.date.day)
+                    if tlog and tlog.date
+                    else None
+                ),
             ).model_dump()
         )
 

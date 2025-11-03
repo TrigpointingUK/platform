@@ -48,6 +48,11 @@ variable "valkey_security_group_id" {
   type        = string
 }
 
+variable "efs_security_group_id" {
+  description = "Security group ID for EFS mount targets"
+  type        = string
+}
+
 variable "service_discovery_service_arn" {
   description = "ARN of the service discovery service"
   type        = string

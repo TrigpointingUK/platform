@@ -33,10 +33,7 @@ export default function PhotoGrid({ photos, onPhotoClick, onPhotoRotated }: Phot
       {photos.map((photo) => (
         <PhotoThumbnail
           key={photo.id}
-          id={photo.id}
-          iconUrl={photo.icon_url}
-          photoUrl={photo.photo_url}
-          caption={photo.caption}
+          photo={photo}
           onClick={() => handlePhotoClick(photo)}
           onPhotoRotated={onPhotoRotated}
         />

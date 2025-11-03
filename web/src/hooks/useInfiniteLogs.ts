@@ -37,7 +37,8 @@ export function useInfiniteLogs() {
     queryFn: async ({ pageParam = 0 }) => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
       const response = await fetch(
-        `${apiBase}/v1/logs?limit=20&skip=${pageParam}&order=-upd_timestamp&include=photos`
+        // `${apiBase}/v1/logs?limit=20&skip=${pageParam}&order=-upd_timestamp&include=photos`
+        `${apiBase}/v1/logs?limit=20&skip=${pageParam}&include=photos`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch logs");

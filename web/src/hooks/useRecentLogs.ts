@@ -31,7 +31,8 @@ export function useRecentLogs(limit = 10) {
     queryFn: async () => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
       const response = await fetch(
-        `${apiBase}/v1/logs?limit=${limit}&order=-upd_timestamp&include=photos`
+        // `${apiBase}/v1/logs?limit=${limit}&order=-upd_timestamp&include=photos`
+        `${apiBase}/v1/logs?limit=${limit}&include=photos`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch recent logs");

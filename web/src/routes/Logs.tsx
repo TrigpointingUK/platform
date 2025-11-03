@@ -40,32 +40,49 @@ export default function Logs() {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // Track which log is closest to center of viewport
+  // Track which log is the first fully visible in viewport
   useEffect(() => {
     const handleScroll = () => {
       if (allLogs.length === 0) return;
 
-      const viewportCenter = window.innerHeight / 2;
-      let closestIndex: number | null = null;
-      let closestDistance = Infinity;
+      const viewportTop = 0;
+      const viewportBottom = window.innerHeight;
+      let firstFullyVisibleIndex: number | null = null;
 
-      logRefs.current.forEach((element, index) => {
+      // Iterate through logs in order to find the first fully visible one
+      for (const [index, element] of logRefs.current.entries()) {
         const rect = element.getBoundingClientRect();
-        const elementCenter = rect.top + rect.height / 2;
-        const distance = Math.abs(elementCenter - viewportCenter);
-
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
+        
+        // Check if the element is fully visible in the viewport
+        const isFullyVisible = rect.top >= viewportTop && rect.bottom <= viewportBottom;
+        
+        if (isFullyVisible) {
+          firstFullyVisibleIndex = index;
+          break; // Found the first one, no need to continue
         }
-      });
+      }
 
-      if (closestIndex !== null && closestIndex !== centerLogIndex) {
-        setCenterLogIndex(closestIndex);
-        // Update the featured trig based on the centered log
-        if (allLogs[closestIndex]) {
-          setFeaturedTrigId(allLogs[closestIndex].trig_id);
-          setFeaturedTrigName(allLogs[closestIndex].trig_name || "");
+      // If no card is fully visible, fall back to the first partially visible card
+      if (firstFullyVisibleIndex === null) {
+        for (const [index, element] of logRefs.current.entries()) {
+          const rect = element.getBoundingClientRect();
+          
+          // Check if at least part of the element is visible
+          const isPartiallyVisible = rect.bottom > viewportTop && rect.top < viewportBottom;
+          
+          if (isPartiallyVisible) {
+            firstFullyVisibleIndex = index;
+            break;
+          }
+        }
+      }
+
+      if (firstFullyVisibleIndex !== null && firstFullyVisibleIndex !== centerLogIndex) {
+        setCenterLogIndex(firstFullyVisibleIndex);
+        // Update the featured trig based on the visible log
+        if (allLogs[firstFullyVisibleIndex]) {
+          setFeaturedTrigId(allLogs[firstFullyVisibleIndex].trig_id);
+          setFeaturedTrigName(allLogs[firstFullyVisibleIndex].trig_name || "");
         }
       }
     };

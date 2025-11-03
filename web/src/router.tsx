@@ -9,12 +9,14 @@ const Logs = lazy(() => import("./routes/Logs"));
 const PhotoAlbum = lazy(() => import("./routes/PhotoAlbum"));
 const PhotoDetail = lazy(() => import("./routes/PhotoDetail"));
 const TrigDetail = lazy(() => import("./routes/TrigDetail"));
+const TrigPhotos = lazy(() => import("./routes/TrigPhotos"));
 const LogDetail = lazy(() => import("./routes/LogDetail"));
 const UserProfile = lazy(() => import("./routes/UserProfile"));
 const UserLogs = lazy(() => import("./routes/UserLogs"));
 const UserPhotos = lazy(() => import("./routes/UserPhotos"));
 const About = lazy(() => import("./routes/About"));
 const AppDetail = lazy(() => import("./routes/AppDetail"));
+const FindTrigs = lazy(() => import("./routes/FindTrigs"));
 
 function LoadingFallback() {
   return (
@@ -45,6 +47,14 @@ const router = createBrowserRouter(
         </Suspense>
       ),
     },
+      {
+        path: "/trigs",
+        element: (
+          <Suspense fallback={<LoadingFallback />}>
+            <FindTrigs />
+          </Suspense>
+        ),
+      },
     {
       path: "/logs/:logId",
       element: (
@@ -74,6 +84,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <TrigDetail />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/trig/:trigId/photos",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <TrigPhotos />
         </Suspense>
       ),
     },

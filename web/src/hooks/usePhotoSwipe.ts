@@ -31,21 +31,36 @@ function createMetadataOverlay(photo: Photo): string {
   const typeLabel = photoTypes[photo.type] || photo.type;
   const licenseLabel = licenses[photo.license] || photo.license;
   const filesize = (photo.filesize / 1024).toFixed(0); // Convert to KB
+  
+  // Format waypoint as TPxxxx with minimum 4 digits
+  // Check for null/undefined, not falsy (to allow trig_id = 0)
+  const waypoint = photo.trig_id != null ? `TP${String(photo.trig_id).padStart(4, '0')}` : null;
+  
+  // Format date if available
+  const formattedDate = photo.log_date ? new Date(photo.log_date).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }) : null;
 
   return `
     <div class="pswp__custom-caption">
       <div class="pswp__caption-content">
         <h3 class="pswp__caption-title">${photo.caption || 'Untitled'}</h3>
         ${photo.text_desc ? `<p class="pswp__caption-desc">${photo.text_desc}</p>` : ''}
+        ${waypoint && photo.trig_name ? `<div class="pswp__caption-location">${waypoint} · ${photo.trig_name}</div>` : ''}
+        ${photo.user_name ? `<div class="pswp__caption-user">By ${photo.user_name}</div>` : ''}
+        ${formattedDate ? `<div class="pswp__caption-date">${formattedDate}</div>` : ''}
         <div class="pswp__caption-meta">
-          <span class="pswp__caption-meta-item">Type: ${typeLabel}</span>
-          <span class="pswp__caption-meta-item">License: ${licenseLabel}</span>
-          <span class="pswp__caption-meta-item">${photo.width}×${photo.height}</span>
+          ${photo.type !== 'X' ? '<span class="pswp__caption-meta-item">Type: ' + typeLabel + '</span>' : ''}
+          ${licenseLabel !== undefined ? '<span class="pswp__caption-meta-item">License: ' + licenseLabel + '</span>' : ''}
+          <span class="pswp__caption-meta-item">${photo.width}×${photo.height}px</span>
           <span class="pswp__caption-meta-item">${filesize} KB</span>
         </div>
         <div class="pswp__caption-links">
           <a href="/logs/${photo.log_id}" class="pswp__caption-link">View Log</a>
           <a href="/profile/${photo.user_id}" class="pswp__caption-link">View User</a>
+          ${photo.trig_id != null ? '<a href="/trigs/' + photo.trig_id + '" class="pswp__caption-link">View Trig</a>' : ''}
         </div>
       </div>
     </div>
@@ -92,12 +107,7 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
       
       // Click/tap behavior
       clickToCloseNonZoomable: true,
-      tapAction: () => {
-        // Single tap/click closes the viewer
-        if (pswpRef.current && pswpRef.current.currSlide?.currZoomLevel === pswpRef.current.currSlide?.zoomLevels.initial) {
-          pswpRef.current.close();
-        }
-      },
+      tapAction: 'close' as const, // Single tap/click closes the viewer when not zoomed
       doubleTapAction: 'zoom' as const, // Double-click/tap to zoom
       
       // Mouse wheel zoom

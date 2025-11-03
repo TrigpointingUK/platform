@@ -69,3 +69,50 @@ class TLog(Base):
     ip_addr = Column(String(15), nullable=False)
     source = Column(CHAR(1), nullable=False)
     upd_timestamp = Column(DateTime, nullable=True)
+
+
+class TPhotoVote(Base):
+    """TPhotoVote model for the tphotovote table."""
+
+    __tablename__ = "tphotovote"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tphoto_id = Column(Integer, index=True, nullable=False)
+    user_id = Column(Integer, index=True, nullable=False)
+    score = Column(SmallInteger, nullable=False)
+    upd_timestamp = Column(DateTime, nullable=True)
+
+
+class TQuery(Base):
+    """TQuery model for the tquery table."""
+
+    __tablename__ = "tquery"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(CHAR(1), nullable=False)
+    text = Column(Text, nullable=False)
+    sql_from = Column(Text, nullable=False)
+    sql_where = Column(Text, nullable=False)
+    sql_having = Column(Text, nullable=False)
+    sql_order = Column(Text, nullable=False)
+    osgb_eastings = Column(Integer, nullable=False)
+    osgb_northings = Column(Integer, nullable=False)
+    user_id = Column(Integer, index=True, nullable=True)
+    system_ind = Column(CHAR(1), nullable=False)
+    upd_timestamp = Column(DateTime, nullable=True)
+    crt_timestamp = Column(DateTime, nullable=True)
+
+
+class TQuizScores(Base):
+    """TQuizScores model for the tquizscores table."""
+
+    __tablename__ = "tquizscores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, index=True, nullable=False)
+    quiz_date = Column(Date, nullable=False)
+    quiz_time = Column(Time, nullable=False)
+    score = Column(SmallInteger, nullable=False)
+    outof = Column(SmallInteger, nullable=False)
+    upd_timestamp = Column(DateTime, nullable=True)
+    crt_timestamp = Column(DateTime, nullable=True)

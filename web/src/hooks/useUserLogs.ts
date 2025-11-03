@@ -41,7 +41,7 @@ export function useUserLogs(userId: string) {
 
       return {
         items: data.items || [],
-        total: data.total || 0,
+        total: data.pagination?.total || 0,
         pagination: {
           has_more: data.pagination?.has_more || false,
           next_offset: data.pagination?.has_more

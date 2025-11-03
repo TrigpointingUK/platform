@@ -2,12 +2,13 @@
 CRUD operations for trig table.
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import Float, cast, func, literal
 from sqlalchemy.orm import Session
 
 from api.models.trig import Trig
+from api.models.user import TLog
 
 
 def get_trig_by_id(db: Session, trig_id: int) -> Optional[Trig]:
@@ -104,8 +105,26 @@ def list_trigs_filtered(
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
     order: Optional[str] = None,
+    physical_types: Optional[List[str]] = None,
+    exclude_found_by_user_id: Optional[int] = None,
 ) -> list[Trig]:
     query = db.query(Trig)
+
+    # Filter by physical types
+    if physical_types:
+        query = query.filter(Trig.physical_type.in_(physical_types))
+
+    # Exclude trigpoints already found by user
+    if exclude_found_by_user_id is not None:
+        # LEFT JOIN to find trigs NOT logged by this user
+        subquery = (
+            db.query(TLog.trig_id)
+            .filter(TLog.user_id == exclude_found_by_user_id)
+            .distinct()
+            .subquery()
+        )
+        query = query.filter(~Trig.id.in_(subquery))  # type: ignore[arg-type]
+
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
     if county:
@@ -145,8 +164,25 @@ def count_trigs_filtered(
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
+    physical_types: Optional[List[str]] = None,
+    exclude_found_by_user_id: Optional[int] = None,
 ) -> int:
     query = db.query(func.count(Trig.id))
+
+    # Filter by physical types
+    if physical_types:
+        query = query.filter(Trig.physical_type.in_(physical_types))
+
+    # Exclude trigpoints already found by user
+    if exclude_found_by_user_id is not None:
+        subquery = (
+            db.query(TLog.trig_id)
+            .filter(TLog.user_id == exclude_found_by_user_id)
+            .distinct()
+            .subquery()
+        )
+        query = query.filter(~Trig.id.in_(subquery))  # type: ignore[arg-type]
+
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
     if county:

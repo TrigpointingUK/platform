@@ -4,18 +4,29 @@ import toast from "react-hot-toast";
 import { rotatePhoto, Photo } from "../../lib/api";
 
 interface PhotoThumbnailProps {
-  id: number;
-  iconUrl: string;
-  photoUrl: string;
-  caption: string;
+  photo: Photo;
   onClick?: () => void;
   onPhotoRotated?: (updatedPhoto: Photo) => void;
 }
 
+// Format trig ID as waypoint (TP0001, TP0123, TP12345)
+function formatWaypoint(trigId: number): string {
+  return `TP${trigId.toString().padStart(4, "0")}`;
+}
+
+// Format date as "1 Jan 2024"
+function formatLogDate(dateString?: string): string {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function PhotoThumbnail({
-  id,
-  photoUrl,
-  caption,
+  photo,
   onClick,
   onPhotoRotated,
 }: PhotoThumbnailProps) {
@@ -39,7 +50,7 @@ export default function PhotoThumbnail({
 
     try {
       const token = await getAccessTokenSilently();
-      const response = await rotatePhoto(id, angle, token);
+      const response = await rotatePhoto(photo.id, angle, token);
       
       toast.success("Photo rotated successfully");
       
@@ -61,6 +72,9 @@ export default function PhotoThumbnail({
       setRotating(false);
     }
   };
+
+  // Check if photo is public domain (license = 'Y')
+  const isPublicDomain = photo.license === "Y";
 
   return (
     <div
@@ -84,8 +98,8 @@ export default function PhotoThumbnail({
       {/* Image */}
       {!error && (
         <img
-          src={photoUrl}
-          alt={caption}
+          src={photo.photo_url}
+          alt={photo.caption}
           loading="lazy"
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
@@ -147,10 +161,39 @@ export default function PhotoThumbnail({
         </div>
       )}
 
-      {/* Caption Overlay */}
-      {loaded && !error && caption && (
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <p className="text-white text-xs truncate">{caption}</p>
+      {/* Enhanced Information Overlay */}
+      {loaded && !error && (
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="text-white text-sm space-y-1">
+            {/* Trigpoint waypoint and name */}
+            {photo.trig_id && photo.trig_name && (
+              <div className="font-bold">
+                {formatWaypoint(photo.trig_id)} : {photo.trig_name}
+              </div>
+            )}
+
+            {/* Copyright and user info (if not public domain) */}
+            {!isPublicDomain && photo.user_name && (
+              <div className="text-xs text-white/90">
+                © <span className="font-semibold">{photo.user_name}</span>
+                {photo.log_date && (
+                  <span className="ml-1">{formatLogDate(photo.log_date)}</span>
+                )}
+              </div>
+            )}
+
+            {/* Caption */}
+            {photo.caption && (
+              <div className="font-bold line-clamp-2">{photo.caption}</div>
+            )}
+
+            {/* Description */}
+            {photo.text_desc && (
+              <div className="text-xs text-white/90 line-clamp-2">
+                {photo.text_desc}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

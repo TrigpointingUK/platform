@@ -2,7 +2,7 @@
 Pydantic schemas for tphoto endpoints.
 """
 
-# from datetime import datetime  # Not currently used
+from datetime import date
 from typing import List, Optional
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
@@ -40,7 +40,11 @@ class TPhotoBase(BaseModel):
 
 
 class TPhotoResponse(TPhotoBase):
-    pass
+    # Denormalized fields for convenience (populated via JOINs)
+    user_name: Optional[str] = None
+    trig_id: Optional[int] = None
+    trig_name: Optional[str] = None
+    log_date: Optional[date] = None
 
 
 class TPhotoUpdate(BaseModel):

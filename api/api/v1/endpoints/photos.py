@@ -24,6 +24,7 @@ from api.api.lifecycle import openapi_lifecycle
 from api.core.config import settings
 from api.crud import tphoto as tphoto_crud
 from api.models.server import Server
+from api.models.trig import Trig
 from api.models.user import TLog, User
 from api.schemas.tphoto import (
     TPhotoEvaluationResponse,
@@ -55,14 +56,33 @@ def list_photos(
     items = tphoto_crud.list_photos_filtered(
         db, trig_id=trig_id, log_id=log_id, user_id=user_id, skip=skip, limit=limit
     )
-    # total estimate with same filters
-    total = len(items) if len(items) < limit else (db.query(tphoto_crud.TPhoto).count())
+    # total estimate with same filters - properly exclude deleted photos
+    if len(items) < limit:
+        total = len(items)
+    else:
+        # Need to count with same filters as list_photos_filtered
+        total_query = db.query(tphoto_crud.TPhoto).filter(
+            tphoto_crud.TPhoto.deleted_ind != "Y"
+        )
+        if log_id is not None:
+            total_query = total_query.filter(tphoto_crud.TPhoto.tlog_id == log_id)
+        if user_id is not None:
+            total_query = total_query.join(
+                TLog, TLog.id == tphoto_crud.TPhoto.tlog_id
+            ).filter(TLog.user_id == user_id)
+        if trig_id is not None:
+            total_query = total_query.join(
+                TLog, TLog.id == tphoto_crud.TPhoto.tlog_id
+            ).filter(TLog.trig_id == trig_id)
+        total = total_query.count()
 
     # Serialise with URLs populated
     result_items = []
     for p in items:
         # Resolve user via TLog
         tlog = db.query(TLog).filter(TLog.id == p.tlog_id).first()
+        user = db.query(User).filter(User.id == tlog.user_id).first() if tlog else None
+        trig = db.query(Trig).filter(Trig.id == tlog.trig_id).first() if tlog else None
         server: Server | None = (
             db.query(Server).filter(Server.id == p.server_id).first()
         )
@@ -84,6 +104,10 @@ def list_photos(
                 "license": str(p.public_ind),
                 "photo_url": join_url(base_url, str(p.filename)),
                 "icon_url": join_url(base_url, str(p.icon_filename)),
+                "user_name": str(user.name) if user else None,
+                "trig_id": int(tlog.trig_id) if tlog and tlog.trig_id else None,
+                "trig_name": str(trig.name) if trig else None,
+                "log_date": tlog.date if tlog else None,
             }
         )
 
@@ -299,6 +323,14 @@ def create_photo(
         "license": str(created.public_ind),
         "photo_url": join_url(base_url, str(created.filename)),
         "icon_url": join_url(base_url, str(created.icon_filename)),
+        "user_name": str(current_user.name) if hasattr(current_user, "name") else None,
+        "trig_id": int(tlog.trig_id) if tlog else None,
+        "trig_name": (
+            db.query(Trig.name).filter(Trig.id == tlog.trig_id).scalar()
+            if tlog
+            else None
+        ),
+        "log_date": tlog.date if tlog else None,
     }
 
 
@@ -329,6 +361,8 @@ def get_photo(photo_id: int, db: Session = Depends(get_db)):
 
     # Lookup user_id from tlog
     tlog: TLog | None = db.query(TLog).filter(TLog.id == photo.tlog_id).first()
+    user = db.query(User).filter(User.id == tlog.user_id).first() if tlog else None
+    trig = db.query(Trig).filter(Trig.id == tlog.trig_id).first() if tlog else None
     response = {
         "id": photo.id,
         "log_id": photo.tlog_id,
@@ -345,6 +379,10 @@ def get_photo(photo_id: int, db: Session = Depends(get_db)):
         "license": str(photo.public_ind),
         "photo_url": join_url(base_url, str(photo.filename)),
         "icon_url": join_url(base_url, str(photo.icon_filename)),
+        "user_name": str(user.name) if user else None,
+        "trig_id": int(tlog.trig_id) if tlog and tlog.trig_id else None,
+        "trig_name": str(trig.name) if trig else None,
+        "log_date": tlog.date if tlog else None,
     }
     return response
 
@@ -427,6 +465,14 @@ def update_photo(
         "license": str(updated.public_ind),
         "photo_url": join_url(base_url, str(updated.filename)),
         "icon_url": join_url(base_url, str(updated.icon_filename)),
+        "user_name": str(current_user.name) if hasattr(current_user, "name") else None,
+        "trig_id": int(tlog.trig_id) if tlog else None,
+        "trig_name": (
+            db.query(Trig.name).filter(Trig.id == tlog.trig_id).scalar()
+            if tlog
+            else None
+        ),
+        "log_date": tlog.date if tlog else None,
     }
     return response
 
@@ -791,4 +837,16 @@ def rotate_photo(
         "license": str(updated_photo.public_ind),
         "photo_url": join_url(base_url, str(updated_photo.filename)),
         "icon_url": join_url(base_url, str(updated_photo.icon_filename)),
+        "user_name": (
+            db.query(User.name).filter(User.id == tlog.user_id).scalar()
+            if tlog
+            else None
+        ),
+        "trig_id": int(tlog.trig_id) if tlog else None,
+        "trig_name": (
+            db.query(Trig.name).filter(Trig.id == tlog.trig_id).scalar()
+            if tlog
+            else None
+        ),
+        "log_date": tlog.date if tlog else None,
     }

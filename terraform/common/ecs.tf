@@ -110,6 +110,20 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
           "rekognition:DetectModerationLabels"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "elasticfilesystem:AccessPointArn" = "arn:aws:elasticfilesystem:${var.aws_region}:*:access-point/*"
+          }
+        }
       }
     ]
   })

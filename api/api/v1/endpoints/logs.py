@@ -4,6 +4,7 @@ Logs endpoints under /v1/logs (create, read, update, delete) and nested photos.
 Only PATCH (no PUT). DELETE is hard-delete for logs and soft-deletes their photos.
 """
 
+from datetime import date as date_type
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
@@ -101,6 +102,14 @@ def list_logs(
                 photos = tphoto_crud.list_all_photos_for_log(db, log_id=int(orig.id))
                 # Build base URLs per photo server
                 out["photos"] = []
+
+                # Get trig info for this log once (to populate photo metadata)
+                trig = (
+                    db.query(Trig).filter(Trig.id == orig.trig_id).first()
+                    if orig.trig_id
+                    else None
+                )
+
                 for p in photos:
                     server: Server | None = (
                         db.query(Server).filter(Server.id == p.server_id).first()
@@ -125,6 +134,16 @@ def list_logs(
                             public_ind=str(p.public_ind),
                             photo_url=join_url(base_url, str(p.filename)),
                             icon_url=join_url(base_url, str(p.icon_filename)),
+                            user_name=out.get("user_name"),
+                            trig_id=int(orig.trig_id) if orig.trig_id else None,
+                            trig_name=str(trig.name) if trig else None,
+                            log_date=(
+                                date_type(
+                                    orig.date.year, orig.date.month, orig.date.day
+                                )
+                                if orig.date
+                                else None
+                            ),
                         ).model_dump()
                     )
     has_more = (skip + len(items)) < total
@@ -192,6 +211,14 @@ def get_log(
         if "photos" in tokens:
             photos = tphoto_crud.list_all_photos_for_log(db, log_id=int(log.id))
             photos_out = []
+
+            # Get trig info for this log once (to populate photo metadata)
+            trig = (
+                db.query(Trig).filter(Trig.id == log.trig_id).first()
+                if log.trig_id
+                else None
+            )
+
             for p in photos:
                 server: Server | None = (
                     db.query(Server).filter(Server.id == p.server_id).first()
@@ -214,6 +241,14 @@ def get_log(
                         public_ind=str(p.public_ind),
                         photo_url=join_url(base_url, str(p.filename)),
                         icon_url=join_url(base_url, str(p.icon_filename)),
+                        user_name=base.get("user_name"),
+                        trig_id=int(log.trig_id) if log.trig_id else None,
+                        trig_name=str(trig.name) if trig else None,
+                        log_date=(
+                            date_type(log.date.year, log.date.month, log.date.day)
+                            if log.date
+                            else None
+                        ),
                     )
                 )
 
