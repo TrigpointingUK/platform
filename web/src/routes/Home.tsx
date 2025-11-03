@@ -21,7 +21,7 @@ function WelcomeSection() {
       </p>
       <div className="flex gap-3 flex-wrap">
         <Button variant="primary">
-          <Link to="/browse">Browse Trig Points</Link>
+          <Link to="/trigs">Browse Trig Points</Link>
         </Button>
         <Button variant="secondary">
           <Link to="/map">View Map</Link>
@@ -58,7 +58,7 @@ function SiteStatsSection() {
       value: stats.total_trigs.toLocaleString(),
       icon: "📍",
       color: "text-trig-green-600",
-      link: "/browse",
+      link: "/trigs",
     },
     {
       label: "Registered Users",

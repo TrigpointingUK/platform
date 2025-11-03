@@ -63,7 +63,7 @@ function getPhysicalTypeAbbrev(type: string): string {
 export function TrigCard({ trig, showDistance = true }: TrigCardProps) {
   return (
     <Link
-      to={`/trigs/${trig.id}`}
+      to={`/trig/${trig.id}`}
       className="block border-b border-gray-200 py-3 px-4 hover:bg-gray-50 transition-colors"
     >
       <div className="flex items-center justify-between gap-3">

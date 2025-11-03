@@ -46,14 +46,14 @@ const router = createBrowserRouter(
         </Suspense>
       ),
     },
-    {
-      path: "/find",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <FindTrigs />
-        </Suspense>
-      ),
-    },
+      {
+        path: "/trigs",
+        element: (
+          <Suspense fallback={<LoadingFallback />}>
+            <FindTrigs />
+          </Suspense>
+        ),
+      },
     {
       path: "/logs/:logId",
       element: (

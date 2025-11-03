@@ -5,6 +5,7 @@ import { LocationSearch } from "../components/trigs/LocationSearch";
 import { PhysicalTypeFilter } from "../components/trigs/PhysicalTypeFilter";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
+import Layout from "../components/layout/Layout";
 
 // Default location: Buxton
 const DEFAULT_LAT = 53.2585;
@@ -112,79 +113,87 @@ export default function FindTrigs() {
   const totalCount = data?.pages[0]?.pagination.total || 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Fixed filter header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
-          <h1 className="text-2xl font-bold text-gray-900">Find Trigpoints</h1>
-          
-          {/* Location search */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Location
-            </label>
-            <LocationSearch
-              onSelectLocation={handleSelectLocation}
-              defaultLocation={{
-                lat: centerLat,
-                lon: centerLon,
-                name: locationName,
-              }}
-            />
-          </div>
+    <Layout>
+      <div className="max-w-7xl mx-auto">
+        {/* Page Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Browse Trig Points
+          </h1>
+          <p className="text-gray-600">
+            Search and filter UK triangulation pillars and survey markers
+          </p>
+        </div>
 
-          {/* Physical type filter */}
+        {/* Fixed filter header */}
+        <div className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40">
+          <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Physical Types
-            </label>
-            <PhysicalTypeFilter
-              selectedTypes={selectedPhysicalTypes}
-              onToggleType={handleTogglePhysicalType}
-            />
-          </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Location
+              </label>
+              <LocationSearch
+                onSelectLocation={handleSelectLocation}
+                defaultLocation={{
+                  lat: centerLat,
+                  lon: centerLon,
+                  name: locationName,
+                }}
+              />
+            </div>
 
-          {/* Additional filters */}
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              {isAuthenticated && (
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={excludeFound}
-                    onChange={(e) => setExcludeFound(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Exclude trigpoints I've found</span>
-                </label>
+            {/* Physical type filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Physical Types
+              </label>
+              <PhysicalTypeFilter
+                selectedTypes={selectedPhysicalTypes}
+                onToggleType={handleTogglePhysicalType}
+              />
+            </div>
+
+            {/* Additional filters */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                {isAuthenticated && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={excludeFound}
+                      onChange={(e) => setExcludeFound(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Exclude trigpoints I've found</span>
+                  </label>
+                )}
+              </div>
+              
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Clear filters
+              </button>
+            </div>
+
+            {/* Results count */}
+            <div className="text-sm text-gray-600">
+              {isLoading ? (
+                <span>Loading...</span>
+              ) : (
+                <span>
+                  Showing {allTrigs.length} of {totalCount} trigpoints
+                  {centerLat && centerLon && ` near ${locationName}`}
+                </span>
               )}
             </div>
-            
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Clear filters
-            </button>
-          </div>
-
-          {/* Results count */}
-          <div className="text-sm text-gray-600">
-            {isLoading ? (
-              <span>Loading...</span>
-            ) : (
-              <span>
-                Showing {allTrigs.length} of {totalCount} trigpoints
-                {centerLat && centerLon && ` near ${locationName}`}
-              </span>
-            )}
           </div>
         </div>
-      </div>
 
-      {/* Trigpoint list */}
-      <div className="max-w-7xl mx-auto">
+        {/* Trigpoint list */}
+        <div>
         {error && (
           <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             Error loading trigpoints: {error.message}
@@ -236,8 +245,9 @@ export default function FindTrigs() {
             <p className="mt-4 text-gray-500">Loading trigpoints...</p>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
 

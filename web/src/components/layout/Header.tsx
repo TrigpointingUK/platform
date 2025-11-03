@@ -28,9 +28,6 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <Link to="/find" className="hover:text-trig-green-100 transition-colors">
-              Find
-            </Link>
             <a
               href="https://wiki.trigpointing.uk/"
               target="_blank"
@@ -47,9 +44,6 @@ export default function Header() {
             >
               Forum
             </a>
-            <Link to="/photos" className="hover:text-trig-green-100 transition-colors">
-              Photos
-            </Link>
             <a
               href="https://trigpointing.uk/trigtools"
               target="_blank"
@@ -165,13 +159,6 @@ export default function Header() {
                 placeholder="Search trig points..."
                 className="w-full px-4 py-2 rounded-md text-gray-900 mb-2"
               />
-              <Link
-                to="/find"
-                className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Find
-              </Link>
               <a
                 href="https://trigpointing.uk/wiki"
                 target="_blank"
@@ -188,13 +175,6 @@ export default function Header() {
               >
                 Forum
               </a>
-              <Link
-                to="/photos"
-                className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Photos
-              </Link>
               <a
                 href="https://trigpointing.uk/trigtools"
                 target="_blank"
