@@ -213,17 +213,29 @@ export default function FindTrigs() {
         )}
 
         {allTrigs.length > 0 && (
-          <div className="bg-white mx-4 mt-4 rounded-lg shadow overflow-hidden">
-            {allTrigs.map((trig) => (
-              <TrigCard
-                key={trig.id}
-                trig={trig}
-                showDistance={!!centerLat && !!centerLon}
-                centerLat={centerLat}
-                centerLon={centerLon}
+          <>
+            {/* First trigpoint map preview */}
+            <div className="mx-4 mt-4 mb-2 flex justify-center">
+              <img
+                src={`${import.meta.env.VITE_API_BASE}/v1/trigs/${allTrigs[0].id}/map`}
+                alt={`Map for ${allTrigs[0].name}`}
+                className="w-[110px] h-[110px] rounded border-2 border-gray-300 shadow-md"
               />
-            ))}
-          </div>
+            </div>
+            
+            {/* Trigpoint cards */}
+            <div className="bg-white mx-4 mt-4 rounded-lg shadow overflow-hidden">
+              {allTrigs.map((trig) => (
+                <TrigCard
+                  key={trig.id}
+                  trig={trig}
+                  showDistance={!!centerLat && !!centerLon}
+                  centerLat={centerLat}
+                  centerLon={centerLon}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         {/* Load more button */}
