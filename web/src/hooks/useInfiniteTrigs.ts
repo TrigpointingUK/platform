@@ -1,4 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { useAuth0 } from "@auth0/auth0-react";
 
 interface Trig {
   id: number;
@@ -47,6 +48,7 @@ export interface UseInfiniteTrigsOptions {
 
 export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
   const { lat, lon, physicalTypes, excludeFound, maxKm } = options;
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigsResponse>({
     queryKey: ["trigs", "infinite", lat, lon, physicalTypes, excludeFound, maxKm],
@@ -76,7 +78,21 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         params.append("exclude_found", "true");
       }
       
-      const response = await fetch(`${apiBase}/v1/trigs?${params.toString()}`);
+      // Get auth token if authenticated and exclude_found is enabled
+      const headers: Record<string, string> = {};
+      if (excludeFound && isAuthenticated) {
+        try {
+          const token = await getAccessTokenSilently({ cacheMode: "on" });
+          headers["Authorization"] = `Bearer ${token}`;
+        } catch (error) {
+          console.error("Failed to get access token for trigs query:", error);
+          // Continue without auth - backend will simply not filter
+        }
+      }
+      
+      const response = await fetch(`${apiBase}/v1/trigs?${params.toString()}`, {
+        headers,
+      });
       
       if (!response.ok) {
         throw new Error("Failed to fetch trigpoints");
