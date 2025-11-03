@@ -2,7 +2,7 @@
 Pydantic schemas for tphoto endpoints.
 """
 
-# from datetime import datetime  # Not currently used
+from datetime import date
 from typing import List, Optional
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator

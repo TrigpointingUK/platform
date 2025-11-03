@@ -61,6 +61,10 @@ export interface Photo {
   icon_width: number;
   text_desc: string;
   license: string;
+  user_name?: string;
+  trig_id?: number;
+  trig_name?: string;
+  log_date?: string;
 }
 
 /**
