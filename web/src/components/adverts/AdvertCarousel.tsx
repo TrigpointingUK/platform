@@ -50,8 +50,8 @@ function AdvertCard({ advert, isBlurred = false }: AdvertCardProps) {
             <Button
               variant="primary"
               className="w-full text-sm py-2"
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation();
+              onClick={(e?: React.MouseEvent) => {
+                e?.stopPropagation();
                 window.open(advert.link!, "_blank", "noopener,noreferrer");
               }}
             >
