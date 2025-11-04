@@ -34,8 +34,11 @@ docs_only=true
 
 while IFS= read -r file; do
     if [[ "$file" =~ ^(api/|res/|\.github/workflows/ci\.yml) ]]; then
-        run_fastapi_checks=true
-        docs_only=false
+        # Exclude migration SQL files and migration READMEs from triggering API checks
+        if [[ ! "$file" =~ ^api/migrations/.*\.(sql|md)$ ]]; then
+            run_fastapi_checks=true
+            docs_only=false
+        fi
     elif [[ "$file" =~ ^terraform/ ]]; then
         run_terraform_checks=true
         docs_only=false
