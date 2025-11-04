@@ -52,6 +52,7 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
 
   return useInfiniteQuery<TrigsResponse>({
     queryKey: ["trigs", "infinite", lat, lon, physicalTypes, excludeFound, maxKm],
+    enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
       const skip = typeof pageParam === "number" ? pageParam : 0;
       const apiBase = import.meta.env.VITE_API_BASE as string;
