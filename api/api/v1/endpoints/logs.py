@@ -35,21 +35,20 @@ def get_client_ip(request: Request) -> str:
     cf_ip = request.headers.get("CF-Connecting-IP")
     if cf_ip:
         return cf_ip
-    
+
     # X-Forwarded-For from ALB (takes first IP in list)
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
         # X-Forwarded-For can be a comma-separated list, take the first (original client)
         return forwarded_for.split(",")[0].strip()
-    
+
     # X-Real-IP header
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
         return real_ip
-    
+
     # Fallback to direct connection IP
     return request.client.host if request.client else "127.0.0.1"
-
 
 
 def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
@@ -299,11 +298,11 @@ def create_log(
 ):
     # Get client IP address
     client_ip = get_client_ip(request)
-    
+
     # Add ip_addr to the payload data
     log_data = payload.model_dump()
     log_data["ip_addr"] = client_ip
-    
+
     log = tlog_crud.create_log(
         db, trig_id=trig_id, user_id=int(current_user.id), values=log_data
     )

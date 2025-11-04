@@ -455,10 +455,11 @@ export default function TrigDetail() {
         {showLogForm && (
           <div className="my-8">
             <LogForm
-              trigId={trigIdNum!}
               trigGridRef={trig.osgb_gridref}
               trigEastings={parseInt(trig.osgb_gridref.substring(2, 7))} // Simplified - would need proper conversion
               trigNorthings={parseInt(trig.osgb_gridref.substring(7, 12))} // Simplified - would need proper conversion
+              trigLatitude={parseFloat(trig.wgs_lat)}
+              trigLongitude={parseFloat(trig.wgs_long)}
               onSubmit={handleLogSubmit}
               onCancel={handleLogCancel}
               isSubmitting={createLogMutation.isPending}

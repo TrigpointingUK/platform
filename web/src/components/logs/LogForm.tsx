@@ -1,14 +1,19 @@
 import { useState } from "react";
-import { Log, LogCreateInput, LogUpdateInput } from "../../lib/api";
+import { Log, LogCreateInput } from "../../lib/api";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
+import ConditionSelector from "../forms/ConditionSelector";
+import ScoreSelector from "../forms/ScoreSelector";
+import DateTimeEditor from "../forms/DateTimeEditor";
+import LocationPicker from "../forms/LocationPicker";
 
 interface LogFormProps {
-  trigId: number;
   trigGridRef: string;
   trigEastings: number;
   trigNorthings: number;
+  trigLatitude: number;
+  trigLongitude: number;
   existingLog?: Log;
   onSubmit: (data: LogCreateInput) => Promise<void>;
   onCancel: () => void;
@@ -16,18 +21,25 @@ interface LogFormProps {
 }
 
 export default function LogForm({
-  trigId,
   trigGridRef,
   trigEastings,
   trigNorthings,
+  trigLatitude,
+  trigLongitude,
   existingLog,
   onSubmit,
   onCancel,
   isSubmitting,
 }: LogFormProps) {
+  // Get current time in HH:MM:SS format
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toTimeString().split(" ")[0]; // Gets HH:MM:SS
+  };
+
   const [formData, setFormData] = useState({
     date: existingLog?.date || new Date().toISOString().split("T")[0],
-    time: existingLog?.time || "12:00:00",
+    time: existingLog?.time || getCurrentTime(), // Use current time for new logs
     condition: existingLog?.condition || "G",
     score: existingLog?.score || 5,
     comment: existingLog?.comment || "",
@@ -39,8 +51,9 @@ export default function LogForm({
   });
 
   const [useCustomTime, setUseCustomTime] = useState(
-    existingLog?.time !== "12:00:00"
+    existingLog ? existingLog.time !== "12:00:00" : true // Default to true for new logs
   );
+  const [locationSet, setLocationSet] = useState(!!existingLog);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,165 +92,101 @@ export default function LogForm({
         </h2>
 
         {/* Date and Time */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label
-              htmlFor="date"
-              className="block text-sm font-semibold text-gray-700 mb-1"
-            >
-              Date *
-            </label>
-            <input
-              type="date"
-              id="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="time"
-              className="block text-sm font-semibold text-gray-700 mb-1"
-            >
-              Time
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="useCustomTime"
-                checked={useCustomTime}
-                onChange={(e) => setUseCustomTime(e.target.checked)}
-                className="h-4 w-4 text-trig-green-600 focus:ring-trig-green-500 border-gray-300 rounded"
-              />
-              <label htmlFor="useCustomTime" className="text-sm text-gray-600">
-                Log specific time
-              </label>
-            </div>
-            {useCustomTime && (
-              <input
-                type="time"
-                id="time"
-                name="time"
-                value={formData.time}
-                onChange={handleChange}
-                step="1"
-                className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-              />
-            )}
-          </div>
-        </div>
+        <DateTimeEditor
+          date={formData.date}
+          time={formData.time}
+          useCustomTime={useCustomTime}
+          onDateChange={(date) => setFormData((prev) => ({ ...prev, date }))}
+          onTimeChange={(time) => setFormData((prev) => ({ ...prev, time }))}
+          onUseCustomTimeChange={setUseCustomTime}
+          required
+        />
 
         {/* Condition and Score */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label
-              htmlFor="condition"
-              className="block text-sm font-semibold text-gray-700 mb-1"
-            >
-              Condition *
-            </label>
-            <select
-              id="condition"
-              name="condition"
-              value={formData.condition}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-            >
-              <option value="G">Good</option>
-              <option value="D">Damaged</option>
-              <option value="M">Missing</option>
-              <option value="P">Possibly Missing</option>
-              <option value="U">Unknown</option>
-            </select>
-          </div>
+          <ConditionSelector
+            value={formData.condition}
+            onChange={(condition) =>
+              setFormData((prev) => ({ ...prev, condition }))
+            }
+            required
+          />
 
-          <div>
-            <label
-              htmlFor="score"
-              className="block text-sm font-semibold text-gray-700 mb-1"
-            >
-              Score (0-10) *
-            </label>
-            <select
-              id="score"
-              name="score"
-              value={formData.score}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-            >
-              <option value="0">----</option>
-              {[...Array(10)].map((_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {i + 1}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ScoreSelector
+            value={formData.score}
+            onChange={(score) => setFormData((prev) => ({ ...prev, score }))}
+            required
+          />
         </div>
 
-        {/* Grid Reference Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label
-              htmlFor="osgb_gridref"
-              className="block text-sm font-semibold text-gray-700 mb-1"
-            >
-              Grid Reference *
-            </label>
-            <input
-              type="text"
-              id="osgb_gridref"
-              name="osgb_gridref"
-              value={formData.osgb_gridref}
-              onChange={handleChange}
-              required
-              maxLength={14}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="osgb_eastings"
-              className="block text-sm font-semibold text-gray-700 mb-1"
-            >
-              Eastings *
-            </label>
-            <input
-              type="number"
-              id="osgb_eastings"
-              name="osgb_eastings"
-              value={formData.osgb_eastings}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="osgb_northings"
-              className="block text-sm font-semibold text-gray-700 mb-1"
-            >
-              Northings *
-            </label>
-            <input
-              type="number"
-              id="osgb_northings"
-              name="osgb_northings"
-              value={formData.osgb_northings}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-            />
-          </div>
+        {/* Location - Use Current Location Button */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Location (optional)
+          </label>
+          
+          {!locationSet ? (
+            <>
+              <LocationPicker
+                onLocationSelected={(location) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    osgb_gridref: location.gridRef,
+                    osgb_eastings: location.eastings,
+                    osgb_northings: location.northings,
+                  }));
+                  setLocationSet(true);
+                }}
+                maxAccuracy={10}
+                trigLatitude={trigLatitude}
+                trigLongitude={trigLongitude}
+                maxDistance={25}
+              />
+              <div className="mt-2 text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                <strong>Note:</strong> If you don't set your location, the trigpoint's 
+                recorded coordinates will be used by default.
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="font-semibold text-green-800 mb-1">
+                      Location Set
+                    </div>
+                    <div className="text-sm text-green-700 space-y-1">
+                      <div>
+                        <span className="font-medium">Grid Ref:</span>{" "}
+                        {formData.osgb_gridref}
+                      </div>
+                      <div>
+                        <span className="font-medium">Eastings:</span>{" "}
+                        {formData.osgb_eastings}
+                      </div>
+                      <div>
+                        <span className="font-medium">Northings:</span>{" "}
+                        {formData.osgb_northings}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLocationSet(false)}
+                    className="text-sm text-green-700 hover:text-green-900 underline flex-shrink-0"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Grid Reference Fields - Hidden but included for form submission */}
+        <input type="hidden" name="osgb_gridref" value={formData.osgb_gridref} />
+        <input type="hidden" name="osgb_eastings" value={formData.osgb_eastings} />
+        <input type="hidden" name="osgb_northings" value={formData.osgb_northings} />
 
         {/* Flush Bracket Number */}
         <div>

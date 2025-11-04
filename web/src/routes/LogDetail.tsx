@@ -81,8 +81,11 @@ export default function LogDetail() {
       <div className="max-w-7xl mx-auto">
         {/* Breadcrumb */}
         <div className="mb-4">
-          <Link to="/" className="text-trig-green-600 hover:underline">
-            ← Back to Home
+          <Link 
+            to={`/trig/${log.trig_id}`} 
+            className="text-trig-green-600 hover:underline"
+          >
+            ← Back to {log.trig_name || `Trigpoint TP${log.trig_id.toString().padStart(4, '0')}`}
           </Link>
         </div>
 
