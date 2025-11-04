@@ -68,7 +68,7 @@ class TLog(Base):
     score = Column(SmallInteger, nullable=False)
     ip_addr = Column(String(15), nullable=False)
     source = Column(CHAR(1), nullable=False)
-    upd_timestamp = Column(DateTime, nullable=True)
+    upd_timestamp = Column(DateTime, nullable=False, default=datetime.now)
 
 
 class TPhotoVote(Base):

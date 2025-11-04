@@ -1,13 +1,18 @@
-import { useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
+import { useAuth0 } from "@auth0/auth0-react";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Spinner from "../components/ui/Spinner";
+import Button from "../components/ui/Button";
 import LogList from "../components/logs/LogList";
+import LogForm from "../components/logs/LogForm";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useTrigLogs } from "../hooks/useTrigLogs";
+import { useCreateLog } from "../hooks/useCreateLog";
+import { LogCreateInput } from "../lib/api";
 
 const conditionMap: Record<
   string,
@@ -23,6 +28,9 @@ const conditionMap: Record<
 export default function TrigDetail() {
   const { trigId } = useParams<{ trigId: string }>();
   const trigIdNum = trigId ? parseInt(trigId, 10) : null;
+  const navigate = useNavigate();
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
+  const [showLogForm, setShowLogForm] = useState(false);
 
   const {
     data: trig,
@@ -39,6 +47,8 @@ export default function TrigDetail() {
     error: logsError,
   } = useTrigLogs(trigIdNum!);
 
+  const createLogMutation = useCreateLog(trigIdNum!);
+
   // Intersection observer for infinite scroll
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -54,6 +64,32 @@ export default function TrigDetail() {
 
   // Flatten all pages into a single array
   const allLogs = logsData?.pages.flatMap((page) => page.items) || [];
+
+  const handleLogThisTrig = () => {
+    if (!isAuthenticated) {
+      loginWithRedirect({
+        appState: { returnTo: window.location.pathname },
+      });
+      return;
+    }
+    setShowLogForm(true);
+  };
+
+  const handleLogSubmit = async (data: LogCreateInput) => {
+    try {
+      const newLog = await createLogMutation.mutateAsync(data);
+      setShowLogForm(false);
+      // Navigate to the new log
+      navigate(`/logs/${newLog.id}`);
+    } catch (error) {
+      console.error("Failed to create log:", error);
+      throw error;
+    }
+  };
+
+  const handleLogCancel = () => {
+    setShowLogForm(false);
+  };
 
   if (!trigIdNum) {
     return (
@@ -287,7 +323,7 @@ export default function TrigDetail() {
             {/* Right: Map Thumbnail */}
             <div className="flex-shrink-0">
               <img
-                src={`${apiBase}/v1/trig/${trigIdNum}/map`}
+                src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
                 alt={`Map thumbnail for ${trig.name}`}
                 className="w-[110px] h-[110px] border border-gray-300 rounded"
               />
@@ -405,6 +441,29 @@ export default function TrigDetail() {
               </div>
             </div>
           </Card>
+        )}
+
+        {/* Log This Trig Section */}
+        {!showLogForm && (
+          <div className="my-8">
+            <Button onClick={handleLogThisTrig} className="w-full md:w-auto">
+              📝 Log This Trig
+            </Button>
+          </div>
+        )}
+
+        {showLogForm && (
+          <div className="my-8">
+            <LogForm
+              trigId={trigIdNum!}
+              trigGridRef={trig.osgb_gridref}
+              trigEastings={parseInt(trig.osgb_gridref.substring(2, 7))} // Simplified - would need proper conversion
+              trigNorthings={parseInt(trig.osgb_gridref.substring(7, 12))} // Simplified - would need proper conversion
+              onSubmit={handleLogSubmit}
+              onCancel={handleLogCancel}
+              isSubmitting={createLogMutation.isPending}
+            />
+          </div>
         )}
 
         {/* Divider */}

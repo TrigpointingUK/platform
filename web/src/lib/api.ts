@@ -41,6 +41,29 @@ export async function apiPost<T>(
   return res.json() as Promise<T>;
 }
 
+export async function apiPatch<T>(
+  url: string,
+  data: unknown,
+  token?: string
+): Promise<T> {
+  const res = await fetch(`${API_BASE}${url}`, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+  }
+  
+  return res.json() as Promise<T>;
+}
+
 export interface RotatePhotoRequest {
   angle: number;
 }
@@ -116,4 +139,72 @@ export interface Trig {
   details?: TrigDetails;
   stats?: TrigStats;
 }
+
+export interface Log {
+  id: number;
+  trig_id: number;
+  user_id: number;
+  trig_name?: string;
+  user_name?: string;
+  date: string;
+  time: string;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  fb_number: string;
+  condition: string;
+  comment: string;
+  score: number;
+  source: string;
+  photos?: Photo[];
+}
+
+export interface LogCreateInput {
+  date: string;
+  time: string;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  fb_number?: string;
+  condition: string;
+  comment?: string;
+  score: number;
+  source?: string;
+}
+
+export interface LogUpdateInput {
+  date?: string;
+  time?: string;
+  osgb_eastings?: number;
+  osgb_northings?: number;
+  osgb_gridref?: string;
+  fb_number?: string;
+  condition?: string;
+  comment?: string;
+  score?: number;
+  source?: string;
+}
+
+/**
+ * Create a new log for a trigpoint
+ */
+export async function createLog(
+  trigId: number,
+  data: LogCreateInput,
+  token: string
+): Promise<Log> {
+  return apiPost<Log>(`/v1/logs?trig_id=${trigId}`, data, token);
+}
+
+/**
+ * Update an existing log
+ */
+export async function updateLog(
+  logId: number,
+  data: LogUpdateInput,
+  token: string
+): Promise<Log> {
+  return apiPatch<Log>(`/v1/logs/${logId}`, data, token);
+}
+
 

@@ -210,7 +210,7 @@ export default function Logs() {
               <div className="relative">
                 <img
                   key={featuredTrigId}
-                  src={`${apiBase}/v1/trig/${featuredTrigId}/map`}
+                  src={`${apiBase}/v1/trigs/${featuredTrigId}/map`}
                   alt={`Trigpoint ${featuredTrigId} map`}
                   className="w-[160px] h-[160px] lg:w-[190px] lg:h-[190px]"
                 />
