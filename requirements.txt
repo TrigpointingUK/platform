@@ -9,7 +9,7 @@ bcrypt==4.3.0
 python-multipart==0.0.20
 pydantic[email]==2.11.7
 pydantic-settings==2.10.1
-python-dotenv==1.1.1
+python-dotenv==1.2.1
 alembic==1.16.5
 
 # Testing dependencies
