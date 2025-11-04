@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import Card from "../ui/Card";
-import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
 import { useAdverts, AdvertItem } from "../../hooks/useAdverts";
 
@@ -16,7 +15,7 @@ function AdvertCard({ advert, isBlurred = false }: AdvertCardProps) {
   const hasText = advert.text;
 
   const content = (
-    <div className={`h-full flex flex-col p-4 bg-white rounded-lg ${isBlurred ? "blur-sm opacity-60" : ""}`}>
+    <div className={`h-full flex flex-col p-4 bg-white rounded-lg ${isBlurred ? "blur-sm opacity-60" : ""} ${hasLink && !isBlurred ? "cursor-pointer hover:shadow-lg transition-shadow" : ""}`}>
       {hasPhoto && (
         <div className="w-full flex-1 bg-gray-100 rounded overflow-hidden mb-3">
           <img
@@ -45,23 +44,23 @@ function AdvertCard({ advert, isBlurred = false }: AdvertCardProps) {
             {advert.text}
           </p>
         )}
-        {hasLink && !isBlurred && (
-          <div className="mt-3">
-            <Button
-              variant="primary"
-              className="w-full text-sm py-2"
-              onClick={(e?: React.MouseEvent) => {
-                e?.stopPropagation();
-                window.open(advert.link!, "_blank", "noopener,noreferrer");
-              }}
-            >
-              Learn More →
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
+
+  if (hasLink && !isBlurred) {
+    return (
+      <a
+        href={advert.link!}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block h-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {content}
+      </a>
+    );
+  }
 
   return content;
 }
