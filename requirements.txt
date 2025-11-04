@@ -30,7 +30,7 @@ redis==5.0.1
 # Image processing
 Pillow==11.1.0
 numpy==2.1.3
-onnxruntime==1.19.2
+onnxruntime==1.23.2
 
 # Profiling
 pyinstrument==5.1.1
