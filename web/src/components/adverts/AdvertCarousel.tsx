@@ -70,20 +70,34 @@ export default function AdvertCarousel() {
   const { data: adverts, isLoading, error } = useAdverts();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const handleNext = useCallback(() => {
-    if (!adverts || adverts.length === 0) return;
-    setCurrentIndex((prev) => (prev + 1) % adverts.length);
-  }, [adverts]);
+    if (!adverts || adverts.length === 0 || isTransitioning) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % adverts.length);
+      setIsTransitioning(false);
+    }, 700); // Match transition duration
+  }, [adverts, isTransitioning]);
 
   const handlePrev = useCallback(() => {
-    if (!adverts || adverts.length === 0) return;
-    setCurrentIndex((prev) => (prev - 1 + adverts.length) % adverts.length);
-  }, [adverts]);
+    if (!adverts || adverts.length === 0 || isTransitioning) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev - 1 + adverts.length) % adverts.length);
+      setIsTransitioning(false);
+    }, 700); // Match transition duration
+  }, [adverts, isTransitioning]);
 
   const handleDotClick = useCallback((index: number) => {
-    setCurrentIndex(index);
-  }, []);
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentIndex(index);
+      setIsTransitioning(false);
+    }, 700);
+  }, [isTransitioning]);
 
   // Auto-advance every 15 seconds
   useEffect(() => {
@@ -145,8 +159,9 @@ export default function AdvertCarousel() {
           {/* Previous ad (blurred, partial) - animated */}
           {hasMultipleAds && (
             <div 
-              className="absolute left-0 w-[144px] h-[188px] -translate-x-1/2 pointer-events-none z-0 transition-all duration-700 ease-in-out"
-              key={`prev-${prevIndex}`}
+              className={`absolute left-0 w-[144px] h-[188px] -translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
+                isTransitioning ? 'opacity-0' : 'opacity-100'
+              }`}
             >
               <div className="w-[288px] h-[188px]">
                 <AdvertCard advert={prevAdvert} isBlurred={true} />
@@ -156,8 +171,9 @@ export default function AdvertCarousel() {
           
           {/* Current ad (center, full visibility) - Fixed 288x188px with animation */}
           <div 
-            className="absolute inset-0 flex items-center justify-center z-10 transition-all duration-700 ease-in-out"
-            key={`current-${currentIndex}`}
+            className={`absolute inset-0 flex items-center justify-center z-10 transition-opacity duration-700 ease-in-out ${
+              isTransitioning ? 'opacity-0' : 'opacity-100'
+            }`}
           >
             <div className="w-[288px] h-[188px]">
               <AdvertCard advert={currentAdvert} />
@@ -167,8 +183,9 @@ export default function AdvertCarousel() {
           {/* Next ad (blurred, partial) - animated */}
           {hasMultipleAds && (
             <div 
-              className="absolute right-0 w-[144px] h-[188px] translate-x-1/2 pointer-events-none z-0 transition-all duration-700 ease-in-out"
-              key={`next-${nextIndex}`}
+              className={`absolute right-0 w-[144px] h-[188px] translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
+                isTransitioning ? 'opacity-0' : 'opacity-100'
+              }`}
             >
               <div className="w-[288px] h-[188px]">
                 <AdvertCard advert={nextAdvert} isBlurred={true} />
@@ -185,7 +202,8 @@ export default function AdvertCarousel() {
                 e.stopPropagation();
                 handlePrev();
               }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors z-20"
+              disabled={isTransitioning}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors z-20 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Previous advertisement"
             >
               <span className="text-lg leading-none">‹</span>
@@ -195,7 +213,8 @@ export default function AdvertCarousel() {
                 e.stopPropagation();
                 handleNext();
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors z-20"
+              disabled={isTransitioning}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors z-20 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Next advertisement"
             >
               <span className="text-lg leading-none">›</span>
@@ -214,7 +233,8 @@ export default function AdvertCarousel() {
                 e.stopPropagation();
                 handleDotClick(index);
               }}
-              className={`w-2 h-2 rounded-full transition-all ${
+              disabled={isTransitioning}
+              className={`w-2 h-2 rounded-full transition-all disabled:cursor-not-allowed ${
                 index === currentIndex
                   ? "bg-trig-green-600 w-6"
                   : "bg-gray-300 hover:bg-gray-400"
