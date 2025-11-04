@@ -143,27 +143,21 @@ export default function LogForm({
           </label>
           
           {!locationSet ? (
-            <>
-              <LocationPicker
-                onLocationSelected={(location) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    osgb_gridref: location.gridRef,
-                    osgb_eastings: location.eastings,
-                    osgb_northings: location.northings,
-                  }));
-                  setLocationSet(true);
-                }}
-                maxAccuracy={10}
-                trigLatitude={trigLatitude}
-                trigLongitude={trigLongitude}
-                maxDistance={25}
-              />
-              <div className="mt-2 text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded px-3 py-2">
-                <strong>Note:</strong> Location is optional. If you don't set your location, 
-                no location data will be recorded with this log.
-              </div>
-            </>
+            <LocationPicker
+              onLocationSelected={(location) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  osgb_gridref: location.gridRef,
+                  osgb_eastings: location.eastings,
+                  osgb_northings: location.northings,
+                }));
+                setLocationSet(true);
+              }}
+              maxAccuracy={10}
+              trigLatitude={trigLatitude}
+              trigLongitude={trigLongitude}
+              maxDistance={25}
+            />
           ) : (
             <div className="space-y-2">
               <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
