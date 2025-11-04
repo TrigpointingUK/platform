@@ -12,7 +12,7 @@ import LogForm from "../components/logs/LogForm";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useTrigLogs } from "../hooks/useTrigLogs";
 import { useCreateLog } from "../hooks/useCreateLog";
-import { LogCreateInput } from "../lib/api";
+import { LogCreateInput, LogUpdateInput } from "../lib/api";
 
 const conditionMap: Record<
   string,
@@ -75,9 +75,9 @@ export default function TrigDetail() {
     setShowLogForm(true);
   };
 
-  const handleLogSubmit = async (data: LogCreateInput) => {
+  const handleLogSubmit = async (data: LogCreateInput | LogUpdateInput) => {
     try {
-      const newLog = await createLogMutation.mutateAsync(data);
+      const newLog = await createLogMutation.mutateAsync(data as LogCreateInput);
       setShowLogForm(false);
       // Navigate to the new log
       navigate(`/logs/${newLog.id}`);

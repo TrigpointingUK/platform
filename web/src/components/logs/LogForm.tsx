@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Log, LogCreateInput } from "../../lib/api";
+import { Log, LogCreateInput, LogUpdateInput } from "../../lib/api";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
@@ -15,7 +15,7 @@ interface LogFormProps {
   trigLatitude: number;
   trigLongitude: number;
   existingLog?: Log;
-  onSubmit: (data: LogCreateInput) => Promise<void>;
+  onSubmit: (data: LogCreateInput | LogUpdateInput) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
 }

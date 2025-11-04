@@ -1,19 +1,69 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
+import Button from "../components/ui/Button";
 import LogCard from "../components/logs/LogCard";
+import LogForm from "../components/logs/LogForm";
 import { useLogDetail } from "../hooks/useLogDetail";
+import { useTrigDetail } from "../hooks/useTrigDetail";
+import { useUpdateLog } from "../hooks/useUpdateLog";
+import { LogUpdateInput } from "../lib/api";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
   const logIdNum = logId ? parseInt(logId, 10) : null;
+  const { user } = useAuth0();
+
+  const [isEditing, setIsEditing] = useState(false);
 
   const {
     data: log,
     isLoading,
     error,
   } = useLogDetail(logIdNum!);
+
+  // Fetch trig details to get latitude/longitude for location picker
+  // Only fetch if we have a log and are in editing mode
+  const shouldFetchTrig = !!log && isEditing;
+  const {
+    data: trig,
+    isLoading: isTrigLoading,
+  } = useTrigDetail(shouldFetchTrig ? log.trig_id : undefined);
+
+  const updateLogMutation = useUpdateLog(logIdNum!);
+
+  // Check if the current user is the owner of this log
+  // We'll rely on the backend to enforce this, but show/hide the edit button
+  // based on whether the user is authenticated. The backend will validate ownership.
+  const isAuthenticated = !!user;
+
+  const handleEdit = () => {
+    if (!isAuthenticated) {
+      // Could redirect to login or show message
+      console.warn("User must be logged in to edit");
+      return;
+    }
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleUpdateSubmit = async (data: LogUpdateInput) => {
+    try {
+      await updateLogMutation.mutateAsync(data);
+      setIsEditing(false);
+      // Optionally show success message
+    } catch (error) {
+      console.error("Failed to update log:", error);
+      // Error handling - could show toast notification
+      throw error;
+    }
+  };
 
   if (!logIdNum) {
     return (
@@ -45,7 +95,7 @@ export default function LogDetail() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || isTrigLoading) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto">
@@ -76,6 +126,20 @@ export default function LogDetail() {
     );
   }
 
+  // If we're editing but trig data isn't loaded yet, show spinner
+  if (isEditing && !trig) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto">
+          <Card>
+            <Spinner size="lg" />
+            <p className="text-center text-gray-600 mt-4">Loading trigpoint data...</p>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
@@ -89,8 +153,40 @@ export default function LogDetail() {
           </Link>
         </div>
 
-        {/* Single Log Card */}
-        <LogCard log={log} />
+        {/* Edit/View Toggle */}
+        {!isEditing ? (
+          <>
+            {/* Read-only view */}
+            <LogCard log={log} />
+            
+            {/* Edit button - only show if user is authenticated */}
+            {/* Backend will validate actual ownership */}
+            {isAuthenticated && (
+              <div className="mt-4">
+                <Button onClick={handleEdit}>
+                  ✏️ Edit Log
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Edit mode */}
+            {trig && (
+              <LogForm
+                trigGridRef={log.osgb_gridref}
+                trigEastings={log.osgb_eastings}
+                trigNorthings={log.osgb_northings}
+                trigLatitude={parseFloat(trig.wgs_lat)}
+                trigLongitude={parseFloat(trig.wgs_long)}
+                existingLog={log}
+                onSubmit={handleUpdateSubmit}
+                onCancel={handleCancelEdit}
+                isSubmitting={updateLogMutation.isPending}
+              />
+            )}
+          </>
+        )}
       </div>
     </Layout>
   );
