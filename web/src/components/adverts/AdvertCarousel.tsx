@@ -110,7 +110,7 @@ export default function AdvertCarousel() {
   if (isLoading) {
     return (
       <Card>
-        <div className="aspect-[16/9] flex items-center justify-center">
+        <div className="h-[188px] flex items-center justify-center">
           <Spinner size="sm" />
         </div>
       </Card>
@@ -138,28 +138,32 @@ export default function AdvertCarousel() {
       onClick={() => setIsPaused(true)}
       className="overflow-hidden"
     >
-      {/* Fixed 16:9 aspect ratio container */}
-      <div className="relative w-full aspect-[16/9]">
+      {/* Fixed 288x188px container */}
+      <div className="relative w-full h-[188px] flex items-center justify-center">
         {/* Carousel track with side cards visible */}
-        <div className="absolute inset-0 flex items-center overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           {/* Previous ad (blurred, partial) */}
           {hasMultipleAds && (
-            <div className="absolute left-0 w-1/4 h-full -translate-x-1/2 pointer-events-none z-0">
-              <AdvertCard advert={prevAdvert} isBlurred={true} />
+            <div className="absolute left-0 w-[144px] h-[188px] -translate-x-1/2 pointer-events-none z-0">
+              <div className="w-[288px] h-[188px]">
+                <AdvertCard advert={prevAdvert} isBlurred={true} />
+              </div>
             </div>
           )}
           
-          {/* Current ad (center, full visibility) */}
-          <div className="absolute inset-0 flex items-center justify-center z-10 px-8">
-            <div className="w-full h-full">
+          {/* Current ad (center, full visibility) - Fixed 288x188px */}
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <div className="w-[288px] h-[188px]">
               <AdvertCard advert={currentAdvert} />
             </div>
           </div>
           
           {/* Next ad (blurred, partial) */}
           {hasMultipleAds && (
-            <div className="absolute right-0 w-1/4 h-full translate-x-1/2 pointer-events-none z-0">
-              <AdvertCard advert={nextAdvert} isBlurred={true} />
+            <div className="absolute right-0 w-[144px] h-[188px] translate-x-1/2 pointer-events-none z-0">
+              <div className="w-[288px] h-[188px]">
+                <AdvertCard advert={nextAdvert} isBlurred={true} />
+              </div>
             </div>
           )}
         </div>
