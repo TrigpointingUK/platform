@@ -113,7 +113,7 @@ export default function TrigPhotos() {
         {/* Header */}
         <div className="mb-6">
           <Link
-            to={`/trigs/${trigIdNum}`}
+            to={`/trig/${trigIdNum}`}
             className="text-trig-green-600 hover:underline mb-2 inline-block"
           >
             ← Back to Trigpoint

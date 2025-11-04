@@ -50,7 +50,8 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
   // Format trig ID with minimum 4 digits (TP0023, TP1234, TP34567)
   const formattedTrigId = `TP${log.trig_id.toString().padStart(4, '0')}`;
 
-  const handlePhotoClick = (photo: Photo) => {
+  const handlePhotoClick = (photo: Photo, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click when clicking a photo
     // Navigate with the photo data and all photos from the log in state
     // This enables forward/back navigation in the photo viewer
     navigate(`/photos/${photo.id}`, { 
@@ -62,8 +63,15 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
     });
   };
 
+  const handleCardClick = () => {
+    navigate(`/logs/${log.id}`);
+  };
+
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card 
+      className="hover:shadow-lg transition-shadow cursor-pointer" 
+      onClick={handleCardClick}
+    >
       <div className="flex flex-col gap-3">
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -71,6 +79,7 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
             <Link
               to={`/trig/${log.trig_id}`}
               className="text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
+              onClick={(e) => e.stopPropagation()}
             >
               {formattedTrigId}
               {displayTrigName && (
@@ -87,6 +96,7 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
                   <Link
                     to={`/profile/${log.user_id}`}
                     className="text-trig-green-600 hover:underline font-semibold text-base"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     {displayUserName}
                   </Link>
@@ -94,6 +104,7 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
                   <Link
                     to={`/profile/${log.user_id}`}
                     className="text-trig-green-600 hover:underline font-semibold text-base"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     User #{log.user_id}
                   </Link>
@@ -132,7 +143,7 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
                   <div
                     key={photo.id}
                     className="relative h-20 w-20 flex-shrink-0 cursor-pointer group"
-                    onClick={() => handlePhotoClick(photo)}
+                    onClick={(e) => handlePhotoClick(photo, e)}
                   >
                     <img
                       src={photo.icon_url}

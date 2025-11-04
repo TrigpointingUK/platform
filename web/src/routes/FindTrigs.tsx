@@ -243,7 +243,7 @@ export default function FindTrigs() {
             {/* First trigpoint map preview */}
             <div className="mx-4 mt-4 mb-2 flex justify-center">
               <img
-                src={`${import.meta.env.VITE_API_BASE}/v1/trigs/${allTrigs[0].id}/map`}
+                src={`${import.meta.env.VITE_API_BASE}/v1/trig/${allTrigs[0].id}/map`}
                 alt={`Map for ${allTrigs[0].name}`}
                 title="The dot represents the first trigpoint in the list, not the searched location"
                 className="w-[110px] h-[110px] rounded border-2 border-gray-300 shadow-md cursor-help"

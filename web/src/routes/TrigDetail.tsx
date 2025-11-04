@@ -287,7 +287,7 @@ export default function TrigDetail() {
             {/* Right: Map Thumbnail */}
             <div className="flex-shrink-0">
               <img
-                src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
+                src={`${apiBase}/v1/trig/${trigIdNum}/map`}
                 alt={`Map thumbnail for ${trig.name}`}
                 className="w-[110px] h-[110px] border border-gray-300 rounded"
               />
