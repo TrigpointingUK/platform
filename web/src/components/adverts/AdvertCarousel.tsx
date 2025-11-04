@@ -98,13 +98,13 @@ export default function AdvertCarousel() {
     }, 700);
   }, [isTransitioning]);
 
-  // Auto-advance every 15 seconds
+  // Auto-advance every 10 seconds
   useEffect(() => {
     if (!adverts || adverts.length <= 1 || isPaused) return;
 
     const interval = setInterval(() => {
       handleNext();
-    }, 15000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [adverts, isPaused, handleNext]);
@@ -123,7 +123,7 @@ export default function AdvertCarousel() {
   if (isLoading) {
     return (
       <Card>
-        <div className="h-[188px] flex items-center justify-center">
+        <div className="h-[438px] flex items-center justify-center">
           <Spinner size="sm" />
         </div>
       </Card>
@@ -151,30 +151,30 @@ export default function AdvertCarousel() {
       onClick={() => setIsPaused(true)}
       className="overflow-hidden"
     >
-      {/* Fixed 288x188px container */}
-      <div className="relative w-full h-[188px] flex items-center justify-center">
+      {/* Fixed 656x438px container */}
+      <div className="relative w-full h-[438px] flex items-center justify-center">
         {/* Carousel track with side cards visible */}
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           {/* Previous ad (blurred, partial) - animated */}
           {hasMultipleAds && (
             <div 
-              className={`absolute left-0 w-[144px] h-[188px] -translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
+              className={`absolute left-0 w-[328px] h-[438px] -translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
                 isTransitioning ? 'opacity-0' : 'opacity-100'
               }`}
             >
-              <div className="w-[288px] h-[188px]">
+              <div className="w-[656px] h-[438px]">
                 <AdvertCard advert={prevAdvert} isBlurred={true} />
               </div>
             </div>
           )}
           
-          {/* Current ad (center, full visibility) - Fixed 288x188px with animation */}
+          {/* Current ad (center, full visibility) - Fixed 656x438px with animation */}
           <div 
             className={`absolute inset-0 flex items-center justify-center z-10 transition-opacity duration-700 ease-in-out ${
               isTransitioning ? 'opacity-0' : 'opacity-100'
             }`}
           >
-            <div className="w-[288px] h-[188px]">
+            <div className="w-[656px] h-[438px]">
               <AdvertCard advert={currentAdvert} />
             </div>
           </div>
@@ -182,11 +182,11 @@ export default function AdvertCarousel() {
           {/* Next ad (blurred, partial) - animated */}
           {hasMultipleAds && (
             <div 
-              className={`absolute right-0 w-[144px] h-[188px] translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
+              className={`absolute right-0 w-[328px] h-[438px] translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
                 isTransitioning ? 'opacity-0' : 'opacity-100'
               }`}
             >
-              <div className="w-[288px] h-[188px]">
+              <div className="w-[656px] h-[438px]">
                 <AdvertCard advert={nextAdvert} isBlurred={true} />
               </div>
             </div>
