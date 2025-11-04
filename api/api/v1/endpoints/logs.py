@@ -7,7 +7,7 @@ Only PATCH (no PUT). DELETE is hard-delete for logs and soft-deletes their photo
 from datetime import date as date_type
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user, get_db
@@ -24,6 +24,31 @@ from api.utils.cache_decorator import cached
 from api.utils.url import join_url
 
 router = APIRouter()
+
+
+def get_client_ip(request: Request) -> str:
+    """
+    Extract client IP address from request, considering proxy headers.
+    Checks in order: CF-Connecting-IP (Cloudflare), X-Forwarded-For (ALB), X-Real-IP, client.host
+    """
+    # Cloudflare header (most reliable when behind Cloudflare)
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip
+
+    # X-Forwarded-For from ALB (takes first IP in list)
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # X-Forwarded-For can be a comma-separated list, take the first (original client)
+        return forwarded_for.split(",")[0].strip()
+
+    # X-Real-IP header
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+
+    # Fallback to direct connection IP
+    return request.client.host if request.client else "127.0.0.1"
 
 
 def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
@@ -265,13 +290,21 @@ def get_log(
     },
 )
 def create_log(
+    request: Request,
     trig_id: int = Query(..., description="Parent trig ID"),
     payload: TLogCreate = Body(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Get client IP address
+    client_ip = get_client_ip(request)
+
+    # Add ip_addr to the payload data
+    log_data = payload.model_dump()
+    log_data["ip_addr"] = client_ip
+
     log = tlog_crud.create_log(
-        db, trig_id=trig_id, user_id=int(current_user.id), values=payload.model_dump()
+        db, trig_id=trig_id, user_id=int(current_user.id), values=log_data
     )
     return TLogResponse.model_validate(log)
 

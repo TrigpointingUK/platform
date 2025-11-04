@@ -27,15 +27,20 @@ export default function FindTrigs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
 
-  // Parse URL params or use defaults
-  const [centerLat, setCenterLat] = useState<number>(
-    () => parseFloat(searchParams.get("lat") || "") || DEFAULT_LAT
-  );
-  const [centerLon, setCenterLon] = useState<number>(
-    () => parseFloat(searchParams.get("lon") || "") || DEFAULT_LON
-  );
+  // Track if we've attempted to get user location
+  const [locationAttempted, setLocationAttempted] = useState<boolean>(false);
+
+  // Parse URL params or use null initially (will attempt geolocation)
+  const [centerLat, setCenterLat] = useState<number | null>(() => {
+    const lat = parseFloat(searchParams.get("lat") || "");
+    return lat || null;
+  });
+  const [centerLon, setCenterLon] = useState<number | null>(() => {
+    const lon = parseFloat(searchParams.get("lon") || "");
+    return lon || null;
+  });
   const [locationName, setLocationName] = useState<string>(
-    () => searchParams.get("location") || DEFAULT_LOCATION_NAME
+    () => searchParams.get("location") || ""
   );
   
   const [selectedPhysicalTypes, setSelectedPhysicalTypes] = useState<string[]>(
@@ -49,8 +54,46 @@ export default function FindTrigs() {
     () => searchParams.get("excludeFound") === "true"
   );
 
-  // Update URL when filters change
+  // Attempt to get user's current location on mount
   useEffect(() => {
+    // Only attempt if no location is set from URL params
+    if (centerLat !== null || locationAttempted) {
+      return;
+    }
+
+    setLocationAttempted(true);
+
+    if (!navigator.geolocation) {
+      // Geolocation not supported, fall back to default
+      setCenterLat(DEFAULT_LAT);
+      setCenterLon(DEFAULT_LON);
+      setLocationName(DEFAULT_LOCATION_NAME);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        // Success: use user's location
+        setCenterLat(position.coords.latitude);
+        setCenterLon(position.coords.longitude);
+        setLocationName("Current Location");
+      },
+      (error) => {
+        // Permission denied or error: fall back to default
+        console.log("Geolocation error:", error.message);
+        setCenterLat(DEFAULT_LAT);
+        setCenterLon(DEFAULT_LON);
+        setLocationName(DEFAULT_LOCATION_NAME);
+      }
+    );
+  }, [centerLat, locationAttempted]);
+
+  // Update URL when filters change (only if location is set)
+  useEffect(() => {
+    if (centerLat === null || centerLon === null) {
+      return;
+    }
+
     const params = new URLSearchParams();
     params.set("lat", centerLat.toString());
     params.set("lon", centerLon.toString());
@@ -67,7 +110,7 @@ export default function FindTrigs() {
     setSearchParams(params, { replace: true });
   }, [centerLat, centerLon, locationName, selectedPhysicalTypes, excludeFound, setSearchParams]);
 
-  // Fetch trigpoints with current filters
+  // Fetch trigpoints with current filters (only if location is set)
   const {
     data,
     fetchNextPage,
@@ -76,8 +119,8 @@ export default function FindTrigs() {
     isLoading,
     error,
   } = useInfiniteTrigs({
-    lat: centerLat,
-    lon: centerLon,
+    lat: centerLat ?? undefined,
+    lon: centerLon ?? undefined,
     physicalTypes: selectedPhysicalTypes.length > 0 ? selectedPhysicalTypes : undefined,
     excludeFound,
   });
@@ -160,11 +203,15 @@ export default function FindTrigs() {
               </label>
               <LocationSearch
                 onSelectLocation={handleSelectLocation}
-                defaultLocation={{
-                  lat: centerLat,
-                  lon: centerLon,
-                  name: locationName,
-                }}
+                defaultLocation={
+                  centerLat !== null && centerLon !== null
+                    ? {
+                        lat: centerLat,
+                        lon: centerLon,
+                        name: locationName,
+                      }
+                    : undefined
+                }
               />
             </div>
 
@@ -206,12 +253,12 @@ export default function FindTrigs() {
 
             {/* Results count */}
             <div className="text-sm text-gray-600">
-              {isLoading ? (
+              {isLoading || centerLat === null || centerLon === null ? (
                 <span>Loading...</span>
               ) : (
                 <span>
                   Showing {allTrigs.length} of {totalCount} trigpoints
-                  {centerLat && centerLon && ` near ${locationName}`}
+                  {centerLat && centerLon && locationName && ` near ${locationName}`}
                 </span>
               )}
             </div>
@@ -256,9 +303,9 @@ export default function FindTrigs() {
                 <TrigCard
                   key={trig.id}
                   trig={trig}
-                  showDistance={!!centerLat && !!centerLon}
-                  centerLat={centerLat}
-                  centerLon={centerLon}
+                  showDistance={centerLat !== null && centerLon !== null}
+                  centerLat={centerLat ?? 0}
+                  centerLon={centerLon ?? 0}
                 />
               ))}
             </div>

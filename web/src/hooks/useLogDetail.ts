@@ -1,19 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Photo } from "../lib/api";
-
-interface Log {
-  id: number;
-  trig_id: number;
-  user_id: number;
-  trig_name?: string;
-  user_name?: string;
-  date: string;
-  time: string;
-  condition: string;
-  comment: string;
-  score: number;
-  photos?: Photo[];
-}
+import { Log } from "../lib/api";
 
 export function useLogDetail(logId: number) {
   return useQuery<Log>({

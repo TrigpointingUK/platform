@@ -206,8 +206,8 @@ function RecentLogsSection() {
 export default function Home() {
   return (
     <Layout>
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar - left on desktop, top on mobile */}
+      <div className="flex flex-col-reverse lg:flex-row gap-6">
+        {/* Sidebar - bottom on mobile, left on desktop */}
         <Sidebar />
 
         {/* Main Content */}

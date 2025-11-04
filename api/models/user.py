@@ -59,16 +59,16 @@ class TLog(Base):
     user_id = Column(Integer, index=True, nullable=False)
     date = Column(Date, nullable=False)
     time = Column(Time, nullable=False)
-    osgb_eastings = Column(Integer, nullable=False)
-    osgb_northings = Column(Integer, nullable=False)
-    osgb_gridref = Column(String(14), nullable=False)
+    osgb_eastings = Column(Integer, nullable=True)
+    osgb_northings = Column(Integer, nullable=True)
+    osgb_gridref = Column(String(14), nullable=True)
     fb_number = Column(String(10), nullable=False)
     condition = Column(CHAR(1), nullable=False)
     comment = Column(Text, nullable=False)
     score = Column(SmallInteger, nullable=False)
     ip_addr = Column(String(15), nullable=False)
     source = Column(CHAR(1), nullable=False)
-    upd_timestamp = Column(DateTime, nullable=True)
+    upd_timestamp = Column(DateTime, nullable=False, default=datetime.now)
 
 
 class TPhotoVote(Base):

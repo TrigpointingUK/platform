@@ -1,17 +1,11 @@
 import Card from "../ui/Card";
+import AdvertCarousel from "../adverts/AdvertCarousel";
 
 export default function Sidebar() {
   return (
-    <aside className="w-full lg:w-64 flex-shrink-0 space-y-4 mb-6 lg:mb-0">
-      {/* Advertisement Placeholder */}
-      <Card>
-        <div className="text-center">
-          <div className="bg-gray-100 h-48 flex items-center justify-center rounded mb-2">
-            <span className="text-gray-400">Advertisement Space</span>
-          </div>
-          <p className="text-xs text-gray-500">Support Trigpointing UK</p>
-        </div>
-      </Card>
+    <aside className="w-full lg:w-96 flex-shrink-0 space-y-4 mb-6 lg:mb-0">
+      {/* Advertisement Carousel */}
+      <AdvertCarousel />
 
       {/* Quick Links */}
       <Card>

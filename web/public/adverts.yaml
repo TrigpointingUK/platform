@@ -1,0 +1,32 @@
+- id: 1
+  title: TrigpointingUK Android App
+  text: Log your trig visits on the go with our free Android app. Available now on Google Play Store.
+  photo: /img/android-qr.png
+  link: https://play.google.com/store/apps/details?id=uk.trigpointing.android
+  startDate: null
+  endDate: null
+
+- id: 2
+  title: Contribute to the Wiki
+  text: Thousands of community-sourced articles.  Please add your knowledge!
+  photo: /img/wiki.png
+  link: https://wiki.trigpointing.uk
+  startDate: null
+  endDate: null
+
+- id: 3
+  title: Join the Community Forum
+  text: Connect with fellow trigpointers, share stories, and get advice on finding elusive pillars.
+  photo: /img/forum.png
+  link: https://forum.trigpointing.uk
+  startDate: null
+  endDate: null
+
+- id: 4
+  title: 20th Century Society
+  text: Celebrate the 90th anniversary of the retriangulation of Great Britain by collabotation with the 20th Century Society.
+  photo: /img/c20society.png
+  link: https://c20society.org.uk/
+  startDate: '2025-11-01'
+  endDate: '2026-12-31'
+

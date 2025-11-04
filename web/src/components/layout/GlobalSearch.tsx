@@ -123,7 +123,7 @@ export function GlobalSearch({
       {isOpen && query.length >= 2 && (
         <div
           id="search-results"
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+          className="absolute z-50 w-full min-w-[320px] mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
           role="listbox"
         >
           {isLoading && (

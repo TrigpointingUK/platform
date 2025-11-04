@@ -2,8 +2,9 @@
 Pydantic schemas for TLog (logs) endpoints.
 """
 
-from datetime import date, time
-from typing import Optional
+from datetime import date as DateType
+from datetime import time as TimeType
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -14,11 +15,11 @@ class TLogBase(BaseModel):
     id: int
     trig_id: int
     user_id: int
-    date: date
-    time: time
-    osgb_eastings: int
-    osgb_northings: int
-    osgb_gridref: str = Field(..., max_length=14)
+    date: DateType
+    time: TimeType
+    osgb_eastings: Optional[int] = None
+    osgb_northings: Optional[int] = None
+    osgb_gridref: Optional[str] = Field(default=None, max_length=14)
     fb_number: str = Field(..., max_length=10)
     condition: str = Field(..., min_length=1, max_length=1)
     comment: str
@@ -42,11 +43,11 @@ class TLogWithIncludes(TLogResponse):
 
 class TLogCreate(BaseModel):
     # user_id is set from current user on POST endpoints
-    date: date
-    time: time
-    osgb_eastings: int
-    osgb_northings: int
-    osgb_gridref: str = Field(..., max_length=14)
+    date: DateType
+    time: TimeType
+    osgb_eastings: Optional[int] = None
+    osgb_northings: Optional[int] = None
+    osgb_gridref: Optional[str] = Field(default=None, max_length=14)
     fb_number: str = Field("", max_length=10)
     condition: str = Field(..., min_length=1, max_length=1)
     comment: str = ""
@@ -55,14 +56,14 @@ class TLogCreate(BaseModel):
 
 
 class TLogUpdate(BaseModel):
-    # Partial updates only
-    date: Optional[date] = None
-    time: Optional[time] = None
-    osgb_eastings: Optional[int] = None
-    osgb_northings: Optional[int] = None
-    osgb_gridref: Optional[str] = Field(None, max_length=14)
-    fb_number: Optional[str] = Field(None, max_length=10)
-    condition: Optional[str] = Field(None, min_length=1, max_length=1)
-    comment: Optional[str] = None
-    score: Optional[int] = None
-    source: Optional[str] = Field(None, min_length=1, max_length=1)
+    # Partial updates only - all fields optional
+    date: Union[DateType, None] = None
+    time: Union[TimeType, None] = None
+    osgb_eastings: Union[int, None] = None
+    osgb_northings: Union[int, None] = None
+    osgb_gridref: Union[str, None] = Field(default=None, max_length=14)
+    fb_number: Union[str, None] = Field(default=None, max_length=10)
+    condition: Union[str, None] = Field(default=None, min_length=1, max_length=1)
+    comment: Union[str, None] = None
+    score: Union[int, None] = None
+    source: Union[str, None] = Field(default=None, min_length=1, max_length=1)

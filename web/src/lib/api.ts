@@ -41,6 +41,29 @@ export async function apiPost<T>(
   return res.json() as Promise<T>;
 }
 
+export async function apiPatch<T>(
+  url: string,
+  data: unknown,
+  token?: string
+): Promise<T> {
+  const res = await fetch(`${API_BASE}${url}`, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+  }
+  
+  return res.json() as Promise<T>;
+}
+
 export interface RotatePhotoRequest {
   angle: number;
 }
@@ -76,6 +99,95 @@ export async function rotatePhoto(
   token?: string
 ): Promise<Photo> {
   return apiPost<Photo>(`/v1/photos/${photoId}/rotate`, { angle }, token);
+}
+
+/**
+ * Upload a photo for a log
+ */
+export async function uploadPhoto(
+  logId: number,
+  file: File,
+  caption: string,
+  text_desc: string,
+  type: string,
+  license: string,
+  token: string
+): Promise<Photo> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("caption", caption);
+  formData.append("text_desc", text_desc);
+  formData.append("type", type);
+  formData.append("license", license);
+
+  const response = await fetch(`${apiBase}/v1/photos?log_id=${logId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+
+  return response.json() as Promise<Photo>;
+}
+
+/**
+ * Update photo metadata
+ */
+export async function updatePhoto(
+  photoId: number,
+  updates: {
+    caption?: string;
+    text_desc?: string;
+    type?: string;
+    license?: string;
+  },
+  token: string
+): Promise<Photo> {
+  return apiPatch<Photo>(`/v1/photos/${photoId}`, updates, token);
+}
+
+/**
+ * Delete a photo (soft delete)
+ */
+export async function deletePhoto(
+  photoId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/photos/${photoId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Get photos for a log
+ */
+export async function getLogPhotos(logId: number): Promise<Photo[]> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/photos?log_id=${logId}`);
+  
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+  
+  const data = await response.json();
+  return data.items || [];
 }
 
 export interface TrigDetails {
@@ -116,4 +228,72 @@ export interface Trig {
   details?: TrigDetails;
   stats?: TrigStats;
 }
+
+export interface Log {
+  id: number;
+  trig_id: number;
+  user_id: number;
+  trig_name?: string;
+  user_name?: string;
+  date: string;
+  time: string;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  fb_number: string;
+  condition: string;
+  comment: string;
+  score: number;
+  source: string;
+  photos?: Photo[];
+}
+
+export interface LogCreateInput {
+  date: string;
+  time: string;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  fb_number?: string;
+  condition: string;
+  comment?: string;
+  score: number;
+  source?: string;
+}
+
+export interface LogUpdateInput {
+  date?: string;
+  time?: string;
+  osgb_eastings?: number;
+  osgb_northings?: number;
+  osgb_gridref?: string;
+  fb_number?: string;
+  condition?: string;
+  comment?: string;
+  score?: number;
+  source?: string;
+}
+
+/**
+ * Create a new log for a trigpoint
+ */
+export async function createLog(
+  trigId: number,
+  data: LogCreateInput,
+  token: string
+): Promise<Log> {
+  return apiPost<Log>(`/v1/logs?trig_id=${trigId}`, data, token);
+}
+
+/**
+ * Update an existing log
+ */
+export async function updateLog(
+  logId: number,
+  data: LogUpdateInput,
+  token: string
+): Promise<Log> {
+  return apiPatch<Log>(`/v1/logs/${logId}`, data, token);
+}
+
 
