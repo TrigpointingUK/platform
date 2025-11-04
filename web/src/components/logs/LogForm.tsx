@@ -7,6 +7,8 @@ import ConditionSelector from "../forms/ConditionSelector";
 import ScoreSelector from "../forms/ScoreSelector";
 import DateTimeEditor from "../forms/DateTimeEditor";
 import LocationPicker from "../forms/LocationPicker";
+import PhotoManager from "../photos/PhotoManager";
+import { useLogPhotos } from "../../hooks/useLogPhotos";
 
 interface LogFormProps {
   trigGridRef: string;
@@ -54,6 +56,9 @@ export default function LogForm({
     existingLog ? existingLog.time !== "12:00:00" : true // Default to true for new logs
   );
   const [locationSet, setLocationSet] = useState(!!existingLog);
+
+  // Fetch photos for existing logs
+  const { data: photos = [] } = useLogPhotos(existingLog?.id);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,6 +242,25 @@ export default function LogForm({
             placeholder="Describe your visit..."
           />
         </div>
+
+        {/* Photo Management - Only show for existing logs */}
+        {existingLog ? (
+          <div className="pt-4 border-t border-gray-200">
+            <PhotoManager
+              logId={existingLog.id}
+              photos={photos}
+              isEditing={true}
+            />
+          </div>
+        ) : (
+          <div className="pt-4 border-t border-gray-200">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+              <p className="text-sm text-gray-700">
+                <strong>Note:</strong> Save your log first, then you can add photos by editing it.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4">

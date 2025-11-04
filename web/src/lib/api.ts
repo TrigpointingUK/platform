@@ -101,6 +101,95 @@ export async function rotatePhoto(
   return apiPost<Photo>(`/v1/photos/${photoId}/rotate`, { angle }, token);
 }
 
+/**
+ * Upload a photo for a log
+ */
+export async function uploadPhoto(
+  logId: number,
+  file: File,
+  caption: string,
+  text_desc: string,
+  type: string,
+  license: string,
+  token: string
+): Promise<Photo> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("caption", caption);
+  formData.append("text_desc", text_desc);
+  formData.append("type", type);
+  formData.append("license", license);
+
+  const response = await fetch(`${apiBase}/v1/photos?log_id=${logId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+
+  return response.json() as Promise<Photo>;
+}
+
+/**
+ * Update photo metadata
+ */
+export async function updatePhoto(
+  photoId: number,
+  updates: {
+    caption?: string;
+    text_desc?: string;
+    type?: string;
+    license?: string;
+  },
+  token: string
+): Promise<Photo> {
+  return apiPatch<Photo>(`/v1/photos/${photoId}`, updates, token);
+}
+
+/**
+ * Delete a photo (soft delete)
+ */
+export async function deletePhoto(
+  photoId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/photos/${photoId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Get photos for a log
+ */
+export async function getLogPhotos(logId: number): Promise<Photo[]> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/photos?log_id=${logId}`);
+  
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+  
+  const data = await response.json();
+  return data.items || [];
+}
+
 export interface TrigDetails {
   current_use: string;
   historic_use: string;
