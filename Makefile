@@ -23,10 +23,12 @@ help: ## Show this help message
 # Defaults (override on the command line or environment as needed)
 AWS_REGION ?= eu-west-1
 STAGING_SECRET_ARN ?= arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-staging-credentials-udrQoU
+PRODUCTION_SECRET_ARN ?= arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-legacy-credentials-p9KGQI
 SSH_BASTION_HOST ?= bastion.trigpointing.uk
 SSH_BASTION_USER ?= ec2-user
 SSH_KEY_PATH ?= ~/.ssh/trigpointing-bastion.pem
 LOCAL_DB_TUNNEL_PORT ?= 3307
+LOCAL_DB_TUNNEL_PORT_PROD ?= 3308
 LOCAL_REDIS_TUNNEL_PORT ?= 6379
 BASTION_SG_ID ?=
 
@@ -92,6 +94,51 @@ mysql-staging: ## Open MySQL client against staging via tunnel (requires db-tunn
 	DB_NAME=$$(echo "$$SECRET_JSON" | jq -r '.dbname // .database'); \
 	echo "🐬 Connecting mysql to 127.0.0.1:$(LOCAL_DB_TUNNEL_PORT) as $$DB_USER to $$DB_NAME"; \
 	mysql -h 127.0.0.1 -P $(LOCAL_DB_TUNNEL_PORT) -u "$$DB_USER" -p"$$DB_PASSWORD" "$$DB_NAME"
+
+# ---------------------------------------------------------------------------
+# Production Database Access
+# ---------------------------------------------------------------------------
+
+# Start an SSH tunnel through the bastion to the PRODUCTION RDS endpoint
+db-tunnel-production-start: ## Start SSH tunnel to production RDS on localhost:$(LOCAL_DB_TUNNEL_PORT_PROD)
+	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found. Install and configure AWS credentials."; exit 1; }
+	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found. Please install jq."; exit 1; }
+	@mkdir -p .ssh
+	@echo "🔎 Fetching production DB host/port from Secrets Manager ($(PRODUCTION_SECRET_ARN))"
+	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id $(PRODUCTION_SECRET_ARN) --query SecretString --output text); \
+	RDS_HOST=$$(echo "$$SECRET_JSON" | jq -r '.host'); \
+	RDS_PORT=$$(echo "$$SECRET_JSON" | jq -r '.port'); \
+	echo "🌐 Tunnelling 127.0.0.1:$(LOCAL_DB_TUNNEL_PORT_PROD) → $$RDS_HOST:$$RDS_PORT via $(SSH_BASTION_USER)@$(SSH_BASTION_HOST)"; \
+	ssh -i $(SSH_KEY_PATH) -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $(SSH_BASTION_USER)@$(SSH_BASTION_HOST) 'exit' 2>/dev/null || { \
+	  echo "❌ Unable to reach $(SSH_BASTION_HOST) via SSH. Check: SSH_KEY_PATH, IP allowlist/Security Group, and network."; \
+	  exit 1; \
+	}; \
+	if ssh -S .ssh/fastapi-production-tunnel -O check $(SSH_BASTION_USER)@$(SSH_BASTION_HOST) 2>/dev/null; then \
+	  echo "✅ Tunnel already running"; \
+	else \
+	  ssh -i $(SSH_KEY_PATH) -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=accept-new -M -S .ssh/fastapi-production-tunnel -f -N \
+	    -L 127.0.0.1:$(LOCAL_DB_TUNNEL_PORT_PROD):$$RDS_HOST:$$RDS_PORT \
+	    $(SSH_BASTION_USER)@$(SSH_BASTION_HOST) && echo "✅ Tunnel started"; \
+	fi
+
+# Stop the production SSH tunnel
+db-tunnel-production-stop: ## Stop SSH tunnel to production RDS if running
+	@ssh -S .ssh/fastapi-production-tunnel -O exit $(SSH_BASTION_USER)@$(SSH_BASTION_HOST) 2>/dev/null || true
+	@rm -f .ssh/fastapi-production-tunnel
+	@echo "🛑 Production tunnel stopped (if it was running)"
+
+# Open a MySQL client to PRODUCTION via the tunnel
+mysql-production: ## Open MySQL client against PRODUCTION via tunnel (requires db-tunnel-production-start)
+	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found. Install and configure AWS credentials."; exit 1; }
+	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found. Please install jq."; exit 1; }
+	@command -v mysql >/dev/null 2>&1 || { echo "❌ mysql client not found. Install mysql-client."; exit 1; }
+	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id $(PRODUCTION_SECRET_ARN) --query SecretString --output text); \
+	DB_USER=$$(echo "$$SECRET_JSON" | jq -r '.username'); \
+	DB_PASSWORD=$$(echo "$$SECRET_JSON" | jq -r '.password'); \
+	DB_NAME=$$(echo "$$SECRET_JSON" | jq -r '.dbname // .database'); \
+	echo "🐬 Connecting mysql to PRODUCTION at 127.0.0.1:$(LOCAL_DB_TUNNEL_PORT_PROD) as $$DB_USER to $$DB_NAME"; \
+	echo "⚠️  WARNING: You are connecting to the PRODUCTION database!"; \
+	mysql -h 127.0.0.1 -P $(LOCAL_DB_TUNNEL_PORT_PROD) -u "$$DB_USER" -p"$$DB_PASSWORD" "$$DB_NAME"
 
 # ---------------------------------------------------------------------------
 # SSM-based alternatives (no public SSH required)
