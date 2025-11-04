@@ -10,12 +10,13 @@ import LogForm from "../components/logs/LogForm";
 import { useLogDetail } from "../hooks/useLogDetail";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useUpdateLog } from "../hooks/useUpdateLog";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import { LogUpdateInput } from "../lib/api";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
   const logIdNum = logId ? parseInt(logId, 10) : null;
-  const { user } = useAuth0();
+  const { user: auth0User } = useAuth0();
 
   const [isEditing, setIsEditing] = useState(false);
 
@@ -24,6 +25,9 @@ export default function LogDetail() {
     isLoading,
     error,
   } = useLogDetail(logIdNum!);
+
+  // Get current user's database profile
+  const { data: currentUser } = useCurrentUser();
 
   // Fetch trig details to get latitude/longitude for location picker
   // Only fetch if we have a log and are in editing mode
@@ -36,12 +40,10 @@ export default function LogDetail() {
   const updateLogMutation = useUpdateLog(logIdNum!);
 
   // Check if the current user is the owner of this log
-  // We'll rely on the backend to enforce this, but show/hide the edit button
-  // based on whether the user is authenticated. The backend will validate ownership.
-  const isAuthenticated = !!user;
+  const isOwner = !!currentUser && !!log && currentUser.id === log.user_id;
 
   const handleEdit = () => {
-    if (!isAuthenticated) {
+    if (!auth0User) {
       // Could redirect to login or show message
       console.warn("User must be logged in to edit");
       return;
@@ -159,9 +161,8 @@ export default function LogDetail() {
             {/* Read-only view */}
             <LogCard log={log} />
             
-            {/* Edit button - only show if user is authenticated */}
-            {/* Backend will validate actual ownership */}
-            {isAuthenticated && (
+            {/* Edit button - only show if user owns this log */}
+            {isOwner && (
               <div className="mt-4">
                 <Button onClick={handleEdit}>
                   ✏️ Edit Log

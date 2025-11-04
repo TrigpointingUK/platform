@@ -58,13 +58,25 @@ export default function LogForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const submitData = {
-      ...formData,
+    const submitData: Partial<LogCreateInput> = {
+      date: formData.date,
       time: useCustomTime ? formData.time : "12:00:00",
+      condition: formData.condition,
+      score: formData.score,
+      comment: formData.comment,
+      fb_number: formData.fb_number,
+      source: formData.source,
     };
 
+    // Only include location fields if user has set a custom location
+    if (locationSet) {
+      submitData.osgb_gridref = formData.osgb_gridref;
+      submitData.osgb_eastings = formData.osgb_eastings;
+      submitData.osgb_northings = formData.osgb_northings;
+    }
+
     try {
-      await onSubmit(submitData);
+      await onSubmit(submitData as LogCreateInput | LogUpdateInput);
     } catch (error) {
       console.error("Failed to submit log:", error);
     }
@@ -143,8 +155,8 @@ export default function LogForm({
                 maxDistance={25}
               />
               <div className="mt-2 text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded px-3 py-2">
-                <strong>Note:</strong> If you don't set your location, the trigpoint's 
-                recorded coordinates will be used by default.
+                <strong>Note:</strong> Location is optional. If you don't set your location, 
+                no location data will be recorded with this log.
               </div>
             </>
           ) : (
