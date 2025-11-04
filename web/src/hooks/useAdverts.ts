@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import * as yaml from "js-yaml";
 
 export interface AdvertItem {
   id: number;
@@ -59,11 +60,12 @@ export function useAdverts() {
   return useQuery<AdvertItem[]>({
     queryKey: ["adverts"],
     queryFn: async () => {
-      const response = await fetch("/adverts.json");
+      const response = await fetch("/adverts.yaml");
       if (!response.ok) {
         throw new Error("Failed to fetch adverts");
       }
-      const data: AdvertItem[] = await response.json();
+      const text = await response.text();
+      const data = yaml.load(text) as AdvertItem[];
       return filterActiveAdverts(data);
     },
     staleTime: 10 * 60 * 1000, // 10 minutes

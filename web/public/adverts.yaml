@@ -1,0 +1,32 @@
+- id: 1
+  title: TrigpointingUK Android App
+  text: Log your trig visits on the go with our free Android app. Available now on Google Play Store.
+  photo: img/android-qr.png
+  link: https://play.google.com/store/apps/details?id=uk.trigpointing.android
+  startDate: null
+  endDate: null
+
+- id: 2
+  title: Explore the Wiki
+  text: Thousands of articles about trigpointing, history, and surveying. Written by our community.
+  photo: null
+  link: https://trigpointing.uk/wiki
+  startDate: null
+  endDate: null
+
+- id: 3
+  title: Join the Community Forum
+  text: Connect with fellow trigpointers, share stories, and get advice on finding elusive pillars.
+  photo: /img/chat.png
+  link: https://forum.trigpointing.uk
+  startDate: null
+  endDate: null
+
+- id: 4
+  title: Annual Trigpointing Meetup 2026
+  text: Save the date! Join us for a weekend of trigpointing adventures in the Peak District. Registration opens March 2026.
+  photo: https://trigpointing.uk/img/meetup-2026.jpg
+  link: null
+  startDate: '2026-01-01'
+  endDate: '2026-06-30'
+
