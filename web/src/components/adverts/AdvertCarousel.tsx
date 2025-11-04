@@ -142,25 +142,34 @@ export default function AdvertCarousel() {
       <div className="relative w-full h-[188px] flex items-center justify-center">
         {/* Carousel track with side cards visible */}
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-          {/* Previous ad (blurred, partial) */}
+          {/* Previous ad (blurred, partial) - animated */}
           {hasMultipleAds && (
-            <div className="absolute left-0 w-[144px] h-[188px] -translate-x-1/2 pointer-events-none z-0">
+            <div 
+              className="absolute left-0 w-[144px] h-[188px] -translate-x-1/2 pointer-events-none z-0 transition-all duration-700 ease-in-out"
+              key={`prev-${prevIndex}`}
+            >
               <div className="w-[288px] h-[188px]">
                 <AdvertCard advert={prevAdvert} isBlurred={true} />
               </div>
             </div>
           )}
           
-          {/* Current ad (center, full visibility) - Fixed 288x188px */}
-          <div className="absolute inset-0 flex items-center justify-center z-10">
+          {/* Current ad (center, full visibility) - Fixed 288x188px with animation */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center z-10 transition-all duration-700 ease-in-out"
+            key={`current-${currentIndex}`}
+          >
             <div className="w-[288px] h-[188px]">
               <AdvertCard advert={currentAdvert} />
             </div>
           </div>
           
-          {/* Next ad (blurred, partial) */}
+          {/* Next ad (blurred, partial) - animated */}
           {hasMultipleAds && (
-            <div className="absolute right-0 w-[144px] h-[188px] translate-x-1/2 pointer-events-none z-0">
+            <div 
+              className="absolute right-0 w-[144px] h-[188px] translate-x-1/2 pointer-events-none z-0 transition-all duration-700 ease-in-out"
+              key={`next-${nextIndex}`}
+            >
               <div className="w-[288px] h-[188px]">
                 <AdvertCard advert={nextAdvert} isBlurred={true} />
               </div>
