@@ -45,7 +45,7 @@ while IFS= read -r file; do
     elif [[ "$file" =~ ^web/ ]]; then
         run_web_checks=true
         docs_only=false
-    elif [[ ! "$file" =~ ^(docs/|forum/|wiki/|\.github/|Makefile|README\.md|.*\.md$) ]]; then
+    elif [[ ! "$file" =~ ^(docs/|forum/|wiki/|\.github/|\.githooks/|\.cursor/|Makefile|README\.md|.*\.md$) ]]; then
         # Unknown file type - warn but allow push
         echo "⚠️  File not categorised: $file"
     fi
