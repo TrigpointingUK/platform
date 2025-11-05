@@ -109,12 +109,9 @@ export default function AdvertCarousel() {
     return () => clearInterval(interval);
   }, [adverts, isPaused, handleNext]);
 
-  // Reset index if adverts change and current index is out of bounds
-  useEffect(() => {
-    if (adverts && currentIndex >= adverts.length) {
-      setCurrentIndex(0);
-    }
-  }, [adverts, currentIndex]);
+  // Ensure current index is valid when adverts change
+  const validIndex = adverts && currentIndex >= adverts.length ? 0 : currentIndex;
+  const currentAdvert = adverts?.[validIndex];
 
   if (error) {
     return null; // Silently fail
@@ -134,15 +131,19 @@ export default function AdvertCarousel() {
     return null; // Hide if no active adverts
   }
 
-  const currentAdvert = adverts[currentIndex];
   const showControls = adverts.length > 1;
   
   // Get previous and next adverts for side display
-  const prevIndex = (currentIndex - 1 + adverts.length) % adverts.length;
-  const nextIndex = (currentIndex + 1) % adverts.length;
+  const prevIndex = (validIndex - 1 + adverts.length) % adverts.length;
+  const nextIndex = (validIndex + 1) % adverts.length;
   const prevAdvert = adverts[prevIndex];
   const nextAdvert = adverts[nextIndex];
   const hasMultipleAds = adverts.length > 1;
+
+  // Ensure we have a valid current advert
+  if (!currentAdvert) {
+    return null;
+  }
 
   return (
     <Card
