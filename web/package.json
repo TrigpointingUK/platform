@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "prebuild": "node generate-build-info.mjs",
@@ -39,16 +43,16 @@
     "@typescript-eslint/eslint-plugin": "^8.46.3",
     "@typescript-eslint/parser": "^8.46.3",
     "@vitejs/plugin-react": "^4.2.1",
-    "@vitest/coverage-v8": "^1.6.1",
+    "@vitest/coverage-v8": "^4.0.6",
     "autoprefixer": "^10.4.21",
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
-    "jsdom": "^24.1.3",
+    "jsdom": "^27.1.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.16",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
-    "vitest": "^1.6.1"
+    "vitest": "^4.0.6"
   }
 }

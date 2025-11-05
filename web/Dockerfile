@@ -1,7 +1,7 @@
 # Multi-stage build for React SPA with nginx
 
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
