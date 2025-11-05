@@ -1,0 +1,35 @@
+diff --git a/node_modules/webidl-conversions/lib/index.js b/node_modules/webidl-conversions/lib/index.js
+index 55f56c8..bfd69e8 100644
+--- a/node_modules/webidl-conversions/lib/index.js
++++ b/node_modules/webidl-conversions/lib/index.js
+@@ -322,8 +322,10 @@ function isSharedArrayBuffer(value) {
+   }
+ }
+ 
+-const abResizableGetter = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable").get;
+-const sabGrowableGetter = Object.getOwnPropertyDescriptor(SharedArrayBuffer.prototype, "growable").get;
++const abResizableDesc = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable");
++const sabGrowableDesc = Object.getOwnPropertyDescriptor(SharedArrayBuffer.prototype, "growable");
++const abResizableGetter = abResizableDesc ? abResizableDesc.get : () => false;
++const sabGrowableGetter = sabGrowableDesc ? sabGrowableDesc.get : () => false;
+ 
+ function isNonSharedArrayBufferResizable(value) {
+   try {
+diff --git a/node_modules/webidl-conversions/lib/index.js.patch b/node_modules/webidl-conversions/lib/index.js.patch
+new file mode 100644
+index 0000000..9a9b6d5
+--- /dev/null
++++ b/node_modules/webidl-conversions/lib/index.js.patch
+@@ -0,0 +1,12 @@
++--- a/lib/index.js
+++++ b/lib/index.js
++@@ -322,7 +322,11 @@ function isNonSharedArrayBufferResizable(value) {
++   }
++ }
++ 
++-const abResizableGetter = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable").get;
++-const sabGrowableGetter = Object.getOwnPropertyDescriptor(SharedArrayBuffer.prototype, "growable").get;
+++const abResizableDesc = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable");
+++const sabGrowableDesc = Object.getOwnPropertyDescriptor(SharedArrayBuffer.prototype, "growable");
+++const abResizableGetter = abResizableDesc ? abResizableDesc.get : () => false;
+++const sabGrowableGetter = sabGrowableDesc ? sabGrowableDesc.get : () => false;
