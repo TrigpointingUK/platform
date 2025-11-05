@@ -19,12 +19,12 @@ export interface UserProfile {
   name: string;
   firstname: string;
   surname: string;
-  email?: string;
   homepage: string | null;
   about: string;
   member_since: string | null;
   stats?: UserStats;
   breakdown?: UserBreakdown;
+  prefs?: UserPrefs;
 }
 
 export function useUserProfile(userId: string | number) {

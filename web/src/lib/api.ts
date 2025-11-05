@@ -296,4 +296,31 @@ export async function updateLog(
   return apiPatch<Log>(`/v1/logs/${logId}`, data, token);
 }
 
+export interface LegacyLoginRequest {
+  username: string;
+  password: string;
+  email: string;
+}
+
+export interface LegacyLoginResponse {
+  id: number;
+  name: string;
+  email: string;
+  email_valid: string;
+  firstname: string;
+  surname: string;
+  homepage: string | null;
+  about: string;
+  member_since?: string;
+}
+
+/**
+ * Legacy login endpoint - migrates user account to Auth0
+ */
+export async function legacyLogin(
+  data: LegacyLoginRequest
+): Promise<LegacyLoginResponse> {
+  return apiPost<LegacyLoginResponse>(`/v1/legacy/login`, data);
+}
+
 

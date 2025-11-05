@@ -12,7 +12,7 @@ export default function Sidebar() {
         <h3 className="font-bold text-lg mb-3 text-gray-800">Quick Links</h3>
         <nav className="space-y-2">
           <a
-            href="https://trigpointing.uk/wiki"
+            href="https://wiki.trigpointing.uk"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
@@ -20,7 +20,7 @@ export default function Sidebar() {
             📖 Wiki
           </a>
           <a
-            href="https://trigpointing.uk/forum"
+            href="https://wiki.trigpointing.uk"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
@@ -43,7 +43,12 @@ export default function Sidebar() {
           >
             🗺️ Ordnance Survey
           </a>
-        </nav>
+          <a
+            href="/legacy-migration"
+            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+          >
+            🔧 Solve your Login problems here!
+          </a>        </nav>
       </Card>
 
       {/* About */}
