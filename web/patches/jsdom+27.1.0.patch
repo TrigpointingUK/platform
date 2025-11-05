@@ -1,0 +1,14 @@
+diff --git a/node_modules/jsdom/lib/jsdom/browser/Window.js b/node_modules/jsdom/lib/jsdom/browser/Window.js
+index 1c4601d..bbb6324 100644
+--- a/node_modules/jsdom/lib/jsdom/browser/Window.js
++++ b/node_modules/jsdom/lib/jsdom/browser/Window.js
+@@ -79,7 +79,8 @@ exports.createWindow = options => {
+   // TODO: don't expose _globalObject and _globalProxy as public properties. While you're there, audit usage sites to
+   // see how necessary they really are.
+   if (makeVMContext) {
+-    window = vm.createContext(vm.constants.DONT_CONTEXTIFY);
++    const dontContextify = vm.constants?.DONT_CONTEXTIFY ?? {};
++    window = vm.createContext(dontContextify);
+ 
+     window._globalObject = window;
+     window._globalProxy = vm.runInContext("this", window);
