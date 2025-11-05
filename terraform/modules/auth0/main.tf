@@ -18,11 +18,11 @@ terraform {
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 4.0"
+      version = "~> 5.0"
     }
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
   }
 }
@@ -601,9 +601,7 @@ data "auth0_tenant" "current" {}
 
 # Get Cloudflare zone information
 data "cloudflare_zones" "domain" {
-  filter {
-    name = var.cloudflare_zone_name
-  }
+  name = var.cloudflare_zone_name
 }
 
 # ============================================================================
@@ -620,14 +618,13 @@ resource "auth0_custom_domain" "main" {
 
 # Create CNAME record in Cloudflare pointing to Auth0
 # This is DNS-only (not proxied) as required by Auth0
-resource "cloudflare_record" "auth0_custom_domain" {
-  zone_id         = data.cloudflare_zones.domain.zones[0].id
-  name            = split(".", var.auth0_custom_domain)[0] # Extract subdomain (e.g., "auth" from "auth.trigpointing.me")
-  content         = auth0_custom_domain.main.verification[0].methods[0].record
-  type            = "CNAME"
-  proxied         = false # MUST be false for Auth0 custom domains
-  ttl             = 1     # Auto TTL
-  allow_overwrite = true  # Allow Terraform to manage existing records
+resource "cloudflare_dns_record" "auth0_custom_domain" {
+  zone_id = data.cloudflare_zones.domain.result[0].id
+  name    = split(".", var.auth0_custom_domain)[0] # Extract subdomain (e.g., "auth" from "auth.trigpointing.me")
+  content = auth0_custom_domain.main.verification[0].methods[0].record
+  type    = "CNAME"
+  proxied = false # MUST be false for Auth0 custom domains
+  ttl     = 1     # Auto TTL
 
   comment = "Auth0 custom domain for ${var.environment} - managed by Terraform"
 }

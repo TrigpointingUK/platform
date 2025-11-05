@@ -19,8 +19,8 @@ resource "aws_ses_domain_dkim" "trigpointing_me" {
 }
 
 # Add DNS records to Cloudflare for domain verification
-resource "cloudflare_record" "ses_verification" {
-  zone_id = data.cloudflare_zones.staging.zones[0].id
+resource "cloudflare_dns_record" "ses_verification" {
+  zone_id = data.cloudflare_zones.staging.result[0].id
   name    = "_amazonses.trigpointing.me"
   content = aws_ses_domain_identity.trigpointing_me.verification_token
   type    = "TXT"
@@ -30,10 +30,10 @@ resource "cloudflare_record" "ses_verification" {
 }
 
 # DKIM DNS records (3 records for email authentication)
-resource "cloudflare_record" "ses_dkim" {
+resource "cloudflare_dns_record" "ses_dkim" {
   count = 3
 
-  zone_id = data.cloudflare_zones.staging.zones[0].id
+  zone_id = data.cloudflare_zones.staging.result[0].id
   name    = "${aws_ses_domain_dkim.trigpointing_me.dkim_tokens[count.index]}._domainkey.trigpointing.me"
   content = "${aws_ses_domain_dkim.trigpointing_me.dkim_tokens[count.index]}.dkim.amazonses.com"
   type    = "CNAME"
@@ -44,9 +44,7 @@ resource "cloudflare_record" "ses_dkim" {
 
 # Get Cloudflare zone info
 data "cloudflare_zones" "staging" {
-  filter {
-    name = "trigpointing.me"
-  }
+  name = "trigpointing.me"
 }
 
 # ============================================================================
