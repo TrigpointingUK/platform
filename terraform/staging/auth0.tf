@@ -3,17 +3,6 @@
 # This uses the auth0 module to create a complete Auth0 setup
 # for the staging environment with its own tenant.
 
-# Handle resource renames from Cloudflare provider v4 to v5
-moved {
-  from = cloudflare_record.ses_verification
-  to   = cloudflare_dns_record.ses_verification
-}
-
-moved {
-  from = cloudflare_record.ses_dkim
-  to   = cloudflare_dns_record.ses_dkim
-}
-
 # ============================================================================
 # SES DOMAIN IDENTITY
 # ============================================================================
