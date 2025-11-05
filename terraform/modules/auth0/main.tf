@@ -10,6 +10,12 @@
 # - Admin role with permissions
 # - Post User Registration Action (optional)
 
+# Handle resource renames from Cloudflare provider v4 to v5
+moved {
+  from = cloudflare_record.auth0_custom_domain
+  to   = cloudflare_dns_record.auth0_custom_domain
+}
+
 terraform {
   required_providers {
     auth0 = {
