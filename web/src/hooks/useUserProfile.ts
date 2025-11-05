@@ -14,6 +14,16 @@ interface UserStats {
   total_photos: number;
 }
 
+interface UserPrefs {
+  status_max: number;
+  distance_ind: string;
+  public_ind: string;
+  online_map_type: string;
+  online_map_type2: string;
+  email: string;
+  email_valid: string;
+}
+
 export interface UserProfile {
   id: number;
   name: string;
