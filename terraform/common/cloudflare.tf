@@ -210,6 +210,7 @@ resource "cloudflare_list_item" "wiki_redirect_w" {
     include_subdomains    = true
     subpath_matching      = true
     preserve_query_string = true
+    preserve_path_suffix  = false
   }
 }
 
@@ -225,6 +226,7 @@ resource "cloudflare_list_item" "wiki_redirect_wiki" {
     include_subdomains    = true
     subpath_matching      = true
     preserve_query_string = true
+    preserve_path_suffix  = false
   }
 }
 
@@ -251,6 +253,7 @@ resource "cloudflare_list_item" "forum_redirect_forum" {
     include_subdomains    = true
     subpath_matching      = true
     preserve_query_string = true
+    preserve_path_suffix  = false
   }
 }
 
