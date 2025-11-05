@@ -14,8 +14,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "node --require ./tests/polyfills.cjs ./node_modules/.bin/vitest",
+    "test:run": "node --require ./tests/polyfills.cjs ./node_modules/.bin/vitest run",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui"
   },
