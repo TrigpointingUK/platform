@@ -102,7 +102,9 @@ class TestLegacyLoginAuthentication:
             user_id="auth0|test123", password="testpass123"
         )
         mock_auth0_service.update_user_email.assert_called_once_with(
-            user_id="auth0|test123", email="new.email@example.com"
+            user_id="auth0|test123",
+            email="new.email@example.com",
+            username="legacy_test_user",
         )
 
     @patch("api.api.v1.endpoints.legacy.auth0_service")
@@ -205,9 +207,8 @@ class TestLegacyLoginAuthentication:
         db: Session,
         test_user: User,
     ):
-        """Test login without email but with existing Auth0 user updates password only."""
-        mock_auth0_service.update_user_password.return_value = True
-
+        """Test login without email returns user data without Auth0 sync."""
+        # Auth0 service should not be called when email is not provided
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
@@ -223,27 +224,18 @@ class TestLegacyLoginAuthentication:
         # Email should remain unchanged in database
         assert data["email"] == "old.email@example.com"
 
-        # Verify only password was updated, not email
-        mock_auth0_service.update_user_password.assert_called_once_with(
-            user_id="auth0|test123", password="testpass123"
-        )
+        # Verify Auth0 was not called at all
+        mock_auth0_service.update_user_password.assert_not_called()
         mock_auth0_service.update_user_email.assert_not_called()
         mock_auth0_service.create_user.assert_not_called()
 
-    @patch("api.api.v1.endpoints.legacy.auth0_service")
     def test_login_without_email_no_auth0_user(
         self,
-        mock_auth0_service: MagicMock,
         client: TestClient,
         db: Session,
         test_user_no_auth0: User,
     ):
-        """Test login without email and no Auth0 user creates Auth0 account with existing email."""
-        mock_auth0_service.create_user.return_value = {
-            "user_id": "auth0|created123",
-            "email": "no.auth0@example.com",
-        }
-
+        """Test login without email returns user data without Auth0 sync."""
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
@@ -259,20 +251,9 @@ class TestLegacyLoginAuthentication:
         # Email should remain unchanged
         assert data["email"] == "no.auth0@example.com"
 
-        # Verify Auth0 account was created using existing email
-        mock_auth0_service.create_user.assert_called_once_with(
-            username="legacy_no_auth0",
-            email="no.auth0@example.com",  # Falls back to existing email
-            password="testpass456",
-            name="legacy_no_auth0",
-            user_id=5001,
-            firstname="No",
-            surname="Auth0",
-        )
-
-        # Verify user now has Auth0 ID
+        # Verify user still doesn't have Auth0 ID (no sync without email)
         db.refresh(test_user_no_auth0)
-        assert test_user_no_auth0.auth0_user_id == "auth0|created123"
+        assert test_user_no_auth0.auth0_user_id is None
 
 
 class TestLegacyLoginAuth0Sync:
@@ -331,7 +312,9 @@ class TestLegacyLoginAuth0Sync:
         # Both password and email should be updated
         mock_auth0_service.update_user_password.assert_called_once()
         mock_auth0_service.update_user_email.assert_called_once_with(
-            user_id="auth0|test123", email="different.email@example.com"
+            user_id="auth0|test123",
+            email="different.email@example.com",
+            username="legacy_test_user",
         )
 
     @patch("api.api.v1.endpoints.legacy.auth0_service")
