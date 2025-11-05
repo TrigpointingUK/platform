@@ -2,6 +2,17 @@ import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+// Polyfill for ArrayBuffer.prototype.resizable (required by webidl-conversions@8.0.0)
+// This property is only available in Node.js 20+, but we need it for jsdom compatibility
+if (!Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'resizable')) {
+  Object.defineProperty(ArrayBuffer.prototype, 'resizable', {
+    get: function() {
+      return false;
+    },
+    configurable: true,
+  });
+}
+
 // Clean up after each test
 afterEach(() => {
   cleanup();
