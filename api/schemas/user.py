@@ -211,8 +211,11 @@ class LegacyLoginRequest(BaseModel):
         ..., min_length=1, max_length=30, description="Username for login"
     )
     password: str = Field(..., min_length=1, description="Password for authentication")
-    email: str = Field(
-        ..., min_length=1, max_length=255, description="Email address for Auth0 sync"
+    email: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=255,
+        description="Optional email address for Auth0 sync",
     )
     include: Optional[str] = Field(
         None,
@@ -235,9 +238,10 @@ class LegacyLoginRequest(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def validate_email_required(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Email address is required")
+    def validate_email_format(cls, v: Optional[str]) -> Optional[str]:
+        # Email is optional, but if provided, must be valid
+        if v is None or not v.strip():
+            return None
 
         # Basic email format validation
         email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"

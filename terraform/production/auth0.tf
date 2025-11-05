@@ -19,27 +19,25 @@ resource "aws_ses_domain_dkim" "trigpointing_uk" {
 }
 
 # Add DNS records to Cloudflare for domain verification
-resource "cloudflare_record" "ses_verification" {
-  zone_id         = data.cloudflare_zones.production.zones[0].id
-  name            = "_amazonses.trigpointing.uk"
-  content         = "\"${aws_ses_domain_identity.trigpointing_uk.verification_token}\""
-  type            = "TXT"
-  ttl             = 600
-  allow_overwrite = true # Allow Terraform to replace incorrectly formatted record
+resource "cloudflare_dns_record" "ses_verification" {
+  zone_id = data.cloudflare_zones.production.result[0].id
+  name    = "_amazonses.trigpointing.uk"
+  content = "\"${aws_ses_domain_identity.trigpointing_uk.verification_token}\""
+  type    = "TXT"
+  ttl     = 600
 
   comment = "SES domain verification for trigpointing.uk"
 }
 
 # DKIM DNS records (3 records for email authentication)
-resource "cloudflare_record" "ses_dkim" {
+resource "cloudflare_dns_record" "ses_dkim" {
   count = 3
 
-  zone_id         = data.cloudflare_zones.production.zones[0].id
-  name            = "${aws_ses_domain_dkim.trigpointing_uk.dkim_tokens[count.index]}._domainkey.trigpointing.uk"
-  content         = "${aws_ses_domain_dkim.trigpointing_uk.dkim_tokens[count.index]}.dkim.amazonses.com"
-  type            = "CNAME"
-  ttl             = 600
-  allow_overwrite = true # Allow Terraform to recreate if needed
+  zone_id = data.cloudflare_zones.production.result[0].id
+  name    = "${aws_ses_domain_dkim.trigpointing_uk.dkim_tokens[count.index]}._domainkey.trigpointing.uk"
+  content = "${aws_ses_domain_dkim.trigpointing_uk.dkim_tokens[count.index]}.dkim.amazonses.com"
+  type    = "CNAME"
+  ttl     = 600
 
   comment = "SES DKIM record ${count.index + 1} for trigpointing.uk"
 }
@@ -53,8 +51,8 @@ resource "aws_ses_domain_mail_from" "trigpointing_uk" {
 }
 
 # MX record for custom MAIL FROM domain (required by SES)
-resource "cloudflare_record" "ses_mail_from_mx" {
-  zone_id  = data.cloudflare_zones.production.zones[0].id
+resource "cloudflare_dns_record" "ses_mail_from_mx" {
+  zone_id  = data.cloudflare_zones.production.result[0].id
   name     = "mail"
   content  = "feedback-smtp.eu-west-1.amazonses.com"
   type     = "MX"
@@ -65,8 +63,8 @@ resource "cloudflare_record" "ses_mail_from_mx" {
 }
 
 # SPF record for custom MAIL FROM subdomain
-resource "cloudflare_record" "ses_mail_from_spf" {
-  zone_id = data.cloudflare_zones.production.zones[0].id
+resource "cloudflare_dns_record" "ses_mail_from_spf" {
+  zone_id = data.cloudflare_zones.production.result[0].id
   name    = "mail"
   content = "v=spf1 include:amazonses.com ~all"
   type    = "TXT"
@@ -77,9 +75,7 @@ resource "cloudflare_record" "ses_mail_from_spf" {
 
 # Get Cloudflare zone info
 data "cloudflare_zones" "production" {
-  filter {
-    name = "trigpointing.uk"
-  }
+  name = "trigpointing.uk"
 }
 
 # ============================================================================

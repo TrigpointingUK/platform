@@ -53,6 +53,12 @@ resource "aws_instance" "bastion" {
   tags = {
     Name = "${var.project_name}-bastion"
   }
+
+  lifecycle {
+    # Ignore changes to public IP/DNS as they're managed by EIP association
+    # AWS provider v6 incorrectly detects these as changes
+    ignore_changes = [public_ip, public_dns]
+  }
 }
 
 # Associate Elastic IP with Bastion Host

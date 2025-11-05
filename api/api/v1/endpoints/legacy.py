@@ -5,7 +5,7 @@ Legacy endpoints for authentication and administrative operations.
 from datetime import datetime, timezone  # noqa: F401
 from typing import Dict, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -42,32 +42,30 @@ router = APIRouter()
 @router.post(
     "/login", response_model=LegacyLoginResponse, response_model_exclude_none=True
 )
-def login_for_access_token(
-    request: LegacyLoginRequest = Body(...), db: Session = Depends(get_db)
-):
+def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(get_db)):
     """
     Legacy login endpoint - authenticates users and syncs with Auth0.
 
     This endpoint authenticates users against the legacy database using
-    Unix crypt password hashing, then synchronises their credentials and
-    email with Auth0. If the user doesn't have an Auth0 account, one is
-    created automatically.
+    Unix crypt password hashing, then synchronises their credentials with Auth0.
+    If the user doesn't have an Auth0 account, one is created automatically.
 
     Process:
     1. Look up user by username in legacy database
     2. Authenticate password using Unix crypt
     3. If user has auth0_user_id:
        - Update Auth0 password
-       - Update Auth0 email (triggering verification if changed)
-       - Update database email
+       - Update Auth0 email if new email provided and changed
+       - Update database email if new email provided
     4. If user doesn't have auth0_user_id:
        - Create new Auth0 user with provided credentials
+       - Use provided email or fall back to existing database email
        - Store Auth0 user ID in database
-       - Update database email
+       - Update database email if new email provided
     5. Return user data with optional includes (stats, breakdown, prefs)
 
     Args:
-        request: LegacyLoginRequest with username, password, email, and optional includes
+        request: LegacyLoginRequest with username, password, optional email, and optional includes
         db: Database session
 
     Returns:
@@ -92,13 +90,9 @@ def login_for_access_token(
             detail="Incorrect username or password",
         )
 
-    # Track if email changed
-    email_changed = str(user.email).lower() != request.email.lower()
-
     # Sync with Auth0
     if user.auth0_user_id:
-        # User has Auth0 account - update password and email
-        # Update password
+        # User has Auth0 account - update password
         password_success = auth0_service.update_user_password(
             user_id=str(user.auth0_user_id),
             password=request.password,
@@ -109,22 +103,27 @@ def login_for_access_token(
                 detail="Failed to update Auth0 password",
             )
 
-        # Update email if changed
-        if email_changed:
-            email_success = auth0_service.update_user_email(
-                user_id=str(user.auth0_user_id),
-                email=request.email,
-            )
-            if not email_success:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to update Auth0 email",
+        # Update email if provided and changed
+        if request.email:
+            email_changed = str(user.email).lower() != request.email.lower()
+            if email_changed:
+                email_success = auth0_service.update_user_email(
+                    user_id=str(user.auth0_user_id),
+                    email=request.email,
                 )
+                if not email_success:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Failed to update Auth0 email",
+                    )
     else:
         # User doesn't have Auth0 account - create one
+        # Use provided email or fall back to existing user email
+        email_for_auth0 = request.email if request.email else str(user.email)
+
         auth0_user = auth0_service.create_user(
             username=request.username,
-            email=request.email,
+            email=email_for_auth0,
             password=request.password,
             name=request.username,  # Set Auth0 name and nickname to username
             user_id=int(user.id),  # Store database user ID in Auth0 app_metadata
@@ -153,13 +152,14 @@ def login_for_access_token(
         # Update user object to reflect the change
         user.auth0_user_id = auth0_user_id  # type: ignore
 
-    # Update email in database and set email_valid to 'Y'
-    success = update_user_email(db=db, user_id=int(user.id), email=request.email)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update email in database",
-        )
+    # Update email in database if provided
+    if request.email:
+        success = update_user_email(db=db, user_id=int(user.id), email=request.email)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update email in database",
+            )
 
     # Refresh user object to get updated values
     db.refresh(user)
@@ -393,7 +393,7 @@ def email_duplicates(
     },
 )
 def merge_users(
-    request: UserMergeRequest = Body(...),
+    request: UserMergeRequest,
     db: Session = Depends(get_db),
 ):
     """

@@ -147,12 +147,12 @@ output "api_production_domain" {
 
 output "api_staging_record_id" {
   description = "CloudFlare record ID for staging API"
-  value       = cloudflare_record.api_staging.id
+  value       = cloudflare_dns_record.api_staging.id
 }
 
 output "api_production_record_id" {
   description = "CloudFlare record ID for production API"
-  value       = cloudflare_record.api_production.id
+  value       = cloudflare_dns_record.api_production.id
 }
 
 # Note: S3 bucket is managed externally

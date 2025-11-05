@@ -1,7 +1,7 @@
 -r requirements.txt
 
 # Additional development dependencies
-pre-commit==3.6.0
+pre-commit==4.3.0
 bandit==1.7.7
-safety==2.3.4
+safety==3.6.2
 diff-cover==9.2.0
