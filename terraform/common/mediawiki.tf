@@ -173,7 +173,7 @@ module "mediawiki" {
   private_subnet_ids           = aws_subnet.private[*].id
   target_group_arn             = aws_lb_target_group.mediawiki.arn
   cloudwatch_log_group_name    = "/aws/ecs/${var.project_name}-mediawiki-common"
-  image_uri                    = "ghcr.io/trigpointinguk/fastapi/mediawiki:main"
+  image_uri                    = "ghcr.io/trigpointinguk/platform/wiki:main"
   cache_host                   = module.valkey.valkey_endpoint
   cache_port                   = module.valkey.valkey_port
   mediawiki_db_credentials_arn = var.mediawiki_db_credentials_arn
