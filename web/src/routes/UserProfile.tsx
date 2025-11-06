@@ -165,7 +165,7 @@ export default function UserProfile() {
                 {!userId && (
                   <EditableField
                     label="Email"
-                    value={user.email || ""}
+                    value={user.prefs?.email || ""}
                     onSave={(value) => handleFieldUpdate("email", value)}
                     editable={isOwnProfile}
                     placeholder="your.email@example.com"

@@ -79,7 +79,9 @@ def test_login_persists_auth0_user_id(
     )
     # Email update should be called since email changed
     mock_auth0_service.update_user_email.assert_called_once_with(
-        user_id="auth0|abc123", email="new.email@example.com"
+        user_id="auth0|abc123",
+        email="new.email@example.com",
+        username="login_user",
     )
     # Verify the user's email was updated in database and email_valid set to Y
     db.refresh(user)

@@ -2,7 +2,7 @@
 Unit tests for Auth0 service integration.
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -350,23 +350,37 @@ class TestAuth0Service:
         mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
         mock_settings.AUTH0_SECRET_NAME = "test-secret"
 
-        mock_request.return_value = {"success": True}
+        mock_request.side_effect = [
+            {"nickname": "legacy_user"},
+            {"success": True},
+            {"job_id": "job-123"},
+        ]
 
         service = Auth0Service()
         result = service.update_user_email("auth0|123456789", "new@example.com")
 
         assert result is True
-        # Should make two calls: update email + send verification
-        assert mock_request.call_count == 2
-        mock_request.assert_any_call(
-            "PATCH",
-            "users/auth0|123456789",
-            {"email": "new@example.com", "email_verified": False},
-        )
-        mock_request.assert_any_call(
-            "POST",
-            "jobs/verification-email",
-            {"user_id": "auth0|123456789"},
+        # Should make three calls: get user + update email + send verification
+        assert mock_request.call_count == 3
+        mock_request.assert_has_calls(
+            [
+                call("GET", "users/auth0|123456789"),
+                call(
+                    "PATCH",
+                    "users/auth0|123456789",
+                    {
+                        "email": "new@example.com",
+                        "email_verified": False,
+                        "name": "legacy_user",
+                    },
+                ),
+                call(
+                    "POST",
+                    "jobs/verification-email",
+                    {"user_id": "auth0|123456789"},
+                ),
+            ],
+            any_order=False,
         )
 
     @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
@@ -377,12 +391,31 @@ class TestAuth0Service:
         mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
         mock_settings.AUTH0_SECRET_NAME = "test-secret"
 
-        mock_request.return_value = None
+        mock_request.side_effect = [
+            {"nickname": "legacy_user"},
+            None,
+        ]
 
         service = Auth0Service()
         result = service.update_user_email("auth0|123456789", "new@example.com")
 
         assert result is False
+        assert mock_request.call_count == 2
+        mock_request.assert_has_calls(
+            [
+                call("GET", "users/auth0|123456789"),
+                call(
+                    "PATCH",
+                    "users/auth0|123456789",
+                    {
+                        "email": "new@example.com",
+                        "email_verified": False,
+                        "name": "legacy_user",
+                    },
+                ),
+            ],
+            any_order=False,
+        )
 
     @patch("api.services.auth0_service.Auth0Service.find_user_by_nickname_or_name")
     @patch("api.services.auth0_service.Auth0Service.update_user_email")
@@ -411,7 +444,9 @@ class TestAuth0Service:
 
         assert result["email"] == "new@example.com"
         mock_find_user.assert_called_once_with("testuser")
-        mock_update_email.assert_called_once_with("auth0|123456789", "new@example.com")
+        mock_update_email.assert_called_once_with(
+            "auth0|123456789", "new@example.com", "testuser"
+        )
 
     @patch("api.services.auth0_service.Auth0Service.find_user_by_nickname_or_name")
     @patch("api.services.auth0_service.Auth0Service.create_user")

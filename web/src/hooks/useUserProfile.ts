@@ -14,17 +14,27 @@ interface UserStats {
   total_photos: number;
 }
 
+interface UserPrefs {
+  status_max: number;
+  distance_ind: string;
+  public_ind: string;
+  online_map_type: string;
+  online_map_type2: string;
+  email: string;
+  email_valid: string;
+}
+
 export interface UserProfile {
   id: number;
   name: string;
   firstname: string;
   surname: string;
-  email?: string;
   homepage: string | null;
   about: string;
   member_since: string | null;
   stats?: UserStats;
   breakdown?: UserBreakdown;
+  prefs?: UserPrefs;
 }
 
 export function useUserProfile(userId: string | number) {

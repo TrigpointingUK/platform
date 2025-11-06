@@ -35,6 +35,7 @@ class Auth0Service:
         self.connection = settings.AUTH0_CONNECTION
         self._access_token = None
         self._token_expires_at = None
+        self._last_error = None  # Store last error response for caller inspection
 
         if not self.tenant_domain:
             logger.error("AUTH0_TENANT_DOMAIN is required but not configured")
@@ -402,6 +403,7 @@ class Auth0Service:
 
             # Log successful requests
             if response.status_code == 200 or response.status_code == 201:
+                self._last_error = None  # Clear any previous error
                 log_data = {
                     "event": "auth0_api_request_success",
                     "method": method,
@@ -417,6 +419,12 @@ class Auth0Service:
                     error_response = response.json()
                 except (ValueError, KeyError):
                     error_response = {"raw_response": response.text}
+
+                # Store error for caller inspection
+                self._last_error = {
+                    "status_code": response.status_code,
+                    "error_response": error_response,
+                }
 
                 log_data = {
                     "event": "auth0_api_request_failed",
@@ -441,6 +449,11 @@ class Auth0Service:
                 }
                 try:
                     response_details["error_response"] = e.response.json()
+                    # Store error for caller inspection
+                    self._last_error = {
+                        "status_code": e.response.status_code,
+                        "error_response": response_details["error_response"],
+                    }
                 except (ValueError, KeyError):
                     pass
 
@@ -457,6 +470,7 @@ class Auth0Service:
             logger.error(json.dumps(log_data))
             return None
         except Exception as e:
+            self._last_error = None  # Clear error for unexpected exceptions
             log_data = {
                 "event": "auth0_api_request_failed",
                 "error_type": "UnexpectedError",
@@ -932,20 +946,47 @@ class Auth0Service:
 
         return response
 
-    def update_user_email(self, user_id: str, email: str) -> bool:
+    def update_user_email(
+        self, user_id: str, email: str, username: Optional[str] = None
+    ) -> bool:
         """
         Update a user's email address in Auth0 and trigger verification email.
+        Also ensures the 'name' field matches the 'nickname' field.
 
         Args:
             user_id: Auth0 user ID
             email: New email address
+            username: Optional username to set for both name and nickname fields.
+                     If not provided, the name will be synced to match the existing nickname.
 
         Returns:
             True if successful, False otherwise
         """
 
-        # Step 1: Update email and mark as unverified
-        user_data = {"email": email, "email_verified": False}
+        # First, get the user's current nickname so we can sync name to it
+        user = self._make_auth0_request("GET", f"users/{user_id}")
+        if not user:
+            log_data = {
+                "event": "auth0_user_fetch_for_email_update_failed",
+                "user_id": user_id,
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            }
+            logger.error(json.dumps(log_data))
+            return False
+
+        # Use provided username or existing nickname
+        nickname = username if username else user.get("nickname", "")
+
+        # Update email and mark as unverified, also sync name to nickname
+        user_data = {
+            "email": email,
+            "email_verified": False,
+            "name": nickname,  # Set name to match nickname
+        }
+
+        # If username was provided, also update nickname
+        if username:
+            user_data["nickname"] = username
 
         response = self._make_auth0_request("PATCH", f"users/{user_id}", user_data)
 
@@ -964,6 +1005,7 @@ class Auth0Service:
             "user_id": user_id,
             "email": email,
             "email_verified": "false",
+            "name_synced_to_nickname": nickname,
             "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         }
         logger.info(json.dumps(log_data))
@@ -1209,7 +1251,7 @@ class Auth0Service:
                         "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                     }
                     logger.info(json.dumps(log_data))
-                    self.update_user_email(auth0_user["user_id"], email)
+                    self.update_user_email(auth0_user["user_id"], email, username)
                     auth0_user["email"] = email
 
                 # Always push display name (nickname/name)
@@ -1357,13 +1399,16 @@ class DisabledAuth0Service:
         )
         return None
 
-    def update_user_email(self, user_id: str, email: str) -> bool:
+    def update_user_email(
+        self, user_id: str, email: str, username: Optional[str] = None
+    ) -> bool:
         logger.warning(
             json.dumps(
                 {
                     "event": "auth0_disabled_update_user_email",
                     "user_id": user_id,
                     "email": email,
+                    "username": username,
                 }
             )
         )

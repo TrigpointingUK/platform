@@ -121,12 +121,14 @@ def custom_openapi():
 
     # Define endpoints with optional auth (should not have required security)
     optional_auth_endpoints: set[str] = {
-        # Currently no endpoints require optional auth
+        f"{settings.API_V1_STR}/admin/contact",
     }
 
     admin_endpoints = {
         f"{settings.API_V1_STR}/legacy/username-duplicates",
         f"{settings.API_V1_STR}/legacy/email-duplicates",
+        f"{settings.API_V1_STR}/admin/cache/stats",
+        f"{settings.API_V1_STR}/admin/cache",
     }
 
     # Add security requirement to protected endpoints only

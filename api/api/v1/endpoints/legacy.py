@@ -44,24 +44,27 @@ router = APIRouter()
 )
 def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(get_db)):
     """
-    Legacy login endpoint - authenticates users and syncs with Auth0.
+    Legacy login endpoint - authenticates users and optionally syncs with Auth0.
 
     This endpoint authenticates users against the legacy database using
-    Unix crypt password hashing, then synchronises their credentials with Auth0.
-    If the user doesn't have an Auth0 account, one is created automatically.
+    Unix crypt password hashing. If an email address is provided, it synchronises
+    the email with Auth0 and creates an Auth0 account if needed.
 
     Process:
     1. Look up user by username in legacy database
     2. Authenticate password using Unix crypt
-    3. If user has auth0_user_id:
-       - Update Auth0 password
-       - Update Auth0 email if new email provided and changed
-       - Update database email if new email provided
-    4. If user doesn't have auth0_user_id:
-       - Create new Auth0 user with provided credentials
-       - Use provided email or fall back to existing database email
-       - Store Auth0 user ID in database
-       - Update database email if new email provided
+    3. If no email provided:
+       - Return user data with optional includes
+    4. If email provided:
+       - Check if email is changing (different from current email)
+       - If changing, verify email is not used by another user in database
+       - If user has auth0_user_id:
+         * Update Auth0 password
+         * Update Auth0 email if changed (with duplicate check in Auth0)
+       - If user doesn't have auth0_user_id:
+         * Create new Auth0 user (with duplicate check in Auth0)
+         * Store Auth0 user ID in database
+       - Update database email
     5. Return user data with optional includes (stats, breakdown, prefs)
 
     Args:
@@ -72,6 +75,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
         LegacyLoginResponse with user data and any requested includes
 
     Raises:
+        400: Email already in use by another user (database or Auth0)
         401: Authentication failed (wrong username or password)
         500: Auth0 synchronisation failed
     """
@@ -90,7 +94,150 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
             detail="Incorrect username or password",
         )
 
-    # Sync with Auth0
+    # If no email provided, return user data without Auth0 sync
+    if not request.email:
+        # Refresh user object to ensure we have current data
+        db.refresh(user)
+
+        # Create base response
+        user_response = UserResponse.model_validate(user)
+        user_response.member_since = user.crt_date  # type: ignore
+        result = LegacyLoginResponse(
+            **user_response.model_dump(),
+            email=str(user.email),
+            email_valid=str(user.email_valid),
+        )
+
+        # Handle includes
+        if request.include:
+            tokens = {t.strip() for t in request.include.split(",") if t.strip()}
+
+            # Validate include tokens
+            valid_includes = {"stats", "breakdown", "prefs"}
+            invalid_tokens = tokens - valid_includes
+            if invalid_tokens:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid include parameter(s): {', '.join(sorted(invalid_tokens))}. Valid options: {', '.join(sorted(valid_includes))}",
+                )
+
+            # Add includes (same logic as below)
+            if "stats" in tokens:
+                total_logs = (
+                    db.query(user_crud.TLog)
+                    .filter(user_crud.TLog.user_id == user.id)
+                    .count()
+                )
+                total_trigs = (
+                    db.query(user_crud.TLog.trig_id)
+                    .filter(user_crud.TLog.user_id == user.id)
+                    .distinct()
+                    .count()
+                )
+                total_photos = (
+                    db.query(TPhoto)
+                    .join(user_crud.TLog, TPhoto.tlog_id == user_crud.TLog.id)
+                    .filter(
+                        user_crud.TLog.user_id == user.id, TPhoto.deleted_ind != "Y"
+                    )
+                    .count()
+                )
+                result.stats = UserStats(
+                    total_logs=int(total_logs),
+                    total_trigs_logged=int(total_trigs),
+                    total_photos=int(total_photos),
+                )
+
+            if "breakdown" in tokens:
+                by_current_use_no_email_raw = (
+                    db.query(
+                        Trig.current_use,
+                        func.count(func.distinct(user_crud.TLog.trig_id)),
+                    )
+                    .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
+                    .filter(user_crud.TLog.user_id == user.id)
+                    .group_by(Trig.current_use)
+                    .all()
+                )
+                by_current_use: Dict[str, int] = {
+                    str(use): int(count) for use, count in by_current_use_no_email_raw
+                }
+
+                by_historic_use_no_email_raw = (
+                    db.query(
+                        Trig.historic_use,
+                        func.count(func.distinct(user_crud.TLog.trig_id)),
+                    )
+                    .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
+                    .filter(user_crud.TLog.user_id == user.id)
+                    .group_by(Trig.historic_use)
+                    .all()
+                )
+                by_historic_use: Dict[str, int] = {
+                    str(use): int(count) for use, count in by_historic_use_no_email_raw
+                }
+
+                by_physical_type_no_email_raw = (
+                    db.query(
+                        Trig.physical_type,
+                        func.count(func.distinct(user_crud.TLog.trig_id)),
+                    )
+                    .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
+                    .filter(user_crud.TLog.user_id == user.id)
+                    .group_by(Trig.physical_type)
+                    .all()
+                )
+                by_physical_type: Dict[str, int] = {
+                    str(ptype): int(count)
+                    for ptype, count in by_physical_type_no_email_raw
+                }
+
+                condition_counts_no_email_raw = (
+                    db.query(user_crud.TLog.condition, func.count(user_crud.TLog.id))
+                    .filter(user_crud.TLog.user_id == user.id)
+                    .group_by(user_crud.TLog.condition)
+                    .all()
+                )
+                condition_counts: Dict[str, int] = {
+                    str(cond): int(count)
+                    for cond, count in condition_counts_no_email_raw
+                }
+                by_condition = get_condition_counts_by_description(condition_counts)
+
+                result.breakdown = UserBreakdown(
+                    by_current_use=by_current_use,
+                    by_historic_use=by_historic_use,
+                    by_physical_type=by_physical_type,
+                    by_condition=by_condition,
+                )
+
+            if "prefs" in tokens:
+                result.prefs = UserPrefs(
+                    status_max=int(user.status_max),
+                    distance_ind=str(user.distance_ind),
+                    public_ind=str(user.public_ind),
+                    online_map_type=str(user.online_map_type),
+                    online_map_type2=str(user.online_map_type2),
+                    email=str(user.email),
+                    email_valid=str(user.email_valid),
+                )
+
+        return result
+
+    # Email was provided - check for duplicates if email is changing
+    user_email = str(user.email) if user.email else ""
+    email_changing = user_email.lower() != request.email.lower()
+
+    if email_changing:
+        # Check if new email is already used by another user
+        existing_user = user_crud.get_user_by_email(db, email=request.email)
+        if existing_user and existing_user.id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Email address {request.email} is already in use by another user",
+            )
+
+    # Sync with Auth0 (email was provided)
     if user.auth0_user_id:
         # User has Auth0 account - update password
         password_success = auth0_service.update_user_password(
@@ -103,27 +250,32 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 detail="Failed to update Auth0 password",
             )
 
-        # Update email if provided and changed
-        if request.email:
-            email_changed = str(user.email).lower() != request.email.lower()
-            if email_changed:
-                email_success = auth0_service.update_user_email(
-                    user_id=str(user.auth0_user_id),
-                    email=request.email,
+        # Update email if changed
+        if email_changing:
+            email_success = auth0_service.update_user_email(
+                user_id=str(user.auth0_user_id),
+                email=request.email,
+                username=request.username,
+            )
+            if not email_success:
+                # Check if error was due to email already existing in Auth0
+                if auth0_service._last_error:
+                    error_resp = auth0_service._last_error.get("error_response", {})
+                    error_msg = error_resp.get("message", "")
+                    if "already exists" in error_msg.lower():
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"The email address {request.email} is already registered with another Auth0 account. Please use a different email address.",
+                        )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to update Auth0 email",
                 )
-                if not email_success:
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Failed to update Auth0 email",
-                    )
     else:
         # User doesn't have Auth0 account - create one
-        # Use provided email or fall back to existing user email
-        email_for_auth0 = request.email if request.email else str(user.email)
-
         auth0_user = auth0_service.create_user(
             username=request.username,
-            email=email_for_auth0,
+            email=request.email,
             password=request.password,
             name=request.username,  # Set Auth0 name and nickname to username
             user_id=int(user.id),  # Store database user ID in Auth0 app_metadata
@@ -131,6 +283,15 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
             surname=str(user.surname) if user.surname else None,
         )
         if not auth0_user or not auth0_user.get("user_id"):
+            # Check if error was due to email already existing in Auth0
+            if auth0_service._last_error:
+                error_resp = auth0_service._last_error.get("error_response", {})
+                error_msg = error_resp.get("message", "")
+                if "already exists" in error_msg.lower():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"The email address {request.email} is already registered with another Auth0 account. Please use a different email address.",
+                    )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create Auth0 user",
@@ -152,14 +313,13 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
         # Update user object to reflect the change
         user.auth0_user_id = auth0_user_id  # type: ignore
 
-    # Update email in database if provided
-    if request.email:
-        success = update_user_email(db=db, user_id=int(user.id), email=request.email)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update email in database",
-            )
+    # Update email in database (email was provided)
+    success = update_user_email(db=db, user_id=int(user.id), email=request.email)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update email in database",
+        )
 
     # Refresh user object to get updated values
     db.refresh(user)
@@ -223,7 +383,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 .group_by(Trig.current_use)
                 .all()
             )
-            by_current_use: Dict[str, int] = {
+            by_current_use: Dict[str, int] = {  # type: ignore[no-redef]
                 str(use): int(count) for use, count in by_current_use_raw
             }
 
@@ -236,7 +396,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 .group_by(Trig.historic_use)
                 .all()
             )
-            by_historic_use: Dict[str, int] = {
+            by_historic_use: Dict[str, int] = {  # type: ignore[no-redef]
                 str(use): int(count) for use, count in by_historic_use_raw
             }
 
@@ -250,7 +410,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 .group_by(Trig.physical_type)
                 .all()
             )
-            by_physical_type: Dict[str, int] = {
+            by_physical_type: Dict[str, int] = {  # type: ignore[no-redef]
                 str(ptype): int(count) for ptype, count in by_physical_type_raw
             }
 
@@ -261,7 +421,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 .group_by(user_crud.TLog.condition)
                 .all()
             )
-            condition_counts: Dict[str, int] = {
+            condition_counts: Dict[str, int] = {  # type: ignore[no-redef]
                 str(cond): int(count) for cond, count in condition_counts_raw
             }
             by_condition = get_condition_counts_by_description(condition_counts)

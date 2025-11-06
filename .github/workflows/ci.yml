@@ -8,10 +8,11 @@ on:
       - 'res/**'
       - '.github/workflows/ci.yml'
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
     paths:
       - 'api/**'
       - 'res/**'
+      - 'requirements*.txt'
       - '.github/workflows/ci.yml'
 
 env:

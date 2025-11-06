@@ -2,7 +2,7 @@
 Comprehensive tests for Auth0Service to improve code coverage.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -523,24 +523,35 @@ class TestAuth0ServiceComprehensive:
             service = Auth0Service()
             # Auth0 is now always enabled - no enabled attribute
 
-            mock_request.return_value = {
-                "user_id": "auth0|123",
-                "email": "new@example.com",
-            }
+            mock_request.side_effect = [
+                {"nickname": "legacy_user"},
+                {"user_id": "auth0|123", "email": "new@example.com"},
+                {"job_id": "job-123"},
+            ]
 
             result = service.update_user_email("auth0|123", "new@example.com")
             assert result is True
-            # Should make two calls: update email + send verification
-            assert mock_request.call_count == 2
-            mock_request.assert_any_call(
-                "PATCH",
-                "users/auth0|123",
-                {"email": "new@example.com", "email_verified": False},
-            )
-            mock_request.assert_any_call(
-                "POST",
-                "jobs/verification-email",
-                {"user_id": "auth0|123"},
+            # Should make three calls: get user + update email + send verification
+            assert mock_request.call_count == 3
+            mock_request.assert_has_calls(
+                [
+                    call("GET", "users/auth0|123"),
+                    call(
+                        "PATCH",
+                        "users/auth0|123",
+                        {
+                            "email": "new@example.com",
+                            "email_verified": False,
+                            "name": "legacy_user",
+                        },
+                    ),
+                    call(
+                        "POST",
+                        "jobs/verification-email",
+                        {"user_id": "auth0|123"},
+                    ),
+                ],
+                any_order=False,
             )
 
     @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
@@ -556,10 +567,29 @@ class TestAuth0ServiceComprehensive:
             service = Auth0Service()
             # Auth0 is now always enabled - no enabled attribute
 
-            mock_request.return_value = None
+            mock_request.side_effect = [
+                {"nickname": "legacy_user"},
+                None,
+            ]
 
             result = service.update_user_email("auth0|123", "new@example.com")
             assert result is False
+            assert mock_request.call_count == 2
+            mock_request.assert_has_calls(
+                [
+                    call("GET", "users/auth0|123"),
+                    call(
+                        "PATCH",
+                        "users/auth0|123",
+                        {
+                            "email": "new@example.com",
+                            "email_verified": False,
+                            "name": "legacy_user",
+                        },
+                    ),
+                ],
+                any_order=False,
+            )
 
     @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
     def test_update_user_profile_success(self, mock_request):
