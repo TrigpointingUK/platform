@@ -132,7 +132,7 @@ Navigate to: `http://localhost:4173/about`
 3. **Environment Badges** - Color-coded environment indicators
 4. **Technical Details** - Node version, full commit SHA
 5. **Build Timestamp** - Formatted in local timezone
-6. **About Project** - Includes info about Trigpointing UK and tech stack
+6. **About Project** - Includes info about TrigpointingUK and tech stack
 
 ## Future Enhancements
 

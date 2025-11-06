@@ -27,7 +27,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 mr-6">
-            <img src="/TUK-Logo.svg" alt="Trigpointing UK" className="h-10 w-10" />
+            <img src="/TUK-Logo.svg" alt="TrigpointingUK" className="h-10 w-10" />
             <span className="text-xl font-bold hidden sm:inline">TrigpointingUK</span>
           </Link>
 

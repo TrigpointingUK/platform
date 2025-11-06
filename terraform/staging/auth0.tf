@@ -120,7 +120,7 @@ module "auth0" {
   smtp_host  = "email-smtp.eu-west-1.amazonaws.com"
   smtp_port  = 587
   from_email = "noreply@trigpointing.me"
-  from_name  = "Trigpointing UK (Staging)"
+  from_name  = "TrigpointingUK (Staging)"
 
   # Branding
   logo_url              = "https://trigpointing.uk/pics/tuk_logo.gif"

@@ -366,8 +366,9 @@ export default function Attributions() {
           <p className="text-gray-700 text-sm leading-relaxed">
             This application uses open source software. Each package listed above
             is provided under its respective license. Please refer to the
-            individual package repositories for full license text and terms. The
-            use of these packages does not imply endorsement by Trigpointing UK.
+            individual package repositories for full license text and terms. 
+            TrigpointingUK would like to express its sincere gratitude to all open source
+            developers the world over.
           </p>
           <p className="text-gray-700 text-sm mt-3">
             For questions or concerns about open source licensing, please{" "}

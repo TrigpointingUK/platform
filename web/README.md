@@ -1,6 +1,6 @@
-# Trigpointing UK - Web Application
+# TrigpointingUK - Web Application
 
-Modern React single-page application (SPA) for Trigpointing UK, built with Vite, TypeScript, and Auth0 authentication.
+Modern React single-page application (SPA) for TrigpointingUK, built with Vite, TypeScript, and Auth0 authentication.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ The web application is deployed as an ECS Fargate service running nginx to serve
 
 - **React 18** with TypeScript
 - **Vite** for fast builds and development
-- **Tailwind CSS v4** for styling with custom Trigpointing UK green palette
+- **Tailwind CSS v4** for styling with custom TrigpointingUK green palette
 - **Auth0** for authentication (PKCE flow with refresh tokens)
 - **TanStack Query** for server state management and caching
 - **React Router** for client-side routing
