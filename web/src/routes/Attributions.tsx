@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 
@@ -52,22 +52,24 @@ export default function Attributions() {
     });
   };
 
-  const getFilteredDependencies = () => {
+  // Memoize filtered dependencies - must be called before early returns
+  const filteredDeps = useMemo(() => {
     if (!data) return [];
 
     let deps: Attribution[] = [];
     
+    // Filter by package type first
     if (filterType === "all") {
       deps = [...data.npm, ...data.python];
     } else if (filterType === "npm") {
-      deps = data.npm;
-    } else {
-      deps = data.python;
+      deps = [...data.npm]; // Create a new array to avoid mutation
+    } else if (filterType === "python") {
+      deps = [...data.python]; // Create a new array to avoid mutation
     }
 
     // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
       deps = deps.filter(
         (dep) =>
           dep.name.toLowerCase().includes(term) ||
@@ -81,10 +83,22 @@ export default function Attributions() {
       deps = deps.filter((dep) => dep.license === filterLicense);
     }
 
-    return deps.sort((a, b) => a.name.localeCompare(b.name));
-  };
+    // Deduplicate by type and name (in case data has duplicates)
+    const seen = new Set<string>();
+    const unique = deps.filter((dep) => {
+      const key = `${dep.type}-${dep.name}-${dep.version}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
 
-  const getUniqueLicenses = () => {
+    return unique.sort((a, b) => a.name.localeCompare(b.name));
+  }, [data, searchTerm, filterType, filterLicense]);
+
+  // Memoize unique licenses - must be called before early returns
+  const uniqueLicenses = useMemo(() => {
     if (!data) return [];
     const licenses = new Set<string>();
     [...data.npm, ...data.python].forEach((dep) => {
@@ -93,7 +107,7 @@ export default function Attributions() {
       }
     });
     return Array.from(licenses).sort();
-  };
+  }, [data]);
 
   const getLicenseBadgeColor = (license: string) => {
     const licenseLower = license.toLowerCase();
@@ -171,9 +185,6 @@ export default function Attributions() {
       </Layout>
     );
   }
-
-  const filteredDeps = getFilteredDependencies();
-  const uniqueLicenses = getUniqueLicenses();
 
   return (
     <Layout>
@@ -295,8 +306,8 @@ export default function Attributions() {
               </p>
             </Card>
           ) : (
-            filteredDeps.map((dep) => (
-              <Card key={`${dep.type}-${dep.name}`}>
+            filteredDeps.map((dep, index) => (
+              <Card key={`${dep.type}-${dep.name}-${dep.version}-${index}`}>
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-11-06T21:15:05.313Z",
+  "generatedAt": "2025-11-06T21:33:28.845Z",
   "npm": [
     {
       "name": "@acemir/cssom",
@@ -3289,15 +3289,6 @@
   ],
   "python": [
     {
-      "name": "-r",
-      "version": "requirements.txt",
-      "license": "Unknown",
-      "repository": "https://pypi.org/project/-r/",
-      "author": "Unknown",
-      "description": "",
-      "type": "python"
-    },
-    {
       "name": "alembic",
       "version": "1.16.5",
       "license": "MIT",
@@ -3614,8 +3605,8 @@
     }
   ],
   "summary": {
-    "total": 401,
+    "total": 400,
     "npm": 365,
-    "python": 36
+    "python": 35
   }
 }

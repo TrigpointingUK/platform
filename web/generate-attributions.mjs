@@ -173,8 +173,19 @@ function getPythonDependencies() {
         
         for (const line of lines) {
           const trimmed = line.trim();
-          // Skip comments and empty lines
-          if (!trimmed || trimmed.startsWith('#')) continue;
+          // Skip comments, empty lines, and include directives (-r, --requirement, etc.)
+          if (!trimmed || 
+              trimmed.startsWith('#') || 
+              trimmed.startsWith('-r') || 
+              trimmed.startsWith('--requirement') ||
+              trimmed.startsWith('--index-url') ||
+              trimmed.startsWith('--extra-index-url') ||
+              trimmed.startsWith('--find-links') ||
+              trimmed.startsWith('--no-index') ||
+              trimmed.startsWith('--pre') ||
+              trimmed.startsWith('--trusted-host')) {
+            continue;
+          }
           
           // Parse package name and version
           // Format: package==version or package>=version, etc.
@@ -182,6 +193,11 @@ function getPythonDependencies() {
           if (match) {
             const name = match[1].split('[')[0]; // Remove extras like [email]
             const version = match[3] || 'Unknown';
+            
+            // Skip if name is empty or looks like a flag/option
+            if (!name || name.startsWith('-')) {
+              continue;
+            }
             
             dependencies.push({
               name,
