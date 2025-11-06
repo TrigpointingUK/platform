@@ -7,9 +7,11 @@ on:
       - 'web/**'
       - '.github/workflows/web-build.yml'
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'web/**'
+      - 'web/package.json'
+      - 'web/package-lock.json'
       - '.github/workflows/web-build.yml'
 
 env:
