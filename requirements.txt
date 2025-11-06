@@ -39,4 +39,4 @@ pyinstrument==5.1.1
 black==25.9.0
 isort==6.0.1
 flake8==7.3.0
-mypy==1.17.1
+mypy==1.18.2
