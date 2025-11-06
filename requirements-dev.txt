@@ -4,4 +4,4 @@
 pre-commit==4.3.0
 bandit==1.7.7
 safety==3.6.2
-diff-cover==9.2.0
+diff-cover==9.7.1
