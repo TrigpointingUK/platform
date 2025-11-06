@@ -10,7 +10,7 @@ python-multipart==0.0.20
 pydantic[email]==2.12.4
 pydantic-settings==2.10.1
 python-dotenv==1.2.1
-alembic==1.16.5
+alembic==1.17.1
 
 # Testing dependencies
 pytest==8.4.2
