@@ -10,7 +10,7 @@ export function useTrigDetail(trigId: number | undefined) {
       }
       const apiBase = import.meta.env.VITE_API_BASE as string;
       const response = await fetch(
-        `${apiBase}/v1/trigs/${trigId}?include=details,stats`
+        `${apiBase}/v1/trigs/${trigId}?include=details,stats,attrs`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch trig details");
