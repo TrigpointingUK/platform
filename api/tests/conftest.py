@@ -25,8 +25,21 @@ warnings.filterwarnings(
 )
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="passlib.*")
 
-# Test database URL (in-memory SQLite)
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+
+def get_test_database_url():
+    """Get database URL, with unique DB file for each pytest-xdist worker."""
+    import os
+
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+    # Use in-memory database for single-process runs, file-based for parallel
+    if worker_id == "master":
+        return "sqlite:///:memory:"
+    else:
+        return f"sqlite:///./test_{worker_id}.db"
+
+
+# Test database URL (in-memory SQLite for single runs, file-based for parallel)
+SQLALCHEMY_DATABASE_URL = get_test_database_url()
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
