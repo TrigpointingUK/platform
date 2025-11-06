@@ -2,7 +2,7 @@
 
 ## Tailwind Color System
 
-The project uses a custom green color palette matching the legacy Trigpointing UK branding:
+The project uses a custom green color palette matching the legacy TrigpointingUK branding:
 
 ```css
 /* Primary brand color */

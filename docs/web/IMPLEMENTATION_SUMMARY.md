@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully implemented a modern, responsive React-based homepage and infinite scrolling photo album using Tailwind CSS with the Trigpointing UK green branding.
+Successfully implemented a modern, responsive React-based homepage and infinite scrolling photo album using Tailwind CSS with the TrigpointingUK green branding.
 
 ## What Was Implemented
 

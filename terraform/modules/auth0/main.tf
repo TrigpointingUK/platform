@@ -200,7 +200,7 @@ resource "auth0_client" "swagger" {
 # Single Page Application (Web App)
 resource "auth0_client" "web_spa" {
   name        = "${var.name_prefix}-web"
-  description = "React SPA for Trigpointing UK (${var.environment})"
+  description = "React SPA for TrigpointingUK (${var.environment})"
   app_type    = "spa"
 
   callbacks           = var.web_spa_callback_urls

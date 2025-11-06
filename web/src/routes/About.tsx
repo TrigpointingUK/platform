@@ -264,6 +264,18 @@ export default function About() {
                   <li>FastAPI backend</li>
                 </ul>
               </div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <a
+                  href="/attributions"
+                  className="text-trig-green-600 hover:text-trig-green-700 font-medium hover:underline"
+                >
+                  View Open Source Attributions →
+                </a>
+                <p className="text-sm text-gray-600 mt-1">
+                  See all open source packages used in this application with
+                  their licenses and attribution information.
+                </p>
+              </div>
             </div>
           </Card>
         </div>

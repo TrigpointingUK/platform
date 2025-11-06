@@ -8,7 +8,7 @@ The phpBB forum at forum.trigpointing.uk has been customised to match the legacy
 
 ### 1. Custom Logo
 
-The Trigpointing UK logo (`res/tuk_logo.png`) replaces the default phpBB logo.
+The TrigpointingUK logo (`res/tuk_logo.png`) replaces the default phpBB logo.
 
 **Location:** `/var/www/html/styles/prosilver/imageset/site_logo.png`
 

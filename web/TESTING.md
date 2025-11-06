@@ -1,7 +1,7 @@
 # Frontend Testing Implementation
 
 ## Overview
-Comprehensive testing suite for the Trigpointing UK web frontend using Vitest and React Testing Library.
+Comprehensive testing suite for the TrigpointingUK web frontend using Vitest and React Testing Library.
 
 ## Test Coverage
 
