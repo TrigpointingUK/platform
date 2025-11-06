@@ -9,6 +9,43 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
+class AttrSourceInfo(BaseModel):
+    """Information about an attribute source."""
+
+    id: int = Field(..., description="Attribute source ID")
+    name: str = Field(..., description="Source name")
+    url: Optional[str] = Field(None, description="Source URL")
+
+    class Config:
+        from_attributes = True
+
+
+class AttrSetData(BaseModel):
+    """Attribute set data - values for one row of attributes."""
+
+    values: dict[int, str] = Field(
+        ..., description="Dictionary mapping attr_id to value_string"
+    )
+
+    class Config:
+        from_attributes = True
+
+
+class TrigAttrsData(BaseModel):
+    """Attribute data for a trigpoint from a specific source."""
+
+    source: AttrSourceInfo = Field(..., description="Attribute source information")
+    attr_names: dict[int, str] = Field(
+        ..., description="Dictionary mapping attr_id to attr name"
+    )
+    attribute_sets: list[AttrSetData] = Field(
+        ..., description="List of attribute sets (rows)"
+    )
+
+    class Config:
+        from_attributes = True
+
+
 class TrigMinimal(BaseModel):
     """Minimal trig response for /trig/{id}."""
 
@@ -98,6 +135,7 @@ class TrigWithIncludes(TrigMinimal):
 
     details: Optional[TrigDetails] = None
     stats: Optional[TrigStats] = None
+    attrs: Optional[list[TrigAttrsData]] = None
 
 
 class TrigCountResponse(BaseModel):
