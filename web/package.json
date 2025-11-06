@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "prebuild": "node generate-build-info.mjs",
+    "prebuild": "node generate-build-info.mjs && node generate-attributions.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",

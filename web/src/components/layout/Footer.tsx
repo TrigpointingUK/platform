@@ -41,6 +41,13 @@ export default function Footer() {
           >
             Contact Us
           </a>
+          <span className="text-gray-500">•</span>
+          <a 
+            href="/attributions" 
+            className="hover:text-white"
+          >
+            Floss
+          </a>
           <span className="text-gray-500 hidden sm:inline">•</span>
           <span className="w-full sm:w-auto text-center sm:text-left mt-1 sm:mt-0">
             © {currentYear} Trigpointing UK

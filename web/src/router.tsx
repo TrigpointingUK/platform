@@ -19,6 +19,7 @@ const AppDetail = lazy(() => import("./routes/AppDetail"));
 const FindTrigs = lazy(() => import("./routes/FindTrigs"));
 const LegacyMigration = lazy(() => import("./routes/LegacyMigration"));
 const Contact = lazy(() => import("./routes/Contact"));
+const Attributions = lazy(() => import("./routes/Attributions"));
 
 function LoadingFallback() {
   return (
@@ -158,6 +159,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <Contact />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/attributions",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <Attributions />
         </Suspense>
       ),
     },
