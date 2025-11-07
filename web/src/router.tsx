@@ -17,6 +17,7 @@ const UserPhotos = lazy(() => import("./routes/UserPhotos"));
 const About = lazy(() => import("./routes/About"));
 const AppDetail = lazy(() => import("./routes/AppDetail"));
 const FindTrigs = lazy(() => import("./routes/FindTrigs"));
+const Map = lazy(() => import("./routes/Map"));
 const LegacyMigration = lazy(() => import("./routes/LegacyMigration"));
 const Contact = lazy(() => import("./routes/Contact"));
 const Attributions = lazy(() => import("./routes/Attributions"));
@@ -55,6 +56,14 @@ const router = createBrowserRouter(
         element: (
           <Suspense fallback={<LoadingFallback />}>
             <FindTrigs />
+          </Suspense>
+        ),
+      },
+      {
+        path: "/map",
+        element: (
+          <Suspense fallback={<LoadingFallback />}>
+            <Map />
           </Suspense>
         ),
       },
