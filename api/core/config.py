@@ -88,6 +88,78 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None  # e.g., redis://host:6379
     CACHE_ENABLED: bool = True  # Enable/disable caching globally
 
+    # OS Maps API Configuration
+    OS_API_KEY: str = ""  # From Secrets Manager
+
+    # Tile caching configuration
+    TILE_CACHE_DIR: str = "/mnt/tiles"
+
+    # Tile usage limits - Production
+    # Global weekly premium: 15 transactions/sec * 1,904,762 sec/week / 4 requests per transaction
+    # = 15 * 1,904,762 / 4 = 7,142,857 ≈ 7,000,000 (rounded to 1 sig fig)
+    TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY: int = 7_000_000
+
+    # Global weekly free: 100GB bandwidth / 15KB average tile size
+    # = 100 * 1024 * 1024 / 15 = 6,990,506 ≈ 7,000,000 (rounded to 1 sig fig)
+    TILE_LIMIT_GLOBAL_FREE_WEEKLY: int = 7_000_000
+
+    # Percentage-based limits for registered users and per-IP
+    TILE_LIMIT_PERCENTAGE_REGISTERED: float = 0.01  # 1% of global
+    TILE_LIMIT_PERCENTAGE_ANONYMOUS_IP: float = 0.01  # 1% of global per IP
+    TILE_LIMIT_PERCENTAGE_ANONYMOUS_TOTAL: float = (
+        0.10  # 10% of global for all anonymous
+    )
+
+    @property
+    def tile_limits(self) -> dict:
+        """
+        Calculate tile usage limits based on environment.
+
+        Staging uses low limits for testing, production uses calculated limits.
+        """
+        if self.ENVIRONMENT == "staging":
+            # Low limits for staging to prevent accidental costs during testing
+            return {
+                "global_premium": 100,
+                "global_free": 100,
+                "registered_premium": 1,
+                "registered_free": 1,
+                "anon_ip_premium": 1,
+                "anon_ip_free": 1,
+                "anon_total_premium": 10,
+                "anon_total_free": 10,
+            }
+        else:
+            # Production limits based on OS API quotas and bandwidth
+            return {
+                "global_premium": self.TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY,
+                "global_free": self.TILE_LIMIT_GLOBAL_FREE_WEEKLY,
+                "registered_premium": int(
+                    self.TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY
+                    * self.TILE_LIMIT_PERCENTAGE_REGISTERED
+                ),
+                "registered_free": int(
+                    self.TILE_LIMIT_GLOBAL_FREE_WEEKLY
+                    * self.TILE_LIMIT_PERCENTAGE_REGISTERED
+                ),
+                "anon_ip_premium": int(
+                    self.TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY
+                    * self.TILE_LIMIT_PERCENTAGE_ANONYMOUS_IP
+                ),
+                "anon_ip_free": int(
+                    self.TILE_LIMIT_GLOBAL_FREE_WEEKLY
+                    * self.TILE_LIMIT_PERCENTAGE_ANONYMOUS_IP
+                ),
+                "anon_total_premium": int(
+                    self.TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY
+                    * self.TILE_LIMIT_PERCENTAGE_ANONYMOUS_TOTAL
+                ),
+                "anon_total_free": int(
+                    self.TILE_LIMIT_GLOBAL_FREE_WEEKLY
+                    * self.TILE_LIMIT_PERCENTAGE_ANONYMOUS_TOTAL
+                ),
+            }
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:

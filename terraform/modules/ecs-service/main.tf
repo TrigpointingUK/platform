@@ -8,6 +8,22 @@ resource "aws_ecs_task_definition" "app" {
   execution_role_arn       = var.ecs_task_execution_role_arn
   task_role_arn            = var.ecs_task_role_arn
 
+  # Optional EFS volume for tile caching
+  dynamic "volume" {
+    for_each = var.efs_file_system_id != null ? [1] : []
+    content {
+      name = "tiles-efs"
+      efs_volume_configuration {
+        file_system_id     = var.efs_file_system_id
+        transit_encryption = "ENABLED"
+        authorization_config {
+          access_point_id = var.efs_access_point_id
+          iam             = "ENABLED"
+        }
+      }
+    }
+  }
+
   container_definitions = jsonencode(concat([
     {
       name  = "${var.project_name}-app"
@@ -131,6 +147,13 @@ resource "aws_ecs_task_definition" "app" {
           }
         ]
       )
+      mountPoints = var.efs_file_system_id != null ? [
+        {
+          sourceVolume  = "tiles-efs"
+          containerPath = "/mnt/tiles"
+          readOnly      = false
+        }
+      ] : []
       logConfiguration = {
         logDriver = "awslogs"
         options = {

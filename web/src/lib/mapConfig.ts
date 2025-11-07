@@ -23,6 +23,11 @@ const getTileServerUrl = (envKey: string, fallback: string): string => {
   return (import.meta.env[envKey] as string) || fallback;
 };
 
+// Get API base URL for proxied tiles
+const getApiBase = (): string => {
+  return import.meta.env.VITE_API_BASE as string;
+};
+
 /**
  * Available tile layers
  * 
@@ -34,10 +39,7 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
   osDigital: {
     id: 'osDigital',
     name: 'OS Digital',
-    urlTemplate: getTileServerUrl(
-      'VITE_TILE_OS_DIGITAL',
-      'https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{z}/{x}/{y}.png?key=gkJqb8OXGfEt6ANhLN3yC6DEk3Ur97Dj'
-    ),
+    urlTemplate: `${getApiBase()}/v1/tiles/os/Outdoor_3857/{z}/{x}/{y}.png`,
     attribution: '© Ordnance Survey',
     minZoom: 7,
     maxZoom: 20,
@@ -63,10 +65,7 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
   osPaper: {
     id: 'osPaper',
     name: 'OS Paper',
-    urlTemplate: getTileServerUrl(
-      'VITE_TILE_OS_PAPER',
-      'https://api.os.uk/maps/raster/v1/zxy/Leisure_27700/{z}/{x}/{y}.png?key=gkJqb8OXGfEt6ANhLN3yC6DEk3Ur97Dj'
-    ),
+    urlTemplate: `${getApiBase()}/v1/tiles/os/Leisure_27700/{z}/{x}/{y}.png`,
     attribution: '© Ordnance Survey',
     minZoom: 6,
     maxZoom: 12, // EPSG:27700 has different zoom levels

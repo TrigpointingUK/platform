@@ -109,6 +109,8 @@ module "ecs_service" {
   profiling_enabled            = var.profiling_enabled
   profiling_default_format     = var.profiling_default_format
   redis_url                    = "redis://${data.terraform_remote_state.common.outputs.valkey_endpoint}:${data.terraform_remote_state.common.outputs.valkey_port}"
+  efs_file_system_id           = data.terraform_remote_state.common.outputs.tiles_efs_file_system_id
+  efs_access_point_id          = data.terraform_remote_state.common.outputs.tiles_efs_access_point_id
 }
 
 module "monitoring" {
