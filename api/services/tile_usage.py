@@ -10,7 +10,7 @@ Tracks OS Maps API tile usage across multiple dimensions:
 All counters are tracked weekly and automatically reset.
 
 Redis keys are namespaced by environment to prevent conflicts:
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/{metric_type}/{identifier}
+fastapi:{environment}:tiles:usage:weekly:{YYYY-WW}:{metric_type}:{identifier}
 """
 
 import json
@@ -119,9 +119,9 @@ class TileUsageTracker:
         week = get_week_number()
         env = settings.ENVIRONMENT
         if identifier:
-            return f"fastapi/{env}/tiles/usage/weekly/{week}/{metric_type}/{identifier}"
+            return f"fastapi:{env}:tiles:usage:weekly:{week}:{metric_type}:{identifier}"
         else:
-            return f"fastapi/{env}/tiles/usage/weekly/{week}/{metric_type}"
+            return f"fastapi:{env}:tiles:usage:weekly:{week}:{metric_type}"
 
     def _get_counter(self, key: str) -> int:
         """

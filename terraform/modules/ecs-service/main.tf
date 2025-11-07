@@ -145,6 +145,13 @@ resource "aws_ecs_task_definition" "app" {
             name      = "AUTH0_SPA_CLIENT_ID"
             valueFrom = "${var.secrets_arn}:auth0_spa_client_id::"
           }
+        ],
+        # tile caching
+        [
+          {
+            name      = "OS_API_KEY"
+            valueFrom = "${var.secrets_arn}:os_api_key::"
+          }
         ]
       )
       mountPoints = var.efs_file_system_id != null ? [
