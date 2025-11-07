@@ -78,8 +78,8 @@ export default function BaseMap({
   // Get CRS for this tileset (defaults to EPSG:3857)
   const crs = getCRS(tileLayer.crs || 'EPSG:3857');
   
-  // Use tileset ID + CRS as key to force remount when projection changes
-  const mapKey = `${tileLayerId}-${tileLayer.crs || 'EPSG:3857'}`;
+  // Use only CRS as key to force remount when projection changes (not on every tileset change)
+  const mapKey = tileLayer.crs || 'EPSG:3857';
   
   return (
     <div className={`relative ${className}`} style={{ height: heightStyle }}>
