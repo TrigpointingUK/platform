@@ -120,14 +120,14 @@ class Settings(BaseSettings):
         if self.ENVIRONMENT == "staging":
             # Low limits for staging to prevent accidental costs during testing
             return {
-                "global_premium": 100,
-                "global_free": 100,
-                "registered_premium": 1,
-                "registered_free": 1,
-                "anon_ip_premium": 1,
-                "anon_ip_free": 1,
-                "anon_total_premium": 10,
-                "anon_total_free": 10,
+                "global_premium": 10000,
+                "global_free": 10000,
+                "registered_premium": 1000,
+                "registered_free": 1000,
+                "anon_ip_premium": 1000,
+                "anon_ip_free": 1000,
+                "anon_total_premium": 1000,
+                "anon_total_free": 1000,
             }
         else:
             # Production limits based on OS API quotas and bandwidth
