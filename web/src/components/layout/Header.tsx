@@ -57,6 +57,9 @@ export default function Header() {
             >
               TrigTools
             </a>
+            <Link to="/map" className="hover:text-trig-green-100 transition-colors">
+              Map
+            </Link>
             {isAuthenticated && (
               <Link to="/mytrigs" className="hover:text-trig-green-100 transition-colors">
                 MyTrigs
@@ -188,6 +191,13 @@ export default function Header() {
               >
                 TrigTools
               </a>
+              <Link
+                to="/map"
+                className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Map
+              </Link>
               {isAuthenticated && (
                 <Link
                   to="/mytrigs"
