@@ -26,6 +26,28 @@ router = APIRouter()
 # Allowed OS Maps layers
 ALLOWED_LAYERS = ["Outdoor_3857", "Light_3857", "Leisure_27700"]
 
+# Reuse httpx client with connection pooling for better performance
+_http_client = None
+
+
+def get_http_client() -> httpx.AsyncClient:
+    """
+    Get singleton httpx client with connection pooling.
+
+    Reusing the client improves performance by maintaining persistent connections.
+    """
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(
+            timeout=10.0,  # Reduced from 30s for faster failures
+            limits=httpx.Limits(
+                max_keepalive_connections=20,
+                max_connections=50,
+                keepalive_expiry=30.0,
+            ),
+        )
+    return _http_client
+
 
 def get_client_ip(request: Request) -> str:
     """
@@ -90,45 +112,56 @@ async def proxy_os_tile(
     # Get client IP (user authentication not used - browser image requests don't send auth headers)
     client_ip = get_client_ip(request)
 
-    # Check if tile is cached in EFS
+    # Construct tile path
     tile_path = Path(settings.TILE_CACHE_DIR) / layer / str(z) / str(x) / f"{y}.png"
-    from_cache = tile_path.exists()
 
-    # Check usage limits before proceeding
+    # Try to serve from cache first (faster than exists() check)
+    try:
+        with open(tile_path, "rb") as f:
+            tile_data = f.read()
+
+        # Check usage limits (cached tile = free, so likely to pass)
+        tracker = get_tile_usage_tracker()
+        allowed, error_message = tracker.check_limits(layer, z, True, client_ip)
+
+        if not allowed:
+            logger.warning(
+                f"Tile request blocked: {error_message} "
+                f"(layer={layer}, z={z}, ip={client_ip})"
+            )
+            raise HTTPException(status_code=429, detail=error_message)
+
+        # Record usage (cached tile = free)
+        tracker.record_usage(layer, z, True, client_ip)
+
+        return Response(
+            content=tile_data,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
+                "X-Tile-Source": "cache",
+                "X-Tile-Type": "free",  # Cached tiles are always free
+            },
+        )
+    except FileNotFoundError:
+        # Tile not cached - continue to proxy from OS API
+        pass
+    except Exception as e:
+        logger.error(f"Failed to read cached tile {tile_path}: {e}")
+        # Fall through to proxy if cache read fails
+
+    # Tile not cached - check limits before proxying
     tracker = get_tile_usage_tracker()
-    allowed, error_message = tracker.check_limits(layer, z, from_cache, client_ip)
+    allowed, error_message = tracker.check_limits(layer, z, False, client_ip)
 
     if not allowed:
-        # Log the rejection
         logger.warning(
             f"Tile request blocked: {error_message} "
             f"(layer={layer}, z={z}, ip={client_ip})"
         )
         raise HTTPException(status_code=429, detail=error_message)
 
-    # Serve from cache if available
-    if from_cache:
-        try:
-            with open(tile_path, "rb") as f:
-                tile_data = f.read()
-
-            # Record usage (cached tile = free)
-            tracker.record_usage(layer, z, from_cache, client_ip)
-
-            return Response(
-                content=tile_data,
-                media_type="image/png",
-                headers={
-                    "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
-                    "X-Tile-Source": "cache",
-                    "X-Tile-Type": "free",  # Cached tiles are always free
-                },
-            )
-        except Exception as e:
-            logger.error(f"Failed to read cached tile {tile_path}: {e}")
-            # Fall through to proxy if cache read fails
-
-    # Tile not cached - proxy from OS API
+    # Proxy from OS API
     if not settings.OS_API_KEY:
         raise HTTPException(
             status_code=500,
@@ -141,51 +174,51 @@ async def proxy_os_tile(
         f"?key={settings.OS_API_KEY}"
     )
 
-    # Proxy request to OS API
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    # Use singleton httpx client for connection pooling
+    client = get_http_client()
+    try:
+        response = await client.get(os_url)
+        response.raise_for_status()
+
+        tile_data = response.content
+
+        # Record usage (proxied tile = premium or free based on zoom)
+        tracker.record_usage(layer, z, False, client_ip)
+
+        # Save to EFS cache for future requests (don't wait for this)
         try:
-            response = await client.get(os_url)
-            response.raise_for_status()
+            tile_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(tile_path, "wb") as f:
+                f.write(tile_data)
+        except Exception as e:
+            logger.error(f"Failed to cache tile to {tile_path}: {e}")
+            # Continue even if caching fails
 
-            tile_data = response.content
+        # Determine if this was a premium tile
+        premium = is_premium_tile(layer, z, False)
 
-            # Save to EFS cache for future requests
-            try:
-                tile_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(tile_path, "wb") as f:
-                    f.write(tile_data)
-            except Exception as e:
-                logger.error(f"Failed to cache tile to {tile_path}: {e}")
-                # Continue even if caching fails
+        return Response(
+            content=tile_data,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
+                "X-Tile-Source": "os-api",
+                "X-Tile-Type": "premium" if premium else "free",
+            },
+        )
 
-            # Record usage (proxied tile = premium or free based on zoom)
-            tracker.record_usage(layer, z, False, client_ip)
-
-            # Determine if this was a premium tile
-            premium = is_premium_tile(layer, z, False)
-
-            return Response(
-                content=tile_data,
-                media_type="image/png",
-                headers={
-                    "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
-                    "X-Tile-Source": "os-api",
-                    "X-Tile-Type": "premium" if premium else "free",
-                },
-            )
-
-        except httpx.HTTPStatusError as e:
-            logger.error(f"OS API returned error {e.response.status_code} for {os_url}")
-            raise HTTPException(
-                status_code=502,
-                detail=f"Failed to fetch tile from OS API: HTTP {e.response.status_code}",
-            )
-        except httpx.RequestError as e:
-            logger.error(f"Failed to connect to OS API: {e}")
-            raise HTTPException(
-                status_code=502,
-                detail="Failed to connect to OS Maps API",
-            )
+    except httpx.HTTPStatusError as e:
+        logger.error(f"OS API returned error {e.response.status_code} for {os_url}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch tile from OS API: HTTP {e.response.status_code}",
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Failed to connect to OS API: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to connect to OS Maps API",
+        )
 
 
 @router.get("/usage")
