@@ -44,14 +44,14 @@ Browser → Cloudflare CDN → ALB → FastAPI → EFS Cache
 
 **Key Structure:**
 ```
-tiles:usage:weekly:{YYYY-WW}:total:premium → count
-tiles:usage:weekly:{YYYY-WW}:total:free → count
-tiles:usage:weekly:{YYYY-WW}:ip:{ip}:premium → count
-tiles:usage:weekly:{YYYY-WW}:ip:{ip}:free → count
-tiles:usage:weekly:{YYYY-WW}:user:{user_id}:premium → count
-tiles:usage:weekly:{YYYY-WW}:user:{user_id}:free → count
-tiles:usage:weekly:{YYYY-WW}:anon_total:premium → count
-tiles:usage:weekly:{YYYY-WW}:anon_total:free → count
+fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/total/premium → count
+fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/total/free → count
+fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/ip/{ip}/premium → count
+fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/ip/{ip}/free → count
+fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/user/{user_id}/premium → count
+fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/user/{user_id}/free → count
+fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/anon_total/premium → count
+fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/anon_total/free → count
 ```
 
 **TTL:** 8 days (automatic cleanup)
