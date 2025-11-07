@@ -10,7 +10,6 @@ interface TrigPoint {
 
 interface HeatmapLayerProps {
   trigpoints: TrigPoint[];
-  intensity?: number;
 }
 
 /**
@@ -20,21 +19,32 @@ interface HeatmapLayerProps {
  */
 export default function HeatmapLayer({
   trigpoints,
-  intensity = 0.5,
 }: HeatmapLayerProps) {
   const map = useMap();
   
   useEffect(() => {
     if (!trigpoints || trigpoints.length === 0) {
+      console.log('HeatmapLayer: No trigpoints to display');
       return;
     }
+    
+    console.log(`HeatmapLayer: Rendering ${trigpoints.length} trigpoints`);
     
     // Convert trigpoints to heatmap points [lat, lng, intensity]
     const heatmapPoints: [number, number, number][] = trigpoints.map((trig) => {
       const lat = typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat;
       const lng = typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long) : trig.wgs_long;
-      return [lat, lng, intensity];
+      return [lat, lng, 1.0]; // Use 1.0 intensity for all points
     });
+    
+    console.log(`HeatmapLayer: Created ${heatmapPoints.length} heatmap points`);
+    
+    // Verify leaflet.heat is available
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(L as any).heatLayer) {
+      console.error('HeatmapLayer: leaflet.heat plugin not loaded!');
+      return;
+    }
     
     // Create heatmap layer
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,14 +63,17 @@ export default function HeatmapLayer({
       },
     });
     
+    console.log('HeatmapLayer: Adding layer to map');
+    
     // Add to map
     heatLayer.addTo(map);
     
     // Cleanup
     return () => {
+      console.log('HeatmapLayer: Removing layer from map');
       map.removeLayer(heatLayer);
     };
-  }, [map, trigpoints, intensity]);
+  }, [map, trigpoints]);
   
   return null;
 }

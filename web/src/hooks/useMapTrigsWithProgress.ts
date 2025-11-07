@@ -36,6 +36,7 @@ export interface UseMapTrigsWithProgressOptions {
   excludeFound?: boolean;
   enabled?: boolean;
   zoom?: number;
+  maxTrigpoints?: number;
 }
 
 /**
@@ -43,11 +44,15 @@ export interface UseMapTrigsWithProgressOptions {
  * 
  * Uses parallel batch loading for better performance.
  */
+// In-memory cache for trigpoint data (persists for session but not across refreshes)
+const trigsCache = new Map<string, { data: Trig[]; total: number; timestamp: number }>();
+
 export function useMapTrigsWithProgress({
   bounds,
   excludeFound = false,
   enabled = true,
   zoom = 7,
+  maxTrigpoints = 10000,
 }: UseMapTrigsWithProgressOptions) {
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
   const [data, setData] = useState<Trig[]>([]);
@@ -65,20 +70,17 @@ export function useMapTrigsWithProgress({
     
     // Create cache key based on filters
     const cacheKey = isZoomedOut 
-      ? `map-trigs-all-${excludeFound}` 
-      : `map-trigs-viewport-${bounds.north}-${bounds.south}-${bounds.east}-${bounds.west}-${excludeFound}`;
+      ? `map-trigs-all-${excludeFound}-${maxTrigpoints}` 
+      : `map-trigs-viewport-${bounds.north.toFixed(2)}-${bounds.south.toFixed(2)}-${bounds.east.toFixed(2)}-${bounds.west.toFixed(2)}-${excludeFound}-${maxTrigpoints}`;
     
-    // Check if we already have this data cached
-    const cachedData = sessionStorage.getItem(cacheKey);
-    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}-timestamp`);
-    const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
+    // Check if we already have this data cached in memory
+    const cached = trigsCache.get(cacheKey);
     const maxAge = isZoomedOut ? 60 * 60 * 1000 : 2 * 60 * 1000; // 1 hour for all, 2 min for viewport
     
-    if (cachedData && cacheAge < maxAge) {
+    if (cached && (Date.now() - cached.timestamp) < maxAge) {
       // Use cached data
-      const parsed = JSON.parse(cachedData);
-      setData(parsed.items);
-      setTotalCount(parsed.total);
+      setData(cached.data);
+      setTotalCount(cached.total);
       setIsLoading(false);
       return;
     }
@@ -104,9 +106,10 @@ export function useMapTrigsWithProgress({
         }
         
         if (isZoomedOut) {
-          // Fetch ALL trigpoints using parallel batches
-          const batchSize = 3000;
-          const numBatches = 4;
+          // Fetch trigpoints using parallel batches
+          // Calculate batch configuration based on maxTrigpoints
+          const batchSize = Math.min(3000, maxTrigpoints);
+          const numBatches = Math.ceil(maxTrigpoints / batchSize);
           
           const fetchBatch = async (batchIndex: number): Promise<TrigsResponse | null> => {
             const skip = batchIndex * batchSize;
@@ -147,14 +150,17 @@ export function useMapTrigsWithProgress({
           setData(allTrigpoints);
           setTotalCount(total);
           
-          // Cache the result
-          sessionStorage.setItem(cacheKey, JSON.stringify({ items: allTrigpoints, total }));
-          sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString());
+          // Cache the result in memory
+          trigsCache.set(cacheKey, {
+            data: allTrigpoints,
+            total,
+            timestamp: Date.now(),
+          });
         } else {
           // Fetch viewport trigpoints with parallel batches
           const { lat, lon, maxKm } = boundsToCenter(bounds);
-          const batchSize = 500;
-          const numBatches = 2;
+          const batchSize = Math.min(500, Math.ceil(maxTrigpoints / 2));
+          const numBatches = Math.min(2, Math.ceil(maxTrigpoints / batchSize));
           
           const fetchBatch = async (batchIndex: number): Promise<TrigsResponse | null> => {
             const skip = batchIndex * batchSize;
@@ -199,9 +205,12 @@ export function useMapTrigsWithProgress({
           setData(allTrigpoints);
           setTotalCount(total);
           
-          // Cache the result
-          sessionStorage.setItem(cacheKey, JSON.stringify({ items: allTrigpoints, total }));
-          sessionStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString());
+          // Cache the result in memory
+          trigsCache.set(cacheKey, {
+            data: allTrigpoints,
+            total,
+            timestamp: Date.now(),
+          });
         }
         
         setIsLoading(false);
@@ -213,7 +222,7 @@ export function useMapTrigsWithProgress({
     };
     
     fetchData();
-  }, [bounds, excludeFound, enabled, zoom, getAccessTokenSilently, isAuthenticated]);
+  }, [bounds, excludeFound, enabled, zoom, maxTrigpoints, getAccessTokenSilently, isAuthenticated]);
   
   return {
     data,

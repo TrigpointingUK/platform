@@ -90,6 +90,24 @@ export default function Map() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [renderMode, setRenderMode] = useState<'auto' | 'markers' | 'heatmap'>('auto');
   const [currentZoom, setCurrentZoom] = useState<number>(MAP_CONFIG.defaultZoom);
+  const [maxTrigpoints, setMaxTrigpoints] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem('trigpointing_map_max_trigpoints');
+      return stored ? parseInt(stored) : 10000;
+    } catch {
+      return 10000;
+    }
+  });
+  
+  // Save max trigpoints preference
+  const handleMaxTrigpointsChange = (value: number) => {
+    setMaxTrigpoints(value);
+    try {
+      localStorage.setItem('trigpointing_map_max_trigpoints', value.toString());
+    } catch (error) {
+      console.error('Failed to save max trigpoints preference:', error);
+    }
+  };
   
   // Get center from URL params or use default
   const initialCenter: [number, number] = useMemo(() => {
@@ -120,6 +138,7 @@ export default function Map() {
     excludeFound,
     enabled: !!mapBounds,
     zoom: currentZoom,
+    maxTrigpoints,
   });
   
   // Client-side filtering by physical type
@@ -243,6 +262,31 @@ export default function Map() {
               />
             </div>
             
+            {/* Max trigpoints selector */}
+            <div className="mb-4">
+              <div className="bg-white rounded-lg shadow-md p-3">
+                <label htmlFor="max-trigpoints" className="block text-xs font-medium text-gray-700 mb-2">
+                  Max Trigpoints (Performance)
+                </label>
+                <select
+                  id="max-trigpoints"
+                  value={maxTrigpoints}
+                  onChange={(e) => handleMaxTrigpointsChange(parseInt(e.target.value))}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+                >
+                  <option value={100}>100 (Low-end devices)</option>
+                  <option value={500}>500 (Mobile)</option>
+                  <option value={1000}>1,000 (Tablet)</option>
+                  <option value={5000}>5,000 (Desktop)</option>
+                  <option value={10000}>10,000 (High-end)</option>
+                  <option value={50000}>50,000 (Maximum)</option>
+                </select>
+                <div className="mt-1 text-xs text-gray-500">
+                  Lower = faster, Higher = more complete
+                </div>
+              </div>
+            </div>
+            
             {/* Render mode selector */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -324,7 +368,7 @@ export default function Map() {
                 <div>
                   <div className="font-semibold">Showing {trigpoints.length} trigpoints</div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {allTrigsData.length} loaded, {totalCount} in database
+                    {allTrigsData.length} loaded, {totalCount} in database (zoom: {currentZoom.toFixed(1)})
                   </div>
                   {selectedPhysicalTypes.length < ALL_PHYSICAL_TYPES.length && (
                     <div className="text-xs text-blue-600 mt-1">
