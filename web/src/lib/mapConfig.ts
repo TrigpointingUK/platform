@@ -29,71 +29,95 @@ const getTileServerUrl = (envKey: string, fallback: string): string => {
  * Configure the URL via VITE_TILE_OS_LANDRANGER environment variable.
  */
 export const TILE_LAYERS: Record<string, TileLayer> = {
-  osLandranger: {
-    id: 'osLandranger',
-    name: 'OS Landranger',
-    urlTemplate: getTileServerUrl(
-      'VITE_TILE_OS_LANDRANGER',
-      'https://tiles.example.com/os-landranger/{z}/{x}/{y}.png'
-    ),
-    attribution: '© Ordnance Survey',
-    maxZoom: 18,
-    maxNativeZoom: 16, // Tiles available up to zoom 16, scale beyond
-  },
-  
-  osm: {
-    id: 'osm',
-    name: 'OpenStreetMap',
-    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-    maxNativeZoom: 19, // OSM has tiles up to zoom 19
-    subdomains: ['a', 'b', 'c'],
-  },
-  
-  osmMapnik: {
-    id: 'osmMapnik',
-    name: 'Mapnik (OSM)',
-    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 20,
-    maxNativeZoom: 19,
-    subdomains: ['a', 'b', 'c'],
-  },
-  
-  esriSatellite: {
-    id: 'esriSatellite',
-    name: 'ESRI Satellite',
-    urlTemplate: getTileServerUrl(
-      'VITE_TILE_ESRI_SATELLITE',
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-    ),
-    attribution: '© Esri, Maxar, Earthstar Geographics',
-    maxZoom: 20,
-    maxNativeZoom: 19,
-  },
-  
+
   osDigital: {
     id: 'osDigital',
     name: 'OS Digital',
     urlTemplate: getTileServerUrl(
       'VITE_TILE_OS_DIGITAL',
-      'https://tiles.example.com/os-digital/{z}/{x}/{y}.png'
+      'https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{z}/{x}/{y}.png?key=gkJqb8OXGfEt6ANhLN3yC6DEk3Ur97Dj'
     ),
     attribution: '© Ordnance Survey',
+    minZoom: 7,
+    maxZoom: 20,
+    maxNativeZoom: 20, // Tiles available up to zoom 16, scale beyond
+  },
+  
+  osDigitalLight: {
+    id: 'osDigitalLight',
+    name: 'OS Digital Light',
+    urlTemplate: getTileServerUrl(
+      'VITE_TILE_OS_DIGITAL_LIGHT',
+      'https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=gkJqb8OXGfEt6ANhLN3yC6DEk3Ur97Dj'
+    ),
+    attribution: '© Ordnance Survey',
+    minZoom: 7,
+    maxZoom: 20,
+    maxNativeZoom: 20, // Tiles available up to zoom 16, scale beyond
+  },
+  
+
+
+  osPaper: {
+    id: 'osPaper',
+    name: 'OS Paper',
+    urlTemplate: getTileServerUrl(
+      'VITE_TILE_OS_PAPER',
+      'https://tiles.example.com/os-paper/{z}/{x}/{y}.png'
+    ),
+    attribution: '© Ordnance Survey',
+    minZoom: 7,
     maxZoom: 18,
     maxNativeZoom: 16, // Tiles available up to zoom 16, scale beyond
   },
+
+
+  osm: {
+    id: 'osm',
+    name: 'OpenStreetMap',
+    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenStreetMap contributors',
+    minZoom: 0,
+    maxZoom: 20,
+    maxNativeZoom: 19, // OSM has tiles up to zoom 19
+    subdomains: ['a', 'b', 'c'],
+  },
   
+
   openTopoMap: {
     id: 'openTopoMap',
     name: 'OpenTopoMap',
     urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attribution: '© OpenTopoMap contributors',
-    maxZoom: 17,
-    maxNativeZoom: 20,
+    minZoom: 0,
+    maxZoom: 20,
+    maxNativeZoom: 17,
     subdomains: ['a', 'b', 'c'],
   },
+  // osmMapnik: {
+  //   id: 'osmMapnik',
+  //   name: 'Mapnik (OSM)',
+  //   urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  //   attribution: '© OpenStreetMap contributors',
+  //   maxZoom: 20,
+  //   maxNativeZoom: 19,
+  //   subdomains: ['a', 'b', 'c'],
+  // },
+  
+  esriSatellite: {
+    id: 'esriSatellite',
+    name: 'Satellite',
+    urlTemplate: getTileServerUrl(
+      'VITE_TILE_ESRI_SATELLITE',
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+    ),
+    attribution: '© Esri, Maxar, Earthstar Geographics',
+    minZoom: 0,
+    maxZoom: 20,
+    maxNativeZoom: 19,
+  },
+  
+
 };
 
 /**
