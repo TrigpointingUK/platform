@@ -15,6 +15,7 @@ export interface TileLayer {
   minZoom?: number;
   subdomains?: string[];
   tileSize?: number;
+  crs?: string; // Coordinate Reference System (e.g., 'EPSG:3857', 'EPSG:27700')
 }
 
 // Get tile server URLs from environment variables with fallbacks
@@ -40,7 +41,8 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     attribution: '© Ordnance Survey',
     minZoom: 7,
     maxZoom: 20,
-    maxNativeZoom: 20, // Tiles available up to zoom 16, scale beyond
+    maxNativeZoom: 20,
+    crs: 'EPSG:3857',
   },
   
   // osDigitalLight: {
@@ -63,12 +65,14 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     name: 'OS Paper',
     urlTemplate: getTileServerUrl(
       'VITE_TILE_OS_PAPER',
-      'https://tiles.example.com/os-paper/{z}/{x}/{y}.png'
+      'https://api.os.uk/maps/raster/v1/zxy/Leisure_27700/{z}/{x}/{y}.png?key=gkJqb8OXGfEt6ANhLN3yC6DEk3Ur97Dj'
     ),
     attribution: '© Ordnance Survey',
     minZoom: 7,
-    maxZoom: 18,
-    maxNativeZoom: 16, // Tiles available up to zoom 16, scale beyond
+    maxZoom: 13, // EPSG:27700 has different zoom levels
+    maxNativeZoom: 13,
+    crs: 'EPSG:27700', // British National Grid
+    tileSize: 256,
   },
 
 
@@ -79,7 +83,8 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     attribution: '© OpenStreetMap contributors',
     minZoom: 0,
     maxZoom: 20,
-    maxNativeZoom: 19, // OSM has tiles up to zoom 19
+    maxNativeZoom: 19,
+    crs: 'EPSG:3857',
     subdomains: ['a', 'b', 'c'],
   },
   
@@ -92,6 +97,7 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     minZoom: 0,
     maxZoom: 20,
     maxNativeZoom: 17,
+    crs: 'EPSG:3857',
     subdomains: ['a', 'b', 'c'],
   },
   // osmMapnik: {
@@ -115,6 +121,7 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     minZoom: 0,
     maxZoom: 20,
     maxNativeZoom: 19,
+    crs: 'EPSG:3857',
   },
   
 

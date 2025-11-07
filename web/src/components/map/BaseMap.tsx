@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { MapContainer, TileLayer, useMap, ScaleControl } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import { getTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
+import { getCRS } from "../../lib/projections";
 
 interface BaseMapProps {
   center: LatLngExpression;
@@ -74,11 +75,19 @@ export default function BaseMap({
   const minZoom = Math.max(tileLayer.minZoom ?? 0, MAP_CONFIG.minZoom);
   const maxZoom = Math.min(tileLayer.maxZoom ?? 20, MAP_CONFIG.maxZoom);
   
+  // Get CRS for this tileset (defaults to EPSG:3857)
+  const crs = getCRS(tileLayer.crs || 'EPSG:3857');
+  
+  // Use tileset ID + CRS as key to force remount when projection changes
+  const mapKey = `${tileLayerId}-${tileLayer.crs || 'EPSG:3857'}`;
+  
   return (
     <div className={`relative ${className}`} style={{ height: heightStyle }}>
       <MapContainer
+        key={mapKey}
         center={center}
         zoom={zoom}
+        crs={crs}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
         className="rounded-lg"
