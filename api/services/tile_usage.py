@@ -1,11 +1,12 @@
 """
 Tile usage tracking service with Redis-based rate limiting.
 
-Tracks OS Maps API tile usage across multiple dimensions:
+Tracks OS Maps API tile usage for cost control:
 - Global totals (premium + free)
 - Per-IP totals (premium + free)
-- Per-user totals (premium + free)
-- Anonymous total (premium + free)
+
+Note: All tile requests are anonymous because browser image requests
+don't send Authorization headers. User-based tracking is not possible.
 
 All counters are tracked weekly and automatically reset.
 
@@ -171,7 +172,6 @@ class TileUsageTracker:
         z: int,
         from_cache: bool,
         client_ip: str,
-        user_id: Optional[int] = None,
     ) -> Tuple[bool, Optional[str]]:
         """
         Check if tile request would exceed any usage limits.
@@ -183,7 +183,6 @@ class TileUsageTracker:
             z: Zoom level
             from_cache: Whether tile is from cache
             client_ip: Client IP address
-            user_id: User ID if authenticated, None for anonymous
 
         Returns:
             Tuple of (allowed, error_message)
@@ -200,83 +199,29 @@ class TileUsageTracker:
         premium = is_premium_tile(layer, z, from_cache)
         tile_type = "premium" if premium else "free"
 
-        # Get all applicable counters
+        # Get counters
         global_key = self._get_key(f"total:{tile_type}")
         global_count = self._get_counter(global_key)
 
         ip_key = self._get_key(f"ip:{client_ip}:{tile_type}")
         ip_count = self._get_counter(ip_key)
 
-        if user_id:
-            # Registered user
-            user_key = self._get_key(f"user:{user_id}:{tile_type}")
-            user_count = self._get_counter(user_key)
+        # Check global limit
+        if global_count >= self.limits[f"global_{tile_type}"]:
+            self._log_limit_breach(
+                "global",
+                tile_type,
+                global_count,
+                self.limits[f"global_{tile_type}"],
+            )
+            return False, f"Global {tile_type} tile limit exceeded for this week"
 
-            # Check limits
-            if global_count >= self.limits[f"global_{tile_type}"]:
-                self._log_limit_breach(
-                    "global",
-                    tile_type,
-                    global_count,
-                    self.limits[f"global_{tile_type}"],
-                )
-                return False, f"Global {tile_type} tile limit exceeded for this week"
-
-            if user_count >= self.limits[f"registered_{tile_type}"]:
-                self._log_limit_breach(
-                    "user",
-                    tile_type,
-                    user_count,
-                    self.limits[f"registered_{tile_type}"],
-                    str(user_id),
-                )
-                return False, f"Your {tile_type} tile limit exceeded for this week"
-
-            if ip_count >= self.limits[f"registered_{tile_type}"]:
-                self._log_limit_breach(
-                    "ip",
-                    tile_type,
-                    ip_count,
-                    self.limits[f"registered_{tile_type}"],
-                    client_ip,
-                )
-                return False, f"IP {tile_type} tile limit exceeded for this week"
-        else:
-            # Anonymous user
-            anon_total_key = self._get_key(f"anon_total:{tile_type}")
-            anon_total_count = self._get_counter(anon_total_key)
-
-            # Check limits
-            if global_count >= self.limits[f"global_{tile_type}"]:
-                self._log_limit_breach(
-                    "global",
-                    tile_type,
-                    global_count,
-                    self.limits[f"global_{tile_type}"],
-                )
-                return False, f"Global {tile_type} tile limit exceeded for this week"
-
-            if anon_total_count >= self.limits[f"anon_total_{tile_type}"]:
-                self._log_limit_breach(
-                    "anon_total",
-                    tile_type,
-                    anon_total_count,
-                    self.limits[f"anon_total_{tile_type}"],
-                )
-                return (
-                    False,
-                    f"Anonymous user {tile_type} tile limit exceeded for this week",
-                )
-
-            if ip_count >= self.limits[f"anon_ip_{tile_type}"]:
-                self._log_limit_breach(
-                    "anon_ip",
-                    tile_type,
-                    ip_count,
-                    self.limits[f"anon_ip_{tile_type}"],
-                    client_ip,
-                )
-                return False, f"Your IP {tile_type} tile limit exceeded for this week"
+        # Check per-IP limit
+        if ip_count >= self.limits[f"per_ip_{tile_type}"]:
+            self._log_limit_breach(
+                "ip", tile_type, ip_count, self.limits[f"per_ip_{tile_type}"], client_ip
+            )
+            return False, f"IP address {tile_type} tile limit exceeded for this week"
 
         return True, None
 
@@ -286,7 +231,6 @@ class TileUsageTracker:
         z: int,
         from_cache: bool,
         client_ip: str,
-        user_id: Optional[int] = None,
     ) -> None:
         """
         Record tile usage by incrementing all applicable counters.
@@ -298,7 +242,6 @@ class TileUsageTracker:
             z: Zoom level
             from_cache: Whether tile was from cache
             client_ip: Client IP address
-            user_id: User ID if authenticated, None for anonymous
         """
         if not self.redis_client:
             return
@@ -314,23 +257,11 @@ class TileUsageTracker:
         ip_key = self._get_key(f"ip:{client_ip}:{tile_type}")
         self._increment_counter(ip_key)
 
-        if user_id:
-            # Increment user counter
-            user_key = self._get_key(f"user:{user_id}:{tile_type}")
-            self._increment_counter(user_key)
-        else:
-            # Increment anonymous total counter
-            anon_total_key = self._get_key(f"anon_total:{tile_type}")
-            self._increment_counter(anon_total_key)
-
-    def get_usage_stats(
-        self, user_id: Optional[int] = None, client_ip: Optional[str] = None
-    ) -> dict:
+    def get_usage_stats(self, client_ip: Optional[str] = None) -> dict:
         """
         Get current usage statistics.
 
         Args:
-            user_id: Optional user ID to get user-specific stats
             client_ip: Optional IP to get IP-specific stats
 
         Returns:
@@ -354,47 +285,15 @@ class TileUsageTracker:
             },
         }
 
-        if user_id:
-            stats["user"] = {
-                "premium": {
-                    "used": self._get_counter(self._get_key(f"user:{user_id}:premium")),
-                    "limit": self.limits["registered_premium"],
-                },
-                "free": {
-                    "used": self._get_counter(self._get_key(f"user:{user_id}:free")),
-                    "limit": self.limits["registered_free"],
-                },
-            }
-
         if client_ip:
             stats["ip"] = {
                 "premium": {
                     "used": self._get_counter(self._get_key(f"ip:{client_ip}:premium")),
-                    "limit": (
-                        self.limits["anon_ip_premium"]
-                        if not user_id
-                        else self.limits["registered_premium"]
-                    ),
+                    "limit": self.limits["per_ip_premium"],
                 },
                 "free": {
                     "used": self._get_counter(self._get_key(f"ip:{client_ip}:free")),
-                    "limit": (
-                        self.limits["anon_ip_free"]
-                        if not user_id
-                        else self.limits["registered_free"]
-                    ),
-                },
-            }
-
-        if not user_id:
-            stats["anonymous_total"] = {
-                "premium": {
-                    "used": self._get_counter(self._get_key("anon_total:premium")),
-                    "limit": self.limits["anon_total_premium"],
-                },
-                "free": {
-                    "used": self._get_counter(self._get_key("anon_total:free")),
-                    "limit": self.limits["anon_total_free"],
+                    "limit": self.limits["per_ip_free"],
                 },
             }
 

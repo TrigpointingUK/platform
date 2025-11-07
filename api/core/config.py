@@ -103,12 +103,8 @@ class Settings(BaseSettings):
     # = 100 * 1024 * 1024 / 15 = 6,990,506 ≈ 7,000,000 (rounded to 1 sig fig)
     TILE_LIMIT_GLOBAL_FREE_WEEKLY: int = 7_000_000
 
-    # Percentage-based limits for registered users and per-IP
-    TILE_LIMIT_PERCENTAGE_REGISTERED: float = 0.01  # 1% of global
-    TILE_LIMIT_PERCENTAGE_ANONYMOUS_IP: float = 0.01  # 1% of global per IP
-    TILE_LIMIT_PERCENTAGE_ANONYMOUS_TOTAL: float = (
-        0.10  # 10% of global for all anonymous
-    )
+    # Percentage-based limits for per-IP (all tiles are anonymous)
+    TILE_LIMIT_PERCENTAGE_PER_IP: float = 0.01  # 1% of global per IP
 
     @property
     def tile_limits(self) -> dict:
@@ -116,47 +112,29 @@ class Settings(BaseSettings):
         Calculate tile usage limits based on environment.
 
         Staging uses low limits for testing, production uses calculated limits.
+        Note: All tiles are anonymous (browser image requests don't send auth headers).
+        Only tracks global and per-IP limits.
         """
         if self.ENVIRONMENT == "staging":
             # Low limits for staging to prevent accidental costs during testing
             return {
                 "global_premium": 10000,
                 "global_free": 10000,
-                "registered_premium": 1000,
-                "registered_free": 1000,
-                "anon_ip_premium": 1000,
-                "anon_ip_free": 1000,
-                "anon_total_premium": 1000,
-                "anon_total_free": 1000,
+                "per_ip_premium": 1000,
+                "per_ip_free": 1000,
             }
         else:
             # Production limits based on OS API quotas and bandwidth
             return {
                 "global_premium": self.TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY,
                 "global_free": self.TILE_LIMIT_GLOBAL_FREE_WEEKLY,
-                "registered_premium": int(
+                "per_ip_premium": int(
                     self.TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY
-                    * self.TILE_LIMIT_PERCENTAGE_REGISTERED
+                    * self.TILE_LIMIT_PERCENTAGE_PER_IP
                 ),
-                "registered_free": int(
+                "per_ip_free": int(
                     self.TILE_LIMIT_GLOBAL_FREE_WEEKLY
-                    * self.TILE_LIMIT_PERCENTAGE_REGISTERED
-                ),
-                "anon_ip_premium": int(
-                    self.TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY
-                    * self.TILE_LIMIT_PERCENTAGE_ANONYMOUS_IP
-                ),
-                "anon_ip_free": int(
-                    self.TILE_LIMIT_GLOBAL_FREE_WEEKLY
-                    * self.TILE_LIMIT_PERCENTAGE_ANONYMOUS_IP
-                ),
-                "anon_total_premium": int(
-                    self.TILE_LIMIT_GLOBAL_PREMIUM_WEEKLY
-                    * self.TILE_LIMIT_PERCENTAGE_ANONYMOUS_TOTAL
-                ),
-                "anon_total_free": int(
-                    self.TILE_LIMIT_GLOBAL_FREE_WEEKLY
-                    * self.TILE_LIMIT_PERCENTAGE_ANONYMOUS_TOTAL
+                    * self.TILE_LIMIT_PERCENTAGE_PER_IP
                 ),
             }
 

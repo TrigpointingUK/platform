@@ -87,9 +87,8 @@ async def proxy_os_tile(
             detail=f"Invalid layer. Allowed: {', '.join(ALLOWED_LAYERS)}",
         )
 
-    # Get client IP and user ID
+    # Get client IP (user authentication not used - browser image requests don't send auth headers)
     client_ip = get_client_ip(request)
-    user_id = int(current_user.id) if current_user else None
 
     # Check if tile is cached in EFS
     tile_path = Path(settings.TILE_CACHE_DIR) / layer / str(z) / str(x) / f"{y}.png"
@@ -97,15 +96,13 @@ async def proxy_os_tile(
 
     # Check usage limits before proceeding
     tracker = get_tile_usage_tracker()
-    allowed, error_message = tracker.check_limits(
-        layer, z, from_cache, client_ip, user_id
-    )
+    allowed, error_message = tracker.check_limits(layer, z, from_cache, client_ip)
 
     if not allowed:
         # Log the rejection
         logger.warning(
             f"Tile request blocked: {error_message} "
-            f"(layer={layer}, z={z}, user_id={user_id}, ip={client_ip})"
+            f"(layer={layer}, z={z}, ip={client_ip})"
         )
         raise HTTPException(status_code=429, detail=error_message)
 
@@ -116,7 +113,7 @@ async def proxy_os_tile(
                 tile_data = f.read()
 
             # Record usage (cached tile = free)
-            tracker.record_usage(layer, z, from_cache, client_ip, user_id)
+            tracker.record_usage(layer, z, from_cache, client_ip)
 
             return Response(
                 content=tile_data,
@@ -162,7 +159,7 @@ async def proxy_os_tile(
                 # Continue even if caching fails
 
             # Record usage (proxied tile = premium or free based on zoom)
-            tracker.record_usage(layer, z, False, client_ip, user_id)
+            tracker.record_usage(layer, z, False, client_ip)
 
             # Determine if this was a premium tile
             premium = is_premium_tile(layer, z, False)
@@ -220,9 +217,8 @@ async def get_tile_usage(
     #     raise HTTPException(status_code=403, detail="Admin access required")
 
     client_ip = get_client_ip(request)
-    user_id = int(current_user.id)
 
     tracker = get_tile_usage_tracker()
-    stats = tracker.get_usage_stats(user_id=user_id, client_ip=client_ip)
+    stats = tracker.get_usage_stats(client_ip=client_ip)
 
     return stats

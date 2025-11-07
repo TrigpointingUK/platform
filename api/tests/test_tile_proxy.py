@@ -65,9 +65,7 @@ class TestTileUsageTracker:
         mock_redis.get.return_value = "50"  # Under all limits
 
         tracker = TileUsageTracker()
-        allowed, error = tracker.check_limits(
-            "Outdoor_3857", 17, False, "1.2.3.4", user_id=1
-        )
+        allowed, error = tracker.check_limits("Outdoor_3857", 17, False, "1.2.3.4")
 
         assert allowed is True
         assert error is None
@@ -83,69 +81,40 @@ class TestTileUsageTracker:
         mock_redis.get.side_effect = get_side_effect
 
         tracker = TileUsageTracker()
-        allowed, error = tracker.check_limits(
-            "Outdoor_3857", 17, False, "1.2.3.4", user_id=1
-        )
+        allowed, error = tracker.check_limits("Outdoor_3857", 17, False, "1.2.3.4")
 
         assert allowed is False
         assert "Global premium tile limit exceeded" in error
 
-    def test_check_limits_blocks_when_user_exceeded(self, mock_redis):
-        """Check limits blocks when per-user limit exceeded."""
-
-        def get_side_effect(key):
-            if "user:1:premium" in key:
-                return "70000"  # At user limit (1% of 7M)
-            return "0"
-
-        mock_redis.get.side_effect = get_side_effect
-
-        tracker = TileUsageTracker()
-        allowed, error = tracker.check_limits(
-            "Outdoor_3857", 17, False, "1.2.3.4", user_id=1
-        )
-
-        assert allowed is False
-        assert "Your premium tile limit exceeded" in error
-
-    def test_check_limits_blocks_anon_ip_when_exceeded(self, mock_redis):
-        """Check limits blocks anonymous IP when limit exceeded."""
+    def test_check_limits_blocks_when_ip_exceeded(self, mock_redis):
+        """Check limits blocks when per-IP limit exceeded."""
 
         def get_side_effect(key):
             if "ip:1.2.3.4:premium" in key:
-                return "70000"  # At IP limit
+                return "70000"  # At IP limit (1% of 7M)
             return "0"
 
         mock_redis.get.side_effect = get_side_effect
 
         tracker = TileUsageTracker()
-        allowed, error = tracker.check_limits(
-            "Outdoor_3857", 17, False, "1.2.3.4", user_id=None
-        )
+        allowed, error = tracker.check_limits("Outdoor_3857", 17, False, "1.2.3.4")
 
         assert allowed is False
-        assert "IP premium tile limit exceeded" in error
+        assert "IP address premium tile limit exceeded" in error
 
     def test_record_usage_increments_counters(self, mock_redis):
-        """Record usage increments all applicable counters."""
+        """Record usage increments global and IP counters."""
         tracker = TileUsageTracker()
-        tracker.record_usage("Outdoor_3857", 17, False, "1.2.3.4", user_id=1)
+        tracker.record_usage("Outdoor_3857", 17, False, "1.2.3.4")
 
-        # Should increment global, IP, and user counters
-        assert mock_redis.incr.call_count == 3
-        assert mock_redis.expire.call_count == 3
+        # Should increment global and IP counters only
+        assert mock_redis.incr.call_count == 2
+        assert mock_redis.expire.call_count == 2
 
-    def test_record_usage_anonymous_increments_anon_total(self, mock_redis):
-        """Record usage increments anonymous total for non-authenticated users."""
-        tracker = TileUsageTracker()
-        tracker.record_usage("Outdoor_3857", 17, False, "1.2.3.4", user_id=None)
-
-        # Should increment global, IP, and anon_total counters
-        assert mock_redis.incr.call_count == 3
-
-        # Check that anon_total was incremented
+        # Verify correct keys were incremented
         call_args = [call[0][0] for call in mock_redis.incr.call_args_list]
-        assert any("anon_total:premium" in arg for arg in call_args)
+        assert any("total:premium" in arg for arg in call_args)
+        assert any("ip:1.2.3.4:premium" in arg for arg in call_args)
 
 
 class TestTileProxyEndpoint:
@@ -182,7 +151,7 @@ class TestTileProxyEndpoint:
         """Rate limit exceeded returns 429 Too Many Requests."""
         mock_tracker.check_limits.return_value = (
             False,
-            "Global premium tile limit exceeded",
+            "Global premium tile limit exceeded for this week",
         )
 
         response = client.get("/v1/tiles/os/Outdoor_3857/17/1000/2000.png")

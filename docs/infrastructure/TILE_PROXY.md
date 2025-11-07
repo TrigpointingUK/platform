@@ -44,25 +44,24 @@ Browser → Cloudflare CDN → ALB → FastAPI → EFS Cache
 
 **Key Structure:**
 ```
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/total/premium → count
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/total/free → count
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/ip/{ip}/premium → count
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/ip/{ip}/free → count
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/user/{user_id}/premium → count
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/user/{user_id}/free → count
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/anon_total/premium → count
-fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/anon_total/free → count
+fastapi:{environment}:tiles:usage:weekly:{YYYY-WW}:total:premium → count
+fastapi:{environment}:tiles:usage:weekly:{YYYY-WW}:total:free → count
+fastapi:{environment}:tiles:usage:weekly:{YYYY-WW}:ip:{ip}:premium → count
+fastapi:{environment}:tiles:usage:weekly:{YYYY-WW}:ip:{ip}:free → count
 ```
+
+Note: Per-user tracking removed - browser image requests don't send auth headers.
 
 **TTL:** 8 days (automatic cleanup)
 
 ### 3. Rate Limiting
 
 **Dimensions Tracked:**
-1. **Global Total** - Overall usage for all users
+1. **Global Total** - Overall usage across all requests
 2. **Per-IP** - Individual IP address usage
-3. **Per-User** - Individual authenticated user usage
-4. **Anonymous Total** - Total for all anonymous users combined
+
+Note: All tile requests are anonymous because browser image requests don't send
+Authorization headers. Per-user tracking is not possible with standard map tiles.
 
 **Limits (Production):**
 ```python
@@ -70,21 +69,18 @@ fastapi/{environment}/tiles/usage/weekly/{YYYY-WW}/anon_total/free → count
 global_premium: 7,000,000
 global_free: 7,000,000
 
-# Per-user: 1% of global
-registered_premium: 70,000
-registered_free: 70,000
-
-# Per-IP (anonymous): 1% of global
-anon_ip_premium: 70,000
-anon_ip_free: 70,000
-
-# Total anonymous: 10% of global
-anon_total_premium: 700,000
-anon_total_free: 700,000
+# Per-IP: 1% of global
+per_ip_premium: 70,000
+per_ip_free: 70,000
 ```
 
 **Limits (Staging):**
-All limits set to 100 or lower for testing.
+```python
+global_premium: 10,000
+global_free: 10,000
+per_ip_premium: 1,000
+per_ip_free: 1,000
+```
 
 ### 4. Premium Tile Classification
 
