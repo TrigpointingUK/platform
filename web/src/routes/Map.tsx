@@ -12,7 +12,7 @@ import LocationButton from "../components/map/LocationButton";
 import { PhysicalTypeFilter } from "../components/trigs/PhysicalTypeFilter";
 import Layout from "../components/layout/Layout";
 import Spinner from "../components/ui/Spinner";
-import { useMapTrigs, type MapBounds } from "../hooks/useMapTrigs";
+import { useMapTrigsWithProgress, type MapBounds } from "../hooks/useMapTrigsWithProgress";
 import {
   getPreferredTileLayer,
   MAP_CONFIG,
@@ -34,7 +34,13 @@ const ALL_PHYSICAL_TYPES = [
 /**
  * Component to track map viewport changes
  */
-function MapViewportTracker({ onBoundsChange }: { onBoundsChange: (bounds: MapBounds) => void }) {
+function MapViewportTracker({ 
+  onBoundsChange,
+  onZoomChange 
+}: { 
+  onBoundsChange: (bounds: MapBounds) => void;
+  onZoomChange: (zoom: number) => void;
+}) {
   const map = useMap();
   
   useEffect(() => {
@@ -46,6 +52,7 @@ function MapViewportTracker({ onBoundsChange }: { onBoundsChange: (bounds: MapBo
         east: bounds.getEast(),
         west: bounds.getWest(),
       });
+      onZoomChange(map.getZoom());
     };
     
     // Initial bounds
@@ -59,7 +66,7 @@ function MapViewportTracker({ onBoundsChange }: { onBoundsChange: (bounds: MapBo
       map.off('moveend', updateBounds);
       map.off('zoomend', updateBounds);
     };
-  }, [map, onBoundsChange]);
+  }, [map, onBoundsChange, onZoomChange]);
   
   return null;
 }
@@ -82,6 +89,7 @@ export default function Map() {
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [renderMode, setRenderMode] = useState<'auto' | 'markers' | 'heatmap'>('auto');
+  const [currentZoom, setCurrentZoom] = useState<number>(MAP_CONFIG.defaultZoom);
   
   // Get center from URL params or use default
   const initialCenter: [number, number] = useMemo(() => {
@@ -100,27 +108,42 @@ export default function Map() {
   }, [searchParams]);
   
   // Fetch trigpoints for current viewport
+  // Note: physical_types filter NOT applied in API - we filter client-side
   const {
-    data: trigsData,
+    data: allTrigsData,
+    totalCount,
     isLoading,
+    loadingProgress,
     error,
-  } = useMapTrigs({
+  } = useMapTrigsWithProgress({
     bounds: mapBounds,
-    physicalTypes: selectedPhysicalTypes.length > 0 ? selectedPhysicalTypes : undefined,
     excludeFound,
     enabled: !!mapBounds,
+    zoom: currentZoom,
   });
   
-  const trigpoints = trigsData?.items || [];
-  const totalCount = trigsData?.pagination.total || 0;
+  // Client-side filtering by physical type
+  const trigpoints = useMemo(() => {
+    // If all types selected, no need to filter
+    if (selectedPhysicalTypes.length === ALL_PHYSICAL_TYPES.length) {
+      return allTrigsData;
+    }
+    
+    // Filter by selected physical types
+    return allTrigsData.filter(trig => 
+      selectedPhysicalTypes.includes(trig.physical_type)
+    );
+  }, [allTrigsData, selectedPhysicalTypes]);
   
-  // Determine whether to show markers or heatmap
+  // Determine whether to show markers or heatmap based on zoom level
   const shouldShowHeatmap = useMemo(() => {
     if (renderMode === 'markers') return false;
     if (renderMode === 'heatmap') return true;
-    // Auto mode: use heatmap if trigpoints exceed threshold
-    return trigpoints.length > MAP_CONFIG.markerThreshold;
-  }, [renderMode, trigpoints.length]);
+    // Auto mode: use heatmap when zoomed out (zoom < 10) OR too many trigpoints
+    const isZoomedOut = currentZoom < 10;
+    const tooManyMarkers = trigpoints.length > MAP_CONFIG.markerThreshold;
+    return isZoomedOut || tooManyMarkers;
+  }, [renderMode, trigpoints.length, currentZoom]);
   
   // Update URL params when filters change
   useEffect(() => {
@@ -264,11 +287,11 @@ export default function Map() {
                 <div className="mt-2 text-xs text-gray-600">
                   {shouldShowHeatmap ? (
                     <span className="text-amber-600">
-                      Showing heatmap ({trigpoints.length} &gt; {MAP_CONFIG.markerThreshold})
+                      Showing heatmap (zoom: {currentZoom.toFixed(1)}, {trigpoints.length} trigpoints)
                     </span>
                   ) : (
                     <span className="text-trig-green-600">
-                      Showing markers ({trigpoints.length} ≤ {MAP_CONFIG.markerThreshold})
+                      Showing markers (zoom: {currentZoom.toFixed(1)}, {trigpoints.length} trigpoints)
                     </span>
                   )}
                 </div>
@@ -287,13 +310,25 @@ export default function Map() {
             {/* Results count */}
             <div className="mt-4 text-sm text-gray-600 p-3 bg-gray-50 rounded">
               {isLoading ? (
-                <span>Loading...</span>
+                <div>
+                  <div className="text-sm font-semibold mb-2">Loading trigpoints...</div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                    <div
+                      className="bg-trig-green-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${loadingProgress}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500">{loadingProgress.toFixed(0)}%</div>
+                </div>
               ) : (
                 <div>
                   <div className="font-semibold">Showing {trigpoints.length} trigpoints</div>
-                  {totalCount > trigpoints.length && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      {totalCount} total in database
+                  <div className="text-xs text-gray-500 mt-1">
+                    {allTrigsData.length} loaded, {totalCount} in database
+                  </div>
+                  {selectedPhysicalTypes.length < ALL_PHYSICAL_TYPES.length && (
+                    <div className="text-xs text-blue-600 mt-1">
+                      Filtered by type (client-side)
                     </div>
                   )}
                 </div>
@@ -311,7 +346,10 @@ export default function Map() {
             tileLayerId={tileLayerId}
             onMapReady={setMapInstance}
           >
-            <MapViewportTracker onBoundsChange={handleBoundsChange} />
+            <MapViewportTracker 
+              onBoundsChange={handleBoundsChange}
+              onZoomChange={setCurrentZoom}
+            />
             
             {/* Render trigpoint markers or heatmap */}
             {shouldShowHeatmap ? (
@@ -354,11 +392,18 @@ export default function Map() {
           
           {/* Loading overlay */}
           {isLoading && (
-            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-4 py-2 rounded-lg shadow-md">
-              <div className="flex items-center gap-2">
+            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-6 py-4 rounded-lg shadow-lg min-w-[300px]">
+              <div className="flex items-center gap-2 mb-3">
                 <Spinner size="sm" />
-                <span className="text-sm text-gray-700">Loading trigpoints...</span>
+                <span className="text-sm text-gray-700 font-semibold">Loading trigpoints...</span>
               </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                <div
+                  className="bg-trig-green-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${loadingProgress}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-500 text-center">{loadingProgress.toFixed(0)}%</div>
             </div>
           )}
           
