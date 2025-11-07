@@ -16,13 +16,23 @@ interface BaseMapProps {
 /**
  * Component to handle tile layer updates
  */
-function TileLayerUpdater({ tileLayerId }: { tileLayerId: string }) {
+function TileLayerUpdater({ tileLayerId, minZoom, maxZoom }: { tileLayerId: string; minZoom: number; maxZoom: number }) {
   const map = useMap();
   
   useEffect(() => {
-    // When tile layer changes, invalidate size to ensure proper rendering
+    // When tile layer changes, update zoom limits and invalidate size
+    map.setMinZoom(minZoom);
+    map.setMaxZoom(maxZoom);
     map.invalidateSize();
-  }, [tileLayerId, map]);
+    
+    // If current zoom is outside new limits, adjust it
+    const currentZoom = map.getZoom();
+    if (currentZoom < minZoom) {
+      map.setZoom(minZoom);
+    } else if (currentZoom > maxZoom) {
+      map.setZoom(maxZoom);
+    }
+  }, [tileLayerId, minZoom, maxZoom, map]);
   
   return null;
 }
@@ -60,6 +70,10 @@ export default function BaseMap({
   
   const heightStyle = typeof height === 'number' ? `${height}px` : height;
   
+  // Use the most restrictive zoom limits from both global config and tileset
+  const minZoom = Math.max(tileLayer.minZoom ?? 0, MAP_CONFIG.minZoom);
+  const maxZoom = Math.min(tileLayer.maxZoom ?? 20, MAP_CONFIG.maxZoom);
+  
   return (
     <div className={`relative ${className}`} style={{ height: heightStyle }}>
       <MapContainer
@@ -68,8 +82,8 @@ export default function BaseMap({
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
         className="rounded-lg"
-        minZoom={MAP_CONFIG.minZoom}
-        maxZoom={MAP_CONFIG.maxZoom}
+        minZoom={minZoom}
+        maxZoom={maxZoom}
       >
         <TileLayer
           key={tileLayer.id}
@@ -83,7 +97,7 @@ export default function BaseMap({
           crossOrigin="anonymous"
         />
         
-        <TileLayerUpdater tileLayerId={tileLayerId} />
+        <TileLayerUpdater tileLayerId={tileLayerId} minZoom={minZoom} maxZoom={maxZoom} />
         {onMapReady && <MapReadyNotifier onMapReady={onMapReady} />}
         
         {/* Scale bar at bottom left */}

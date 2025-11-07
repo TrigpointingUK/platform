@@ -43,18 +43,18 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     maxNativeZoom: 20, // Tiles available up to zoom 16, scale beyond
   },
   
-  osDigitalLight: {
-    id: 'osDigitalLight',
-    name: 'OS Digital Light',
-    urlTemplate: getTileServerUrl(
-      'VITE_TILE_OS_DIGITAL_LIGHT',
-      'https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=gkJqb8OXGfEt6ANhLN3yC6DEk3Ur97Dj'
-    ),
-    attribution: '© Ordnance Survey',
-    minZoom: 7,
-    maxZoom: 20,
-    maxNativeZoom: 20, // Tiles available up to zoom 16, scale beyond
-  },
+  // osDigitalLight: {
+  //   id: 'osDigitalLight',
+  //   name: 'OS Digital Light',
+  //   urlTemplate: getTileServerUrl(
+  //     'VITE_TILE_OS_DIGITAL_LIGHT',
+  //     'https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=gkJqb8OXGfEt6ANhLN3yC6DEk3Ur97Dj'
+  //   ),
+  //   attribution: '© Ordnance Survey',
+  //   minZoom: 7,
+  //   maxZoom: 20,
+  //   maxNativeZoom: 20, // Tiles available up to zoom 16, scale beyond
+  // },
   
 
 
@@ -175,7 +175,7 @@ export const MAP_CONFIG = {
   defaultZoom: 7,
   
   // Zoom levels
-  minZoom: 5,
+  minZoom: 4,
   maxZoom: 20,
   
   // Detail map settings
