@@ -195,6 +195,7 @@ def get_current_user_profile(
     # Create UserResponse with member_since field
     user_response = UserResponse.model_validate(current_user)
     user_response.member_since = current_user.crt_date  # type: ignore
+    user_response.auth0_user_id = current_user.auth0_user_id  # type: ignore
     result = UserWithIncludes(**user_response.model_dump())
 
     if include:

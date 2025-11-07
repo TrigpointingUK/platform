@@ -20,6 +20,9 @@ class UserResponse(BaseModel):
     homepage: Optional[str] = Field(..., description="User homepage URL")
     about: str
     member_since: Optional[date] = Field(None, description="Date user joined")
+    auth0_user_id: Optional[str] = Field(
+        None, description="Auth0 user ID (own profile only)"
+    )
 
     class Config:
         from_attributes = True
