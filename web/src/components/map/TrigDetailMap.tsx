@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import BaseMap from "./BaseMap";
 import TrigMarker from "./TrigMarker";
 import TilesetSelector from "./TilesetSelector";
-import { getPreferredTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
+import { getPreferredTileLayer, getTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
 import type { IconColorMode } from "../../lib/mapIcons";
 
 interface TrigData {
@@ -43,11 +43,21 @@ export default function TrigDetailMap({
     typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long) : trig.wgs_long,
   ];
   
+  // Adjust zoom level based on projection
+  // EPSG:27700 has different zoom levels than EPSG:3857
+  const currentTileLayer = getTileLayer(tileLayerId);
+  const zoomLevel = useMemo(() => {
+    if (currentTileLayer.crs === 'EPSG:27700') {
+      return 8; // Good detail level for British National Grid
+    }
+    return MAP_CONFIG.detailMapZoom; // Default 14 for Web Mercator
+  }, [currentTileLayer.crs]);
+  
   return (
     <div className={`relative ${className}`}>
       <BaseMap
         center={center}
-        zoom={MAP_CONFIG.detailMapZoom}
+        zoom={zoomLevel}
         height={height}
         tileLayerId={tileLayerId}
       >

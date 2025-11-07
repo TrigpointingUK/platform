@@ -68,9 +68,9 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
       'https://api.os.uk/maps/raster/v1/zxy/Leisure_27700/{z}/{x}/{y}.png?key=gkJqb8OXGfEt6ANhLN3yC6DEk3Ur97Dj'
     ),
     attribution: '© Ordnance Survey',
-    minZoom: 7,
-    maxZoom: 13, // EPSG:27700 has different zoom levels
-    maxNativeZoom: 13,
+    minZoom: 6,
+    maxZoom: 12, // EPSG:27700 has different zoom levels
+    maxNativeZoom: 9,
     crs: 'EPSG:27700', // British National Grid
     tileSize: 256,
   },
