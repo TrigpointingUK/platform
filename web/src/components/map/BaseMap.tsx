@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, useMap, ScaleControl } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
-import { getTileLayer } from "../../lib/mapConfig";
+import { getTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
 
 interface BaseMapProps {
   center: LatLngExpression;
@@ -68,14 +68,15 @@ export default function BaseMap({
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
         className="rounded-lg"
-        minZoom={5}
-        maxZoom={18}
+        minZoom={MAP_CONFIG.minZoom}
+        maxZoom={MAP_CONFIG.maxZoom}
       >
         <TileLayer
           key={tileLayer.id}
           url={tileLayer.urlTemplate}
           attribution={tileLayer.attribution}
           maxZoom={tileLayer.maxZoom || 19}
+          maxNativeZoom={tileLayer.maxNativeZoom}
           minZoom={tileLayer.minZoom || 0}
           {...(tileLayer.subdomains ? { subdomains: tileLayer.subdomains } : {})}
           tileSize={tileLayer.tileSize || 256}
@@ -84,6 +85,9 @@ export default function BaseMap({
         
         <TileLayerUpdater tileLayerId={tileLayerId} />
         {onMapReady && <MapReadyNotifier onMapReady={onMapReady} />}
+        
+        {/* Scale bar at bottom left */}
+        <ScaleControl position="bottomleft" imperial={false} />
         
         {children}
       </MapContainer>

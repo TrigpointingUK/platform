@@ -11,6 +11,7 @@ export interface TileLayer {
   urlTemplate: string;
   attribution: string;
   maxZoom: number;
+  maxNativeZoom?: number; // Highest zoom with actual tiles (scales beyond this)
   minZoom?: number;
   subdomains?: string[];
   tileSize?: number;
@@ -37,6 +38,7 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     ),
     attribution: '© Ordnance Survey',
     maxZoom: 18,
+    maxNativeZoom: 16, // Tiles available up to zoom 16, scale beyond
   },
   
   osm: {
@@ -45,6 +47,7 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19,
+    maxNativeZoom: 19, // OSM has tiles up to zoom 19
     subdomains: ['a', 'b', 'c'],
   },
   
@@ -53,7 +56,8 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     name: 'Mapnik (OSM)',
     urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
+    maxZoom: 20,
+    maxNativeZoom: 19,
     subdomains: ['a', 'b', 'c'],
   },
   
@@ -65,7 +69,8 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
     ),
     attribution: '© Esri, Maxar, Earthstar Geographics',
-    maxZoom: 19,
+    maxZoom: 20,
+    maxNativeZoom: 19,
   },
   
   osDigital: {
@@ -77,6 +82,7 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     ),
     attribution: '© Ordnance Survey',
     maxZoom: 18,
+    maxNativeZoom: 16, // Tiles available up to zoom 16, scale beyond
   },
   
   openTopoMap: {
@@ -85,6 +91,7 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attribution: '© OpenTopoMap contributors',
     maxZoom: 17,
+    maxNativeZoom: 20,
     subdomains: ['a', 'b', 'c'],
   },
 };
@@ -145,7 +152,7 @@ export const MAP_CONFIG = {
   
   // Zoom levels
   minZoom: 5,
-  maxZoom: 18,
+  maxZoom: 20,
   
   // Detail map settings
   detailMapZoom: 14,
