@@ -151,7 +151,7 @@ def list_trigs(
         False, description="Exclude trigpoints already logged by authenticated user"
     ),
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user_optional),
