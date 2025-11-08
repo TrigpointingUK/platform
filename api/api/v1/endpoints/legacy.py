@@ -858,20 +858,22 @@ def migrate_users_to_auth0(
             )
 
             if not auth0_user:
-                # User creation failed
+                # User creation failed - mark user with ERROR for later intervention
+                user_crud.update_user_auth0_id(db, user_id, "ERROR")
+
                 actions.append(
                     UserMigrationAction(
                         email=email,
                         database_user_id=user_id,
                         database_username=username,
                         action="failed",
-                        auth0_user_id=None,
+                        auth0_user_id="ERROR",
                         verification_email_sent=None,
                         error="Auth0 user creation failed",
                     )
                 )
                 logger.error(
-                    "Auth0 user creation failed",
+                    "Auth0 user creation failed - marked user with ERROR",
                     extra={
                         "email": email,
                         "user_id": user_id,
