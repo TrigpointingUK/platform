@@ -161,15 +161,15 @@ resource "aws_lb_listener_rule" "test_health" {
   }
 }
 
-# Legacy migration admin endpoint: route /legacy-migration on main domain to FastAPI
-# This allows admins to run the user migration to Auth0 from the main domain
+# Legacy migration admin endpoint: route /legacy-migration on main domain to web SPA
+# This allows admins to access the migration UI from the main domain
 resource "aws_lb_listener_rule" "legacy_migration" {
   listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
   priority     = 301
 
   action {
     type             = "forward"
-    target_group_arn = module.target_group.target_group_arn
+    target_group_arn = module.spa_ecs_service.target_group_arn
   }
 
   condition {
