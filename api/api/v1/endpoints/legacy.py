@@ -2,6 +2,7 @@
 Legacy endpoints for authentication and administrative operations.
 """
 
+import time
 from datetime import datetime, timezone  # noqa: F401
 from typing import Dict, Optional
 
@@ -805,7 +806,7 @@ def migrate_users_to_auth0(
 
     actions = []
 
-    for user_info in users_to_migrate:
+    for idx, user_info in enumerate(users_to_migrate):
         email = user_info["email"]
         user_id = user_info["user_id"]
         username = user_info["username"]
@@ -1003,6 +1004,18 @@ def migrate_users_to_auth0(
                 },
             )
             continue
+
+        # Rate limiting: Add 1 second delay between users (except after the last one)
+        # This ensures we average ~2 API calls per second (create + optional verify email)
+        if not request.dry_run and idx < len(users_to_migrate) - 1:
+            logger.debug(
+                "Rate limiting delay",
+                extra={
+                    "delay_seconds": 1,
+                    "users_remaining": len(users_to_migrate) - idx - 1,
+                },
+            )
+            time.sleep(1)
 
     logger.info(
         "User migration to Auth0 completed",
