@@ -188,3 +188,31 @@ resource "aws_lb_listener_rule" "legacy_migration" {
     Name = "${var.project_name}-${var.environment}-legacy-migration-rule"
   }
 }
+
+# Assets path: route /assets/* on main domain to web SPA
+# Required for SPA to load JavaScript, CSS, and other static assets
+resource "aws_lb_listener_rule" "assets" {
+  listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
+  priority     = 302
+
+  action {
+    type             = "forward"
+    target_group_arn = module.spa_ecs_service.target_group_arn
+  }
+
+  condition {
+    host_header {
+      values = ["trigpointing.uk"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/assets/*"]
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-assets-rule"
+  }
+}
