@@ -183,20 +183,11 @@ export default function LegacyMigration() {
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
               <p className="text-gray-700">
                 <strong>Note:</strong> If you have already provided an email address with your account, 
-                you do not need to use this page. Instead, you can either{" "}
-                <Link to="/" className="text-trig-green-600 hover:text-trig-green-700 hover:underline">
-                  log in
-                </Link>{" "}
-                or follow the{" "}
-                <a 
-                  href="https://login.trigpointing.uk" 
-                  className="text-trig-green-600 hover:text-trig-green-700 hover:underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  forgotten password process
-                </a>{" "}
-                using the new login link.
+                you do not need to use this page. Instead, you can {" "}
+                <Link to="https://trigpointing.uk/auth0/login.php" className="text-trig-green-600 hover:text-trig-green-700 hover:underline">
+                  login
+                </Link>
+                {" "} using the link on the TrigpointingUK homepage, follwing the "Can't log in to your account?" link if you need a password reset.
               </p>
             </div>
           </div>
