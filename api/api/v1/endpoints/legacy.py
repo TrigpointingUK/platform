@@ -20,6 +20,9 @@ from api.schemas.user import (
     LegacyLoginRequest,
     LegacyLoginResponse,
     UserBreakdown,
+    UserMigrationAction,
+    UserMigrationRequest,
+    UserMigrationResponse,
     UserPrefs,
     UserResponse,
     UserStats,
@@ -748,3 +751,269 @@ def merge_users(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Merge failed: {str(e)}",
         )
+
+
+@router.post(
+    "/migrate_users",
+    response_model=UserMigrationResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Migrate legacy users to Auth0. Requires admin authentication.",
+    ),
+)
+def migrate_users_to_auth0(
+    request: UserMigrationRequest,
+    db: Session = Depends(get_db),
+    current_user: user_crud.User = Depends(require_scopes("api:admin")),
+):
+    """
+    Migrate legacy users to Auth0.
+
+    This endpoint:
+    1. Selects the first <limit> unique user.email values where user.auth0_user_id is NULL
+    2. For each email, selects the user with the most recent tlog.upd_timestamp
+    3. If dry_run=False:
+       - Creates Auth0 user with metadata
+       - Updates user.auth0_user_id in database
+       - Sends verification email (only if send_confirmation_email=True)
+
+    Requires admin scope authentication.
+    """
+    from api.core.logging import get_logger
+
+    logger = get_logger(__name__)
+
+    logger.info(
+        "User migration to Auth0 started",
+        extra={
+            "limit": request.limit,
+            "dry_run": request.dry_run,
+            "admin_user_id": current_user.id,
+        },
+    )
+
+    # Get users for migration
+    users_to_migrate = user_crud.get_users_for_migration(db, request.limit)
+
+    logger.info(
+        "Users identified for migration",
+        extra={
+            "total_unique_emails": len(users_to_migrate),
+            "dry_run": request.dry_run,
+        },
+    )
+
+    actions = []
+
+    for user_info in users_to_migrate:
+        email = user_info["email"]
+        user_id = user_info["user_id"]
+        username = user_info["username"]
+        firstname = user_info["firstname"]
+        surname = user_info["surname"]
+
+        logger.info(
+            "Processing user for migration",
+            extra={
+                "email": email,
+                "user_id": user_id,
+                "username": username,
+                "dry_run": request.dry_run,
+            },
+        )
+
+        if request.dry_run:
+            # Dry run - just record what would happen
+            actions.append(
+                UserMigrationAction(
+                    email=email,
+                    database_user_id=user_id,
+                    database_username=username,
+                    action="skipped_dry_run",
+                    auth0_user_id=None,
+                    verification_email_sent=None,
+                    error=None,
+                )
+            )
+            logger.info(
+                "Dry run - skipping user migration",
+                extra={
+                    "email": email,
+                    "user_id": user_id,
+                    "username": username,
+                },
+            )
+            continue
+
+        # Not a dry run - actually migrate the user
+        try:
+            # Create Auth0 user
+            auth0_user = auth0_service.create_user_for_migration(
+                email=email,
+                name=username,
+                legacy_user_id=user_id,
+                original_username=username,
+                firstname=firstname if firstname else None,
+                surname=surname if surname else None,
+            )
+
+            if not auth0_user:
+                # User creation failed
+                actions.append(
+                    UserMigrationAction(
+                        email=email,
+                        database_user_id=user_id,
+                        database_username=username,
+                        action="failed",
+                        auth0_user_id=None,
+                        verification_email_sent=None,
+                        error="Auth0 user creation failed",
+                    )
+                )
+                logger.error(
+                    "Auth0 user creation failed",
+                    extra={
+                        "email": email,
+                        "user_id": user_id,
+                        "username": username,
+                    },
+                )
+                continue
+
+            auth0_user_id = auth0_user.get("user_id")
+            if not auth0_user_id:
+                actions.append(
+                    UserMigrationAction(
+                        email=email,
+                        database_user_id=user_id,
+                        database_username=username,
+                        action="failed",
+                        auth0_user_id=None,
+                        verification_email_sent=None,
+                        error="Auth0 user ID not returned",
+                    )
+                )
+                logger.error(
+                    "Auth0 user ID not returned",
+                    extra={
+                        "email": email,
+                        "user_id": user_id,
+                        "username": username,
+                    },
+                )
+                continue
+
+            # Update database with Auth0 user ID
+            update_success = user_crud.update_user_auth0_id(db, user_id, auth0_user_id)
+
+            if not update_success:
+                actions.append(
+                    UserMigrationAction(
+                        email=email,
+                        database_user_id=user_id,
+                        database_username=username,
+                        action="failed",
+                        auth0_user_id=auth0_user_id,
+                        verification_email_sent=None,
+                        error="Failed to update database with Auth0 user ID",
+                    )
+                )
+                logger.error(
+                    "Failed to update database with Auth0 user ID",
+                    extra={
+                        "email": email,
+                        "user_id": user_id,
+                        "username": username,
+                        "auth0_user_id": auth0_user_id,
+                    },
+                )
+                continue
+
+            # Send verification email only if requested
+            verification_sent = False
+            if request.send_confirmation_email:
+                verification_sent = auth0_service.send_verification_email(auth0_user_id)
+                logger.info(
+                    "Verification email sent",
+                    extra={
+                        "email": email,
+                        "user_id": user_id,
+                        "auth0_user_id": auth0_user_id,
+                        "sent": verification_sent,
+                    },
+                )
+            else:
+                logger.info(
+                    "Verification email skipped (send_confirmation_email=False)",
+                    extra={
+                        "email": email,
+                        "user_id": user_id,
+                        "auth0_user_id": auth0_user_id,
+                    },
+                )
+
+            actions.append(
+                UserMigrationAction(
+                    email=email,
+                    database_user_id=user_id,
+                    database_username=username,
+                    action="created",
+                    auth0_user_id=auth0_user_id,
+                    verification_email_sent=(
+                        verification_sent if request.send_confirmation_email else None
+                    ),
+                    error=None,
+                )
+            )
+
+            logger.info(
+                "User migrated successfully",
+                extra={
+                    "email": email,
+                    "user_id": user_id,
+                    "username": username,
+                    "auth0_user_id": auth0_user_id,
+                    "verification_email_sent": (
+                        verification_sent if request.send_confirmation_email else False
+                    ),
+                },
+            )
+
+        except Exception as e:
+            actions.append(
+                UserMigrationAction(
+                    email=email,
+                    database_user_id=user_id,
+                    database_username=username,
+                    action="skipped_error",
+                    auth0_user_id=None,
+                    verification_email_sent=None,
+                    error=str(e),
+                )
+            )
+            logger.error(
+                "User migration failed with exception",
+                extra={
+                    "email": email,
+                    "user_id": user_id,
+                    "username": username,
+                    "error": str(e),
+                },
+            )
+            continue
+
+    logger.info(
+        "User migration to Auth0 completed",
+        extra={
+            "total_unique_emails": len(users_to_migrate),
+            "total_processed": len(actions),
+            "dry_run": request.dry_run,
+        },
+    )
+
+    return UserMigrationResponse(
+        total_unique_emails_found=len(users_to_migrate),
+        total_processed=len(actions),
+        dry_run=request.dry_run,
+        actions=actions,
+    )

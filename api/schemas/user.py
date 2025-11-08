@@ -265,3 +265,53 @@ class LegacyLoginResponse(UserWithIncludes):
 
     email: str = Field(..., description="User email address")
     email_valid: str = Field(..., description="Email validation status (Y/N)")
+
+
+class UserMigrationRequest(BaseModel):
+    """Request schema for user migration to Auth0."""
+
+    limit: int = Field(
+        ...,
+        ge=1,
+        le=1000,
+        description="Maximum number of unique email addresses to process",
+    )
+    dry_run: bool = Field(
+        ..., description="If true, only simulate migration without making changes"
+    )
+    send_confirmation_email: bool = Field(
+        default=False,
+        description="If true, send verification email to migrated users",
+    )
+
+
+class UserMigrationAction(BaseModel):
+    """Details about a single user migration action."""
+
+    email: str = Field(..., description="Email address being migrated")
+    database_user_id: int = Field(..., description="Database user ID")
+    database_username: str = Field(..., description="Database username")
+    action: str = Field(
+        ...,
+        description="Action taken: 'skipped_dry_run', 'created', 'failed', or 'skipped_error'",
+    )
+    auth0_user_id: Optional[str] = Field(
+        None, description="Auth0 user ID if user was created"
+    )
+    verification_email_sent: Optional[bool] = Field(
+        None, description="Whether verification email was sent"
+    )
+    error: Optional[str] = Field(None, description="Error message if action failed")
+
+
+class UserMigrationResponse(BaseModel):
+    """Response schema for user migration endpoint."""
+
+    total_unique_emails_found: int = Field(
+        ..., description="Total number of unique email addresses found for migration"
+    )
+    total_processed: int = Field(..., description="Total number of users processed")
+    dry_run: bool = Field(..., description="Whether this was a dry run")
+    actions: list[UserMigrationAction] = Field(
+        ..., description="Detailed list of actions taken for each email"
+    )

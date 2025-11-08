@@ -127,6 +127,7 @@ def custom_openapi():
     admin_endpoints = {
         f"{settings.API_V1_STR}/legacy/username-duplicates",
         f"{settings.API_V1_STR}/legacy/email-duplicates",
+        f"{settings.API_V1_STR}/legacy/migrate_users",
         f"{settings.API_V1_STR}/admin/cache/stats",
         f"{settings.API_V1_STR}/admin/cache",
     }
