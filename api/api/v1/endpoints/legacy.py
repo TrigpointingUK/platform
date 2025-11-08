@@ -2,6 +2,7 @@
 Legacy endpoints for authentication and administrative operations.
 """
 
+import random
 import time
 from datetime import datetime, timezone  # noqa: F401
 from typing import Dict, Optional
@@ -859,8 +860,12 @@ def migrate_users_to_auth0(
             )
 
             if not auth0_user:
-                # User creation failed - mark user with ERROR for later intervention
-                user_crud.update_user_auth0_id(db, user_id, "ERROR")
+                # User creation failed - mark user with unique ERROR marker for later intervention
+                # Use random 8-digit number to avoid unique constraint violation
+                error_marker = (
+                    f"ERROR-{random.randint(10000000, 99999999)}"  # nosec B311
+                )
+                user_crud.update_user_auth0_id(db, user_id, error_marker)
 
                 actions.append(
                     UserMigrationAction(
@@ -868,17 +873,18 @@ def migrate_users_to_auth0(
                         database_user_id=user_id,
                         database_username=username,
                         action="failed",
-                        auth0_user_id="ERROR",
+                        auth0_user_id=error_marker,
                         verification_email_sent=None,
                         error="Auth0 user creation failed",
                     )
                 )
                 logger.error(
-                    "Auth0 user creation failed - marked user with ERROR",
+                    "Auth0 user creation failed - marked user with ERROR marker",
                     extra={
                         "email": email,
                         "user_id": user_id,
                         "username": username,
+                        "error_marker": error_marker,
                     },
                 )
                 continue
