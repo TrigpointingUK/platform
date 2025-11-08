@@ -9,6 +9,8 @@ import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 import LogList from "../components/logs/LogList";
 import LogForm from "../components/logs/LogForm";
+import OfficialDataSection from "../components/trig/OfficialDataSection";
+import TrigDetailMap from "../components/map/TrigDetailMap";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useTrigLogs } from "../hooks/useTrigLogs";
 import { useCreateLog } from "../hooks/useCreateLog";
@@ -309,14 +311,24 @@ export default function TrigDetail() {
                 )}
               </div>
 
-              {/* Nearby Trigpoints Link */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <Link
-                  to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
-                  className="text-trig-green-600 hover:underline font-semibold"
-                >
-                  🗺️ View Nearby Trigpoints
-                </Link>
+              {/* Map Links */}
+              <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                <div>
+                  <Link
+                    to={`/map?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&trig=${trigIdNum}`}
+                    className="text-trig-green-600 hover:underline font-semibold"
+                  >
+                    🗺️ View on Interactive Map
+                  </Link>
+                </div>
+                <div>
+                  <Link
+                    to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
+                    className="text-trig-green-600 hover:underline font-semibold"
+                  >
+                    📍 View Nearby Trigpoints
+                  </Link>
+                </div>
               </div>
             </div>
 
@@ -331,27 +343,30 @@ export default function TrigDetail() {
           </div>
         </Card>
 
-        {/* Placeholder Cards */}
+        {/* Interactive Map and Official Data */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <Card className="bg-gray-50 border-2 border-dashed border-gray-300">
-            <div className="text-center py-12">
-              <div className="text-4xl mb-3">🗺️</div>
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                Interactive Map
-              </h3>
-              <p className="text-gray-500">Coming soon</p>
-            </div>
+          <Card className="p-0 overflow-hidden">
+            <TrigDetailMap trig={trig} />
           </Card>
 
-          <Card className="bg-gray-50 border-2 border-dashed border-gray-300">
-            <div className="text-center py-12">
-              <div className="text-4xl mb-3">📋</div>
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
+          {trig.attrs && trig.attrs.length > 0 ? (
+            <Card>
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
                 Official Data
-              </h3>
-              <p className="text-gray-500">Coming soon</p>
-            </div>
-          </Card>
+              </h2>
+              <OfficialDataSection attrs={trig.attrs} />
+            </Card>
+          ) : (
+            <Card className="bg-gray-50 border-2 border-dashed border-gray-300">
+              <div className="text-center py-12">
+                <div className="text-4xl mb-3">📋</div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                  Official Data
+                </h3>
+                <p className="text-gray-500">No official data available</p>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* Stats Section */}

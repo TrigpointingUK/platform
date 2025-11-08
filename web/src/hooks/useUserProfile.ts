@@ -32,6 +32,7 @@ export interface UserProfile {
   homepage: string | null;
   about: string;
   member_since: string | null;
+  auth0_user_id?: string;
   stats?: UserStats;
   breakdown?: UserBreakdown;
   prefs?: UserPrefs;

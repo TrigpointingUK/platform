@@ -17,7 +17,7 @@ module "cloudflare" {
   alb_security_group_id = data.terraform_remote_state.common.outputs.alb_security_group_id
 }
 
-# Allow FastAPI ECS tasks to access ElastiCache
+# Allow FastAPI ECS tasks to access Valkey
 resource "aws_security_group_rule" "fastapi_to_valkey" {
   type                     = "ingress"
   from_port                = 6379
@@ -26,6 +26,17 @@ resource "aws_security_group_rule" "fastapi_to_valkey" {
   source_security_group_id = module.cloudflare.ecs_security_group_id
   security_group_id        = data.terraform_remote_state.common.outputs.valkey_security_group_id
   description              = "Valkey from FastAPI ${var.environment} ECS tasks"
+}
+
+# Allow FastAPI ECS tasks to access Tiles EFS
+resource "aws_security_group_rule" "fastapi_to_tiles_efs" {
+  type                     = "ingress"
+  from_port                = 2049
+  to_port                  = 2049
+  protocol                 = "tcp"
+  source_security_group_id = module.cloudflare.ecs_security_group_id
+  security_group_id        = data.terraform_remote_state.common.outputs.tiles_efs_security_group_id
+  description              = "NFS from FastAPI ${var.environment} ECS tasks"
 }
 
 # ElastiCache security group rule (COMMENTED OUT - ElastiCache removed)
@@ -109,6 +120,8 @@ module "ecs_service" {
   profiling_enabled            = var.profiling_enabled
   profiling_default_format     = var.profiling_default_format
   redis_url                    = "redis://${data.terraform_remote_state.common.outputs.valkey_endpoint}:${data.terraform_remote_state.common.outputs.valkey_port}"
+  efs_file_system_id           = data.terraform_remote_state.common.outputs.tiles_efs_file_system_id
+  efs_access_point_id          = data.terraform_remote_state.common.outputs.tiles_efs_access_point_id
 }
 
 module "monitoring" {

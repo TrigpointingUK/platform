@@ -320,6 +320,25 @@ export default function UserProfile() {
             </div>
           </div>
         )}
+
+        {/* Debug Info Section (for own profile only) */}
+        {isOwnProfile && user && (
+          <Card className="mt-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3">
+              Account Information
+            </h2>
+            <div className="space-y-2 text-sm font-mono bg-gray-50 p-3 rounded">
+              <div className="flex justify-between">
+                <span className="text-gray-600">User ID:</span>
+                <span className="font-semibold text-gray-800">{user.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Auth0 User ID:</span>
+                <span className="font-semibold text-gray-800 break-all">{user.auth0_user_id || 'N/A'}</span>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     </Layout>
   );

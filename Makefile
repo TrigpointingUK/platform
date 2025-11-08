@@ -233,9 +233,10 @@ install-dev: ## Install development dependencies
 
 # Testing
 test: ## Run tests
-	pytest
+	CACHE_ENABLED=false pytest -n auto
 
 test-cov: ## Run tests with coverage
+	CACHE_ENABLED=false pytest -n auto
 	pytest --cov=api --cov-report=term-missing --cov-report=html --cov-report=xml:coverage.xml
 
 diff-cov: ## Check diff coverage against origin/main (fail if < 90%)
@@ -330,6 +331,7 @@ clean: ## Clean up temporary files
 	rm -rf .pytest_cache
 	rm -rf htmlcov
 	rm -rf .coverage
+	rm -f test_gw*.db test.db
 	rm -rf build
 	rm -rf dist
 	rm -rf *.egg-info

@@ -174,6 +174,18 @@ variable "profiling_default_format" {
   default     = "html"
 }
 
+variable "efs_file_system_id" {
+  description = "EFS file system ID for tile caching (optional)"
+  type        = string
+  default     = null
+}
+
+variable "efs_access_point_id" {
+  description = "EFS access point ID for tile caching (optional)"
+  type        = string
+  default     = null
+}
+
 variable "redis_url" {
   description = "Redis/Valkey connection URL for Auth0 token caching"
   type        = string

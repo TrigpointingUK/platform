@@ -163,3 +163,4 @@ secrets.txt
 docker-compose.override.yml
 
 locust/
+test_gw*.db

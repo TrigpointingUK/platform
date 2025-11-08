@@ -1075,6 +1075,130 @@ class Auth0Service:
             )
             return False
 
+    def send_verification_email(self, user_id: str) -> bool:
+        """
+        Send verification email to a user.
+
+        Args:
+            user_id: Auth0 user ID
+
+        Returns:
+            True if successful, False otherwise
+        """
+        verification_data = {"user_id": user_id}
+        verification_response = self._make_auth0_request(
+            "POST", "jobs/verification-email", verification_data
+        )
+
+        if verification_response:
+            log_data = {
+                "event": "auth0_verification_email_sent",
+                "user_id": user_id,
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            }
+            logger.info(json.dumps(log_data))
+            return True
+        else:
+            log_data = {
+                "event": "auth0_verification_email_failed",
+                "user_id": user_id,
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            }
+            logger.warning(json.dumps(log_data))
+            return False
+
+    def create_user_for_migration(
+        self,
+        email: str,
+        name: str,
+        legacy_user_id: int,
+        original_username: str,
+        firstname: Optional[str] = None,
+        surname: Optional[str] = None,
+    ) -> Optional[Dict]:
+        """
+        Create a new user in Auth0 for migration purposes.
+
+        This creates a user without a password, with email_verified=false,
+        suitable for triggering a password reset flow.
+
+        Args:
+            email: Email address
+            name: Display name (username)
+            legacy_user_id: Database user ID to store in app_metadata
+            original_username: Original username to store in app_metadata
+            firstname: First name for given_name field (optional)
+            surname: Surname for family_name field (optional)
+
+        Returns:
+            Created user data dictionary or None if failed
+        """
+        # Generate a random password - user will need to reset it
+        import secrets
+
+        temp_password = secrets.token_urlsafe(32)
+
+        user_data = {
+            "connection": self.connection,
+            "nickname": name,
+            "name": name,
+            "email": email,
+            "password": temp_password,
+            "email_verified": False,
+            "verify_email": False,
+            "app_metadata": {
+                "legacy_user_id": legacy_user_id,
+                "original_username": original_username,
+                "migration_timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            },
+        }
+
+        # Add profile fields if provided
+        if firstname:
+            user_data["given_name"] = firstname
+        if surname:
+            user_data["family_name"] = surname
+
+        # Create safe user_data for logging (redact password)
+        safe_user_data = user_data.copy()
+        redacted_text = "***REDACTED***"  # nosec B105
+        safe_user_data["password"] = redacted_text
+
+        log_data = {
+            "event": "auth0_migration_user_creation_started",
+            "email": email,
+            "name": name,
+            "legacy_user_id": legacy_user_id,
+            "connection": self.connection,
+            "user_data": safe_user_data,
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        }
+        logger.info(json.dumps(log_data))
+
+        response = self._make_auth0_request("POST", "users", user_data)
+
+        if response:
+            log_data = {
+                "event": "auth0_migration_user_created",
+                "email": email,
+                "name": name,
+                "legacy_user_id": legacy_user_id,
+                "auth0_user_id": response.get("user_id") or "",
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            }
+            logger.info(json.dumps(log_data))
+        else:
+            log_data = {
+                "event": "auth0_migration_user_creation_failed",
+                "email": email,
+                "name": name,
+                "legacy_user_id": legacy_user_id,
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            }
+            logger.error(json.dumps(log_data))
+
+        return response
+
     def update_user_app_metadata(self, user_id: str, metadata: Dict[str, Any]) -> bool:
         """
         Merge update to app_metadata for a user in Auth0.

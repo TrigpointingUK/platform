@@ -196,6 +196,22 @@ output "mediawiki_efs_access_point_id" {
   value       = aws_efs_access_point.mediawiki.id
 }
 
+# EFS Outputs for Tiles
+output "tiles_efs_file_system_id" {
+  description = "ID of the EFS file system for OS tile caching"
+  value       = aws_efs_file_system.tiles.id
+}
+
+output "tiles_efs_access_point_id" {
+  description = "ID of the EFS access point for tile caching"
+  value       = aws_efs_access_point.tiles.id
+}
+
+output "tiles_efs_security_group_id" {
+  description = "Security group ID for EFS (tiles)"
+  value       = aws_security_group.efs_tiles.id
+}
+
 output "phpbb_app_secrets_arn" {
   description = "ARN of the phpBB application secrets in AWS Secrets Manager"
   value       = aws_secretsmanager_secret.phpbb_app_secrets.arn

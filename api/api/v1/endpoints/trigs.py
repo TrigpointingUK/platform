@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user_optional, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
+from api.crud import attr as attr_crud
 from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
 from api.crud import tphoto as tphoto_crud
@@ -27,6 +28,7 @@ from api.models.trig import Trig
 from api.models.user import TLog, User
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.trig import (
+    TrigAttrsData,
     TrigDetails,
     TrigMinimal,
 )
@@ -52,7 +54,7 @@ router = APIRouter()
 def get_trig(
     trig_id: int,
     include: Optional[str] = Query(
-        None, description="Comma-separated list of includes: details,stats"
+        None, description="Comma-separated list of includes: details,stats,attrs"
     ),
     _lc=lifecycle("beta", note="Shape may change"),
     db: Session = Depends(get_db),
@@ -60,7 +62,7 @@ def get_trig(
     """
     Get a trigpoint by ID.
 
-    Default: minimal fields. Supports include=details,stats.
+    Default: minimal fields. Supports include=details,stats,attrs.
     """
     trig = trig_crud.get_trig_by_id(db, trig_id=trig_id)
     if trig is None:
@@ -74,11 +76,12 @@ def get_trig(
     # Attach includes
     details_obj: Optional[TrigDetails] = None
     stats_obj: Optional[TrigStatsSchema] = None
+    attrs_obj: Optional[list[TrigAttrsData]] = None
     if include:
         tokens = {t.strip() for t in include.split(",") if t.strip()}
 
         # Validate include tokens
-        valid_includes = {"details", "stats"}
+        valid_includes = {"details", "stats", "attrs"}
         invalid_tokens = tokens - valid_includes
         if invalid_tokens:
             raise HTTPException(
@@ -91,8 +94,14 @@ def get_trig(
             stats = trigstats_crud.get_trigstats_by_id(db, trig_id=trig_id)
             if stats:
                 stats_obj = TrigStatsSchema.model_validate(stats)
+        if "attrs" in tokens:
+            attrs_data = attr_crud.get_attrs_for_trig(db, trig_id=trig_id)
+            if attrs_data:
+                attrs_obj = [TrigAttrsData(**item) for item in attrs_data]
 
-    return TrigWithIncludes(**minimal_data, details=details_obj, stats=stats_obj)
+    return TrigWithIncludes(
+        **minimal_data, details=details_obj, stats=stats_obj, attrs=attrs_obj
+    )
 
 
 @router.get(
@@ -142,7 +151,7 @@ def list_trigs(
         False, description="Exclude trigpoints already logged by authenticated user"
     ),
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user_optional),

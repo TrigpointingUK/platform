@@ -190,6 +190,22 @@ export async function getLogPhotos(logId: number): Promise<Photo[]> {
   return data.items || [];
 }
 
+export interface AttrSourceInfo {
+  id: number;
+  name: string;
+  url?: string;
+}
+
+export interface AttrSetData {
+  values: Record<number, string>;
+}
+
+export interface TrigAttrsData {
+  source: AttrSourceInfo;
+  attr_names: Record<number, string>;
+  attribute_sets: AttrSetData[];
+}
+
 export interface TrigDetails {
   current_use: string;
   historic_use: string;
@@ -227,6 +243,7 @@ export interface Trig {
   osgb_gridref: string;
   details?: TrigDetails;
   stats?: TrigStats;
+  attrs?: TrigAttrsData[];
 }
 
 export interface Log {

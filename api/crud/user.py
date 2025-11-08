@@ -669,3 +669,94 @@ def update_user_email(db: Session, user_id: int, email: str) -> bool:
             extra={"user_id": user_id, "email": email, "error": str(e)},
         )
         return False
+
+
+def get_users_for_migration(db: Session, limit: int) -> List[Dict[str, Any]]:
+    """
+    Get users for migration to Auth0.
+
+    Selects the first <limit> unique user.email values where user.auth0_user_id is NULL
+    and email is not empty. For each unique email, selects the user who has the most
+    recent tlog.upd_timestamp.
+
+    Args:
+        db: Database session
+        limit: Maximum number of unique email addresses to process
+
+    Returns:
+        List of dictionaries containing user info for migration
+    """
+    from sqlalchemy import and_, distinct
+
+    # Step 1: Get unique email addresses (non-empty, no auth0_user_id)
+    unique_emails_query = (
+        db.query(distinct(User.email))
+        .filter(
+            and_(
+                User.auth0_user_id.is_(None),
+                User.email != "",
+                User.email.isnot(None),
+            )
+        )
+        .limit(limit)
+    )
+
+    unique_emails = [email for (email,) in unique_emails_query.all()]
+
+    if not unique_emails:
+        return []
+
+    # Step 2: For each email, find the user with the most recent tlog.upd_timestamp
+    results = []
+    for email in unique_emails:
+        # Get all users with this email (where auth0_user_id is NULL)
+        users_with_email = (
+            db.query(User)
+            .filter(
+                and_(
+                    User.email == email,
+                    User.auth0_user_id.is_(None),
+                )
+            )
+            .all()
+        )
+
+        if not users_with_email:
+            continue
+
+        # Find the user with the most recent tlog
+        user_with_latest_log = None
+        latest_timestamp = None
+
+        for user in users_with_email:
+            # Get the most recent tlog for this user
+            latest_log = (
+                db.query(TLog)
+                .filter(TLog.user_id == user.id)
+                .order_by(TLog.upd_timestamp.desc())
+                .first()
+            )
+
+            if latest_log:
+                if (
+                    latest_timestamp is None
+                    or latest_log.upd_timestamp > latest_timestamp
+                ):
+                    latest_timestamp = latest_log.upd_timestamp
+                    user_with_latest_log = user
+            elif user_with_latest_log is None:
+                # If no logs exist for any user with this email, pick the first one
+                user_with_latest_log = user
+
+        if user_with_latest_log:
+            results.append(
+                {
+                    "email": str(user_with_latest_log.email),
+                    "user_id": int(user_with_latest_log.id),
+                    "username": str(user_with_latest_log.name),
+                    "firstname": str(user_with_latest_log.firstname or ""),
+                    "surname": str(user_with_latest_log.surname or ""),
+                }
+            )
+
+    return results

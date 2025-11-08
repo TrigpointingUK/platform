@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from api.core.config import settings
+from api.models.attr import Attr, AttrSet, AttrSetAttrVal, AttrSource, AttrVal
 from api.models.trig import Trig
 from api.models.trigstats import TrigStats
 
@@ -395,3 +396,134 @@ def test_get_trig_stats_endpoint_and_include(client: TestClient, db: Session):
     data = resp_inc.json()
     assert "stats" in data and data["stats"]["logged_count"] == 5
     assert "details" in data and data["details"]["county"] == "London"
+
+
+def test_get_trig_attrs_include(client: TestClient, db: Session):
+    """Test getting a trig with attrs include parameter."""
+    # Create a test trig
+    trig = Trig(
+        id=8,
+        waypoint="TP0008",
+        name="Attrs Trig",
+        status_id=10,
+        user_added=0,
+        current_use="Passive station",
+        historic_use="Primary",
+        physical_type="Pillar",
+        wgs_lat=Decimal("51.50000"),
+        wgs_long=Decimal("-0.12500"),
+        wgs_height=100,
+        osgb_eastings=530000,
+        osgb_northings=180000,
+        osgb_gridref="TQ 30000 80000",
+        osgb_height=95,
+        fb_number="S8888",
+        stn_number="ATTR1",
+        permission_ind="Y",
+        condition="G",
+        postcode6="SW1A 1",
+        county="London",
+        town="Westminster",
+        needs_attention=0,
+        attention_comment="",
+        crt_date=date(2023, 1, 1),
+        crt_time=time(12, 0, 0),
+        crt_user_id=1,
+        crt_ip_addr="127.0.0.1",
+    )
+    db.add(trig)
+    db.commit()
+
+    # Create attribute source
+    attr_source = AttrSource(
+        id=1,
+        name="Test Source",
+        url="https://example.com",
+        sort_order=1,
+    )
+    db.add(attr_source)
+    db.commit()
+
+    # Create attributes
+    attr1 = Attr(
+        id=1,
+        attrsource_id=1,
+        name="Column 1",
+        description="Test column 1",
+        mandatory=1,
+        multivalued=0,
+        grouped=0,
+        sort_order=1,
+    )
+    attr2 = Attr(
+        id=2,
+        attrsource_id=1,
+        name="Column 2",
+        description="Test column 2",
+        mandatory=1,
+        multivalued=0,
+        grouped=0,
+        sort_order=2,
+    )
+    db.add(attr1)
+    db.add(attr2)
+    db.commit()
+
+    # Create attribute set
+    attrset = AttrSet(
+        id=1,
+        trig_id=8,
+        attrsource_id=1,
+        sort_order=1,
+    )
+    db.add(attrset)
+    db.commit()
+
+    # Create attribute values
+    attrval1 = AttrVal(
+        id=1,
+        attr_id=1,
+        value_string="Value 1",
+    )
+    attrval2 = AttrVal(
+        id=2,
+        attr_id=2,
+        value_string="Value 2",
+    )
+    db.add(attrval1)
+    db.add(attrval2)
+    db.commit()
+
+    # Create junction records
+    junction1 = AttrSetAttrVal(attrset_id=1, attrval_id=1)
+    junction2 = AttrSetAttrVal(attrset_id=1, attrval_id=2)
+    db.add(junction1)
+    db.add(junction2)
+    db.commit()
+
+    # Test with include=attrs
+    response = client.get(f"{settings.API_V1_STR}/trigs/8?include=attrs")
+    assert response.status_code == 200
+    data = response.json()
+
+    # Verify attrs structure
+    assert "attrs" in data
+    assert isinstance(data["attrs"], list)
+    assert len(data["attrs"]) == 1
+
+    # Verify source info
+    source_data = data["attrs"][0]
+    assert source_data["source"]["id"] == 1
+    assert source_data["source"]["name"] == "Test Source"
+    assert source_data["source"]["url"] == "https://example.com"
+
+    # Verify attr_names
+    assert "attr_names" in source_data
+    assert source_data["attr_names"]["1"] == "Column 1"
+    assert source_data["attr_names"]["2"] == "Column 2"
+
+    # Verify attribute sets
+    assert "attribute_sets" in source_data
+    assert len(source_data["attribute_sets"]) == 1
+    assert source_data["attribute_sets"][0]["values"]["1"] == "Value 1"
+    assert source_data["attribute_sets"][0]["values"]["2"] == "Value 2"
