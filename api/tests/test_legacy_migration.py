@@ -373,15 +373,20 @@ class TestMigrateUsersErrors:
 
         for action in failed_actions:
             assert action["error"] == "Auth0 user creation failed"
-            assert action["auth0_user_id"] == "ERROR"
+            assert action["auth0_user_id"] is not None
+            assert action["auth0_user_id"].startswith("ERROR-")
 
-        # Verify users were marked with ERROR in database
+        # Verify users were marked with ERROR markers in database
         user2 = db.query(User).filter(User.id == 6002).first()
         user3 = db.query(User).filter(User.id == 6003).first()
         assert user2 is not None
         assert user3 is not None
-        assert user2.auth0_user_id == "ERROR"
-        assert user3.auth0_user_id == "ERROR"
+        assert user2.auth0_user_id is not None
+        assert user3.auth0_user_id is not None
+        assert user2.auth0_user_id.startswith("ERROR-")
+        assert user3.auth0_user_id.startswith("ERROR-")
+        # Ensure they got different error markers (unique constraint)
+        assert user2.auth0_user_id != user3.auth0_user_id
 
     @patch("api.api.v1.endpoints.legacy.auth0_service")
     def test_database_update_fails(
