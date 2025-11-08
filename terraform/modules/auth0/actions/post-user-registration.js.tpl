@@ -19,6 +19,7 @@
  * - M2M_CLIENT_SECRET: Auth0 M2M client secret
  * - AUTH0_DOMAIN: Auth0 tenant domain (e.g., trigpointing-me.eu.auth0.com)
  * - API_AUDIENCE: FastAPI API audience (e.g., https://api.trigpointing.me/)
+ * - WEBHOOK_SHARED_SECRET: Shared secret for fallback authentication (optional)
  */
 
 exports.onExecutePostUserRegistration = async (event, api) => {
@@ -55,8 +56,8 @@ exports.onExecutePostUserRegistration = async (event, api) => {
       console.log('[${environment}] Cached new M2M token for FastAPI');
     } catch (error) {
       console.error('[${environment}] Failed to obtain M2M token:', error.response?.data || error.message);
-      console.error('[${environment}] User registered in Auth0 but not in database. M2M authentication failed.');
-      return;
+      console.error('[${environment}] M2M token request failed - will use shared secret fallback');
+      m2mToken = null; // Will trigger shared secret fallback
     }
   }
   
@@ -78,14 +79,26 @@ exports.onExecutePostUserRegistration = async (event, api) => {
     };
     
     try {
+      // Build headers with either M2M token or shared secret fallback
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (m2mToken) {
+        headers['Authorization'] = `Bearer $${m2mToken}`;
+      } else if (event.secrets.WEBHOOK_SHARED_SECRET) {
+        headers['X-Webhook-Secret'] = event.secrets.WEBHOOK_SHARED_SECRET;
+        console.log('[${environment}] Using shared secret fallback for webhook authentication');
+      } else {
+        console.error('[${environment}] No M2M token and no shared secret available');
+        return; // Cannot authenticate
+      }
+      
       await axios.post(
         event.secrets.FASTAPI_URL + '/v1/users',
         payload,
         {
-          headers: {
-            'Authorization': `Bearer $${m2mToken}`,
-            'Content-Type': 'application/json'
-          },
+          headers: headers,
           timeout: 5000
         }
       );

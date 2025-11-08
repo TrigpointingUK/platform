@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from api.api.deps import (
     get_current_user,
     get_db,
-    verify_m2m_token,
+    verify_webhook_auth,
 )
 from api.api.lifecycle import openapi_lifecycle
 from api.crud import tlog as tlog_crud
@@ -59,12 +59,12 @@ security = HTTPBearer(auto_error=False)
     status_code=201,
     openapi_extra=openapi_lifecycle(
         "beta",
-        note="Create a new user from Auth0 webhook. Requires M2M token authentication.",
+        note="Create a new user from Auth0 webhook. Requires M2M token or shared secret authentication.",
     ),
 )
 def create_user_from_auth0(
     user_data: UserCreate,
-    token_payload: dict = Depends(verify_m2m_token),
+    token_payload: dict = Depends(verify_webhook_auth),
     db: Session = Depends(get_db),
 ) -> UserCreateResponse:
     """

@@ -7,7 +7,7 @@ API dependencies for authentication and database access.
 from typing import Optional
 
 # from api.schemas.user import TokenData
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -320,8 +320,11 @@ def verify_m2m_token(
     This dependency validates tokens from Auth0 Actions calling the webhook endpoint.
     Uses the Management API audience for validation.
 
+    Fallback: If M2M token validation fails, checks for X-Webhook-Secret header
+    with shared secret (for quota exhaustion scenarios).
+
     Returns:
-        dict: Token payload
+        dict: Token payload (or mock payload if using shared secret)
 
     Raises:
         HTTPException: If token is missing or invalid
@@ -359,3 +362,61 @@ def verify_m2m_token(
     )
 
     return token_payload
+
+
+def verify_webhook_auth(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    x_webhook_secret: Optional[str] = Header(None),
+) -> dict:
+    """
+    Verify authentication for Auth0 webhook endpoints with shared secret fallback.
+
+    Primary: M2M token validation
+    Fallback: Shared secret in X-Webhook-Secret header (for M2M quota exhaustion)
+
+    Args:
+        credentials: Bearer token credentials
+        x_webhook_secret: Value from X-Webhook-Secret header
+
+    Returns:
+        dict: Token payload (or mock payload if using shared secret)
+
+    Raises:
+        HTTPException: If authentication fails
+    """
+    from api.core.config import settings
+    from api.core.logging import get_logger
+
+    logger = get_logger(__name__)
+
+    # Try M2M token first
+    if credentials is not None:
+        token_payload = auth0_validator.validate_m2m_token(credentials.credentials)
+        if token_payload:
+            logger.info(
+                "Webhook authenticated via M2M token",
+                extra={
+                    "audience": token_payload.get("aud"),
+                    "client_id": token_payload.get(
+                        "azp", token_payload.get("client_id")
+                    ),
+                },
+            )
+            return token_payload
+
+    # Fallback to shared secret if configured
+    if settings.WEBHOOK_SHARED_SECRET and x_webhook_secret:
+        if x_webhook_secret == settings.WEBHOOK_SHARED_SECRET:
+            logger.warning(
+                "Webhook authenticated via shared secret fallback",
+                extra={"note": "M2M token quota may be exhausted"},
+            )
+            # Return mock payload for webhook
+            return {"token_type": "webhook_shared_secret", "client_id": "webhook"}
+
+    logger.error("Webhook authentication failed: no valid token or shared secret")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication - provide valid M2M token or shared secret",
+        headers={"WWW-Authenticate": "Bearer"},
+    )

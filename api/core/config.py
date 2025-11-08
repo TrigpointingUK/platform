@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     # - Validating M2M tokens from Auth0 Actions (webhooks)
     AUTH0_API_AUDIENCE: Optional[str] = None  # e.g., "https://api.trigpointing.me/"
 
+    # Webhook Shared Secret (fallback authentication for Auth0 Actions)
+    # Used when M2M token quota is exhausted
+    WEBHOOK_SHARED_SECRET: Optional[str] = None
+
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
 

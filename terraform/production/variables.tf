@@ -125,6 +125,13 @@ variable "auth0_m2m_client_secret" {
   sensitive   = true
 }
 
+variable "webhook_shared_secret" {
+  description = "Shared secret for Auth0 webhook fallback authentication (when M2M quota exhausted)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "disable_signup" {
   description = "Whether to disable public signup on the Auth0 database connection"
   type        = bool

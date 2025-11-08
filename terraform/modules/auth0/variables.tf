@@ -56,6 +56,13 @@ variable "fastapi_url" {
   type        = string
 }
 
+variable "webhook_shared_secret" {
+  description = "Shared secret for Auth0 webhook fallback authentication (when M2M quota exhausted)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "swagger_callback_urls" {
   description = "List of Swagger OAuth2 callback URLs"
   type        = list(string)
