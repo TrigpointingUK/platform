@@ -53,7 +53,7 @@ exports.onExecutePostUserRegistration = async (event, api) => {
         {
           headers: {
             'X-Webhook-Secret': event.secrets.WEBHOOK_SHARED_SECRET,
-            'X-Auth0-Webhook': 'post-user-registration',
+            'x-auth0-webhook': 'post-user-registration',
             'Content-Type': 'application/json'
           },
           timeout: 5000
