@@ -144,6 +144,10 @@ resource "aws_ecs_task_definition" "app" {
           {
             name      = "AUTH0_SPA_CLIENT_ID"
             valueFrom = "${var.secrets_arn}:auth0_spa_client_id::"
+          },
+          {
+            name      = "WEBHOOK_SHARED_SECRET"
+            valueFrom = "${var.secrets_arn}:webhook_shared_secret::"
           }
         ],
         # tile caching
