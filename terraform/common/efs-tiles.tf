@@ -6,13 +6,8 @@ resource "aws_security_group" "efs_tiles" {
   description = "Security group for OS Tiles EFS"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "NFS from bastion for manual inspection"
-    from_port       = 2049
-    to_port         = 2049
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id]
-  }
+  # Ingress rules managed separately to allow environment-specific additions
+  # Environment-specific configs (staging/production) add their own rules
 
   egress {
     from_port   = 0
@@ -24,6 +19,22 @@ resource "aws_security_group" "efs_tiles" {
   tags = {
     Name = "${var.project_name}-efs-tiles-sg"
   }
+
+  lifecycle {
+    # Ignore changes to ingress rules as they're managed separately
+    ignore_changes = [ingress]
+  }
+}
+
+# Tiles EFS ingress rule - bastion access for manual inspection
+resource "aws_security_group_rule" "tiles_efs_from_bastion" {
+  type                     = "ingress"
+  from_port                = 2049
+  to_port                  = 2049
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+  security_group_id        = aws_security_group.efs_tiles.id
+  description              = "NFS from bastion for manual inspection"
 }
 
 # Tiles EFS filesystem

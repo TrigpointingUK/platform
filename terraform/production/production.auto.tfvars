@@ -27,5 +27,9 @@ db_pool_recycle          = 300
 profiling_enabled        = false
 profiling_default_format = "html"
 
+# Photo upload configuration
+photos_s3_bucket = "trigpointinguk-photos"
+photos_server_id = 1
+
 # Auth0 Configuration
-disable_signup = true
+disable_signup = false

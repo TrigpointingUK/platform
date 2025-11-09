@@ -26,3 +26,7 @@ db_pool_size             = 5
 db_pool_recycle          = 300
 profiling_enabled        = true
 profiling_default_format = "html"
+
+# Photo upload configuration
+photos_s3_bucket = "trigpointinguk-test"
+photos_server_id = 3

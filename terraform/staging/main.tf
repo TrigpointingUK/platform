@@ -122,6 +122,8 @@ module "ecs_service" {
   redis_url                    = "redis://${data.terraform_remote_state.common.outputs.valkey_endpoint}:${data.terraform_remote_state.common.outputs.valkey_port}"
   efs_file_system_id           = data.terraform_remote_state.common.outputs.tiles_efs_file_system_id
   efs_access_point_id          = data.terraform_remote_state.common.outputs.tiles_efs_access_point_id
+  photos_s3_bucket             = var.photos_s3_bucket
+  photos_server_id             = var.photos_server_id
 }
 
 module "monitoring" {

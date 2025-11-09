@@ -74,6 +74,14 @@ resource "aws_ecs_task_definition" "app" {
         {
           name  = "PROFILING_DEFAULT_FORMAT"
           value = var.profiling_default_format
+        },
+        {
+          name  = "PHOTOS_S3_BUCKET"
+          value = var.photos_s3_bucket
+        },
+        {
+          name  = "PHOTOS_SERVER_ID"
+          value = tostring(var.photos_server_id)
         }
         ],
         # Optional base environment variables
