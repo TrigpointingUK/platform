@@ -365,21 +365,16 @@ def verify_m2m_token(
 
 
 def verify_webhook_auth(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     x_webhook_secret: Optional[str] = Header(None),
 ) -> dict:
     """
-    Verify authentication for Auth0 webhook endpoints with shared secret fallback.
-
-    Primary: M2M token validation
-    Fallback: Shared secret in X-Webhook-Secret header (for M2M quota exhaustion)
+    Verify authentication for Auth0 webhook endpoints using shared secret.
 
     Args:
-        credentials: Bearer token credentials
         x_webhook_secret: Value from X-Webhook-Secret header
 
     Returns:
-        dict: Token payload (or mock payload if using shared secret)
+        dict: Mock token payload for webhook
 
     Raises:
         HTTPException: If authentication fails
@@ -389,34 +384,26 @@ def verify_webhook_auth(
 
     logger = get_logger(__name__)
 
-    # Try M2M token first
-    if credentials is not None:
-        token_payload = auth0_validator.validate_m2m_token(credentials.credentials)
-        if token_payload:
-            logger.info(
-                "Webhook authenticated via M2M token",
-                extra={
-                    "audience": token_payload.get("aud"),
-                    "client_id": token_payload.get(
-                        "azp", token_payload.get("client_id")
-                    ),
-                },
-            )
-            return token_payload
+    # Verify shared secret is configured
+    if not settings.WEBHOOK_SHARED_SECRET:
+        logger.error("WEBHOOK_SHARED_SECRET not configured")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Webhook authentication not configured",
+        )
 
-    # Fallback to shared secret if configured
-    if settings.WEBHOOK_SHARED_SECRET and x_webhook_secret:
-        if x_webhook_secret == settings.WEBHOOK_SHARED_SECRET:
-            logger.warning(
-                "Webhook authenticated via shared secret fallback",
-                extra={"note": "M2M token quota may be exhausted"},
-            )
-            # Return mock payload for webhook
-            return {"token_type": "webhook_shared_secret", "client_id": "webhook"}
+    # Validate shared secret
+    if not x_webhook_secret or x_webhook_secret != settings.WEBHOOK_SHARED_SECRET:
+        logger.error(
+            "Webhook authentication failed: invalid or missing shared secret",
+            extra={"secret_provided": bool(x_webhook_secret)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook shared secret",
+            headers={"WWW-Authenticate": "X-Webhook-Secret"},
+        )
 
-    logger.error("Webhook authentication failed: no valid token or shared secret")
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid authentication - provide valid M2M token or shared secret",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    logger.info("Webhook authenticated via shared secret")
+    # Return mock payload for webhook
+    return {"token_type": "webhook_shared_secret", "client_id": "webhook"}

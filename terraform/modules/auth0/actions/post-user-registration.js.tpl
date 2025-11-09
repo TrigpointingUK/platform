@@ -5,63 +5,30 @@
  * It provisions the user in the FastAPI/MySQL database via webhook.
  * 
  * Flow:
- * 1. Obtain M2M token using client credentials (OAuth2 client_credentials flow)
- *    - Caches tokens for 50 minutes to avoid quota exhaustion
- * 2. Generate nickname from email prefix
- * 3. Try to create user via POST /v1/users
- * 4. On username collision (409), retry with random 6-digit suffix
- * 5. Up to 10 retries with different random suffixes
- * 6. Set final nickname in Auth0 user metadata (using cached Management API token)
+ * 1. Generate nickname from email prefix
+ * 2. Try to create user via POST /v1/users (authenticated with shared secret)
+ * 3. On username collision (409), retry with random 6-digit suffix
+ * 4. Up to 10 retries with different random suffixes
+ * 5. Set final nickname in Auth0 user metadata
  * 
  * Environment Variables (from Secrets):
- * - FASTAPI_URL: Base URL of FastAPI (e.g., https://api.trigpointing.me)
- * - M2M_CLIENT_ID: Auth0 M2M client ID
- * - M2M_CLIENT_SECRET: Auth0 M2M client secret
- * - AUTH0_DOMAIN: Auth0 tenant domain (e.g., trigpointing-me.eu.auth0.com)
- * - API_AUDIENCE: FastAPI API audience (e.g., https://api.trigpointing.me/)
- * - WEBHOOK_SHARED_SECRET: Shared secret for fallback authentication (optional)
+ * - FASTAPI_URL: Base URL of FastAPI (e.g., https://api.trigpointing.uk)
+ * - WEBHOOK_SHARED_SECRET: Shared secret for webhook authentication
+ * - AUTH0_DOMAIN: Auth0 tenant domain (e.g., trigpointing.eu.auth0.com)
+ * - M2M_CLIENT_ID: Auth0 M2M client ID (for Management API only)
+ * - M2M_CLIENT_SECRET: Auth0 M2M client secret (for Management API only)
  */
 
 exports.onExecutePostUserRegistration = async (event, api) => {
   const axios = require('axios');
   
-  // Step 1: Obtain M2M token using client credentials (with caching)
-  let m2mToken;
-  const apiTokenCacheKey = 'fastapi_m2m_token';
-  
-  // Try to get cached token first
-  const cachedApiToken = api.cache.get(apiTokenCacheKey);
-  if (cachedApiToken && cachedApiToken.value) {
-    m2mToken = cachedApiToken.value;
-    console.log('[${environment}] Using cached M2M token for FastAPI');
-  } else {
-    try {
-      const tokenResponse = await axios.post(
-        `https://$${event.secrets.AUTH0_DOMAIN}/oauth/token`,
-        {
-          grant_type: 'client_credentials',
-          client_id: event.secrets.M2M_CLIENT_ID,
-          client_secret: event.secrets.M2M_CLIENT_SECRET,
-          audience: event.secrets.API_AUDIENCE
-        },
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 5000
-        }
-      );
-      m2mToken = tokenResponse.data.access_token;
-      
-      // Cache token for 50 minutes (tokens typically last 1 hour, cache for safety margin)
-      api.cache.set(apiTokenCacheKey, m2mToken, { ttl: 3000000 }); // 50 minutes in ms
-      console.log('[${environment}] Cached new M2M token for FastAPI');
-    } catch (error) {
-      console.error('[${environment}] Failed to obtain M2M token:', error.response?.data || error.message);
-      console.error('[${environment}] M2M token request failed - will use shared secret fallback');
-      m2mToken = null; // Will trigger shared secret fallback
-    }
+  // Verify we have the webhook shared secret
+  if (!event.secrets.WEBHOOK_SHARED_SECRET) {
+    console.error('[${environment}] WEBHOOK_SHARED_SECRET not configured - cannot provision user');
+    return;
   }
   
-  // Step 2: Generate base nickname from email prefix
+  // Step 1: Generate base nickname from email prefix
   // Auth0 signup only collects email/password by default
   // Nickname allows spaces and special characters (unlike username)
   const baseNickname = event.user.nickname || event.user.email.split('@')[0];
@@ -79,26 +46,15 @@ exports.onExecutePostUserRegistration = async (event, api) => {
     };
     
     try {
-      // Build headers with either M2M token or shared secret fallback
-      const headers = {
-        'Content-Type': 'application/json'
-      };
-      
-      if (m2mToken) {
-        headers['Authorization'] = `Bearer $${m2mToken}`;
-      } else if (event.secrets.WEBHOOK_SHARED_SECRET) {
-        headers['X-Webhook-Secret'] = event.secrets.WEBHOOK_SHARED_SECRET;
-        console.log('[${environment}] Using shared secret fallback for webhook authentication');
-      } else {
-        console.error('[${environment}] No M2M token and no shared secret available');
-        return; // Cannot authenticate
-      }
-      
+      // Authenticate with shared secret
       await axios.post(
         event.secrets.FASTAPI_URL + '/v1/users',
         payload,
         {
-          headers: headers,
+          headers: {
+            'X-Webhook-Secret': event.secrets.WEBHOOK_SHARED_SECRET,
+            'Content-Type': 'application/json'
+          },
           timeout: 5000
         }
       );
@@ -106,33 +62,20 @@ exports.onExecutePostUserRegistration = async (event, api) => {
       console.log('[${environment}] User provisioned successfully:', event.user.user_id, 'with nickname:', nickname);
       
       // Step 6: Update Auth0 user profile with nickname and name
-      // Use Management API to set both nickname and name fields (with cached token)
+      // This requires Management API access - get M2M token (not cached to avoid quota issues with retries)
       try {
-        let mgmtToken;
-        const mgmtTokenCacheKey = 'mgmt_api_m2m_token';
+        const mgmtTokenResponse = await axios.post(
+          `https://$${event.secrets.AUTH0_DOMAIN}/oauth/token`,
+          {
+            grant_type: 'client_credentials',
+            client_id: event.secrets.M2M_CLIENT_ID,
+            client_secret: event.secrets.M2M_CLIENT_SECRET,
+            audience: `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/`
+          },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
+        );
         
-        // Try cached Management API token first
-        const cachedMgmtToken = api.cache.get(mgmtTokenCacheKey);
-        if (cachedMgmtToken && cachedMgmtToken.value) {
-          mgmtToken = cachedMgmtToken.value;
-          console.log('[${environment}] Using cached Management API token');
-        } else {
-          const mgmtTokenResponse = await axios.post(
-            `https://$${event.secrets.AUTH0_DOMAIN}/oauth/token`,
-            {
-              grant_type: 'client_credentials',
-              client_id: event.secrets.M2M_CLIENT_ID,
-              client_secret: event.secrets.M2M_CLIENT_SECRET,
-              audience: `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/`
-            },
-            { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
-          );
-          mgmtToken = mgmtTokenResponse.data.access_token;
-          
-          // Cache Management API token for 50 minutes
-          api.cache.set(mgmtTokenCacheKey, mgmtToken, { ttl: 3000000 });
-          console.log('[${environment}] Cached new Management API token');
-        }
+        await api.user.setAppMetadata('final_nickname', nickname);
         
         await axios.patch(
           `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/users/$${encodeURIComponent(event.user.user_id)}`,
@@ -142,7 +85,7 @@ exports.onExecutePostUserRegistration = async (event, api) => {
           },
           {
             headers: {
-              'Authorization': `Bearer $${mgmtToken}`,
+              'Authorization': `Bearer $${mgmtTokenResponse.data.access_token}`,
               'Content-Type': 'application/json'
             },
             timeout: 5000
