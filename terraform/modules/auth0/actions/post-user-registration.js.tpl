@@ -47,7 +47,7 @@ exports.onExecutePostUserRegistration = async (event, api) => {
     
     try {
       // Authenticate with shared secret
-      await axios.post(
+      const response = await axios.post(
         event.secrets.FASTAPI_URL + '/v1/users',
         payload,
         {
@@ -60,7 +60,8 @@ exports.onExecutePostUserRegistration = async (event, api) => {
         }
       );
       
-      console.log('[${environment}] User provisioned successfully:', event.user.user_id, 'with nickname:', nickname);
+      const databaseUserId = response.data.id;
+      console.log('[${environment}] User provisioned successfully:', event.user.user_id, 'with nickname:', nickname, 'database ID:', databaseUserId);
       
       // Step 6: Update Auth0 user profile with nickname and name
       // This requires Management API access - get M2M token (not cached to avoid quota issues with retries)
@@ -83,6 +84,7 @@ exports.onExecutePostUserRegistration = async (event, api) => {
             nickname: nickname,
             name: nickname,  // Set name to match nickname for consistency
             app_metadata: {
+              database_user_id: databaseUserId,
               final_nickname: nickname,
               database_synced: new Date().toISOString()
             }
