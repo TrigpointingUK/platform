@@ -217,9 +217,8 @@ resource "aws_lb_listener_rule" "assets" {
   }
 }
 
-# Static files: route root-level static files on main domain to web SPA
-# Includes logos, manifests, favicons, and data files
-resource "aws_lb_listener_rule" "static_files" {
+# Static files: route root-level static files on main domain to web SPA (images and icons)
+resource "aws_lb_listener_rule" "static_files_images" {
   listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
   priority     = 303
 
@@ -241,6 +240,34 @@ resource "aws_lb_listener_rule" "static_files" {
         "/*.ico",
         "/*.png",
         "/*.jpg",
+      ]
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-static-files-images-rule"
+  }
+}
+
+# Static files: route root-level data files on main domain to web SPA
+resource "aws_lb_listener_rule" "static_files_data" {
+  listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
+  priority     = 304
+
+  action {
+    type             = "forward"
+    target_group_arn = module.spa_ecs_service.target_group_arn
+  }
+
+  condition {
+    host_header {
+      values = ["trigpointing.uk"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = [
         "/*.json",
         "/*.yaml",
         "/*.txt",
@@ -249,6 +276,6 @@ resource "aws_lb_listener_rule" "static_files" {
   }
 
   tags = {
-    Name = "${var.project_name}-${var.environment}-static-files-rule"
+    Name = "${var.project_name}-${var.environment}-static-files-data-rule"
   }
 }
