@@ -25,6 +25,20 @@
 - Always activate the Python virtual environment: `source venv/bin/activate`
 - Use the virtual environment for all Python-related commands
 
+## Staging and Production Environments
+- **CRITICAL**: When making changes to production, ALWAYS apply the same changes to staging
+- The following components have BOTH staging and production environments:
+  - Backend API (FastAPI)
+  - Auth0 infrastructure and Actions
+  - SPA web application
+- The following components have PRODUCTION ONLY (no staging):
+  - Wiki (MediaWiki)
+  - Forum (phpBB)
+- When updating Terraform, Actions, or configuration:
+  - Production domain: `trigpointing.uk`
+  - Staging domain: `trigpointing.me`
+  - Update both unless explicitly told otherwise
+
 ## Database
 - Database: trigpoin_trigs with 38 tables for trigpoint/surveying website
 - Key tables: user, trig, tlog, tphoto, attr/attrval, place/town/county, etc.

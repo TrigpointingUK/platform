@@ -72,7 +72,8 @@ module "auth0" {
   api_identifier = "https://api.trigpointing.me/"
 
   # FastAPI Configuration
-  fastapi_url = "https://api.trigpointing.me"
+  fastapi_url           = "https://api.trigpointing.me"
+  webhook_shared_secret = var.webhook_shared_secret
 
   # Swagger UI Callbacks
   swagger_callback_urls = [
