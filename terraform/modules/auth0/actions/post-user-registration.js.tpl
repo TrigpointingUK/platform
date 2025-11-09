@@ -76,13 +76,16 @@ exports.onExecutePostUserRegistration = async (event, api) => {
           { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
         );
         
-        await api.user.setAppMetadata('final_nickname', nickname);
-        
+        // Update both Auth0 profile fields and app_metadata
         await axios.patch(
           `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/users/$${encodeURIComponent(event.user.user_id)}`,
           {
             nickname: nickname,
-            name: nickname  // Set name to match nickname for consistency
+            name: nickname,  // Set name to match nickname for consistency
+            app_metadata: {
+              final_nickname: nickname,
+              database_synced: new Date().toISOString()
+            }
           },
           {
             headers: {
