@@ -15,18 +15,14 @@ client = TestClient(app)
 
 
 @pytest.fixture
-def mock_m2m_token():
-    """Mock M2M token validation to return valid payload."""
-    with patch("api.api.deps.auth0_validator.validate_m2m_token") as mock:
-        mock.return_value = {
-            "aud": "https://api.trigpointing.me/v1/",
-            "client_id": "test_client_id",
-            "azp": "test_client_id",
-        }
-        yield mock
+def mock_webhook_secret(monkeypatch):
+    """Mock WEBHOOK_SHARED_SECRET configuration."""
+    test_secret = "test_webhook_secret_12345"
+    monkeypatch.setattr("api.core.config.settings.WEBHOOK_SHARED_SECRET", test_secret)
+    return test_secret
 
 
-def test_create_user_success(db: Session, mock_m2m_token):
+def test_create_user_success(db: Session, mock_webhook_secret):
     """Test successful user creation via POST endpoint."""
     payload = {
         "username": "newuser",
@@ -37,7 +33,7 @@ def test_create_user_success(db: Session, mock_m2m_token):
     response = client.post(
         "/v1/users",
         json=payload,
-        headers={"Authorization": "Bearer mock_m2m_token"},
+        headers={"X-Webhook-Secret": mock_webhook_secret},
     )
 
     assert response.status_code == 201
@@ -48,28 +44,25 @@ def test_create_user_success(db: Session, mock_m2m_token):
     assert "id" in data
 
 
-def test_create_user_invalid_token(db: Session):
-    """Test that invalid M2M token returns 401."""
-    with patch("api.api.deps.auth0_validator.validate_m2m_token") as mock:
-        mock.return_value = None
+def test_create_user_invalid_token(db: Session, mock_webhook_secret):
+    """Test that invalid webhook secret returns 401."""
+    payload = {
+        "username": "testuser",
+        "email": "test@example.com",
+        "auth0_user_id": "auth0|test123",
+    }
 
-        payload = {
-            "username": "testuser",
-            "email": "test@example.com",
-            "auth0_user_id": "auth0|test123",
-        }
+    response = client.post(
+        "/v1/users",
+        json=payload,
+        headers={"X-Webhook-Secret": "wrong_secret"},
+    )
 
-        response = client.post(
-            "/v1/users",
-            json=payload,
-            headers={"Authorization": "Bearer invalid_token"},
-        )
-
-        assert response.status_code == 401
+    assert response.status_code == 401
 
 
-def test_create_user_missing_token(db: Session):
-    """Test that missing token returns 401."""
+def test_create_user_missing_token(db: Session, mock_webhook_secret):
+    """Test that missing webhook secret returns 401."""
     payload = {
         "username": "testuser",
         "email": "test@example.com",
@@ -81,7 +74,7 @@ def test_create_user_missing_token(db: Session):
     assert response.status_code == 401
 
 
-def test_create_user_duplicate_username(db: Session, mock_m2m_token):
+def test_create_user_duplicate_username(db: Session, mock_webhook_secret):
     """Test that duplicate username returns 409 with proper error message.
 
     This test verifies the error format that the Auth0 Action relies on
@@ -105,7 +98,7 @@ def test_create_user_duplicate_username(db: Session, mock_m2m_token):
     response = client.post(
         "/v1/users",
         json=payload,
-        headers={"Authorization": "Bearer mock_m2m_token"},
+        headers={"X-Webhook-Secret": mock_webhook_secret},
     )
 
     assert response.status_code == 409
@@ -116,7 +109,7 @@ def test_create_user_duplicate_username(db: Session, mock_m2m_token):
     assert "duplicate" in detail.lower()
 
 
-def test_create_user_duplicate_email(db: Session, mock_m2m_token):
+def test_create_user_duplicate_email(db: Session, mock_webhook_secret):
     """Test that duplicate email returns 409."""
     # Create first user directly in DB
     create_user(
@@ -136,14 +129,14 @@ def test_create_user_duplicate_email(db: Session, mock_m2m_token):
     response = client.post(
         "/v1/users",
         json=payload,
-        headers={"Authorization": "Bearer mock_m2m_token"},
+        headers={"X-Webhook-Secret": mock_webhook_secret},
     )
 
     assert response.status_code == 409
     assert "email" in response.json()["detail"].lower()
 
 
-def test_create_user_duplicate_auth0_user_id(db: Session, mock_m2m_token):
+def test_create_user_duplicate_auth0_user_id(db: Session, mock_webhook_secret):
     """Test that duplicate auth0_user_id returns 409."""
     # Create first user directly in DB
     create_user(
@@ -163,14 +156,14 @@ def test_create_user_duplicate_auth0_user_id(db: Session, mock_m2m_token):
     response = client.post(
         "/v1/users",
         json=payload,
-        headers={"Authorization": "Bearer mock_m2m_token"},
+        headers={"X-Webhook-Secret": mock_webhook_secret},
     )
 
     assert response.status_code == 409
     assert "auth0" in response.json()["detail"].lower()
 
 
-def test_create_user_invalid_payload_missing_username(db: Session, mock_m2m_token):
+def test_create_user_invalid_payload_missing_username(db: Session, mock_webhook_secret):
     """Test that missing username returns 422."""
     payload = {
         "email": "test@example.com",
@@ -180,13 +173,13 @@ def test_create_user_invalid_payload_missing_username(db: Session, mock_m2m_toke
     response = client.post(
         "/v1/users",
         json=payload,
-        headers={"Authorization": "Bearer mock_m2m_token"},
+        headers={"X-Webhook-Secret": mock_webhook_secret},
     )
 
     assert response.status_code == 422
 
 
-def test_create_user_invalid_payload_missing_email(db: Session, mock_m2m_token):
+def test_create_user_invalid_payload_missing_email(db: Session, mock_webhook_secret):
     """Test that missing email returns 422."""
     payload = {
         "username": "testuser",
@@ -196,13 +189,15 @@ def test_create_user_invalid_payload_missing_email(db: Session, mock_m2m_token):
     response = client.post(
         "/v1/users",
         json=payload,
-        headers={"Authorization": "Bearer mock_m2m_token"},
+        headers={"X-Webhook-Secret": mock_webhook_secret},
     )
 
     assert response.status_code == 422
 
 
-def test_create_user_invalid_payload_missing_auth0_user_id(db: Session, mock_m2m_token):
+def test_create_user_invalid_payload_missing_auth0_user_id(
+    db: Session, mock_webhook_secret
+):
     """Test that missing auth0_user_id returns 422."""
     payload = {
         "username": "testuser",
@@ -212,13 +207,13 @@ def test_create_user_invalid_payload_missing_auth0_user_id(db: Session, mock_m2m
     response = client.post(
         "/v1/users",
         json=payload,
-        headers={"Authorization": "Bearer mock_m2m_token"},
+        headers={"X-Webhook-Secret": mock_webhook_secret},
     )
 
     assert response.status_code == 422
 
 
-def test_create_user_empty_username(db: Session, mock_m2m_token):
+def test_create_user_empty_username(db: Session, mock_webhook_secret):
     """Test that empty username returns 422."""
     payload = {
         "username": "",
@@ -229,13 +224,13 @@ def test_create_user_empty_username(db: Session, mock_m2m_token):
     response = client.post(
         "/v1/users",
         json=payload,
-        headers={"Authorization": "Bearer mock_m2m_token"},
+        headers={"X-Webhook-Secret": mock_webhook_secret},
     )
 
     assert response.status_code == 422
 
 
-def test_create_user_database_error(db: Session, mock_m2m_token):
+def test_create_user_database_error(db: Session, mock_webhook_secret):
     """Test that database errors are handled gracefully."""
     with patch("api.crud.user.create_user") as mock_create:
         mock_create.side_effect = Exception("Database connection error")
@@ -249,8 +244,8 @@ def test_create_user_database_error(db: Session, mock_m2m_token):
         response = client.post(
             "/v1/users",
             json=payload,
-            headers={"Authorization": "Bearer mock_m2m_token"},
+            headers={"X-Webhook-Secret": mock_webhook_secret},
         )
 
         assert response.status_code == 500
-        assert "failed" in response.json()["detail"].lower()
+        assert "error" in response.json()["detail"].lower()

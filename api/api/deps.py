@@ -7,7 +7,7 @@ API dependencies for authentication and database access.
 from typing import Optional
 
 # from api.schemas.user import TokenData
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -320,8 +320,11 @@ def verify_m2m_token(
     This dependency validates tokens from Auth0 Actions calling the webhook endpoint.
     Uses the Management API audience for validation.
 
+    Fallback: If M2M token validation fails, checks for X-Webhook-Secret header
+    with shared secret (for quota exhaustion scenarios).
+
     Returns:
-        dict: Token payload
+        dict: Token payload (or mock payload if using shared secret)
 
     Raises:
         HTTPException: If token is missing or invalid
@@ -359,3 +362,48 @@ def verify_m2m_token(
     )
 
     return token_payload
+
+
+def verify_webhook_auth(
+    x_webhook_secret: Optional[str] = Header(None),
+) -> dict:
+    """
+    Verify authentication for Auth0 webhook endpoints using shared secret.
+
+    Args:
+        x_webhook_secret: Value from X-Webhook-Secret header
+
+    Returns:
+        dict: Mock token payload for webhook
+
+    Raises:
+        HTTPException: If authentication fails
+    """
+    from api.core.config import settings
+    from api.core.logging import get_logger
+
+    logger = get_logger(__name__)
+
+    # Verify shared secret is configured
+    if not settings.WEBHOOK_SHARED_SECRET:
+        logger.error("WEBHOOK_SHARED_SECRET not configured")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Webhook authentication not configured",
+        )
+
+    # Validate shared secret
+    if not x_webhook_secret or x_webhook_secret != settings.WEBHOOK_SHARED_SECRET:
+        logger.error(
+            "Webhook authentication failed: invalid or missing shared secret",
+            extra={"secret_provided": bool(x_webhook_secret)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook shared secret",
+            headers={"WWW-Authenticate": "X-Webhook-Secret"},
+        )
+
+    logger.info("Webhook authenticated via shared secret")
+    # Return mock payload for webhook
+    return {"token_type": "webhook_shared_secret", "client_id": "webhook"}

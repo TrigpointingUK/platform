@@ -517,6 +517,11 @@ resource "auth0_action" "post_user_registration" {
     name  = "API_AUDIENCE"
     value = auth0_resource_server.api.identifier
   }
+
+  secrets {
+    name  = "WEBHOOK_SHARED_SECRET"
+    value = var.webhook_shared_secret
+  }
 }
 
 # Bind Action to trigger

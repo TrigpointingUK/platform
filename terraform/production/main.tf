@@ -160,3 +160,122 @@ resource "aws_lb_listener_rule" "test_health" {
     Name = "${var.project_name}-${var.environment}-test-health-rule"
   }
 }
+
+# Legacy migration admin endpoint: route /legacy-migration on main domain to web SPA
+# This allows admins to access the migration UI from the main domain
+resource "aws_lb_listener_rule" "legacy_migration" {
+  listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
+  priority     = 301
+
+  action {
+    type             = "forward"
+    target_group_arn = module.spa_ecs_service.target_group_arn
+  }
+
+  condition {
+    host_header {
+      values = ["trigpointing.uk"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/legacy-migration*"]
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-legacy-migration-rule"
+  }
+}
+
+# Assets path: route /assets/* on main domain to web SPA
+# Required for SPA to load JavaScript, CSS, and other bundled assets
+resource "aws_lb_listener_rule" "assets" {
+  listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
+  priority     = 302
+
+  action {
+    type             = "forward"
+    target_group_arn = module.spa_ecs_service.target_group_arn
+  }
+
+  condition {
+    host_header {
+      values = ["trigpointing.uk"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/assets/*"]
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-assets-rule"
+  }
+}
+
+# Static files: route root-level static files on main domain to web SPA (images and icons)
+resource "aws_lb_listener_rule" "static_files_images" {
+  listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
+  priority     = 303
+
+  action {
+    type             = "forward"
+    target_group_arn = module.spa_ecs_service.target_group_arn
+  }
+
+  condition {
+    host_header {
+      values = ["trigpointing.uk"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = [
+        "/*.svg",
+        "/*.ico",
+        "/*.png",
+        "/*.jpg",
+      ]
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-static-files-images-rule"
+  }
+}
+
+# Static files: route root-level data files on main domain to web SPA
+resource "aws_lb_listener_rule" "static_files_data" {
+  listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
+  priority     = 304
+
+  action {
+    type             = "forward"
+    target_group_arn = module.spa_ecs_service.target_group_arn
+  }
+
+  condition {
+    host_header {
+      values = ["trigpointing.uk"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = [
+        "/*.json",
+        "/*.yaml",
+        "/*.txt",
+      ]
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-static-files-data-rule"
+  }
+}

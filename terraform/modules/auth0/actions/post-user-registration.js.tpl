@@ -5,48 +5,30 @@
  * It provisions the user in the FastAPI/MySQL database via webhook.
  * 
  * Flow:
- * 1. Obtain M2M token using client credentials (OAuth2 client_credentials flow)
- * 2. Generate nickname from email prefix
- * 3. Try to create user via POST /v1/users
- * 4. On username collision (409), retry with random 6-digit suffix
- * 5. Up to 10 retries with different random suffixes
- * 6. Set final nickname in Auth0 user metadata
+ * 1. Generate nickname from email prefix
+ * 2. Try to create user via POST /v1/users (authenticated with shared secret)
+ * 3. On username collision (409), retry with random 6-digit suffix
+ * 4. Up to 10 retries with different random suffixes
+ * 5. Set final nickname in Auth0 user metadata
  * 
  * Environment Variables (from Secrets):
- * - FASTAPI_URL: Base URL of FastAPI (e.g., https://api.trigpointing.me)
- * - M2M_CLIENT_ID: Auth0 M2M client ID
- * - M2M_CLIENT_SECRET: Auth0 M2M client secret
- * - AUTH0_DOMAIN: Auth0 tenant domain (e.g., trigpointing-me.eu.auth0.com)
- * - API_AUDIENCE: FastAPI API audience (e.g., https://api.trigpointing.me/)
+ * - FASTAPI_URL: Base URL of FastAPI (e.g., https://api.trigpointing.uk)
+ * - WEBHOOK_SHARED_SECRET: Shared secret for webhook authentication
+ * - AUTH0_DOMAIN: Auth0 tenant domain (e.g., trigpointing.eu.auth0.com)
+ * - M2M_CLIENT_ID: Auth0 M2M client ID (for Management API only)
+ * - M2M_CLIENT_SECRET: Auth0 M2M client secret (for Management API only)
  */
 
 exports.onExecutePostUserRegistration = async (event, api) => {
   const axios = require('axios');
   
-  // Step 1: Obtain M2M token using client credentials
-  let m2mToken;
-  try {
-    const tokenResponse = await axios.post(
-      `https://$${event.secrets.AUTH0_DOMAIN}/oauth/token`,
-      {
-        grant_type: 'client_credentials',
-        client_id: event.secrets.M2M_CLIENT_ID,
-        client_secret: event.secrets.M2M_CLIENT_SECRET,
-        audience: event.secrets.API_AUDIENCE
-      },
-      {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 5000
-      }
-    );
-    m2mToken = tokenResponse.data.access_token;
-  } catch (error) {
-    console.error('[${environment}] Failed to obtain M2M token:', error.response?.data || error.message);
-    console.error('[${environment}] User registered in Auth0 but not in database. M2M authentication failed.');
+  // Verify we have the webhook shared secret
+  if (!event.secrets.WEBHOOK_SHARED_SECRET) {
+    console.error('[${environment}] WEBHOOK_SHARED_SECRET not configured - cannot provision user');
     return;
   }
   
-  // Step 2: Generate base nickname from email prefix
+  // Step 1: Generate base nickname from email prefix
   // Auth0 signup only collects email/password by default
   // Nickname allows spaces and special characters (unlike username)
   const baseNickname = event.user.nickname || event.user.email.split('@')[0];
@@ -64,22 +46,25 @@ exports.onExecutePostUserRegistration = async (event, api) => {
     };
     
     try {
-      await axios.post(
+      // Authenticate with shared secret
+      const response = await axios.post(
         event.secrets.FASTAPI_URL + '/v1/users',
         payload,
         {
           headers: {
-            'Authorization': `Bearer $${m2mToken}`,
+            'X-Webhook-Secret': event.secrets.WEBHOOK_SHARED_SECRET,
+            'x-auth0-webhook': 'post-user-registration',
             'Content-Type': 'application/json'
           },
           timeout: 5000
         }
       );
       
-      console.log('[${environment}] User provisioned successfully:', event.user.user_id, 'with nickname:', nickname);
+      const databaseUserId = response.data.id;
+      console.log('[${environment}] User provisioned successfully:', event.user.user_id, 'with nickname:', nickname, 'database ID:', databaseUserId);
       
       // Step 6: Update Auth0 user profile with nickname and name
-      // Use Management API to set both nickname and name fields
+      // This requires Management API access - get M2M token (not cached to avoid quota issues with retries)
       try {
         const mgmtTokenResponse = await axios.post(
           `https://$${event.secrets.AUTH0_DOMAIN}/oauth/token`,
@@ -92,11 +77,17 @@ exports.onExecutePostUserRegistration = async (event, api) => {
           { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
         );
         
+        // Update both Auth0 profile fields and app_metadata
         await axios.patch(
           `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/users/$${encodeURIComponent(event.user.user_id)}`,
           {
             nickname: nickname,
-            name: nickname  // Set name to match nickname for consistency
+            name: nickname,  // Set name to match nickname for consistency
+            app_metadata: {
+              database_user_id: databaseUserId,
+              final_nickname: nickname,
+              database_synced: new Date().toISOString()
+            }
           },
           {
             headers: {

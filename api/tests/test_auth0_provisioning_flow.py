@@ -4,6 +4,7 @@ Integration tests for Auth0 provisioning and profile sync flow.
 
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -13,42 +14,43 @@ from api.main import app
 client = TestClient(app)
 
 
-def test_full_provisioning_flow(db: Session):
+@pytest.fixture
+def mock_webhook_secret(monkeypatch):
+    """Mock WEBHOOK_SHARED_SECRET configuration."""
+    test_secret = "test_webhook_secret_12345"
+    monkeypatch.setattr("api.core.config.settings.WEBHOOK_SHARED_SECRET", test_secret)
+    return test_secret
+
+
+def test_full_provisioning_flow(db: Session, mock_webhook_secret):
     """Test complete flow from Auth0 Action to user creation."""
-    # Mock M2M token validation
-    with patch("api.api.deps.auth0_validator.validate_m2m_token") as mock_token:
-        mock_token.return_value = {
-            "aud": "https://api.trigpointing.me/v1/",
-            "client_id": "test_m2m_client",
-        }
+    # Simulate Auth0 Action calling webhook
+    auth0_payload = {
+        "username": "auth0newuser",
+        "email": "auth0user@example.com",
+        "auth0_user_id": "auth0|newuser789",
+    }
 
-        # Simulate Auth0 Action calling webhook
-        auth0_payload = {
-            "username": "auth0newuser",
-            "email": "auth0user@example.com",
-            "auth0_user_id": "auth0|newuser789",
-        }
+    response = client.post(
+        "/v1/users",
+        json=auth0_payload,
+        headers={"X-Webhook-Secret": mock_webhook_secret},
+    )
 
-        response = client.post(
-            "/v1/users",
-            json=auth0_payload,
-            headers={"Authorization": "Bearer m2m_token"},
-        )
+    assert response.status_code == 201
 
-        assert response.status_code == 201
-
-        # Verify user created in database
-        user = get_user_by_auth0_id(db, auth0_payload["auth0_user_id"])
-        assert user is not None
-        assert user.name == auth0_payload["username"]
-        assert user.email == auth0_payload["email"]
-        assert user.firstname == ""  # Empty as expected
-        assert user.surname == ""  # Empty as expected
-        assert user.cryptpw != ""  # Random string
-        assert len(user.cryptpw) > 20  # Random token
+    # Verify user created in database
+    user = get_user_by_auth0_id(db, auth0_payload["auth0_user_id"])
+    assert user is not None
+    assert user.name == auth0_payload["username"]
+    assert user.email == auth0_payload["email"]
+    assert user.firstname == ""  # Empty as expected
+    assert user.surname == ""  # Empty as expected
+    assert user.cryptpw != ""  # Random string
+    assert len(user.cryptpw) > 20  # Random token
 
 
-def test_username_collision_retry_flow(db: Session):
+def test_username_collision_retry_flow(db: Session, mock_webhook_secret):
     """Test Auth0 Action retry behavior when username collisions occur.
 
     Simulates the Action's behavior of retrying with suffixed usernames
@@ -62,68 +64,59 @@ def test_username_collision_retry_flow(db: Session):
         auth0_user_id="auth0|john1",
     )
 
-    with patch("api.api.deps.auth0_validator.validate_m2m_token") as mock_token:
-        mock_token.return_value = {
-            "aud": "https://api.trigpointing.me/v1/",
-            "client_id": "test_m2m_client",
-        }
+    # First attempt - collision with "john"
+    response = client.post(
+        "/v1/users",
+        json={
+            "username": "john",
+            "email": "john2@example.com",
+            "auth0_user_id": "auth0|john2",
+        },
+        headers={"X-Webhook-Secret": mock_webhook_secret},
+    )
 
-        # First attempt - collision with "john"
-        response = client.post(
-            "/v1/users",
-            json={
-                "username": "john",
-                "email": "john2@example.com",
-                "auth0_user_id": "auth0|john2",
-            },
-            headers={"Authorization": "Bearer m2m_token"},
-        )
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "username" in detail.lower()
 
-        assert response.status_code == 409
-        detail = response.json()["detail"]
-        assert "username" in detail.lower()
+    # Second attempt - with random suffix (simulating Action retry)
+    response = client.post(
+        "/v1/users",
+        json={
+            "username": "john432524",  # With 6-digit suffix
+            "email": "john2@example.com",
+            "auth0_user_id": "auth0|john2",
+        },
+        headers={"X-Webhook-Secret": mock_webhook_secret},
+    )
 
-        # Second attempt - with random suffix (simulating Action retry)
-        response = client.post(
-            "/v1/users",
-            json={
-                "username": "john432524",  # With 6-digit suffix
-                "email": "john2@example.com",
-                "auth0_user_id": "auth0|john2",
-            },
-            headers={"Authorization": "Bearer m2m_token"},
-        )
+    assert response.status_code == 201
 
-        assert response.status_code == 201
-
-        # Verify user created with suffixed username
-        user = get_user_by_name(db, "john432524")
-        assert user is not None
-        assert user.email == "john2@example.com"
-        assert user.auth0_user_id == "auth0|john2"
+    # Verify user created with suffixed username
+    user = get_user_by_name(db, "john432524")
+    assert user is not None
+    assert user.email == "john2@example.com"
+    assert user.auth0_user_id == "auth0|john2"
 
 
-def test_provisioning_then_profile_update(db: Session):
+def test_provisioning_then_profile_update(db: Session, mock_webhook_secret):
     """Test user created via webhook can then update profile."""
     # Step 1: Create user via webhook
-    with patch("api.api.deps.auth0_validator.validate_m2m_token") as mock_m2m:
-        mock_m2m.return_value = {"aud": "https://api.trigpointing.me/v1/"}
+    auth0_payload = {
+        "username": "updatetest",
+        "email": "updatetest@example.com",
+        "auth0_user_id": "auth0|updatetest123",
+    }
 
-        auth0_payload = {
-            "username": "updatetest",
-            "email": "updatetest@example.com",
-            "auth0_user_id": "auth0|updatetest123",
-        }
+    response = client.post(
+        "/v1/users",
+        json=auth0_payload,
+        headers={"X-Webhook-Secret": mock_webhook_secret},
+    )
 
-        response = client.post(
-            "/v1/users",
-            json=auth0_payload,
-            headers={"Authorization": "Bearer m2m_token"},
-        )
+    assert response.status_code == 201
 
-        assert response.status_code == 201
-
-    # Step 2: User updates their profile
+    # Step 2: Update profile via PATCH
     with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock_user_token:
         mock_user_token.return_value = {
             "token_type": "auth0",
@@ -199,51 +192,45 @@ def test_orphaned_user_sync_on_login(db: Session):
             # (actual sync would happen in get_current_user dependency)
 
 
-def test_cryptpw_is_not_empty(db: Session):
+def test_cryptpw_is_not_empty(db: Session, mock_webhook_secret):
     """Verify cryptpw field is random, not empty, for legacy compatibility."""
-    with patch("api.api.deps.auth0_validator.validate_m2m_token") as mock_token:
-        mock_token.return_value = {"aud": "https://api.trigpointing.me/v1/"}
+    payload = {
+        "username": "cryptpwtest",
+        "email": "cryptpw@example.com",
+        "auth0_user_id": "auth0|cryptpw123",
+    }
 
-        payload = {
-            "username": "cryptpwtest",
-            "email": "cryptpw@example.com",
-            "auth0_user_id": "auth0|cryptpw123",
-        }
+    response = client.post(
+        "/v1/users",
+        json=payload,
+        headers={"X-Webhook-Secret": mock_webhook_secret},
+    )
 
-        response = client.post(
-            "/v1/users",
-            json=payload,
-            headers={"Authorization": "Bearer m2m_token"},
-        )
+    assert response.status_code == 201
 
-        assert response.status_code == 201
-
-        # Verify in database
-        user = get_user_by_name(db, "cryptpwtest")
-        assert user is not None
-        assert user.cryptpw != ""
-        assert len(user.cryptpw) > 20
-        # Verify it's not a valid crypt hash format (should be random token)
-        assert not user.cryptpw.startswith("$")
+    # Verify cryptpw is not empty
+    user = get_user_by_auth0_id(db, "auth0|cryptpw123")
+    assert user is not None
+    assert user.cryptpw != ""
+    assert len(user.cryptpw) > 20
+    # Verify it's not a valid crypt hash format (should be random token)
+    assert not user.cryptpw.startswith("$")
 
 
-def test_profile_sync_resilience(db: Session):
+def test_profile_sync_resilience(db: Session, mock_webhook_secret):
     """Test that profile updates succeed even when Auth0 sync fails."""
     # Create user
-    with patch("api.api.deps.auth0_validator.validate_m2m_token") as mock_m2m:
-        mock_m2m.return_value = {"aud": "https://api.trigpointing.me/v1/"}
+    payload = {
+        "username": "resilientuser",
+        "email": "resilient@example.com",
+        "auth0_user_id": "auth0|resilient123",
+    }
 
-        payload = {
-            "username": "resilientuser",
-            "email": "resilient@example.com",
-            "auth0_user_id": "auth0|resilient123",
-        }
-
-        client.post(
-            "/v1/users",
-            json=payload,
-            headers={"Authorization": "Bearer m2m_token"},
-        )
+    client.post(
+        "/v1/users",
+        json=payload,
+        headers={"X-Webhook-Secret": mock_webhook_secret},
+    )
 
     # Update profile with Auth0 sync failure
     with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock_user_token:
