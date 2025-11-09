@@ -9,14 +9,14 @@
  * 2. Try to create user via POST /v1/users (authenticated with shared secret)
  * 3. On username collision (409), retry with random 6-digit suffix
  * 4. Up to 10 retries with different random suffixes
- * 5. Store final nickname in app_metadata (no M2M token required)
+ * 5. Set final nickname in Auth0 user metadata
  * 
  * Environment Variables (from Secrets):
  * - FASTAPI_URL: Base URL of FastAPI (e.g., https://api.trigpointing.uk)
  * - WEBHOOK_SHARED_SECRET: Shared secret for webhook authentication
- * 
- * Note: Database is the source of truth for usernames. Auth0 nickname/name fields
- * may differ from database username due to collision retries, but this is harmless.
+ * - AUTH0_DOMAIN: Auth0 tenant domain (e.g., trigpointing.eu.auth0.com)
+ * - M2M_CLIENT_ID: Auth0 M2M client ID (for Management API only)
+ * - M2M_CLIENT_SECRET: Auth0 M2M client secret (for Management API only)
  */
 
 exports.onExecutePostUserRegistration = async (event, api) => {
@@ -61,16 +61,40 @@ exports.onExecutePostUserRegistration = async (event, api) => {
       
       console.log('[${environment}] User provisioned successfully:', event.user.user_id, 'with nickname:', nickname);
       
-      // Step 6: Store final nickname in app_metadata for reference
-      // Note: We don't update Auth0's nickname/name fields to avoid M2M quota usage
-      // The database is the source of truth for usernames
+      // Step 6: Update Auth0 user profile with nickname and name
+      // This requires Management API access - get M2M token (not cached to avoid quota issues with retries)
       try {
+        const mgmtTokenResponse = await axios.post(
+          `https://$${event.secrets.AUTH0_DOMAIN}/oauth/token`,
+          {
+            grant_type: 'client_credentials',
+            client_id: event.secrets.M2M_CLIENT_ID,
+            client_secret: event.secrets.M2M_CLIENT_SECRET,
+            audience: `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/`
+          },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
+        );
+        
         await api.user.setAppMetadata('final_nickname', nickname);
-        await api.user.setAppMetadata('database_synced', new Date().toISOString());
-        console.log('[${environment}] Stored final nickname in app_metadata:', nickname);
+        
+        await axios.patch(
+          `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/users/$${encodeURIComponent(event.user.user_id)}`,
+          {
+            nickname: nickname,
+            name: nickname  // Set name to match nickname for consistency
+          },
+          {
+            headers: {
+              'Authorization': `Bearer $${mgmtTokenResponse.data.access_token}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 5000
+          }
+        );
+        console.log('[${environment}] Updated Auth0 profile with nickname and name:', nickname);
       } catch (error) {
-        console.error('[${environment}] Failed to set app_metadata:', error.message);
-        // Don't fail registration - not critical
+        console.error('[${environment}] Failed to update Auth0 profile:', error.response?.data || error.message);
+        // Don't fail registration - user can update later
       }
       
       return; // Success!
