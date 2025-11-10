@@ -45,6 +45,55 @@ router = APIRouter()
 
 
 @router.get(
+    "/export",
+    openapi_extra=openapi_lifecycle("beta", note="Bulk export for offline apps"),
+)
+@cached(
+    resource_type="trigs",
+    ttl=31536000,  # 1 year (matching tile endpoints)
+    subresource="export",
+    include_query_params=False,  # Ignore query params for caching
+)
+def export_trigs(
+    _lc=lifecycle("beta"),
+    db: Session = Depends(get_db),
+):
+    """
+    Export all trigpoints for offline use (Android app).
+
+    Returns all ~30,000 trigpoints with minimal fields.
+    This endpoint is heavily cached and not automatically invalidated.
+    Cache can be manually cleared via admin endpoints if needed.
+    """
+    # Get all trigs (no pagination, no filters)
+    items = trig_crud.list_trigs_filtered(
+        db,
+        skip=0,
+        limit=50000,  # Large enough for all trigs
+    )
+
+    # Serialize minimally
+    items_serialized = [TrigMinimal.model_validate(i).model_dump() for i in items]
+
+    # Attach status_name to each item
+    for item, orig in zip(items_serialized, items):
+        item["status_name"] = status_crud.get_status_name_by_id(db, int(orig.status_id))
+
+    # Return with Cloudflare-friendly cache headers
+    return JSONResponse(
+        content={
+            "items": items_serialized,
+            "total": len(items_serialized),
+            "generated_at": datetime.utcnow().isoformat(),
+            "cache_info": "This export is cached for 1 year",
+        },
+        headers={
+            "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
+        },
+    )
+
+
+@router.get(
     "/{trig_id}",
     response_model=TrigWithIncludes,
     openapi_extra=openapi_lifecycle(
@@ -267,55 +316,6 @@ def list_trigs(
     else:
         response["context"] = {"order": order or "id"}
     return response
-
-
-@router.get(
-    "/export",
-    openapi_extra=openapi_lifecycle("beta", note="Bulk export for offline apps"),
-)
-@cached(
-    resource_type="trigs",
-    ttl=31536000,  # 1 year (matching tile endpoints)
-    subresource="export",
-    include_query_params=False,  # Ignore query params for caching
-)
-def export_trigs(
-    _lc=lifecycle("beta"),
-    db: Session = Depends(get_db),
-):
-    """
-    Export all trigpoints for offline use (Android app).
-
-    Returns all ~30,000 trigpoints with minimal fields.
-    This endpoint is heavily cached and not automatically invalidated.
-    Cache can be manually cleared via admin endpoints if needed.
-    """
-    # Get all trigs (no pagination, no filters)
-    items = trig_crud.list_trigs_filtered(
-        db,
-        skip=0,
-        limit=50000,  # Large enough for all trigs
-    )
-
-    # Serialize minimally
-    items_serialized = [TrigMinimal.model_validate(i).model_dump() for i in items]
-
-    # Attach status_name to each item
-    for item, orig in zip(items_serialized, items):
-        item["status_name"] = status_crud.get_status_name_by_id(db, int(orig.status_id))
-
-    # Return with Cloudflare-friendly cache headers
-    return JSONResponse(
-        content={
-            "items": items_serialized,
-            "total": len(items_serialized),
-            "generated_at": datetime.utcnow().isoformat(),
-            "cache_info": "This export is cached for 1 year",
-        },
-        headers={
-            "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
-        },
-    )
 
 
 # -----------------------------------------------------------------------------
