@@ -93,6 +93,7 @@ def custom_openapi():
     public_endpoints = {
         "/health",
         f"{settings.API_V1_STR}/trigs",
+        f"{settings.API_V1_STR}/trigs/export",
         f"{settings.API_V1_STR}/trigs/{{trig_id}}",
         f"{settings.API_V1_STR}/trigs/{{trig_id}}/logs",
         f"{settings.API_V1_STR}/trigs/{{trig_id}}/map",
