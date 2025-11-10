@@ -12,7 +12,7 @@ from typing import Optional
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
 from sqlalchemy.orm import Session
 
@@ -53,6 +53,7 @@ router = APIRouter()
     ttl=31536000,  # 1 year (matching tile endpoints)
     subresource="export",
     include_query_params=False,  # Ignore query params for caching
+    cache_control="public, max-age=31536000",  # 1 year for Cloudflare
 )
 def export_trigs(
     _lc=lifecycle("beta"),
@@ -72,25 +73,22 @@ def export_trigs(
         limit=50000,  # Large enough for all trigs
     )
 
-    # Serialize minimally
-    items_serialized = [TrigMinimal.model_validate(i).model_dump() for i in items]
+    # Serialize minimally with mode='json' to properly handle Decimal fields
+    items_serialized = [
+        TrigMinimal.model_validate(i).model_dump(mode="json") for i in items
+    ]
 
     # Attach status_name to each item
     for item, orig in zip(items_serialized, items):
         item["status_name"] = status_crud.get_status_name_by_id(db, int(orig.status_id))
 
-    # Return with Cloudflare-friendly cache headers
-    return JSONResponse(
-        content={
-            "items": items_serialized,
-            "total": len(items_serialized),
-            "generated_at": datetime.utcnow().isoformat(),
-            "cache_info": "This export is cached for 1 year",
-        },
-        headers={
-            "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
-        },
-    )
+    # Return dict - cache decorator will wrap in JSONResponse with Cache-Control header
+    return {
+        "items": items_serialized,
+        "total": len(items_serialized),
+        "generated_at": datetime.utcnow().isoformat(),
+        "cache_info": "This export is cached for 1 year",
+    }
 
 
 @router.get(
