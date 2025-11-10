@@ -13,7 +13,7 @@ python-dotenv==1.2.1
 alembic==1.17.1
 
 # Testing dependencies
-pytest==8.4.2
+pytest==9.0.0
 pytest-asyncio==1.2.0
 pytest-xdist==3.8.0
 httpx==0.28.1
