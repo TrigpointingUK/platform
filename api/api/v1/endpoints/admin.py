@@ -14,6 +14,7 @@ from api.core.config import settings
 from api.core.logging import get_logger
 from api.models.user import User
 from api.schemas.contact import ContactRequest, ContactResponse
+from api.services.cache_invalidator import invalidate_patterns
 from api.services.cache_service import cache_delete_pattern, get_redis_client
 from api.services.email_service import email_service
 
@@ -147,6 +148,26 @@ def flush_cache(
             "pattern": full_pattern,
             "message": f"Flushed all FastAPI cache keys for {environment} environment ({deleted_count} keys)",
         }
+
+
+@router.delete(
+    "/cache/trigs/export",
+    openapi_extra=openapi_lifecycle("beta"),
+)
+def clear_export_cache(
+    current_user: User = Depends(require_admin),
+):
+    """
+    Clear the trigs export cache (admin only).
+
+    Requires `api:admin` scope.
+
+    This endpoint clears the heavily-cached /v1/trigs/export endpoint,
+    forcing it to regenerate on the next request. Use this when you need
+    to refresh the bulk export data after significant database changes.
+    """
+    deleted = invalidate_patterns(["trigs:export:*"])
+    return {"message": f"Cleared {deleted} cache keys", "deleted_count": deleted}
 
 
 @router.post(

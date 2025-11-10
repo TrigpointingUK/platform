@@ -27,6 +27,7 @@ def cached(
     subresource: Optional[str] = None,
     include_query_params: bool = True,
     version: str = "v1",
+    cache_control: Optional[str] = None,
 ):
     """
     Decorator to cache endpoint responses in Redis.
@@ -38,6 +39,7 @@ def cached(
         subresource: Optional subresource name (e.g., 'logs', 'photos')
         include_query_params: Whether to include query params in cache key
         version: Cache version for invalidation
+        cache_control: Optional Cache-Control header value for Cloudflare caching
 
     Usage:
         @router.get("/trigs/{trig_id}")
@@ -65,8 +67,8 @@ def cached(
             # Check for cache bypass header
             bypass_cache = False
             if request:
-                cache_control = request.headers.get("cache-control", "").lower()
-                if "no-cache" in cache_control:
+                cache_control_header = request.headers.get("cache-control", "").lower()
+                if "no-cache" in cache_control_header:
                     bypass_cache = True
                     logger.debug(
                         json.dumps(
@@ -180,24 +182,30 @@ def cached(
                     return result
                 else:
                     # Return JSONResponse with cache headers for dict/list results
+                    headers = {
+                        "X-Cache-Status": cache_status,
+                        "X-Cache-Key": cache_key,
+                        "X-Cache-TTL": str(ttl),
+                    }
+                    if cache_control:
+                        headers["Cache-Control"] = cache_control
                     return JSONResponse(
                         content=jsonable_encoder(result),
-                        headers={
-                            "X-Cache-Status": cache_status,
-                            "X-Cache-Key": cache_key,
-                            "X-Cache-TTL": str(ttl),
-                        },
+                        headers=headers,
                     )
             else:
                 # Return cached result with cache headers
+                headers = {
+                    "X-Cache-Status": "HIT",
+                    "X-Cache-Key": cache_key,
+                    "X-Cache-Age": str(cache_age) if cache_age else "0",
+                    "X-Cache-TTL": str(ttl),
+                }
+                if cache_control:
+                    headers["Cache-Control"] = cache_control
                 return JSONResponse(
                     content=jsonable_encoder(cached_value),
-                    headers={
-                        "X-Cache-Status": "HIT",
-                        "X-Cache-Key": cache_key,
-                        "X-Cache-Age": str(cache_age) if cache_age else "0",
-                        "X-Cache-TTL": str(ttl),
-                    },
+                    headers=headers,
                 )
 
         @functools.wraps(func)
@@ -208,8 +216,8 @@ def cached(
             # Check for cache bypass header
             bypass_cache = False
             if request:
-                cache_control = request.headers.get("cache-control", "").lower()
-                if "no-cache" in cache_control:
+                cache_control_header = request.headers.get("cache-control", "").lower()
+                if "no-cache" in cache_control_header:
                     bypass_cache = True
                     logger.debug(
                         json.dumps(
@@ -323,24 +331,30 @@ def cached(
                     return result
                 else:
                     # Return JSONResponse with cache headers for dict/list results
+                    headers = {
+                        "X-Cache-Status": cache_status,
+                        "X-Cache-Key": cache_key,
+                        "X-Cache-TTL": str(ttl),
+                    }
+                    if cache_control:
+                        headers["Cache-Control"] = cache_control
                     return JSONResponse(
                         content=jsonable_encoder(result),
-                        headers={
-                            "X-Cache-Status": cache_status,
-                            "X-Cache-Key": cache_key,
-                            "X-Cache-TTL": str(ttl),
-                        },
+                        headers=headers,
                     )
             else:
                 # Return cached result with cache headers
+                headers = {
+                    "X-Cache-Status": "HIT",
+                    "X-Cache-Key": cache_key,
+                    "X-Cache-Age": str(cache_age) if cache_age else "0",
+                    "X-Cache-TTL": str(ttl),
+                }
+                if cache_control:
+                    headers["Cache-Control"] = cache_control
                 return JSONResponse(
                     content=jsonable_encoder(cached_value),
-                    headers={
-                        "X-Cache-Status": "HIT",
-                        "X-Cache-Key": cache_key,
-                        "X-Cache-Age": str(cache_age) if cache_age else "0",
-                        "X-Cache-TTL": str(ttl),
-                    },
+                    headers=headers,
                 )
 
         # Return appropriate wrapper based on whether function is async

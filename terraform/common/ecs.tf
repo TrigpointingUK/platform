@@ -114,6 +114,32 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
       {
         Effect = "Allow"
         Action = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
+        Resource = [
+          "arn:aws:s3:::trigpointinguk-photos",
+          "arn:aws:s3:::trigpointinguk-test"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:AbortMultipartUpload",
+          "s3:GetObjectAcl",
+          "s3:PutObjectAcl"
+        ]
+        Resource = [
+          "arn:aws:s3:::trigpointinguk-photos/*",
+          "arn:aws:s3:::trigpointinguk-test/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "elasticfilesystem:ClientMount",
           "elasticfilesystem:ClientWrite",
           "elasticfilesystem:ClientRootAccess"

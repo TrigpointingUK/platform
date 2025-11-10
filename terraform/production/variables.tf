@@ -179,3 +179,13 @@ variable "profiling_default_format" {
   type        = string
   default     = "html"
 }
+
+variable "photos_s3_bucket" {
+  description = "S3 bucket name for photo uploads"
+  type        = string
+}
+
+variable "photos_server_id" {
+  description = "Server ID for photo uploads (references server table in database)"
+  type        = number
+}

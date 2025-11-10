@@ -122,6 +122,8 @@ module "ecs_service" {
   redis_url                    = "redis://${data.terraform_remote_state.common.outputs.valkey_endpoint}:${data.terraform_remote_state.common.outputs.valkey_port}"
   efs_file_system_id           = data.terraform_remote_state.common.outputs.tiles_efs_file_system_id
   efs_access_point_id          = data.terraform_remote_state.common.outputs.tiles_efs_access_point_id
+  photos_s3_bucket             = var.photos_s3_bucket
+  photos_server_id             = var.photos_server_id
 }
 
 module "monitoring" {
@@ -217,7 +219,8 @@ resource "aws_lb_listener_rule" "assets" {
   }
 }
 
-# Static files: route root-level static files on main domain to web SPA (images and icons)
+# Static files: route specific root-level static files on main domain to web SPA
+# Note: Only match exact known SPA files to avoid catching legacy /pics/* paths
 resource "aws_lb_listener_rule" "static_files_images" {
   listener_arn = data.terraform_remote_state.common.outputs.https_listener_arn
   priority     = 303
@@ -236,10 +239,8 @@ resource "aws_lb_listener_rule" "static_files_images" {
   condition {
     path_pattern {
       values = [
-        "/*.svg",
-        "/*.ico",
-        "/*.png",
-        "/*.jpg",
+        "/TUK-Logo.svg",
+        "/favicon.ico",
       ]
     }
   }

@@ -77,12 +77,14 @@ def invalidate_log_caches(trig_id: int, user_id: int, log_id: Optional[int] = No
         trig_id: ID of the trig the log belongs to
         user_id: ID of the user who created the log
         log_id: Optional ID of the specific log (for updates/deletes)
+
+    Note: Does NOT invalidate trigs:export:* to preserve bulk export cache.
     """
     patterns = [
         "stats:site:*",  # Site-wide stats
         f"trig:{trig_id}:*",  # All trig-related caches
         f"user:{user_id}:*",  # All user-related caches
-        "trigs:list:*",  # All trig list queries
+        "trigs:list:*",  # List queries (but NOT export)
         "logs:list:*",  # All log list queries
     ]
 
