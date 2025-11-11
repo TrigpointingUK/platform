@@ -42,6 +42,61 @@ resource "cloudflare_dns_record" "ses_dkim" {
   comment = "SES DKIM record ${count.index + 1} for trigpointing.me"
 }
 
+# Custom MAIL FROM domain for SPF alignment
+# This ensures the envelope sender (Return-Path) uses trigpointing.me domain
+# which allows SPF to align with DMARC requirements
+resource "aws_ses_domain_mail_from" "trigpointing_me" {
+  domain           = aws_ses_domain_identity.trigpointing_me.domain
+  mail_from_domain = "mail.trigpointing.me"
+}
+
+# MX record for custom MAIL FROM domain (required by SES)
+resource "cloudflare_dns_record" "ses_mail_from_mx" {
+  zone_id  = data.cloudflare_zones.staging.result[0].id
+  name     = "mail"
+  content  = "feedback-smtp.eu-west-1.amazonses.com"
+  type     = "MX"
+  priority = 10
+  ttl      = 600
+
+  comment = "MX record for SES custom MAIL FROM domain"
+}
+
+# SPF record for custom MAIL FROM subdomain
+resource "cloudflare_dns_record" "ses_mail_from_spf" {
+  zone_id = data.cloudflare_zones.staging.result[0].id
+  name    = "mail"
+  content = "\"v=spf1 include:amazonses.com ~all\""
+  type    = "TXT"
+  ttl     = 600
+
+  comment = "SPF record for SES custom MAIL FROM domain"
+}
+
+# SPF record for root domain
+# Authorizes only AWS SES to send emails from @trigpointing.me addresses
+resource "cloudflare_dns_record" "root_spf" {
+  zone_id = data.cloudflare_zones.staging.result[0].id
+  name    = "@"
+  content = "\"v=spf1 include:amazonses.com -all\""
+  type    = "TXT"
+  ttl     = 600
+
+  comment = "SPF record for root domain - only AWS SES authorized"
+}
+
+# DMARC policy record for email authentication and reporting
+# Configures quarantine policy to prevent email spoofing
+resource "cloudflare_dns_record" "dmarc" {
+  zone_id = data.cloudflare_zones.staging.result[0].id
+  name    = "_dmarc"
+  content = "\"v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@trigpointing.me; ruf=mailto:dmarc-forensics@trigpointing.me; pct=100; adkim=r; aspf=r\""
+  type    = "TXT"
+  ttl     = 600
+
+  comment = "DMARC policy - quarantine suspicious emails and send reports"
+}
+
 # Get Cloudflare zone info
 data "cloudflare_zones" "staging" {
   name = "trigpointing.me"

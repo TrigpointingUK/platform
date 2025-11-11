@@ -116,17 +116,6 @@ resource "cloudflare_dns_record" "phpmyadmin" {
   comment = "phpMyAdmin subdomain for TrigpointingUK - managed by Terraform"
 }
 
-resource "cloudflare_dns_record" "static" {
-  zone_id = data.cloudflare_zones.production.result[0].id
-  name    = "static"
-  content = aws_lb.main.dns_name
-  type    = "CNAME"
-  proxied = true # Enable CloudFlare proxy (orange cloud)
-  ttl     = 1    # Auto TTL when proxied
-
-  comment = "Static content subdomain for TrigpointingUK - managed by Terraform"
-}
-
 resource "cloudflare_dns_record" "wiki" {
   zone_id = data.cloudflare_zones.production.result[0].id
   name    = "wiki"
