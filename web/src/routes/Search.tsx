@@ -395,6 +395,7 @@ export default function Search() {
               isCollapsed={collapsedTiles.has("log_substring")}
               onToggleCollapse={() => toggleTileCollapse("log_substring")}
               onHide={() => hideTile("log_substring")}
+              useCardLayout={true}
             />
           )}
 
@@ -414,6 +415,7 @@ export default function Search() {
               isCollapsed={collapsedTiles.has("log_regex")}
               onToggleCollapse={() => toggleTileCollapse("log_regex")}
               onHide={() => hideTile("log_regex")}
+              useCardLayout={true}
             />
           )}
         </div>

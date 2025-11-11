@@ -1,34 +1,25 @@
-import { Link } from "react-router-dom";
 import { LogSearchResult } from "../../../hooks/useSearchResults";
+import LogCard from "../../logs/LogCard";
 
 interface LogResultItemProps {
   item: LogSearchResult;
 }
 
 export function LogResultItem({ item }: LogResultItemProps) {
-  const dateStr = new Date(item.date).toLocaleDateString();
+  // Transform LogSearchResult to the format expected by LogCard
+  const log = {
+    id: item.id,
+    trig_id: item.trig_id,
+    user_id: item.user_id,
+    trig_name: item.trig_name,
+    user_name: item.user_name,
+    date: item.date,
+    time: item.time,
+    condition: item.condition,
+    comment: item.comment,
+    score: item.score,
+  };
 
-  return (
-    <Link
-      to={`/logs/${item.id}`}
-      className="block p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
-    >
-      <div className="flex items-start gap-3">
-        <span className="text-2xl">📝</span>
-        <div className="flex-1 min-w-0">
-          <div className="font-medium text-gray-900 line-clamp-2">
-            {item.comment_excerpt || item.comment}
-          </div>
-          <div className="flex flex-wrap gap-2 text-sm text-gray-500 mt-1">
-            {item.trig_name && (
-              <span className="font-medium">Trig: {item.trig_name}</span>
-            )}
-            {item.user_name && <span>by {item.user_name}</span>}
-            <span className="text-gray-400">{dateStr}</span>
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
+  return <LogCard log={log} />;
 }
 

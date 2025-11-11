@@ -15,6 +15,7 @@ interface SearchTileProps<T> {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onHide?: () => void;
+  useCardLayout?: boolean; // If true, use spacing for cards instead of list items
 }
 
 export function SearchTile<T>({
@@ -31,6 +32,7 @@ export function SearchTile<T>({
   isCollapsed = false,
   onToggleCollapse,
   onHide,
+  useCardLayout = false,
 }: SearchTileProps<T>) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -118,7 +120,7 @@ export function SearchTile<T>({
             </div>
           ) : (
             <>
-              <div className="divide-y divide-gray-100">
+              <div className={useCardLayout ? "p-3 space-y-3" : "divide-y divide-gray-100"}>
                 {items.map((item, index) => (
                   <div key={`${categoryKey}-${index}`}>
                     {renderItem(item, index)}

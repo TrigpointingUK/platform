@@ -386,7 +386,9 @@ def search_all(
                     user_name=user_name,
                     date=log.date,  # type: ignore[arg-type]
                     time=log.time,  # type: ignore[arg-type]
+                    condition=log.condition,  # type: ignore[arg-type]
                     comment=log.comment,  # type: ignore[arg-type]
+                    score=log.score,  # type: ignore[arg-type]
                     comment_excerpt=create_excerpt(log.comment),  # type: ignore[arg-type]
                 )
             )
@@ -412,7 +414,9 @@ def search_all(
                         user_name=user_name,
                         date=log.date,  # type: ignore[arg-type]
                         time=log.time,  # type: ignore[arg-type]
+                        condition=log.condition,  # type: ignore[arg-type]
                         comment=log.comment,  # type: ignore[arg-type]
+                        score=log.score,  # type: ignore[arg-type]
                         comment_excerpt=create_excerpt(log.comment),  # type: ignore[arg-type]
                     )
                 )
@@ -695,7 +699,9 @@ def search_logs_substring(
                     user_name=user_name,
                     date=log.date,  # type: ignore[arg-type]
                     time=log.time,  # type: ignore[arg-type]
+                    condition=log.condition,  # type: ignore[arg-type]
                     comment=log.comment,  # type: ignore[arg-type]
+                    score=log.score,  # type: ignore[arg-type]
                     comment_excerpt=create_excerpt(log.comment),  # type: ignore[arg-type]
                 )
             )
@@ -742,7 +748,9 @@ def search_logs_regex(
                     user_name=user_name,
                     date=log.date,  # type: ignore[arg-type]
                     time=log.time,  # type: ignore[arg-type]
+                    condition=log.condition,  # type: ignore[arg-type]
                     comment=log.comment,  # type: ignore[arg-type]
+                    score=log.score,  # type: ignore[arg-type]
                     comment_excerpt=create_excerpt(log.comment),  # type: ignore[arg-type]
                 )
             )

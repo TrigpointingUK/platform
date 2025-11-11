@@ -48,7 +48,9 @@ class LogSearchResult(BaseModel):
     user_name: Optional[str] = Field(None, description="Username")
     date: DateType = Field(..., description="Log date")
     time: TimeType = Field(..., description="Log time")
+    condition: str = Field(..., description="Log condition (G/D/M/P/U)")
     comment: str = Field(..., description="Log comment text")
+    score: int = Field(..., description="Log score (0-10)")
     comment_excerpt: Optional[str] = Field(
         None, description="Truncated comment for display"
     )

@@ -18,7 +18,9 @@ export interface LogSearchResult {
   user_name?: string;
   date: string;
   time: string;
+  condition: string;
   comment: string;
+  score: number;
   comment_excerpt?: string;
 }
 
