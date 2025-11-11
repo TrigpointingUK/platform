@@ -66,11 +66,36 @@ resource "cloudflare_dns_record" "ses_mail_from_mx" {
 resource "cloudflare_dns_record" "ses_mail_from_spf" {
   zone_id = data.cloudflare_zones.production.result[0].id
   name    = "mail"
-  content = "v=spf1 include:amazonses.com ~all"
+  content = "\"v=spf1 include:amazonses.com ~all\""
   type    = "TXT"
   ttl     = 600
 
   comment = "SPF record for SES custom MAIL FROM domain"
+}
+
+# SPF record for root domain
+# Authorizes AWS SES and Cloudflare Email Routing to send emails from @trigpointing.uk
+resource "cloudflare_dns_record" "root_spf" {
+  zone_id = data.cloudflare_zones.production.result[0].id
+  name    = "@"
+  content = "\"v=spf1 include:amazonses.com include:_spf.mx.cloudflare.net -all\""
+  type    = "TXT"
+  ttl     = 600
+
+  comment = "SPF record for root domain - AWS SES and Cloudflare Email Routing authorized"
+}
+
+# DMARC policy record for email authentication and reporting
+# Configures quarantine policy to prevent email spoofing
+# Reports sent to: Cloudflare Analytics, domain email, and personal email
+resource "cloudflare_dns_record" "dmarc" {
+  zone_id = data.cloudflare_zones.production.result[0].id
+  name    = "_dmarc"
+  content = "\"v=DMARC1; p=quarantine; rua=mailto:44c7afe8e66f4541914dbfadf6916197@dmarc-reports.cloudflare.net,mailto:dmarc-reports@trigpointing.uk,mailto:teasel.ian@gmail.com; ruf=mailto:dmarc-forensics@trigpointing.uk; pct=100; adkim=r; aspf=r\""
+  type    = "TXT"
+  ttl     = 600
+
+  comment = "DMARC policy - quarantine suspicious emails and send reports to Cloudflare + email"
 }
 
 # Get Cloudflare zone info
@@ -155,13 +180,14 @@ module "auth0" {
   # Android Callbacks
   android_callback_urls = [
     "uk.trigpointing.android://callback",
+    "uk.trigpointing.android://auth.trigpointing.uk/android/uk.trigpointing.android/callback",
   ]
   android_logout_urls = [
+    "uk.trigpointing.android://auth.trigpointing.uk/android/uk.trigpointing.android/callback",
     "uk.trigpointing.android://trigpointing.eu.auth0.com/android/uk.trigpointing.android/callback",
     "uk.trigpointing.android.debug://trigpointing.eu.auth0.com/android/uk.trigpointing.android.debug/callback",
   ]
   android_web_origins = [
-    "https://fastapi.trigpointing.uk",
     "https://api.trigpointing.uk",
   ]
 
@@ -174,7 +200,7 @@ module "auth0" {
   # Email Provider (SES) - SMTP user created per environment
   smtp_host  = "email-smtp.eu-west-1.amazonaws.com"
   smtp_port  = 587
-  from_email = "noreply@trigpointing.uk"
+  from_email = "contact@trigpointing.uk"
   from_name  = "TrigpointingUK"
 
   # Branding
