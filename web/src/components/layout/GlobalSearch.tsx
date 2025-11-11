@@ -20,6 +20,7 @@ interface GlobalSearchProps {
 function getResultTypeIcon(type: string): string {
   const icons: Record<string, string> = {
     trigpoint: "📍",
+    station_number: "🔢",
     town: "🏘️",
     postcode: "📮",
     gridref: "🗺️",
@@ -59,7 +60,7 @@ export function GlobalSearch({
 
   const handleSelectResult = (result: SearchResult) => {
     // Route based on result type
-    if (result.type === "trigpoint" && result.id) {
+    if ((result.type === "trigpoint" || result.type === "station_number") && result.id) {
       // Navigate to individual trigpoint page
       navigate(`/trig/${result.id}`);
     } else if (result.type === "user" && result.id) {

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";

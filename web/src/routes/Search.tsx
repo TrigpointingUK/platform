@@ -10,6 +10,7 @@ import {
 import { SearchTile } from "../components/search/SearchTile";
 import { TileSettings, TileVisibility } from "../components/search/TileSettings";
 import { TrigpointResultItem } from "../components/search/results/TrigpointResultItem";
+import { StationNumberResultItem } from "../components/search/results/StationNumberResultItem";
 import { PlaceResultItem } from "../components/search/results/PlaceResultItem";
 import { UserResultItem } from "../components/search/results/UserResultItem";
 import { PostcodeResultItem } from "../components/search/results/PostcodeResultItem";
@@ -30,6 +31,7 @@ function loadTileVisibility(): TileVisibility {
   }
   return {
     trigpoints: true,
+    station_numbers: true,
     places: true,
     users: true,
     postcodes: true,
@@ -67,6 +69,16 @@ export default function Search() {
     "trigpoints",
     query,
     tileVisibility.trigpoints
+  );
+
+  const {
+    data: stationNumbersPages,
+    fetchNextPage: fetchNextStationNumbers,
+    isFetchingNextPage: isFetchingMoreStationNumbers,
+  } = useCategorySearch<LocationSearchResult>(
+    "station-numbers",
+    query,
+    tileVisibility.station_numbers
   );
 
   const {
@@ -166,6 +178,7 @@ export default function Search() {
   };
 
   const trigpointItems = flattenPages<LocationSearchResult>(trigpointsPages);
+  const stationNumberItems = flattenPages<LocationSearchResult>(stationNumbersPages);
   const placeItems = flattenPages<LocationSearchResult>(placesPages);
   const userItems = flattenPages<LocationSearchResult>(usersPages);
   const postcodeItems = flattenPages<LocationSearchResult>(postcodesPages);
@@ -194,6 +207,7 @@ export default function Search() {
   };
 
   const trigpointsData = getTileDataFromPages(trigpointsPages);
+  const stationNumbersData = getTileDataFromPages(stationNumbersPages);
   const placesData = getTileDataFromPages(placesPages);
   const usersData = getTileDataFromPages(usersPages);
   const postcodesData = getTileDataFromPages(postcodesPages);
@@ -301,6 +315,25 @@ export default function Search() {
               isCollapsed={collapsedTiles.has("trigpoints")}
               onToggleCollapse={() => toggleTileCollapse("trigpoints")}
               onHide={() => hideTile("trigpoints")}
+            />
+          )}
+
+          {/* Station Numbers Tile */}
+          {shouldShowTile("station_numbers", stationNumbersData.total) && (
+            <SearchTile
+              title="Station Numbers"
+              icon="🔢"
+              totalResults={stationNumbersData.total}
+              items={stationNumberItems}
+              isLoading={isLoadingUnified}
+              isFetchingMore={isFetchingMoreStationNumbers}
+              hasMore={stationNumbersData.has_more}
+              onLoadMore={fetchNextStationNumbers}
+              renderItem={(item) => <StationNumberResultItem item={item} />}
+              categoryKey="station_numbers"
+              isCollapsed={collapsedTiles.has("station_numbers")}
+              onToggleCollapse={() => toggleTileCollapse("station_numbers")}
+              onHide={() => hideTile("station_numbers")}
             />
           )}
 
@@ -423,6 +456,7 @@ export default function Search() {
         {/* No Results Message */}
         {!isLoadingUnified &&
           trigpointsData.total === 0 &&
+          stationNumbersData.total === 0 &&
           placesData.total === 0 &&
           usersData.total === 0 &&
           postcodesData.total === 0 &&

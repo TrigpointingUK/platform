@@ -2,6 +2,7 @@ import { useState } from "react";
 
 export interface TileVisibility {
   trigpoints: boolean;
+  station_numbers: boolean;
   places: boolean;
   users: boolean;
   postcodes: boolean;
@@ -19,6 +20,7 @@ interface TileSettingsProps {
 
 const TILE_LABELS: Record<keyof TileVisibility, { label: string; icon: string }> = {
   trigpoints: { label: "Trigpoints", icon: "📍" },
+  station_numbers: { label: "Station Numbers", icon: "🔢" },
   places: { label: "Places", icon: "🏘️" },
   users: { label: "Users", icon: "👤" },
   postcodes: { label: "Postcodes", icon: "📮" },
@@ -45,6 +47,7 @@ export function TileSettings({
   const resetToDefault = () => {
     onChange({
       trigpoints: true,
+      station_numbers: true,
       places: true,
       users: true,
       postcodes: true,

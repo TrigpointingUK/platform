@@ -1,7 +1,9 @@
+import React from "react";
+
 /**
  * Highlights matching text within a string using mark elements
  */
-export function highlightText(text: string, query: string): JSX.Element[] {
+export function highlightText(text: string, query: string): React.ReactElement[] {
   if (!query || query.length < 2) {
     return [<span key="0">{text}</span>];
   }

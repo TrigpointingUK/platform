@@ -101,6 +101,66 @@ def search_trigpoints_by_name_or_waypoint(
     )
 
 
+def search_trigpoints_by_station_number(
+    db: Session, query: str, skip: int = 0, limit: int = 10
+) -> List[Trig]:
+    """
+    Search trigpoints by station numbers (fb_number, stn_number variants).
+
+    Args:
+        db: Database session
+        query: Search query
+        skip: Number of results to skip
+        limit: Maximum results to return
+
+    Returns:
+        List of Trig objects matching the query
+    """
+    query_upper = query.upper()
+    return (
+        db.query(Trig)
+        .filter(
+            or_(
+                Trig.fb_number.ilike(f"%{query_upper}%"),
+                Trig.stn_number.ilike(f"%{query_upper}%"),
+                Trig.stn_number_active.ilike(f"%{query_upper}%"),
+                Trig.stn_number_passive.ilike(f"%{query_upper}%"),
+                Trig.stn_number_osgb36.ilike(f"%{query_upper}%"),
+            )
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_trigpoints_by_station_number(db: Session, query: str) -> int:
+    """
+    Count trigpoints matching station number query.
+
+    Args:
+        db: Database session
+        query: Search query
+
+    Returns:
+        Count of matching trigpoints
+    """
+    query_upper = query.upper()
+    return (
+        db.query(Trig)
+        .filter(
+            or_(
+                Trig.fb_number.ilike(f"%{query_upper}%"),
+                Trig.stn_number.ilike(f"%{query_upper}%"),
+                Trig.stn_number_active.ilike(f"%{query_upper}%"),
+                Trig.stn_number_passive.ilike(f"%{query_upper}%"),
+                Trig.stn_number_osgb36.ilike(f"%{query_upper}%"),
+            )
+        )
+        .count()
+    )
+
+
 def search_towns(db: Session, query: str, limit: int = 10) -> List[Town]:
     """
     Search towns by name.

@@ -78,6 +78,9 @@ class UnifiedSearchResults(BaseModel):
     trigpoints: SearchCategoryResults[LocationSearchResult] = Field(
         ..., description="Trigpoint search results"
     )
+    station_numbers: SearchCategoryResults[LocationSearchResult] = Field(
+        ..., description="Station number search results"
+    )
     places: SearchCategoryResults[LocationSearchResult] = Field(
         ..., description="Place (town) search results"
     )

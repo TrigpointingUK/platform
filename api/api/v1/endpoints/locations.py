@@ -113,6 +113,37 @@ def search_locations(
             )
         )
 
+    # Search trigpoints by station numbers
+    station_trigs = locations_crud.search_trigpoints_by_station_number(
+        db, q, limit=min(3, limit)
+    )
+    for trig in station_trigs:
+        # Skip if missing required fields
+        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
+            continue
+
+        # Build description with matched station numbers
+        parts = []
+        if trig.waypoint:
+            parts.append(str(trig.waypoint))
+        query_upper = q.upper()
+        if trig.fb_number and query_upper in str(trig.fb_number).upper():
+            parts.append(f"FB: {trig.fb_number}")
+        if trig.stn_number and query_upper in str(trig.stn_number).upper():
+            parts.append(f"Stn: {trig.stn_number}")
+        description = " - ".join(parts) if parts else "Station Number"
+
+        results.append(
+            LocationSearchResult(
+                type="station_number",
+                name=str(trig.name).strip() or "Unnamed Trig",
+                lat=float(trig.wgs_lat),
+                lon=float(trig.wgs_long),
+                description=description,
+                id=str(trig.id),
+            )
+        )
+
     # Search towns
     towns = locations_crud.search_towns(db, q, limit=min(5, limit))
     for town in towns:
@@ -286,6 +317,37 @@ def search_all(
             )
         )
 
+    # Station Numbers
+    station_trigs = locations_crud.search_trigpoints_by_station_number(
+        db, q, limit=limit
+    )
+    station_total = locations_crud.count_trigpoints_by_station_number(db, q)
+    station_number_items: List[LocationSearchResult] = []
+    for trig in station_trigs:
+        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
+            continue
+        # Build description with matched station numbers
+        parts = []
+        if trig.waypoint:
+            parts.append(str(trig.waypoint))
+        # Show which station number fields matched
+        query_upper = q.upper()
+        if trig.fb_number and query_upper in str(trig.fb_number).upper():
+            parts.append(f"FB: {trig.fb_number}")
+        if trig.stn_number and query_upper in str(trig.stn_number).upper():
+            parts.append(f"Stn: {trig.stn_number}")
+        description = " - ".join(parts) if parts else "Station Number Match"
+        station_number_items.append(
+            LocationSearchResult(
+                type="station_number",
+                name=str(trig.name).strip() or "Unnamed Trig",
+                lat=float(trig.wgs_lat),
+                lon=float(trig.wgs_long),
+                description=description,
+                id=str(trig.id),
+            )
+        )
+
     # Places (Towns)
     towns = locations_crud.search_towns(db, q, limit=limit)
     town_total = db.query(User).filter(User.name.ilike(f"%{q}%")).count()  # Rough count
@@ -432,6 +494,12 @@ def search_all(
             has_more=trig_total > len(trigpoint_items),
             query=q,
         ),
+        station_numbers=SearchCategoryResults(
+            total=station_total,
+            items=station_number_items,
+            has_more=station_total > len(station_number_items),
+            query=q,
+        ),
         places=SearchCategoryResults(
             total=town_total,
             items=place_items,
@@ -503,6 +571,55 @@ def search_trigpoints_only(
         items.append(
             LocationSearchResult(
                 type="trigpoint",
+                name=str(trig.name).strip() or "Unnamed Trig",
+                lat=float(trig.wgs_lat),
+                lon=float(trig.wgs_long),
+                description=description,
+                id=str(trig.id),
+            )
+        )
+
+    return SearchCategoryResults(
+        total=total, items=items, has_more=total > skip + len(items), query=q
+    )
+
+
+@router.get(
+    "/search/station-numbers",
+    response_model=SearchCategoryResults[LocationSearchResult],
+    openapi_extra=openapi_lifecycle("beta", note="Station number search"),
+)
+@cached(resource_type="search_station_numbers", ttl=3600)  # 1 hour
+def search_station_numbers_only(
+    q: str = Query(..., description="Search query", min_length=2),
+    skip: int = Query(0, ge=0, description="Number of results to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum results to return"),
+    _lc=lifecycle("beta"),
+    db: Session = Depends(get_db),
+):
+    """Search trigpoints by station numbers."""
+    trigs = locations_crud.search_trigpoints_by_station_number(
+        db, q, skip=skip, limit=limit
+    )
+    total = locations_crud.count_trigpoints_by_station_number(db, q)
+
+    items: List[LocationSearchResult] = []
+    for trig in trigs:
+        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
+            continue
+        # Build description with matched station numbers
+        parts = []
+        if trig.waypoint:
+            parts.append(str(trig.waypoint))
+        query_upper = q.upper()
+        if trig.fb_number and query_upper in str(trig.fb_number).upper():
+            parts.append(f"FB: {trig.fb_number}")
+        if trig.stn_number and query_upper in str(trig.stn_number).upper():
+            parts.append(f"Stn: {trig.stn_number}")
+        description = " - ".join(parts) if parts else "Station Number Match"
+        items.append(
+            LocationSearchResult(
+                type="station_number",
                 name=str(trig.name).strip() or "Unnamed Trig",
                 lat=float(trig.wgs_lat),
                 lon=float(trig.wgs_long),

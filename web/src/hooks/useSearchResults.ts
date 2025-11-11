@@ -34,6 +34,7 @@ export interface SearchCategoryResults<T> {
 export interface UnifiedSearchResults {
   query: string;
   trigpoints: SearchCategoryResults<LocationSearchResult>;
+  station_numbers: SearchCategoryResults<LocationSearchResult>;
   places: SearchCategoryResults<LocationSearchResult>;
   users: SearchCategoryResults<LocationSearchResult>;
   postcodes: SearchCategoryResults<LocationSearchResult>;
@@ -71,7 +72,7 @@ export function useUnifiedSearch(query: string) {
  * Hook for infinite scroll search in a specific category
  */
 export function useCategorySearch<T>(
-  category: "trigpoints" | "places" | "users" | "postcodes" | "logs/substring" | "logs/regex",
+  category: "trigpoints" | "station-numbers" | "places" | "users" | "postcodes" | "logs/substring" | "logs/regex",
   query: string,
   enabled: boolean = true
 ) {
