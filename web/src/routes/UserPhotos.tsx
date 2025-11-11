@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { InfiniteData, useQueryClient } from "@tanstack/react-query";
 import Layout from "../components/layout/Layout";
@@ -22,6 +22,7 @@ interface PhotosResponse {
 export default function UserPhotos() {
   const { userId } = useParams<{ userId: string }>();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const {
     data: photosData,
@@ -98,12 +99,12 @@ export default function UserPhotos() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <Link
-            to={`/profile/${userId}`}
+          <button
+            onClick={() => navigate(-1)}
             className="text-trig-green-600 hover:underline mb-2 inline-block"
           >
-            ← Back to Profile
-          </Link>
+            ← Back
+          </button>
           <h1 className="text-3xl font-bold text-gray-800">
             {user?.name ? `${user.name}'s Photos` : "User Photos"}
           </h1>

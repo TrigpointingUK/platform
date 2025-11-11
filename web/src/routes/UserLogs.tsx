@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
@@ -10,6 +10,7 @@ import { useUserProfile } from "../hooks/useUserProfile";
 
 export default function UserLogs() {
   const { userId } = useParams<{ userId: string }>();
+  const navigate = useNavigate();
 
   const {
     data: logsData,
@@ -56,12 +57,12 @@ export default function UserLogs() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <Link
-            to={`/profile/${userId}`}
+          <button
+            onClick={() => navigate(-1)}
             className="text-trig-green-600 hover:underline mb-2 inline-block"
           >
-            ← Back to Profile
-          </Link>
+            ← Back
+          </button>
           <h1 className="text-3xl font-bold text-gray-800">
             {user?.name ? `${user.name}'s Logs` : "User Logs"}
           </h1>

@@ -69,7 +69,7 @@ function createMetadataOverlay(photo: Photo): string {
 
 export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotated }: PhotoSwipeOptions) {
   const pswpRef = useRef<PhotoSwipe | null>(null);
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   useEffect(() => {
     if (photos.length === 0) return;
@@ -151,124 +151,126 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
         },
       });
 
-      // Add rotation buttons
-      pswp.ui?.registerElement({
-        name: 'rotate-left-button',
-        order: 8,
-        isButton: true,
-        appendTo: 'bar',
-        html: `
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="pswp__icn"
-            width="32"
-            height="32"
-            viewBox="0 0 32 32"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M4 13.33h13.33a10.67 10.67 0 0110.67 10.67v2.67M4 13.33l8 8m-8-8l8-8"
-            />
-          </svg>
-        `,
-        onInit: (el: HTMLElement, pswp: PhotoSwipe) => {
-          el.setAttribute('title', 'Rotate left 90°');
-          el.onclick = async () => {
-            const currSlideData = pswp.currSlide?.data;
-            if (currSlideData && 'photo' in currSlideData) {
-              const photo = currSlideData.photo as Photo;
-              try {
-                const token = await getAccessTokenSilently();
-                const updatedPhoto = await rotatePhoto(photo.id, 270, token);
-                
-                toast.success('Photo rotated successfully');
-                
-                // Update the current slide with the new photo URL
-                if (pswp.currSlide) {
-                  pswp.currSlide.data.src = updatedPhoto.photo_url;
-                  pswp.currSlide.data.width = updatedPhoto.width;
-                  pswp.currSlide.data.height = updatedPhoto.height;
-                  (pswp.currSlide.data as { photo: Photo }).photo = updatedPhoto;
+      // Add rotation buttons (only if user is logged in)
+      if (isAuthenticated) {
+        pswp.ui?.registerElement({
+          name: 'rotate-left-button',
+          order: 8,
+          isButton: true,
+          appendTo: 'bar',
+          html: `
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="pswp__icn"
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 13.33h13.33a10.67 10.67 0 0110.67 10.67v2.67M4 13.33l8 8m-8-8l8-8"
+              />
+            </svg>
+          `,
+          onInit: (el: HTMLElement, pswp: PhotoSwipe) => {
+            el.setAttribute('title', 'Rotate left 90°');
+            el.onclick = async () => {
+              const currSlideData = pswp.currSlide?.data;
+              if (currSlideData && 'photo' in currSlideData) {
+                const photo = currSlideData.photo as Photo;
+                try {
+                  const token = await getAccessTokenSilently();
+                  const updatedPhoto = await rotatePhoto(photo.id, 270, token);
                   
-                  // Force PhotoSwipe to reload the image
-                  pswp.refreshSlideContent(pswp.currSlide.index);
+                  toast.success('Photo rotated successfully');
+                  
+                  // Update the current slide with the new photo URL
+                  if (pswp.currSlide) {
+                    pswp.currSlide.data.src = updatedPhoto.photo_url;
+                    pswp.currSlide.data.width = updatedPhoto.width;
+                    pswp.currSlide.data.height = updatedPhoto.height;
+                    (pswp.currSlide.data as { photo: Photo }).photo = updatedPhoto;
+                    
+                    // Force PhotoSwipe to reload the image
+                    pswp.refreshSlideContent(pswp.currSlide.index);
+                  }
+                  
+                  // Call the callback if provided
+                  if (onPhotoRotated) {
+                    onPhotoRotated(updatedPhoto);
+                  }
+                } catch (error) {
+                  console.error('Failed to rotate photo:', error);
+                  toast.error('Failed to rotate photo. Please try again.');
                 }
-                
-                // Call the callback if provided
-                if (onPhotoRotated) {
-                  onPhotoRotated(updatedPhoto);
-                }
-              } catch (error) {
-                console.error('Failed to rotate photo:', error);
-                toast.error('Failed to rotate photo. Please try again.');
               }
-            }
-          };
-        },
-      });
+            };
+          },
+        });
 
-      pswp.ui?.registerElement({
-        name: 'rotate-right-button',
-        order: 9,
-        isButton: true,
-        appendTo: 'bar',
-        html: `
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="pswp__icn"
-            width="32"
-            height="32"
-            viewBox="0 0 32 32"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M28 13.33H14.67a10.67 10.67 0 00-10.67 10.67v2.67M28 13.33l-8 8m8-8l-8-8"
-            />
-          </svg>
-        `,
-        onInit: (el: HTMLElement, pswp: PhotoSwipe) => {
-          el.setAttribute('title', 'Rotate right 90°');
-          el.onclick = async () => {
-            const currSlideData = pswp.currSlide?.data;
-            if (currSlideData && 'photo' in currSlideData) {
-              const photo = currSlideData.photo as Photo;
-              try {
-                const token = await getAccessTokenSilently();
-                const updatedPhoto = await rotatePhoto(photo.id, 90, token);
-                
-                toast.success('Photo rotated successfully');
-                
-                // Update the current slide with the new photo URL
-                if (pswp.currSlide) {
-                  pswp.currSlide.data.src = updatedPhoto.photo_url;
-                  pswp.currSlide.data.width = updatedPhoto.width;
-                  pswp.currSlide.data.height = updatedPhoto.height;
-                  (pswp.currSlide.data as { photo: Photo }).photo = updatedPhoto;
+        pswp.ui?.registerElement({
+          name: 'rotate-right-button',
+          order: 9,
+          isButton: true,
+          appendTo: 'bar',
+          html: `
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="pswp__icn"
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M28 13.33H14.67a10.67 10.67 0 00-10.67 10.67v2.67M28 13.33l-8 8m8-8l-8-8"
+              />
+            </svg>
+          `,
+          onInit: (el: HTMLElement, pswp: PhotoSwipe) => {
+            el.setAttribute('title', 'Rotate right 90°');
+            el.onclick = async () => {
+              const currSlideData = pswp.currSlide?.data;
+              if (currSlideData && 'photo' in currSlideData) {
+                const photo = currSlideData.photo as Photo;
+                try {
+                  const token = await getAccessTokenSilently();
+                  const updatedPhoto = await rotatePhoto(photo.id, 90, token);
                   
-                  // Force PhotoSwipe to reload the image
-                  pswp.refreshSlideContent(pswp.currSlide.index);
+                  toast.success('Photo rotated successfully');
+                  
+                  // Update the current slide with the new photo URL
+                  if (pswp.currSlide) {
+                    pswp.currSlide.data.src = updatedPhoto.photo_url;
+                    pswp.currSlide.data.width = updatedPhoto.width;
+                    pswp.currSlide.data.height = updatedPhoto.height;
+                    (pswp.currSlide.data as { photo: Photo }).photo = updatedPhoto;
+                    
+                    // Force PhotoSwipe to reload the image
+                    pswp.refreshSlideContent(pswp.currSlide.index);
+                  }
+                  
+                  // Call the callback if provided
+                  if (onPhotoRotated) {
+                    onPhotoRotated(updatedPhoto);
+                  }
+                } catch (error) {
+                  console.error('Failed to rotate photo:', error);
+                  toast.error('Failed to rotate photo. Please try again.');
                 }
-                
-                // Call the callback if provided
-                if (onPhotoRotated) {
-                  onPhotoRotated(updatedPhoto);
-                }
-              } catch (error) {
-                console.error('Failed to rotate photo:', error);
-                toast.error('Failed to rotate photo. Please try again.');
               }
-            }
-          };
-        },
-      });
+            };
+          },
+        });
+      }
     });
 
     // Add keyboard event listeners for +/- zoom (PhotoSwipe handles ESC by default)
@@ -312,7 +314,7 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
         pswpRef.current = null;
       }
     };
-  }, [photos, initialIndex, onClose, getAccessTokenSilently, onPhotoRotated]);
+  }, [photos, initialIndex, onClose, getAccessTokenSilently, isAuthenticated, onPhotoRotated]);
 
   return pswpRef;
 }
