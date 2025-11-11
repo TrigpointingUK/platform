@@ -110,3 +110,9 @@ variable "cpu_target_value" {
   default     = 70
 }
 
+variable "create_listener_rule" {
+  description = "Whether to create the ALB listener rule. Set to false if you want to create a custom rule with OIDC authentication."
+  type        = bool
+  default     = true
+}
+

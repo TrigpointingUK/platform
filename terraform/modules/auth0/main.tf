@@ -322,21 +322,29 @@ resource "auth0_client" "android" {
 }
 
 # Regular Web Application (AWS ALB OIDC)
-# Used for ALB OIDC authentication to admin tools (cache, phpmyadmin)
+# Used for ALB OIDC authentication to admin tools and preview sites
 resource "auth0_client" "alb" {
   name        = "${var.name_prefix}-aws-alb"
-  description = "AWS ALB OIDC authentication for admin tools (${var.environment})"
+  description = "AWS ALB OIDC authentication for admin tools and preview sites (${var.environment})"
   app_type    = "regular_web"
 
-  callbacks = [
-    "https://cache.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
-    "https://phpmyadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
-  ]
+  callbacks = concat(
+    [
+      "https://cache.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
+      "https://phpmyadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
+    ],
+    # Preview site only exists in production
+    var.environment == "production" ? ["https://preview.trigpointing.uk/oauth2/idpresponse"] : []
+  )
 
-  allowed_logout_urls = [
-    "https://cache.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
-    "https://phpmyadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
-  ]
+  allowed_logout_urls = concat(
+    [
+      "https://cache.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
+      "https://phpmyadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
+    ],
+    # Preview site only exists in production
+    var.environment == "production" ? ["https://preview.trigpointing.uk"] : []
+  )
 
   grant_types = [
     "authorization_code",

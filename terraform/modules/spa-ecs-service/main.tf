@@ -78,7 +78,9 @@ resource "aws_lb_target_group" "spa" {
 }
 
 # ALB Listener Rule for SPA (host-based routing, optionally with path patterns)
+# Can be disabled if you want to create a custom rule with OIDC authentication
 resource "aws_lb_listener_rule" "spa" {
+  count        = var.create_listener_rule ? 1 : 0
   listener_arn = var.alb_listener_arn
   priority     = var.alb_rule_priority
 

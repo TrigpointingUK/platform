@@ -291,4 +291,11 @@ output "valkey_commander_target_group_arn" {
   value       = module.valkey.valkey_commander_target_group_arn
 }
 
+# ALB OIDC Configuration for Auth0 authentication
+output "alb_oidc_config" {
+  description = "ALB OIDC configuration from Secrets Manager (for Auth0 protected endpoints)"
+  value       = local.alb_oidc_config
+  sensitive   = true
+}
+
 # Note: Auth0 SMTP credentials are output from the auth0 module per environment
