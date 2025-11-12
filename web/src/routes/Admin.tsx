@@ -1,137 +1,10 @@
-import { useEffect, useState } from "react";
-import { useAuth0 } from "@auth0/auth0-react";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
-
-// Helper function to decode JWT payload
-interface JWTPayload {
-  scope?: string;
-  permissions?: string[];
-  [key: string]: unknown;
-}
-
-function decodeJWT(token: string): JWTPayload | null {
-  try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(jsonPayload) as JWTPayload;
-  } catch (error) {
-    console.error("Failed to decode JWT:", error);
-    return null;
-  }
-}
+import { useAdminAuth } from "../hooks/useAdminAuth";
 
 export default function Admin() {
-  const { user, getAccessTokenSilently, loginWithRedirect, isLoading: isAuth0Loading } = useAuth0();
-  const [hasAdminScope, setHasAdminScope] = useState<boolean | null>(null);
-  const [isCheckingScope, setIsCheckingScope] = useState(true);
-
-  // Check if user has api-admin role (from ID token)
-  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
-  const hasAdminRole = userRoles.includes("api-admin");
-
-  // Check for api:admin scope in access token
-  useEffect(() => {
-    // Wait for Auth0 to finish loading
-    if (isAuth0Loading) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const checkAdminScope = async () => {
-      setIsCheckingScope(true);
-
-      try {
-        // Request token with admin scope explicitly
-        const token = await getAccessTokenSilently({ 
-          authorizationParams: {
-            audience: "https://api.trigpointing.me/",
-            scope: "openid profile email api:write api:read-pii api:admin",
-          }
-        });
-        
-        if (cancelled) {
-          return;
-        }
-        
-        const decoded = decodeJWT(token);
-
-        if (decoded) {
-          // Extract scopes
-          let scopes: string[] = [];
-
-          if (decoded.scope && typeof decoded.scope === "string") {
-            scopes = decoded.scope.split(" ").filter((s: string) => s);
-          } else if (
-            decoded.permissions &&
-            Array.isArray(decoded.permissions)
-          ) {
-            scopes = decoded.permissions;
-          }
-
-          const hasScope = scopes.includes("api:admin");
-          
-          if (!cancelled) {
-            setHasAdminScope(hasScope);
-          }
-
-          // If user has admin role but not admin scope, trigger re-authentication
-          if (hasAdminRole && !hasScope && !cancelled) {
-            console.log("Need to trigger re-authentication. hasAdminRole:", hasAdminRole, "hasScope:", hasScope);
-            // Save return path in sessionStorage for callback handler
-            sessionStorage.setItem('auth0_returnTo', '/admin');
-            // Wait a moment before redirecting so user can see what's happening
-            setTimeout(() => {
-              console.log("Timeout fired, calling loginWithRedirect...");
-              if (!cancelled) {
-                console.log("Not cancelled, redirecting to Auth0...");
-                loginWithRedirect({
-                  authorizationParams: {
-                    scope: "openid profile email api:write api:read-pii api:admin",
-                    prompt: "login", // Force re-authentication for security
-                  },
-                  appState: { returnTo: "/admin" },
-                }).catch((error) => {
-                  console.error("loginWithRedirect failed:", error);
-                });
-              } else {
-                console.log("Cancelled, skipping redirect");
-              }
-            }, 2000);
-          } else {
-            console.log("No re-auth needed. hasAdminRole:", hasAdminRole, "hasScope:", hasScope, "cancelled:", cancelled);
-          }
-        } else {
-          if (!cancelled) {
-            setHasAdminScope(false);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to check admin scope:", error);
-        if (!cancelled) {
-          setHasAdminScope(false);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsCheckingScope(false);
-        }
-      }
-    };
-
-    checkAdminScope();
-    
-    return () => {
-      cancelled = true;
-    };
-  }, [hasAdminRole, getAccessTokenSilently, loginWithRedirect, isAuth0Loading]);
+  const { hasAdminRole, hasAdminScope, isLoading } = useAdminAuth();
 
   // User doesn't have admin role at all
   if (!hasAdminRole) {
@@ -153,8 +26,8 @@ export default function Admin() {
     );
   }
 
-  // Checking scope
-  if (isCheckingScope || hasAdminScope === null) {
+  // Loading or checking permissions
+  if (isLoading || hasAdminScope === null) {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto">
