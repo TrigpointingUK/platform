@@ -22,6 +22,7 @@ const Search = lazy(() => import("./routes/Search"));
 const LegacyMigration = lazy(() => import("./routes/LegacyMigration"));
 const Contact = lazy(() => import("./routes/Contact"));
 const Attributions = lazy(() => import("./routes/Attributions"));
+const Admin = lazy(() => import("./routes/Admin"));
 
 function LoadingFallback() {
   return (
@@ -185,6 +186,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <Attributions />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <Admin />
         </Suspense>
       ),
     },
