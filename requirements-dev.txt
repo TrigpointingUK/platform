@@ -4,5 +4,5 @@
 pre-commit==4.4.0
 bandit==1.7.7
 safety==3.7.0
-diff-cover==9.2.0
+diff-cover==9.7.2
 pip-licenses==5.5.0

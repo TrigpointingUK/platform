@@ -4,7 +4,7 @@
 
 resource "aws_secretsmanager_secret" "alb_oidc" {
   name        = "${var.project_name}-alb-oidc-config"
-  description = "Auth0 OIDC configuration for ALB authentication (cache.trigpointing.uk, phpmyadmin.trigpointing.uk)"
+  description = "Auth0 OIDC configuration for ALB authentication (cache.trigpointing.uk, phpmyadmin.trigpointing.uk, preview.trigpointing.uk)"
 
   tags = {
     Name        = "${var.project_name}-alb-oidc-config"

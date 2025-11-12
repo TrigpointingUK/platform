@@ -8,7 +8,8 @@ from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from api.models.tphoto import TPhoto
-from api.models.user import TLog
+from api.models.trig import Trig
+from api.models.user import TLog, User
 from api.services.cache_invalidator import (
     invalidate_log_caches,
     invalidate_photo_caches,
@@ -155,3 +156,163 @@ def soft_delete_photos_for_log(db: Session, *, log_id: int) -> int:
 def get_trig_count(db: Session, trig_id: int) -> int:
     """Get count of rows matching trig_id in tlog table."""
     return db.query(func.count(TLog.id)).filter(TLog.trig_id == trig_id).scalar() or 0
+
+
+def search_logs_by_text(
+    db: Session, text_pattern: str, skip: int = 0, limit: int = 100
+) -> List[TLog]:
+    """
+    Search logs by comment text using substring matching.
+
+    Args:
+        db: Database session
+        text_pattern: Text pattern to search for (case-insensitive)
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+
+    Returns:
+        List of TLog objects
+    """
+    return (
+        db.query(TLog)
+        .filter(TLog.comment.ilike(f"%{text_pattern}%"))
+        .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_logs_by_text(db: Session, text_pattern: str) -> int:
+    """
+    Count logs matching comment text pattern.
+
+    Args:
+        db: Database session
+        text_pattern: Text pattern to search for (case-insensitive)
+
+    Returns:
+        Count of matching logs
+    """
+    return (
+        db.query(func.count(TLog.id))
+        .filter(TLog.comment.ilike(f"%{text_pattern}%"))
+        .scalar()
+        or 0
+    )
+
+
+def search_logs_by_regex(
+    db: Session, regex_pattern: str, skip: int = 0, limit: int = 100
+) -> List[TLog]:
+    """
+    Search logs by comment text using regex matching.
+
+    Args:
+        db: Database session
+        regex_pattern: Regex pattern to search for (MySQL REGEXP)
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+
+    Returns:
+        List of TLog objects
+    """
+    # MySQL REGEXP operator
+    return (
+        db.query(TLog)
+        .filter(TLog.comment.op("REGEXP")(regex_pattern))
+        .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_logs_by_regex(db: Session, regex_pattern: str) -> int:
+    """
+    Count logs matching regex pattern.
+
+    Args:
+        db: Database session
+        regex_pattern: Regex pattern to search for (MySQL REGEXP)
+
+    Returns:
+        Count of matching logs
+    """
+    # MySQL REGEXP operator
+    return (
+        db.query(func.count(TLog.id))
+        .filter(TLog.comment.op("REGEXP")(regex_pattern))
+        .scalar()
+        or 0
+    )
+
+
+def search_logs_by_text_with_names(
+    db: Session, text_pattern: str, skip: int = 0, limit: int = 100
+) -> List[Tuple[TLog, Optional[str], Optional[str]]]:
+    """
+    Search logs by comment text with trig and user names joined.
+
+    Args:
+        db: Database session
+        text_pattern: Text pattern to search for (case-insensitive)
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+
+    Returns:
+        List of tuples (TLog, trig_name, user_name)
+    """
+    rows = (
+        db.query(TLog, Trig.name, User.name)
+        .outerjoin(Trig, TLog.trig_id == Trig.id)
+        .outerjoin(User, TLog.user_id == User.id)
+        .filter(TLog.comment.ilike(f"%{text_pattern}%"))
+        .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return [
+        (
+            log,
+            trig_name if trig_name is not None else None,
+            user_name if user_name is not None else None,
+        )
+        for log, trig_name, user_name in rows
+    ]
+
+
+def search_logs_by_regex_with_names(
+    db: Session, regex_pattern: str, skip: int = 0, limit: int = 100
+) -> List[Tuple[TLog, Optional[str], Optional[str]]]:
+    """
+    Search logs by regex pattern with trig and user names joined.
+
+    Args:
+        db: Database session
+        regex_pattern: Regex pattern to search for (MySQL REGEXP)
+        skip: Number of results to skip
+        limit: Maximum number of results to return
+
+    Returns:
+        List of tuples (TLog, trig_name, user_name)
+    """
+    rows = (
+        db.query(TLog, Trig.name, User.name)
+        .outerjoin(Trig, TLog.trig_id == Trig.id)
+        .outerjoin(User, TLog.user_id == User.id)
+        .filter(TLog.comment.op("REGEXP")(regex_pattern))
+        .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return [
+        (
+            log,
+            trig_name if trig_name is not None else None,
+            user_name if user_name is not None else None,
+        )
+        for log, trig_name, user_name in rows
+    ]

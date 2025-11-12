@@ -34,7 +34,7 @@ export default function PhotoThumbnail({
   const [error, setError] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [optimisticRotation, setOptimisticRotation] = useState(0);
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   const handleRotate = async (angle: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -113,8 +113,8 @@ export default function PhotoThumbnail({
         />
       )}
 
-      {/* Rotation Controls - appear on hover */}
-      {loaded && !error && (
+      {/* Rotation Controls - appear on hover (only if logged in) */}
+      {loaded && !error && isAuthenticated && (
         <div className="absolute inset-0 flex items-start justify-between p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <button
             onClick={(e) => handleRotate(270, e)}

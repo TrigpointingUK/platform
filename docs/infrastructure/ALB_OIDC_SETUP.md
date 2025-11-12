@@ -4,15 +4,16 @@ This guide explains how to set up OIDC authentication for admin tools (Redis Com
 
 ## Overview
 
-The following admin tools are now protected by Auth0 OIDC authentication via AWS ALB:
+The following admin tools and preview sites are now protected by Auth0 OIDC authentication via AWS ALB:
 - **cache.trigpointing.uk** - Redis Commander (Valkey management interface)
 - **phpmyadmin.trigpointing.uk** - phpMyAdmin (MySQL database management)
+- **preview.trigpointing.uk** - Production SPA preview/smoke testing environment
 
 Only users with the `api-admin` role can access these tools.
 
 ## Architecture
 
-1. User attempts to access `cache.trigpointing.uk` or `phpmyadmin.trigpointing.uk`
+1. User attempts to access `cache.trigpointing.uk`, `phpmyadmin.trigpointing.uk`, or `preview.trigpointing.uk`
 2. AWS ALB intercepts the request and redirects to Auth0 for authentication
 3. User logs in with Auth0
 4. Auth0 Post-Login Action checks if user has `api-admin` role
@@ -44,12 +45,14 @@ In the application settings:
 ```
 https://cache.trigpointing.uk/oauth2/idpresponse
 https://phpmyadmin.trigpointing.uk/oauth2/idpresponse
+https://preview.trigpointing.uk/oauth2/idpresponse
 ```
 
 **Allowed Logout URLs:**
 ```
 https://cache.trigpointing.uk
 https://phpmyadmin.trigpointing.uk
+https://preview.trigpointing.uk
 ```
 
 **Allowed Web Origins:** (leave empty)

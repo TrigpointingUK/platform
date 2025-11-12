@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { InfiniteData, useQueryClient } from "@tanstack/react-query";
 import Layout from "../components/layout/Layout";
@@ -24,6 +24,7 @@ export default function TrigPhotos() {
   const { trigId } = useParams<{ trigId: string }>();
   const trigIdNum = trigId ? parseInt(trigId, 10) : null;
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const {
     data: photosData,
@@ -112,12 +113,12 @@ export default function TrigPhotos() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <Link
-            to={`/trig/${trigIdNum}`}
+          <button
+            onClick={() => navigate(-1)}
             className="text-trig-green-600 hover:underline mb-2 inline-block"
           >
-            ← Back to Trigpoint
-          </Link>
+            ← Back
+          </button>
           <h1 className="text-3xl font-bold text-gray-800">
             {trig ? `${trig.waypoint} - ${trig.name}` : `Trig ${trigIdNum}`} Photos
           </h1>

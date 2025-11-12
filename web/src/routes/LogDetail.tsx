@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
@@ -17,6 +17,7 @@ export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
   const logIdNum = logId ? parseInt(logId, 10) : null;
   const { user: auth0User } = useAuth0();
+  const navigate = useNavigate();
 
   const [isEditing, setIsEditing] = useState(false);
 
@@ -147,12 +148,12 @@ export default function LogDetail() {
       <div className="max-w-7xl mx-auto">
         {/* Breadcrumb */}
         <div className="mb-4">
-          <Link 
-            to={`/trig/${log.trig_id}`} 
+          <button 
+            onClick={() => navigate(-1)} 
             className="text-trig-green-600 hover:underline"
           >
-            ← Back to {log.trig_name || `Trigpoint TP${log.trig_id.toString().padStart(4, '0')}`}
-          </Link>
+            ← Back
+          </button>
         </div>
 
         {/* Edit/View Toggle */}

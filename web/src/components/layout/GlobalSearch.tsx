@@ -20,6 +20,7 @@ interface GlobalSearchProps {
 function getResultTypeIcon(type: string): string {
   const icons: Record<string, string> = {
     trigpoint: "📍",
+    station_number: "🔢",
     town: "🏘️",
     postcode: "📮",
     gridref: "🗺️",
@@ -59,7 +60,7 @@ export function GlobalSearch({
 
   const handleSelectResult = (result: SearchResult) => {
     // Route based on result type
-    if (result.type === "trigpoint" && result.id) {
+    if ((result.type === "trigpoint" || result.type === "station_number") && result.id) {
       // Navigate to individual trigpoint page
       navigate(`/trig/${result.id}`);
     } else if (result.type === "user" && result.id) {
@@ -83,24 +84,17 @@ export function GlobalSearch({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
 
-    if (query.trim()) {
-      // If user hits enter without selecting, go to /trigs page with query as location name
-      // Use a default UK center location
-      const params = new URLSearchParams({
-        lat: "54.0",
-        lon: "-2.0",
-        location: query.trim(),
-      });
-      navigate(`/trigs?${params.toString()}`);
-      setQuery("");
-      setIsOpen(false);
-      onSearch?.();
-    }
+    // Navigate to dedicated search page (even if empty)
+    const searchQuery = query.trim();
+    navigate(`/search${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ''}`);
+    setQuery("");
+    setIsOpen(false);
+    onSearch?.();
   };
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="relative">
         <input
           ref={inputRef}
           type="search"
@@ -111,12 +105,29 @@ export function GlobalSearch({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className="w-full px-4 py-2 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-trig-green-400"
+          className="w-full px-4 py-2 pr-10 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-trig-green-400"
           aria-label="Global search"
           aria-autocomplete="list"
           aria-controls="search-results"
           aria-expanded={isOpen}
         />
+        <button
+          type="submit"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-trig-green-600 transition-colors"
+          aria-label="Search"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
       </form>
 
       {/* Dropdown results */}
