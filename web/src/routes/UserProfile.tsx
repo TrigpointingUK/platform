@@ -2,12 +2,15 @@ import { useParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useEffect, useState } from "react";
+import { useInView } from "react-intersection-observer";
 import toast from "react-hot-toast";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import EditableField from "../components/ui/EditableField";
+import LogList from "../components/logs/LogList";
 import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
+import { useUserLogs } from "../hooks/useUserLogs";
 
 // Helper function to decode JWT payload
 interface JWTPayload {
@@ -77,6 +80,33 @@ export default function UserProfile() {
 
     extractScopes();
   }, [isOwnProfile, getAccessTokenSilently]);
+
+  // Fetch user logs for recent activity section
+  // Use userId from URL, or if viewing own profile (/profile), use "me"
+  const logsUserId = userId || "me";
+  const {
+    data: logsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isLoadingLogs,
+  } = useUserLogs(logsUserId);
+
+  // Intersection observer for infinite scroll
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: "200px",
+  });
+
+  // Auto-fetch more logs when scrolling into view
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Flatten all pages into a single array
+  const allLogs = logsData?.pages.flatMap((page) => page.items) || [];
 
   const handleFieldUpdate = async (field: string, value: string) => {
     try {
@@ -378,6 +408,38 @@ export default function UserProfile() {
             </div>
           </div>
         )}
+
+        {/* Recent Logs Section */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            Recent Logs
+          </h2>
+          <Card>
+            <LogList
+              logs={allLogs}
+              isLoading={isLoadingLogs}
+              emptyMessage="No logs found"
+            />
+
+            {/* Load More Trigger */}
+            {allLogs.length > 0 && (
+              <div ref={loadMoreRef} className="py-8 text-center">
+                {isFetchingNextPage && (
+                  <>
+                    <Spinner size="md" />
+                    <p className="text-gray-600 mt-4">Loading more logs...</p>
+                  </>
+                )}
+                {!hasNextPage && allLogs.length > 0 && (
+                  <p className="text-gray-500">
+                    All {allLogs.length.toLocaleString()} log
+                    {allLogs.length !== 1 ? "s" : ""} loaded
+                  </p>
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
 
         {/* Debug Info Section (for own profile only) */}
         {isOwnProfile && user && (
