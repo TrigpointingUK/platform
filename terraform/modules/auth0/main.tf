@@ -425,6 +425,19 @@ resource "auth0_client_grant" "m2m_to_api" {
   ]
 }
 
+# Grant Web SPA client access to API
+# Note: SPAs use user-context authorization (not M2M), so scopes are filtered by user's role permissions
+resource "auth0_client_grant" "web_spa_to_api" {
+  client_id = auth0_client.web_spa.id
+  audience  = auth0_resource_server.api.identifier
+
+  scopes = [
+    "api:admin",
+    "api:write",
+    "api:read-pii",
+  ]
+}
+
 # Grant M2M client access to Management API (for user provisioning sync)
 resource "auth0_client_grant" "m2m_to_mgmt_api" {
   client_id = auth0_client.m2m_api.id
