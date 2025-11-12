@@ -82,8 +82,8 @@ export default function UserProfile() {
   }, [isOwnProfile, getAccessTokenSilently]);
 
   // Fetch user logs for recent activity section
-  // Use userId from URL, or if viewing own profile (/profile), use "me"
-  const logsUserId = userId || "me";
+  // Use userId from URL, or if viewing own profile (/profile), use the loaded user's ID
+  const logsUserId = userId || user?.id.toString() || "";
   const {
     data: logsData,
     fetchNextPage,
