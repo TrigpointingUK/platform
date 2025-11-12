@@ -85,18 +85,29 @@ export default function Admin() {
 
           // If user has admin role but not admin scope, trigger re-authentication
           if (hasAdminRole && !hasScope && !cancelled) {
+            console.log("Need to trigger re-authentication. hasAdminRole:", hasAdminRole, "hasScope:", hasScope);
+            // Save return path in sessionStorage for callback handler
+            sessionStorage.setItem('auth0_returnTo', '/admin');
             // Wait a moment before redirecting so user can see what's happening
             setTimeout(() => {
+              console.log("Timeout fired, calling loginWithRedirect...");
               if (!cancelled) {
+                console.log("Not cancelled, redirecting to Auth0...");
                 loginWithRedirect({
                   authorizationParams: {
                     scope: "openid profile email api:write api:read-pii api:admin",
                     prompt: "login", // Force re-authentication for security
                   },
                   appState: { returnTo: "/admin" },
+                }).catch((error) => {
+                  console.error("loginWithRedirect failed:", error);
                 });
+              } else {
+                console.log("Cancelled, skipping redirect");
               }
             }, 2000);
+          } else {
+            console.log("No re-auth needed. hasAdminRole:", hasAdminRole, "hasScope:", hasScope, "cancelled:", cancelled);
           }
         } else {
           if (!cancelled) {
