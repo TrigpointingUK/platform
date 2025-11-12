@@ -37,7 +37,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         authorizationParams={{
           audience,
           redirect_uri: redirectUri,
-          scope: "openid profile email api:write api:read-pii",
+          scope: "openid profile email api:write api:read-pii offline_access",
         }}
         useRefreshTokens
         cacheLocation="localstorage"
