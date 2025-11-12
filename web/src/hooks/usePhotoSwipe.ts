@@ -170,6 +170,7 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
               stroke-width="2"
             >
               <path
+                fill="none"
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 d="M4 13.33h13.33a10.67 10.67 0 0110.67 10.67v2.67M4 13.33l8 8m-8-8l8-8"
@@ -229,6 +230,7 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
               stroke-width="2"
             >
               <path
+                fill="none"
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 d="M28 13.33H14.67a10.67 10.67 0 00-10.67 10.67v2.67M28 13.33l-8 8m8-8l-8-8"
