@@ -29,7 +29,7 @@ function decodeJWT(token: string): JWTPayload | null {
 }
 
 export default function Admin() {
-  const { user, getAccessTokenSilently, loginWithRedirect } = useAuth0();
+  const { user, getAccessTokenSilently, loginWithRedirect, isLoading: isAuth0Loading } = useAuth0();
   const [hasAdminScope, setHasAdminScope] = useState<boolean | null>(null);
   const [isCheckingScope, setIsCheckingScope] = useState(true);
 
@@ -39,11 +39,29 @@ export default function Admin() {
 
   // Check for api:admin scope in access token
   useEffect(() => {
+    // Wait for Auth0 to finish loading
+    if (isAuth0Loading) {
+      return;
+    }
+
+    let cancelled = false;
+
     const checkAdminScope = async () => {
       setIsCheckingScope(true);
 
       try {
-        const token = await getAccessTokenSilently({ cacheMode: "on" });
+        // Request token with admin scope explicitly
+        const token = await getAccessTokenSilently({ 
+          authorizationParams: {
+            audience: "https://api.trigpointing.me/",
+            scope: "openid profile email api:write api:read-pii api:admin",
+          }
+        });
+        
+        if (cancelled) {
+          return;
+        }
+        
         const decoded = decodeJWT(token);
 
         if (decoded) {
@@ -60,34 +78,49 @@ export default function Admin() {
           }
 
           const hasScope = scopes.includes("api:admin");
-          setHasAdminScope(hasScope);
+          
+          if (!cancelled) {
+            setHasAdminScope(hasScope);
+          }
 
           // If user has admin role but not admin scope, trigger re-authentication
-          if (hasAdminRole && !hasScope) {
+          if (hasAdminRole && !hasScope && !cancelled) {
             // Wait a moment before redirecting so user can see what's happening
             setTimeout(() => {
-              loginWithRedirect({
-                authorizationParams: {
-                  scope: "openid profile email api:write api:read-pii api:admin",
-                  prompt: "login", // Force re-authentication for security
-                },
-                appState: { returnTo: "/admin" },
-              });
+              if (!cancelled) {
+                loginWithRedirect({
+                  authorizationParams: {
+                    scope: "openid profile email api:write api:read-pii api:admin",
+                    prompt: "login", // Force re-authentication for security
+                  },
+                  appState: { returnTo: "/admin" },
+                });
+              }
             }, 2000);
           }
         } else {
-          setHasAdminScope(false);
+          if (!cancelled) {
+            setHasAdminScope(false);
+          }
         }
       } catch (error) {
         console.error("Failed to check admin scope:", error);
-        setHasAdminScope(false);
+        if (!cancelled) {
+          setHasAdminScope(false);
+        }
       } finally {
-        setIsCheckingScope(false);
+        if (!cancelled) {
+          setIsCheckingScope(false);
+        }
       }
     };
 
     checkAdminScope();
-  }, [hasAdminRole, getAccessTokenSilently, loginWithRedirect]);
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAdminRole, getAccessTokenSilently, loginWithRedirect, isAuth0Loading]);
 
   // User doesn't have admin role at all
   if (!hasAdminRole) {
