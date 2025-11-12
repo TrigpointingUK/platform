@@ -765,6 +765,7 @@ resource "auth0_tenant" "main" {
   # Flags for custom domain usage
   flags {
     # Use custom domain in emails instead of tenant domain
-    enable_custom_domain_in_emails = true
+    enable_custom_domain_in_emails     = true
+    use_scope_descriptions_for_consent = true
   }
 }
