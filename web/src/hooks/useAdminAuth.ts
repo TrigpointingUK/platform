@@ -91,8 +91,13 @@ export function useAdminAuth(): UseAdminAuthResult {
           window.history.replaceState({}, '', newUrl);
           setIsCheckingScope(false);
         }
-      } catch (error: any) {
-        console.error("Admin auth check failed:", error);
+      } catch (err: unknown) {
+        console.error("Admin auth check failed:", err);
+
+        const error =
+          typeof err === "object" && err !== null
+            ? (err as { error?: string })
+            : undefined;
         
         // Check if this is a consent or login required error
         if (error?.error === 'consent_required' || error?.error === 'login_required') {

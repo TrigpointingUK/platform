@@ -61,8 +61,6 @@ function decodeJWT(token: string): JWTPayload | null {
     return null;
   }
 }
->>>>>>> ffbb67f (docs: capture admin scope step-up flow)
-
 function extractScopes(payload: JWTPayload | null): string[] {
   if (!payload) {
     return [];
