@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
@@ -8,10 +9,35 @@ import Spinner from "../components/ui/Spinner";
 import EditableField from "../components/ui/EditableField";
 import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
 
+// Helper function to decode JWT payload
+interface JWTPayload {
+  scope?: string;
+  permissions?: string[];
+  [key: string]: unknown;
+}
+
+function decodeJWT(token: string): JWTPayload | null {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload) as JWTPayload;
+  } catch (error) {
+    console.error("Failed to decode JWT:", error);
+    return null;
+  }
+}
+
 export default function UserProfile() {
   const { userId } = useParams<{ userId: string }>();
   const queryClient = useQueryClient();
   const { getAccessTokenSilently, user: authUser } = useAuth0();
+  const [tokenScopes, setTokenScopes] = useState<string[]>([]);
   
   // If no userId in URL, fetch "me", otherwise fetch the specified user
   const targetUserId = userId || "me";
@@ -19,6 +45,38 @@ export default function UserProfile() {
 
   // Own profile if: no userId param, or userId matches the logged-in user's ID
   const isOwnProfile = !userId || (authUser && userId === authUser.sub);
+
+  // Extract scopes from JWT token
+  useEffect(() => {
+    const extractScopes = async () => {
+      if (isOwnProfile) {
+        try {
+          const token = await getAccessTokenSilently({ cacheMode: "on" });
+          const decoded = decodeJWT(token);
+
+          if (decoded) {
+            // Extract scopes - can be in "scope" (space-separated string) or "permissions" (array)
+            let scopes: string[] = [];
+
+            if (decoded.scope && typeof decoded.scope === "string") {
+              scopes = decoded.scope.split(" ").filter((s: string) => s);
+            } else if (
+              decoded.permissions &&
+              Array.isArray(decoded.permissions)
+            ) {
+              scopes = decoded.permissions;
+            }
+
+            setTokenScopes(scopes);
+          }
+        } catch (error) {
+          console.error("Failed to extract scopes:", error);
+        }
+      }
+    };
+
+    extractScopes();
+  }, [isOwnProfile, getAccessTokenSilently]);
 
   const handleFieldUpdate = async (field: string, value: string) => {
     try {
@@ -334,8 +392,26 @@ export default function UserProfile() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Auth0 User ID:</span>
-                <span className="font-semibold text-gray-800 break-all">{user.auth0_user_id || 'N/A'}</span>
+                <span className="font-semibold text-gray-800 break-all">
+                  {user.auth0_user_id || "N/A"}
+                </span>
               </div>
+              {user.roles && user.roles.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Roles:</span>
+                  <span className="font-semibold text-gray-800">
+                    {user.roles.join(", ")}
+                  </span>
+                </div>
+              )}
+              {tokenScopes.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Scopes:</span>
+                  <span className="font-semibold text-gray-800">
+                    {tokenScopes.join(", ")}
+                  </span>
+                </div>
+              )}
             </div>
           </Card>
         )}

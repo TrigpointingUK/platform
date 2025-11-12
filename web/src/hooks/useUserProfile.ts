@@ -33,6 +33,7 @@ export interface UserProfile {
   about: string;
   member_since: string | null;
   auth0_user_id?: string;
+  roles?: string[];
   stats?: UserStats;
   breakdown?: UserBreakdown;
   prefs?: UserPrefs;
