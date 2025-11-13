@@ -76,3 +76,23 @@ html, body, #root {
   border-top-color: rgba(255, 255, 255, 0.95);
 }
 
+/* Mini-map styling for popups */
+.mini-map-container {
+  cursor: grab;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.mini-map-container:active {
+  cursor: grabbing;
+}
+
+/* Hide attribution in mini-maps */
+.mini-map-container .leaflet-control-attribution {
+  display: none;
+}
+
+/* Ensure mini-map tiles load smoothly */
+.mini-map-container .leaflet-tile-container {
+  transition: opacity 0.2s;
+}
+

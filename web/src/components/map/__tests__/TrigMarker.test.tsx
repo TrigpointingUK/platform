@@ -28,6 +28,21 @@ vi.mock('react-router-dom', () => ({
   ),
 }));
 
+// Mock MiniMap component
+vi.mock('../MiniMap', () => ({
+  default: ({ lat, lng, physicalType, condition }: { lat: number; lng: number; physicalType: string; condition: string }) => (
+    <div 
+      data-testid="mini-map" 
+      data-lat={lat} 
+      data-lng={lng} 
+      data-physical-type={physicalType}
+      data-condition={condition}
+    >
+      Mini Map
+    </div>
+  ),
+}));
+
 describe('TrigMarker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -312,6 +327,31 @@ describe('TrigMarker', () => {
       const link = screen.getByText('View Details');
       expect(link).toBeInTheDocument();
       expect(link.closest('a')).toHaveAttribute('href', '/trigs/123');
+    });
+
+    it('should include mini-map in popup', () => {
+      const trig = createMockTrig({
+        wgs_lat: 51.5074,
+        wgs_long: -0.1278,
+        physical_type: 'Pillar',
+        condition: 'G',
+      });
+      render(<TrigMarker trig={trig} colorMode="condition" />);
+      
+      const miniMap = screen.getByTestId('mini-map');
+      expect(miniMap).toBeInTheDocument();
+      expect(miniMap).toHaveAttribute('data-lat', '51.5074');
+      expect(miniMap).toHaveAttribute('data-lng', '-0.1278');
+      expect(miniMap).toHaveAttribute('data-physical-type', 'Pillar');
+      expect(miniMap).toHaveAttribute('data-condition', 'G');
+    });
+
+    it('should not show popup when showPopup is false', () => {
+      const trig = createMockTrig();
+      render(<TrigMarker trig={trig} colorMode="condition" showPopup={false} />);
+      
+      expect(screen.queryByTestId('popup')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('mini-map')).not.toBeInTheDocument();
     });
   });
 

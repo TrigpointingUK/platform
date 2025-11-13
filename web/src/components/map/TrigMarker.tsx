@@ -3,6 +3,7 @@ import { Icon, type LatLngExpression } from "leaflet";
 import { Link } from "react-router-dom";
 import { getIconUrlForTrig } from "../../lib/mapIcons";
 import type { TrigMarkerProps } from "./types";
+import MiniMap from "./MiniMap";
 
 /**
  * Individual trigpoint marker component
@@ -75,6 +76,13 @@ export default function TrigMarker({
       {showPopup && (
         <Popup>
           <div className="min-w-[200px]">
+            <MiniMap
+              lat={typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat}
+              lng={typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long) : trig.wgs_long}
+              physicalType={trig.physical_type}
+              condition={trig.condition}
+            />
+            
             <h3 className="font-bold text-trig-green-600 mb-2">
               {trig.waypoint} - {trig.name}
             </h3>
