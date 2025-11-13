@@ -34,7 +34,20 @@ export type IconColor = 'green' | 'yellow' | 'red' | 'grey';
 /**
  * Trig condition codes
  */
-export type ConditionCode = 'G' | 'D' | 'M' | 'P' | 'U';
+export type ConditionCode = 
+  | 'G'  // Good
+  | 'D'  // Damaged  
+  | 'M'  // Missing
+  | 'P'  // Possibly Missing
+  | 'U'  // Unknown
+  | 'S'  // Slightly Damaged
+  | 'Q'  // Questionable
+  | 'X'  // Possibly Damaged
+  | 'T'  // Toppled
+  | 'C'  // Cracked
+  | 'R'  // Restored
+  | 'E'  // Excellent
+  | 'N'; // Not Found
 
 /**
  * User log status for a trigpoint
@@ -70,18 +83,45 @@ const PHYSICAL_TYPE_TO_ICON: Record<string, string> = {
 /**
  * Map condition codes to colors
  * 
- * G = Good (green)
- * D = Damaged (yellow)
- * M = Missing (red)
- * P = Possibly Missing (red)
- * U = Unknown (grey)
+ * GREEN (Good):
+ * - G = Good
+ * - E = Excellent
+ * - R = Restored
+ * 
+ * YELLOW (Damaged):
+ * - D = Damaged
+ * - S = Slightly Damaged
+ * - C = Cracked
+ * - X = Possibly Damaged
+ * - T = Toppled
+ * 
+ * RED (Missing):
+ * - M = Missing
+ * - P = Possibly Missing
+ * - N = Not Found
+ * 
+ * GREY (Unknown):
+ * - U = Unknown
+ * - Q = Questionable
  */
 const CONDITION_TO_COLOR: Record<ConditionCode, IconColor> = {
+  // Good condition (green)
   'G': 'green',
+  'E': 'green',
+  'R': 'green',
+  // Damaged condition (yellow)
   'D': 'yellow',
+  'S': 'yellow',
+  'C': 'yellow',
+  'X': 'yellow',
+  'T': 'yellow',
+  // Missing condition (red)
   'M': 'red',
   'P': 'red',
+  'N': 'red',
+  // Unknown condition (grey)
   'U': 'grey',
+  'Q': 'grey',
 };
 
 /**

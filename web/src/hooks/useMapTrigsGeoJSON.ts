@@ -7,7 +7,9 @@ export interface GeoJSONTrig {
     coordinates: [number, number]; // [lon, lat]
   };
   properties: {
+    id: number;
     name: string;
+    condition: string;
   };
 }
 

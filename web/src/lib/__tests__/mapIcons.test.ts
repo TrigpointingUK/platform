@@ -79,8 +79,28 @@ describe('mapIcons', () => {
       expect(getConditionColor('u')).toBe('grey');
     });
 
+    it('should map S (Slightly Damaged) to yellow', () => {
+      expect(getConditionColor('S')).toBe('yellow');
+      expect(getConditionColor('s')).toBe('yellow');
+    });
+
+    it('should map Q (Questionable) to grey', () => {
+      expect(getConditionColor('Q')).toBe('grey');
+      expect(getConditionColor('q')).toBe('grey');
+    });
+
+    it('should map X (Possibly Damaged) to yellow', () => {
+      expect(getConditionColor('X')).toBe('yellow');
+      expect(getConditionColor('x')).toBe('yellow');
+    });
+
+    it('should map E (Excellent) to green', () => {
+      expect(getConditionColor('E')).toBe('green');
+      expect(getConditionColor('e')).toBe('green');
+    });
+
     it('should handle unknown conditions with grey (default)', () => {
-      expect(getConditionColor('X')).toBe('grey');
+      expect(getConditionColor('Z')).toBe('grey');
       expect(getConditionColor('')).toBe('grey');
     });
   });

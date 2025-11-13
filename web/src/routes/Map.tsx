@@ -156,13 +156,13 @@ export default function Map() {
     
     // Add FBM trigpoints if FBM is selected
     if (selectedPhysicalTypes.includes("FBM")) {
-      geojsonData.fbm.features.forEach((feature, idx) => {
+      geojsonData.fbm.features.forEach((feature) => {
         trigs.push({
-          id: -1000000 - idx, // Negative ID to avoid conflicts
-          waypoint: `FBM${idx}`,
+          id: feature.properties.id,
+          waypoint: `FBM${feature.properties.id}`,
           name: feature.properties.name,
           physical_type: "FBM",
-          condition: "U", // Unknown
+          condition: feature.properties.condition || "U",
           wgs_lat: feature.geometry.coordinates[1].toString(),
           wgs_long: feature.geometry.coordinates[0].toString(),
           osgb_gridref: "",
@@ -172,13 +172,13 @@ export default function Map() {
     
     // Add Pillar trigpoints if Pillar is selected
     if (selectedPhysicalTypes.includes("Pillar")) {
-      geojsonData.pillar.features.forEach((feature, idx) => {
+      geojsonData.pillar.features.forEach((feature) => {
         trigs.push({
-          id: -2000000 - idx, // Negative ID to avoid conflicts
-          waypoint: `PIL${idx}`,
+          id: feature.properties.id,
+          waypoint: `PIL${feature.properties.id}`,
           name: feature.properties.name,
           physical_type: "Pillar",
-          condition: "U", // Unknown
+          condition: feature.properties.condition || "U",
           wgs_lat: feature.geometry.coordinates[1].toString(),
           wgs_long: feature.geometry.coordinates[0].toString(),
           osgb_gridref: "",
