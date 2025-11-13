@@ -77,7 +77,7 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <Link
-              to={`/trig/${log.trig_id}`}
+              to={`/trigs/${log.trig_id}`}
               className="text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
               onClick={(e) => e.stopPropagation()}
             >

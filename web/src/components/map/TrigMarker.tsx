@@ -92,7 +92,7 @@ export default function TrigMarker({
           </div>
           
           <Link
-            to={`/trig/${trig.id}`}
+            to={`/trigs/${trig.id}`}
             className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
           >
             View Details

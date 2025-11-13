@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate, useParams } from "react-router-dom";
 import Spinner from "./components/ui/Spinner";
 // NotFound is eagerly loaded to ensure it's always available, even if there are deployment issues
 import NotFound from "./routes/NotFound";
@@ -23,6 +23,17 @@ const LegacyMigration = lazy(() => import("./routes/LegacyMigration"));
 const Contact = lazy(() => import("./routes/Contact"));
 const Attributions = lazy(() => import("./routes/Attributions"));
 const Admin = lazy(() => import("./routes/Admin"));
+
+// Redirect component for old /trig/ URLs
+function TrigRedirect() {
+  const { trigId } = useParams();
+  return <Navigate to={`/trigs/${trigId}`} replace />;
+}
+
+function TrigPhotosRedirect() {
+  const { trigId } = useParams();
+  return <Navigate to={`/trigs/${trigId}/photos`} replace />;
+}
 
 function LoadingFallback() {
   return (
@@ -101,8 +112,18 @@ const router = createBrowserRouter(
         </Suspense>
       ),
     },
+    // Redirect old /trig/ URLs to /trigs/ for backwards compatibility
     {
       path: "/trig/:trigId",
+      element: <TrigRedirect />,
+    },
+    {
+      path: "/trig/:trigId/photos",
+      element: <TrigPhotosRedirect />,
+    },
+    // New canonical /trigs/ routes
+    {
+      path: "/trigs/:trigId",
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <TrigDetail />
@@ -110,7 +131,7 @@ const router = createBrowserRouter(
       ),
     },
     {
-      path: "/trig/:trigId/photos",
+      path: "/trigs/:trigId/photos",
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <TrigPhotos />

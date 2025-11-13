@@ -169,7 +169,7 @@ describe('LogCard', () => {
     renderWithRouter(<LogCard log={mockLog} />);
     
     const links = screen.getAllByRole('link');
-    const trigLink = links.find(link => link.getAttribute('href') === '/trig/12345');
+    const trigLink = links.find(link => link.getAttribute('href') === '/trigs/12345');
     const userLink = links.find(link => link.getAttribute('href') === '/profile/100');
     
     expect(trigLink).toBeInTheDocument();

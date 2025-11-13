@@ -62,7 +62,7 @@ export function GlobalSearch({
     // Route based on result type
     if ((result.type === "trigpoint" || result.type === "station_number") && result.id) {
       // Navigate to individual trigpoint page
-      navigate(`/trig/${result.id}`);
+      navigate(`/trigs/${result.id}`);
     } else if (result.type === "user" && result.id) {
       // Navigate to user profile page
       navigate(`/profile/${result.id}`);

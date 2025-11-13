@@ -311,7 +311,7 @@ describe('TrigMarker', () => {
       
       const link = screen.getByText('View Details');
       expect(link).toBeInTheDocument();
-      expect(link.closest('a')).toHaveAttribute('href', '/trig/123');
+      expect(link.closest('a')).toHaveAttribute('href', '/trigs/123');
     });
   });
 

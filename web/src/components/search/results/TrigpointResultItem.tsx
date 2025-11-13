@@ -8,7 +8,7 @@ interface TrigpointResultItemProps {
 export function TrigpointResultItem({ item }: TrigpointResultItemProps) {
   return (
     <Link
-      to={`/trig/${item.id}`}
+      to={`/trigs/${item.id}`}
       className="block p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
     >
       <div className="flex items-start gap-3">

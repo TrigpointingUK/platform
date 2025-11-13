@@ -391,7 +391,7 @@ export default function TrigDetail() {
               </div>
 
               <Link
-                to={`/trig/${trigIdNum}/photos`}
+                to={`/trigs/${trigIdNum}/photos`}
                 className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors block"
               >
                 <div className="text-sm text-gray-600 mb-1">Photos</div>
