@@ -13,12 +13,16 @@ import { PhysicalTypeFilter } from "../components/trigs/PhysicalTypeFilter";
 import Layout from "../components/layout/Layout";
 import Spinner from "../components/ui/Spinner";
 import { useMapTrigsWithProgress, type MapBounds } from "../hooks/useMapTrigsWithProgress";
+import { useMapTrigsGeoJSON } from "../hooks/useMapTrigsGeoJSON";
 import {
   getPreferredTileLayer,
   MAP_CONFIG,
 } from "../lib/mapConfig";
 import { getPreferredIconColorMode, type IconColorMode } from "../lib/mapIcons";
 import { Menu, X } from "lucide-react";
+
+// GeoJSON physical types (only Pillar and FBM)
+const GEOJSON_PHYSICAL_TYPES = ["Pillar", "FBM"];
 
 // All physical types
 const ALL_PHYSICAL_TYPES = [
@@ -75,12 +79,21 @@ export default function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
   
+  // Data source mode: geojson for Pillars+FBMs, paginated for others
+  const [dataSource] = useState<'geojson' | 'paginated'>('geojson');
+  
+  // Use GeoJSON types when in geojson mode
+  const availablePhysicalTypes = dataSource === 'geojson' 
+    ? GEOJSON_PHYSICAL_TYPES 
+    : ALL_PHYSICAL_TYPES;
+  
   // State
   const [tileLayerId, setTileLayerId] = useState(getPreferredTileLayer());
   const [iconColorMode, setIconColorMode] = useState<IconColorMode>(getPreferredIconColorMode());
   const [selectedPhysicalTypes, setSelectedPhysicalTypes] = useState<string[]>(() => {
     const types = searchParams.get("types");
-    return types ? types.split(",") : ALL_PHYSICAL_TYPES;
+    if (types) return types.split(",");
+    return dataSource === 'geojson' ? GEOJSON_PHYSICAL_TYPES : ALL_PHYSICAL_TYPES;
   });
   const [excludeFound, setExcludeFound] = useState<boolean>(
     () => searchParams.get("excludeFound") === "true"
@@ -130,19 +143,70 @@ export default function Map() {
   const {
     data: allTrigsData,
     totalCount,
-    isLoading,
+    isLoading: isPaginatedLoading,
     loadingProgress,
-    error,
+    error: paginatedError,
   } = useMapTrigsWithProgress({
     bounds: mapBounds,
     excludeFound,
-    enabled: !!mapBounds,
+    enabled: dataSource === 'paginated' && !!mapBounds,
     zoom: currentZoom,
     maxTrigpoints,
   });
   
-  // Client-side filtering by physical type
-  const trigpoints = useMemo(() => {
+  // Fetch GeoJSON data (Pillar + FBM only)
+  const {
+    data: geojsonData,
+    isLoading: isGeoJSONLoading,
+    error: geoJsonError,
+  } = useMapTrigsGeoJSON({
+    enabled: dataSource === 'geojson',
+    limit: maxTrigpoints === 50000 ? null : maxTrigpoints, // null = no limit
+  });
+  
+  // Convert GeoJSON features to Trig format for rendering
+  const geojsonTrigs = useMemo(() => {
+    if (!geojsonData) return [];
+    
+    const trigs: typeof allTrigsData = [];
+    
+    // Add FBM trigpoints if FBM is selected
+    if (selectedPhysicalTypes.includes("FBM")) {
+      geojsonData.fbm.features.forEach((feature, idx) => {
+        trigs.push({
+          id: -1000000 - idx, // Negative ID to avoid conflicts
+          waypoint: `FBM${idx}`,
+          name: feature.properties.name,
+          physical_type: "FBM",
+          condition: "U", // Unknown
+          wgs_lat: feature.geometry.coordinates[1].toString(),
+          wgs_long: feature.geometry.coordinates[0].toString(),
+          osgb_gridref: "",
+        });
+      });
+    }
+    
+    // Add Pillar trigpoints if Pillar is selected
+    if (selectedPhysicalTypes.includes("Pillar")) {
+      geojsonData.pillar.features.forEach((feature, idx) => {
+        trigs.push({
+          id: -2000000 - idx, // Negative ID to avoid conflicts
+          waypoint: `PIL${idx}`,
+          name: feature.properties.name,
+          physical_type: "Pillar",
+          condition: "U", // Unknown
+          wgs_lat: feature.geometry.coordinates[1].toString(),
+          wgs_long: feature.geometry.coordinates[0].toString(),
+          osgb_gridref: "",
+        });
+      });
+    }
+    
+    return trigs;
+  }, [geojsonData, selectedPhysicalTypes]);
+  
+  // Client-side filtering by physical type (for paginated mode)
+  const paginatedTrigs = useMemo(() => {
     // If all types selected, no need to filter
     if (selectedPhysicalTypes.length === ALL_PHYSICAL_TYPES.length) {
       return allTrigsData;
@@ -153,6 +217,11 @@ export default function Map() {
       selectedPhysicalTypes.includes(trig.physical_type)
     );
   }, [allTrigsData, selectedPhysicalTypes]);
+  
+  // Determine which data to use based on mode
+  const trigpoints = dataSource === 'geojson' ? geojsonTrigs : paginatedTrigs;
+  const isLoading = dataSource === 'geojson' ? isGeoJSONLoading : isPaginatedLoading;
+  const error = dataSource === 'geojson' ? geoJsonError : paginatedError;
   
   // Determine whether to show markers or heatmap based on zoom level
   const shouldShowHeatmap = useMemo(() => {
@@ -227,6 +296,7 @@ export default function Map() {
               <PhysicalTypeFilter
                 selectedTypes={selectedPhysicalTypes}
                 onToggleType={handleTogglePhysicalType}
+                visibleTypes={availablePhysicalTypes}
               />
             </div>
             
@@ -274,15 +344,13 @@ export default function Map() {
                   onChange={(e) => handleMaxTrigpointsChange(parseInt(e.target.value))}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-trig-green-500"
                 >
-                  <option value={100}>100 (Low-end devices)</option>
-                  <option value={500}>500 (Mobile)</option>
-                  <option value={1000}>1,000 (Tablet)</option>
-                  <option value={5000}>5,000 (Desktop)</option>
-                  <option value={10000}>10,000 (High-end)</option>
-                  <option value={50000}>50,000 (Maximum)</option>
+                  <option value={100}>100 (Testing)</option>
+                  <option value={500}>500 (Testing)</option>
+                  <option value={1000}>1,000 (Testing)</option>
+                  <option value={50000}>All (~7,200 - Cached)</option>
                 </select>
                 <div className="mt-1 text-xs text-gray-500">
-                  Lower = faster, Higher = more complete
+                  {dataSource === 'geojson' ? 'GeoJSON cached data' : 'Lower = faster, Higher = more complete'}
                 </div>
               </div>
             </div>
@@ -368,9 +436,19 @@ export default function Map() {
                 <div>
                   <div className="font-semibold">Showing {trigpoints.length} trigpoints</div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {allTrigsData.length} loaded, {totalCount} in database (zoom: {currentZoom.toFixed(1)})
+                    {dataSource === 'geojson' ? (
+                      <>
+                        GeoJSON mode: {geojsonData ? 
+                          `${geojsonData.fbm.features.length} FBMs + ${geojsonData.pillar.features.length} Pillars` 
+                          : 'Loading...'}
+                      </>
+                    ) : (
+                      <>
+                        {allTrigsData.length} loaded, {totalCount} in database (zoom: {currentZoom.toFixed(1)})
+                      </>
+                    )}
                   </div>
-                  {selectedPhysicalTypes.length < ALL_PHYSICAL_TYPES.length && (
+                  {selectedPhysicalTypes.length < availablePhysicalTypes.length && (
                     <div className="text-xs text-blue-600 mt-1">
                       Filtered by type (client-side)
                     </div>
