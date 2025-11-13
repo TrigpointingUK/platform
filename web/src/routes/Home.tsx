@@ -62,30 +62,34 @@ function SiteStatsSection() {
     {
       label: "Trig Points",
       value: stats.total_trigs.toLocaleString(),
-      icon: "📍",
+      icon: "/TUK-Logo.svg",
       color: "text-trig-green-600",
       link: "/trigs",
+      isImage: true,
     },
     {
       label: "Registered Users",
       value: stats.total_users.toLocaleString(),
-      icon: "👥",
+      icon: "/icons/links.png",
       color: "text-blue-600",
       link: "/users",
+      isImage: true,
     },
     {
       label: "Visit Logs",
       value: stats.total_logs.toLocaleString(),
-      icon: "📝",
+      icon: "/icons/stats.png",
       color: "text-purple-600",
       link: "/logs",
+      isImage: true,
     },
     {
       label: "Photos",
       value: stats.total_photos.toLocaleString(),
-      icon: "📷",
+      icon: "/icons/images.png",
       color: "text-orange-600",
       link: "/photos",
+      isImage: true,
     },
   ];
 
@@ -102,7 +106,17 @@ function SiteStatsSection() {
             to={item.link}
             className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors block"
           >
-            <div className="text-3xl mb-2">{item.icon}</div>
+            <div className="text-3xl mb-2 flex justify-center items-center h-12">
+              {item.isImage ? (
+                <img 
+                  src={item.icon} 
+                  alt={item.label} 
+                  className="h-12 w-12 object-contain"
+                />
+              ) : (
+                <span>{item.icon}</span>
+              )}
+            </div>
             <div className={`text-3xl font-bold ${item.color} mb-1`}>
               {item.value}
             </div>
