@@ -346,64 +346,66 @@ export default function Map() {
             
             {/* Render mode selector */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Display Mode
-              </label>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setRenderMode('auto')}
-                  className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                    renderMode === 'auto'
-                      ? 'bg-trig-green-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  title="Auto-switch between markers and heatmap based on count"
-                >
-                  Auto
-                </button>
-                <button
-                  onClick={() => setRenderMode('markers')}
-                  className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                    renderMode === 'markers'
-                      ? 'bg-trig-green-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  title="Always show individual markers"
-                >
-                  Markers
-                </button>
-                <button
-                  onClick={() => setRenderMode('heatmap')}
-                  className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                    renderMode === 'heatmap'
-                      ? 'bg-trig-green-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  title="Always show density heatmap"
-                >
-                  Heatmap
-                </button>
-              </div>
-              {renderMode === 'auto' && (
-                <div className="mt-2 text-xs text-gray-600">
-                  {shouldShowHeatmap ? (
-                    <span className="text-amber-600">
-                      Showing heatmap ({visibleTrigpoints.length} visible, {trigpoints.length} total)
-                    </span>
-                  ) : (
-                    <span className="text-trig-green-600">
-                      Showing {visibleTrigpoints.length} markers ({trigpoints.length} total)
-                    </span>
-                  )}
+              <div className="bg-white rounded-lg shadow-md p-3">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Display Mode
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setRenderMode('auto')}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
+                      renderMode === 'auto'
+                        ? 'bg-trig-green-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Auto-switch between markers and heatmap based on count"
+                  >
+                    Auto
+                  </button>
+                  <button
+                    onClick={() => setRenderMode('markers')}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
+                      renderMode === 'markers'
+                        ? 'bg-trig-green-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Always show individual markers"
+                  >
+                    Markers
+                  </button>
+                  <button
+                    onClick={() => setRenderMode('heatmap')}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
+                      renderMode === 'heatmap'
+                        ? 'bg-trig-green-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Always show density heatmap"
+                  >
+                    Heatmap
+                  </button>
                 </div>
-              )}
+                {renderMode === 'auto' && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    {shouldShowHeatmap ? (
+                      <span className="text-amber-600">
+                        Showing heatmap ({visibleTrigpoints.length} visible, {trigpoints.length} total)
+                      </span>
+                    ) : (
+                      <span className="text-trig-green-600">
+                        Showing {visibleTrigpoints.length} markers ({trigpoints.length} total)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* Reset map button */}
             <button
               type="button"
               onClick={handleClearFilters}
-              className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium py-2 border border-blue-600 rounded hover:bg-blue-50 transition-colors"
+              className="w-full text-sm text-trig-green-700 hover:text-trig-green-900 font-medium py-2 border border-trig-green-700 rounded hover:bg-trig-green-50 transition-colors"
             >
               Reset map
             </button>
