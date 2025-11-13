@@ -37,8 +37,10 @@ export default function LocationButton({
       (position) => {
         const { latitude, longitude } = position.coords;
         
-        // Center map on user's location
-        map.setView([latitude, longitude], 13);
+        // Center map on user's location with zoom 2 levels out from current
+        const currentZoom = map.getZoom();
+        const targetZoom = Math.max(currentZoom - 2, map.getMinZoom());
+        map.setView([latitude, longitude], targetZoom);
         
         if (onLocationFound) {
           onLocationFound(latitude, longitude);
