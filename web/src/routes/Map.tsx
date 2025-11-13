@@ -223,15 +223,32 @@ export default function Map() {
   const isLoading = dataSource === 'geojson' ? isGeoJSONLoading : isPaginatedLoading;
   const error = dataSource === 'geojson' ? geoJsonError : paginatedError;
   
-  // Determine whether to show markers or heatmap based on zoom level
+  // Filter trigpoints by viewport bounds for performance
+  const visibleTrigpoints = useMemo(() => {
+    if (!mapBounds) return trigpoints;
+    
+    // Filter trigpoints that are within the current viewport
+    return trigpoints.filter((trig) => {
+      const lat = parseFloat(trig.wgs_lat);
+      const lon = parseFloat(trig.wgs_long);
+      
+      return (
+        lat >= mapBounds.south &&
+        lat <= mapBounds.north &&
+        lon >= mapBounds.west &&
+        lon <= mapBounds.east
+      );
+    });
+  }, [trigpoints, mapBounds]);
+  
+  // Determine whether to show markers or heatmap based on visible trigpoint count
   const shouldShowHeatmap = useMemo(() => {
     if (renderMode === 'markers') return false;
     if (renderMode === 'heatmap') return true;
-    // Auto mode: use heatmap when zoomed out (zoom < 10) OR too many trigpoints
-    const isZoomedOut = currentZoom < 10;
-    const tooManyMarkers = trigpoints.length > MAP_CONFIG.markerThreshold;
-    return isZoomedOut || tooManyMarkers;
-  }, [renderMode, trigpoints.length, currentZoom]);
+    // Auto mode: use heatmap when more than 1000 markers would be visible in viewport
+    const tooManyVisibleMarkers = visibleTrigpoints.length > 1000;
+    return tooManyVisibleMarkers;
+  }, [renderMode, visibleTrigpoints.length]);
   
   // Update URL params when filters change
   useEffect(() => {
@@ -399,11 +416,11 @@ export default function Map() {
                 <div className="mt-2 text-xs text-gray-600">
                   {shouldShowHeatmap ? (
                     <span className="text-amber-600">
-                      Showing heatmap (zoom: {currentZoom.toFixed(1)}, {trigpoints.length} trigpoints)
+                      Showing heatmap ({visibleTrigpoints.length} visible, {trigpoints.length} total)
                     </span>
                   ) : (
                     <span className="text-trig-green-600">
-                      Showing markers (zoom: {currentZoom.toFixed(1)}, {trigpoints.length} trigpoints)
+                      Showing {visibleTrigpoints.length} markers ({trigpoints.length} total)
                     </span>
                   )}
                 </div>
@@ -478,7 +495,7 @@ export default function Map() {
               <HeatmapLayer trigpoints={trigpoints} />
             ) : (
               <>
-                {trigpoints.map((trig) => (
+                {visibleTrigpoints.map((trig) => (
                   <TrigMarker
                     key={trig.id}
                     trig={trig}
