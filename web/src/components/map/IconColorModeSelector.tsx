@@ -10,6 +10,7 @@ interface IconColorModeSelectorProps {
   onChange: (mode: IconColorMode) => void;
   className?: string;
   showLegend?: boolean;
+  isAuthenticated?: boolean;
 }
 
 /**
@@ -22,6 +23,7 @@ export default function IconColorModeSelector({
   onChange,
   className = "",
   showLegend = true,
+  isAuthenticated = false,
 }: IconColorModeSelectorProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -42,7 +44,7 @@ export default function IconColorModeSelector({
         <div className="flex gap-2">
           <button
             onClick={() => handleChange('condition')}
-            className={`flex-1 px-3 py-1.5 text-sm rounded transition-colors ${
+            className={`${isAuthenticated ? 'flex-1' : 'w-full'} px-3 py-1.5 text-sm rounded transition-colors ${
               value === 'condition'
                 ? 'bg-trig-green-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -50,16 +52,18 @@ export default function IconColorModeSelector({
           >
             Condition
           </button>
-          <button
-            onClick={() => handleChange('userLog')}
-            className={`flex-1 px-3 py-1.5 text-sm rounded transition-colors ${
-              value === 'userLog'
-                ? 'bg-trig-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            My Logs
-          </button>
+          {isAuthenticated && (
+            <button
+              onClick={() => handleChange('userLog')}
+              className={`flex-1 px-3 py-1.5 text-sm rounded transition-colors ${
+                value === 'userLog'
+                  ? 'bg-trig-green-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              My Logs
+            </button>
+          )}
         </div>
       </div>
       

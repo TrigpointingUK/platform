@@ -17,6 +17,7 @@ import { useMapTrigsGeoJSON } from "../hooks/useMapTrigsGeoJSON";
 import {
   getPreferredTileLayer,
   MAP_CONFIG,
+  DEFAULT_TILE_LAYER,
 } from "../lib/mapConfig";
 import { getPreferredIconColorMode, type IconColorMode } from "../lib/mapIcons";
 import { Menu, X } from "lucide-react";
@@ -267,6 +268,7 @@ export default function Map() {
     setSelectedPhysicalTypes(availablePhysicalTypes);
     setExcludeFound(false);
     setRenderMode('auto');
+    setTileLayerId(DEFAULT_TILE_LAYER);
     
     // Reset map to show whole UK
     if (mapInstance) {
@@ -330,6 +332,7 @@ export default function Map() {
                 value={iconColorMode}
                 onChange={setIconColorMode}
                 showLegend={true}
+                isAuthenticated={isAuthenticated}
               />
             </div>
             
