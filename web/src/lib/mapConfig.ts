@@ -193,7 +193,7 @@ export const setPreferredTileLayer = (layerId: string): void => {
 export const MAP_CONFIG = {
   // Default center (UK center)
   defaultCenter: { lat: 54.5, lng: -2.0 } as const,
-  defaultZoom: 7,
+  defaultZoom: 6,
   
   // Zoom levels
   minZoom: 4,

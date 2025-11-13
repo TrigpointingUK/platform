@@ -143,7 +143,7 @@ describe('mapConfig', () => {
     });
 
     it('should have stable default zoom', () => {
-      expect(MAP_CONFIG.defaultZoom).toBe(7);
+      expect(MAP_CONFIG.defaultZoom).toBe(6);
     });
 
     it('should have stable zoom limits', () => {
