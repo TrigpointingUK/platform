@@ -103,24 +103,7 @@ export default function Map() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [renderMode, setRenderMode] = useState<'auto' | 'markers' | 'heatmap'>('auto');
   const [currentZoom, setCurrentZoom] = useState<number>(MAP_CONFIG.defaultZoom);
-  const [maxTrigpoints, setMaxTrigpoints] = useState<number>(() => {
-    try {
-      const stored = localStorage.getItem('trigpointing_map_max_trigpoints');
-      return stored ? parseInt(stored) : 10000;
-    } catch {
-      return 10000;
-    }
-  });
-  
-  // Save max trigpoints preference
-  const handleMaxTrigpointsChange = (value: number) => {
-    setMaxTrigpoints(value);
-    try {
-      localStorage.setItem('trigpointing_map_max_trigpoints', value.toString());
-    } catch (error) {
-      console.error('Failed to save max trigpoints preference:', error);
-    }
-  };
+  const maxTrigpoints = 50000; // Always load all trigpoints
   
   // Get center from URL params or use default
   const initialCenter: [number, number] = useMemo(() => {
@@ -281,9 +264,18 @@ export default function Map() {
   }, []);
   
   const handleClearFilters = useCallback(() => {
-    setSelectedPhysicalTypes(ALL_PHYSICAL_TYPES);
+    setSelectedPhysicalTypes(availablePhysicalTypes);
     setExcludeFound(false);
-  }, []);
+    setRenderMode('auto');
+    
+    // Reset map to show whole UK
+    if (mapInstance) {
+      mapInstance.setView(
+        [MAP_CONFIG.defaultCenter.lat, MAP_CONFIG.defaultCenter.lng],
+        MAP_CONFIG.defaultZoom
+      );
+    }
+  }, [availablePhysicalTypes, mapInstance]);
   
   return (
     <Layout>
@@ -349,29 +341,6 @@ export default function Map() {
               />
             </div>
             
-            {/* Max trigpoints selector */}
-            <div className="mb-4">
-              <div className="bg-white rounded-lg shadow-md p-3">
-                <label htmlFor="max-trigpoints" className="block text-xs font-medium text-gray-700 mb-2">
-                  Max Trigpoints (Performance)
-                </label>
-                <select
-                  id="max-trigpoints"
-                  value={maxTrigpoints}
-                  onChange={(e) => handleMaxTrigpointsChange(parseInt(e.target.value))}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-                >
-                  <option value={100}>100 (Testing)</option>
-                  <option value={500}>500 (Testing)</option>
-                  <option value={1000}>1,000 (Testing)</option>
-                  <option value={50000}>All (~7,200 - Cached)</option>
-                </select>
-                <div className="mt-1 text-xs text-gray-500">
-                  {dataSource === 'geojson' ? 'GeoJSON cached data' : 'Lower = faster, Higher = more complete'}
-                </div>
-              </div>
-            </div>
-            
             {/* Render mode selector */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -427,59 +396,13 @@ export default function Map() {
               )}
             </div>
             
-            {/* Alternative Display Mode (single toggle button) */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Display Mode
-              </label>
-              <button
-                onClick={() => {
-                  // Toggle between modes
-                  if (renderMode === 'auto') {
-                    // If auto, switch to opposite of what's currently showing
-                    setRenderMode(shouldShowHeatmap ? 'markers' : 'heatmap');
-                  } else {
-                    // If manual mode, toggle between markers/heatmap
-                    setRenderMode(renderMode === 'markers' ? 'heatmap' : 'markers');
-                  }
-                }}
-                className="w-full px-4 py-2 text-sm rounded transition-colors bg-trig-green-600 text-white hover:bg-trig-green-700 font-medium"
-                title="Toggle between markers and heatmap"
-              >
-                {renderMode === 'auto' ? (
-                  shouldShowHeatmap ? (
-                    <>🗺️ Auto: Heatmap → Switch to Markers</>
-                  ) : (
-                    <>📍 Auto: Markers → Switch to Heatmap</>
-                  )
-                ) : (
-                  renderMode === 'markers' ? (
-                    <>📍 Markers → Switch to Heatmap</>
-                  ) : (
-                    <>🗺️ Heatmap → Switch to Markers</>
-                  )
-                )}
-              </button>
-              <div className="mt-2 text-xs text-gray-600">
-                {renderMode === 'auto' ? (
-                  <span className="text-blue-600">
-                    Auto mode: {visibleTrigpoints.length} visible ({shouldShowHeatmap ? 'heatmap' : 'markers'})
-                  </span>
-                ) : (
-                  <span className="text-amber-600">
-                    Manual override: Always showing {renderMode}
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            {/* Clear filters button */}
+            {/* Reset map button */}
             <button
               type="button"
               onClick={handleClearFilters}
               className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium py-2 border border-blue-600 rounded hover:bg-blue-50 transition-colors"
             >
-              Clear filters
+              Reset map
             </button>
             
             {/* Results count */}
