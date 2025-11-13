@@ -365,4 +365,51 @@ export async function submitContact(
   return apiPost<ContactResponse>(`/v1/admin/contact`, data, token);
 }
 
+export interface AdminUserSearchResult {
+  id: number;
+  name: string;
+  email: string;
+  email_valid: string;
+  auth0_user_id?: string | null;
+  has_auth0_account: boolean;
+}
+
+export interface AdminUserSearchResponse {
+  items: AdminUserSearchResult[];
+}
+
+export async function searchLegacyUsers(
+  query: string,
+  token: string
+): Promise<AdminUserSearchResponse> {
+  return apiGet<AdminUserSearchResponse>(
+    `/v1/admin/legacy-migration/users?q=${encodeURIComponent(query)}`,
+    token
+  );
+}
+
+export interface AdminMigrationRequest {
+  user_id: number;
+  email: string;
+}
+
+export interface AdminMigrationResponse {
+  user_id: number;
+  username: string;
+  email: string;
+  auth0_user_id: string;
+  message: string;
+}
+
+export async function migrateLegacyUser(
+  payload: AdminMigrationRequest,
+  token: string
+): Promise<AdminMigrationResponse> {
+  return apiPost<AdminMigrationResponse>(
+    `/v1/admin/legacy-migration/migrate`,
+    payload,
+    token
+  );
+}
+
 

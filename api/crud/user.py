@@ -7,7 +7,7 @@ import secrets
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from api.core.logging import get_logger
@@ -271,6 +271,35 @@ def search_users_by_name(
         db.query(User)
         .filter(User.name.ilike(f"%{name_pattern}%"))
         .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def search_users_by_name_or_email(
+    db: Session, query: str, limit: int = 20
+) -> List[User]:
+    """
+    Search users by partial match on username or email address.
+
+    Args:
+        db: Database session
+        query: Fragment of username or email address to search for
+        limit: Maximum number of results to return (default: 20)
+
+    Returns:
+        List of User objects ordered by username
+    """
+    pattern = f"%{query.strip()}%"
+    return (
+        db.query(User)
+        .filter(
+            or_(
+                User.name.ilike(pattern),
+                User.email.ilike(pattern),
+            )
+        )
+        .order_by(func.lower(User.name))
         .limit(limit)
         .all()
     )

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, beforeEach, vi, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { useAuth0 } from "@auth0/auth0-react";
 import Admin from "../Admin";
@@ -208,6 +208,138 @@ describe("Admin route", () => {
     await waitFor(() => {
       expect(loginWithRedirect).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("allows admins to search for a user and trigger migration", async () => {
+    const tokenWithAdminScope = createToken({
+      scope: `${baseScopes} api:admin`,
+    });
+    const getAccessTokenSilently = vi.fn().mockResolvedValue(tokenWithAdminScope);
+    const loginWithRedirect = vi.fn();
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+
+        if (url.includes("/v1/admin/legacy-migration/users")) {
+          const body = {
+            items: [
+              {
+                id: 1,
+                name: "alice",
+                email: "alice@example.com",
+                email_valid: "Y",
+                auth0_user_id: null,
+                has_auth0_account: false,
+              },
+            ],
+          };
+          return Promise.resolve(
+            new Response(JSON.stringify(body), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            })
+          );
+        }
+
+        if (url.includes("/v1/admin/legacy-migration/migrate")) {
+          const payload = {
+            user_id: 1,
+            username: "alice",
+            email: "new-email@example.com",
+            auth0_user_id: "auth0|alice123",
+            message:
+              'Hi alice! Your account has been migrated to the new login system. In order to choose a password, please click "login" in the top-right corner of the Trigpointing.uk homepage, click "Can\'t log in to your account?", enter "new-email@example.com" and click continue. Within a few minutes you should receive an email from contact@trigpointing.uk, containing a link which will enable you to set a password.',
+          };
+          return Promise.resolve(
+            new Response(JSON.stringify(payload), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            })
+          );
+        }
+
+        return Promise.reject(new Error(`Unexpected request: ${url}`));
+      });
+
+    mockUseAuth0.mockReturnValue({
+      user: {
+        name: "Admin User",
+        "https://trigpointing.uk/roles": ["api-admin"],
+      },
+      getAccessTokenSilently,
+      loginWithRedirect,
+      isLoading: false,
+      isAuthenticated: true,
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth0>);
+
+    try {
+      render(<Admin />);
+
+      // Initial scope verification
+      await waitFor(() => {
+        expect(getAccessTokenSilently).toHaveBeenCalled();
+      });
+
+      const toggleButton = await screen.findByRole("button", {
+        name: /Legacy User Migration/i,
+      });
+      fireEvent.click(toggleButton);
+
+      const searchInput = screen.getByLabelText("Search legacy users");
+      fireEvent.change(searchInput, { target: { value: "ali" } });
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining("/v1/admin/legacy-migration/users"),
+          expect.objectContaining({
+            method: "GET",
+          })
+        );
+      });
+
+      const select = screen.getByLabelText("Matching users");
+      await waitFor(() => {
+        expect(screen.getByText("alice — alice@example.com")).toBeInTheDocument();
+      });
+
+      fireEvent.change(select, { target: { value: "1" } });
+
+      const emailInput = screen.getByLabelText("Email address");
+      expect(emailInput).toHaveValue("alice@example.com");
+
+      fireEvent.change(emailInput, { target: { value: "new-email@example.com" } });
+
+      const migrateButton = screen.getByRole("button", { name: "Migrate" });
+      expect(migrateButton).not.toBeDisabled();
+
+      fireEvent.click(migrateButton);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining("/v1/admin/legacy-migration/migrate"),
+          expect.objectContaining({
+            method: "POST",
+          })
+        );
+      });
+
+      const replyTextarea = (await screen.findByLabelText(
+        "Reply template for the user"
+      )) as HTMLTextAreaElement;
+      expect(replyTextarea.value).toContain("Hi alice!");
+      expect(replyTextarea.value).toContain("new-email@example.com");
+
+      await waitFor(() =>
+        expect(
+          screen.queryByText(/already has an Auth0 user identifier/i)
+        ).not.toBeInTheDocument()
+      );
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 });
 

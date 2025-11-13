@@ -27,6 +27,13 @@ exports.onExecutePostUserRegistration = async (event, api) => {
     console.error('[${environment}] WEBHOOK_SHARED_SECRET not configured - cannot provision user');
     return;
   }
+
+  // Skip admin-triggered manual migrations; the FastAPI endpoint handled DB updates.
+  const manualMigration = event.user.app_metadata && event.user.app_metadata.manual_migration;
+  if (manualMigration && manualMigration.trigger === 'admin') {
+    console.log('[${environment}] Manual migration detected (admin trigger); skipping user provisioning action for', event.user.user_id);
+    return;
+  }
   
   // Step 1: Generate base nickname from email prefix
   // Auth0 signup only collects email/password by default
