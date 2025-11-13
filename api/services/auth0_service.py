@@ -1786,6 +1786,38 @@ class DisabledAuth0Service:
         )
         return None
 
+    def create_user_for_admin_migration(
+        self,
+        email: str,
+        name: str,
+        legacy_user_id: int,
+        original_username: str,
+        firstname: Optional[str] = None,
+        surname: Optional[str] = None,
+    ) -> Optional[Dict]:
+        logger.warning(
+            json.dumps(
+                {
+                    "event": "auth0_disabled_create_user_for_admin_migration",
+                    "email": email,
+                    "name": name,
+                    "legacy_user_id": legacy_user_id,
+                }
+            )
+        )
+        return None
+
+    def delete_user(self, user_id: str) -> bool:
+        logger.warning(
+            json.dumps(
+                {
+                    "event": "auth0_disabled_delete_user",
+                    "auth0_user_id": user_id,
+                }
+            )
+        )
+        return False
+
 
 # Global instance with safe fallback when not configured
 auth0_service: Any
