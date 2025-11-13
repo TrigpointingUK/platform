@@ -427,6 +427,52 @@ export default function Map() {
               )}
             </div>
             
+            {/* Alternative Display Mode (single toggle button) */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Display Mode
+              </label>
+              <button
+                onClick={() => {
+                  // Toggle between modes
+                  if (renderMode === 'auto') {
+                    // If auto, switch to opposite of what's currently showing
+                    setRenderMode(shouldShowHeatmap ? 'markers' : 'heatmap');
+                  } else {
+                    // If manual mode, toggle between markers/heatmap
+                    setRenderMode(renderMode === 'markers' ? 'heatmap' : 'markers');
+                  }
+                }}
+                className="w-full px-4 py-2 text-sm rounded transition-colors bg-trig-green-600 text-white hover:bg-trig-green-700 font-medium"
+                title="Toggle between markers and heatmap"
+              >
+                {renderMode === 'auto' ? (
+                  shouldShowHeatmap ? (
+                    <>🗺️ Auto: Heatmap → Switch to Markers</>
+                  ) : (
+                    <>📍 Auto: Markers → Switch to Heatmap</>
+                  )
+                ) : (
+                  renderMode === 'markers' ? (
+                    <>📍 Markers → Switch to Heatmap</>
+                  ) : (
+                    <>🗺️ Heatmap → Switch to Markers</>
+                  )
+                )}
+              </button>
+              <div className="mt-2 text-xs text-gray-600">
+                {renderMode === 'auto' ? (
+                  <span className="text-blue-600">
+                    Auto mode: {visibleTrigpoints.length} visible ({shouldShowHeatmap ? 'heatmap' : 'markers'})
+                  </span>
+                ) : (
+                  <span className="text-amber-600">
+                    Manual override: Always showing {renderMode}
+                  </span>
+                )}
+              </div>
+            </div>
+            
             {/* Clear filters button */}
             <button
               type="button"
