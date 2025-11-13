@@ -10,6 +10,7 @@ export interface GeoJSONTrig {
     id: number;
     name: string;
     condition: string;
+    osgb_gridref: string;
   };
 }
 

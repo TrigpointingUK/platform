@@ -113,7 +113,7 @@ def export_trigs_geojson(
     Export FBM and Pillar trigpoints in GeoJSON format for map display.
 
     Returns two FeatureCollections (one for each physical type).
-    Each feature contains id, name, and condition in properties and Point geometry.
+    Each feature contains id, name, condition, and osgb_gridref in properties and Point geometry.
 
     This endpoint is heavily cached (1 year) as the data is essentially static.
     Cache can be manually cleared via admin endpoints if needed.
@@ -148,6 +148,7 @@ def export_trigs_geojson(
                     "id": item.id,
                     "name": item.name,
                     "condition": item.condition,
+                    "osgb_gridref": item.osgb_gridref,
                 },
             }
         )
@@ -168,6 +169,7 @@ def export_trigs_geojson(
                     "id": item.id,
                     "name": item.name,
                     "condition": item.condition,
+                    "osgb_gridref": item.osgb_gridref,
                 },
             }
         )
