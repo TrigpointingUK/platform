@@ -90,7 +90,7 @@ export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: Tr
   
   return (
     <Link
-      to={`/trig/${trig.id}`}
+      to={`/trigs/${trig.id}`}
       className="block border-b border-gray-200 py-3 px-4 hover:bg-gray-50 transition-colors"
     >
       <div className="flex items-center justify-between gap-3">

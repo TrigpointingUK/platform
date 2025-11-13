@@ -1,18 +1,8 @@
 import { useEffect } from "react";
 import { MapContainer, TileLayer, useMap, ScaleControl } from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
 import { getTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
 import { getCRS } from "../../lib/projections";
-
-interface BaseMapProps {
-  center: LatLngExpression;
-  zoom: number;
-  height?: number | string;
-  tileLayerId: string;
-  children?: React.ReactNode;
-  onMapReady?: (map: L.Map) => void;
-  className?: string;
-}
+import type { BaseMapProps } from "./types";
 
 /**
  * Component to handle tile layer updates
@@ -56,7 +46,25 @@ function MapReadyNotifier({ onMapReady }: { onMapReady?: (map: L.Map) => void })
 /**
  * Base map component using Leaflet
  * 
+ * @stable - This component provides the foundation for all map displays.
+ * Its props interface (BaseMapProps) should remain stable to prevent breaking changes
+ * in dependent components like TrigDetailMap.
+ * 
  * Provides a reusable map with configurable tile layers and markers.
+ * Handles different coordinate reference systems (CRS) and automatically adjusts
+ * zoom limits based on the selected tile layer.
+ * 
+ * @remarks
+ * Breaking changes to consider:
+ * - Changing prop types or removing props
+ * - Changing default behavior of zoom limits
+ * - Modifying CRS handling logic
+ * - Changing how children are rendered
+ * 
+ * Non-breaking changes:
+ * - Adding optional props
+ * - Internal rendering optimizations
+ * - Performance improvements
  */
 export default function BaseMap({
   center,

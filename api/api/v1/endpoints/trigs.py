@@ -92,6 +92,100 @@ def export_trigs(
 
 
 @router.get(
+    "/geojson",
+    openapi_extra=openapi_lifecycle("beta", note="GeoJSON export for map rendering"),
+)
+@cached(
+    resource_type="trigs",
+    ttl=31536000,  # 1 year (matching /export endpoint)
+    subresource="geojson",
+    include_query_params=True,  # Include limit param in cache key
+    cache_control="public, max-age=31536000",  # 1 year for Cloudflare
+)
+def export_trigs_geojson(
+    limit: Optional[int] = Query(
+        None, description="Limit results per type (for testing only)"
+    ),
+    _lc=lifecycle("beta"),
+    db: Session = Depends(get_db),
+):
+    """
+    Export FBM and Pillar trigpoints in GeoJSON format for map display.
+
+    Returns two FeatureCollections (one for each physical type).
+    Each feature contains id, name, condition, and osgb_gridref in properties and Point geometry.
+
+    This endpoint is heavily cached (1 year) as the data is essentially static.
+    Cache can be manually cleared via admin endpoints if needed.
+    """
+    # Query FBM trigpoints
+    fbm_items = trig_crud.list_trigs_filtered(
+        db,
+        physical_types=["FBM"],
+        skip=0,
+        limit=limit if limit else 50000,
+    )
+
+    # Query Pillar trigpoints
+    pillar_items = trig_crud.list_trigs_filtered(
+        db,
+        physical_types=["Pillar"],
+        skip=0,
+        limit=limit if limit else 50000,
+    )
+
+    # Build GeoJSON FeatureCollection for FBM
+    fbm_features = []
+    for item in fbm_items:
+        fbm_features.append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
+                },
+                "properties": {
+                    "id": item.id,
+                    "name": item.name,
+                    "condition": item.condition,
+                    "osgb_gridref": item.osgb_gridref,
+                },
+            }
+        )
+
+    fbm_collection = {"type": "FeatureCollection", "features": fbm_features}
+
+    # Build GeoJSON FeatureCollection for Pillar
+    pillar_features = []
+    for item in pillar_items:
+        pillar_features.append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
+                },
+                "properties": {
+                    "id": item.id,
+                    "name": item.name,
+                    "condition": item.condition,
+                    "osgb_gridref": item.osgb_gridref,
+                },
+            }
+        )
+
+    pillar_collection = {"type": "FeatureCollection", "features": pillar_features}
+
+    # Return both collections
+    return {
+        "fbm": fbm_collection,
+        "pillar": pillar_collection,
+        "generated_at": datetime.utcnow().isoformat(),
+        "cache_info": "This export is cached for 1 year",
+    }
+
+
+@router.get(
     "/{trig_id}",
     response_model=TrigWithIncludes,
     openapi_extra=openapi_lifecycle(

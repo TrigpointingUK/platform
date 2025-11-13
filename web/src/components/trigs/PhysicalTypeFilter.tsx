@@ -1,6 +1,7 @@
 interface PhysicalTypeFilterProps {
   selectedTypes: string[];
   onToggleType: (type: string) => void;
+  visibleTypes?: string[]; // Only show these types
 }
 
 // Common physical types with abbreviations
@@ -17,10 +18,15 @@ const PHYSICAL_TYPES = [
 export function PhysicalTypeFilter({
   selectedTypes,
   onToggleType,
+  visibleTypes,
 }: PhysicalTypeFilterProps) {
+  const typesToShow = visibleTypes
+    ? PHYSICAL_TYPES.filter((t) => visibleTypes.includes(t.name))
+    : PHYSICAL_TYPES;
+
   return (
     <div className="flex flex-wrap gap-2">
-      {PHYSICAL_TYPES.map((type) => {
+      {typesToShow.map((type) => {
         const isSelected = selectedTypes.includes(type.name);
         return (
           <button

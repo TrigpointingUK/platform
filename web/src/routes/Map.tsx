@@ -13,12 +13,17 @@ import { PhysicalTypeFilter } from "../components/trigs/PhysicalTypeFilter";
 import Layout from "../components/layout/Layout";
 import Spinner from "../components/ui/Spinner";
 import { useMapTrigsWithProgress, type MapBounds } from "../hooks/useMapTrigsWithProgress";
+import { useMapTrigsGeoJSON } from "../hooks/useMapTrigsGeoJSON";
 import {
   getPreferredTileLayer,
   MAP_CONFIG,
+  DEFAULT_TILE_LAYER,
 } from "../lib/mapConfig";
 import { getPreferredIconColorMode, type IconColorMode } from "../lib/mapIcons";
 import { Menu, X } from "lucide-react";
+
+// GeoJSON physical types (only Pillar and FBM)
+const GEOJSON_PHYSICAL_TYPES = ["Pillar", "FBM"];
 
 // All physical types
 const ALL_PHYSICAL_TYPES = [
@@ -75,12 +80,21 @@ export default function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
   
+  // Data source mode: geojson for Pillars+FBMs, paginated for others
+  const [dataSource] = useState<'geojson' | 'paginated'>('geojson');
+  
+  // Use GeoJSON types when in geojson mode
+  const availablePhysicalTypes = dataSource === 'geojson' 
+    ? GEOJSON_PHYSICAL_TYPES 
+    : ALL_PHYSICAL_TYPES;
+  
   // State
   const [tileLayerId, setTileLayerId] = useState(getPreferredTileLayer());
   const [iconColorMode, setIconColorMode] = useState<IconColorMode>(getPreferredIconColorMode());
   const [selectedPhysicalTypes, setSelectedPhysicalTypes] = useState<string[]>(() => {
     const types = searchParams.get("types");
-    return types ? types.split(",") : ALL_PHYSICAL_TYPES;
+    if (types) return types.split(",");
+    return dataSource === 'geojson' ? GEOJSON_PHYSICAL_TYPES : ALL_PHYSICAL_TYPES;
   });
   const [excludeFound, setExcludeFound] = useState<boolean>(
     () => searchParams.get("excludeFound") === "true"
@@ -90,24 +104,7 @@ export default function Map() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [renderMode, setRenderMode] = useState<'auto' | 'markers' | 'heatmap'>('auto');
   const [currentZoom, setCurrentZoom] = useState<number>(MAP_CONFIG.defaultZoom);
-  const [maxTrigpoints, setMaxTrigpoints] = useState<number>(() => {
-    try {
-      const stored = localStorage.getItem('trigpointing_map_max_trigpoints');
-      return stored ? parseInt(stored) : 10000;
-    } catch {
-      return 10000;
-    }
-  });
-  
-  // Save max trigpoints preference
-  const handleMaxTrigpointsChange = (value: number) => {
-    setMaxTrigpoints(value);
-    try {
-      localStorage.setItem('trigpointing_map_max_trigpoints', value.toString());
-    } catch (error) {
-      console.error('Failed to save max trigpoints preference:', error);
-    }
-  };
+  const maxTrigpoints = 50000; // Always load all trigpoints
   
   // Get center from URL params or use default
   const initialCenter: [number, number] = useMemo(() => {
@@ -130,19 +127,70 @@ export default function Map() {
   const {
     data: allTrigsData,
     totalCount,
-    isLoading,
+    isLoading: isPaginatedLoading,
     loadingProgress,
-    error,
+    error: paginatedError,
   } = useMapTrigsWithProgress({
     bounds: mapBounds,
     excludeFound,
-    enabled: !!mapBounds,
+    enabled: dataSource === 'paginated' && !!mapBounds,
     zoom: currentZoom,
     maxTrigpoints,
   });
   
-  // Client-side filtering by physical type
-  const trigpoints = useMemo(() => {
+  // Fetch GeoJSON data (Pillar + FBM only)
+  const {
+    data: geojsonData,
+    isLoading: isGeoJSONLoading,
+    error: geoJsonError,
+  } = useMapTrigsGeoJSON({
+    enabled: dataSource === 'geojson',
+    limit: maxTrigpoints === 50000 ? null : maxTrigpoints, // null = no limit
+  });
+  
+  // Convert GeoJSON features to Trig format for rendering
+  const geojsonTrigs = useMemo(() => {
+    if (!geojsonData) return [];
+    
+    const trigs: typeof allTrigsData = [];
+    
+    // Add FBM trigpoints if FBM is selected
+    if (selectedPhysicalTypes.includes("FBM")) {
+      geojsonData.fbm.features.forEach((feature) => {
+        trigs.push({
+          id: feature.properties.id,
+          waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
+          name: feature.properties.name,
+          physical_type: "FBM",
+          condition: feature.properties.condition || "U",
+          wgs_lat: feature.geometry.coordinates[1].toString(),
+          wgs_long: feature.geometry.coordinates[0].toString(),
+          osgb_gridref: feature.properties.osgb_gridref || "",
+        });
+      });
+    }
+    
+    // Add Pillar trigpoints if Pillar is selected
+    if (selectedPhysicalTypes.includes("Pillar")) {
+      geojsonData.pillar.features.forEach((feature) => {
+        trigs.push({
+          id: feature.properties.id,
+          waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
+          name: feature.properties.name,
+          physical_type: "Pillar",
+          condition: feature.properties.condition || "U",
+          wgs_lat: feature.geometry.coordinates[1].toString(),
+          wgs_long: feature.geometry.coordinates[0].toString(),
+          osgb_gridref: feature.properties.osgb_gridref || "",
+        });
+      });
+    }
+    
+    return trigs;
+  }, [geojsonData, selectedPhysicalTypes]);
+  
+  // Client-side filtering by physical type (for paginated mode)
+  const paginatedTrigs = useMemo(() => {
     // If all types selected, no need to filter
     if (selectedPhysicalTypes.length === ALL_PHYSICAL_TYPES.length) {
       return allTrigsData;
@@ -154,15 +202,37 @@ export default function Map() {
     );
   }, [allTrigsData, selectedPhysicalTypes]);
   
-  // Determine whether to show markers or heatmap based on zoom level
+  // Determine which data to use based on mode
+  const trigpoints = dataSource === 'geojson' ? geojsonTrigs : paginatedTrigs;
+  const isLoading = dataSource === 'geojson' ? isGeoJSONLoading : isPaginatedLoading;
+  const error = dataSource === 'geojson' ? geoJsonError : paginatedError;
+  
+  // Filter trigpoints by viewport bounds for performance
+  const visibleTrigpoints = useMemo(() => {
+    if (!mapBounds) return trigpoints;
+    
+    // Filter trigpoints that are within the current viewport
+    return trigpoints.filter((trig) => {
+      const lat = parseFloat(trig.wgs_lat);
+      const lon = parseFloat(trig.wgs_long);
+      
+      return (
+        lat >= mapBounds.south &&
+        lat <= mapBounds.north &&
+        lon >= mapBounds.west &&
+        lon <= mapBounds.east
+      );
+    });
+  }, [trigpoints, mapBounds]);
+  
+  // Determine whether to show markers or heatmap based on visible trigpoint count
   const shouldShowHeatmap = useMemo(() => {
     if (renderMode === 'markers') return false;
     if (renderMode === 'heatmap') return true;
-    // Auto mode: use heatmap when zoomed out (zoom < 10) OR too many trigpoints
-    const isZoomedOut = currentZoom < 10;
-    const tooManyMarkers = trigpoints.length > MAP_CONFIG.markerThreshold;
-    return isZoomedOut || tooManyMarkers;
-  }, [renderMode, trigpoints.length, currentZoom]);
+    // Auto mode: use heatmap when more than 1000 markers would be visible in viewport
+    const tooManyVisibleMarkers = visibleTrigpoints.length > 1000;
+    return tooManyVisibleMarkers;
+  }, [renderMode, visibleTrigpoints.length]);
   
   // Update URL params when filters change
   useEffect(() => {
@@ -195,9 +265,19 @@ export default function Map() {
   }, []);
   
   const handleClearFilters = useCallback(() => {
-    setSelectedPhysicalTypes(ALL_PHYSICAL_TYPES);
+    setSelectedPhysicalTypes(availablePhysicalTypes);
     setExcludeFound(false);
-  }, []);
+    setRenderMode('auto');
+    setTileLayerId(DEFAULT_TILE_LAYER);
+    
+    // Reset map to show whole UK
+    if (mapInstance) {
+      mapInstance.setView(
+        [MAP_CONFIG.defaultCenter.lat, MAP_CONFIG.defaultCenter.lng],
+        MAP_CONFIG.defaultZoom
+      );
+    }
+  }, [availablePhysicalTypes, mapInstance]);
   
   return (
     <Layout>
@@ -227,6 +307,7 @@ export default function Map() {
               <PhysicalTypeFilter
                 selectedTypes={selectedPhysicalTypes}
                 onToggleType={handleTogglePhysicalType}
+                visibleTypes={availablePhysicalTypes}
               />
             </div>
             
@@ -251,6 +332,7 @@ export default function Map() {
                 value={iconColorMode}
                 onChange={setIconColorMode}
                 showLegend={true}
+                isAuthenticated={isAuthenticated}
               />
             </div>
             
@@ -262,93 +344,70 @@ export default function Map() {
               />
             </div>
             
-            {/* Max trigpoints selector */}
-            <div className="mb-4">
-              <div className="bg-white rounded-lg shadow-md p-3">
-                <label htmlFor="max-trigpoints" className="block text-xs font-medium text-gray-700 mb-2">
-                  Max Trigpoints (Performance)
-                </label>
-                <select
-                  id="max-trigpoints"
-                  value={maxTrigpoints}
-                  onChange={(e) => handleMaxTrigpointsChange(parseInt(e.target.value))}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-trig-green-500"
-                >
-                  <option value={100}>100 (Low-end devices)</option>
-                  <option value={500}>500 (Mobile)</option>
-                  <option value={1000}>1,000 (Tablet)</option>
-                  <option value={5000}>5,000 (Desktop)</option>
-                  <option value={10000}>10,000 (High-end)</option>
-                  <option value={50000}>50,000 (Maximum)</option>
-                </select>
-                <div className="mt-1 text-xs text-gray-500">
-                  Lower = faster, Higher = more complete
-                </div>
-              </div>
-            </div>
-            
             {/* Render mode selector */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Display Mode
-              </label>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setRenderMode('auto')}
-                  className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                    renderMode === 'auto'
-                      ? 'bg-trig-green-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  title="Auto-switch between markers and heatmap based on count"
-                >
-                  Auto
-                </button>
-                <button
-                  onClick={() => setRenderMode('markers')}
-                  className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                    renderMode === 'markers'
-                      ? 'bg-trig-green-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  title="Always show individual markers"
-                >
-                  Markers
-                </button>
-                <button
-                  onClick={() => setRenderMode('heatmap')}
-                  className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                    renderMode === 'heatmap'
-                      ? 'bg-trig-green-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  title="Always show density heatmap"
-                >
-                  Heatmap
-                </button>
-              </div>
-              {renderMode === 'auto' && (
-                <div className="mt-2 text-xs text-gray-600">
-                  {shouldShowHeatmap ? (
-                    <span className="text-amber-600">
-                      Showing heatmap (zoom: {currentZoom.toFixed(1)}, {trigpoints.length} trigpoints)
-                    </span>
-                  ) : (
-                    <span className="text-trig-green-600">
-                      Showing markers (zoom: {currentZoom.toFixed(1)}, {trigpoints.length} trigpoints)
-                    </span>
-                  )}
+              <div className="bg-white rounded-lg shadow-md p-3">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Display Mode
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setRenderMode('auto')}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
+                      renderMode === 'auto'
+                        ? 'bg-trig-green-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Auto-switch between markers and heatmap based on count"
+                  >
+                    Auto
+                  </button>
+                  <button
+                    onClick={() => setRenderMode('markers')}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
+                      renderMode === 'markers'
+                        ? 'bg-trig-green-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Always show individual markers"
+                  >
+                    Markers
+                  </button>
+                  <button
+                    onClick={() => setRenderMode('heatmap')}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
+                      renderMode === 'heatmap'
+                        ? 'bg-trig-green-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Always show density heatmap"
+                  >
+                    Heatmap
+                  </button>
                 </div>
-              )}
+                {renderMode === 'auto' && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    {shouldShowHeatmap ? (
+                      <span className="text-amber-600">
+                        Showing heatmap ({visibleTrigpoints.length} visible, {trigpoints.length} total)
+                      </span>
+                    ) : (
+                      <span className="text-trig-green-600">
+                        Showing {visibleTrigpoints.length} markers ({trigpoints.length} total)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             
-            {/* Clear filters button */}
+            {/* Reset map button */}
             <button
               type="button"
               onClick={handleClearFilters}
-              className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium py-2 border border-blue-600 rounded hover:bg-blue-50 transition-colors"
+              className="w-full text-sm text-trig-green-700 hover:text-trig-green-900 font-medium py-2 border border-trig-green-700 rounded hover:bg-trig-green-50 transition-colors"
             >
-              Clear filters
+              Reset map
             </button>
             
             {/* Results count */}
@@ -368,9 +427,19 @@ export default function Map() {
                 <div>
                   <div className="font-semibold">Showing {trigpoints.length} trigpoints</div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {allTrigsData.length} loaded, {totalCount} in database (zoom: {currentZoom.toFixed(1)})
+                    {dataSource === 'geojson' ? (
+                      <>
+                        GeoJSON mode: {geojsonData ? 
+                          `${geojsonData.fbm.features.length} FBMs + ${geojsonData.pillar.features.length} Pillars` 
+                          : 'Loading...'}
+                      </>
+                    ) : (
+                      <>
+                        {allTrigsData.length} loaded, {totalCount} in database (zoom: {currentZoom.toFixed(1)})
+                      </>
+                    )}
                   </div>
-                  {selectedPhysicalTypes.length < ALL_PHYSICAL_TYPES.length && (
+                  {selectedPhysicalTypes.length < availablePhysicalTypes.length && (
                     <div className="text-xs text-blue-600 mt-1">
                       Filtered by type (client-side)
                     </div>
@@ -400,7 +469,7 @@ export default function Map() {
               <HeatmapLayer trigpoints={trigpoints} />
             ) : (
               <>
-                {trigpoints.map((trig) => (
+                {visibleTrigpoints.map((trig) => (
                   <TrigMarker
                     key={trig.id}
                     trig={trig}

@@ -3,24 +3,7 @@ import BaseMap from "./BaseMap";
 import TrigMarker from "./TrigMarker";
 import TilesetSelector from "./TilesetSelector";
 import { getPreferredTileLayer, getTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
-import type { IconColorMode } from "../../lib/mapIcons";
-
-interface TrigData {
-  id: number;
-  waypoint: string;
-  name: string;
-  physical_type: string;
-  condition: string;
-  wgs_lat: string | number;
-  wgs_long: string | number;
-  osgb_gridref: string;
-}
-
-interface TrigDetailMapProps {
-  trig: TrigData;
-  height?: number;
-  className?: string;
-}
+import type { TrigDetailMapProps, IconColorMode } from "./types";
 
 /**
  * Map component for trigpoint detail page
@@ -65,6 +48,7 @@ export default function TrigDetailMap({
           trig={trig}
           colorMode={colorMode}
           highlighted={false}
+          showPopup={false}
         />
       </BaseMap>
       
