@@ -31,6 +31,7 @@ export default function TrigMarker({
   logStatus = null,
   highlighted = false,
   onClick,
+  showPopup = true,
 }: TrigMarkerProps) {
   const position: LatLngExpression = [
     typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat,
@@ -71,34 +72,36 @@ export default function TrigMarker({
       <Tooltip direction="top" offset={[0, -37]} opacity={0.9} className="minimal-tooltip">
         <span className="text-xs">{trig.name}</span>
       </Tooltip>
-      <Popup>
-        <div className="min-w-[200px]">
-          <h3 className="font-bold text-trig-green-600 mb-2">
-            {trig.waypoint} - {trig.name}
-          </h3>
-          
-          <div className="space-y-1 text-sm mb-3">
-            <div>
-              <span className="font-semibold">Type:</span> {trig.physical_type}
+      {showPopup && (
+        <Popup>
+          <div className="min-w-[200px]">
+            <h3 className="font-bold text-trig-green-600 mb-2">
+              {trig.waypoint} - {trig.name}
+            </h3>
+            
+            <div className="space-y-1 text-sm mb-3">
+              <div>
+                <span className="font-semibold">Type:</span> {trig.physical_type}
+              </div>
+              <div>
+                <span className="font-semibold">Grid ref:</span> {trig.osgb_gridref}
+              </div>
+              <div>
+                <span className="font-semibold">Coordinates:</span>{" "}
+                {typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat).toFixed(5) : trig.wgs_lat.toFixed(5)},{" "}
+                {typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long).toFixed(5) : trig.wgs_long.toFixed(5)}
+              </div>
             </div>
-            <div>
-              <span className="font-semibold">Grid ref:</span> {trig.osgb_gridref}
-            </div>
-            <div>
-              <span className="font-semibold">Coordinates:</span>{" "}
-              {typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat).toFixed(5) : trig.wgs_lat.toFixed(5)},{" "}
-              {typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long).toFixed(5) : trig.wgs_long.toFixed(5)}
-            </div>
+            
+            <Link
+              to={`/trigs/${trig.id}`}
+              className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+            >
+              View Details
+            </Link>
           </div>
-          
-          <Link
-            to={`/trigs/${trig.id}`}
-            className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-          >
-            View Details
-          </Link>
-        </div>
-      </Popup>
+        </Popup>
+      )}
     </Marker>
   );
 }

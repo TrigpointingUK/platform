@@ -48,6 +48,7 @@ export default function TrigDetailMap({
           trig={trig}
           colorMode={colorMode}
           highlighted={false}
+          showPopup={false}
         />
       </BaseMap>
       

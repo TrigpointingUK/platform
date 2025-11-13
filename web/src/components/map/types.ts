@@ -81,6 +81,8 @@ export interface TrigMarkerProps {
   highlighted?: boolean;
   /** Click handler for the marker */
   onClick?: (trig: TrigData) => void;
+  /** Whether to show the popup (default: true) */
+  showPopup?: boolean;
 }
 
 /**

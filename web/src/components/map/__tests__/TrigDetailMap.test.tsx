@@ -280,14 +280,14 @@ describe('TrigDetailMap', () => {
       expect(screen.getByTestId('marker')).toBeInTheDocument();
     });
 
-    it('should show marker popup with trig information', () => {
+    it('should not show marker popup on detail map', () => {
       const trig = createMockTrig({
         waypoint: 'TP1234',
         name: 'Test Trig',
       });
       renderWithRouter(<TrigDetailMap trig={trig} />);
       
-      expect(screen.getByTestId('popup')).toBeInTheDocument();
+      expect(screen.queryByTestId('popup')).not.toBeInTheDocument();
     });
   });
 
