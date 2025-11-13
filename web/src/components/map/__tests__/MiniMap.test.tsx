@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 import MiniMap from '../MiniMap';
 
 // Mock Leaflet
@@ -18,11 +18,16 @@ vi.mock('leaflet', () => {
     addTo: vi.fn(),
   };
 
+  const mockCircleMarker = {
+    addTo: vi.fn(),
+  };
+
   return {
     default: {
       map: vi.fn(() => mockMapInstance),
       tileLayer: vi.fn(() => mockTileLayer),
       marker: vi.fn(() => mockMarker),
+      circleMarker: vi.fn(() => mockCircleMarker),
       icon: vi.fn((options) => options),
       DomEvent: {
         disableClickPropagation: vi.fn(),
@@ -58,12 +63,6 @@ vi.mock('../../../lib/mapConfig', () => ({
   },
 }));
 
-// Mock mapIcons
-vi.mock('../../../lib/mapIcons', () => ({
-  getIconUrl: vi.fn(() => '/icons/test.png'),
-  getConditionColor: vi.fn(() => 'green'),
-}));
-
 describe('MiniMap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,7 +74,7 @@ describe('MiniMap', () => {
 
   it('should render a map container with correct dimensions', () => {
     const { container } = render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
+      <MiniMap lat={51.5} lng={-0.1} />
     );
 
     const mapContainer = container.querySelector('.mini-map-container');
@@ -91,7 +90,7 @@ describe('MiniMap', () => {
     const L = await import('leaflet');
     
     render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
+      <MiniMap lat={51.5} lng={-0.1} />
     );
 
     // Wait for useEffect to run
@@ -117,7 +116,7 @@ describe('MiniMap', () => {
     const L = await import('leaflet');
     
     render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
+      <MiniMap lat={51.5} lng={-0.1} />
     );
 
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -135,29 +134,33 @@ describe('MiniMap', () => {
     // Note: We can't easily test addTo on the tile layer due to mock closure
   });
 
-  it('should add a marker at the correct position', async () => {
+  it('should add a blue circle marker at the correct position', async () => {
     const L = await import('leaflet');
     
     render(
-      <MiniMap lat={52.0} lng={-1.0} physicalType="FBM" condition="D" />
+      <MiniMap lat={52.0} lng={-1.0} />
     );
 
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    expect(L.default.marker).toHaveBeenCalledWith(
+    expect(L.default.circleMarker).toHaveBeenCalledWith(
       [52.0, -1.0],
       expect.objectContaining({
-        icon: expect.any(Object),
+        radius: 24,
+        color: '#2563eb',
+        weight: 2,
+        fillColor: '#3b82f6',
+        fillOpacity: 0.3,
       })
     );
-    // Note: We can't easily test addTo on the marker due to mock closure
+    // Note: We can't easily test addTo on the circle marker due to mock closure
   });
 
   it('should disable event propagation on container', async () => {
     const L = await import('leaflet');
     
     render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
+      <MiniMap lat={51.5} lng={-0.1} />
     );
 
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -170,7 +173,7 @@ describe('MiniMap', () => {
     // We need to get access to the mock instance to test cleanup
     // For now, we'll just test that unmount doesn't error
     const { unmount } = render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
+      <MiniMap lat={51.5} lng={-0.1} />
     );
 
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -178,36 +181,11 @@ describe('MiniMap', () => {
     expect(() => unmount()).not.toThrow();
   });
 
-  it('should use the correct icon for physical type and condition', async () => {
-    const { getIconUrl, getConditionColor } = await import('../../../lib/mapIcons');
-    
-    render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
-    );
-
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    expect(getConditionColor).toHaveBeenCalledWith('G');
-    expect(getIconUrl).toHaveBeenCalledWith('Pillar', 'green', false);
-  });
-
-  it('should handle different physical types', async () => {
-    const { getIconUrl } = await import('../../../lib/mapIcons');
-    
-    render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="FBM" condition="M" />
-    );
-
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    expect(getIconUrl).toHaveBeenCalledWith('FBM', expect.any(String), false);
-  });
-
   it('should not reinitialize map if already initialized', async () => {
     const L = await import('leaflet');
     
     const { rerender } = render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
+      <MiniMap lat={51.5} lng={-0.1} />
     );
 
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -216,7 +194,7 @@ describe('MiniMap', () => {
 
     // Rerender with same props
     rerender(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
+      <MiniMap lat={51.5} lng={-0.1} />
     );
 
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -235,7 +213,7 @@ describe('MiniMap', () => {
     });
 
     render(
-      <MiniMap lat={51.5} lng={-0.1} physicalType="Pillar" condition="G" />
+      <MiniMap lat={51.5} lng={-0.1} />
     );
 
     await new Promise(resolve => setTimeout(resolve, 0));

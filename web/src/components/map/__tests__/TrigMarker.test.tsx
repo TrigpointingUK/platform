@@ -30,13 +30,11 @@ vi.mock('react-router-dom', () => ({
 
 // Mock MiniMap component
 vi.mock('../MiniMap', () => ({
-  default: ({ lat, lng, physicalType, condition }: { lat: number; lng: number; physicalType: string; condition: string }) => (
+  default: ({ lat, lng }: { lat: number; lng: number }) => (
     <div 
       data-testid="mini-map" 
       data-lat={lat} 
-      data-lng={lng} 
-      data-physical-type={physicalType}
-      data-condition={condition}
+      data-lng={lng}
     >
       Mini Map
     </div>
@@ -333,8 +331,6 @@ describe('TrigMarker', () => {
       const trig = createMockTrig({
         wgs_lat: 51.5074,
         wgs_long: -0.1278,
-        physical_type: 'Pillar',
-        condition: 'G',
       });
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
@@ -342,8 +338,6 @@ describe('TrigMarker', () => {
       expect(miniMap).toBeInTheDocument();
       expect(miniMap).toHaveAttribute('data-lat', '51.5074');
       expect(miniMap).toHaveAttribute('data-lng', '-0.1278');
-      expect(miniMap).toHaveAttribute('data-physical-type', 'Pillar');
-      expect(miniMap).toHaveAttribute('data-condition', 'G');
     });
 
     it('should not show popup when showPopup is false', () => {

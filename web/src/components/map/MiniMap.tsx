@@ -2,29 +2,27 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { TILE_LAYERS } from '../../lib/mapConfig';
-import { getIconUrl, getConditionColor } from '../../lib/mapIcons';
 import { getCRS } from '../../lib/projections';
 
 interface MiniMapProps {
   lat: number;
   lng: number;
-  physicalType: string;
-  condition: string;
 }
 
 /**
  * Mini-map component for display within popups
  * 
- * Shows a small, highly-zoomed OS Paper (EPSG:27700) map view with a marker.
+ * Shows a small, highly-zoomed OS Paper (EPSG:27700) map view with a blue circle marker.
  * Uses vanilla Leaflet API (not React-Leaflet) for lifecycle management within popups.
  * 
  * @remarks
  * - Always uses OS Paper tileset regardless of main map tileset
- * - Zoom level 9 for EPSG:27700 shows approximately 1000m width (896m at zoom 9)
+ * - Zoom level 8 for EPSG:27700 shows approximately 1000m width (896m at zoom 8)
+ * - Blue circle marker indicates exact location without obscuring map features
  * - Event propagation is blocked to prevent interference with main map
  * - Map is initialized after DOM mount and cleaned up on unmount
  */
-export default function MiniMap({ lat, lng, physicalType, condition }: MiniMapProps) {
+export default function MiniMap({ lat, lng }: MiniMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   
@@ -69,17 +67,14 @@ export default function MiniMap({ lat, lng, physicalType, condition }: MiniMapPr
         tileSize: osPaperLayer.tileSize || 256,
       }).addTo(map);
       
-      // Add marker at trig location
-      const color = getConditionColor(condition);
-      const iconUrl = getIconUrl(physicalType, color, false);
-      
-      const icon = L.icon({
-        iconUrl,
-        iconSize: [32, 37],
-        iconAnchor: [16, 37],
-      });
-      
-      L.marker([lat, lng], { icon }).addTo(map);
+      // Add a thin blue circle marker to indicate the exact location
+      L.circleMarker([lat, lng], {
+        radius: 24, // 3x the original diameter (8 * 3)
+        color: '#2563eb', // Blue
+        weight: 2,
+        fillColor: '#3b82f6',
+        fillOpacity: 0.3,
+      }).addTo(map);
       
       // Prevent events from propagating to parent map
       const container = mapContainerRef.current;
@@ -100,7 +95,7 @@ export default function MiniMap({ lat, lng, physicalType, condition }: MiniMapPr
         mapInstanceRef.current = null;
       }
     };
-  }, [lat, lng, physicalType, condition]);
+  }, [lat, lng]);
   
   return (
     <div 
