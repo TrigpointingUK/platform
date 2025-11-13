@@ -198,6 +198,16 @@ def get_current_user_profile(
     user_response.auth0_user_id = current_user.auth0_user_id  # type: ignore
     result = UserWithIncludes(**user_response.model_dump())
 
+    # Extract roles from token payload if available
+    if hasattr(current_user, "_token_payload"):
+        from api.core.config import settings
+
+        token_payload = getattr(current_user, "_token_payload")
+        roles_claim = f"{settings.AUTH0_CLAIMS_NAMESPACE}roles"
+        roles = token_payload.get(roles_claim, [])
+        if isinstance(roles, list):
+            result.roles = roles
+
     if include:
         tokens = {t.strip() for t in include.split(",") if t.strip()}
 

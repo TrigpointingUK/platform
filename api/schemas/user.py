@@ -142,6 +142,9 @@ class UserWithIncludes(UserResponse):
     stats: Optional[UserStats] = None
     breakdown: Optional[UserBreakdown] = None
     prefs: Optional[UserPrefs] = None
+    roles: Optional[list[str]] = Field(
+        None, description="Auth0 roles (own profile only)"
+    )
 
     class Config:
         from_attributes = True

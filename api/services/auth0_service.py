@@ -9,7 +9,9 @@ This service handles:
 """
 
 import json
+import secrets
 import ssl
+import string
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -23,6 +25,22 @@ from api.core.logging import get_logger
 from api.utils.username_sanitizer import sanitize_username_for_auth0
 
 logger = get_logger(__name__)
+
+
+class Auth0EmailAlreadyExistsError(Exception):
+    """Raised when attempting to create an Auth0 user with an email that already exists."""
+
+    def __init__(self, email: str):
+        super().__init__(f"Auth0 user already exists with email '{email}'")
+        self.email = email
+
+
+class Auth0UserCreationFailedError(Exception):
+    """Raised when Auth0 user creation fails for an unknown reason."""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.details = details or {}
 
 
 class Auth0Service:
@@ -147,6 +165,7 @@ class Auth0Service:
             )
 
         self.token_cache_key = f"auth0:mgmt_token:{self.tenant_domain}"
+        self._password_alphabet = string.ascii_letters + string.digits
 
     def _get_auth0_credentials(self) -> Optional[Dict[str, str]]:
         """
@@ -402,7 +421,7 @@ class Auth0Service:
             )
 
             # Log successful requests
-            if response.status_code == 200 or response.status_code == 201:
+            if response.status_code in (200, 201, 202, 204):
                 self._last_error = None  # Clear any previous error
                 log_data = {
                     "event": "auth0_api_request_success",
@@ -412,7 +431,12 @@ class Auth0Service:
                     "url": url,
                 }
                 logger.info(json.dumps(log_data))
-                return response.json()
+                if response.status_code == 204 or not response.content:
+                    return {}
+                try:
+                    return response.json()
+                except (ValueError, json.JSONDecodeError):
+                    return {}
             else:
                 # Log failed requests with detailed error information
                 try:
@@ -606,6 +630,35 @@ class Auth0Service:
             }
             logger.debug(json.dumps(log_data))
             return None
+
+    def delete_user(self, user_id: str) -> bool:
+        """
+        Delete a user in Auth0.
+
+        Args:
+            user_id: Auth0 user ID to delete
+
+        Returns:
+            True if deletion succeeded, False otherwise.
+        """
+
+        response = self._make_auth0_request("DELETE", f"users/{user_id}")
+        if response is not None:
+            log_data = {
+                "event": "auth0_user_deleted",
+                "auth0_user_id": user_id,
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            }
+            logger.info(json.dumps(log_data))
+            return True
+
+        log_data = {
+            "event": "auth0_user_delete_failed",
+            "auth0_user_id": user_id,
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        }
+        logger.warning(json.dumps(log_data))
+        return False
 
     def find_user_by_email(self, email: str) -> Optional[Dict]:
         """
@@ -943,6 +996,162 @@ class Auth0Service:
                 }
                 logger.info(json.dumps(log_data))
                 return existing_user
+
+        return response
+
+    def _generate_random_password(self, length: int = 20) -> str:
+        """
+        Generate a random password consisting of alphanumeric characters.
+
+        Args:
+            length: Desired length of the generated password (default: 20)
+
+        Returns:
+            Randomly generated password string
+        """
+
+        return "".join(secrets.choice(self._password_alphabet) for _ in range(length))
+
+    def create_user_for_admin_migration(
+        self,
+        username: str,
+        email: str,
+        legacy_user_id: int,
+        firstname: Optional[str] = None,
+        surname: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a new Auth0 database user as part of an admin-triggered migration.
+
+        Steps:
+            - Ensure the email is not already present in Auth0 (connection filtered)
+            - Generate a temporary 20 character alphanumeric password
+            - Create the Auth0 user with email_verified=false
+            - Trigger a verification email via Management API
+
+        Args:
+            username: Legacy username (will be used for name and nickname fields)
+            email: Email address to assign to the Auth0 user
+            legacy_user_id: Database user ID for app_metadata linkage
+            firstname: Optional first name (unused but accepted for parity)
+            surname: Optional surname (unused but accepted for parity)
+
+        Returns:
+            Auth0 user dictionary returned by Management API
+
+        Raises:
+            Auth0EmailAlreadyExistsError: If an Auth0 user already exists with the email
+            Auth0UserCreationFailedError: If Auth0 creation fails for other reasons
+        """
+
+        # Ensure we do not proceed if the email already exists in Auth0
+        existing_user = self.find_user_by_email(email)
+        if existing_user:
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "auth0_admin_migration_email_conflict",
+                        "email": email,
+                        "auth0_user_id": existing_user.get("user_id"),
+                        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                    }
+                )
+            )
+            raise Auth0EmailAlreadyExistsError(email=email)
+
+        password = self._generate_random_password()
+        sanitized_username = sanitize_username_for_auth0(username)
+
+        user_data = {
+            "connection": self.connection,
+            "nickname": username,
+            "name": username,
+            "email": email,
+            "password": password,
+            "email_verified": False,
+            "verify_email": False,
+            "app_metadata": {
+                "database_user_id": legacy_user_id,
+                "original_username": username,
+                "legacy_sync": datetime.now(timezone.utc).isoformat() + "Z",
+                "manual_migration": {
+                    "trigger": "admin",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                },
+            },
+        }
+
+        if firstname:
+            user_data["given_name"] = firstname
+        if surname:
+            user_data["family_name"] = surname
+
+        safe_user_data = user_data.copy()
+        safe_user_data["password"] = "***REDACTED***"  # nosec B105
+
+        logger.info(
+            json.dumps(
+                {
+                    "event": "auth0_admin_migration_user_creation_started",
+                    "username": username,
+                    "sanitized_username": sanitized_username,
+                    "email": email,
+                    "legacy_user_id": legacy_user_id,
+                    "user_data": safe_user_data,
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                }
+            )
+        )
+
+        response = self._make_auth0_request("POST", "users", user_data)
+        if not response:
+            details = self._last_error if isinstance(self._last_error, dict) else None
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "auth0_admin_migration_user_creation_failed",
+                        "username": username,
+                        "email": email,
+                        "legacy_user_id": legacy_user_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                        "details": details,
+                    }
+                )
+            )
+            raise Auth0UserCreationFailedError(
+                message="Failed to create Auth0 user for admin migration",
+                details=details,
+            )
+
+        auth0_user_id = response.get("user_id")
+        logger.info(
+            json.dumps(
+                {
+                    "event": "auth0_admin_migration_user_created",
+                    "username": username,
+                    "email": email,
+                    "legacy_user_id": legacy_user_id,
+                    "auth0_user_id": auth0_user_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                }
+            )
+        )
+
+        # Trigger verification email; warn if it fails but do not abort the migration
+        if auth0_user_id:
+            verification_success = self.send_verification_email(auth0_user_id)
+            if not verification_success:
+                logger.warning(
+                    json.dumps(
+                        {
+                            "event": "auth0_admin_migration_verification_email_failed",
+                            "username": username,
+                            "email": email,
+                            "auth0_user_id": auth0_user_id,
+                            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                        }
+                    )
+                )
 
         return response
 

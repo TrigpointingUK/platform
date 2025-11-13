@@ -425,6 +425,19 @@ resource "auth0_client_grant" "m2m_to_api" {
   ]
 }
 
+# Grant Web SPA client access to API
+# Note: SPAs use user-context authorization (not M2M), so scopes are filtered by user's role permissions
+resource "auth0_client_grant" "web_spa_to_api" {
+  client_id = auth0_client.web_spa.id
+  audience  = auth0_resource_server.api.identifier
+
+  scopes = [
+    "api:admin",
+    "api:write",
+    "api:read-pii",
+  ]
+}
+
 # Grant M2M client access to Management API (for user provisioning sync)
 resource "auth0_client_grant" "m2m_to_mgmt_api" {
   client_id = auth0_client.m2m_api.id
@@ -561,6 +574,7 @@ resource "auth0_action" "post_login" {
     namespace = var.custom_claims_namespace
   })
 }
+
 
 # Post-Login Action: Block Non-Admin Users from ALB OIDC Application
 resource "auth0_action" "alb_admin_only" {
@@ -751,6 +765,7 @@ resource "auth0_tenant" "main" {
   # Flags for custom domain usage
   flags {
     # Use custom domain in emails instead of tenant domain
-    enable_custom_domain_in_emails = true
+    enable_custom_domain_in_emails     = true
+    use_scope_descriptions_for_consent = true
   }
 }

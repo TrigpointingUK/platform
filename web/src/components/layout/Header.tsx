@@ -8,6 +8,10 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  // Check if user has api-admin role (from ID token custom claim)
+  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
+  const hasAdminRole = userRoles.includes("api-admin");
+
   const handleLogout = () => {
     logout({
       logoutParams: {
@@ -111,6 +115,15 @@ export default function Header() {
                     >
                       Settings
                     </Link>
+                    {hasAdminRole && (
+                      <Link
+                        to="/admin"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        Admin
+                      </Link>
+                    )}
                     <hr className="my-1" />
                     <button
                       onClick={() => {

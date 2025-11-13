@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Auth0Provider } from "@auth0/auth0-react";
+import { Auth0Provider, AppState } from "@auth0/auth0-react";
 import { Toaster } from "react-hot-toast";
 import AppRouter from "./router";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -37,12 +37,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         authorizationParams={{
           audience,
           redirect_uri: redirectUri,
-          scope: "openid profile email api:write api:read-pii",
+          scope: "openid profile email api:write api:read-pii offline_access",
         }}
         useRefreshTokens
         cacheLocation="localstorage"
-        onRedirectCallback={(appState) => {
+        onRedirectCallback={(appState?: AppState) => {
           console.log('Auth0 redirect callback:', appState);
+          // Return to the URL specified in appState, or default to home
+          return appState?.returnTo || window.location.pathname;
         }}
       >
         <QueryClientProvider client={queryClient}>
