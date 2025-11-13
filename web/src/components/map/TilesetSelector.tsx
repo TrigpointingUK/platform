@@ -4,12 +4,7 @@ import {
   setPreferredTileLayer,
   type TileLayer,
 } from "../../lib/mapConfig";
-
-interface TilesetSelectorProps {
-  value: string;
-  onChange: (tileLayerId: string) => void;
-  className?: string;
-}
+import type { TilesetSelectorProps } from "./types";
 
 /**
  * Dropdown to select and switch between available tile layers

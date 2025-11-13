@@ -1,11 +1,28 @@
 /**
  * Map icon configuration and utilities
  * 
+ * @stable - These types and functions determine marker appearance on all maps.
+ * Changes can affect visual consistency across the application.
+ * 
  * Maps physical types to icon filenames and handles color modes for markers.
+ * 
+ * @remarks
+ * Breaking changes to consider:
+ * - Changing IconColorMode type values
+ * - Modifying icon file naming conventions
+ * - Changing color mapping logic
+ * - Altering function signatures
+ * 
+ * Non-breaking changes:
+ * - Adding new physical types
+ * - Adding new color modes (with fallback)
+ * - Performance improvements
+ * - Internal refactoring
  */
 
 /**
  * Icon color modes
+ * @stable
  */
 export type IconColorMode = 'condition' | 'userLog';
 

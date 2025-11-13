@@ -1,32 +1,29 @@
 import { Marker, Popup } from "react-leaflet";
 import { Icon, type LatLngExpression } from "leaflet";
 import { Link } from "react-router-dom";
-import { getIconUrlForTrig, type IconColorMode, type UserLogStatus } from "../../lib/mapIcons";
-
-interface TrigData {
-  id: number;
-  waypoint: string;
-  name: string;
-  physical_type: string;
-  condition: string;
-  wgs_lat: string | number;
-  wgs_long: string | number;
-  osgb_gridref: string;
-}
-
-interface TrigMarkerProps {
-  trig: TrigData;
-  colorMode: IconColorMode;
-  logStatus?: UserLogStatus | null;
-  highlighted?: boolean;
-  onClick?: (trig: TrigData) => void;
-}
+import { getIconUrlForTrig } from "../../lib/mapIcons";
+import type { TrigMarkerProps } from "./types";
 
 /**
  * Individual trigpoint marker component
  * 
+ * @stable - This component is used by both the main map and trig detail pages.
+ * Its props interface (TrigMarkerProps) should remain stable to prevent breaking changes.
+ * 
  * Renders a custom icon based on physical type and color mode,
  * with a popup showing basic trig information.
+ * 
+ * @remarks
+ * Breaking changes to consider:
+ * - Changing icon sizing or positioning
+ * - Modifying popup structure or content
+ * - Changing how coordinates are parsed
+ * - Altering color mode behavior
+ * 
+ * Non-breaking changes:
+ * - Styling improvements to popup content
+ * - Adding optional props
+ * - Performance optimizations
  */
 export default function TrigMarker({
   trig,

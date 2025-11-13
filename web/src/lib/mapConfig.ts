@@ -1,8 +1,23 @@
 /**
  * Map tile layer configuration
  * 
+ * @stable - These configuration types and functions are used by both map pages.
+ * Changes should maintain backward compatibility.
+ * 
  * Defines available tilesets with URLs, attribution, and settings.
  * Tile server URLs can be configured via environment variables.
+ * 
+ * @remarks
+ * Breaking changes to consider:
+ * - Removing or renaming existing tile layers
+ * - Changing TileLayer interface properties
+ * - Modifying MAP_CONFIG constants (zoom limits, defaults)
+ * - Changing function signatures
+ * 
+ * Non-breaking changes:
+ * - Adding new tile layers
+ * - Adding optional properties to TileLayer
+ * - Performance improvements to functions
  */
 
 export interface TileLayer {
