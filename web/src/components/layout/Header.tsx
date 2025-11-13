@@ -26,7 +26,7 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-trig-green-600 text-white shadow-md sticky top-0 z-50">
+    <header className="bg-trig-green-600 text-white shadow-md sticky top-0 z-[1200]">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -100,7 +100,7 @@ export default function Header() {
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 text-gray-700 z-[60]">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 text-gray-700 z-[1300]">
                     <Link
                       to="/profile"
                       className="block px-4 py-2 hover:bg-gray-100"
