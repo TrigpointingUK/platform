@@ -113,7 +113,7 @@ def export_trigs_geojson(
     Export FBM and Pillar trigpoints in GeoJSON format for map display.
 
     Returns two FeatureCollections (one for each physical type).
-    Each feature contains name in properties and Point geometry.
+    Each feature contains id, name, and condition in properties and Point geometry.
 
     This endpoint is heavily cached (1 year) as the data is essentially static.
     Cache can be manually cleared via admin endpoints if needed.
@@ -144,7 +144,11 @@ def export_trigs_geojson(
                     "type": "Point",
                     "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
                 },
-                "properties": {"name": item.name},
+                "properties": {
+                    "id": item.id,
+                    "name": item.name,
+                    "condition": item.condition,
+                },
             }
         )
 
@@ -160,7 +164,11 @@ def export_trigs_geojson(
                     "type": "Point",
                     "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
                 },
-                "properties": {"name": item.name},
+                "properties": {
+                    "id": item.id,
+                    "name": item.name,
+                    "condition": item.condition,
+                },
             }
         )
 
