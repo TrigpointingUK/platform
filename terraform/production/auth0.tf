@@ -87,15 +87,15 @@ resource "cloudflare_dns_record" "root_spf" {
 
 # DMARC policy record for email authentication and reporting
 # Configures quarantine policy to prevent email spoofing
-# Reports sent to: Cloudflare Analytics, domain email, and personal email
+# Reports sent to: DMARCian, Cloudflare Analytics, domain email, and personal email
 resource "cloudflare_dns_record" "dmarc" {
   zone_id = data.cloudflare_zones.production.result[0].id
   name    = "_dmarc"
-  content = "\"v=DMARC1; p=quarantine; rua=mailto:44c7afe8e66f4541914dbfadf6916197@dmarc-reports.cloudflare.net,mailto:dmarc-reports@trigpointing.uk,mailto:teasel.ian@gmail.com; ruf=mailto:dmarc-forensics@trigpointing.uk; pct=100; adkim=r; aspf=r\""
+  content = "\"v=DMARC1; p=quarantine; rua=mailto:ekbkqzlx@ag.eu.dmarcian.com, mailto:44c7afe8e66f4541914dbfadf6916197@dmarc-reports.cloudflare.net,mailto:dmarc-reports@trigpointing.uk,mailto:teasel.ian@gmail.com; ruf=mailto:dmarc-forensics@trigpointing.uk; pct=100; adkim=r; aspf=r;\""
   type    = "TXT"
   ttl     = 600
 
-  comment = "DMARC policy - quarantine suspicious emails and send reports to Cloudflare + email"
+  comment = "DMARC policy - quarantine suspicious emails and send reports to DMARCian, Cloudflare + email"
 }
 
 # Get Cloudflare zone info
