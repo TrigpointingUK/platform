@@ -1,4 +1,4 @@
-import { Marker, Popup } from "react-leaflet";
+import { Marker, Popup, Tooltip } from "react-leaflet";
 import { Icon, type LatLngExpression } from "leaflet";
 import { Link } from "react-router-dom";
 import { getIconUrlForTrig } from "../../lib/mapIcons";
@@ -68,6 +68,9 @@ export default function TrigMarker({
         click: handleClick,
       }}
     >
+      <Tooltip direction="top" offset={[0, -37]} opacity={0.9} className="minimal-tooltip">
+        <span className="text-xs">{trig.name}</span>
+      </Tooltip>
       <Popup>
         <div className="min-w-[200px]">
           <h3 className="font-bold text-trig-green-600 mb-2">

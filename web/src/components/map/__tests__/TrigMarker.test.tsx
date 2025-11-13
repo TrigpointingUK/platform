@@ -17,6 +17,7 @@ vi.mock('react-leaflet', () => ({
       {children}
     </div>
   ),
+  Tooltip: ({ children }: { children?: React.ReactNode }) => <div data-testid="tooltip">{children}</div>,
   Popup: ({ children }: { children?: React.ReactNode }) => <div data-testid="popup">{children}</div>,
 }));
 
@@ -262,8 +263,14 @@ describe('TrigMarker', () => {
       });
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
-      expect(screen.getByText(/TP1234/)).toBeInTheDocument();
-      expect(screen.getByText(/Test Trig Point/)).toBeInTheDocument();
+      // Check popup content (more specific)
+      const popup = screen.getByTestId('popup');
+      expect(popup).toHaveTextContent(/TP1234/);
+      expect(popup).toHaveTextContent(/Test Trig Point/);
+      
+      // Check tooltip content
+      const tooltip = screen.getByTestId('tooltip');
+      expect(tooltip).toHaveTextContent('Test Trig Point');
     });
 
     it('should display physical type in popup', () => {
