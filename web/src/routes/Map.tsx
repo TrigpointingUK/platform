@@ -159,7 +159,7 @@ export default function Map() {
       geojsonData.fbm.features.forEach((feature) => {
         trigs.push({
           id: feature.properties.id,
-          waypoint: `FBM${feature.properties.id}`,
+          waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
           name: feature.properties.name,
           physical_type: "FBM",
           condition: feature.properties.condition || "U",
@@ -175,7 +175,7 @@ export default function Map() {
       geojsonData.pillar.features.forEach((feature) => {
         trigs.push({
           id: feature.properties.id,
-          waypoint: `PIL${feature.properties.id}`,
+          waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
           name: feature.properties.name,
           physical_type: "Pillar",
           condition: feature.properties.condition || "U",
