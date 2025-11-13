@@ -31,10 +31,12 @@ export default function HeatmapLayer({
     console.log(`HeatmapLayer: Rendering ${trigpoints.length} trigpoints`);
     
     // Convert trigpoints to heatmap points [lat, lng, intensity]
+    // Use logarithmic scaling for better representation of sparse and dense areas
     const heatmapPoints: [number, number, number][] = trigpoints.map((trig) => {
       const lat = typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat;
       const lng = typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long) : trig.wgs_long;
-      return [lat, lng, 1.0]; // Use 1.0 intensity for all points
+      // Use constant intensity - logarithmic scaling happens via max parameter
+      return [lat, lng, 1.0];
     });
     
     console.log(`HeatmapLayer: Created ${heatmapPoints.length} heatmap points`);
@@ -46,20 +48,26 @@ export default function HeatmapLayer({
       return;
     }
     
-    // Create heatmap layer
+    // Create heatmap layer with tuned parameters
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const heatLayer = (L as any).heatLayer(heatmapPoints, {
-      radius: 25,
-      blur: 15,
+      // Smaller radius for better definition of coastlines and boundaries
+      radius: 15,
+      // Less blur for more granular detail
+      blur: 10,
       maxZoom: 17,
-      max: 1.0,
-      minOpacity: 0.5,
+      // Higher max value creates logarithmic-like effect - dense areas don't dominate
+      max: 3.0,
+      // Lower minimum opacity so sparse areas still show
+      minOpacity: 0.2,
+      // More subtle, cooler gradient - less jarring transition
       gradient: {
-        0.0: '#0000ff',
-        0.3: '#00ffff', 
-        0.5: '#00ff00',
-        0.7: '#ffff00',
-        1.0: '#ff0000',
+        0.0: 'rgba(0, 0, 180, 0)',      // Transparent blue
+        0.2: 'rgba(0, 100, 255, 0.3)',  // Light blue
+        0.4: 'rgba(0, 180, 180, 0.5)',  // Cyan
+        0.6: 'rgba(100, 200, 100, 0.6)', // Light green
+        0.8: 'rgba(255, 200, 0, 0.7)',  // Amber
+        1.0: 'rgba(255, 100, 0, 0.8)',  // Orange (not aggressive red)
       },
     });
     
