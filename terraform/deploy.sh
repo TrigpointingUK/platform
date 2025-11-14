@@ -211,6 +211,70 @@ deploy_mysql() {
     print_success "MySQL deployment completed successfully!"
 }
 
+# Function to deploy PostgreSQL databases
+deploy_postgres() {
+    print_status "Deploying PostgreSQL databases..."
+
+    # Configuration
+    local bastion_host="bastion.trigpointing.uk"
+    local ssh_key_path="${SSH_KEY_PATH:-~/.ssh/trigpointing-bastion.pem}"
+    local bastion_user="ec2-user"
+    local terraform_dir="/home/ec2-user/postgres-terraform"
+
+    # Expand tilde in SSH key path
+    local ssh_key_path_expanded="${ssh_key_path/#\~/$HOME}"
+
+    # Check if SSH key exists
+    if [[ ! -f "${ssh_key_path_expanded}" ]]; then
+        print_error "SSH key not found at ${ssh_key_path_expanded}"
+        print_error "Please set SSH_KEY_PATH environment variable or ensure ~/.ssh/trigpointing-bastion.pem exists"
+        exit 1
+    fi
+
+    # Check if we can connect to bastion
+    print_status "Testing connection to bastion host..."
+    if ! ssh -i "${ssh_key_path_expanded}" -o ConnectTimeout=10 -o StrictHostKeyChecking=no "${bastion_user}@${bastion_host}" "echo 'Connection successful'" > /dev/null 2>&1; then
+        print_error "Cannot connect to bastion host at ${bastion_host}"
+        print_error "Please check:"
+        print_error "  - Bastion hostname resolves correctly"
+        print_error "  - SSH key path is correct: ${ssh_key_path_expanded}"
+        print_error "  - SSH key has access to bastion"
+        exit 1
+    fi
+
+    print_status "Copying PostgreSQL Terraform files to bastion host..."
+
+    # Create directory on bastion
+    ssh -i "${ssh_key_path_expanded}" "${bastion_user}@${bastion_host}" "mkdir -p ${terraform_dir}"
+
+    # Copy PostgreSQL Terraform files from postgres directory
+    if [ ! -d "postgres" ]; then
+        print_error "PostgreSQL terraform directory not found. Please run this from the terraform directory."
+        exit 1
+    fi
+
+    cd postgres
+    print_status "Excluding .terraform directory to avoid copying providers..."
+
+    # Try rsync first (faster and more efficient)
+    if command -v rsync > /dev/null 2>&1; then
+        rsync -avz --exclude='.terraform/' --exclude='.terraform.lock.hcl' -e "ssh -i ${ssh_key_path_expanded}" ./ "${bastion_user}@${bastion_host}:${terraform_dir}/"
+    else
+        # Fallback to scp with tar for exclusions
+        print_status "Using tar+scp fallback (rsync not available)..."
+        tar --exclude='.terraform' --exclude='.terraform.lock.hcl' -czf - . | ssh -i "${ssh_key_path_expanded}" "${bastion_user}@${bastion_host}" "cd ${terraform_dir} && tar -xzf -"
+    fi
+
+    print_status "Running terraform on bastion host..."
+
+    # Execute the deployment on bastion
+    ssh -i "${ssh_key_path_expanded}" "${bastion_user}@${bastion_host}" "cd ${terraform_dir} && chmod +x deploy.sh && ./deploy.sh"
+
+    cd ..
+
+    print_success "PostgreSQL deployment completed successfully!"
+}
+
 # Function to show status
 show_status() {
     print_status "Infrastructure Status:"
@@ -288,6 +352,9 @@ main() {
         "mysql")
             deploy_mysql
             ;;
+        "postgres")
+            deploy_postgres
+            ;;
         "all")
             deploy_common
             echo
@@ -298,12 +365,14 @@ main() {
             deploy_monitoring
             echo
             deploy_mysql
+            echo
+            deploy_postgres
             ;;
         "status")
             show_status
             ;;
         *)
-            echo "Usage: $0 {common|staging|production|monitoring|mysql|all|status}"
+            echo "Usage: $0 {common|staging|production|monitoring|mysql|postgres|all|status}"
             echo
             echo "Commands:"
             echo "  common     - Deploy common infrastructure (VPC, ECS, RDS, etc.)"
@@ -311,6 +380,7 @@ main() {
             echo "  production - Deploy production environment"
             echo "  monitoring - Deploy monitoring stack (Synthetics, SNS, Slack)"
             echo "  mysql      - Deploy MySQL databases (runs on bastion host)"
+            echo "  postgres   - Deploy PostgreSQL databases and schemas (runs on bastion host)"
             echo "  all        - Deploy all infrastructure in order"
             echo "  status     - Show current deployment status"
             echo
