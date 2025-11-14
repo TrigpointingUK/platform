@@ -28,11 +28,6 @@ from typing import Any, Dict, List
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
-# Add parent directory to path to import api modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from api.db.base import Base  # Import Base to get all models
-
 
 class PostgreSQLImporter:
     """Import CSV data into PostgreSQL database."""
@@ -67,29 +62,36 @@ class PostgreSQLImporter:
         print(f"Input directory: {self.input_dir}")
 
     def create_tables(self):
-        """Create all tables using SQLAlchemy models."""
-        print("\nCreating database schema...")
+        """Check that tables exist in the database."""
+        print("\nChecking database schema...")
 
-        # Drop existing tables if they exist (for clean import)
+        # Check if tables exist
         inspector = inspect(self.engine)
         existing_tables = inspector.get_table_names()
 
+        if not existing_tables:
+            print("  ⚠️  No tables found in database!")
+            print("  The PostgreSQL schema should have been created by Terraform.")
+            print("  Please ensure 'terraform/postgres/schemas.tf' has been deployed.")
+            response = input("  Continue anyway? (y/N): ")
+            if response.lower() != "y":
+                raise ValueError("No tables found in database")
+        else:
+            print(f"  ✓ Found {len(existing_tables)} existing tables")
+            
+        # Check if we should truncate existing data
         if existing_tables:
-            print(f"  Found {len(existing_tables)} existing tables")
-            response = input("  Drop existing tables and recreate? (yes/N): ")
+            response = input("  Truncate existing data before import? (yes/N): ")
             if response.lower() == "yes":
-                print("  Dropping existing tables...")
-                Base.metadata.drop_all(bind=self.engine)
-                print("  ✓ Tables dropped")
-
-        # Create all tables
-        print("  Creating tables from models...")
-        Base.metadata.create_all(bind=self.engine)
-
-        # Verify tables created
-        inspector = inspect(self.engine)
-        tables = inspector.get_table_names()
-        print(f"  ✓ Created {len(tables)} tables")
+                print("  Truncating tables...")
+                with self.Session() as session:
+                    for table_name in existing_tables:
+                        try:
+                            session.execute(text(f"TRUNCATE TABLE {table_name} CASCADE"))
+                            session.commit()
+                        except Exception as e:
+                            print(f"    ⚠️  Could not truncate {table_name}: {e}")
+                print("  ✓ Tables truncated")
 
     def get_csv_files(self) -> List[Path]:
         """Get list of CSV files in dependency order."""
