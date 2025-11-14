@@ -268,7 +268,7 @@ deploy_postgres() {
     print_status "Running terraform on bastion host..."
 
     # Execute the deployment on bastion
-    ssh -i "${ssh_key_path_expanded}" "${bastion_user}@${bastion_host}" "cd ${terraform_dir} && chmod +x deploy.sh && ./deploy.sh"
+    ssh -i "${ssh_key_path_expanded}" "${bastion_user}@${bastion_host}" "cd ${terraform_dir} && chmod +x deploy_postgres_on_bastion.sh && ./deploy_postgres_on_bastion.sh"
 
     cd ..
 

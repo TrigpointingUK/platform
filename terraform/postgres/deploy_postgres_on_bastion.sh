@@ -19,13 +19,6 @@ echo -e "${GREEN}PostgreSQL Terraform Deployment${NC}"
 echo -e "${GREEN}======================================${NC}"
 echo ""
 
-# Check if we're on the bastion host
-if [ ! -f ~/.ssh/authorized_keys ] || ! hostname | grep -q "bastion"; then
-    echo -e "${RED}ERROR: This script should only be run on the bastion host!${NC}"
-    echo -e "${YELLOW}Use the main deploy.sh script from your local machine instead.${NC}"
-    exit 1
-fi
-
 # Navigate to terraform directory
 cd "$TERRAFORM_DIR"
 
