@@ -97,15 +97,16 @@ class PostgreSQLImporter:
             
             if should_truncate:
                 print("  Truncating tables...")
-                with self.Session() as session:
-                    for table_name in existing_tables:
-                        try:
+                for table_name in existing_tables:
+                    try:
+                        # Use a new session for each table to avoid transaction issues
+                        with self.Session() as session:
                             # Quote table name to handle reserved words
                             quoted_name = f'"{table_name}"' if table_name in ('user', 'order', 'group') else table_name
                             session.execute(text(f"TRUNCATE TABLE {quoted_name} CASCADE"))
                             session.commit()
-                        except Exception as e:
-                            print(f"    ⚠️  Could not truncate {table_name}: {e}")
+                    except Exception as e:
+                        print(f"    ⚠️  Could not truncate {table_name}: {e}")
                 print("  ✓ Tables truncated")
 
     def get_csv_files(self) -> List[Path]:
