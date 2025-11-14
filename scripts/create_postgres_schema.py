@@ -136,16 +136,16 @@ class SchemaCreator:
                     return " DEFAULT CURRENT_TIMESTAMP"
                 return " DEFAULT CURRENT_TIMESTAMP"
             
-            # Invalid date/time defaults
-            if default_val in ('0000-00-00', '0000-00-00 00:00:00', '00:00:00'):
-                # PostgreSQL doesn't allow zero dates - use NULL or omit default
-                return ""
-            
             # MySQL returns defaults WITH quotes already (e.g. "'0'" not "0")
             # Strip outer quotes first
             clean_val = default_val.strip()
             if clean_val.startswith("'") and clean_val.endswith("'"):
                 clean_val = clean_val[1:-1]
+            
+            # Invalid date/time defaults (check AFTER stripping quotes)
+            if clean_val in ('0000-00-00', '0000-00-00 00:00:00', '00:00:00'):
+                # PostgreSQL doesn't allow zero dates - use NULL or omit default
+                return ""
             
             # Now determine if we need to quote it for PostgreSQL
             # Check if it's a numeric type
@@ -260,8 +260,9 @@ class SchemaCreator:
         created = 0
         failed = []
 
-        with self.PgSession() as session:
-            for table_name in ordered_tables:
+        for table_name in ordered_tables:
+            # Use a new session for each table to avoid transaction issues
+            with self.PgSession() as session:
                 try:
                     print(f"\nCreating table: {table_name}")
                     
@@ -280,6 +281,7 @@ class SchemaCreator:
                             session.commit()
                         except Exception as e:
                             print(f"  ⚠ Index creation warning: {e}")
+                            session.rollback()
                     
                     created += 1
                     
