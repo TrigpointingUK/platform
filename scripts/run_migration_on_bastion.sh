@@ -130,7 +130,7 @@ cd /home/ec2-user/postgres-migration
 
 # Get MySQL RDS endpoint from AWS Secrets Manager
 MYSQL_SECRET=$(aws secretsmanager get-secret-value \
-    --secret-id trigpointing-staging-credentials \
+    --secret-id fastapi-staging-credentials \
     --region eu-west-1 \
     --query SecretString --output text)
 
@@ -184,7 +184,7 @@ cd /home/ec2-user/postgres-migration
 
 # Get MySQL RDS endpoint from AWS Secrets Manager
 MYSQL_SECRET=$(aws secretsmanager get-secret-value \
-    --secret-id trigpointing-staging-credentials \
+    --secret-id fastapi-staging-credentials \
     --region eu-west-1 \
     --query SecretString --output text)
 
