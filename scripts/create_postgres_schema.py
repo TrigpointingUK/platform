@@ -287,6 +287,11 @@ class SchemaCreator:
                 try:
                     print(f"\nCreating table: {table_name}")
                     
+                    # Drop table if it exists (to ensure clean schema)
+                    quoted_name = f'"{table_name}"' if table_name.lower() in ['user', 'order', 'group'] or ' ' in table_name else table_name
+                    session.execute(text(f"DROP TABLE IF EXISTS {quoted_name} CASCADE"))
+                    session.commit()
+                    
                     # Get CREATE TABLE SQL
                     create_sql, index_sqls = self.create_table_sql(table_name)
                     
