@@ -33,8 +33,8 @@ provider "aws" {
 data "terraform_remote_state" "common" {
   backend = "s3"
   config = {
-    bucket = "trigpointing-terraform-state"
-    key    = "common/terraform.tfstate"
+    bucket = "tuk-terraform-state"
+    key    = "fastapi-common-eu-west-1/terraform.tfstate"
     region = var.aws_region
   }
 }
