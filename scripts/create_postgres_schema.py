@@ -220,9 +220,14 @@ class SchemaCreator:
             # Check if column is marked NOT NULL but has NULL values in actual data
             if col['nullable']:
                 nullable = ""
-            elif not col['nullable'] and self.has_null_values(table_name, col_name):
-                # Column is NOT NULL in schema but has NULLs in data - make it nullable
-                nullable = ""
+            elif not col['nullable']:
+                # Check actual data for NULLs
+                has_nulls = self.has_null_values(table_name, col_name)
+                if has_nulls:
+                    print(f"    ℹ️  {col_name}: NOT NULL in schema but has NULLs in data - making nullable")
+                    nullable = ""
+                else:
+                    nullable = " NOT NULL"
             else:
                 nullable = " NOT NULL"
             
