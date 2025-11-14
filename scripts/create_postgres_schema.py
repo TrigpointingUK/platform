@@ -217,17 +217,25 @@ class SchemaCreator:
             
             # Handle nullable
             # PostgreSQL is stricter than MySQL about NOT NULL
-            # Check if column is marked NOT NULL but has NULL values in actual data
+            # Make CHAR/VARCHAR columns with defaults nullable (MySQL often has NULLs despite schema)
             if col['nullable']:
                 nullable = ""
             elif not col['nullable']:
-                # Check actual data for NULLs
-                has_nulls = self.has_null_values(table_name, col_name)
-                if has_nulls:
-                    print(f"    ℹ️  {col_name}: NOT NULL in schema but has NULLs in data - making nullable")
-                    nullable = ""
+                # CHAR/VARCHAR columns with defaults often have NULLs in MySQL exports
+                if 'CHAR' in col_type.upper() or 'VARCHAR' in col_type.upper():
+                    if default:  # Has a default value
+                        print(f"    ℹ️  {col_name}: CHAR/VARCHAR with default - making nullable for MySQL compatibility")
+                        nullable = ""
+                    else:
+                        nullable = " NOT NULL"
                 else:
-                    nullable = " NOT NULL"
+                    # Check actual data for NULLs (for non-string types)
+                    has_nulls = self.has_null_values(table_name, col_name)
+                    if has_nulls:
+                        print(f"    ℹ️  {col_name}: NOT NULL in schema but has NULLs in data - making nullable")
+                        nullable = ""
+                    else:
+                        nullable = " NOT NULL"
             else:
                 nullable = " NOT NULL"
             
