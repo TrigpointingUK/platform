@@ -101,6 +101,7 @@ print_status "Copying migration scripts to bastion..."
 scp -i "${SSH_KEY_PATH_EXPANDED}" \
     scripts/export_mysql_to_postgres.py \
     scripts/transform_coordinates_to_postgis.py \
+    scripts/create_postgres_schema.py \
     scripts/import_postgres.py \
     scripts/validate_migration.py \
     "${BASTION_USER}@${BASTION_HOST}:${REMOTE_DIR}/scripts/"
@@ -275,11 +276,15 @@ if [ "$IMPORT_ONLY" = "false" ]; then
 fi
 
 if [ "$EXPORT_ONLY" = "false" ]; then
-    echo "📥 Step 3: Importing data to PostgreSQL..."
+    echo "🗄️  Step 3: Creating PostgreSQL schema from MySQL..."
+    python3 scripts/create_postgres_schema.py
+    echo ""
+    
+    echo "📥 Step 4: Importing data to PostgreSQL..."
     python3 scripts/import_postgres.py --input-dir mysql_export
     echo ""
     
-    echo "✅ Step 4: Validating migration..."
+    echo "✅ Step 5: Validating migration..."
     python3 scripts/validate_migration.py
     echo ""
 fi
