@@ -184,9 +184,11 @@ class PostgreSQLImporter:
                 return
 
             # Build INSERT statement
+            # Quote table name if it's a reserved word
+            quoted_table_name = f'"{table_name}"' if table_name in ('user', 'order', 'group') else table_name
             placeholders = ", ".join([f":{col}" for col in columns])
             insert_sql = (
-                f"INSERT INTO {table_name} ({', '.join(columns)}) "
+                f"INSERT INTO {quoted_table_name} ({', '.join(columns)}) "
                 f"VALUES ({placeholders})"
             )
 
@@ -199,7 +201,7 @@ class PostgreSQLImporter:
 
                 cols_str = ", ".join(cols_without_location) + ", location"
                 insert_sql = (
-                    f"INSERT INTO {table_name} ({cols_str}) " f"VALUES ({placeholders})"
+                    f"INSERT INTO {quoted_table_name} ({cols_str}) " f"VALUES ({placeholders})"
                 )
 
             with self.Session() as session:
