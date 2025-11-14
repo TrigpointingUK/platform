@@ -142,7 +142,7 @@ MYSQL_DATABASE=$(echo "$MYSQL_SECRET" | jq -r '.dbname')
 
 # Get PostgreSQL RDS endpoint from AWS Secrets Manager
 PG_SECRET=$(aws secretsmanager get-secret-value \
-    --secret-id trigpointing-postgres-fastapi-staging \
+    --secret-id trigpointing-postgres-staging-credentials \
     --region eu-west-1 \
     --query SecretString --output text)
 
@@ -196,7 +196,7 @@ MYSQL_DATABASE=$(echo "$MYSQL_SECRET" | jq -r '.dbname')
 
 # Get PostgreSQL RDS endpoint from AWS Secrets Manager
 PG_SECRET=$(aws secretsmanager get-secret-value \
-    --secret-id trigpointing-postgres-fastapi-staging \
+    --secret-id trigpointing-postgres-staging-credentials \
     --region eu-west-1 \
     --query SecretString --output text)
 
