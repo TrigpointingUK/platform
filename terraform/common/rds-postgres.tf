@@ -144,13 +144,13 @@ resource "aws_security_group" "postgres_rds" {
   description = "Security group for PostgreSQL RDS instance"
   vpc_id      = aws_vpc.main.id
 
-  # Allow PostgreSQL access from ECS tasks (FastAPI backend)
+  # Allow PostgreSQL access from ECS tasks (via VPC CIDR)
   ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.fastapi_ecs.id]
-    description     = "PostgreSQL access from FastAPI ECS tasks"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "PostgreSQL access from ECS tasks"
   }
 
   # Allow PostgreSQL access from bastion host
@@ -182,5 +182,11 @@ resource "aws_security_group" "postgres_rds" {
   tags = {
     Name = "${var.project_name}-postgres-rds"
   }
+
+  # Ignore changes to ingress rules managed separately
+  lifecycle {
+    ignore_changes = [ingress]
+  }
 }
+
 
