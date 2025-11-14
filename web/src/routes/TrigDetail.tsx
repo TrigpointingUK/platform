@@ -312,22 +312,32 @@ export default function TrigDetail() {
               </div>
 
               {/* Map Links */}
-              <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
-                <div>
-                  <Link
-                    to={`/map?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&trig=${trigIdNum}`}
-                    className="text-trig-green-600 hover:underline font-semibold"
-                  >
-                    🗺️ View on Interactive Map
-                  </Link>
-                </div>
-                <div>
-                  <Link
-                    to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
-                    className="text-trig-green-600 hover:underline font-semibold"
-                  >
-                    📍 View Nearby Trigpoints
-                  </Link>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <Link
+                      to={`/map?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&trig=${trigIdNum}`}
+                      className="text-trig-green-600 hover:underline font-semibold"
+                    >
+                      🗺️ View on Interactive Map
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      to={`/trigs/${trigIdNum}/photos`}
+                      className="text-trig-green-600 hover:underline font-semibold"
+                    >
+                      📷 View Photo Album
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
+                      className="text-trig-green-600 hover:underline font-semibold"
+                    >
+                      📍 View Nearby Trigpoints
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>

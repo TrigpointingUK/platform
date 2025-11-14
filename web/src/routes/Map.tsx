@@ -387,7 +387,7 @@ export default function Map() {
                         ? 'bg-trig-green-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
-                    title="Always show individual markers"
+                    title="Always show individual markers (may be slow for large datasets)"
                   >
                     Markers
                   </button>
