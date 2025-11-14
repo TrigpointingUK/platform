@@ -120,9 +120,108 @@ rsync -avz --exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' \
 # Copy .env file (with database credentials)
 print_status "Copying .env file..."
 if [[ -f .env ]]; then
-    scp -i "${SSH_KEY_PATH_EXPANDED}" .env "${BASTION_USER}@${BASTION_HOST}:${REMOTE_DIR}/"
+    scp -i "${SSH_KEY_PATH_EXPANDED}" .env "${BASTION_USER}@${BASTION_HOST}:${REMOTE_DIR}/.env.local"
+    print_status "Creating bastion-specific .env with RDS endpoints..."
+    ssh -i "${SSH_KEY_PATH_EXPANDED}" "${BASTION_USER}@${BASTION_HOST}" << 'EOF'
+cd /home/ec2-user/postgres-migration
+
+# Get MySQL RDS endpoint from AWS Secrets Manager
+MYSQL_SECRET=$(aws secretsmanager get-secret-value \
+    --secret-id trigpointing-mysql-master \
+    --region eu-west-1 \
+    --query SecretString --output text)
+
+MYSQL_HOST=$(echo "$MYSQL_SECRET" | jq -r '.host')
+MYSQL_PORT=$(echo "$MYSQL_SECRET" | jq -r '.port')
+MYSQL_USER=$(echo "$MYSQL_SECRET" | jq -r '.username')
+MYSQL_PASSWORD=$(echo "$MYSQL_SECRET" | jq -r '.password')
+MYSQL_DATABASE=$(echo "$MYSQL_SECRET" | jq -r '.dbname')
+
+# Get PostgreSQL RDS endpoint from AWS Secrets Manager
+PG_SECRET=$(aws secretsmanager get-secret-value \
+    --secret-id trigpointing-postgres-fastapi-staging \
+    --region eu-west-1 \
+    --query SecretString --output text)
+
+PG_HOST=$(echo "$PG_SECRET" | jq -r '.host')
+PG_PORT=$(echo "$PG_SECRET" | jq -r '.port')
+PG_USER=$(echo "$PG_SECRET" | jq -r '.username')
+PG_PASSWORD=$(echo "$PG_SECRET" | jq -r '.password')
+PG_DATABASE=$(echo "$PG_SECRET" | jq -r '.dbname')
+
+# Create .env file with RDS endpoints
+cat > .env << ENVEOF
+# MySQL RDS (source database for export)
+MYSQL_HOST=${MYSQL_HOST}
+MYSQL_PORT=${MYSQL_PORT}
+MYSQL_USER=${MYSQL_USER}
+MYSQL_PASSWORD=${MYSQL_PASSWORD}
+MYSQL_NAME=${MYSQL_DATABASE}
+
+# PostgreSQL RDS (target database for import)
+DB_HOST=${PG_HOST}
+DB_PORT=${PG_PORT}
+DB_USER=${PG_USER}
+DB_PASSWORD=${PG_PASSWORD}
+DB_NAME=${PG_DATABASE}
+
+# For validation script (it needs both)
+DATABASE_URL=postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}
+ENVEOF
+
+echo "✓ Created .env with RDS credentials"
+EOF
 else
-    print_warning "No .env file found locally"
+    print_warning "No .env file found locally - will create one on bastion from AWS Secrets Manager"
+    ssh -i "${SSH_KEY_PATH_EXPANDED}" "${BASTION_USER}@${BASTION_HOST}" << 'EOF'
+cd /home/ec2-user/postgres-migration
+
+# Get MySQL RDS endpoint from AWS Secrets Manager
+MYSQL_SECRET=$(aws secretsmanager get-secret-value \
+    --secret-id trigpointing-mysql-master \
+    --region eu-west-1 \
+    --query SecretString --output text)
+
+MYSQL_HOST=$(echo "$MYSQL_SECRET" | jq -r '.host')
+MYSQL_PORT=$(echo "$MYSQL_SECRET" | jq -r '.port')
+MYSQL_USER=$(echo "$MYSQL_SECRET" | jq -r '.username')
+MYSQL_PASSWORD=$(echo "$MYSQL_SECRET" | jq -r '.password')
+MYSQL_DATABASE=$(echo "$MYSQL_SECRET" | jq -r '.dbname')
+
+# Get PostgreSQL RDS endpoint from AWS Secrets Manager
+PG_SECRET=$(aws secretsmanager get-secret-value \
+    --secret-id trigpointing-postgres-fastapi-staging \
+    --region eu-west-1 \
+    --query SecretString --output text)
+
+PG_HOST=$(echo "$PG_SECRET" | jq -r '.host')
+PG_PORT=$(echo "$PG_SECRET" | jq -r '.port')
+PG_USER=$(echo "$PG_SECRET" | jq -r '.username')
+PG_PASSWORD=$(echo "$PG_SECRET" | jq -r '.password')
+PG_DATABASE=$(echo "$PG_SECRET" | jq -r '.dbname')
+
+# Create .env file with RDS endpoints
+cat > .env << ENVEOF
+# MySQL RDS (source database for export)
+MYSQL_HOST=${MYSQL_HOST}
+MYSQL_PORT=${MYSQL_PORT}
+MYSQL_USER=${MYSQL_USER}
+MYSQL_PASSWORD=${MYSQL_PASSWORD}
+MYSQL_NAME=${MYSQL_DATABASE}
+
+# PostgreSQL RDS (target database for import)
+DB_HOST=${PG_HOST}
+DB_PORT=${PG_PORT}
+DB_USER=${PG_USER}
+DB_PASSWORD=${PG_PASSWORD}
+DB_NAME=${PG_DATABASE}
+
+# For validation script (it needs both)
+DATABASE_URL=postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}
+ENVEOF
+
+echo "✓ Created .env with RDS credentials from AWS Secrets Manager"
+EOF
 fi
 
 print_success "Files copied to bastion"
