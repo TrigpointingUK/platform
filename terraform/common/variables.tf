@@ -58,15 +58,27 @@ variable "db_instance_class" {
 }
 
 variable "db_allocated_storage" {
-  description = "RDS allocated storage in GB"
+  description = "RDS allocated storage in GB (MySQL)"
   type        = number
   default     = 5
 }
 
 variable "db_max_allocated_storage" {
-  description = "RDS maximum allocated storage in GB"
+  description = "RDS maximum allocated storage in GB (MySQL)"
   type        = number
   default     = 10
+}
+
+variable "postgres_allocated_storage" {
+  description = "PostgreSQL RDS allocated storage in GB (minimum 20 for gp3)"
+  type        = number
+  default     = 20
+}
+
+variable "postgres_max_allocated_storage" {
+  description = "PostgreSQL RDS maximum allocated storage in GB"
+  type        = number
+  default     = 100
 }
 
 variable "db_performance_insights_enabled" {

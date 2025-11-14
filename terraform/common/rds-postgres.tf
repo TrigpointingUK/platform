@@ -96,8 +96,8 @@ resource "aws_db_instance" "postgres" {
   instance_class = var.db_instance_class
 
   # Storage
-  allocated_storage     = var.db_allocated_storage
-  max_allocated_storage = var.db_max_allocated_storage
+  allocated_storage     = var.postgres_allocated_storage
+  max_allocated_storage = var.postgres_max_allocated_storage
   storage_type          = "gp3"
   storage_encrypted     = true
 
