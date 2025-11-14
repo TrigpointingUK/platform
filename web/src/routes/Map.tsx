@@ -76,6 +76,24 @@ function MapViewportTracker({
   return null;
 }
 
+/**
+ * Component to invalidate map size when sidebar opens/closes
+ */
+function MapSizeInvalidator({ sidebarOpen }: { sidebarOpen: boolean }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    // Wait for CSS transition to complete, then invalidate map size
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 300); // Match the transition-all duration-300 from sidebar
+    
+    return () => clearTimeout(timer);
+  }, [sidebarOpen, map]);
+  
+  return null;
+}
+
 export default function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
@@ -463,6 +481,7 @@ export default function Map() {
               onBoundsChange={handleBoundsChange}
               onZoomChange={setCurrentZoom}
             />
+            <MapSizeInvalidator sidebarOpen={isSidebarOpen} />
             
             {/* Render trigpoint markers or heatmap */}
             {shouldShowHeatmap ? (
