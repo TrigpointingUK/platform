@@ -101,6 +101,11 @@ class SchemaCreator:
         """Convert MySQL column type to PostgreSQL type."""
         mysql_type = str(column['type']).upper()
         
+        # Handle NULL type (unknown column type)
+        if mysql_type in ('NULL', 'NULLTYPE'):
+            # Default to TEXT for unknown types
+            return 'TEXT'
+        
         # Extract base type (e.g., VARCHAR(255) -> VARCHAR)
         base_type = mysql_type.split('(')[0]
         
@@ -136,12 +141,33 @@ class SchemaCreator:
                 # PostgreSQL doesn't allow zero dates - use NULL or omit default
                 return ""
             
-            # Regular string defaults
-            # Remove any double-quoting that MySQL might have
-            clean_val = default_val.replace("''", "'")
-            return f" DEFAULT '{clean_val}'"
+            # MySQL returns defaults WITH quotes already (e.g. "'0'" not "0")
+            # Strip outer quotes first
+            clean_val = default_val.strip()
+            if clean_val.startswith("'") and clean_val.endswith("'"):
+                clean_val = clean_val[1:-1]
+            
+            # Now determine if we need to quote it for PostgreSQL
+            # Check if it's a numeric type
+            col_type_upper = col_type.upper()
+            is_numeric = any(t in col_type_upper for t in [
+                'INT', 'DECIMAL', 'NUMERIC', 'REAL', 'DOUBLE', 'FLOAT', 'SERIAL'
+            ])
+            
+            if is_numeric:
+                # For numeric columns, don't quote the default
+                try:
+                    # Try to parse as a number to validate
+                    float(clean_val)
+                    return f" DEFAULT {clean_val}"
+                except ValueError:
+                    # If it's not a valid number, skip the default
+                    return ""
+            else:
+                # For string/char types, quote the default
+                return f" DEFAULT '{clean_val}'"
         
-        # Numeric defaults
+        # Numeric defaults (when MySQL returns as number not string)
         return f" DEFAULT {default_val}"
 
     def create_table_sql(self, table_name: str) -> str:
