@@ -170,6 +170,19 @@ class SchemaCreator:
         # Numeric defaults (when MySQL returns as number not string)
         return f" DEFAULT {default_val}"
 
+    def has_null_values(self, table_name: str, column_name: str) -> bool:
+        """Check if a column has any NULL values in the actual data."""
+        try:
+            with self.mysql_engine.connect() as conn:
+                result = conn.execute(
+                    text(f"SELECT COUNT(*) FROM {table_name} WHERE `{column_name}` IS NULL")
+                )
+                count = result.scalar()
+                return count > 0
+        except Exception:
+            # If query fails, assume no NULLs
+            return False
+
     def create_table_sql(self, table_name: str) -> str:
         """Generate CREATE TABLE SQL for PostgreSQL from MySQL table."""
         inspector = inspect(self.mysql_engine)
@@ -204,8 +217,14 @@ class SchemaCreator:
             
             # Handle nullable
             # PostgreSQL is stricter than MySQL about NOT NULL
-            # MySQL often allows NULL in columns marked NOT NULL if they have a default
-            nullable = "" if col['nullable'] else " NOT NULL"
+            # Check if column is marked NOT NULL but has NULL values in actual data
+            if col['nullable']:
+                nullable = ""
+            elif not col['nullable'] and self.has_null_values(table_name, col_name):
+                # Column is NOT NULL in schema but has NULLs in data - make it nullable
+                nullable = ""
+            else:
+                nullable = " NOT NULL"
             
             # Handle auto_increment -> SERIAL/BIGSERIAL
             if col.get('autoincrement'):
