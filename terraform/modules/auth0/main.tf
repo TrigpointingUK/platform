@@ -332,6 +332,7 @@ resource "auth0_client" "alb" {
     [
       "https://cache.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
       "https://phpmyadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
+      "https://pgadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
     ],
     # Preview site only exists in production
     var.environment == "production" ? ["https://preview.trigpointing.uk/oauth2/idpresponse"] : []
@@ -341,6 +342,7 @@ resource "auth0_client" "alb" {
     [
       "https://cache.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
       "https://phpmyadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
+      "https://pgadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
     ],
     # Preview site only exists in production
     var.environment == "production" ? ["https://preview.trigpointing.uk"] : []
