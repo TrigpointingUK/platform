@@ -1,13 +1,24 @@
 # Migration-specific dependencies
 # These are only needed for the MySQL to PostgreSQL migration
 # and can be removed after migration is complete
+#
+# NOTE: Compatible with Python 3.9+ (bastion host has Python 3.9)
 
 # Data export/import and validation
-pandas==2.2.3
+pandas>=2.0.0,<3.0.0
 
 # MySQL driver for exporting data from the source database
-pymysql==1.1.2
+pymysql>=1.1.0,<2.0.0
 
-# Include main requirements
--r requirements.txt
+# PostgreSQL driver
+psycopg2-binary>=2.9.0,<3.0.0
+
+# ORM and PostGIS support
+sqlalchemy>=2.0.0,<3.0.0
+geoalchemy2>=0.14.0,<1.0.0
+
+# Configuration management (Python 3.9 compatible versions)
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<2.12.0
+python-dotenv>=1.0.0,<2.0.0
 
