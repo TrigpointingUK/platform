@@ -253,6 +253,12 @@ pip install --quiet --upgrade pip
 pip install --quiet -r requirements-migration.txt
 
 echo ""
+echo "🔐 Loading database credentials from .env..."
+# Export all variables from .env file
+set -a
+source .env
+set +a
+
 echo "============================================================"
 echo "🚀 Starting Migration Process"
 echo "============================================================"
