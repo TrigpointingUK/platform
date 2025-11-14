@@ -197,13 +197,15 @@ class SchemaCreator:
             if ' COLLATE ' in col_type:
                 col_type = col_type.split(' COLLATE ')[0]
             
-            # Handle nullable
-            nullable = "" if col['nullable'] else " NOT NULL"
-            
-            # Handle default values
+            # Handle default values first (needed for nullable check)
             default = ""
             if col['default'] is not None:
                 default = self.sanitize_default_value(col['default'], col_type)
+            
+            # Handle nullable
+            # PostgreSQL is stricter than MySQL about NOT NULL
+            # MySQL often allows NULL in columns marked NOT NULL if they have a default
+            nullable = "" if col['nullable'] else " NOT NULL"
             
             # Handle auto_increment -> SERIAL/BIGSERIAL
             if col.get('autoincrement'):
