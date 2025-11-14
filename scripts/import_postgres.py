@@ -85,13 +85,24 @@ class PostgreSQLImporter:
             
         # Check if we should truncate existing data
         if existing_tables:
-            response = input("  Truncate existing data before import? (yes/N): ")
-            if response.lower() == "yes":
+            # Check if running in interactive mode
+            import sys
+            if sys.stdin.isatty():
+                response = input("  Truncate existing data before import? (yes/N): ")
+                should_truncate = response.lower() == "yes"
+            else:
+                # Non-interactive mode - auto-truncate to avoid duplicate key errors
+                print("  ℹ️  Non-interactive mode detected - auto-truncating tables")
+                should_truncate = True
+            
+            if should_truncate:
                 print("  Truncating tables...")
                 with self.Session() as session:
                     for table_name in existing_tables:
                         try:
-                            session.execute(text(f"TRUNCATE TABLE {table_name} CASCADE"))
+                            # Quote table name to handle reserved words
+                            quoted_name = f'"{table_name}"' if table_name in ('user', 'order', 'group') else table_name
+                            session.execute(text(f"TRUNCATE TABLE {quoted_name} CASCADE"))
                             session.commit()
                         except Exception as e:
                             print(f"    ⚠️  Could not truncate {table_name}: {e}")
