@@ -1,0 +1,13 @@
+# Migration-specific dependencies
+# These are only needed for the MySQL to PostgreSQL migration
+# and can be removed after migration is complete
+
+# Data export/import and validation
+pandas==2.2.3
+
+# MySQL driver for exporting data from the source database
+pymysql==1.1.2
+
+# Include main requirements
+-r requirements.txt
+
