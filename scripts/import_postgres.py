@@ -213,6 +213,9 @@ class PostgreSQLImporter:
                             cleaned_row[key] = None
                         elif value == "NULL":
                             cleaned_row[key] = None
+                        elif value == "0000-00-00 00:00:00":
+                            # MySQL invalid datetime -> NULL
+                            cleaned_row[key] = None
                         elif key == "crt_time" and value and "days" in str(value):
                             # Convert pandas timedelta format "0 days HH:MM:SS" to TIME
                             try:
