@@ -228,8 +228,13 @@ class SchemaCreator:
                         nullable = ""
                     else:
                         nullable = " NOT NULL"
+                # DATETIME/TIMESTAMP columns often have 0000-00-00 00:00:00 in MySQL which PostgreSQL rejects
+                # Just make them all nullable for compatibility
+                elif 'TIMESTAMP' in col_type.upper() or col_type.upper() == 'DATETIME':
+                    print(f"    ℹ️  {col_name}: DATETIME/TIMESTAMP - making nullable for MySQL compatibility")
+                    nullable = ""
                 else:
-                    # Check actual data for NULLs (for non-string types)
+                    # Check actual data for NULLs (for other types)
                     has_nulls = self.has_null_values(table_name, col_name)
                     if has_nulls:
                         print(f"    ℹ️  {col_name}: NOT NULL in schema but has NULLs in data - making nullable")
