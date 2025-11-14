@@ -301,10 +301,10 @@ export default function UserProfile() {
               Trig Statistics Breakdown
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* By Current Use */}
+              {/* By Recent Use */}
               <Card>
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                  Current Use
+                  Recent Use
                 </h3>
                 <div className="space-y-2">
                   {Object.entries(user.breakdown.by_current_use)

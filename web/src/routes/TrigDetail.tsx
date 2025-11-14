@@ -260,7 +260,7 @@ export default function TrigDetail() {
 
                     <div>
                       <span className="font-semibold text-gray-700">
-                        Current use:
+                        Recent use:
                       </span>{" "}
                       {shouldHaveWikiLink(trig.details.current_use) ? (
                         <a

@@ -19,7 +19,8 @@ import {
   searchLegacyUsers,
 } from "../lib/api";
 
-const ADMIN_REAUTH_DELAY_MS = import.meta.env.MODE === "test" ? 0 : 5000;
+// const ADMIN_REAUTH_DELAY_MS = import.meta.env.MODE === "test" ? 0 : 5000;
+const ADMIN_REAUTH_DELAY_MS = 0;
 const ADMIN_DEBUG_LABEL = "[admin-scope]";
 const BASE_SCOPES = "openid profile email api:write api:read-pii offline_access";
 const ADMIN_SCOPE = "api:admin";
