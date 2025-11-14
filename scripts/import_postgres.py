@@ -24,6 +24,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
@@ -52,8 +53,11 @@ class PostgreSQLImporter:
                 "DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME"
             )
 
-        # Connect to PostgreSQL
-        pg_url = f"postgresql+psycopg2://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
+        # Connect to PostgreSQL - URL encode credentials to handle special characters
+        pg_url = (
+            f"postgresql+psycopg2://{quote_plus(pg_user)}:{quote_plus(pg_password)}"
+            f"@{pg_host}:{pg_port}/{pg_database}"
+        )
 
         self.engine = create_engine(pg_url)
         self.Session = sessionmaker(bind=self.engine)

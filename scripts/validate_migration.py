@@ -21,6 +21,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
@@ -45,7 +46,10 @@ class MigrationValidator:
             )
 
         # PostgreSQL connection
-        pg_url = f"postgresql+psycopg2://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
+        pg_url = (
+            f"postgresql+psycopg2://{quote_plus(pg_user)}:{quote_plus(pg_password)}"
+            f"@{pg_host}:{pg_port}/{pg_database}"
+        )
 
         self.pg_engine = create_engine(pg_url)
         self.PgSession = sessionmaker(bind=self.pg_engine)
@@ -64,7 +68,7 @@ class MigrationValidator:
             )
 
         mysql_url = (
-            f"mysql+pymysql://{mysql_user}:{mysql_password}"
+            f"mysql+pymysql://{quote_plus(mysql_user)}:{quote_plus(mysql_password)}"
             f"@{mysql_host}:{mysql_port}/{mysql_database}"
         )
 

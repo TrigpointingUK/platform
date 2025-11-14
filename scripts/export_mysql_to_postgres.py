@@ -19,6 +19,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib.parse import quote_plus
 
 import pandas as pd
 from sqlalchemy import create_engine, inspect, text
@@ -48,7 +49,7 @@ class MySQLExporter:
         
         # Connect to MySQL
         mysql_url = (
-            f"mysql+pymysql://{self.mysql_user}:{self.mysql_password}"
+            f"mysql+pymysql://{quote_plus(self.mysql_user)}:{quote_plus(self.mysql_password)}"
             f"@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}"
         )
         self.engine = create_engine(mysql_url)
