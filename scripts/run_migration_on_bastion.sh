@@ -153,23 +153,20 @@ PG_PASSWORD=$(echo "$PG_SECRET" | jq -r '.password')
 PG_DATABASE=$(echo "$PG_SECRET" | jq -r '.dbname')
 
 # Create .env file with RDS endpoints
-cat > .env << ENVEOF
+cat > .env << 'ENVEOF'
 # MySQL RDS (source database for export)
-MYSQL_HOST='${MYSQL_HOST}'
-MYSQL_PORT='${MYSQL_PORT}'
-MYSQL_USER='${MYSQL_USER}'
-MYSQL_PASSWORD='${MYSQL_PASSWORD}'
-MYSQL_NAME='${MYSQL_DATABASE}'
+export MYSQL_HOST="${MYSQL_HOST}"
+export MYSQL_PORT="${MYSQL_PORT}"
+export MYSQL_USER="${MYSQL_USER}"
+export MYSQL_PASSWORD="${MYSQL_PASSWORD}"
+export MYSQL_NAME="${MYSQL_DATABASE}"
 
 # PostgreSQL RDS (target database for import)
-DB_HOST='${PG_HOST}'
-DB_PORT='${PG_PORT}'
-DB_USER='${PG_USER}'
-DB_PASSWORD='${PG_PASSWORD}'
-DB_NAME='${PG_DATABASE}'
-
-# For validation script (it needs both)
-DATABASE_URL='postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}'
+export DB_HOST="${PG_HOST}"
+export DB_PORT="${PG_PORT}"
+export DB_USER="${PG_USER}"
+export DB_PASSWORD="${PG_PASSWORD}"
+export DB_NAME="${PG_DATABASE}"
 ENVEOF
 
 echo "✓ Created .env with RDS credentials"
@@ -207,23 +204,20 @@ PG_PASSWORD=$(echo "$PG_SECRET" | jq -r '.password')
 PG_DATABASE=$(echo "$PG_SECRET" | jq -r '.dbname')
 
 # Create .env file with RDS endpoints
-cat > .env << ENVEOF
+cat > .env << 'ENVEOF'
 # MySQL RDS (source database for export)
-MYSQL_HOST='${MYSQL_HOST}'
-MYSQL_PORT='${MYSQL_PORT}'
-MYSQL_USER='${MYSQL_USER}'
-MYSQL_PASSWORD='${MYSQL_PASSWORD}'
-MYSQL_NAME='${MYSQL_DATABASE}'
+export MYSQL_HOST="${MYSQL_HOST}"
+export MYSQL_PORT="${MYSQL_PORT}"
+export MYSQL_USER="${MYSQL_USER}"
+export MYSQL_PASSWORD="${MYSQL_PASSWORD}"
+export MYSQL_NAME="${MYSQL_DATABASE}"
 
 # PostgreSQL RDS (target database for import)
-DB_HOST='${PG_HOST}'
-DB_PORT='${PG_PORT}'
-DB_USER='${PG_USER}'
-DB_PASSWORD='${PG_PASSWORD}'
-DB_NAME='${PG_DATABASE}'
-
-# For validation script (it needs both)
-DATABASE_URL='postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}'
+export DB_HOST="${PG_HOST}"
+export DB_PORT="${PG_PORT}"
+export DB_USER="${PG_USER}"
+export DB_PASSWORD="${PG_PASSWORD}"
+export DB_NAME="${PG_DATABASE}"
 ENVEOF
 
 echo "✓ Created .env with RDS credentials from AWS Secrets Manager"
@@ -258,10 +252,8 @@ pip install --quiet -r requirements-migration.txt
 
 echo ""
 echo "🔐 Loading database credentials from .env..."
-# Export all variables from .env file
-set -a
+# Source the .env file (contains export statements)
 source .env
-set +a
 
 echo "============================================================"
 echo "🚀 Starting Migration Process"
