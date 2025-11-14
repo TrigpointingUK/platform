@@ -115,8 +115,10 @@ resource "aws_db_instance" "postgres" {
   allow_major_version_upgrade = true
 
   # Monitoring
+  # Enhanced monitoring disabled to save costs (~$0.50/instance/month)
+  # Basic CloudWatch metrics (CPU, connections, etc.) still available at 1-minute intervals
   monitoring_interval = 0
-  monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn
+  # monitoring_role_arn only needed when monitoring_interval > 0
 
   # Security
   deletion_protection       = false
