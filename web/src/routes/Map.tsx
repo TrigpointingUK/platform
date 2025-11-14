@@ -516,7 +516,7 @@ export default function Map() {
           {!isSidebarOpen && (
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="absolute top-4 left-4 z-[1000] bg-white hover:bg-gray-50 p-3 rounded-lg shadow-md"
+              className="absolute top-4 left-20 z-[1000] bg-white hover:bg-gray-50 p-3 rounded-lg shadow-md"
             >
               <Menu size={24} className="text-gray-700" />
             </button>
