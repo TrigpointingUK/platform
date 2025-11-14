@@ -213,6 +213,16 @@ class PostgreSQLImporter:
                             cleaned_row[key] = None
                         elif value == "NULL":
                             cleaned_row[key] = None
+                        elif key == "crt_time" and value and "days" in str(value):
+                            # Convert pandas timedelta format "0 days HH:MM:SS" to TIME
+                            try:
+                                parts = str(value).split(" days ")
+                                if len(parts) == 2:
+                                    cleaned_row[key] = parts[1]  # Just take the time part
+                                else:
+                                    cleaned_row[key] = value
+                            except:
+                                cleaned_row[key] = value
                         else:
                             cleaned_row[key] = value
 
