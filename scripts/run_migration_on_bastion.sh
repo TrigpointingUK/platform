@@ -123,6 +123,9 @@ if [[ -f .env ]]; then
     scp -i "${SSH_KEY_PATH_EXPANDED}" .env "${BASTION_USER}@${BASTION_HOST}:${REMOTE_DIR}/.env.local"
     print_status "Creating bastion-specific .env with RDS endpoints..."
     ssh -i "${SSH_KEY_PATH_EXPANDED}" "${BASTION_USER}@${BASTION_HOST}" << 'EOF'
+set -e
+export AWS_DEFAULT_REGION=eu-west-1
+
 cd /home/ec2-user/postgres-migration
 
 # Get MySQL RDS endpoint from AWS Secrets Manager
@@ -174,6 +177,9 @@ EOF
 else
     print_warning "No .env file found locally - will create one on bastion from AWS Secrets Manager"
     ssh -i "${SSH_KEY_PATH_EXPANDED}" "${BASTION_USER}@${BASTION_HOST}" << 'EOF'
+set -e
+export AWS_DEFAULT_REGION=eu-west-1
+
 cd /home/ec2-user/postgres-migration
 
 # Get MySQL RDS endpoint from AWS Secrets Manager
