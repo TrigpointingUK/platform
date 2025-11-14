@@ -525,7 +525,7 @@ class TestLegacyLoginIncludes:
             osgb_northings=500000,
             osgb_gridref="SK 00000 00000",
             osgb_height=100,
-            postcode6="SW1A 1",
+            postcode="SW1A 1",
             county="Test County",
             town="Test Town",
             permission_ind="Y",

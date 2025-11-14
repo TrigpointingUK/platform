@@ -60,7 +60,7 @@ class Trig(Base):
     osgb_height = Column(Integer, nullable=False)  # Height in meters
 
     # Location information
-    postcode6 = Column(String(6), nullable=False)  # Postcode area
+    postcode = Column(String(10), nullable=False)  # Postcode
     county = Column(String(20), nullable=False)  # County
     town = Column(String(50), nullable=False)  # Town/area
 
