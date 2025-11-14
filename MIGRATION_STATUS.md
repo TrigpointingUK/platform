@@ -21,11 +21,13 @@
 - [x] Updated `api/models/trig.py` - Added PostGIS Geography column and hybrid properties
 - [x] Updated `api/crud/trig.py` - Replaced haversine with PostGIS ST_Distance/ST_DWithin
 
-### Phase 3: Data Migration Scripts 🟡
+### Phase 3: Data Migration Scripts ✅
 - [x] Created `scripts/export_mysql_to_postgres.py` - MySQL data export
 - [x] Created `scripts/transform_coordinates_to_postgis.py` - Coordinate transformation
-- [ ] Create `scripts/import_postgres.py` - PostgreSQL data import
-- [ ] Create `scripts/validate_migration.py` - Data validation
+- [x] Created `scripts/import_postgres.py` - PostgreSQL data import
+- [x] Created `scripts/validate_migration.py` - Data validation
+- [x] Created `scripts/run_migration_on_bastion.sh` - Orchestration script
+- [x] Created `docs/migration/MIGRATION_QUICKSTART.md` - Operator guide
 
 ### Phase 4: Validation & Testing ⏳
 - [ ] Data integrity validation
@@ -63,14 +65,15 @@
 
 ## Next Steps
 
-1. Complete `scripts/import_postgres.py` - Import transformed data to PostgreSQL
-2. Complete `scripts/validate_migration.py` - Validate data migration
-3. Update remaining models (User, TLog, Location tables) if they have spatial data
-4. Test the application against PostgreSQL database
-5. Create Alembic migration for schema deployment
-6. Deploy infrastructure via Terraform
-7. Run data migration scripts
-8. Deploy updated application code
+1. ~~Complete `scripts/import_postgres.py`~~ ✅ Done
+2. ~~Complete `scripts/validate_migration.py`~~ ✅ Done
+3. **RUN MIGRATION**: Execute `./scripts/run_migration_on_bastion.sh`
+4. **Test the application** against PostgreSQL database locally
+5. **Deploy to staging** and test thoroughly
+6. **Schedule production maintenance window**
+7. **Run production migration**
+8. **Monitor** for 24-48 hours
+9. **Cleanup** after 7 days (remove MySQL deps, migration scripts)
 
 ## Architecture Notes
 
