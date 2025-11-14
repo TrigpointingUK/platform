@@ -3,7 +3,15 @@ instance_group: "bastion"
 
 ansible_user: ec2-user
 
+# MySQL RDS connection details
 db_secret_name: "rds!db-0c18e5de-035f-40af-8b12-e0ae84fedd46"
 db_host: "fastapi-db.czyrbczcs1ak.eu-west-1.rds.amazonaws.com"
 db_port: 3306
 db_schema: "tuk_production"
+
+# PostgreSQL RDS connection details
+pg_secret_name: "rds!db-e4b43ba9-9478-4eca-93dc-25e51869e838"
+pg_host: "trigpointing-postgres.czyrbczcs1ak.eu-west-1.rds.amazonaws.com"
+pg_port: 5432
+pg_database: "postgres"  # Default admin database
+

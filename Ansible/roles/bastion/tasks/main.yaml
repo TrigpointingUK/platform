@@ -2,8 +2,12 @@
   import_tasks: ./00-packages.yaml
   tags: packages
 
-- name: DB connection script
+- name: DB connection script (MySQL)
   import_tasks: ./10-db-connect.yaml
+  tags: packages
+
+- name: PostgreSQL connection script
+  import_tasks: ./11-pg-connect.yaml
   tags: packages
 
 - name: Disable update-motd timer
