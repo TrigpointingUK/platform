@@ -199,6 +199,24 @@ export default function TrigDetail() {
                   </a>
                 </div>
 
+                {trig.details && trig.details.osgb_height && (
+                  <div>
+                    <span className="font-semibold text-gray-700">
+                      Height (OSGB):
+                    </span>{" "}
+                    {trig.details.osgb_height}m
+                  </div>
+                )}
+
+                {trig.details && trig.details.postcode && (
+                  <div>
+                    <span className="font-semibold text-gray-700">
+                      Postcode:
+                    </span>{" "}
+                    {trig.details.postcode}
+                  </div>
+                )}
+
                 <div>
                   <span className="font-semibold text-gray-700">Type:</span>{" "}
                   {shouldHaveWikiLink(trig.physical_type) ? (

@@ -80,6 +80,7 @@ class TrigDetails(BaseModel):
     current_use: str
     historic_use: str
     wgs_height: int
+    osgb_height: int
     postcode: str = Field(..., validation_alias="postcode6")
     county: str
     town: str

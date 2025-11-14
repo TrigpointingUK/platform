@@ -210,6 +210,7 @@ export interface TrigDetails {
   current_use: string;
   historic_use: string;
   wgs_height: number;
+  osgb_height: number;
   postcode: string;
   county: string;
   town: string;
