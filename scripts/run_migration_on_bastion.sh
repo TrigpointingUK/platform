@@ -106,9 +106,8 @@ scp -i "${SSH_KEY_PATH_EXPANDED}" \
     "${BASTION_USER}@${BASTION_HOST}:${REMOTE_DIR}/scripts/"
 
 # Copy requirements
-print_status "Copying requirements files..."
+print_status "Copying requirements file..."
 scp -i "${SSH_KEY_PATH_EXPANDED}" \
-    requirements.txt \
     requirements-migration.txt \
     "${BASTION_USER}@${BASTION_HOST}:${REMOTE_DIR}/"
 
