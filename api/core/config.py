@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Database - constructed from individual components
     DB_HOST: str = "localhost"
-    DB_PORT: int = 3306
+    DB_PORT: int = 5432  # PostgreSQL default port
     DB_USER: str = "user"
     DB_PASSWORD: str = "pass"
     DB_NAME: str = "db"
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL(self) -> str:
         """Construct DATABASE_URL from individual database components."""
-        return f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        return f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []

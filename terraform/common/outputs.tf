@@ -299,3 +299,36 @@ output "alb_oidc_config" {
 }
 
 # Note: Auth0 SMTP credentials are output from the auth0 module per environment
+
+# PostgreSQL RDS Outputs
+output "postgres_rds_endpoint" {
+  description = "PostgreSQL RDS instance endpoint"
+  value       = aws_db_instance.postgres.endpoint
+  sensitive   = true
+}
+
+output "postgres_rds_port" {
+  description = "PostgreSQL RDS instance port"
+  value       = aws_db_instance.postgres.port
+}
+
+output "postgres_rds_identifier" {
+  description = "PostgreSQL RDS instance identifier"
+  value       = aws_db_instance.postgres.identifier
+}
+
+output "postgres_rds_arn" {
+  description = "PostgreSQL RDS instance ARN"
+  value       = aws_db_instance.postgres.arn
+}
+
+output "postgres_rds_master_secret_arn" {
+  description = "ARN of the PostgreSQL RDS master user secret (for password rotation)"
+  value       = length(aws_db_instance.postgres.master_user_secret) > 0 ? aws_db_instance.postgres.master_user_secret[0].secret_arn : null
+  sensitive   = true
+}
+
+output "postgres_security_group_id" {
+  description = "ID of the PostgreSQL RDS security group"
+  value       = aws_security_group.postgres_rds.id
+}

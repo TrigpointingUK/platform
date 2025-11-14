@@ -1,14 +1,21 @@
 """
 CRUD operations for trig table.
+Updated to use PostGIS spatial functions for distance calculations.
 """
 
 from typing import List, Optional
 
-from sqlalchemy import Float, cast, func, literal
+from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint
+from sqlalchemy import Float, cast, func
 from sqlalchemy.orm import Session
 
 from api.models.trig import Trig
 from api.models.user import TLog
+
+
+def _is_sqlite(db: Session) -> bool:
+    """Check if the database is SQLite."""
+    return db.bind.dialect.name == "sqlite"  # type: ignore[union-attr]
 
 
 def get_trig_by_id(db: Session, trig_id: int) -> Optional[Trig]:
@@ -131,27 +138,65 @@ def list_trigs_filtered(
         query = query.filter(Trig.county == county)
 
     if center_lat is not None and center_lon is not None:
-        deg_km = 111.32
-        lat = literal(center_lat)
-        lon = literal(center_lon)
-        cos_lat = func.cos(func.radians(lat))
-        # cast DECIMAL to float for math ops
-        dlat_km = (cast(Trig.wgs_lat, Float) - lat) * deg_km
-        dlon_km = (cast(Trig.wgs_long, Float) - lon) * deg_km * cos_lat
-        dist2 = (dlat_km * dlat_km + dlon_km * dlon_km).label("dist2")
+        if _is_sqlite(db):
+            # For SQLite tests, use a simple haversine distance calculation
+            # This is less accurate but sufficient for testing
+            lat1_rad = func.radians(center_lat)
+            lat2_rad = func.radians(Trig.wgs_lat)
+            lon1_rad = func.radians(center_lon)
+            lon2_rad = func.radians(Trig.wgs_long)
 
-        if max_km is not None:
-            query = query.filter(dist2 <= (max_km * max_km))
+            dlat = lat2_rad - lat1_rad
+            dlon = lon2_rad - lon1_rad
 
-        # order by distance if requested or default when lat/lon supplied
-        if order in (None, "", "distance"):
-            query = query.order_by(dist2)
+            a = func.sin(dlat / 2) * func.sin(dlat / 2) + func.cos(lat1_rad) * func.cos(
+                lat2_rad
+            ) * func.sin(dlon / 2) * func.sin(dlon / 2)
+            c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
+            distance_m = cast(6371000 * c, Float).label(
+                "distance_m"
+            )  # Earth radius in meters
+
+            query = query.add_columns(distance_m)
+
+            if max_km is not None:
+                query = query.having(distance_m < max_km * 1000)
+
+            if order in (None, "", "distance"):
+                query = query.order_by(distance_m)
+        else:
+            # Use PostGIS for native spatial calculations
+            # Create a geography point from the center coordinates (WGS84, SRID 4326)
+            center_point = ST_MakePoint(center_lon, center_lat, type_="geography")
+
+            # Calculate distance in meters using PostGIS ST_Distance
+            # ST_Distance on geography types returns meters (spherical earth calculation)
+            distance_m = ST_Distance(Trig.location, center_point).label("distance_m")
+
+            # Add distance to the query for ordering
+            query = query.add_columns(distance_m)
+
+            if max_km is not None:
+                # Use ST_DWithin for efficient distance filtering with spatial index
+                # ST_DWithin is much faster than calculating distance for all records
+                query = query.filter(
+                    ST_DWithin(Trig.location, center_point, max_km * 1000)  # meters
+                )
+
+            # Order by distance if requested or default when lat/lon supplied
+            if order in (None, "", "distance"):
+                query = query.order_by(distance_m)
     else:
         # deterministic default
         if order in (None, "", "id"):
             query = query.order_by(Trig.id.asc())
         elif order == "name":
             query = query.order_by(Trig.name.asc())
+
+    # Extract only the Trig objects if we added distance column
+    if center_lat is not None and center_lon is not None:
+        results = query.offset(skip).limit(limit).all()
+        return [row[0] for row in results]  # Extract Trig from (Trig, distance) tuples
 
     return query.offset(skip).limit(limit).all()
 
@@ -188,16 +233,32 @@ def count_trigs_filtered(
     if county:
         query = query.filter(Trig.county == county)
 
-    # Apply the same geo-distance filtering as in list_trigs_filtered
+    # Apply the same geo-distance filtering as in list_trigs_filtered (PostGIS or SQLite)
     if center_lat is not None and center_lon is not None:
-        deg_km = 111.32
-        lat = literal(center_lat)
-        lon = literal(center_lon)
-        cos_lat = func.cos(func.radians(lat))
-        dlat_km = (cast(Trig.wgs_lat, Float) - lat) * deg_km
-        dlon_km = (cast(Trig.wgs_long, Float) - lon) * deg_km * cos_lat
-        dist2 = dlat_km * dlat_km + dlon_km * dlon_km
-        if max_km is not None:
-            query = query.filter(dist2 <= (max_km * max_km))
+        if _is_sqlite(db):
+            # For SQLite, use haversine formula
+            lat1_rad = func.radians(center_lat)
+            lat2_rad = func.radians(Trig.wgs_lat)
+            lon1_rad = func.radians(center_lon)
+            lon2_rad = func.radians(Trig.wgs_long)
+
+            dlat = lat2_rad - lat1_rad
+            dlon = lon2_rad - lon1_rad
+
+            a = func.sin(dlat / 2) * func.sin(dlat / 2) + func.cos(lat1_rad) * func.cos(
+                lat2_rad
+            ) * func.sin(dlon / 2) * func.sin(dlon / 2)
+            c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
+            distance_m = cast(6371000 * c, Float)  # Earth radius in meters
+
+            if max_km is not None:
+                query = query.filter(distance_m < max_km * 1000)
+        else:
+            # Use PostGIS
+            center_point = ST_MakePoint(center_lon, center_lat, type_="geography")
+            if max_km is not None:
+                query = query.filter(
+                    ST_DWithin(Trig.location, center_point, max_km * 1000)  # meters
+                )
 
     return int(query.scalar() or 0)

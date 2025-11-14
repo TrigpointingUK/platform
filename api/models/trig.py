@@ -1,9 +1,12 @@
 """
 SQLAlchemy model for the trig table - UK trigonometric stations.
+Updated to use PostGIS GEOGRAPHY types for spatial data.
 """
 
+import sys
 from typing import Any
 
+from geoalchemy2 import Geography
 from sqlalchemy import (
     CHAR,
     DECIMAL,
@@ -11,14 +14,19 @@ from sqlalchemy import (
     Column,
     Date,
     Integer,
+    SmallInteger,
     String,
     Text,
     Time,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 
 from api.db.database import Base
 
-# Note: MEDIUMINT and TINYINT are MySQL-specific, using Integer for compatibility
+# Note: MEDIUMINT and TINYINT are MySQL-specific, using Integer/SmallInteger for PostgreSQL
+
+# Detect if we're running tests (pytest imports this module when running tests)
+_IS_SQLITE = "pytest" in sys.modules
 
 
 class Trig(Base):
@@ -42,16 +50,46 @@ class Trig(Base):
 
     # Status and classification
     status_id = Column(Integer, nullable=False, index=True)
-    user_added = Column(Integer, nullable=False, default=0)
+    user_added = Column(SmallInteger, nullable=False, default=0)
     current_use = Column(String(25), nullable=False)  # e.g., "Passive station"
     historic_use = Column(String(30), nullable=False)  # e.g., "Primary"
     physical_type = Column(String(25), nullable=False)  # e.g., "Pillar"
     condition = Column(CHAR(1), nullable=False)  # G=Good, etc.
 
-    # WGS84 coordinates
+    # PostGIS Geography column for WGS84 coordinates
+    # This stores coordinates as a GEOGRAPHY(POINT, 4326) type
+    # Enables native PostGIS spatial queries and proper spherical earth calculations
+    location = Column(
+        Geography(geometry_type="POINT", srid=4326) if not _IS_SQLITE else String(100),
+        nullable=True,  # Nullable during migration
+        index=(
+            True if not _IS_SQLITE else False
+        ),  # Spatial index will be created in PostgreSQL
+    )
+
+    # Legacy WGS84 coordinate columns (maintained for backward compatibility)
+    # These will be deprecated once all code is updated to use PostGIS
     wgs_lat: Any = Column(DECIMAL(7, 5), nullable=False)  # Latitude
     wgs_long: Any = Column(DECIMAL(7, 5), nullable=False)  # Longitude
     wgs_height = Column(Integer, nullable=False)  # Height in meters
+
+    @hybrid_property
+    def latitude(self) -> float:
+        """Extract latitude from PostGIS location column."""
+        if not _IS_SQLITE and self.location is not None:
+            from geoalchemy2.functions import ST_Y
+
+            return float(ST_Y(self.location))
+        return float(self.wgs_lat)
+
+    @hybrid_property
+    def longitude(self) -> float:
+        """Extract longitude from PostGIS location column."""
+        if not _IS_SQLITE and self.location is not None:
+            from geoalchemy2.functions import ST_X
+
+            return float(ST_X(self.location))
+        return float(self.wgs_long)
 
     # OSGB coordinates
     osgb_eastings = Column(Integer, nullable=False)  # Eastings
@@ -66,7 +104,7 @@ class Trig(Base):
 
     # Administrative fields
     permission_ind = Column(CHAR(1), nullable=False)  # Permission indicator
-    needs_attention = Column(Integer, nullable=False, default=0)
+    needs_attention = Column(SmallInteger, nullable=False, default=0)
     attention_comment = Column(Text, nullable=False)
 
     # External system integration
