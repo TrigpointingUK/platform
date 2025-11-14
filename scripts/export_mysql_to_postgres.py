@@ -34,13 +34,13 @@ class MySQLExporter:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         # Get MySQL connection details from environment
-        mysql_host = os.getenv("MYSQL_HOST", "localhost")
-        mysql_port = os.getenv("MYSQL_PORT", "3306")
-        mysql_user = os.getenv("MYSQL_USER")
-        mysql_password = os.getenv("MYSQL_PASSWORD")
-        mysql_database = os.getenv("MYSQL_NAME")
+        self.mysql_host = os.getenv("MYSQL_HOST", "localhost")
+        self.mysql_port = os.getenv("MYSQL_PORT", "3306")
+        self.mysql_user = os.getenv("MYSQL_USER")
+        self.mysql_password = os.getenv("MYSQL_PASSWORD")
+        self.mysql_database = os.getenv("MYSQL_NAME")
         
-        if not all([mysql_user, mysql_password, mysql_database]):
+        if not all([self.mysql_user, self.mysql_password, self.mysql_database]):
             raise ValueError(
                 "Missing required environment variables: "
                 "MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_NAME"
@@ -48,13 +48,13 @@ class MySQLExporter:
         
         # Connect to MySQL
         mysql_url = (
-            f"mysql+pymysql://{mysql_user}:{mysql_password}"
-            f"@{mysql_host}:{mysql_port}/{mysql_database}"
+            f"mysql+pymysql://{self.mysql_user}:{self.mysql_password}"
+            f"@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}"
         )
         self.engine = create_engine(mysql_url)
         self.Session = sessionmaker(bind=self.engine)
         
-        print(f"Connected to MySQL: {mysql_host}/{mysql_database}")
+        print(f"Connected to MySQL: {self.mysql_host}/{self.mysql_database}")
         print(f"Output directory: {self.output_dir}")
 
     def get_all_tables(self) -> List[str]:
@@ -177,8 +177,8 @@ class MySQLExporter:
         """Export metadata about the export."""
         metadata = {
             "export_date": datetime.utcnow().isoformat(),
-            "source_host": settings.DB_HOST,
-            "source_database": settings.DB_NAME,
+            "source_host": self.mysql_host,
+            "source_database": self.mysql_database,
             "tables_exported": len(self.get_all_tables()),
         }
         
