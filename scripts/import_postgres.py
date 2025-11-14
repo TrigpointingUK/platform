@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Import transformed data into PostgreSQL database.
+Import transformed CSV data into PostgreSQL database.
 
-This script imports CSV data exported from MySQL into PostgreSQL,
-creating tables via SQLAlchemy models and handling PostGIS geography columns.
+This script imports CSV files (transformed for PostGIS) into PostgreSQL,
+handling:
+- Table creation via SQLAlchemy models
+- Batch imports for large tables
+- PostGIS WKT to GEOGRAPHY conversion
+- Foreign key dependency order
+- Progress tracking
 
 Usage:
     python scripts/import_postgres.py --input-dir /path/to/export
@@ -15,324 +20,347 @@ Environment variables required:
 import argparse
 import csv
 import sys
+from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
-import pandas as pd
-from geoalchemy2.functions import ST_GeographyFromText
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 # Add parent directory to path to import api modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from api.core.config import settings
-from api.db.database import Base
+from api.db.base import Base  # Import Base to get all models
 
 
 class PostgreSQLImporter:
-    """Import data into PostgreSQL database."""
+    """Import CSV data into PostgreSQL database."""
 
     def __init__(self, input_dir: str):
         """Initialize importer with input directory."""
         self.input_dir = Path(input_dir)
+
         if not self.input_dir.exists():
-            raise ValueError(f"Input directory does not exist: {input_dir}")
-        
+            raise ValueError(f"Input directory does not exist: {self.input_dir}")
+
         # Connect to PostgreSQL
-        self.engine = create_engine(settings.DATABASE_URL)
+        pg_url = settings.DATABASE_URL
+        if not pg_url.startswith("postgresql"):
+            raise ValueError(
+                f"DATABASE_URL must be PostgreSQL, got: {pg_url.split('://')[0]}"
+            )
+
+        self.engine = create_engine(pg_url)
         self.Session = sessionmaker(bind=self.engine)
-        
+
         print(f"Connected to PostgreSQL: {settings.DB_HOST}/{settings.DB_NAME}")
         print(f"Input directory: {self.input_dir}")
 
     def create_tables(self):
-        """Create all tables from SQLAlchemy models."""
-        print("\nCreating database tables...")
-        Base.metadata.create_all(self.engine)
-        print("✓ Tables created successfully")
+        """Create all tables using SQLAlchemy models."""
+        print("\nCreating database schema...")
 
-    def import_table_from_csv(
+        # Drop existing tables if they exist (for clean import)
+        inspector = inspect(self.engine)
+        existing_tables = inspector.get_table_names()
+
+        if existing_tables:
+            print(f"  Found {len(existing_tables)} existing tables")
+            response = input("  Drop existing tables and recreate? (yes/N): ")
+            if response.lower() == "yes":
+                print("  Dropping existing tables...")
+                Base.metadata.drop_all(bind=self.engine)
+                print("  ✓ Tables dropped")
+
+        # Create all tables
+        print("  Creating tables from models...")
+        Base.metadata.create_all(bind=self.engine)
+
+        # Verify tables created
+        inspector = inspect(self.engine)
+        tables = inspector.get_table_names()
+        print(f"  ✓ Created {len(tables)} tables")
+
+    def get_csv_files(self) -> List[Path]:
+        """Get list of CSV files in dependency order."""
+        # Tables in dependency order (reference tables first)
+        priority_order = [
+            "status",
+            "county",
+            "town",
+            "server",
+            "user",
+            "trig",
+            "tlog",
+            "tphoto",
+            "place",
+            "postcode6",
+        ]
+
+        csv_files = []
+        found_files = set()
+
+        # Add priority files first
+        for table_name in priority_order:
+            csv_file = self.input_dir / f"{table_name}.csv"
+            if csv_file.exists():
+                csv_files.append(csv_file)
+                found_files.add(table_name)
+
+        # Add remaining files
+        for csv_file in sorted(self.input_dir.glob("*.csv")):
+            table_name = csv_file.stem
+            if table_name not in found_files:
+                csv_files.append(csv_file)
+
+        return csv_files
+
+    def get_row_count(self, csv_file: Path) -> int:
+        """Get row count from CSV file."""
+        with open(csv_file, "r", encoding="utf-8") as f:
+            return sum(1 for _ in f) - 1  # Subtract header row
+
+    def import_csv(
         self,
-        table_name: str,
         csv_file: Path,
         batch_size: int = 5000,
         progress_interval: int = 25000,
-        geography_columns: List[str] = None,
     ):
         """
-        Import data from CSV file into a table.
-        
+        Import a single CSV file to PostgreSQL.
+
         Args:
-            table_name: Name of the table to import into
             csv_file: Path to CSV file
-            batch_size: Number of rows to insert at once
-            progress_interval: How often to print progress
-            geography_columns: List of columns containing WKT geography data
+            batch_size: Number of rows to insert per batch
+            progress_interval: How often to print progress updates
         """
-        if not csv_file.exists():
-            print(f"⚠️  {csv_file.name} not found, skipping")
-            return
-        
-        geography_columns = geography_columns or []
-        
-        print(f"\nImporting {table_name}...")
-        
-        # Read CSV in chunks
-        total_rows = sum(1 for _ in open(csv_file)) - 1  # -1 for header
-        print(f"  Total rows to import: {total_rows:,}")
-        
+        table_name = csv_file.stem
+        total_rows = self.get_row_count(csv_file)
+
+        print(f"\nImporting {table_name} ({total_rows:,} rows)...")
+
         if total_rows == 0:
-            print(f"  ✓ No data to import")
+            print("  ✓ Skipped (no rows)")
             return
-        
+
+        # Read CSV and prepare data
         rows_imported = 0
-        
-        with self.Session() as session:
-            try:
-                # Process in chunks
-                for chunk in pd.read_csv(csv_file, chunksize=batch_size):
-                    # Replace NaN with None for SQL NULL
-                    chunk = chunk.where(pd.notna(chunk), None)
-                    
-                    # Convert WKT geography columns to PostGIS format
-                    for col in geography_columns:
-                        if col in chunk.columns:
-                            # Replace WKT strings with SQL function calls
-                            # This will be handled in the SQL statement
-                            pass
-                    
-                    # Convert DataFrame to list of dicts
-                    records = chunk.to_dict("records")
-                    
-                    # Prepare insert statement
-                    if geography_columns and records:
-                        # Use raw SQL for geography columns
-                        columns = list(records[0].keys())
-                        
-                        # Build column list and values placeholders
-                        col_list = ", ".join([f'"{c}"' for c in columns])
-                        
-                        # For geography columns, use ST_GeographyFromText
-                        value_placeholders = []
-                        for col in columns:
-                            if col in geography_columns:
-                                value_placeholders.append(f"ST_GeographyFromText(:{col})")
-                            else:
-                                value_placeholders.append(f":{col}")
-                        
-                        values_str = ", ".join(value_placeholders)
-                        
-                        insert_sql = f"""
-                            INSERT INTO {table_name} ({col_list})
-                            VALUES ({values_str})
-                        """
-                        
-                        # Execute batch insert
-                        for record in records:
-                            session.execute(text(insert_sql), record)
-                    else:
-                        # Simple insert without geography columns
-                        session.execute(
-                            text(f"INSERT INTO {table_name} VALUES ({','.join([':' + k for k in records[0].keys()])})"),
-                            records
-                        )
-                    
-                    session.commit()
-                    
-                    rows_imported += len(chunk)
-                    
-                    # Print progress
-                    if rows_imported % progress_interval == 0 or rows_imported >= total_rows:
-                        pct = 100 * rows_imported / total_rows
-                        print(f"  Progress: {rows_imported:,}/{total_rows:,} ({pct:.1f}%)")
-                
-                print(f"  ✓ Imported {rows_imported:,} rows")
-                
-            except Exception as e:
-                session.rollback()
-                print(f"  ❌ Error importing {table_name}: {e}")
-                raise
+        batch = []
 
-    def import_reference_tables(self):
-        """Import reference/lookup tables first."""
-        print("\n" + "=" * 60)
-        print("Importing Reference Tables")
-        print("=" * 60)
-        
-        reference_tables = [
-            "status",
-            "county",
-            "server",
-            "attr",
-            "attrsource",
-        ]
-        
-        for table in reference_tables:
-            csv_file = self.input_dir / f"{table}.csv"
-            self.import_table_from_csv(table, csv_file)
+        with open(csv_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            columns = reader.fieldnames
 
-    def import_core_tables(self):
-        """Import core entity tables."""
-        print("\n" + "=" * 60)
-        print("Importing Core Tables")
-        print("=" * 60)
-        
-        # Import user table
-        self.import_table_from_csv(
-            "user",
-            self.input_dir / "user.csv",
-            batch_size=2000,
-        )
-        
-        # Import trig table with PostGIS location column
-        trig_file = self.input_dir / "trig_transformed.csv"
-        if trig_file.exists():
-            self.import_table_from_csv(
-                "trig",
-                trig_file,
-                batch_size=2000,
-                geography_columns=["location"],
-            )
-        else:
-            print("⚠️  trig_transformed.csv not found, trying trig.csv")
-            self.import_table_from_csv(
-                "trig",
-                self.input_dir / "trig.csv",
-                batch_size=2000,
+            if not columns:
+                print(f"  ✗ No columns found in {csv_file}")
+                return
+
+            # Build INSERT statement
+            placeholders = ", ".join([f":{col}" for col in columns])
+            insert_sql = (
+                f"INSERT INTO {table_name} ({', '.join(columns)}) "
+                f"VALUES ({placeholders})"
             )
 
-    def import_relationship_tables(self):
-        """Import tables with foreign key relationships."""
-        print("\n" + "=" * 60)
-        print("Importing Relationship Tables")
-        print("=" * 60)
-        
-        # Tables with foreign keys (import after parent tables)
-        relationship_tables = [
-            ("trigstats", 2000),
-            ("tlog", 5000),
-            ("tphoto", 5000),
-            ("tphotovote", 5000),
-            ("tphotoclass", 2000),
-        ]
-        
-        for table, batch_size in relationship_tables:
-            csv_file = self.input_dir / f"{table}.csv"
-            self.import_table_from_csv(table, csv_file, batch_size=batch_size)
+            # Handle PostGIS location column conversion
+            if "location" in columns:
+                # Remove location from placeholders, add ST_GeogFromText
+                cols_without_location = [c for c in columns if c != "location"]
+                placeholders = ", ".join([f":{col}" for col in cols_without_location])
+                placeholders += ", ST_GeogFromText(:location)"
 
-    def import_large_tables(self):
-        """Import very large tables last."""
-        print("\n" + "=" * 60)
-        print("Importing Large Tables")
-        print("=" * 60)
-        
-        large_tables = [
-            ("tquery", 10000),
-            ("attrval", 10000),
-            ("attrset_attrval", 10000),
-        ]
-        
-        for table, batch_size in large_tables:
-            csv_file = self.input_dir / f"{table}.csv"
-            self.import_table_from_csv(
-                table,
-                csv_file,
-                batch_size=batch_size,
-                progress_interval=100000,
-            )
+                cols_str = ", ".join(cols_without_location) + ", location"
+                insert_sql = (
+                    f"INSERT INTO {table_name} ({cols_str}) " f"VALUES ({placeholders})"
+                )
 
-    def import_remaining_tables(self):
-        """Import any remaining tables."""
-        print("\n" + "=" * 60)
-        print("Importing Remaining Tables")
-        print("=" * 60)
-        
-        # Get list of all CSV files
-        csv_files = list(self.input_dir.glob("*.csv"))
-        imported_tables = {
-            "status", "county", "server", "attr", "attrsource",
-            "user", "trig", "trig_transformed",
-            "trigstats", "tlog", "tphoto", "tphotovote", "tphotoclass",
-            "tquery", "attrval", "attrset_attrval",
-            "export_metadata",
-        }
-        
-        for csv_file in csv_files:
-            table = csv_file.stem
-            if table not in imported_tables and not table.endswith("_transformed"):
-                self.import_table_from_csv(table, csv_file, batch_size=5000)
+            with self.Session() as session:
+                for row in reader:
+                    # Convert empty strings to None for proper NULL handling
+                    cleaned_row = {}
+                    for key, value in row.items():
+                        if value == "":
+                            cleaned_row[key] = None
+                        elif value == "NULL":
+                            cleaned_row[key] = None
+                        else:
+                            cleaned_row[key] = value
+
+                    batch.append(cleaned_row)
+
+                    # Execute batch when full
+                    if len(batch) >= batch_size:
+                        try:
+                            session.execute(text(insert_sql), batch)
+                            session.commit()
+                            rows_imported += len(batch)
+                            batch = []
+
+                            # Print progress
+                            if rows_imported % progress_interval == 0:
+                                pct = 100 * rows_imported / total_rows
+                                print(
+                                    f"  Progress: {rows_imported:,}/{total_rows:,} ({pct:.1f}%)"
+                                )
+                        except Exception as e:
+                            session.rollback()
+                            print(f"  ✗ Error inserting batch: {e}")
+                            # Print first row of failed batch for debugging
+                            if batch:
+                                print(f"  First row: {batch[0]}")
+                            raise
+
+                # Insert remaining rows
+                if batch:
+                    try:
+                        session.execute(text(insert_sql), batch)
+                        session.commit()
+                        rows_imported += len(batch)
+                    except Exception as e:
+                        session.rollback()
+                        print(f"  ✗ Error inserting final batch: {e}")
+                        if batch:
+                            print(f"  First row: {batch[0]}")
+                        raise
+
+        print(f"  ✓ Imported {rows_imported:,} rows")
 
     def create_spatial_indexes(self):
-        """Create spatial indexes on geography columns."""
-        print("\n" + "=" * 60)
-        print("Creating Spatial Indexes")
-        print("=" * 60)
-        
-        with self.Session() as session:
-            try:
-                # Create spatial index on trig.location
-                print("\nCreating spatial index on trig.location...")
-                session.execute(text("""
-                    CREATE INDEX IF NOT EXISTS idx_trig_location
-                    ON trig USING GIST (location)
-                """))
-                session.commit()
-                print("  ✓ Created idx_trig_location")
-                
-            except Exception as e:
-                print(f"  ⚠️  Error creating indexes: {e}")
+        """Create spatial indexes on PostGIS columns."""
+        print("\nCreating spatial indexes...")
 
-    def analyze_tables(self):
-        """Run ANALYZE on all tables to update statistics."""
-        print("\n" + "=" * 60)
-        print("Analyzing Tables (updating statistics)")
-        print("=" * 60)
-        
-        with self.Session() as session:
-            try:
-                session.execute(text("ANALYZE"))
-                session.commit()
-                print("  ✓ Analysis complete")
-            except Exception as e:
-                print(f"  ⚠️  Error analyzing tables: {e}")
+        spatial_indexes = [
+            ("trig", "location"),
+            ("place", "location"),
+            ("town", "location"),
+            ("postcode6", "location"),
+        ]
 
-    def run(self):
-        """Run the complete import process."""
+        with self.Session() as session:
+            for table_name, column_name in spatial_indexes:
+                try:
+                    # Check if table exists
+                    result = session.execute(
+                        text(
+                            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                            f"WHERE table_name = '{table_name}')"
+                        )
+                    )
+                    if not result.scalar():
+                        continue
+
+                    # Check if column exists
+                    result = session.execute(
+                        text(
+                            "SELECT EXISTS (SELECT 1 FROM information_schema.columns "
+                            f"WHERE table_name = '{table_name}' AND column_name = '{column_name}')"
+                        )
+                    )
+                    if not result.scalar():
+                        continue
+
+                    # Create spatial index
+                    index_name = f"idx_{table_name}_{column_name}_gist"
+                    session.execute(
+                        text(
+                            f"CREATE INDEX IF NOT EXISTS {index_name} "
+                            f"ON {table_name} USING GIST ({column_name})"
+                        )
+                    )
+                    session.commit()
+                    print(f"  ✓ Created index: {index_name}")
+                except Exception as e:
+                    session.rollback()
+                    print(f"  ✗ Error creating index on {table_name}.{column_name}: {e}")
+
+    def run_vacuum_analyze(self):
+        """Run VACUUM ANALYZE to optimize database."""
+        print("\nRunning VACUUM ANALYZE...")
+
+        # VACUUM cannot run inside a transaction
+        with self.engine.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        ) as conn:
+            conn.execute(text("VACUUM ANALYZE"))
+
+        print("  ✓ VACUUM ANALYZE completed")
+
+    def import_all(self):
+        """Import all CSV files."""
+        print("\n" + "=" * 60)
+        print("PostgreSQL Import Process")
         print("=" * 60)
-        print("MySQL to PostgreSQL Migration - Data Import")
-        print("=" * 60)
-        
+
+        # Create tables
         self.create_tables()
-        self.import_reference_tables()
-        self.import_core_tables()
-        self.import_relationship_tables()
-        self.import_large_tables()
-        self.import_remaining_tables()
-        self.create_spatial_indexes()
-        self.analyze_tables()
-        
+
+        # Get CSV files
+        csv_files = self.get_csv_files()
+        print(f"\nFound {len(csv_files)} CSV files to import")
+
+        # Import each file
+        start_time = datetime.now()
+
+        for csv_file in csv_files:
+            try:
+                self.import_csv(csv_file)
+            except Exception as e:
+                print(f"\n✗ Failed to import {csv_file.name}: {e}")
+                print("\nImport aborted. You may need to:")
+                print("  1. Fix the data or schema issue")
+                print("  2. Drop and recreate the database")
+                print("  3. Re-run the import")
+                return False
+
+        # Create spatial indexes
+        try:
+            self.create_spatial_indexes()
+        except Exception as e:
+            print(f"\n⚠ Warning: Failed to create spatial indexes: {e}")
+
+        # Run VACUUM ANALYZE
+        try:
+            self.run_vacuum_analyze()
+        except Exception as e:
+            print(f"\n⚠ Warning: Failed to run VACUUM ANALYZE: {e}")
+
+        # Summary
+        elapsed = datetime.now() - start_time
         print("\n" + "=" * 60)
-        print("✅ Import Complete!")
+        print("✅ Import completed successfully!")
         print("=" * 60)
-        print("\nNext step: Run validate_migration.py to verify data integrity")
+        print(f"Elapsed time: {elapsed}")
+        print()
+
+        return True
 
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Import data into PostgreSQL")
+    parser = argparse.ArgumentParser(
+        description="Import CSV data to PostgreSQL database"
+    )
     parser.add_argument(
         "--input-dir",
-        default="./mysql_export",
-        help="Input directory with CSV files (default: ./mysql_export)",
+        type=str,
+        default="mysql_export",
+        help="Directory containing CSV files (default: mysql_export)",
     )
-    
+
     args = parser.parse_args()
-    
-    importer = PostgreSQLImporter(args.input_dir)
-    importer.run()
+
+    try:
+        importer = PostgreSQLImporter(args.input_dir)
+        success = importer.import_all()
+        sys.exit(0 if success else 1)
+    except Exception as e:
+        print(f"\n✗ Fatal error: {e}")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
-
