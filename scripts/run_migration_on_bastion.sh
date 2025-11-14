@@ -153,7 +153,7 @@ PG_PASSWORD=$(echo "$PG_SECRET" | jq -r '.password')
 PG_DATABASE=$(echo "$PG_SECRET" | jq -r '.dbname')
 
 # Create .env file with RDS endpoints
-cat > .env << 'ENVEOF'
+cat > .env << ENVEOF
 # MySQL RDS (source database for export)
 export MYSQL_HOST="${MYSQL_HOST}"
 export MYSQL_PORT="${MYSQL_PORT}"
@@ -204,7 +204,7 @@ PG_PASSWORD=$(echo "$PG_SECRET" | jq -r '.password')
 PG_DATABASE=$(echo "$PG_SECRET" | jq -r '.dbname')
 
 # Create .env file with RDS endpoints
-cat > .env << 'ENVEOF'
+cat > .env << ENVEOF
 # MySQL RDS (source database for export)
 export MYSQL_HOST="${MYSQL_HOST}"
 export MYSQL_PORT="${MYSQL_PORT}"
