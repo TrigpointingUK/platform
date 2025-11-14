@@ -30,3 +30,11 @@
   startDate: '2025-11-01'
   endDate: '2026-12-31'
 
+
+- id: 5
+  title: Help tidy the photo album
+  text: Please help rotate photos to the correct orientation.
+  photo: /img/rotateplease.png
+  link: /photos
+  startDate: null
+  endDate: null
