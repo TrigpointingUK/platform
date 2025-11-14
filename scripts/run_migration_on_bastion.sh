@@ -236,8 +236,12 @@ print_success "Files copied to bastion"
 print_status "Executing migration on bastion..."
 echo "============================================================"
 
-ssh -i "${SSH_KEY_PATH_EXPANDED}" "${BASTION_USER}@${BASTION_HOST}" << 'ENDSSH'
+ssh -i "${SSH_KEY_PATH_EXPANDED}" "${BASTION_USER}@${BASTION_HOST}" << ENDSSH
 set -e
+
+# Pass flags from local script
+export EXPORT_ONLY=${EXPORT_ONLY}
+export IMPORT_ONLY=${IMPORT_ONLY}
 
 cd /home/ec2-user/postgres-migration
 
