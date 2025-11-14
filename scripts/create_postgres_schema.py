@@ -115,6 +115,35 @@ class SchemaCreator:
         
         return pg_type
 
+    def sanitize_default_value(self, default_val, col_type: str) -> str:
+        """Convert MySQL default values to PostgreSQL format."""
+        if default_val is None:
+            return ""
+        
+        # Handle MySQL-specific timestamp defaults
+        if isinstance(default_val, str):
+            upper_default = default_val.upper()
+            
+            # MySQL's CURRENT_TIMESTAMP with ON UPDATE - PostgreSQL doesn't support ON UPDATE
+            if 'CURRENT_TIMESTAMP' in upper_default:
+                if 'ON UPDATE' in upper_default:
+                    # Just use CURRENT_TIMESTAMP, ON UPDATE will need triggers
+                    return " DEFAULT CURRENT_TIMESTAMP"
+                return " DEFAULT CURRENT_TIMESTAMP"
+            
+            # Invalid date/time defaults
+            if default_val in ('0000-00-00', '0000-00-00 00:00:00', '00:00:00'):
+                # PostgreSQL doesn't allow zero dates - use NULL or omit default
+                return ""
+            
+            # Regular string defaults
+            # Remove any double-quoting that MySQL might have
+            clean_val = default_val.replace("''", "'")
+            return f" DEFAULT '{clean_val}'"
+        
+        # Numeric defaults
+        return f" DEFAULT {default_val}"
+
     def create_table_sql(self, table_name: str) -> str:
         """Generate CREATE TABLE SQL for PostgreSQL from MySQL table."""
         inspector = inspect(self.mysql_engine)
@@ -122,11 +151,25 @@ class SchemaCreator:
         pk_constraint = inspector.get_pk_constraint(table_name)
         indexes = inspector.get_indexes(table_name)
 
+        # PostgreSQL reserved words that need quoting
+        pg_reserved = {'user', 'order', 'group', 'table', 'index', 'type', 'order'}
+        
+        # Quote table name if it's a reserved word or has spaces
+        quoted_table_name = f'"{table_name}"' if table_name.lower() in pg_reserved or ' ' in table_name else table_name
+
         # Build column definitions
         col_defs = []
         for col in columns:
             col_name = col['name']
+            
+            # Quote column name if needed (reserved word or has spaces)
+            quoted_col_name = f'"{col_name}"' if col_name.lower() in pg_reserved or ' ' in col_name else col_name
+            
             col_type = self.convert_column_type(col)
+            
+            # Strip collation from type (PostgreSQL uses different collations)
+            if ' COLLATE ' in col_type:
+                col_type = col_type.split(' COLLATE ')[0]
             
             # Handle nullable
             nullable = "" if col['nullable'] else " NOT NULL"
@@ -134,29 +177,30 @@ class SchemaCreator:
             # Handle default values
             default = ""
             if col['default'] is not None:
-                default_val = col['default']
-                if isinstance(default_val, str):
-                    default = f" DEFAULT '{default_val}'"
-                else:
-                    default = f" DEFAULT {default_val}"
+                default = self.sanitize_default_value(col['default'], col_type)
             
-            # Handle auto_increment
-            autoincrement = ""
+            # Handle auto_increment -> SERIAL/BIGSERIAL
             if col.get('autoincrement'):
                 if 'INT' in col_type.upper():
-                    col_type = 'SERIAL' if 'INT' in col_type else 'BIGSERIAL'
+                    if 'BIGINT' in col_type.upper():
+                        col_type = 'BIGSERIAL'
+                    else:
+                        col_type = 'SERIAL'
                     default = ""  # SERIAL handles its own default
             
-            col_def = f"  {col_name} {col_type}{autoincrement}{nullable}{default}"
+            col_def = f"  {quoted_col_name} {col_type}{nullable}{default}"
             col_defs.append(col_def)
 
         # Add primary key constraint
         if pk_constraint and pk_constraint['constrained_columns']:
-            pk_cols = ', '.join(pk_constraint['constrained_columns'])
+            pk_cols = ', '.join(
+                f'"{col}"' if col.lower() in pg_reserved or ' ' in col else col
+                for col in pk_constraint['constrained_columns']
+            )
             col_defs.append(f"  PRIMARY KEY ({pk_cols})")
 
         # Create table SQL
-        create_sql = f"CREATE TABLE IF NOT EXISTS {table_name} (\n"
+        create_sql = f"CREATE TABLE IF NOT EXISTS {quoted_table_name} (\n"
         create_sql += ',\n'.join(col_defs)
         create_sql += "\n);"
 
@@ -165,8 +209,11 @@ class SchemaCreator:
         for idx in indexes:
             if not idx['unique']:  # Skip unique indexes for now
                 idx_name = idx['name']
-                idx_cols = ', '.join(idx['column_names'])
-                index_sql = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table_name} ({idx_cols});"
+                idx_cols = ', '.join(
+                    f'"{col}"' if col.lower() in pg_reserved or ' ' in col else col
+                    for col in idx['column_names']
+                )
+                index_sql = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {quoted_table_name} ({idx_cols});"
                 index_sqls.append(index_sql)
 
         return create_sql, index_sqls
