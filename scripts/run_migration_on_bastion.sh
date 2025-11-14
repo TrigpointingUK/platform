@@ -155,21 +155,21 @@ PG_DATABASE=$(echo "$PG_SECRET" | jq -r '.dbname')
 # Create .env file with RDS endpoints
 cat > .env << ENVEOF
 # MySQL RDS (source database for export)
-MYSQL_HOST=${MYSQL_HOST}
-MYSQL_PORT=${MYSQL_PORT}
-MYSQL_USER=${MYSQL_USER}
-MYSQL_PASSWORD=${MYSQL_PASSWORD}
-MYSQL_NAME=${MYSQL_DATABASE}
+MYSQL_HOST='${MYSQL_HOST}'
+MYSQL_PORT='${MYSQL_PORT}'
+MYSQL_USER='${MYSQL_USER}'
+MYSQL_PASSWORD='${MYSQL_PASSWORD}'
+MYSQL_NAME='${MYSQL_DATABASE}'
 
 # PostgreSQL RDS (target database for import)
-DB_HOST=${PG_HOST}
-DB_PORT=${PG_PORT}
-DB_USER=${PG_USER}
-DB_PASSWORD=${PG_PASSWORD}
-DB_NAME=${PG_DATABASE}
+DB_HOST='${PG_HOST}'
+DB_PORT='${PG_PORT}'
+DB_USER='${PG_USER}'
+DB_PASSWORD='${PG_PASSWORD}'
+DB_NAME='${PG_DATABASE}'
 
 # For validation script (it needs both)
-DATABASE_URL=postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}
+DATABASE_URL='postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}'
 ENVEOF
 
 echo "✓ Created .env with RDS credentials"
@@ -209,21 +209,21 @@ PG_DATABASE=$(echo "$PG_SECRET" | jq -r '.dbname')
 # Create .env file with RDS endpoints
 cat > .env << ENVEOF
 # MySQL RDS (source database for export)
-MYSQL_HOST=${MYSQL_HOST}
-MYSQL_PORT=${MYSQL_PORT}
-MYSQL_USER=${MYSQL_USER}
-MYSQL_PASSWORD=${MYSQL_PASSWORD}
-MYSQL_NAME=${MYSQL_DATABASE}
+MYSQL_HOST='${MYSQL_HOST}'
+MYSQL_PORT='${MYSQL_PORT}'
+MYSQL_USER='${MYSQL_USER}'
+MYSQL_PASSWORD='${MYSQL_PASSWORD}'
+MYSQL_NAME='${MYSQL_DATABASE}'
 
 # PostgreSQL RDS (target database for import)
-DB_HOST=${PG_HOST}
-DB_PORT=${PG_PORT}
-DB_USER=${PG_USER}
-DB_PASSWORD=${PG_PASSWORD}
-DB_NAME=${PG_DATABASE}
+DB_HOST='${PG_HOST}'
+DB_PORT='${PG_PORT}'
+DB_USER='${PG_USER}'
+DB_PASSWORD='${PG_PASSWORD}'
+DB_NAME='${PG_DATABASE}'
 
 # For validation script (it needs both)
-DATABASE_URL=postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}
+DATABASE_URL='postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}'
 ENVEOF
 
 echo "✓ Created .env with RDS credentials from AWS Secrets Manager"
