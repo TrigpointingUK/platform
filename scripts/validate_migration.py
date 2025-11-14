@@ -25,33 +25,43 @@ from typing import Any, Dict, List, Tuple
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
-# Add parent directory to path to import api modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from api.core.config import settings
-
 
 class MigrationValidator:
     """Validate MySQL to PostgreSQL migration."""
 
     def __init__(self):
         """Initialize validator with both database connections."""
-        # PostgreSQL connection
-        pg_url = settings.DATABASE_URL
-        if not pg_url.startswith("postgresql"):
+        # Get PostgreSQL connection details from environment
+        pg_host = os.getenv("DB_HOST", "localhost")
+        pg_port = os.getenv("DB_PORT", "5432")
+        pg_user = os.getenv("DB_USER")
+        pg_password = os.getenv("DB_PASSWORD")
+        pg_database = os.getenv("DB_NAME")
+        
+        if not all([pg_user, pg_password, pg_database]):
             raise ValueError(
-                f"DATABASE_URL must be PostgreSQL, got: {pg_url.split('://')[0]}"
+                "Missing required PostgreSQL environment variables: "
+                "DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME"
             )
+
+        # PostgreSQL connection
+        pg_url = f"postgresql+psycopg2://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
 
         self.pg_engine = create_engine(pg_url)
         self.PgSession = sessionmaker(bind=self.pg_engine)
 
         # MySQL connection (from environment variables with MYSQL_ prefix)
-        mysql_host = os.getenv("MYSQL_HOST", os.getenv("DB_HOST"))
-        mysql_port = os.getenv("MYSQL_PORT", os.getenv("DB_PORT", "3306"))
-        mysql_user = os.getenv("MYSQL_USER", os.getenv("DB_USER"))
-        mysql_password = os.getenv("MYSQL_PASSWORD", os.getenv("DB_PASSWORD"))
-        mysql_database = os.getenv("MYSQL_NAME", os.getenv("DB_NAME"))
+        mysql_host = os.getenv("MYSQL_HOST", "localhost")
+        mysql_port = os.getenv("MYSQL_PORT", "3306")
+        mysql_user = os.getenv("MYSQL_USER")
+        mysql_password = os.getenv("MYSQL_PASSWORD")
+        mysql_database = os.getenv("MYSQL_NAME")
+        
+        if not all([mysql_user, mysql_password, mysql_database]):
+            raise ValueError(
+                "Missing required MySQL environment variables: "
+                "MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_NAME"
+            )
 
         mysql_url = (
             f"mysql+pymysql://{mysql_user}:{mysql_password}"
@@ -61,7 +71,7 @@ class MigrationValidator:
         self.mysql_engine = create_engine(mysql_url)
         self.MySQLSession = sessionmaker(bind=self.mysql_engine)
 
-        print(f"Connected to PostgreSQL: {settings.DB_HOST}/{settings.DB_NAME}")
+        print(f"Connected to PostgreSQL: {pg_host}/{pg_database}")
         print(f"Connected to MySQL: {mysql_host}/{mysql_database}")
 
         self.errors = []

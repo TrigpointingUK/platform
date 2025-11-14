@@ -9,7 +9,7 @@ Usage:
     python scripts/export_mysql_to_postgres.py --output-dir /path/to/export
 
 Environment variables required:
-    DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+    MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_NAME
 """
 
 import argparse
@@ -24,11 +24,6 @@ import pandas as pd
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
-# Add parent directory to path to import api modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from api.core.config import settings
-
 
 class MySQLExporter:
     """Export MySQL database to CSV files."""
@@ -38,15 +33,28 @@ class MySQLExporter:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
+        # Get MySQL connection details from environment
+        mysql_host = os.getenv("MYSQL_HOST", "localhost")
+        mysql_port = os.getenv("MYSQL_PORT", "3306")
+        mysql_user = os.getenv("MYSQL_USER")
+        mysql_password = os.getenv("MYSQL_PASSWORD")
+        mysql_database = os.getenv("MYSQL_NAME")
+        
+        if not all([mysql_user, mysql_password, mysql_database]):
+            raise ValueError(
+                "Missing required environment variables: "
+                "MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_NAME"
+            )
+        
         # Connect to MySQL
         mysql_url = (
-            f"mysql+pymysql://{settings.DB_USER}:{settings.DB_PASSWORD}"
-            f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+            f"mysql+pymysql://{mysql_user}:{mysql_password}"
+            f"@{mysql_host}:{mysql_port}/{mysql_database}"
         )
         self.engine = create_engine(mysql_url)
         self.Session = sessionmaker(bind=self.engine)
         
-        print(f"Connected to MySQL: {settings.DB_HOST}/{settings.DB_NAME}")
+        print(f"Connected to MySQL: {mysql_host}/{mysql_database}")
         print(f"Output directory: {self.output_dir}")
 
     def get_all_tables(self) -> List[str]:

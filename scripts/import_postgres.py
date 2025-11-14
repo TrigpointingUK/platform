@@ -19,6 +19,7 @@ Environment variables required:
 
 import argparse
 import csv
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -30,7 +31,6 @@ from sqlalchemy.orm import sessionmaker
 # Add parent directory to path to import api modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from api.core.config import settings
 from api.db.base import Base  # Import Base to get all models
 
 
@@ -44,17 +44,26 @@ class PostgreSQLImporter:
         if not self.input_dir.exists():
             raise ValueError(f"Input directory does not exist: {self.input_dir}")
 
-        # Connect to PostgreSQL
-        pg_url = settings.DATABASE_URL
-        if not pg_url.startswith("postgresql"):
+        # Get PostgreSQL connection details from environment
+        pg_host = os.getenv("DB_HOST", "localhost")
+        pg_port = os.getenv("DB_PORT", "5432")
+        pg_user = os.getenv("DB_USER")
+        pg_password = os.getenv("DB_PASSWORD")
+        pg_database = os.getenv("DB_NAME")
+        
+        if not all([pg_user, pg_password, pg_database]):
             raise ValueError(
-                f"DATABASE_URL must be PostgreSQL, got: {pg_url.split('://')[0]}"
+                "Missing required environment variables: "
+                "DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME"
             )
+
+        # Connect to PostgreSQL
+        pg_url = f"postgresql+psycopg2://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
 
         self.engine = create_engine(pg_url)
         self.Session = sessionmaker(bind=self.engine)
 
-        print(f"Connected to PostgreSQL: {settings.DB_HOST}/{settings.DB_NAME}")
+        print(f"Connected to PostgreSQL: {pg_host}/{pg_database}")
         print(f"Input directory: {self.input_dir}")
 
     def create_tables(self):
