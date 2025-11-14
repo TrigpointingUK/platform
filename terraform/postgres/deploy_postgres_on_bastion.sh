@@ -22,13 +22,9 @@ echo ""
 # Navigate to terraform directory
 cd "$TERRAFORM_DIR"
 
-# Initialize Terraform if needed
-if [ ! -d ".terraform" ]; then
-    echo -e "${YELLOW}Initializing Terraform...${NC}"
-    terraform init -backend-config="$BACKEND_CONF"
-else
-    echo -e "${GREEN}Terraform already initialized${NC}"
-fi
+# Always initialize Terraform with reconfigure to handle backend changes
+echo -e "${YELLOW}Initializing Terraform...${NC}"
+terraform init -reconfigure -backend-config="$BACKEND_CONF"
 
 # Run terraform plan
 echo ""
