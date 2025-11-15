@@ -137,21 +137,49 @@ class PostgreSQLImporter:
 
         # Add priority files first
         for table_name in priority_order:
-            csv_file = self.input_dir / f"{table_name}.csv"
+            # Prefer transformed CSV if it exists (has PostGIS location column)
+            csv_file = self.input_dir / f"{table_name}_transformed.csv"
+            if not csv_file.exists():
+                csv_file = self.input_dir / f"{table_name}.csv"
             if csv_file.exists():
                 csv_files.append(csv_file)
                 found_files.add(table_name)
+                # Also mark the base name and transformed variant as found
+                found_files.add(f"{table_name}_transformed")
 
         # Add remaining files (but defer massive tables)
         for csv_file in sorted(self.input_dir.glob("*.csv")):
             table_name = csv_file.stem
-            if table_name not in found_files:
-                if table_name in defer_to_end:
+            
+            # Skip if already processed (including _transformed variants)
+            if table_name in found_files:
+                continue
+            
+            # If this is a base table name, check if transformed version exists
+            if not table_name.endswith('_transformed'):
+                transformed_file = self.input_dir / f"{table_name}_transformed.csv"
+                if transformed_file.exists():
+                    # Skip the base file, we'll use the transformed one
+                    found_files.add(table_name)
+                    continue
+            
+            # If this is the transformed version, extract base table name
+            if table_name.endswith('_transformed'):
+                base_table_name = table_name.replace('_transformed', '')
+                if base_table_name in defer_to_end:
                     deferred_files.append(csv_file)
                     found_files.add(table_name)
+                    found_files.add(base_table_name)
                 else:
                     csv_files.append(csv_file)
                     found_files.add(table_name)
+                    found_files.add(base_table_name)
+            elif table_name in defer_to_end:
+                deferred_files.append(csv_file)
+                found_files.add(table_name)
+            else:
+                csv_files.append(csv_file)
+                found_files.add(table_name)
         
         # Add deferred files at the end
         csv_files.extend(deferred_files)
@@ -178,6 +206,10 @@ class PostgreSQLImporter:
             progress_interval: How often to print progress updates (auto-calculated if None)
         """
         table_name = csv_file.stem
+        # Remove _transformed suffix if present (transformed CSVs target the base table)
+        if table_name.endswith('_transformed'):
+            table_name = table_name.replace('_transformed', '')
+        
         total_rows = self.get_row_count(csv_file)
 
         print(f"\nImporting {table_name} ({total_rows:,} rows)...")
