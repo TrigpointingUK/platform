@@ -229,6 +229,9 @@ class PostgreSQLImporter:
                                     cleaned_row[key] = value
                             except:
                                 cleaned_row[key] = value
+                        elif value and isinstance(value, str) and value.endswith('.0') and value.replace('.0', '').replace('-', '').isdigit():
+                            # Strip .0 from integer values exported as floats (e.g., "836.0" -> "836")
+                            cleaned_row[key] = value[:-2]
                         else:
                             cleaned_row[key] = value
 
