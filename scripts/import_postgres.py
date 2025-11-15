@@ -219,8 +219,8 @@ class PostgreSQLImporter:
                         elif value == "0000-00-00":
                             # MySQL invalid date -> NULL
                             cleaned_row[key] = None
-                        elif key == "crt_time" and value and "days" in str(value):
-                            # Convert pandas timedelta format "0 days HH:MM:SS" to TIME
+                        elif value and isinstance(value, str) and "days" in value and ":" in value:
+                            # Convert pandas timedelta format "0 days HH:MM:SS" to TIME for ANY time column
                             try:
                                 parts = str(value).split(" days ")
                                 if len(parts) == 2:
