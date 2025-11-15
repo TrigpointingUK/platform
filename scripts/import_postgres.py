@@ -248,7 +248,18 @@ class PostgreSQLImporter:
             
             # Quote ALL column names to handle spaces and special characters
             quoted_columns = [f'"{col}"' for col in columns]
-            placeholders = ", ".join([f":{col}" for col in columns])
+            
+            # For placeholders, normalize column names (remove spaces and special chars)
+            # SQLAlchemy bind parameters can't have spaces
+            column_map = {}  # Maps normalized name -> original name
+            normalized_columns = []
+            for col in columns:
+                # Replace spaces and special chars with underscores
+                normalized = col.replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+                normalized_columns.append(normalized)
+                column_map[normalized] = col
+            
+            placeholders = ", ".join([f":{norm}" for norm in normalized_columns])
             insert_sql = (
                 f"INSERT INTO {quoted_table_name} ({', '.join(quoted_columns)}) "
                 f"VALUES ({placeholders})"
@@ -259,7 +270,8 @@ class PostgreSQLImporter:
                 # Remove location from placeholders, add ST_GeogFromText
                 cols_without_location = [c for c in columns if c != "location"]
                 quoted_cols_without_location = [f'"{c}"' for c in cols_without_location]
-                placeholders = ", ".join([f":{col}" for col in cols_without_location])
+                norm_cols_without_location = [normalized_columns[i] for i, c in enumerate(columns) if c != "location"]
+                placeholders = ", ".join([f":{norm}" for norm in norm_cols_without_location])
                 placeholders += ", ST_GeogFromText(:location)"
 
                 cols_str = ", ".join(quoted_cols_without_location) + ', "location"'
@@ -272,31 +284,41 @@ class PostgreSQLImporter:
                     # Convert empty strings to None for proper NULL handling
                     cleaned_row = {}
                     for key, value in row.items():
+                        # Normalize the key for the bind parameter
+                        normalized_key = key.replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+                        
                         if value == "":
-                            cleaned_row[key] = None
+                            cleaned_row[normalized_key] = None
                         elif value == "NULL":
-                            cleaned_row[key] = None
+                            cleaned_row[normalized_key] = None
                         elif value == "0000-00-00 00:00:00":
                             # MySQL invalid datetime -> NULL
-                            cleaned_row[key] = None
+                            cleaned_row[normalized_key] = None
                         elif value == "0000-00-00":
                             # MySQL invalid date -> NULL
-                            cleaned_row[key] = None
+                            cleaned_row[normalized_key] = None
                         elif value and isinstance(value, str) and "days" in value and ":" in value:
                             # Convert pandas timedelta format "0 days HH:MM:SS" to TIME for ANY time column
                             try:
                                 parts = str(value).split(" days ")
                                 if len(parts) == 2:
-                                    cleaned_row[key] = parts[1]  # Just take the time part
+                                    cleaned_row[normalized_key] = parts[1]  # Just take the time part
                                 else:
-                                    cleaned_row[key] = value
+                                    cleaned_row[normalized_key] = value
                             except:
-                                cleaned_row[key] = value
+                                cleaned_row[normalized_key] = value
                         elif value and isinstance(value, str) and value.endswith('.0') and value.replace('.0', '').replace('-', '').isdigit():
                             # Strip .0 from integer values exported as floats (e.g., "836.0" -> "836")
-                            cleaned_row[key] = value[:-2]
+                            cleaned_row[normalized_key] = value[:-2]
                         else:
-                            cleaned_row[key] = value
+                            cleaned_row[normalized_key] = value
+                    
+                    # Special handling for 'place' table: Convert NULL to empty string for address fields
+                    # These columns are part of the PRIMARY KEY and must match MySQL's NOT NULL DEFAULT '' behavior
+                    if table_name == "place":
+                        for addr_field in ['addr1', 'addr2', 'addr3', 'addr4', 'addr5', 'addr6', 'postcode8']:
+                            if cleaned_row.get(addr_field) is None:
+                                cleaned_row[addr_field] = ''
 
                     batch.append(cleaned_row)
 

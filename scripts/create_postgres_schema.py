@@ -190,6 +190,23 @@ class SchemaCreator:
         pk_constraint = inspector.get_pk_constraint(table_name)
         indexes = inspector.get_indexes(table_name)
 
+        # Get the EXACT column names from MySQL (SQLAlchemy may lowercase them)
+        with self.mysql_engine.connect() as conn:
+            result = conn.execute(text(
+                f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                f"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{table_name}' "
+                f"ORDER BY ORDINAL_POSITION"
+            ))
+            exact_column_names = [row[0] for row in result]
+        
+        # Map inspector column names (potentially lowercased) to exact names
+        col_name_map = {}
+        for exact_name in exact_column_names:
+            for col in columns:
+                if col['name'].lower() == exact_name.lower():
+                    col_name_map[col['name']] = exact_name
+                    break
+
         # PostgreSQL reserved words that need quoting
         pg_reserved = {'user', 'order', 'group', 'table', 'index', 'type', 'order'}
         
@@ -199,10 +216,10 @@ class SchemaCreator:
         # Build column definitions
         col_defs = []
         for col in columns:
-            col_name = col['name']
+            col_name = col_name_map.get(col['name'], col['name'])  # Use exact name from MySQL
             
-            # Quote column name if needed (reserved word or has spaces)
-            quoted_col_name = f'"{col_name}"' if col_name.lower() in pg_reserved or ' ' in col_name else col_name
+            # ALWAYS quote column names to preserve exact case from MySQL
+            quoted_col_name = f'"{col_name}"'
             
             col_type = self.convert_column_type(col)
             
@@ -251,14 +268,19 @@ class SchemaCreator:
 
         # Add primary key constraint
         if pk_constraint and pk_constraint['constrained_columns']:
-            pk_cols = ', '.join(
-                f'"{col}"' if col.lower() in pg_reserved or ' ' in col else col
-                for col in pk_constraint['constrained_columns']
-            )
+            # Map PK column names to exact names
+            exact_pk_cols = []
+            for col in pk_constraint['constrained_columns']:
+                exact_col = col_name_map.get(col, col)
+                exact_pk_cols.append(exact_col)
+            
+            # Always quote to preserve case
+            pk_cols = ', '.join(f'"{col}"' for col in exact_pk_cols)
             col_defs.append(f"  PRIMARY KEY ({pk_cols})")
 
         # Create table SQL
-        create_sql = f"CREATE TABLE IF NOT EXISTS {quoted_table_name} (\n"
+        drop_sql = f"DROP TABLE IF EXISTS {quoted_table_name} CASCADE;"
+        create_sql = f"CREATE TABLE {quoted_table_name} (\n"
         create_sql += ',\n'.join(col_defs)
         create_sql += "\n);"
 
@@ -267,14 +289,18 @@ class SchemaCreator:
         for idx in indexes:
             if not idx['unique']:  # Skip unique indexes for now
                 idx_name = idx['name']
-                idx_cols = ', '.join(
-                    f'"{col}"' if col.lower() in pg_reserved or ' ' in col else col
-                    for col in idx['column_names']
-                )
+                # Map index column names to exact names
+                exact_idx_cols = []
+                for col in idx['column_names']:
+                    exact_col = col_name_map.get(col, col)
+                    exact_idx_cols.append(exact_col)
+                
+                # Always quote to preserve case
+                idx_cols = ', '.join(f'"{col}"' for col in exact_idx_cols)
                 index_sql = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {quoted_table_name} ({idx_cols});"
                 index_sqls.append(index_sql)
 
-        return create_sql, index_sqls
+        return drop_sql, create_sql, index_sqls
 
     def create_all_tables(self):
         """Create all tables in PostgreSQL."""
@@ -298,13 +324,12 @@ class SchemaCreator:
                 try:
                     print(f"\nCreating table: {table_name}")
                     
-                    # Drop table if it exists (to ensure clean schema)
-                    quoted_name = f'"{table_name}"' if table_name.lower() in ['user', 'order', 'group'] or ' ' in table_name else table_name
-                    session.execute(text(f"DROP TABLE IF EXISTS {quoted_name} CASCADE"))
-                    session.commit()
+                    # Get CREATE TABLE SQL (includes DROP)
+                    drop_sql, create_sql, index_sqls = self.create_table_sql(table_name)
                     
-                    # Get CREATE TABLE SQL
-                    create_sql, index_sqls = self.create_table_sql(table_name)
+                    # Execute DROP TABLE
+                    session.execute(text(drop_sql))
+                    session.commit()
                     
                     # Execute CREATE TABLE
                     session.execute(text(create_sql))
@@ -326,6 +351,28 @@ class SchemaCreator:
                     session.rollback()
                     print(f"  ✗ Error: {e}")
                     failed.append((table_name, str(e)))
+
+        # Fix nullable constraints for tables with composite PRIMARY KEY that includes nullable fields
+        # PostgreSQL forces PRIMARY KEY columns to be NOT NULL, but MySQL allows NULLs despite the constraint
+        print("\nFixing nullable constraints for MySQL compatibility...")
+        with self.pg_engine.connect() as conn:
+            try:
+                # The 'place' table has a composite PK with address fields that can be NULL in MySQL
+                conn.execute(text("""
+                    ALTER TABLE place 
+                        ALTER COLUMN addr1 DROP NOT NULL,
+                        ALTER COLUMN addr2 DROP NOT NULL,
+                        ALTER COLUMN addr3 DROP NOT NULL,
+                        ALTER COLUMN addr4 DROP NOT NULL,
+                        ALTER COLUMN addr5 DROP NOT NULL,
+                        ALTER COLUMN addr6 DROP NOT NULL,
+                        ALTER COLUMN postcode8 DROP NOT NULL
+                """))
+                conn.commit()
+                print("  ✓ Fixed place table nullable constraints")
+            except Exception as e:
+                print(f"  ⚠️  Could not fix place nullable constraints: {e}")
+                conn.rollback()
 
         print("\n" + "=" * 60)
         print(f"✅ Created {created}/{len(ordered_tables)} tables")
