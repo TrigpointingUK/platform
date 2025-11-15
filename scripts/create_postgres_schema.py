@@ -244,6 +244,11 @@ class SchemaCreator:
             col_def = f"  {quoted_col_name} {col_type}{nullable}{default}"
             col_defs.append(col_def)
 
+        # Add PostGIS location column for spatial tables
+        spatial_tables = ['trig', 'place', 'town', 'postcode6']
+        if table_name in spatial_tables:
+            col_defs.append("  location GEOGRAPHY(POINT, 4326)")
+
         # Add primary key constraint
         if pk_constraint and pk_constraint['constrained_columns']:
             pk_cols = ', '.join(
