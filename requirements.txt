@@ -2,7 +2,7 @@ fastapi==0.121.1
 uvicorn[standard]==0.35.0
 sqlalchemy==2.0.44
 psycopg2-binary==2.9.10
-geoalchemy2==0.16.0
+geoalchemy2==0.18.0
 cryptography==46.0.3
 PyJWT==2.10.1
 passlib[bcrypt]==1.7.4
