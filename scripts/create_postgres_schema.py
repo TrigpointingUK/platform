@@ -221,10 +221,10 @@ class SchemaCreator:
             if col['nullable']:
                 nullable = ""
             elif not col['nullable']:
-                # CHAR/VARCHAR columns with defaults often have NULLs in MySQL exports
-                if 'CHAR' in col_type.upper() or 'VARCHAR' in col_type.upper():
-                    if default:  # Has a default value
-                        print(f"    ℹ️  {col_name}: CHAR/VARCHAR with default - making nullable for MySQL compatibility")
+                # STRING columns (CHAR/VARCHAR/TEXT) with defaults or no default often have NULLs in MySQL exports
+                if 'CHAR' in col_type.upper() or 'VARCHAR' in col_type.upper() or 'TEXT' in col_type.upper():
+                    if default or col_type.upper() == 'TEXT':  # Has a default value or is TEXT
+                        print(f"    ℹ️  {col_name}: {col_type.upper().split('(')[0]} - making nullable for MySQL compatibility")
                         nullable = ""
                     else:
                         nullable = " NOT NULL"
