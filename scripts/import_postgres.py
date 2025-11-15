@@ -213,9 +213,12 @@ class PostgreSQLImporter:
             # Build INSERT statement
             # Quote table name if it's a reserved word
             quoted_table_name = f'"{table_name}"' if table_name in ('user', 'order', 'group') else table_name
+            
+            # Quote ALL column names to handle spaces and special characters
+            quoted_columns = [f'"{col}"' for col in columns]
             placeholders = ", ".join([f":{col}" for col in columns])
             insert_sql = (
-                f"INSERT INTO {quoted_table_name} ({', '.join(columns)}) "
+                f"INSERT INTO {quoted_table_name} ({', '.join(quoted_columns)}) "
                 f"VALUES ({placeholders})"
             )
 
@@ -223,10 +226,11 @@ class PostgreSQLImporter:
             if "location" in columns:
                 # Remove location from placeholders, add ST_GeogFromText
                 cols_without_location = [c for c in columns if c != "location"]
+                quoted_cols_without_location = [f'"{c}"' for c in cols_without_location]
                 placeholders = ", ".join([f":{col}" for col in cols_without_location])
                 placeholders += ", ST_GeogFromText(:location)"
 
-                cols_str = ", ".join(cols_without_location) + ", location"
+                cols_str = ", ".join(quoted_cols_without_location) + ', "location"'
                 insert_sql = (
                     f"INSERT INTO {quoted_table_name} ({cols_str}) " f"VALUES ({placeholders})"
                 )
