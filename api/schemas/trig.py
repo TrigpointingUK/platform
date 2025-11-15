@@ -84,8 +84,8 @@ class TrigDetails(BaseModel):
     postcode: str
     county: str
     town: str
-    fb_number: str
-    stn_number: str
+    fb_number: Optional[str] = None
+    stn_number: Optional[str] = None
     stn_number_active: Optional[str] = None
     stn_number_passive: Optional[str] = None
     stn_number_osgb36: Optional[str] = None
