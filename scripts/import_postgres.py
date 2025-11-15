@@ -124,9 +124,16 @@ class PostgreSQLImporter:
             "place",
             "postcode6",
         ]
+        
+        # Defer massive tables to the end so smaller tables import first
+        defer_to_end = [
+            "postcodes",  # 2.7M rows - import last
+            "postcode8",  # Also large
+        ]
 
         csv_files = []
         found_files = set()
+        deferred_files = []
 
         # Add priority files first
         for table_name in priority_order:
@@ -135,11 +142,19 @@ class PostgreSQLImporter:
                 csv_files.append(csv_file)
                 found_files.add(table_name)
 
-        # Add remaining files
+        # Add remaining files (but defer massive tables)
         for csv_file in sorted(self.input_dir.glob("*.csv")):
             table_name = csv_file.stem
             if table_name not in found_files:
-                csv_files.append(csv_file)
+                if table_name in defer_to_end:
+                    deferred_files.append(csv_file)
+                    found_files.add(table_name)
+                else:
+                    csv_files.append(csv_file)
+                    found_files.add(table_name)
+        
+        # Add deferred files at the end
+        csv_files.extend(deferred_files)
 
         return csv_files
 
@@ -152,7 +167,7 @@ class PostgreSQLImporter:
         self,
         csv_file: Path,
         batch_size: int = 5000,
-        progress_interval: int = 25000,
+        progress_interval: int = None,
     ):
         """
         Import a single CSV file to PostgreSQL.
@@ -160,7 +175,7 @@ class PostgreSQLImporter:
         Args:
             csv_file: Path to CSV file
             batch_size: Number of rows to insert per batch
-            progress_interval: How often to print progress updates
+            progress_interval: How often to print progress updates (auto-calculated if None)
         """
         table_name = csv_file.stem
         total_rows = self.get_row_count(csv_file)
@@ -170,6 +185,18 @@ class PostgreSQLImporter:
         if total_rows == 0:
             print("  ✓ Skipped (no rows)")
             return
+        
+        # Auto-calculate progress interval based on table size
+        if progress_interval is None:
+            if total_rows < 10000:
+                progress_interval = 5000
+            elif total_rows < 100000:
+                progress_interval = 25000
+            elif total_rows < 1000000:
+                progress_interval = 50000
+            else:
+                # For massive tables (1M+ rows), report every 100k rows
+                progress_interval = 100000
 
         # Read CSV and prepare data
         rows_imported = 0
