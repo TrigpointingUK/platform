@@ -5,6 +5,7 @@ Core configuration settings for the FastAPI application.
 import json
 import logging
 from typing import List, Optional, Union
+from urllib.parse import quote_plus
 
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -36,8 +37,11 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
-        """Construct DATABASE_URL from individual database components."""
-        return f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        """Construct DATABASE_URL from individual database components with URL-encoded credentials."""
+        # URL-encode username and password to handle special characters
+        encoded_user = quote_plus(self.DB_USER)
+        encoded_password = quote_plus(self.DB_PASSWORD)
+        return f"postgresql+psycopg2://{encoded_user}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
