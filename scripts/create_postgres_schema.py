@@ -216,33 +216,21 @@ class SchemaCreator:
                 default = self.sanitize_default_value(col['default'], col_type)
             
             # Handle nullable
-            # PostgreSQL is stricter than MySQL about NOT NULL
-            # Make CHAR/VARCHAR columns with defaults nullable (MySQL often has NULLs despite schema)
+            # PostgreSQL is stricter than MySQL about NOT NULL constraints
+            # MySQL is very lenient and allows NULLs in many NOT NULL columns
+            # For compatibility, we'll make most columns nullable unless they're obviously required
             if col['nullable']:
                 nullable = ""
             elif not col['nullable']:
-                # STRING columns (CHAR/VARCHAR/TEXT) with defaults or no default often have NULLs in MySQL exports
-                if 'CHAR' in col_type.upper() or 'VARCHAR' in col_type.upper() or 'TEXT' in col_type.upper():
-                    if default or col_type.upper() == 'TEXT':  # Has a default value or is TEXT
-                        print(f"    ℹ️  {col_name}: {col_type.upper().split('(')[0]} - making nullable for MySQL compatibility")
-                        nullable = ""
-                    else:
-                        nullable = " NOT NULL"
-                # DATETIME/TIMESTAMP columns often have 0000-00-00 00:00:00 in MySQL which PostgreSQL rejects
-                # Just make them all nullable for compatibility
-                elif 'TIMESTAMP' in col_type.upper() or col_type.upper() == 'DATETIME':
-                    print(f"    ℹ️  {col_name}: DATETIME/TIMESTAMP - making nullable for MySQL compatibility")
-                    nullable = ""
+                # Always enforce NOT NULL for auto-increment (primary keys)
+                if col.get('autoincrement'):
+                    nullable = " NOT NULL"
                 else:
-                    # Check actual data for NULLs (for other types)
-                    has_nulls = self.has_null_values(table_name, col_name)
-                    if has_nulls:
-                        print(f"    ℹ️  {col_name}: NOT NULL in schema but has NULLs in data - making nullable")
-                        nullable = ""
-                    else:
-                        nullable = " NOT NULL"
+                    # Make everything else nullable for MySQL compatibility
+                    # This avoids countless issues with MySQL's lenient NULL handling
+                    nullable = ""
             else:
-                nullable = " NOT NULL"
+                nullable = ""
             
             # Handle auto_increment -> SERIAL/BIGSERIAL
             if col.get('autoincrement'):
