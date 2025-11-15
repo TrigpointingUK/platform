@@ -17,8 +17,8 @@ class UserResponse(BaseModel):
     name: str
     firstname: str
     surname: str
-    homepage: Optional[str] = Field(..., description="User homepage URL")
-    about: str
+    homepage: Optional[str] = Field(None, description="User homepage URL")
+    about: Optional[str] = Field(None, description="About/description text")
     member_since: Optional[date] = Field(None, description="Date user joined")
     auth0_user_id: Optional[str] = Field(
         None, description="Auth0 user ID (own profile only)"
