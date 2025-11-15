@@ -17,7 +17,7 @@ class JSONFormatter(logging.Formatter):
     """Custom JSON formatter for structured logging in production."""
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON."""
+        """Format log record as JSON with single-line exception traces."""
         log_data = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
@@ -25,9 +25,20 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        # Add exception info if present
+        # Add exception info if present - format as single line with \n preserved in string
         if record.exc_info:
-            log_data["exception"] = self.formatException(record.exc_info)
+            exception_text = self.formatException(record.exc_info)
+            # Replace actual newlines with \n escape sequence for single-line JSON
+            log_data["exception"] = exception_text.replace("\n", "\\n")
+            exc_type_name: str | None = (
+                record.exc_info[0].__name__ if record.exc_info[0] else None
+            )
+            if exc_type_name:
+                log_data["exc_type"] = exc_type_name
+
+        # Add stack trace if present (for logger.exception() calls)
+        if record.stack_info:
+            log_data["stack_info"] = record.stack_info.replace("\n", "\\n")
 
         # Add extra fields if present
         if hasattr(record, "extra"):
