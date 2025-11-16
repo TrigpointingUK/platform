@@ -92,9 +92,12 @@ def initialize_telemetry(
             headers = headers_dict if headers_dict else None
 
         # Set up OTLP exporter
+        # For gRPC with TLS (port 443), insecure must be False (default)
         otlp_exporter = OTLPSpanExporter(
             endpoint=otlp_endpoint,
             headers=headers,
+            insecure=False,  # Use TLS (required for Grafana Cloud)
+            timeout=10,  # 10 second timeout for exports
         )
 
         # Add span processor to send spans in batches
