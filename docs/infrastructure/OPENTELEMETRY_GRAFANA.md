@@ -43,14 +43,16 @@ This document describes how to set up OpenTelemetry instrumentation in the FastA
 - `api/core/telemetry.py` module created with initialization logic
 - Configuration settings added to `api/core/config.py`
 - Telemetry initialization integrated into `api/main.py`
-- Terraform environment variables configured in `terraform/modules/ecs-service/main.tf`
+- Application code ready (telemetry disabled by default)
 
-⏳ **Manual Steps Required:**
+⏳ **Manual Steps Required (when ready to enable):**
 1. Create Grafana Cloud account (free tier)
 2. Obtain OTLP endpoint and API token
 3. Add secrets to AWS Secrets Manager
-4. Install new Python dependencies in production
-5. Apply Terraform changes to enable telemetry
+4. Update Terraform to enable OTEL and inject secrets
+5. Apply Terraform changes
+
+**Note:** The application runs perfectly fine without telemetry configured. OpenTelemetry is disabled by default and won't cause any errors if not configured.
 
 ## Setup Instructions
 
@@ -130,54 +132,51 @@ You need to add the OTLP configuration to your existing secrets in AWS Secrets M
 
 ### 4. Deploy Changes
 
-#### Step 1: Install Dependencies
+The application code with OpenTelemetry is already deployed. Telemetry is **disabled by default**, so the application works normally without any additional configuration.
 
-The new OpenTelemetry packages need to be installed. This happens automatically when you rebuild and deploy the Docker image:
+To **enable** telemetry later, you'll need to:
 
-```bash
-# Local testing (optional)
-source venv/bin/activate
-pip install -r requirements.txt
+1. **Add the OTEL secrets** to AWS Secrets Manager (steps 1-3 above)
+2. **Update Terraform** to enable OTEL and inject the secrets:
 
-# Verify telemetry initialises correctly
-make run
-# Check logs for: "OpenTelemetry initialized successfully..."
+```hcl
+# In terraform/modules/ecs-service/main.tf, around line 78:
+{
+  name  = "OTEL_ENABLED"
+  value = "true"
+},
 ```
 
-#### Step 2: Build and Push Docker Image
+And add the secret references around line 172:
 
-The CI/CD pipeline will handle this automatically when you push to `develop`:
-
-```bash
-git add requirements.txt api/core/telemetry.py api/core/config.py api/main.py
-git commit -m "Add OpenTelemetry + Grafana Cloud integration"
-git push origin develop
+```hcl
+        ],
+        # OpenTelemetry (for distributed tracing)
+        [
+          {
+            name      = "OTEL_EXPORTER_OTLP_ENDPOINT"
+            valueFrom = "${var.secrets_arn}:otel_exporter_otlp_endpoint::"
+          },
+          {
+            name      = "OTEL_EXPORTER_OTLP_HEADERS"
+            valueFrom = "${var.secrets_arn}:otel_exporter_otlp_headers::"
+          }
+        ]
+      )
 ```
 
-The GitHub Actions workflow will:
-1. Build the Docker image with new dependencies
-2. Push to GitHub Container Registry
-3. Automatically deploy to staging
-
-#### Step 3: Apply Terraform Changes
-
-After the Docker image is built, apply Terraform changes to enable the `OTEL_ENABLED` environment variable:
+3. **Apply Terraform changes:**
 
 ```bash
-# Staging first
 cd terraform/staging
 terraform plan
 terraform apply
 
-# Monitor for a few days, then production
+# After verifying in staging:
 cd ../production
 terraform plan
 terraform apply
 ```
-
-**Note:** The Terraform changes add:
-- `OTEL_ENABLED=true` environment variable
-- Secret references for `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`
 
 ### 5. Verify Telemetry is Working
 
