@@ -5,8 +5,9 @@ orientation-model:
 	@echo "Model exported to res/models/orientation_classifier.onnx"
 .PHONY: help install install-dev test test-cov lint format type-check security build run clean docker-build docker-run docker-down mysql-client diff-cov \
 	run-staging db-tunnel-staging-start db-tunnel-staging-stop mysql-staging \
-	bastion-ssm-shell db-tunnel-staging-ssm-start bastion-allow-my-ip bastion-revoke-my-ip \
+	bastion-ssm-shell db-tunnel-staging-ssm-start postgres-tunnel-staging-ssm-start bastion-allow-my-ip bastion-revoke-my-ip \
 	redis-tunnel-staging-ssm-start redis-cli-staging \
+	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check
 
 # Default target
@@ -162,6 +163,19 @@ db-tunnel-staging-ssm-start: ## Start SSM remote host port forward to RDS → lo
 	  --document-name AWS-StartPortForwardingSessionToRemoteHost \
 	  --parameters "host=[$$RDS_HOST],portNumber=['3306'],localPortNumber=['$(LOCAL_DB_TUNNEL_PORT)']"
 
+postgres-tunnel-staging-ssm-start: ## Start SSM remote host port forward to PostgreSQL RDS → localhost:5432
+	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
+	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found."; exit 1; }
+	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
+	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:eu-west-1:534526983272:secret:trigpointing-postgres-staging-credentials-c5XrIG --query SecretString --output text); \
+	RDS_HOST=$$(echo "$$SECRET_JSON" | jq -r '.host'); \
+	RDS_PORT=$$(echo "$$SECRET_JSON" | jq -r '.port'); \
+	echo "🔐 SSM forwarding: 127.0.0.1:5432 → $$RDS_HOST:$$RDS_PORT via $(_bastion_instance)"; \
+	aws --region $(AWS_REGION) ssm start-session \
+	  --target "$(_bastion_instance)" \
+	  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+	  --parameters "host=[$$RDS_HOST],portNumber=['$$RDS_PORT'],localPortNumber=['5432']"
+
 redis-tunnel-staging-ssm-start: ## Start SSM remote host port forward to Valkey → localhost:$(LOCAL_REDIS_TUNNEL_PORT)
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
 	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
@@ -232,7 +246,17 @@ install-dev: ## Install development dependencies
 	pre-commit install
 
 # Testing
-test: ## Run tests
+test-db-start: ## Start local PostgreSQL test database
+	docker-compose -f docker-compose.test.yml up -d
+	@echo "⏳ Waiting for PostgreSQL to be ready..."
+	@timeout 30 sh -c 'until docker-compose -f docker-compose.test.yml exec -T test-db pg_isready -U test_user -d test_db; do sleep 1; done'
+	@echo "✅ Test database ready on localhost:5432"
+
+test-db-stop: ## Stop local PostgreSQL test database
+	docker-compose -f docker-compose.test.yml down -v
+
+test: ## Run tests (requires test-db-start)
+	@docker-compose -f docker-compose.test.yml ps test-db | grep -q "Up" || { echo "❌ Test database not running. Run 'make test-db-start' first."; exit 1; }
 	CACHE_ENABLED=false pytest -n auto
 
 test-cov: ## Run tests with coverage
@@ -377,7 +401,7 @@ tf-fmt: ## Format Terraform files
 pre-commit: ## Run pre-commit hooks
 	pre-commit run --all-files
 
-ci: terraform-format-check format-check lint type-check security test web-lint web-type-check web-test ## Run all CI checks
+ci: terraform-format-check test-db-start format-check lint type-check security test web-lint web-type-check web-test test-db-stop ## Run all CI checks
 
 # Web application targets
 web-install: ## Install web application dependencies

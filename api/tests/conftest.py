@@ -27,23 +27,57 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="passlib.*
 
 
 def get_test_database_url():
-    """Get database URL, with unique DB file for each pytest-xdist worker."""
+    """Get PostgreSQL database URL for testing."""
     import os
 
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
-    # Use in-memory database for single-process runs, file-based for parallel
-    if worker_id == "master":
-        return "sqlite:///:memory:"
-    else:
-        return f"sqlite:///./test_{worker_id}.db"
+    # Use environment variable if set (for CI), otherwise use default test DB
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        return db_url
+
+    # Default local PostgreSQL for tests - use single database with schema isolation
+    # PostgreSQL handles parallel access better than separate databases
+    return "postgresql+psycopg2://test_user:test_password@localhost:5432/test_db"
 
 
-# Test database URL (in-memory SQLite for single runs, file-based for parallel)
+def setup_test_database():
+    """Create test database and schema if needed."""
+    import os
+
+    from sqlalchemy import create_engine, text
+
+    # Only run setup for parallel workers or when DATABASE_URL not set
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        # In CI, database already exists
+        return
+
+    # For local development, ensure test database exists
+    admin_url = "postgresql+psycopg2://test_user:test_password@localhost:5432/postgres"
+    try:
+        admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+        with admin_engine.connect() as conn:
+            # Check if test_db exists
+            result = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname='test_db'")
+            )
+            if not result.scalar():
+                conn.execute(text("CREATE DATABASE test_db"))
+        admin_engine.dispose()
+    except Exception:
+        # Database likely already exists or we don't have permissions
+        # Tests will fail if it's a real issue
+        pass
+
+
+# Setup database before creating engine
+setup_test_database()
+
+# Test database URL
 SQLALCHEMY_DATABASE_URL = get_test_database_url()
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
