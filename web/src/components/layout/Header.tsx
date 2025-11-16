@@ -181,7 +181,7 @@ export default function Header() {
                 />
               </div>
               <a
-                href="https://trigpointing.uk/wiki"
+                href="https://wiki.trigpointing.uk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
@@ -189,7 +189,7 @@ export default function Header() {
                 Wiki
               </a>
               <a
-                href="https://trigpointing.uk/forum"
+                href="https://forum.trigpointing.uk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-2 hover:bg-trig-green-700 rounded-md"

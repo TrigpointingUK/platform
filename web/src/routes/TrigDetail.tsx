@@ -150,7 +150,7 @@ export default function TrigDetail() {
   // Helper function to create wiki links
   const getWikiUrl = (value: string) => {
     const wikiValue = value.replace(/ /g, "_");
-    return `https://trigpointing.uk/wiki/${wikiValue}`;
+    return `https://wiki.trigpointing.uk/${wikiValue}`;
   };
 
   // Helper function to check if a value should have a wiki link
