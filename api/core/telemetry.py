@@ -80,16 +80,16 @@ def initialize_telemetry(
 
         # Parse OTLP headers if provided
         # Expected format: "key1=value1,key2=value2" or just "Authorization=Basic ..."
-        # gRPC requires headers as tuples of (key, value) pairs
+        # Note: The exporter expects a dictionary, not tuples
         headers = None
         if otlp_headers:
-            header_list = []
+            headers_dict = {}
             for header in otlp_headers.split(","):
                 if "=" in header:
                     key, value = header.split("=", 1)
-                    # gRPC requires lowercase header names
-                    header_list.append((key.strip().lower(), value.strip()))
-            headers = tuple(header_list) if header_list else None
+                    # gRPC metadata requires lowercase header names
+                    headers_dict[key.strip().lower()] = value.strip()
+            headers = headers_dict if headers_dict else None
 
         # Set up OTLP exporter
         otlp_exporter = OTLPSpanExporter(

@@ -8,7 +8,8 @@ orientation-model:
 	bastion-ssm-shell db-tunnel-staging-ssm-start postgres-tunnel-staging-ssm-start bastion-allow-my-ip bastion-revoke-my-ip \
 	redis-tunnel-staging-ssm-start redis-cli-staging \
 	test-db-start test-db-stop \
-	web-install web-dev web-build web-test web-lint web-type-check
+	web-install web-dev web-build web-test web-lint web-type-check \
+	migration-create migration-upgrade migration-downgrade migration-history migration-current migration-check
 
 # Default target
 help: ## Show this help message
@@ -298,6 +299,47 @@ type-check: ## Run type checking
 security: ## Run security checks
 	bandit -r api --skip B101 --exclude api/tests
 	-safety check
+
+# Database migrations with Alembic
+migration-create: ## Create a new migration (usage: make migration-create MSG="description")
+	@if [ -z "$(MSG)" ]; then \
+		echo "❌ Error: MSG parameter required"; \
+		echo "Usage: make migration-create MSG=\"your migration description\""; \
+		exit 1; \
+	fi
+	@echo "🔧 Creating new migration: $(MSG)"
+	alembic revision --autogenerate -m "$(MSG)"
+	@echo "✅ Migration created. Review the file in alembic/versions/ before applying"
+
+migration-upgrade: ## Apply all pending migrations locally
+	@echo "⬆️  Applying migrations..."
+	alembic upgrade head
+	@echo "✅ Migrations applied"
+
+migration-downgrade: ## Rollback one migration locally
+	@echo "⬇️  Rolling back one migration..."
+	alembic downgrade -1
+	@echo "✅ Migration rolled back"
+
+migration-history: ## Show migration history
+	@echo "📜 Migration history:"
+	alembic history --verbose
+
+migration-current: ## Show current migration revision
+	@echo "📍 Current revision:"
+	alembic current --verbose
+
+migration-check: ## Check if database is up to date (exits 1 if pending migrations)
+	@CURRENT=$$(alembic current 2>&1 | grep -o '[a-f0-9]\{12\}' | head -1); \
+	HEAD=$$(alembic heads 2>&1 | grep -o '[a-f0-9]\{12\}' | head -1); \
+	if [ "$$CURRENT" = "$$HEAD" ]; then \
+		echo "✅ Database is up to date ($$CURRENT)"; \
+	else \
+		echo "⚠️  Pending migrations detected"; \
+		echo "   Current: $$CURRENT"; \
+		echo "   Latest:  $$HEAD"; \
+		exit 1; \
+	fi
 
 # Application
 build: ## Build the application
