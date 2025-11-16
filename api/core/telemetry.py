@@ -57,7 +57,7 @@ def initialize_telemetry(
 
     try:
         from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
             OTLPSpanExporter,
         )
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -80,23 +80,22 @@ def initialize_telemetry(
 
         # Parse OTLP headers if provided
         # Expected format: "key1=value1,key2=value2" or just "Authorization=Basic ..."
-        # Note: The exporter expects a dictionary, not tuples
+        # The HTTP exporter expects a dictionary of header name to value
         headers = None
         if otlp_headers:
             headers_dict = {}
             for header in otlp_headers.split(","):
                 if "=" in header:
                     key, value = header.split("=", 1)
-                    # gRPC metadata requires lowercase header names
-                    headers_dict[key.strip().lower()] = value.strip()
+                    headers_dict[key.strip()] = value.strip()
             headers = headers_dict if headers_dict else None
 
-        # Set up OTLP exporter
-        # For gRPC with TLS (port 443), insecure must be False (default)
+        # Set up OTLP exporter (HTTP version accepts full URLs)
+        # The endpoint should include the full URL like:
+        # https://otlp-gateway-prod-gb-south-1.grafana.net/otlp
         otlp_exporter = OTLPSpanExporter(
             endpoint=otlp_endpoint,
             headers=headers,
-            insecure=False,  # Use TLS (required for Grafana Cloud)
             timeout=10,  # 10 second timeout for exports
         )
 
