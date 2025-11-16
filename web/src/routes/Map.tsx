@@ -175,10 +175,16 @@ export default function Map() {
     // Add FBM trigpoints if FBM is selected
     if (selectedPhysicalTypes.includes("FBM")) {
       geojsonData.fbm.features.forEach((feature) => {
+        // Skip features with missing critical data
+        if (!feature.properties?.id || !feature.geometry?.coordinates?.[0] || !feature.geometry?.coordinates?.[1]) {
+          console.warn('Skipping FBM feature with missing data:', feature);
+          return;
+        }
+        
         trigs.push({
           id: feature.properties.id,
           waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
-          name: feature.properties.name,
+          name: feature.properties.name || "",
           physical_type: "FBM",
           condition: feature.properties.condition || "U",
           wgs_lat: feature.geometry.coordinates[1].toString(),
@@ -191,10 +197,16 @@ export default function Map() {
     // Add Pillar trigpoints if Pillar is selected
     if (selectedPhysicalTypes.includes("Pillar")) {
       geojsonData.pillar.features.forEach((feature) => {
+        // Skip features with missing critical data
+        if (!feature.properties?.id || !feature.geometry?.coordinates?.[0] || !feature.geometry?.coordinates?.[1]) {
+          console.warn('Skipping Pillar feature with missing data:', feature);
+          return;
+        }
+        
         trigs.push({
           id: feature.properties.id,
           waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
-          name: feature.properties.name,
+          name: feature.properties.name || "",
           physical_type: "Pillar",
           condition: feature.properties.condition || "U",
           wgs_lat: feature.geometry.coordinates[1].toString(),
