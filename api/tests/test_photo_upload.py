@@ -14,18 +14,32 @@ from api.models.user import TLog, User
 
 
 def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
+    """Create a user and tlog with dynamic IDs to avoid collisions."""
+    import uuid
+
+    unique_name = f"uploaduser_{uuid.uuid4().hex[:6]}"
     user = User(
-        id=102,
-        name="uploaduser",
+        name=unique_name,
         firstname="Upload",
         surname="User",
-        email="upload@example.com",
-        auth0_user_id="auth0|102",
+        email=f"{unique_name}@example.com",
+        cryptpw="test",
+        about="Photo upload tester",
+        email_valid="Y",
+        public_ind="Y",
+        auth0_user_id=f"auth0|{uuid.uuid4().hex[:8]}",
     )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    # Ensure Auth0 ID matches expected token pattern so auth succeeds
+    user.auth0_user_id = f"auth0|{user.id}"  # type: ignore
+    db.commit()
+    db.refresh(user)
+
     tlog = TLog(
-        id=1002,
         trig_id=1,
-        user_id=102,
+        user_id=user.id,
         date=datetime(2023, 1, 1).date(),
         time=datetime(2023, 1, 1).time(),
         osgb_eastings=1,
@@ -38,9 +52,9 @@ def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
         ip_addr="127.0.0.1",
         source="W",
     )
-    db.add(user)
     db.add(tlog)
     db.commit()
+    db.refresh(tlog)
     return user, tlog
 
 

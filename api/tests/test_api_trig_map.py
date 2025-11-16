@@ -2,6 +2,7 @@
 Test get_trig_map endpoint.
 """
 
+import uuid
 from datetime import date, time
 from decimal import Decimal
 
@@ -11,20 +12,25 @@ from sqlalchemy.orm import Session
 from api.models.trig import Trig
 
 
-def test_get_trig_map_default_params(client: TestClient, db: Session):
-    """Test get_trig_map with default parameters."""
-    # Create a test trig
-    test_trig = Trig(
-        id=1,
-        waypoint="TP0001",
-        name="Test Trigpoint",
+def create_test_trig(
+    db: Session,
+    *,
+    name: str = "Test Trigpoint",
+    waypoint: str | None = None,
+    lat: Decimal = Decimal("51.50000"),
+    lon: Decimal = Decimal("-0.12500"),
+) -> Trig:
+    unique_waypoint = waypoint or f"TP{uuid.uuid4().hex[:6]}"[:8]
+    trig = Trig(
+        waypoint=unique_waypoint,
+        name=name,
         status_id=10,
         user_added=0,
         current_use="Passive station",
         historic_use="Primary",
         physical_type="Pillar",
-        wgs_lat=Decimal("51.50000"),
-        wgs_long=Decimal("-0.12500"),
+        wgs_lat=lat,
+        wgs_long=lon,
         wgs_height=100,
         osgb_eastings=530000,
         osgb_northings=180000,
@@ -44,9 +50,15 @@ def test_get_trig_map_default_params(client: TestClient, db: Session):
         crt_user_id=1,
         crt_ip_addr="127.0.0.1",
     )
-    db.add(test_trig)
+    db.add(trig)
     db.commit()
-    db.refresh(test_trig)
+    db.refresh(trig)
+    return trig
+
+
+def test_get_trig_map_default_params(client: TestClient, db: Session):
+    """Test get_trig_map with default parameters."""
+    test_trig = create_test_trig(db)
 
     # Call the endpoint with default parameters
     response = client.get(f"/v1/trigs/{test_trig.id}/map")
@@ -61,40 +73,12 @@ def test_get_trig_map_default_params(client: TestClient, db: Session):
 
 def test_get_trig_map_with_custom_dot(client: TestClient, db: Session):
     """Test get_trig_map with custom dot colour and size."""
-    # Create a test trig
-    test_trig = Trig(
-        id=2,
-        waypoint="TP0002",
+    test_trig = create_test_trig(
+        db,
         name="Test Trigpoint 2",
-        status_id=10,
-        user_added=0,
-        current_use="Passive station",
-        historic_use="Primary",
-        physical_type="Pillar",
-        wgs_lat=Decimal("52.50000"),
-        wgs_long=Decimal("-1.12500"),
-        wgs_height=100,
-        osgb_eastings=430000,
-        osgb_northings=280000,
-        osgb_gridref="SP 30000 80000",
-        osgb_height=95,
-        fb_number="S1235",
-        stn_number="TEST124",
-        permission_ind="Y",
-        condition="G",
-        postcode="SW1A 2",
-        county="Oxfordshire",
-        town="Oxford",
-        needs_attention=0,
-        attention_comment="",
-        crt_date=date(2023, 1, 1),
-        crt_time=time(12, 0, 0),
-        crt_user_id=1,
-        crt_ip_addr="127.0.0.1",
+        lat=Decimal("52.50000"),
+        lon=Decimal("-1.12500"),
     )
-    db.add(test_trig)
-    db.commit()
-    db.refresh(test_trig)
 
     # Call with custom dot parameters
     response = client.get(
@@ -112,39 +96,12 @@ def test_get_trig_map_with_custom_dot(client: TestClient, db: Session):
 
 def test_get_trig_map_custom_style(client: TestClient, db: Session):
     """Test get_trig_map with custom style parameter."""
-    test_trig = Trig(
-        id=3,
-        waypoint="TP0003",
+    test_trig = create_test_trig(
+        db,
         name="Test Trigpoint 3",
-        status_id=10,
-        user_added=0,
-        current_use="Passive station",
-        historic_use="Primary",
-        physical_type="Pillar",
-        wgs_lat=Decimal("53.50000"),
-        wgs_long=Decimal("-2.12500"),
-        wgs_height=100,
-        osgb_eastings=380000,
-        osgb_northings=380000,
-        osgb_gridref="SD 80000 80000",
-        osgb_height=95,
-        fb_number="S1236",
-        stn_number="TEST125",
-        permission_ind="Y",
-        condition="G",
-        postcode="M1 1AA",
-        county="Greater Manchester",
-        town="Manchester",
-        needs_attention=0,
-        attention_comment="",
-        crt_date=date(2023, 1, 1),
-        crt_time=time(12, 0, 0),
-        crt_user_id=1,
-        crt_ip_addr="127.0.0.1",
+        lat=Decimal("53.50000"),
+        lon=Decimal("-2.12500"),
     )
-    db.add(test_trig)
-    db.commit()
-    db.refresh(test_trig)
 
     # Call with default style (should work)
     response = client.get(
@@ -166,39 +123,12 @@ def test_get_trig_map_not_found(client: TestClient, db: Session):
 
 def test_get_trig_map_missing_style(client: TestClient, db: Session):
     """Test get_trig_map with non-existent style."""
-    test_trig = Trig(
-        id=4,
-        waypoint="TP0004",
+    test_trig = create_test_trig(
+        db,
         name="Test Trigpoint 4",
-        status_id=10,
-        user_added=0,
-        current_use="Passive station",
-        historic_use="Primary",
-        physical_type="Pillar",
-        wgs_lat=Decimal("54.50000"),
-        wgs_long=Decimal("-3.12500"),
-        wgs_height=100,
-        osgb_eastings=330000,
-        osgb_northings=480000,
-        osgb_gridref="NY 30000 80000",
-        osgb_height=95,
-        fb_number="S1237",
-        stn_number="TEST126",
-        permission_ind="Y",
-        condition="G",
-        postcode="CA1 1AA",
-        county="Cumbria",
-        town="Carlisle",
-        needs_attention=0,
-        attention_comment="",
-        crt_date=date(2023, 1, 1),
-        crt_time=time(12, 0, 0),
-        crt_user_id=1,
-        crt_ip_addr="127.0.0.1",
+        lat=Decimal("54.50000"),
+        lon=Decimal("-3.12500"),
     )
-    db.add(test_trig)
-    db.commit()
-    db.refresh(test_trig)
 
     # Call with non-existent style
     response = client.get(

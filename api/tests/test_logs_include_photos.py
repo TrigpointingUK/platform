@@ -13,17 +13,27 @@ from api.models.user import TLog, User
 
 
 def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     user = User(
-        id=201,
-        name="logphotouser",
+        name=f"logphotouser_{unique_suffix}",
         firstname="Log",
         surname="PhotoUser",
-        email="lp@example.com",
+        email=f"lp_{unique_suffix}@example.com",
+        cryptpw="test",  # Required field
+        about="",  # Required field
+        email_valid="Y",  # Required field
+        public_ind="Y",  # Required field
     )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
     tlog = TLog(
-        id=3001,
         trig_id=1,
-        user_id=201,
+        user_id=user.id,  # Use dynamic user ID
         date=datetime(2024, 1, 2).date(),
         time=datetime(2024, 1, 2).time(),
         osgb_eastings=1,
@@ -36,23 +46,27 @@ def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
         ip_addr="127.0.0.1",
         source="W",
     )
-    db.add(user)
     db.add(tlog)
     db.commit()
+    db.refresh(tlog)
     return user, tlog
 
 
-def create_sample_photo(db: Session, tlog_id: int, photo_id: int) -> TPhoto:
+def create_sample_photo(db: Session, tlog_id: int) -> TPhoto:
+    """Create a sample photo (without hardcoded ID)."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     photo = TPhoto(
-        id=photo_id,
         tlog_id=tlog_id,
         server_id=1,
         type="T",
-        filename="000/P00001.jpg",
+        filename=f"000/P{unique_suffix}.jpg",
         filesize=100,
         height=100,
         width=100,
-        icon_filename="000/I00001.jpg",
+        icon_filename=f"000/I{unique_suffix}.jpg",
         icon_filesize=10,
         icon_height=10,
         icon_width=10,
@@ -72,8 +86,8 @@ def create_sample_photo(db: Session, tlog_id: int, photo_id: int) -> TPhoto:
 
 def test_list_logs_include_photos(client: TestClient, db: Session):
     user, tlog = seed_user_and_tlog(db)
-    create_sample_photo(db, tlog_id=tlog.id, photo_id=4001)  # type: ignore[arg-type]
-    create_sample_photo(db, tlog_id=tlog.id, photo_id=4002)  # type: ignore[arg-type]
+    photo1 = create_sample_photo(db, tlog_id=int(tlog.id))
+    photo2 = create_sample_photo(db, tlog_id=int(tlog.id))
 
     resp = client.get(
         f"{settings.API_V1_STR}/logs?user_id={user.id}&include=photos&limit=10&skip=0"
@@ -86,13 +100,16 @@ def test_list_logs_include_photos(client: TestClient, db: Session):
     assert "photos" in first
     assert isinstance(first["photos"], list)
     assert len(first["photos"]) >= 2
-    assert {p["id"] for p in first["photos"]} >= {4001, 4002}
+    # Check for our specific photo IDs (use dynamic IDs)
+    photo_ids = {p["id"] for p in first["photos"]}
+    assert photo1.id in photo_ids
+    assert photo2.id in photo_ids
 
 
 def test_get_log_include_photos(client: TestClient, db: Session):
     _, tlog = seed_user_and_tlog(db)
-    create_sample_photo(db, tlog_id=tlog.id, photo_id=4101)  # type: ignore[arg-type]
-    create_sample_photo(db, tlog_id=tlog.id, photo_id=4102)  # type: ignore[arg-type]
+    photo1 = create_sample_photo(db, tlog_id=int(tlog.id))
+    photo2 = create_sample_photo(db, tlog_id=int(tlog.id))
 
     resp = client.get(f"{settings.API_V1_STR}/logs/{tlog.id}?include=photos")
     assert resp.status_code == 200
@@ -100,7 +117,10 @@ def test_get_log_include_photos(client: TestClient, db: Session):
     assert body["id"] == tlog.id
     assert "photos" in body
     assert isinstance(body["photos"], list)
-    assert {p["id"] for p in body["photos"]} >= {4101, 4102}
+    # Check for our specific photo IDs (use dynamic IDs)
+    photo_ids = {p["id"] for p in body["photos"]}
+    assert photo1.id in photo_ids
+    assert photo2.id in photo_ids
 
 
 def test_list_logs_unknown_include(client: TestClient, db: Session):

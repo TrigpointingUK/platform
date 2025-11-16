@@ -16,19 +16,29 @@ from api.models.user import TLog, User
 
 
 def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
-    """Create test user and tlog."""
+    """Create test user and tlog with unique identifiers."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     user = User(
-        id=301,
-        name="rotateuser",
+        name=f"rotateuser_{unique_suffix}",
         firstname="Rotate",
         surname="User",
-        email="r@example.com",
-        auth0_user_id="auth0|301",
+        email=f"r_{unique_suffix}@example.com",
+        cryptpw="test",  # Required field
+        about="",  # Required field
+        email_valid="Y",  # Required field
+        public_ind="Y",  # Required field
+        auth0_user_id=f"auth0|{unique_suffix}",
     )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
     tlog = TLog(
-        id=3001,
         trig_id=1,
-        user_id=301,
+        user_id=user.id,  # Use dynamic user ID
         date=datetime(2023, 1, 1).date(),
         time=datetime(2023, 1, 1).time(),
         osgb_eastings=1,
@@ -41,16 +51,15 @@ def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
         ip_addr="127.0.0.1",
         source="W",
     )
-    db.add(user)
     db.add(tlog)
     db.commit()
+    db.refresh(tlog)
     return user, tlog
 
 
-def create_sample_photo(db: Session, tlog_id: int, photo_id: int = 5001) -> TPhoto:
-    """Create a test photo."""
+def create_sample_photo(db: Session, tlog_id: int) -> TPhoto:
+    """Create a test photo with auto-generated ID."""
     photo = TPhoto(
-        id=photo_id,
         tlog_id=tlog_id,
         server_id=1,
         type="T",
@@ -90,7 +99,7 @@ class TestPhotoRotate:
     def test_rotate_photo_success_90_degrees(self, client: TestClient, db: Session):
         """Test successful photo rotation by 90 degrees."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5001)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         test_image_bytes = create_test_image()
 
@@ -148,7 +157,7 @@ class TestPhotoRotate:
     def test_rotate_photo_success_180_degrees(self, client: TestClient, db: Session):
         """Test successful photo rotation by 180 degrees."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5002)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         test_image_bytes = create_test_image()
 
@@ -185,7 +194,7 @@ class TestPhotoRotate:
     def test_rotate_photo_default_angle(self, client: TestClient, db: Session):
         """Test photo rotation with default angle (90 degrees)."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5003)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         test_image_bytes = create_test_image()
 
@@ -221,7 +230,7 @@ class TestPhotoRotate:
     def test_rotate_photo_invalid_angle(self, client: TestClient, db: Session):
         """Test photo rotation with invalid angle."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5004)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         headers = {"Authorization": "Bearer auth0_user_301"}
         resp = client.post(
@@ -251,19 +260,26 @@ class TestPhotoRotate:
     def test_rotate_photo_by_non_owner_success(self, client: TestClient, db: Session):
         """Test rotation by user who doesn't own the photo - should succeed with new trust model."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5005)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
-        # Create a different user
+        # Create a different user with unique identifiers
+        import uuid
+
+        unique_suffix = uuid.uuid4().hex[:8]
         other_user = User(
-            id=999,
-            name="otheruser",
+            name=f"otheruser_{unique_suffix}",
             firstname="Other",
             surname="User",
-            email="other@example.com",
-            auth0_user_id="auth0|999",
+            email=f"other_{unique_suffix}@example.com",
+            cryptpw="test",  # Required field
+            about="",  # Required field
+            email_valid="Y",  # Required field
+            public_ind="Y",  # Required field
+            auth0_user_id=f"auth0|{unique_suffix}",
         )
         db.add(other_user)
         db.commit()
+        db.refresh(other_user)
 
         test_image_bytes = create_test_image()
 
@@ -287,7 +303,7 @@ class TestPhotoRotate:
             mock_s3_upload.return_value = ("000/P00001_r1.jpg", "000/I00001_r1.jpg")
 
             # Try to rotate with different user - should now succeed
-            headers = {"Authorization": "Bearer auth0_user_999"}
+            headers = {"Authorization": f"Bearer auth0_user_{other_user.id}"}
             resp = client.post(
                 f"{settings.API_V1_STR}/photos/{photo.id}/rotate",
                 json={"angle": 90},
@@ -301,7 +317,7 @@ class TestPhotoRotate:
     def test_rotate_photo_no_auth(self, client: TestClient, db: Session):
         """Test rotation without authentication - no auth required now."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5006)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         test_image_bytes = create_test_image()
 
@@ -335,7 +351,7 @@ class TestPhotoRotate:
     def test_rotate_photo_download_failure(self, client: TestClient, db: Session):
         """Test rotation when photo download fails."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5007)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         with patch("requests.get") as mock_get:
             # Mock download failure
@@ -356,7 +372,7 @@ class TestPhotoRotate:
     ):
         """Test rotation when image processing fails."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5008)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         test_image_bytes = create_test_image()
 
@@ -387,7 +403,7 @@ class TestPhotoRotate:
     ):
         """Test rollback when S3 upload fails."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5009)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         test_image_bytes = create_test_image()
         original_filename = photo.filename
@@ -434,7 +450,7 @@ class TestPhotoRotate:
     ):
         """Test rollback when database operations fail."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5010)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         test_image_bytes = create_test_image()
 
@@ -475,7 +491,7 @@ class TestPhotoRotate:
     def test_rotate_photo_preserves_metadata(self, client: TestClient, db: Session):
         """Test that rotation preserves original photo metadata."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5011)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         # Set specific metadata
         photo.name = "Special Photo"  # type: ignore[assignment]
@@ -534,7 +550,7 @@ class TestPhotoRotate:
     def test_rotate_photo_increment_revision(self, client: TestClient, db: Session):
         """Test that rotating a photo with existing revision increments the revision number."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5012)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         # Set photo to already have a revision suffix
         photo.filename = "000/P00001_r5.jpg"  # type: ignore[assignment]
@@ -586,7 +602,7 @@ class TestPhotoRotate:
     def test_rotate_photo_updates_server_id(self, client: TestClient, db: Session):
         """Test that rotating a photo updates server_id to PHOTOS_SERVER_ID."""
         user, tlog = seed_user_and_tlog(db)
-        photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=5013)  # type: ignore[arg-type]
+        photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
         # Set photo to have a different server_id
         original_server_id = 999

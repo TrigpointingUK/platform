@@ -13,22 +13,22 @@ from api.crud.user import update_user_auth0_mapping
 from api.models.user import User
 
 
-def _make_user(
-    db: Session, *, user_id: int, name: str, email: str, password: str
-) -> User:
+def _make_user(db: Session, *, name: str, email: str, password: str) -> User:
+    """Create a test user with unique identifiers and auto-generated ID."""
     cryptpw = des_crypt.hash(password)
     user = User(
-        id=user_id,
         name=name,
         firstname="Test",
         surname="User",
         email=email,
         cryptpw=cryptpw,
+        about="",  # Required field
         email_valid="Y",
         public_ind="Y",
     )
     db.add(user)
     db.commit()
+    db.refresh(user)
     return user
 
 
@@ -41,16 +41,19 @@ def test_login_persists_auth0_user_id(
     Test that legacy login endpoint authenticates and syncs with Auth0.
     This test verifies that password and email are synced to Auth0.
     """
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     # Arrange: User with existing Auth0 ID
     user = _make_user(
         db,
-        user_id=4201,
-        name="login_user",
-        email="login@example.com",
+        name=f"login_user_{unique_suffix}",
+        email=f"login_{unique_suffix}@example.com",
         password="pw123456",
     )
     # Set an existing Auth0 ID
-    user.auth0_user_id = "auth0|abc123"  # type: ignore
+    user.auth0_user_id = f"auth0|{unique_suffix}"  # type: ignore
     db.commit()
 
     # Mock Auth0 services
@@ -65,9 +68,9 @@ def test_login_persists_auth0_user_id(
     response = client.post(
         f"{settings.API_V1_STR}/legacy/login",
         json={
-            "username": "login_user",
+            "username": f"login_user_{unique_suffix}",
             "password": "pw123456",
-            "email": "new.email@example.com",
+            "email": f"new.email_{unique_suffix}@example.com",
         },
     )
 
@@ -75,17 +78,17 @@ def test_login_persists_auth0_user_id(
     assert response.status_code == 200
     # Password should be updated
     mock_auth0_service.update_user_password.assert_called_once_with(
-        user_id="auth0|abc123", password="pw123456"
+        user_id=f"auth0|{unique_suffix}", password="pw123456"
     )
     # Email update should be called since email changed
     mock_auth0_service.update_user_email.assert_called_once_with(
-        user_id="auth0|abc123",
-        email="new.email@example.com",
-        username="login_user",
+        user_id=f"auth0|{unique_suffix}",
+        email=f"new.email_{unique_suffix}@example.com",
+        username=f"login_user_{unique_suffix}",
     )
     # Verify the user's email was updated in database and email_valid set to Y
     db.refresh(user)
-    assert user.email == "new.email@example.com"
+    assert user.email == f"new.email_{unique_suffix}@example.com"
     assert user.email_valid == "Y"
 
 
@@ -106,25 +109,29 @@ def test_deps_links_and_updates_username(
     db: Session,
 ):
     # Arrange: Token presents as Auth0 with given sub
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    auth0_id = f"auth0|{unique_suffix}"
+
     mock_validate_token.return_value = {
         "token_type": "auth0",
-        "auth0_user_id": "auth0|xyz789",
+        "auth0_user_id": auth0_id,
     }
     mock_get_by_auth0.return_value = None  # Force fallback path
 
     # Create legacy user; Auth0 returns matching email
     user = _make_user(
         db,
-        user_id=4202,
-        name="deps_user",
-        email="deps@example.com",
+        name=f"deps_user_{unique_suffix}",
+        email=f"deps_{unique_suffix}@example.com",
         password="pw123456",
     )
     mock_auth0_service.find_user_by_auth0_id.return_value = {
-        "user_id": "auth0|xyz789",
-        "email": "deps@example.com",
-        "nickname": "deps_user",
-        "name": "deps_user",
+        "user_id": auth0_id,
+        "email": f"deps_{unique_suffix}@example.com",
+        "nickname": f"deps_user_{unique_suffix}",
+        "name": f"deps_user_{unique_suffix}",
     }
     mock_get_by_email.return_value = user
     mock_get_by_name.return_value = None
@@ -137,51 +144,59 @@ def test_deps_links_and_updates_username(
     assert response.status_code == 200
     mock_update_mapping.assert_called_once_with(
         ANY,
-        4202,
-        "auth0|xyz789",
+        int(user.id),  # Use dynamic ID
+        auth0_id,
     )
 
 
 def test_get_user_auth0_id_helper(db: Session):
     # Arrange: create user with mapping
-    _make_user(
-        db, user_id=4204, name="map_user", email="map@example.com", password="pw123456"
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    user = _make_user(
+        db,
+        name=f"map_user_{unique_suffix}",
+        email=f"map_{unique_suffix}@example.com",
+        password="pw123456",
     )
     # Set mapping via CRUD
     ok = update_user_auth0_mapping(
         db=db,
-        user_id=4204,
-        auth0_user_id="auth0|map",
+        user_id=int(user.id),
+        auth0_user_id=f"auth0|{unique_suffix}",
     )
     assert ok is True
     # Act/Assert: round-trip via getter
     from api.crud.user import get_user_auth0_id
 
-    assert get_user_auth0_id(db, 4204) == "auth0|map"
+    assert get_user_auth0_id(db, int(user.id)) == f"auth0|{unique_suffix}"
 
 
 def test_update_user_auth0_mapping_simple_update(db: Session):
     # Arrange
-    _make_user(
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    user = _make_user(
         db,
-        user_id=4203,
-        name="user name",
-        email="mismatch@example.com",
+        name=f"username_{unique_suffix}",
+        email=f"mismatch_{unique_suffix}@example.com",
         password="pw123456",
     )
 
     # Act
     ok = update_user_auth0_mapping(
         db=db,
-        user_id=4203,
-        auth0_user_id="auth0|mismatch",
+        user_id=int(user.id),
+        auth0_user_id=f"auth0|{unique_suffix}",
     )
 
     # Assert
     assert ok is True
-    refreshed = db.query(User).filter(User.id == 4203).first()
+    refreshed = db.query(User).filter(User.id == int(user.id)).first()
     assert refreshed is not None
-    assert refreshed.auth0_user_id == "auth0|mismatch"
+    assert refreshed.auth0_user_id == f"auth0|{unique_suffix}"
 
 
 def test_update_user_auth0_mapping_user_not_found(monkeypatch):
@@ -298,20 +313,26 @@ def test_update_user_auth0_mapping_commit_fallback_failure(monkeypatch, caplog):
 
 def test_update_user_auth0_mapping_success_path(db: Session):
     # Arrange: normal success path sets both fields and commits
-    _make_user(
-        db, user_id=4206, name="ok_user", email="ok@example.com", password="pw123456"
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    user = _make_user(
+        db,
+        name=f"ok_user_{unique_suffix}",
+        email=f"ok_{unique_suffix}@example.com",
+        password="pw123456",
     )
     # Act
     ok = update_user_auth0_mapping(
         db=db,
-        user_id=4206,
-        auth0_user_id="auth0|ok",
+        user_id=int(user.id),
+        auth0_user_id=f"auth0|{unique_suffix}",
     )
     # Assert
     assert ok is True
-    refreshed = db.query(User).filter(User.id == 4206).first()
+    refreshed = db.query(User).filter(User.id == int(user.id)).first()
     assert refreshed is not None
-    assert refreshed.auth0_user_id == "auth0|ok"
+    assert refreshed.auth0_user_id == f"auth0|{unique_suffix}"
     # Username fields are no longer tracked
 
 
@@ -340,14 +361,20 @@ def test_get_current_user_optional_links_and_updates_id(
     }
     mock_get_by_auth0.return_value = None
 
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
     created = _make_user(
-        db, user_id=4205, name="opt_user", email="opt@example.com", password="pw123456"
+        db,
+        name=f"opt_user_{unique_suffix}",
+        email=f"opt_{unique_suffix}@example.com",
+        password="pw123456",
     )
     mock_auth0_service.find_user_by_auth0_id.return_value = {
         "user_id": "auth0|opt",
-        "email": "opt@example.com",
-        "nickname": "opt_user",
-        "name": "opt_user",
+        "email": f"opt_{unique_suffix}@example.com",
+        "nickname": f"opt_user_{unique_suffix}",
+        "name": f"opt_user_{unique_suffix}",
     }
     mock_get_by_email.return_value = None
     mock_get_by_name.return_value = created
@@ -359,4 +386,4 @@ def test_get_current_user_optional_links_and_updates_id(
 
     # Assert
     assert result is created
-    mock_update_mapping.assert_called_once_with(ANY, 4205, "auth0|opt")
+    mock_update_mapping.assert_called_once_with(ANY, int(created.id), "auth0|opt")

@@ -13,18 +13,23 @@ from api.models.user import TLog, User
 
 
 def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
+    import uuid
+
+    unique_name = f"photouser_{uuid.uuid4().hex[:6]}"
     user = User(
-        id=101,
-        name="photouser",
+        name=unique_name,
         firstname="Photo",
         surname="User",
-        email="p@example.com",
-        auth0_user_id="auth0|101",
+        email=f"{unique_name}@example.com",
+        cryptpw="test",
+        about="",
+        email_valid="Y",
+        public_ind="Y",
+        auth0_user_id=f"auth0|{uuid.uuid4().hex[:8]}",
     )
     tlog = TLog(
-        id=1001,
         trig_id=1,
-        user_id=101,
+        user_id=None,  # Will set after user is saved
         date=datetime(2023, 1, 1).date(),
         time=datetime(2023, 1, 1).time(),
         osgb_eastings=1,
@@ -38,14 +43,20 @@ def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
         source="W",
     )
     db.add(user)
+    db.commit()
+    db.refresh(user)
+    user.auth0_user_id = f"auth0|{user.id}"  # type: ignore
+    db.commit()
+    db.refresh(user)
+    tlog.user_id = user.id
     db.add(tlog)
     db.commit()
+    db.refresh(tlog)
     return user, tlog
 
 
-def create_sample_photo(db: Session, tlog_id: int, photo_id: int = 2001) -> TPhoto:
+def create_sample_photo(db: Session, tlog_id: int) -> TPhoto:
     photo = TPhoto(
-        id=photo_id,
         tlog_id=tlog_id,
         server_id=1,
         type="T",
@@ -73,7 +84,7 @@ def create_sample_photo(db: Session, tlog_id: int, photo_id: int = 2001) -> TPho
 
 def test_get_photo(client: TestClient, db: Session):
     _, tlog = seed_user_and_tlog(db)
-    photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=2002)  # type: ignore[arg-type]
+    photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
     resp = client.get(f"{settings.API_V1_STR}/photos/{photo.id}")
     assert resp.status_code == 200
@@ -83,10 +94,10 @@ def test_get_photo(client: TestClient, db: Session):
 
 
 def test_update_photo(client: TestClient, db: Session):
-    _, tlog = seed_user_and_tlog(db)
-    photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=2003)  # type: ignore[arg-type]
+    user, tlog = seed_user_and_tlog(db)
+    photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
-    headers = {"Authorization": "Bearer auth0_user_101"}
+    headers = {"Authorization": f"Bearer auth0_user_{user.id}"}
     resp = client.patch(
         f"{settings.API_V1_STR}/photos/{photo.id}",
         json={"caption": "New Name", "license": "N", "type": "F"},
@@ -100,10 +111,10 @@ def test_update_photo(client: TestClient, db: Session):
 
 
 def test_delete_photo_soft(client: TestClient, db: Session):
-    _, tlog = seed_user_and_tlog(db)
-    photo = create_sample_photo(db, tlog_id=tlog.id, photo_id=2004)  # type: ignore[arg-type]
+    user, tlog = seed_user_and_tlog(db)
+    photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
-    headers = {"Authorization": "Bearer auth0_user_101"}
+    headers = {"Authorization": f"Bearer auth0_user_{user.id}"}
     resp = client.delete(f"{settings.API_V1_STR}/photos/{photo.id}", headers=headers)
     assert resp.status_code == 204
 

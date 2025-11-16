@@ -16,12 +16,15 @@ client = TestClient(app)
 
 @pytest.fixture
 def test_user_with_auth0(db: Session):
-    """Create a test user with Auth0 ID."""
+    """Create a test user with Auth0 ID and unique username."""
+    import uuid
+
+    unique_name = f"testuser_{uuid.uuid4().hex[:8]}"
     user = create_user(
         db=db,
-        username="testuser",
-        email="test@example.com",
-        auth0_user_id="auth0|test123",
+        username=unique_name,
+        email=f"{unique_name}@example.com",
+        auth0_user_id=f"auth0|{unique_name}",
     )
     return user
 
@@ -65,11 +68,15 @@ def test_update_name_syncs_to_auth0(
     db: Session, test_user_with_auth0, mock_auth0_token
 ):
     """Test updating name/nickname syncs to Auth0."""
+    import uuid
+
+    new_username = f"newusername_{uuid.uuid4().hex[:8]}"
+
     with patch("api.services.auth0_service.auth0_service") as mock_service:
         mock_service.update_user_profile.return_value = True
 
         payload = {
-            "name": "newusername",
+            "name": new_username,
         }
 
         response = client.patch(
@@ -81,8 +88,8 @@ def test_update_name_syncs_to_auth0(
         assert response.status_code == 200
         # Auth0 service should be called to sync nickname
         mock_service.update_user_profile.assert_called_once_with(
-            user_id="auth0|test123",
-            nickname="newusername",
+            user_id=test_user_with_auth0.auth0_user_id,
+            nickname=new_username,
         )
 
 
@@ -90,11 +97,15 @@ def test_update_email_syncs_to_auth0(
     db: Session, test_user_with_auth0, mock_auth0_token
 ):
     """Test updating email syncs to Auth0."""
+    import uuid
+
+    new_email = f"newemail_{uuid.uuid4().hex[:8]}@example.com"
+
     with patch("api.services.auth0_service.auth0_service") as mock_service:
         mock_service.update_user_email.return_value = True
 
         payload = {
-            "email": "newemail@example.com",
+            "email": new_email,
         }
 
         response = client.patch(
@@ -106,8 +117,8 @@ def test_update_email_syncs_to_auth0(
         assert response.status_code == 200
         # Auth0 service should be called to sync email
         mock_service.update_user_email.assert_called_once_with(
-            user_id="auth0|test123",
-            email="newemail@example.com",
+            user_id=test_user_with_auth0.auth0_user_id,
+            email=new_email,
         )
 
 
@@ -115,16 +126,21 @@ def test_update_name_duplicate_validation(
     db: Session, test_user_with_auth0, mock_auth0_token
 ):
     """Test that duplicate name is rejected."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    existing_username = f"existinguser_{unique_suffix}"
+
     # Create another user with different name
     create_user(
         db=db,
-        username="existinguser",
-        email="existing@example.com",
-        auth0_user_id="auth0|existing123",
+        username=existing_username,
+        email=f"existing_{unique_suffix}@example.com",
+        auth0_user_id=f"auth0|existing_{unique_suffix}",
     )
 
     payload = {
-        "name": "existinguser",  # Try to change to existing username
+        "name": existing_username,  # Try to change to existing username
     }
 
     response = client.patch(
@@ -144,16 +160,21 @@ def test_update_email_duplicate_validation(
     db: Session, test_user_with_auth0, mock_auth0_token
 ):
     """Test that duplicate email is rejected."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    existing_email = f"existing_{unique_suffix}@example.com"
+
     # Create another user with different email
     create_user(
         db=db,
-        username="anotheruser",
-        email="existing@example.com",
-        auth0_user_id="auth0|another123",
+        username=f"anotheruser_{unique_suffix}",
+        email=existing_email,
+        auth0_user_id=f"auth0|another_{unique_suffix}",
     )
 
     payload = {
-        "email": "existing@example.com",  # Try to change to existing email
+        "email": existing_email,  # Try to change to existing email
     }
 
     response = client.patch(
@@ -170,12 +191,16 @@ def test_auth0_sync_failure_doesnt_fail_update(
     db: Session, test_user_with_auth0, mock_auth0_token
 ):
     """Test that Auth0 sync failure doesn't fail the database update."""
+    import uuid
+
+    new_nickname = f"newnickname_{uuid.uuid4().hex[:8]}"
+
     with patch("api.services.auth0_service.auth0_service") as mock_service:
         # Mock Auth0 sync to fail
         mock_service.update_user_profile.return_value = False
 
         payload = {
-            "name": "newnickname",
+            "name": new_nickname,
         }
 
         response = client.patch(
@@ -187,18 +212,22 @@ def test_auth0_sync_failure_doesnt_fail_update(
         # Request should still succeed
         assert response.status_code == 200
         data = response.json()
-        assert data["name"] == "newnickname"
+        assert data["name"] == new_nickname
 
 
 def test_combined_updates_work(db: Session, test_user_with_auth0, mock_auth0_token):
     """Test that multiple fields can be updated at once."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     with patch("api.services.auth0_service.auth0_service") as mock_service:
         mock_service.update_user_profile.return_value = True
         mock_service.update_user_email.return_value = True
 
         payload = {
-            "name": "updatedname",
-            "email": "updated@example.com",
+            "name": f"updatedname_{unique_suffix}",
+            "email": f"updated_{unique_suffix}@example.com",
             "firstname": "Updated",
             "surname": "User",
             "homepage": "https://example.com",
@@ -220,13 +249,15 @@ def test_update_no_auth0_id_skips_sync(db: Session, mock_auth0_token):
     """Test that users without auth0_user_id skip Auth0 sync."""
     # Create user without auth0_user_id
     import secrets
+    import uuid
     from datetime import date, datetime, time
 
     from api.models.user import User
 
+    unique_suffix = uuid.uuid4().hex[:8]
     user = User(
-        name="legacyuser",
-        email="legacy@example.com",
+        name=f"legacyuser_{unique_suffix}",
+        email=f"legacy_{unique_suffix}@example.com",
         auth0_user_id=None,
         cryptpw=secrets.token_urlsafe(32),
         firstname="",
@@ -261,8 +292,12 @@ def test_update_no_auth0_id_skips_sync(db: Session, mock_auth0_token):
             mock_get_user.return_value = user
 
             with patch("api.services.auth0_service.auth0_service") as mock_service:
+                import uuid
+
+                new_name = f"newname_{uuid.uuid4().hex[:8]}"
+
                 payload = {
-                    "name": "newname",
+                    "name": new_name,
                 }
 
                 _ = client.patch(
@@ -279,12 +314,16 @@ def test_auth0_sync_exception_doesnt_fail_update(
     db: Session, test_user_with_auth0, mock_auth0_token
 ):
     """Test that Auth0 sync exception doesn't fail the database update."""
+    import uuid
+
+    new_email = f"newemail_{uuid.uuid4().hex[:8]}@example.com"
+
     with patch("api.services.auth0_service.auth0_service") as mock_service:
         # Mock Auth0 sync to raise exception
         mock_service.update_user_email.side_effect = Exception("Auth0 API error")
 
         payload = {
-            "email": "newemail@example.com",
+            "email": new_email,
         }
 
         response = client.patch(
@@ -303,4 +342,4 @@ def test_auth0_sync_exception_doesnt_fail_update(
 
         user = get_user_by_auth0_id(db, test_user_with_auth0.auth0_user_id)
         assert user is not None
-        assert user.email == "newemail@example.com"
+        assert user.email == new_email

@@ -15,8 +15,8 @@ class UserResponse(BaseModel):
     # Always included
     id: int
     name: str
-    firstname: str
-    surname: str
+    firstname: Optional[str] = None  # Nullable for PostgreSQL compatibility
+    surname: Optional[str] = None  # Nullable for PostgreSQL compatibility
     homepage: Optional[str] = Field(None, description="User homepage URL")
     about: Optional[str] = Field(None, description="About/description text")
     member_since: Optional[date] = Field(None, description="Date user joined")

@@ -20,33 +20,65 @@ class User(Base):
 
     # Core identity fields
     name = Column(String(30), nullable=False, index=True, unique=True)  # Username
-    firstname = Column(String(30), nullable=False, default="")
-    surname = Column(String(30), nullable=False, default="")
-    email = Column(String(255), nullable=False, default="", index=True)
-    email_valid = Column(CHAR(1), nullable=False, default="N")
-    email_ind = Column(CHAR(1), nullable=False, default="N")
-    homepage = Column(String(255), nullable=False, default="")
-    distance_ind = Column(CHAR(1), nullable=False, default="K")
-    about = Column(Text, nullable=False, default="")
-    status_max = Column(Integer, nullable=False, default=0)
+    firstname = Column(
+        String(30), nullable=True, default=""
+    )  # Nullable for PostgreSQL compatibility
+    surname = Column(
+        String(30), nullable=True, default=""
+    )  # Nullable for PostgreSQL compatibility
+    email = Column(
+        String(255), nullable=True, default="", index=True
+    )  # Nullable for PostgreSQL compatibility
+    email_valid = Column(
+        CHAR(1), nullable=True, default="N"
+    )  # Nullable for PostgreSQL compatibility
+    email_ind = Column(
+        CHAR(1), nullable=True, default="N"
+    )  # Nullable for PostgreSQL compatibility
+    homepage = Column(
+        String(255), nullable=True, default=""
+    )  # Nullable for PostgreSQL compatibility
+    distance_ind = Column(
+        CHAR(1), nullable=True, default="K"
+    )  # Nullable for PostgreSQL compatibility
+    about = Column(
+        Text, nullable=True, default=""
+    )  # Nullable for PostgreSQL compatibility
+    status_max = Column(
+        Integer, nullable=True, default=0
+    )  # Nullable for PostgreSQL compatibility
 
     # License preferences
-    public_ind = Column(CHAR(1), nullable=False, default="N")
+    public_ind = Column(
+        CHAR(1), nullable=True, default="N"
+    )  # Nullable for PostgreSQL compatibility
 
     # Legacy authentication - increased size for modern password hashes
-    cryptpw = Column(String(100), nullable=False, default="")
+    cryptpw = Column(
+        String(100), nullable=True, default=""
+    )  # Nullable for PostgreSQL compatibility
 
     # Auth0 integration
     auth0_user_id = Column(String(50), nullable=True, index=True)
 
     # Timestamps
-    crt_date = Column(Date, nullable=False, default=date(1900, 1, 1))
-    crt_time = Column(Time, nullable=False, default=time(0, 0, 0))
-    upd_timestamp = Column(DateTime, nullable=False, default=datetime.now)
+    crt_date = Column(
+        Date, nullable=True, default=date(1900, 1, 1)
+    )  # Nullable for PostgreSQL compatibility
+    crt_time = Column(
+        Time, nullable=True, default=time(0, 0, 0)
+    )  # Nullable for PostgreSQL compatibility
+    upd_timestamp = Column(
+        DateTime, nullable=True, default=datetime.now
+    )  # Nullable for PostgreSQL compatibility
 
     # Display and search preferences
-    online_map_type = Column(String(10), nullable=False, default="")
-    online_map_type2 = Column(String(10), nullable=False, default="lla")
+    online_map_type = Column(
+        String(10), nullable=True, default=""
+    )  # Nullable for PostgreSQL compatibility
+    online_map_type2 = Column(
+        String(10), nullable=True, default="lla"
+    )  # Nullable for PostgreSQL compatibility
 
 
 class TLog(Base):
@@ -55,20 +87,28 @@ class TLog(Base):
     __tablename__ = "tlog"
 
     id = Column(Integer, primary_key=True, index=True)
-    trig_id = Column(Integer, index=True, nullable=False)
-    user_id = Column(Integer, index=True, nullable=False)
-    date = Column(Date, nullable=False)
-    time = Column(Time, nullable=False)
+    trig_id = Column(
+        Integer, index=True, nullable=True
+    )  # Nullable for PostgreSQL compatibility
+    user_id = Column(
+        Integer, index=True, nullable=True
+    )  # Nullable for PostgreSQL compatibility
+    date = Column(Date, nullable=True)  # Nullable for PostgreSQL compatibility
+    time = Column(Time, nullable=True)  # Nullable for PostgreSQL compatibility
     osgb_eastings = Column(Integer, nullable=True)
     osgb_northings = Column(Integer, nullable=True)
     osgb_gridref = Column(String(14), nullable=True)
-    fb_number = Column(String(10), nullable=False)
-    condition = Column(CHAR(1), nullable=False)
-    comment = Column(Text, nullable=False)
-    score = Column(SmallInteger, nullable=False)
-    ip_addr = Column(String(15), nullable=False)
-    source = Column(CHAR(1), nullable=False)
-    upd_timestamp = Column(DateTime, nullable=False, default=datetime.now)
+    fb_number = Column(
+        String(10), nullable=True
+    )  # Nullable for PostgreSQL compatibility
+    condition = Column(CHAR(1), nullable=True)  # Nullable for PostgreSQL compatibility
+    comment = Column(Text, nullable=True)  # Nullable for PostgreSQL compatibility
+    score = Column(SmallInteger, nullable=True)  # Nullable for PostgreSQL compatibility
+    ip_addr = Column(String(15), nullable=True)  # Nullable for PostgreSQL compatibility
+    source = Column(CHAR(1), nullable=True)  # Nullable for PostgreSQL compatibility
+    upd_timestamp = Column(
+        DateTime, nullable=True, default=datetime.now
+    )  # Nullable for PostgreSQL compatibility
 
 
 class TPhotoVote(Base):

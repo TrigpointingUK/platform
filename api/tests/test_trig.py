@@ -18,7 +18,6 @@ def test_get_trig_success_minimal(client: TestClient, db: Session):
     """Test getting a trig by ID - success case."""
     # Create a test trig
     test_trig = Trig(
-        id=1,
         waypoint="TP0001",
         name="Test Trigpoint",
         status_id=10,
@@ -52,11 +51,11 @@ def test_get_trig_success_minimal(client: TestClient, db: Session):
     db.refresh(test_trig)
 
     # Test the endpoint
-    response = client.get(f"{settings.API_V1_STR}/trigs/1")
+    response = client.get(f"{settings.API_V1_STR}/trigs/{test_trig.id}")
     assert response.status_code == 200
 
     data = response.json()
-    assert data["id"] == 1
+    assert data["id"] == test_trig.id
     assert data["waypoint"] == "TP0001"
     assert data["name"] == "Test Trigpoint"
     assert data["wgs_lat"] == "51.50000"
@@ -78,9 +77,12 @@ def test_get_trig_success_minimal(client: TestClient, db: Session):
 
 
 def test_get_trig_with_details_include(client: TestClient, db: Session):
+    import uuid
+
+    waypoint = f"TP{uuid.uuid4().hex[:6]}"[:8]  # Ensure max 8 chars
+
     test_trig = Trig(
-        id=11,
-        waypoint="TP1011",
+        waypoint=waypoint,
         name="Include Trig",
         status_id=10,
         user_added=0,
@@ -110,8 +112,9 @@ def test_get_trig_with_details_include(client: TestClient, db: Session):
     )
     db.add(test_trig)
     db.commit()
+    db.refresh(test_trig)
 
-    response = client.get(f"{settings.API_V1_STR}/trigs/11?include=details")
+    response = client.get(f"{settings.API_V1_STR}/trigs/{test_trig.id}?include=details")
     assert response.status_code == 200
     data = response.json()
     assert "details" in data and isinstance(data["details"], dict)
@@ -129,9 +132,11 @@ def test_get_trig_not_found(client: TestClient, db: Session):
 def test_get_trig_by_waypoint_success_minimal(client: TestClient, db: Session):
     """Test getting a trig by waypoint - success case."""
     # Create a test trig
+    import uuid
+
+    waypoint = f"TP{uuid.uuid4().hex[:6]}"[:8]  # Ensure max 8 chars
     test_trig = Trig(
-        id=2,
-        waypoint="TP0002",
+        waypoint=waypoint,
         name="Another Trigpoint",
         status_id=10,
         user_added=0,
@@ -162,12 +167,14 @@ def test_get_trig_by_waypoint_success_minimal(client: TestClient, db: Session):
     db.add(test_trig)
     db.commit()
 
+    db.refresh(test_trig)
+
     # Test the endpoint
-    response = client.get(f"{settings.API_V1_STR}/trigs/waypoint/TP0002")
+    response = client.get(f"{settings.API_V1_STR}/trigs/waypoint/{test_trig.waypoint}")
     assert response.status_code == 200
 
     data = response.json()
-    assert data["waypoint"] == "TP0002"
+    assert data["waypoint"] == test_trig.waypoint
     assert data["name"] == "Another Trigpoint"
     assert "county" not in data
 
@@ -183,8 +190,7 @@ def test_search_trigs_by_name(client: TestClient, db: Session):
     """Test searching trigs by name."""
     # Create test trigs
     trig1 = Trig(
-        id=3,
-        waypoint="TP0003",
+        waypoint="TP0001",
         name="Ben Nevis",
         status_id=10,
         user_added=0,
@@ -214,8 +220,7 @@ def test_search_trigs_by_name(client: TestClient, db: Session):
     )
 
     trig2 = Trig(
-        id=4,
-        waypoint="TP0004",
+        waypoint="TP0001",
         name="Ben More",
         status_id=10,
         user_added=0,
@@ -262,8 +267,7 @@ def test_get_trig_count(client: TestClient, db: Session):
     """Test getting total trig count."""
     # The test database should start empty, but let's add one record
     test_trig = Trig(
-        id=5,
-        waypoint="TP0005",
+        waypoint="TP0001",
         name="Count Test",
         status_id=10,
         user_added=0,
@@ -294,6 +298,8 @@ def test_get_trig_count(client: TestClient, db: Session):
     db.add(test_trig)
     db.commit()
 
+    db.refresh(test_trig)
+
     # Removed stats count endpoint; emulate count via listing
     response = client.get(f"{settings.API_V1_STR}/trigs?limit=1&skip=0")
     assert response.status_code == 200
@@ -302,9 +308,12 @@ def test_get_trig_count(client: TestClient, db: Session):
 
 
 def test_get_trig_details_endpoint(client: TestClient, db: Session):
+    import uuid
+
+    waypoint = f"TP{uuid.uuid4().hex[:6]}"[:8]  # Ensure max 8 chars
+
     trig = Trig(
-        id=6,
-        waypoint="TP0006",
+        waypoint=waypoint,
         name="Details Trig",
         status_id=10,
         user_added=0,
@@ -334,8 +343,9 @@ def test_get_trig_details_endpoint(client: TestClient, db: Session):
     )
     db.add(trig)
     db.commit()
+    db.refresh(trig)
 
-    response = client.get(f"{settings.API_V1_STR}/trigs/6?include=details")
+    response = client.get(f"{settings.API_V1_STR}/trigs/{trig.id}?include=details")
     assert response.status_code == 200
     data = response.json()
     assert data["details"]["postcode"] == "SW1A 1"
@@ -344,9 +354,12 @@ def test_get_trig_details_endpoint(client: TestClient, db: Session):
 
 
 def test_get_trig_stats_endpoint_and_include(client: TestClient, db: Session):
+    import uuid
+
+    waypoint = f"TP{uuid.uuid4().hex[:6]}"[:8]  # Ensure max 8 chars
+
     trig = Trig(
-        id=7,
-        waypoint="TP0007",
+        waypoint=waypoint,
         name="Stats Trig",
         status_id=10,
         user_added=0,
@@ -374,8 +387,12 @@ def test_get_trig_stats_endpoint_and_include(client: TestClient, db: Session):
         crt_user_id=1,
         crt_ip_addr="127.0.0.1",
     )
+    db.add(trig)
+    db.commit()
+    db.refresh(trig)
+
     stats = TrigStats(
-        id=7,
+        id=trig.id,  # TrigStats.id is actually the trig_id
         logged_first=date(2020, 1, 1),
         logged_last=date(2025, 1, 1),
         logged_count=5,
@@ -386,12 +403,14 @@ def test_get_trig_stats_endpoint_and_include(client: TestClient, db: Session):
         score_baysian=Decimal("6.40"),
         area_osgb_height=0,
     )
-    db.add(trig)
     db.add(stats)
     db.commit()
+    db.refresh(stats)
 
     # include stats with base
-    resp_inc = client.get(f"{settings.API_V1_STR}/trigs/7?include=stats,details")
+    resp_inc = client.get(
+        f"{settings.API_V1_STR}/trigs/{trig.id}?include=stats,details"
+    )
     assert resp_inc.status_code == 200
     data = resp_inc.json()
     assert "stats" in data and data["stats"]["logged_count"] == 5
@@ -402,8 +421,7 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
     """Test getting a trig with attrs include parameter."""
     # Create a test trig
     trig = Trig(
-        id=8,
-        waypoint="TP0008",
+        waypoint="TP0001",
         name="Attrs Trig",
         status_id=10,
         user_added=0,
@@ -434,9 +452,10 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
     db.add(trig)
     db.commit()
 
+    db.refresh(trig)
+
     # Create attribute source
     attr_source = AttrSource(
-        id=1,
         name="Test Source",
         url="https://example.com",
         sort_order=1,
@@ -444,10 +463,11 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
     db.add(attr_source)
     db.commit()
 
+    db.refresh(attr_source)
+
     # Create attributes
     attr1 = Attr(
-        id=1,
-        attrsource_id=1,
+        attrsource_id=attr_source.id,
         name="Column 1",
         description="Test column 1",
         mandatory=1,
@@ -456,8 +476,7 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
         sort_order=1,
     )
     attr2 = Attr(
-        id=2,
-        attrsource_id=1,
+        attrsource_id=attr_source.id,
         name="Column 2",
         description="Test column 2",
         mandatory=1,
@@ -469,40 +488,45 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
     db.add(attr2)
     db.commit()
 
+    db.refresh(attr1)
+    db.refresh(attr2)
+
     # Create attribute set
     attrset = AttrSet(
-        id=1,
-        trig_id=8,
-        attrsource_id=1,
+        trig_id=trig.id,
+        attrsource_id=attr_source.id,
         sort_order=1,
     )
     db.add(attrset)
     db.commit()
 
+    db.refresh(attrset)
+
     # Create attribute values
     attrval1 = AttrVal(
-        id=1,
-        attr_id=1,
+        attr_id=attr1.id,
         value_string="Value 1",
     )
     attrval2 = AttrVal(
-        id=2,
-        attr_id=2,
+        attr_id=attr2.id,
         value_string="Value 2",
     )
     db.add(attrval1)
     db.add(attrval2)
     db.commit()
 
+    db.refresh(attrval1)
+    db.refresh(attrval2)
+
     # Create junction records
-    junction1 = AttrSetAttrVal(attrset_id=1, attrval_id=1)
-    junction2 = AttrSetAttrVal(attrset_id=1, attrval_id=2)
+    junction1 = AttrSetAttrVal(attrset_id=attrset.id, attrval_id=attrval1.id)
+    junction2 = AttrSetAttrVal(attrset_id=attrset.id, attrval_id=attrval2.id)
     db.add(junction1)
     db.add(junction2)
     db.commit()
 
     # Test with include=attrs
-    response = client.get(f"{settings.API_V1_STR}/trigs/8?include=attrs")
+    response = client.get(f"{settings.API_V1_STR}/trigs/{trig.id}?include=attrs")
     assert response.status_code == 200
     data = response.json()
 
@@ -513,17 +537,17 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
 
     # Verify source info
     source_data = data["attrs"][0]
-    assert source_data["source"]["id"] == 1
+    assert source_data["source"]["id"] == attr_source.id
     assert source_data["source"]["name"] == "Test Source"
     assert source_data["source"]["url"] == "https://example.com"
 
     # Verify attr_names
     assert "attr_names" in source_data
-    assert source_data["attr_names"]["1"] == "Column 1"
-    assert source_data["attr_names"]["2"] == "Column 2"
+    assert source_data["attr_names"][str(attr1.id)] == "Column 1"
+    assert source_data["attr_names"][str(attr2.id)] == "Column 2"
 
     # Verify attribute sets
     assert "attribute_sets" in source_data
     assert len(source_data["attribute_sets"]) == 1
-    assert source_data["attribute_sets"][0]["values"]["1"] == "Value 1"
-    assert source_data["attribute_sets"][0]["values"]["2"] == "Value 2"
+    assert source_data["attribute_sets"][0]["values"][str(attr1.id)] == "Value 1"
+    assert source_data["attribute_sets"][0]["values"][str(attr2.id)] == "Value 2"

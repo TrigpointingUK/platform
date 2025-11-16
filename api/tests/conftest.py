@@ -182,18 +182,20 @@ def client(monkeypatch):
 @pytest.fixture
 def test_user(db):
     """Create a test user."""
+    import uuid
+
     from passlib.hash import des_crypt
 
     # Create Unix crypt hash for testing
     test_password = "testpassword123"
     cryptpw = des_crypt.hash(test_password)
 
+    unique_name = f"testuser_{uuid.uuid4().hex[:8]}"
     user = User(
-        id=1000,  # Avoid conflicts with real data
-        name="testuser",
+        name=unique_name,
         firstname="Test",
         surname="User",
-        email="test@example.com",
+        email=f"{unique_name}@example.com",
         cryptpw=cryptpw,
         about="Test user for unit tests",
         email_valid="Y",
@@ -206,14 +208,14 @@ def test_user(db):
 
 
 @pytest.fixture
-def test_tlog_entries(db):
+def test_tlog_entries(db, test_user):
     """Create test tlog entries."""
     from datetime import date, datetime, time
 
     entries = [
         TLog(
             trig_id=1,
-            user_id=1000,
+            user_id=test_user.id,
             date=date(2023, 12, 15),
             time=time(14, 30, 0),
             osgb_eastings=100000,
@@ -229,7 +231,7 @@ def test_tlog_entries(db):
         ),
         TLog(
             trig_id=1,
-            user_id=1000,
+            user_id=test_user.id,
             date=date(2023, 12, 10),
             time=time(10, 15, 0),
             osgb_eastings=100000,
@@ -245,7 +247,7 @@ def test_tlog_entries(db):
         ),
         TLog(
             trig_id=1,
-            user_id=1000,
+            user_id=test_user.id,
             date=date(2023, 12, 5),
             time=time(16, 45, 0),
             osgb_eastings=100000,

@@ -6,6 +6,7 @@ their credentials and email with Auth0.
 """
 
 import crypt
+import uuid
 from datetime import date, time
 from unittest.mock import MagicMock, patch
 
@@ -23,22 +24,28 @@ def test_user(db: Session) -> User:
     """Create a test user with known credentials."""
     test_password = "testpass123"
     cryptpw = crypt.crypt(test_password, "$1$testsalt$")
+    suffix = uuid.uuid4().hex[:6]
+    username = f"legacy_test_user_{suffix}"
+    email = f"{username}@example.com"
 
     user = User(
-        id=5000,
-        name="legacy_test_user",
+        name=username,
         firstname="Legacy",
         surname="Test",
-        email="old.email@example.com",
+        email=email,
         cryptpw=cryptpw,
         about="Test user for legacy login",
         email_valid="N",
         public_ind="Y",
-        auth0_user_id="auth0|test123",
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+    user.auth0_user_id = f"auth0|{user.id}"  # type: ignore
+    db.commit()
+    db.refresh(user)
+    user.plaintext_password = test_password  # type: ignore
+    user.original_email = email  # type: ignore
     return user
 
 
@@ -47,13 +54,15 @@ def test_user_no_auth0(db: Session) -> User:
     """Create a test user without Auth0 ID."""
     test_password = "testpass456"
     cryptpw = crypt.crypt(test_password, "$1$testsalt$")
+    suffix = uuid.uuid4().hex[:6]
+    username = f"legacy_no_auth0_{suffix}"
+    email = f"{username}@example.com"
 
     user = User(
-        id=5001,
-        name="legacy_no_auth0",
+        name=username,
         firstname="No",
         surname="Auth0",
-        email="no.auth0@example.com",
+        email=email,
         cryptpw=cryptpw,
         about="Test user without Auth0",
         email_valid="N",
@@ -63,6 +72,8 @@ def test_user_no_auth0(db: Session) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    user.plaintext_password = test_password
+    user.original_email = email
     return user
 
 
@@ -80,31 +91,32 @@ class TestLegacyLoginAuthentication:
         """Test successful login for user with Auth0 account."""
         mock_auth0_service.update_user_password.return_value = True
         mock_auth0_service.update_user_email.return_value = True
+        new_email = f"{uuid.uuid4().hex}@example.com"
 
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "new.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": new_email,
             },
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == 5000
-        assert data["name"] == "legacy_test_user"
-        assert data["email"] == "new.email@example.com"
+        assert data["id"] == test_user.id
+        assert data["name"] == test_user.name
+        assert data["email"] == new_email
         assert data["email_valid"] == "Y"
 
         # Verify Auth0 calls
         mock_auth0_service.update_user_password.assert_called_once_with(
-            user_id="auth0|test123", password="testpass123"
+            user_id=test_user.auth0_user_id, password=test_user.plaintext_password
         )
         mock_auth0_service.update_user_email.assert_called_once_with(
-            user_id="auth0|test123",
-            email="new.email@example.com",
-            username="legacy_test_user",
+            user_id=test_user.auth0_user_id,
+            email=new_email,
+            username=test_user.name,
         )
 
     @patch("api.api.v1.endpoints.legacy.auth0_service")
@@ -116,35 +128,36 @@ class TestLegacyLoginAuthentication:
         test_user_no_auth0: User,
     ):
         """Test successful login for user without Auth0 account - creates one."""
+        new_email = f"{uuid.uuid4().hex}@example.com"
         mock_auth0_service.create_user.return_value = {
             "user_id": "auth0|newuser123",
-            "email": "new.user@example.com",
+            "email": new_email,
         }
 
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_no_auth0",
-                "password": "testpass456",
-                "email": "new.user@example.com",
+                "username": test_user_no_auth0.name,
+                "password": test_user_no_auth0.plaintext_password,
+                "email": new_email,
             },
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == 5001
-        assert data["name"] == "legacy_no_auth0"
-        assert data["email"] == "new.user@example.com"
+        assert data["id"] == test_user_no_auth0.id
+        assert data["name"] == test_user_no_auth0.name
+        assert data["email"] == new_email
 
         # Verify Auth0 create_user was called
         mock_auth0_service.create_user.assert_called_once_with(
-            username="legacy_no_auth0",
-            email="new.user@example.com",
-            password="testpass456",
-            name="legacy_no_auth0",
-            user_id=5001,
-            firstname="No",
-            surname="Auth0",
+            username=test_user_no_auth0.name,
+            email=new_email,
+            password=test_user_no_auth0.plaintext_password,
+            name=test_user_no_auth0.name,
+            user_id=test_user_no_auth0.id,
+            firstname=test_user_no_auth0.firstname,
+            surname=test_user_no_auth0.surname,
         )
 
         # Verify user now has Auth0 ID in database
@@ -172,7 +185,7 @@ class TestLegacyLoginAuthentication:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
+                "username": test_user.name,
                 "password": "wrongpassword",
                 "email": "test@example.com",
             },
@@ -212,17 +225,17 @@ class TestLegacyLoginAuthentication:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
             },
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == 5000
-        assert data["name"] == "legacy_test_user"
+        assert data["id"] == test_user.id
+        assert data["name"] == test_user.name
         # Email should remain unchanged in database
-        assert data["email"] == "old.email@example.com"
+        assert data["email"] == test_user.original_email
 
         # Verify Auth0 was not called at all
         mock_auth0_service.update_user_password.assert_not_called()
@@ -239,17 +252,17 @@ class TestLegacyLoginAuthentication:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_no_auth0",
-                "password": "testpass456",
+                "username": test_user_no_auth0.name,
+                "password": test_user_no_auth0.plaintext_password,
             },
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == 5001
-        assert data["name"] == "legacy_no_auth0"
+        assert data["id"] == test_user_no_auth0.id
+        assert data["name"] == test_user_no_auth0.name
         # Email should remain unchanged
-        assert data["email"] == "no.auth0@example.com"
+        assert data["email"] == test_user_no_auth0.original_email
 
         # Verify user still doesn't have Auth0 ID (no sync without email)
         db.refresh(test_user_no_auth0)
@@ -273,9 +286,9 @@ class TestLegacyLoginAuth0Sync:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "old.email@example.com",  # Same as user's current email
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": test_user.original_email,  # Same as user's current email
             },
         )
 
@@ -297,13 +310,14 @@ class TestLegacyLoginAuth0Sync:
         """Test that changed email triggers Auth0 email update."""
         mock_auth0_service.update_user_password.return_value = True
         mock_auth0_service.update_user_email.return_value = True
+        new_email = f"{uuid.uuid4().hex}@example.com"
 
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "different.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": new_email,
             },
         )
 
@@ -312,9 +326,9 @@ class TestLegacyLoginAuth0Sync:
         # Both password and email should be updated
         mock_auth0_service.update_user_password.assert_called_once()
         mock_auth0_service.update_user_email.assert_called_once_with(
-            user_id="auth0|test123",
-            email="different.email@example.com",
-            username="legacy_test_user",
+            user_id=test_user.auth0_user_id,
+            email=new_email,
+            username=test_user.name,
         )
 
     @patch("api.api.v1.endpoints.legacy.auth0_service")
@@ -327,13 +341,14 @@ class TestLegacyLoginAuth0Sync:
     ):
         """Test that Auth0 password update failure returns 500."""
         mock_auth0_service.update_user_password.return_value = False
+        sync_email = f"{uuid.uuid4().hex}@example.com"
 
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "test@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": sync_email,
             },
         )
 
@@ -352,12 +367,14 @@ class TestLegacyLoginAuth0Sync:
         mock_auth0_service.update_user_password.return_value = True
         mock_auth0_service.update_user_email.return_value = False
 
+        new_email = f"{uuid.uuid4().hex}@example.com"
+
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "new.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": new_email,
             },
         )
 
@@ -374,13 +391,14 @@ class TestLegacyLoginAuth0Sync:
     ):
         """Test that Auth0 create user failure returns 500."""
         mock_auth0_service.create_user.return_value = None
+        failure_email = f"{uuid.uuid4().hex}@example.com"
 
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_no_auth0",
-                "password": "testpass456",
-                "email": "test@example.com",
+                "username": test_user_no_auth0.name,
+                "password": test_user_no_auth0.plaintext_password,
+                "email": failure_email,
             },
         )
 
@@ -397,13 +415,14 @@ class TestLegacyLoginAuth0Sync:
     ):
         """Test that Auth0 create user with no user_id returns 500."""
         mock_auth0_service.create_user.return_value = {"email": "test@example.com"}
+        failure_email = f"{uuid.uuid4().hex}@example.com"
 
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_no_auth0",
-                "password": "testpass456",
-                "email": "test@example.com",
+                "username": test_user_no_auth0.name,
+                "password": test_user_no_auth0.plaintext_password,
+                "email": failure_email,
             },
         )
 
@@ -428,9 +447,9 @@ class TestLegacyLoginIncludes:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "old.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": test_user.original_email,
             },
         )
 
@@ -460,7 +479,6 @@ class TestLegacyLoginIncludes:
 
         # Create a log for the user
         log = TLog(
-            id=9000,
             trig_id=1,
             user_id=test_user.id,
             date=date(2023, 1, 1),
@@ -481,9 +499,9 @@ class TestLegacyLoginIncludes:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "old.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": test_user.original_email,
                 "include": "stats",
             },
         )
@@ -507,9 +525,8 @@ class TestLegacyLoginIncludes:
 
         # Create trig and log
         trig = Trig(
-            id=9001,
             name="Test Trig",
-            waypoint="TP0001",
+            waypoint=f"TP{uuid.uuid4().hex[:6]}"[:8],
             fb_number="S1234",
             stn_number="0001",
             status_id=0,
@@ -538,9 +555,11 @@ class TestLegacyLoginIncludes:
         )
         db.add(trig)
 
+        db.commit()
+        db.refresh(trig)
+
         log = TLog(
-            id=9001,
-            trig_id=9001,
+            trig_id=trig.id,
             user_id=test_user.id,
             date=date(2023, 1, 1),
             time=time(12, 0),
@@ -560,9 +579,9 @@ class TestLegacyLoginIncludes:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "old.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": test_user.original_email,
                 "include": "breakdown",
             },
         )
@@ -589,9 +608,9 @@ class TestLegacyLoginIncludes:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "old.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": test_user.original_email,
                 "include": "prefs",
             },
         )
@@ -618,9 +637,9 @@ class TestLegacyLoginIncludes:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "old.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": test_user.original_email,
                 "include": "stats,prefs",
             },
         )
@@ -645,9 +664,9 @@ class TestLegacyLoginIncludes:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "old.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": test_user.original_email,
                 "include": "invalid",
             },
         )
@@ -668,15 +687,20 @@ class TestLegacyLoginEmailUpdate:
         test_user: User,
     ):
         """Test that email is updated in database."""
+        import uuid
+
+        unique_suffix = uuid.uuid4().hex[:8]
+
         mock_auth0_service.update_user_password.return_value = True
         mock_auth0_service.update_user_email.return_value = True
 
+        new_email = f"updated_{unique_suffix}@example.com"
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "updated@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": new_email,
             },
         )
 
@@ -684,7 +708,7 @@ class TestLegacyLoginEmailUpdate:
 
         # Verify database was updated
         db.refresh(test_user)
-        assert test_user.email == "updated@example.com"
+        assert test_user.email == new_email
         assert test_user.email_valid == "Y"
 
     @patch("api.api.v1.endpoints.legacy.auth0_service")
@@ -705,9 +729,9 @@ class TestLegacyLoginEmailUpdate:
         response = client.post(
             f"{settings.API_V1_STR}/legacy/login",
             json={
-                "username": "legacy_test_user",
-                "password": "testpass123",
-                "email": "old.email@example.com",
+                "username": test_user.name,
+                "password": test_user.plaintext_password,
+                "email": test_user.original_email,
             },
         )
 

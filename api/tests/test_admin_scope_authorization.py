@@ -19,24 +19,30 @@ client = TestClient(app)
 
 @pytest.fixture
 def test_user(db: Session):
-    """Create a test user."""
+    """Create a test user with unique username."""
+    import uuid
+
+    unique_name = f"testuser_{uuid.uuid4().hex[:8]}"
     user = create_user(
         db=db,
-        username="testuser",
-        email="test@example.com",
-        auth0_user_id="auth0|test123",
+        username=unique_name,
+        email=f"{unique_name}@example.com",
+        auth0_user_id=f"auth0|{unique_name}",
     )
     return user
 
 
 @pytest.fixture
 def other_user(db: Session):
-    """Create another user."""
+    """Create another user with unique username."""
+    import uuid
+
+    unique_name = f"otheruser_{uuid.uuid4().hex[:8]}"
     user = create_user(
         db=db,
-        username="otheruser",
-        email="other@example.com",
-        auth0_user_id="auth0|other123",
+        username=unique_name,
+        email=f"{unique_name}@example.com",
+        auth0_user_id=f"auth0|{unique_name}",
     )
     return user
 

@@ -105,26 +105,33 @@ class TestUserStatsIntegration:
 class TestUserEndpointStats:
     """Test user endpoint statistics functionality."""
 
-    def create_test_data(self, db, user_id=1):
+    def create_test_data(self, db, user_id=None):
         """Create test data for user stats testing."""
+        import uuid
+
         # Create test user
+        unique_name = f"testuser_{uuid.uuid4().hex[:6]}"
         user = User(
-            id=user_id,
-            name=f"testuser{user_id}",
+            name=unique_name,
             firstname="Test",
             surname="User",
-            email=f"test{user_id}@example.com",
-            homepage="http://example.com",
+            email=f"{unique_name}@example.com",
+            cryptpw="test",
             about="Test user",
+            email_valid="Y",
+            public_ind="Y",
+            homepage="http://example.com",
             crt_date=date(2020, 1, 1),
             crt_time=time(12, 0, 0),
         )
         db.add(user)
+        db.commit()
+        db.refresh(user)
 
         # Create test trigpoints
+        waypoint1 = f"TP{uuid.uuid4().hex[:6]}"[:8]
         trig1 = Trig(
-            id=1,
-            waypoint="TP0001",
+            waypoint=waypoint1,
             name="Test Trig 1",
             current_use="Passive station",
             historic_use="Primary",
@@ -153,9 +160,9 @@ class TestUserEndpointStats:
             crt_ip_addr="127.0.0.1",
         )
 
+        waypoint2 = f"TP{uuid.uuid4().hex[:6]}"[:8]
         trig2 = Trig(
-            id=2,
-            waypoint="TP0002",
+            waypoint=waypoint2,
             name="Test Trig 2",
             current_use="Active station",
             historic_use="Secondary",
@@ -185,12 +192,14 @@ class TestUserEndpointStats:
         )
 
         db.add_all([trig1, trig2])
+        db.commit()
+        db.refresh(trig1)
+        db.refresh(trig2)
 
         # Create test logs
         log1 = TLog(
-            id=1,
-            trig_id=1,
-            user_id=user_id,
+            trig_id=trig1.id,
+            user_id=user.id,
             date=date(2020, 6, 1),
             time=time(10, 0, 0),
             osgb_eastings=400000,
@@ -205,9 +214,8 @@ class TestUserEndpointStats:
         )
 
         log2 = TLog(
-            id=2,
-            trig_id=1,  # Same trig, different log
-            user_id=user_id,
+            trig_id=trig1.id,  # Same trig, different log
+            user_id=user.id,
             date=date(2020, 7, 1),
             time=time(11, 0, 0),
             osgb_eastings=400000,
@@ -222,9 +230,8 @@ class TestUserEndpointStats:
         )
 
         log3 = TLog(
-            id=3,
-            trig_id=2,  # Different trig
-            user_id=user_id,
+            trig_id=trig2.id,  # Different trig
+            user_id=user.id,
             date=date(2020, 8, 1),
             time=time(12, 0, 0),
             osgb_eastings=401000,
@@ -240,6 +247,9 @@ class TestUserEndpointStats:
 
         db.add_all([log1, log2, log3])
         db.commit()
+        db.refresh(log1)
+        db.refresh(log2)
+        db.refresh(log3)
 
         return user, [trig1, trig2], [log1, log2, log3]
 
