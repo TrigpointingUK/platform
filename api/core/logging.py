@@ -103,6 +103,9 @@ def setup_logging(log_level: Optional[str] = None) -> None:
     logging.getLogger("botocore").setLevel(logging.WARNING)
     logging.getLogger("boto3").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    # Silence OpenTelemetry and gRPC errors (they're too verbose for CloudWatch)
+    logging.getLogger("opentelemetry.sdk.trace.export").setLevel(logging.CRITICAL)
+    logging.getLogger("grpc").setLevel(logging.CRITICAL)
 
     # Log the configuration
     logging.info(f"Logging configured with level: {log_level.upper()}")
