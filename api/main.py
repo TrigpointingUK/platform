@@ -17,6 +17,7 @@ from api.core.config import settings
 from api.core.logging import setup_logging
 from api.core.profiling import ProfilingMiddleware, should_enable_profiling
 from api.core.telemetry import initialize_telemetry
+from api.core.timing import TimingMiddleware
 from api.db.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -182,6 +183,9 @@ def custom_openapi():
 
 
 app.openapi = custom_openapi  # type: ignore
+
+# Add timing middleware first to capture total request time
+app.add_middleware(TimingMiddleware)
 
 
 class HealthCheckLoggingFilter(BaseHTTPMiddleware):
