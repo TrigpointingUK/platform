@@ -84,6 +84,16 @@ class Settings(BaseSettings):
     PROFILING_ENABLED: bool = False  # Enable profiling middleware
     PROFILING_DEFAULT_FORMAT: str = "html"  # Options: "html" or "speedscope"
 
+    # OpenTelemetry Configuration (for distributed tracing and performance monitoring)
+    OTEL_ENABLED: bool = False  # Enable OpenTelemetry tracing
+    OTEL_EXPORTER_OTLP_ENDPOINT: Optional[str] = (
+        None  # OTLP endpoint (e.g., Grafana Cloud)
+    )
+    OTEL_EXPORTER_OTLP_HEADERS: Optional[str] = (
+        None  # OTLP auth headers (e.g., API key)
+    )
+    OTEL_SERVICE_NAME: Optional[str] = None  # Service name (auto-generated if not set)
+
     # Orientation model (ONNX) configuration
     ORIENTATION_MODEL_ENABLED: bool = False
     ORIENTATION_MODEL_PATH: Optional[str] = None

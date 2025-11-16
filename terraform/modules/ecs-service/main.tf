@@ -76,6 +76,10 @@ resource "aws_ecs_task_definition" "app" {
           value = var.profiling_default_format
         },
         {
+          name  = "OTEL_ENABLED"
+          value = "true"
+        },
+        {
           name  = "PHOTOS_S3_BUCKET"
           value = var.photos_s3_bucket
         },
@@ -163,6 +167,17 @@ resource "aws_ecs_task_definition" "app" {
           {
             name      = "OS_API_KEY"
             valueFrom = "${var.secrets_arn}:os_api_key::"
+          }
+        ],
+        # OpenTelemetry (optional - for distributed tracing)
+        [
+          {
+            name      = "OTEL_EXPORTER_OTLP_ENDPOINT"
+            valueFrom = "${var.secrets_arn}:otel_exporter_otlp_endpoint::"
+          },
+          {
+            name      = "OTEL_EXPORTER_OTLP_HEADERS"
+            valueFrom = "${var.secrets_arn}:otel_exporter_otlp_headers::"
           }
         ]
       )

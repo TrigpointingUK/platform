@@ -16,12 +16,22 @@ from api.api.v1.api import api_router
 from api.core.config import settings
 from api.core.logging import setup_logging
 from api.core.profiling import ProfilingMiddleware, should_enable_profiling
+from api.core.telemetry import initialize_telemetry
 from api.db.database import get_db
 
 logger = logging.getLogger(__name__)
 
 # Configure logging first
 setup_logging()
+
+# Initialize OpenTelemetry tracing (if enabled)
+initialize_telemetry(
+    enabled=settings.OTEL_ENABLED,
+    service_name=settings.OTEL_SERVICE_NAME,
+    environment=settings.ENVIRONMENT,
+    otlp_endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
+    otlp_headers=settings.OTEL_EXPORTER_OTLP_HEADERS,
+)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

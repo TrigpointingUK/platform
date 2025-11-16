@@ -37,6 +37,13 @@ onnxruntime==1.23.2
 # Profiling
 pyinstrument==5.1.1
 
+# OpenTelemetry - Distributed tracing and metrics
+opentelemetry-api==1.28.2
+opentelemetry-sdk==1.28.2
+opentelemetry-instrumentation-fastapi==0.49b2
+opentelemetry-instrumentation-sqlalchemy==0.49b2
+opentelemetry-exporter-otlp-proto-grpc==1.28.2
+
 # Development dependencies
 black==25.11.0
 isort==7.0.0
