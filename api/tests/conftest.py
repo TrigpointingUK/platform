@@ -6,7 +6,7 @@ import warnings
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -44,7 +44,7 @@ def setup_test_database():
     """Create test database and schema if needed."""
     import os
 
-    from sqlalchemy import create_engine, text
+    from sqlalchemy import create_engine
 
     # Only run setup for parallel workers or when DATABASE_URL not set
     db_url = os.environ.get("DATABASE_URL")
@@ -95,16 +95,34 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_tables(request):
+    """Create all tables once at the session start for each worker."""
+    # Create tables (will only succeed for the first worker due to PostgreSQL's transactional DDL)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception:
+        # Tables likely already exist from another worker
+        pass
+
+    yield
+
+    # Don't drop tables - let the test database cleanup handle it
+
+
 @pytest.fixture(scope="function")
 def db():
-    """Create test database."""
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
+    """Create test database session.
+
+    Note: Tests share the same database, so use unique IDs/names to avoid conflicts.
+    The session-scoped setup creates tables once, and they persist across tests.
+    """
+    session = TestingSessionLocal()
     try:
-        yield db
+        yield session
     finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+        session.rollback()  # Rollback any uncommitted changes
+        session.close()
 
 
 @pytest.fixture(scope="function")

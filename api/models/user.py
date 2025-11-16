@@ -33,8 +33,8 @@ class User(Base):
     # License preferences
     public_ind = Column(CHAR(1), nullable=False, default="N")
 
-    # Legacy authentication
-    cryptpw = Column(String(34), nullable=False, default="")
+    # Legacy authentication - increased size for modern password hashes
+    cryptpw = Column(String(100), nullable=False, default="")
 
     # Auth0 integration
     auth0_user_id = Column(String(50), nullable=True, index=True)
