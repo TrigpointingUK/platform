@@ -27,7 +27,7 @@ git status
 git add terraform/staging/main.tf Dockerfile POSTGRES_MIGRATION_COMPLETE.md scripts/POSTGRES_DEPLOYMENT_CHECKLIST.md
 git commit -m "feat(staging): Switch to PostgreSQL RDS
 
-- Update ECS task to use trigpointing-postgres-staging-credentials
+- Update ECS task to use fastapi-staging-postgres-credentials
 - Replace MySQL client libs with PostgreSQL (libpq-dev)
 - All 39 tables migrated with 4.8M rows
 - PostGIS spatial indexes ready for future optimization
@@ -152,7 +152,7 @@ aws logs tail /aws/ecs/trigpointing-staging --follow
 ## Known Good State
 
 - **MySQL Secret**: `arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-staging-credentials-udrQoU`
-- **PostgreSQL Secret**: `arn:aws:secretsmanager:eu-west-1:534526983272:secret:trigpointing-postgres-staging-credentials-c5XrIG`
+- **PostgreSQL Secret**: `arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-staging-postgres-credentials`
 - **Database Host**: `trigpointing-postgres.czyrbczcs1ak.eu-west-1.rds.amazonaws.com`
 - **Database Name**: `tuk_staging`
 - **Tables**: 39 (all migrated)
@@ -165,7 +165,7 @@ aws logs tail /aws/ecs/trigpointing-staging --follow
 ```bash
 # Check if secret is accessible
 aws secretsmanager get-secret-value \
-  --secret-id trigpointing-postgres-staging-credentials \
+  --secret-id fastapi-staging-postgres-credentials \
   --region eu-west-1 \
   --query 'SecretString' \
   | jq .

@@ -54,8 +54,8 @@ terraform apply
 
 ### Application Users
 Use the credentials stored in AWS Secrets Manager:
-- `trigpointing-postgres-production-credentials`
-- `trigpointing-postgres-staging-credentials`
+- `fastapi-production-postgres-credentials`
+- `fastapi-staging-postgres-credentials`
 - `trigpointing-postgres-backups-credentials`
 
 ## Safety Features

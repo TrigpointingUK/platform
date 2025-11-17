@@ -54,3 +54,8 @@ data "terraform_remote_state" "common" {
     region = "eu-west-1" # S3 bucket region
   }
 }
+
+# Data source for PostgreSQL credentials secret
+data "aws_secretsmanager_secret" "postgres_credentials" {
+  name = "fastapi-production-postgres-credentials"
+}

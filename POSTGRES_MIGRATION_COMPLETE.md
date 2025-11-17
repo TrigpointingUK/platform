@@ -4,7 +4,7 @@
 
 ### Database Migration
 - **Source**: MySQL RDS (`fastapi-staging-credentials`)
-- **Target**: PostgreSQL RDS (`trigpointing-postgres-staging-credentials`)
+- **Target**: PostgreSQL RDS (`fastapi-staging-postgres-credentials`)
 - **Data**: 39 tables, ~4.8M rows migrated successfully
 - **PostGIS**: All 4 spatial tables have location columns and GIST indexes
 
@@ -14,7 +14,7 @@
 **File**: `terraform/staging/main.tf`
 - **Changed**: `credentials_secret_arn` from MySQL to PostgreSQL secret
 - **Old**: `arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-staging-credentials-udrQoU`
-- **New**: `arn:aws:secretsmanager:eu-west-1:534526983272:secret:trigpointing-postgres-staging-credentials-c5XrIG`
+- **New**: `arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-staging-postgres-credentials`
 
 #### 2. Dockerfile
 **File**: `Dockerfile`

@@ -97,6 +97,12 @@ Once logged into Grafana Cloud:
    echo -n "123456:glc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx" | base64
    ```
 
+   > **Important:** Grafana also shows a convenience string such as
+   > `Authorization=Basic%20Z2xjXy...`. That value is the base64 encoding of
+   > `{APIToken}:{instanceID}` (the reverse order) and will result in
+   > `401 authentication error: invalid authentication credentials`. Always build
+   > the header yourself using `instanceID:APIToken` as shown above.
+
 ### 3. Add Secrets to AWS Secrets Manager
 
 You need to add the OTLP configuration to your existing secrets in AWS Secrets Manager.
@@ -119,6 +125,18 @@ You need to add the OTLP configuration to your existing secrets in AWS Secrets M
    ```
 
 5. Click **"Save"**
+
+To double-check the stored value:
+
+```bash
+aws secretsmanager get-secret-value \
+  --secret-id fastapi-staging-app-secrets \
+  --region eu-west-1 \
+  --query 'SecretString' --output text | jq -r '.otel_exporter_otlp_headers'
+```
+
+The output should start with `Authorization=Basic ` followed by the base64
+encoding you generated in step 2.
 
 #### For Production Environment
 
@@ -375,14 +393,32 @@ The BatchSpanProcessor batches spans before export, minimising network overhead.
    ```bash
    echo -n "instanceID:apiToken" | base64
    ```
-4. Test connectivity from ECS:
+4. Test connectivity (locally or from ECS) with the same credentials:
    ```bash
-   # SSH into ECS task
-   aws ecs execute-command ...
-   
-   # Test endpoint
-   curl -v https://otlp-gateway-prod-eu-west-0.grafana.net/otlp
+   curl -s -o /dev/null -w "%{http_code}\n" \
+     -H "Authorization: Basic <base64(instanceID:apiToken)>" \
+     -H "Content-Type: application/json" \
+     -d '{}' https://otlp-gateway-prod-eu-west-0.grafana.net/otlp/v1/traces
    ```
+   - `200` or `400` is good (auth accepted, payload may be empty)
+   - `401` means the header is incorrect (usually the order of
+     `instanceID:apiToken`)
+   - `404` means the path is missing `/otlp`
+
+### `401 authentication error: invalid authentication credentials`
+
+**Symptoms:** CloudWatch logs show
+`Failed to export batch code: 401, reason: {"status":"error","error":"authentication error: invalid authentication credentials"}`.
+
+**Solutions:**
+- Rebuild the header with `instanceID:apiToken` (NOT the other way around):
+  ```bash
+  echo -n "1439925:glc_xxx" | base64
+  ```
+- Update the `otel_exporter_otlp_headers` key in Secrets Manager and force a new
+  ECS deployment.
+- Run the `curl` command above (or via `aws ecs execute-command`) to confirm the
+  new credentials are accepted before re-running any load tests.
 
 ### High Data Volume
 

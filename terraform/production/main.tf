@@ -111,7 +111,7 @@ module "ecs_service" {
   alb_listener_arn             = data.terraform_remote_state.common.outputs.https_listener_arn
   alb_rule_priority            = 201
   secrets_arn                  = module.secrets.secrets_arn
-  credentials_secret_arn       = "arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-legacy-credentials-p9KGQI"
+  credentials_secret_arn       = data.aws_secretsmanager_secret.postgres_credentials.arn
   cloudwatch_log_group_name    = aws_cloudwatch_log_group.app.name
   log_level                    = var.log_level
   cors_origins                 = var.cors_origins

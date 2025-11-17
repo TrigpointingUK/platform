@@ -5,17 +5,17 @@
 # Generate random passwords for database users
 resource "random_password" "production_password" {
   length  = 32
-  special = true
+  special = false
 }
 
 resource "random_password" "staging_password" {
   length  = 32
-  special = true
+  special = false
 }
 
 resource "random_password" "backups_password" {
   length  = 32
-  special = true
+  special = false
 }
 
 # Create PostGIS extension in the default postgres database

@@ -24,7 +24,7 @@ help: ## Show this help message
 
 # Defaults (override on the command line or environment as needed)
 AWS_REGION ?= eu-west-1
-STAGING_SECRET_ARN ?= arn:aws:secretsmanager:eu-west-1:534526983272:secret:trigpointing-postgres-staging-credentials-c5XrIG
+STAGING_SECRET_ARN ?= arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-staging-postgres-credentials
 PRODUCTION_SECRET_ARN ?= arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-legacy-credentials-p9KGQI
 SSH_BASTION_HOST ?= bastion.trigpointing.uk
 SSH_BASTION_USER ?= ec2-user
@@ -168,7 +168,7 @@ postgres-tunnel-staging-ssm-start: ## Start SSM remote host port forward to Post
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
 	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found."; exit 1; }
 	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
-	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:eu-west-1:534526983272:secret:trigpointing-postgres-staging-credentials-c5XrIG --query SecretString --output text); \
+	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id fastapi-staging-postgres-credentials --query SecretString --output text); \
 	RDS_HOST=$$(echo "$$SECRET_JSON" | jq -r '.host'); \
 	RDS_PORT=$$(echo "$$SECRET_JSON" | jq -r '.port'); \
 	echo "🔐 SSM forwarding: 127.0.0.1:5433 → $$RDS_HOST:$$RDS_PORT via $(_bastion_instance)"; \

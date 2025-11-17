@@ -141,7 +141,7 @@ This opens a tunnel: `localhost:5433` → Staging RDS
 ```bash
 # Get credentials from AWS Secrets Manager
 export SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
-  --secret-id arn:aws:secretsmanager:eu-west-1:534526983272:secret:trigpointing-postgres-staging-credentials-c5XrIG \
+  --secret-id fastapi-staging-postgres-credentials \
   --query SecretString --output text)
 
 export DB_HOST=localhost
@@ -196,7 +196,7 @@ source venv/bin/activate
 ```bash
 # Fetch from Secrets Manager
 export SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
-  --secret-id arn:aws:secretsmanager:eu-west-1:534526983272:secret:trigpointing-postgres-staging-credentials-c5XrIG \
+  --secret-id fastapi-staging-postgres-credentials \
   --query SecretString --output text)
 
 export DB_HOST=$(echo "$SECRET_JSON" | jq -r '.host')

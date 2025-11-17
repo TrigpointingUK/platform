@@ -3,7 +3,7 @@
 
 # Production user credentials
 resource "aws_secretsmanager_secret" "production_credentials" {
-  name                    = "trigpointing-postgres-production-credentials"
+  name                    = "fastapi-production-postgres-credentials"
   description             = "PostgreSQL production user credentials for FastAPI backend"
   recovery_window_in_days = 7
 
@@ -27,7 +27,7 @@ resource "aws_secretsmanager_secret_version" "production_credentials" {
 
 # Staging user credentials
 resource "aws_secretsmanager_secret" "staging_credentials" {
-  name                    = "trigpointing-postgres-staging-credentials"
+  name                    = "fastapi-staging-postgres-credentials"
   description             = "PostgreSQL staging user credentials for FastAPI backend"
   recovery_window_in_days = 7
 
