@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user_optional, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
+from api.core.metrics import get_metrics_collector
 from api.crud import attr as attr_crud
 from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
@@ -206,6 +207,11 @@ def get_trig(
 
     Default: minimal fields. Supports include=details,stats,attrs.
     """
+    # Record trig view metric
+    metrics = get_metrics_collector()
+    if metrics:
+        metrics.record_trig_view(trig_id)
+
     trig = trig_crud.get_trig_by_id(db, trig_id=trig_id)
     if trig is None:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
@@ -305,6 +311,12 @@ def list_trigs(
     - physical_types: Filter by physical type (e.g., "Pillar,Bolt,FBM")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
     """
+    # Record trig search metric
+    metrics = get_metrics_collector()
+    if metrics:
+        search_type = "nearby" if (lat and lon and max_km) else "general"
+        metrics.record_trig_search(search_type)
+
     # Parse physical types
     physical_types_list = None
     if physical_types:

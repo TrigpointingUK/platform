@@ -1,4 +1,4 @@
-# Alembic Database Migration Guide
+gs# Alembic Database Migration Guide
 
 This guide covers everything you need to know about managing database migrations with Alembic for the Trigpointing Platform.
 

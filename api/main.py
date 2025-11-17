@@ -25,13 +25,18 @@ logger = logging.getLogger(__name__)
 # Configure logging first
 setup_logging()
 
-# Initialize OpenTelemetry tracing (if enabled)
+# Initialize OpenTelemetry tracing and metrics, and Pyroscope profiling (if enabled)
 initialize_telemetry(
     enabled=settings.OTEL_ENABLED,
+    metrics_enabled=settings.OTEL_METRICS_ENABLED,
     service_name=settings.OTEL_SERVICE_NAME,
     environment=settings.ENVIRONMENT,
     otlp_endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
     otlp_headers=settings.OTEL_EXPORTER_OTLP_HEADERS,
+    pyroscope_enabled=settings.PYROSCOPE_ENABLED,
+    pyroscope_server_address=settings.PYROSCOPE_SERVER_ADDRESS,
+    pyroscope_auth_token=settings.PYROSCOPE_AUTH_TOKEN,
+    pyroscope_application_name=settings.PYROSCOPE_APPLICATION_NAME,
 )
 
 app = FastAPI(

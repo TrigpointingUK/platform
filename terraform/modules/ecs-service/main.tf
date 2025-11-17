@@ -80,16 +80,20 @@ resource "aws_ecs_task_definition" "app" {
           value = "true"
         },
         {
+          name  = "OTEL_METRICS_ENABLED"
+          value = "true"
+        },
+        {
+          name  = "PYROSCOPE_ENABLED"
+          value = "true"
+        },
+        {
           name  = "PHOTOS_S3_BUCKET"
           value = var.photos_s3_bucket
         },
         {
           name  = "PHOTOS_SERVER_ID"
           value = tostring(var.photos_server_id)
-        },
-        {
-          name  = "OTEL_ENABLED"
-          value = "true"
         }
         ],
         # Optional base environment variables
@@ -173,7 +177,7 @@ resource "aws_ecs_task_definition" "app" {
             valueFrom = "${var.secrets_arn}:os_api_key::"
           }
         ],
-        # OpenTelemetry (for distributed tracing)
+        # OpenTelemetry (for distributed tracing and metrics)
         [
           {
             name      = "OTEL_EXPORTER_OTLP_ENDPOINT"
@@ -182,6 +186,17 @@ resource "aws_ecs_task_definition" "app" {
           {
             name      = "OTEL_EXPORTER_OTLP_HEADERS"
             valueFrom = "${var.secrets_arn}:otel_exporter_otlp_headers::"
+          }
+        ],
+        # Pyroscope (for continuous profiling)
+        [
+          {
+            name      = "PYROSCOPE_SERVER_ADDRESS"
+            valueFrom = "${var.secrets_arn}:pyroscope_server_address::"
+          },
+          {
+            name      = "PYROSCOPE_AUTH_TOKEN"
+            valueFrom = "${var.secrets_arn}:pyroscope_auth_token::"
           }
         ]
       )

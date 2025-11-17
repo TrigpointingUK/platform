@@ -1,17 +1,18 @@
 # OpenTelemetry + Grafana Cloud Integration
 
-**Date:** 16 November 2025  
-**Objective:** Implement distributed tracing and performance monitoring with OpenTelemetry and Grafana Cloud at zero cost (using free tier).
+**Date:** 16 November 2025 (Updated: 17 November 2025)  
+**Objective:** Implement distributed tracing, metrics collection, and continuous profiling with OpenTelemetry, Prometheus, and Pyroscope in Grafana Cloud at zero cost (using free tier).
 
 ## Overview
 
-This document describes how to set up OpenTelemetry instrumentation in the FastAPI application to export traces to Grafana Cloud, enabling:
+This document describes the comprehensive observability setup for the FastAPI application using Grafana Cloud:
 
-- **Latency heatmaps** - Visualise request latency distribution over time
-- **Percentile tracking** - Monitor p50, p95, p99 latencies for all endpoints
-- **Distributed tracing** - Debug slow requests with detailed trace views
-- **Database query performance** - Automatic SQLAlchemy instrumentation
-- **Zero AWS costs** - Uses Grafana Cloud free tier (50GB traces/month)
+- **Traces** - Distributed tracing with OpenTelemetry → Tempo
+- **Metrics** - RED metrics and business KPIs with OpenTelemetry → Prometheus
+- **Profiles** - Continuous CPU profiling with Pyroscope
+- **Zero AWS costs** - Uses Grafana Cloud free tier
+
+All three pillars of observability in one integrated platform!
 
 ## Architecture
 
@@ -40,19 +41,23 @@ This document describes how to set up OpenTelemetry instrumentation in the FastA
 
 ✅ **Completed:**
 - OpenTelemetry dependencies added to `requirements.txt`
-- `api/core/telemetry.py` module created with initialization logic
-- Configuration settings added to `api/core/config.py`
+- `api/core/telemetry.py` module with tracing and metrics initialization
+- `api/core/metrics.py` module for metrics collection
+- Configuration settings in `api/core/config.py`
 - Telemetry initialization integrated into `api/main.py`
-- Application code ready (telemetry disabled by default)
+- Business metrics in endpoint files (trigs, photos)
+- Pyroscope continuous profiling integration
+- Terraform configuration for Pyroscope
+- Comprehensive documentation (metrics, Pyroscope, dashboards)
 
 ⏳ **Manual Steps Required (when ready to enable):**
 1. Create Grafana Cloud account (free tier)
-2. Obtain OTLP endpoint and API token
+2. Obtain OTLP endpoint, API token, and Pyroscope credentials
 3. Add secrets to AWS Secrets Manager
-4. Update Terraform to enable OTEL and inject secrets
+4. Update Terraform to enable OTEL_METRICS and PYROSCOPE
 5. Apply Terraform changes
 
-**Note:** The application runs perfectly fine without telemetry configured. OpenTelemetry is disabled by default and won't cause any errors if not configured.
+**Note:** The application runs perfectly fine without telemetry configured. OpenTelemetry and Pyroscope are disabled by default.
 
 ## Setup Instructions
 
@@ -453,12 +458,22 @@ The BatchSpanProcessor batches spans before export, minimising network overhead.
 
 ## Next Steps
 
-1. ✅ Deploy to staging and verify traces are working
-2. ⏳ Monitor staging for a few days to ensure stability
-3. ⏳ Deploy to production
-4. ⏳ Create custom dashboards for key metrics
-5. ⏳ Set up alerting for high latency or error rates
-6. ⏳ Consider adding Redis and Boto3 instrumentation
+1. ✅ Deploy traces to staging and verify they work
+2. ✅ Add metrics collection (RED metrics, database, business)
+3. ✅ Set up Pyroscope continuous profiling
+4. ⏳ Add Pyroscope credentials to AWS Secrets Manager
+5. ⏳ Deploy metrics and profiling to staging
+6. ⏳ Monitor staging for a few days to ensure stability
+7. ⏳ Deploy to production
+8. ⏳ Create custom dashboards for key metrics
+9. ⏳ Set up alerting for high latency or error rates
+10. ⏳ Consider adding Redis and Boto3 instrumentation
+
+## Related Documentation
+
+- **Metrics:** See `docs/infrastructure/GRAFANA_METRICS.md` for comprehensive metrics documentation
+- **Pyroscope:** See `docs/infrastructure/GRAFANA_PYROSCOPE.md` for continuous profiling guide
+- **Dashboards:** See `docs/grafana/dashboards/README.md` for dashboard import instructions
 
 ## References
 

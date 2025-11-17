@@ -84,8 +84,17 @@ class Settings(BaseSettings):
     PROFILING_ENABLED: bool = False  # Enable profiling middleware
     PROFILING_DEFAULT_FORMAT: str = "html"  # Options: "html" or "speedscope"
 
+    # Pyroscope Configuration (for continuous profiling)
+    PYROSCOPE_ENABLED: bool = False  # Enable Pyroscope continuous profiling
+    PYROSCOPE_SERVER_ADDRESS: Optional[str] = None  # Pyroscope server URL
+    PYROSCOPE_AUTH_TOKEN: Optional[str] = None  # Pyroscope auth token
+    PYROSCOPE_APPLICATION_NAME: Optional[str] = (
+        None  # App name (auto-generated if not set)
+    )
+
     # OpenTelemetry Configuration (for distributed tracing and performance monitoring)
     OTEL_ENABLED: bool = False  # Enable OpenTelemetry tracing
+    OTEL_METRICS_ENABLED: bool = False  # Enable OpenTelemetry metrics
     OTEL_EXPORTER_OTLP_ENDPOINT: Optional[str] = (
         None  # OTLP endpoint (e.g., Grafana Cloud)
     )
