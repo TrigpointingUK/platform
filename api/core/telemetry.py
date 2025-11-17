@@ -114,10 +114,14 @@ def initialize_telemetry(
         # Initialize tracing if enabled
         if enabled:
             # Set up OTLP trace exporter (HTTP version accepts full URLs)
-            # The endpoint should include the full URL like:
-            # https://otlp-gateway-prod-gb-south-1.grafana.net/otlp
+            # The endpoint should NOT include /v1/traces - the exporter adds it automatically
+            # Use the base OTLP endpoint like: https://otlp-gateway-prod-gb-south-1.grafana.net/otlp
+            trace_endpoint = otlp_endpoint
+            if trace_endpoint.endswith("/v1/traces"):
+                trace_endpoint = trace_endpoint.replace("/v1/traces", "")
+
             otlp_trace_exporter = OTLPSpanExporter(
-                endpoint=otlp_endpoint,
+                endpoint=f"{trace_endpoint}/v1/traces",
                 headers=headers,
                 timeout=10,  # 10 second timeout for exports
             )
@@ -133,8 +137,13 @@ def initialize_telemetry(
         # Initialize metrics if enabled
         if metrics_enabled:
             # Set up OTLP metrics exporter
+            # Use the correct endpoint for metrics: /v1/metrics instead of /v1/traces
+            metrics_endpoint = otlp_endpoint
+            if metrics_endpoint.endswith("/v1/traces"):
+                metrics_endpoint = metrics_endpoint.replace("/v1/traces", "")
+
             otlp_metric_exporter = OTLPMetricExporter(
-                endpoint=otlp_endpoint,
+                endpoint=f"{metrics_endpoint}/v1/metrics",
                 headers=headers,
                 timeout=10,
             )
