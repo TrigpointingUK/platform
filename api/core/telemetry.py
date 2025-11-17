@@ -219,6 +219,7 @@ def initialize_telemetry(
                 or f"trigpointing-api-{environment}"
             )
 
+            # Configure Pyroscope profiler
             pyroscope.configure(
                 application_name=app_name,
                 server_address=pyroscope_server_address,
@@ -228,14 +229,15 @@ def initialize_telemetry(
                     "environment": environment,
                     "service": app_name,
                 },
-                # Enable profiling for CPU and memory
+                # Sample rate (10ms intervals is the default, very low overhead)
+                sample_rate=100,  # Sample every 100Hz (10ms)
+                # Enable profiling for CPU
                 detect_subprocesses=False,  # Disable subprocess profiling for FastAPI
                 oncpu=True,  # Enable CPU profiling (default, very low overhead)
-                gil_only=True,  # Only profile Python code (not C extensions)
             )
 
             logger.info(
-                f"Pyroscope initialized successfully for {app_name} "
+                f"Pyroscope initialized and started profiling for {app_name} "
                 f"in {environment} environment, exporting to {pyroscope_server_address}"
             )
 
