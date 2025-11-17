@@ -172,24 +172,16 @@ def initialize_telemetry(
 
         # Instrument FastAPI and SQLAlchemy if tracing is enabled
         if enabled:
-            # Instrument FastAPI automatically with enhanced configuration
-            # This will create spans for all HTTP requests with proper semantic conventions
-            # The instrumentor automatically adds: http.method, http.route, http.status_code,
-            # http.scheme, http.host, http.target, and more
-            if app_instance is not None:
-                # Instrument the specific app instance
-                FastAPIInstrumentor.instrument_app(
-                    app_instance,
-                    excluded_urls="/health,/metrics",
-                )
-                logger.info("FastAPI app instrumented successfully")
-            else:
-                # Fallback: instrument all FastAPI apps globally
+            # Note: FastAPI instrumentation should be done AFTER routes are added
+            # If app_instance is provided, we skip instrumentation here and let
+            # the caller do it at the right time (after routes are added)
+            if app_instance is None:
+                # Global instrumentation fallback (not recommended)
                 FastAPIInstrumentor().instrument(
                     excluded_urls="/health,/metrics",
                 )
                 logger.warning(
-                    "FastAPI instrumented globally - pass app_instance for better span attributes"
+                    "FastAPI instrumented globally - consider instrumenting after routes are added"
                 )
 
             # Instrument SQLAlchemy automatically
