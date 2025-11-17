@@ -39,8 +39,8 @@ class TrigAdminDetail(BaseModel):
     id: int
     waypoint: str
     name: str
-    fb_number: str
-    stn_number: str
+    fb_number: Optional[str] = ""
+    stn_number: Optional[str] = ""
     status_id: int
     current_use: str
     historic_use: str
@@ -53,11 +53,11 @@ class TrigAdminDetail(BaseModel):
     osgb_northings: int
     osgb_gridref: str
     osgb_height: int
-    postcode: str
-    county: str
-    town: str
+    postcode: Optional[str] = ""
+    county: Optional[str] = ""
+    town: Optional[str] = ""
     needs_attention: int
-    attention_comment: str
+    attention_comment: Optional[str] = ""
     upd_timestamp: Optional[datetime] = None
 
     class Config:
@@ -69,8 +69,8 @@ class TrigAdminUpdate(BaseModel):
 
     # Basic fields
     name: str = Field(..., min_length=1, max_length=50)
-    fb_number: str = Field(..., max_length=10)
-    stn_number: str = Field(..., max_length=20)
+    fb_number: str = Field(default="", max_length=10)
+    stn_number: str = Field(default="", max_length=20)
 
     # Classification
     status_id: int = Field(..., ge=1)
