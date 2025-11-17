@@ -303,18 +303,6 @@ def health_check(db: Session = Depends(get_db)):
     }
 
 
-# Instrument FastAPI app AFTER all routes are added
-# This must be done at the end so the instrumentor can see all routes
-if settings.OTEL_ENABLED:
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-    FastAPIInstrumentor.instrument_app(
-        app,
-        excluded_urls="/health,/metrics",
-    )
-    logger.info("FastAPI app instrumented with OpenTelemetry (after routes added)")
-
-
 @app.get("/logout", include_in_schema=False)
 def logout():
     """
@@ -348,6 +336,18 @@ def logout():
     )
 
     return RedirectResponse(url=logout_url)
+
+
+# Instrument FastAPI app AFTER all routes are added
+# This must be done at the end so the instrumentor can see all routes
+if settings.OTEL_ENABLED:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(
+        app,
+        excluded_urls="/health,/metrics",
+    )
+    logger.info("FastAPI app instrumented with OpenTelemetry (after routes added)")
 
 
 if __name__ == "__main__":
