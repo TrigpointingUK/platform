@@ -86,6 +86,10 @@ resource "aws_ecs_task_definition" "app" {
         {
           name  = "PHOTOS_SERVER_ID"
           value = tostring(var.photos_server_id)
+        },
+        {
+          name  = "OTEL_ENABLED"
+          value = "true"
         }
         ],
         # Optional base environment variables
