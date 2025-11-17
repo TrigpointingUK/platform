@@ -186,32 +186,13 @@ def export_trigs_geojson(
     }
 
 
-@router.get(
-    "/{trig_id}",
-    response_model=TrigWithIncludes,
-    openapi_extra=openapi_lifecycle(
-        "beta", note="Shape may change; fieldset stabilising"
-    ),
-)
 @cached(resource_type="trig", ttl=86400, resource_id_param="trig_id")  # 24 hours
-def get_trig(
+def _get_trig_cached(
     trig_id: int,
-    include: Optional[str] = Query(
-        None, description="Comma-separated list of includes: details,stats,attrs"
-    ),
-    _lc=lifecycle("beta", note="Shape may change"),
-    db: Session = Depends(get_db),
+    include: Optional[str],
+    db: Session,
 ):
-    """
-    Get a trigpoint by ID.
-
-    Default: minimal fields. Supports include=details,stats,attrs.
-    """
-    # Record trig view metric
-    metrics = get_metrics_collector()
-    if metrics:
-        metrics.record_trig_view(trig_id)
-
+    """Internal cached function for fetching trig data."""
     trig = trig_crud.get_trig_by_id(db, trig_id=trig_id)
     if trig is None:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
@@ -250,6 +231,36 @@ def get_trig(
     return TrigWithIncludes(
         **minimal_data, details=details_obj, stats=stats_obj, attrs=attrs_obj
     )
+
+
+@router.get(
+    "/{trig_id}",
+    response_model=TrigWithIncludes,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Shape may change; fieldset stabilising"
+    ),
+)
+def get_trig(
+    trig_id: int,
+    include: Optional[str] = Query(
+        None, description="Comma-separated list of includes: details,stats,attrs"
+    ),
+    _lc=lifecycle("beta", note="Shape may change"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a trigpoint by ID.
+
+    Default: minimal fields. Supports include=details,stats,attrs.
+    """
+    # Record trig view metric BEFORE cache check
+    # This ensures the metric is recorded even for cached responses
+    metrics = get_metrics_collector()
+    if metrics:
+        metrics.record_trig_view(trig_id)
+
+    # Call the cached function to get the data
+    return _get_trig_cached(trig_id=trig_id, include=include, db=db)
 
 
 @router.get(
