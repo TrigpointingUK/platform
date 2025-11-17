@@ -23,6 +23,7 @@ def initialize_telemetry(
     pyroscope_server_address: Optional[str] = None,
     pyroscope_auth_token: Optional[str] = None,
     pyroscope_application_name: Optional[str] = None,
+    app_instance=None,  # FastAPI app instance for instrumentation
 ) -> None:
     """
     Initialize OpenTelemetry instrumentation for tracing and metrics, and Pyroscope for profiling.
@@ -45,6 +46,7 @@ def initialize_telemetry(
         pyroscope_server_address: Pyroscope server URL
         pyroscope_auth_token: Pyroscope authentication token
         pyroscope_application_name: Application name for Pyroscope
+        app_instance: FastAPI app instance to instrument (optional)
 
     Example:
         initialize_telemetry(
@@ -174,10 +176,21 @@ def initialize_telemetry(
             # This will create spans for all HTTP requests with proper semantic conventions
             # The instrumentor automatically adds: http.method, http.route, http.status_code,
             # http.scheme, http.host, http.target, and more
-            FastAPIInstrumentor().instrument(
-                # Excluded URLs (health checks, metrics endpoints) to reduce trace volume
-                excluded_urls="/health,/metrics",
-            )
+            if app_instance is not None:
+                # Instrument the specific app instance
+                FastAPIInstrumentor.instrument_app(
+                    app_instance,
+                    excluded_urls="/health,/metrics",
+                )
+                logger.info("FastAPI app instrumented successfully")
+            else:
+                # Fallback: instrument all FastAPI apps globally
+                FastAPIInstrumentor().instrument(
+                    excluded_urls="/health,/metrics",
+                )
+                logger.warning(
+                    "FastAPI instrumented globally - pass app_instance for better span attributes"
+                )
 
             # Instrument SQLAlchemy automatically
             # This will create spans for all database queries with query text and parameters
