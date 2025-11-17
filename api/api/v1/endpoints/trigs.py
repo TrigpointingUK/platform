@@ -12,6 +12,7 @@ from typing import Optional
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
 from sqlalchemy.orm import Session
@@ -242,6 +243,7 @@ def _get_trig_cached(
 )
 def get_trig(
     trig_id: int,
+    request: FastAPIRequest,
     include: Optional[str] = Query(
         None, description="Comma-separated list of includes: details,stats,attrs"
     ),
@@ -253,11 +255,28 @@ def get_trig(
 
     Default: minimal fields. Supports include=details,stats,attrs.
     """
-    # Record trig view metric BEFORE cache check
-    # This ensures the metric is recorded even for cached responses
+    # Determine cache status by checking if the cached function will return cached data
+    # Generate the same cache key that the @cached decorator will use
+    from api.utils.cache_decorator import cache_get, generate_cache_key
+
+    cache_key = generate_cache_key(
+        resource_type="trig",
+        resource_id=str(trig_id),
+        params={"include": include} if include else None,
+    )
+
+    # Check if we have a cached value
+    cached_value, _ = cache_get(cache_key)
+    cache_status = "hit" if cached_value is not None else "miss"
+
+    # Check for cache bypass header
+    if request and "no-cache" in request.headers.get("cache-control", "").lower():
+        cache_status = "bypass"
+
+    # Record trig view metric with cache status
     metrics = get_metrics_collector()
     if metrics:
-        metrics.record_trig_view(trig_id)
+        metrics.record_trig_view(trig_id, cache_status=cache_status)
 
     # Call the cached function to get the data
     return _get_trig_cached(trig_id=trig_id, include=include, db=db)

@@ -236,9 +236,17 @@ class MetricsCollector:
 
     # Business Metrics Helper Methods
 
-    def record_trig_view(self, trig_id: int) -> None:
-        """Record a trig detail page view."""
-        self.trigs_viewed.add(1, {"trig_id": str(trig_id)})
+    def record_trig_view(self, trig_id: int, cache_status: str = "unknown") -> None:
+        """
+        Record a trig detail page view.
+
+        Args:
+            trig_id: ID of the trigpoint being viewed
+            cache_status: Cache status - "hit", "miss", or "bypass"
+        """
+        self.trigs_viewed.add(
+            1, {"trig_id": str(trig_id), "cache_status": cache_status}
+        )
 
     def record_trig_search(self, search_type: str = "general") -> None:
         """
