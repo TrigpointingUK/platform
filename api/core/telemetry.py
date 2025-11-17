@@ -219,22 +219,64 @@ def initialize_telemetry(
                 or f"trigpointing-api-{environment}"
             )
 
+            # Log configuration details for debugging
+            logger.info(
+                f"Configuring Pyroscope: app_name={app_name}, "
+                f"server={pyroscope_server_address}, "
+                f"auth_token={'***' + pyroscope_auth_token[-10:] if pyroscope_auth_token else 'None'}"
+            )
+
+            # For Grafana Cloud, we need to use basic auth with instance ID and token
+            # The auth_token should be in format: instanceID:token for Grafana Cloud
+            # Extract instance ID from server address if using Grafana Cloud
+            basic_auth_user = None
+            basic_auth_password = None
+
+            if "grafana.net" in pyroscope_server_address and pyroscope_auth_token:
+                # For Grafana Cloud, auth token is the API key
+                # Instance ID is embedded in the URL (e.g., profiles-prod-023 -> 023)
+                import re
+
+                match = re.search(r"profiles-prod-(\d+)", pyroscope_server_address)
+                if match:
+                    instance_id = match.group(1).lstrip("0")  # Remove leading zeros
+                    basic_auth_user = instance_id
+                    basic_auth_password = pyroscope_auth_token
+                    logger.info(
+                        f"Using Grafana Cloud auth with instance ID: {instance_id}"
+                    )
+                else:
+                    # Fallback to using token directly
+                    logger.warning(
+                        "Could not extract instance ID from Grafana Cloud URL"
+                    )
+
             # Configure Pyroscope profiler
-            pyroscope.configure(
-                application_name=app_name,
-                server_address=pyroscope_server_address,
-                auth_token=pyroscope_auth_token,
+            config_params = {
+                "application_name": app_name,
+                "server_address": pyroscope_server_address,
                 # Tags for filtering in Pyroscope UI
-                tags={
+                "tags": {
                     "environment": environment,
                     "service": app_name,
                 },
                 # Sample rate (10ms intervals is the default, very low overhead)
-                sample_rate=100,  # Sample every 100Hz (10ms)
+                "sample_rate": 100,  # Sample every 100Hz (10ms)
                 # Enable profiling for CPU
-                detect_subprocesses=False,  # Disable subprocess profiling for FastAPI
-                oncpu=True,  # Enable CPU profiling (default, very low overhead)
-            )
+                "detect_subprocesses": False,  # Disable subprocess profiling for FastAPI
+                "oncpu": True,  # Enable CPU profiling (default, very low overhead)
+                # Add logging callback to debug upload issues
+                "log_level": "debug",  # Enable debug logging for pyroscope
+            }
+
+            # Add authentication based on server type
+            if basic_auth_user and basic_auth_password:
+                config_params["basic_auth_username"] = basic_auth_user
+                config_params["basic_auth_password"] = basic_auth_password
+            elif pyroscope_auth_token:
+                config_params["auth_token"] = pyroscope_auth_token
+
+            pyroscope.configure(**config_params)
 
             logger.info(
                 f"Pyroscope initialized and started profiling for {app_name} "
