@@ -93,10 +93,10 @@ describe("Admin route", () => {
     const loginWithRedirect = vi.fn();
 
     // Mock fetch for NeedsAttentionCard API call
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ count: 5, latest_update: new Date().toISOString() }),
-    });
+    }) as unknown as typeof fetch;
 
     mockUseAuth0.mockReturnValue({
       user: {
