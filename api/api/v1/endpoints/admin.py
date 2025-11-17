@@ -3,9 +3,10 @@ Admin endpoints for cache management and contact form.
 """
 
 import json
+from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,9 @@ from api.api.deps import get_current_user_optional, get_db, require_admin
 from api.api.lifecycle import openapi_lifecycle
 from api.core.config import settings
 from api.core.logging import get_logger
+from api.crud import location as location_crud
+from api.crud import status as status_crud
+from api.crud import trig as trig_crud
 from api.crud import user as user_crud
 from api.models.user import User
 from api.schemas.admin import (
@@ -22,6 +26,13 @@ from api.schemas.admin import (
     AdminUserSearchResult,
 )
 from api.schemas.contact import ContactRequest, ContactResponse
+from api.schemas.trig_admin import (
+    StatusResponse,
+    TrigAdminDetail,
+    TrigAdminUpdate,
+    TrigNeedsAttentionListItem,
+    TrigNeedsAttentionSummary,
+)
 from api.services.auth0_service import (
     Auth0EmailAlreadyExistsError,
     Auth0UserCreationFailedError,
@@ -520,3 +531,187 @@ def migrate_user_to_auth0(
         auth0_user_id=auth0_user_id_str,
         message=message,
     )
+
+
+@router.get(
+    "/trigs/needs-attention/summary",
+    response_model=TrigNeedsAttentionSummary,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Get summary of trigpoints needing attention (admin only)."
+    ),
+)
+def get_needs_attention_summary(
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> TrigNeedsAttentionSummary:
+    """Get summary statistics for trigpoints needing attention."""
+    summary = trig_crud.get_needs_attention_summary(db)
+    return TrigNeedsAttentionSummary(**summary)
+
+
+@router.get(
+    "/trigs/needs-attention",
+    response_model=dict,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="List trigpoints needing attention (admin only)."
+    ),
+)
+def list_trigs_needing_attention(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records"),
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+):
+    """List trigpoints flagged as needing attention with pagination."""
+    trigs = trig_crud.get_trigs_needing_attention(db, skip=skip, limit=limit)
+    total = trig_crud.count_trigs_needing_attention(db)
+
+    items = [TrigNeedsAttentionListItem.model_validate(t) for t in trigs]
+
+    has_more = (skip + len(items)) < total
+    return {
+        "items": items,
+        "pagination": {
+            "total": total,
+            "limit": limit,
+            "offset": skip,
+            "has_more": has_more,
+        },
+    }
+
+
+@router.get(
+    "/trigs/{trig_id}",
+    response_model=TrigAdminDetail,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Get trigpoint details for admin editing."
+    ),
+)
+def get_trig_for_admin(
+    trig_id: int,
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> TrigAdminDetail:
+    """Get full trigpoint details for admin editing."""
+    trig = trig_crud.get_trig_by_id(db, trig_id)
+    if not trig:
+        raise HTTPException(status_code=404, detail="Trigpoint not found")
+
+    return TrigAdminDetail.model_validate(trig)
+
+
+@router.patch(
+    "/trigs/{trig_id}",
+    response_model=TrigAdminDetail,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Update trigpoint with admin privileges."
+    ),
+)
+def update_trig_admin(
+    trig_id: int,
+    update_data: TrigAdminUpdate,
+    request: Request,
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> TrigAdminDetail:
+    """
+    Update trigpoint with admin audit trail.
+
+    Handles three action types:
+    - 'solved': Set needs_attention to 0 (problem resolved)
+    - 'revisit': Keep needs_attention as-is (leave for later)
+    - 'cant_fix': Increment needs_attention (escalate issue)
+
+    Automatically sets postcode based on WGS84 coordinates.
+    Appends admin comment to attention_comment history.
+    """
+    trig = trig_crud.get_trig_by_id(db, trig_id)
+    if not trig:
+        raise HTTPException(status_code=404, detail="Trigpoint not found")
+
+    # Get client IP address
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Auto-set postcode based on WGS coordinates
+    nearest_postcode = location_crud.find_nearest_postcode(
+        db, float(update_data.wgs_lat), float(update_data.wgs_long)
+    )
+
+    # Determine needs_attention value based on action
+    if update_data.action == "solved":
+        needs_attention_value = 0
+    elif update_data.action == "cant_fix":
+        needs_attention_value = int(trig.needs_attention) + 1
+    else:  # revisit
+        needs_attention_value = int(trig.needs_attention)
+
+    # Format timestamp in the legacy format: DD MMM YYYY HH:MM:SS
+    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+
+    # Append admin comment to attention_comment
+    new_comment = f"{timestamp_str} - {admin_user.name} - {admin_user.email} - {update_data.admin_comment}"
+    updated_attention_comment = (
+        f"{new_comment}\n\n{trig.attention_comment}"
+        if trig.attention_comment
+        else new_comment
+    )
+
+    # Prepare updates dictionary
+    updates = {
+        "name": update_data.name,
+        "fb_number": update_data.fb_number,
+        "stn_number": update_data.stn_number,
+        "status_id": update_data.status_id,
+        "current_use": update_data.current_use,
+        "historic_use": update_data.historic_use,
+        "physical_type": update_data.physical_type,
+        "condition": update_data.condition,
+        "wgs_lat": update_data.wgs_lat,
+        "wgs_long": update_data.wgs_long,
+        "wgs_height": update_data.wgs_height,
+        "osgb_eastings": update_data.osgb_eastings,
+        "osgb_northings": update_data.osgb_northings,
+        "osgb_gridref": update_data.osgb_gridref,
+        "osgb_height": update_data.osgb_height,
+        "postcode": nearest_postcode or trig.postcode,  # Use existing if lookup fails
+        "needs_attention": needs_attention_value,
+        "attention_comment": updated_attention_comment,
+    }
+
+    # Update with admin audit trail
+    updated_trig = trig_crud.update_trig_admin(
+        db, trig_id, int(admin_user.id), client_ip, updates
+    )
+
+    if not updated_trig:
+        raise HTTPException(status_code=500, detail="Failed to update trigpoint")
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_trig_update",
+                "trig_id": trig_id,
+                "admin_user_id": int(admin_user.id),
+                "action": update_data.action,
+                "needs_attention": needs_attention_value,
+            }
+        )
+    )
+
+    return TrigAdminDetail.model_validate(updated_trig)
+
+
+@router.get(
+    "/statuses",
+    response_model=list[StatusResponse],
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Get all status records for admin dropdowns."
+    ),
+)
+def get_all_statuses(
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> list[StatusResponse]:
+    """Get all status records for dropdown population."""
+    statuses = status_crud.get_all_statuses(db)
+    return [StatusResponse.model_validate(s) for s in statuses]

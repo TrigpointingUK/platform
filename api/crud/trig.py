@@ -235,3 +235,102 @@ def count_trigs_filtered(
             query = query.filter(distance_m < max_km * 1000)
 
     return int(query.scalar() or 0)
+
+
+def get_trigs_needing_attention(
+    db: Session, skip: int = 0, limit: int = 100
+) -> list[Trig]:
+    """
+    Get trigpoints flagged as needing attention.
+
+    Args:
+        db: Database session
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+
+    Returns:
+        List of Trig objects with needs_attention != 0
+    """
+    return (
+        db.query(Trig)
+        .filter(Trig.needs_attention != 0)
+        .order_by(Trig.upd_timestamp.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_trigs_needing_attention(db: Session) -> int:
+    """
+    Count trigpoints flagged as needing attention.
+
+    Args:
+        db: Database session
+
+    Returns:
+        Count of trigs with needs_attention != 0
+    """
+    return db.query(Trig).filter(Trig.needs_attention != 0).count()
+
+
+def get_needs_attention_summary(db: Session) -> dict:
+    """
+    Get summary statistics for trigpoints needing attention.
+
+    Args:
+        db: Database session
+
+    Returns:
+        Dictionary with count and latest upd_timestamp
+    """
+    count = count_trigs_needing_attention(db)
+    latest = (
+        db.query(func.max(Trig.upd_timestamp))
+        .filter(Trig.needs_attention != 0)
+        .scalar()
+    )
+
+    return {"count": count, "latest_update": latest}
+
+
+def update_trig_admin(
+    db: Session,
+    trig_id: int,
+    admin_user_id: int,
+    admin_ip_addr: str,
+    updates: dict,
+) -> Optional[Trig]:
+    """
+    Update trigpoint with admin audit trail.
+
+    Args:
+        db: Database session
+        trig_id: Trigpoint ID
+        admin_user_id: Admin user ID
+        admin_ip_addr: Admin IP address
+        updates: Dictionary of field updates
+
+    Returns:
+        Updated Trig object or None if not found
+    """
+    from datetime import datetime
+
+    trig = get_trig_by_id(db, trig_id)
+    if not trig:
+        return None
+
+    # Apply field updates
+    for field, value in updates.items():
+        if hasattr(trig, field):
+            setattr(trig, field, value)
+
+    # Update admin audit fields
+    trig.admin_user_id = admin_user_id  # type: ignore
+    trig.admin_timestamp = datetime.utcnow()  # type: ignore
+    trig.admin_ip_addr = admin_ip_addr  # type: ignore
+    trig.upd_timestamp = datetime.utcnow()  # type: ignore
+
+    db.commit()
+    db.refresh(trig)
+    return trig

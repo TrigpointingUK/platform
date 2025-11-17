@@ -413,4 +413,139 @@ export async function migrateLegacyUser(
   );
 }
 
+// Admin Trigpoint Management Types and Functions
+
+export interface TrigNeedsAttentionSummary {
+  count: number;
+  latest_update?: string;
+}
+
+export interface TrigNeedsAttentionListItem {
+  id: number;
+  waypoint: string;
+  name: string;
+  condition: string;
+  needs_attention: number;
+  attention_comment: string;
+  upd_timestamp?: string;
+}
+
+export interface TrigNeedsAttentionListResponse {
+  items: TrigNeedsAttentionListItem[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
+export interface TrigAdminDetail {
+  id: number;
+  waypoint: string;
+  name: string;
+  fb_number: string;
+  stn_number: string;
+  status_id: number;
+  current_use: string;
+  historic_use: string;
+  physical_type: string;
+  condition: string;
+  wgs_lat: string;
+  wgs_long: string;
+  wgs_height: number;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  osgb_height: number;
+  postcode: string;
+  county: string;
+  town: string;
+  needs_attention: number;
+  attention_comment: string;
+  upd_timestamp?: string;
+}
+
+export interface TrigAdminUpdate {
+  name: string;
+  fb_number: string;
+  stn_number: string;
+  status_id: number;
+  current_use: string;
+  historic_use: string;
+  physical_type: string;
+  condition: string;
+  wgs_lat: string;
+  wgs_long: string;
+  wgs_height: number;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  osgb_height: number;
+  action: "solved" | "revisit" | "cant_fix";
+  admin_comment: string;
+}
+
+export interface StatusRecord {
+  id: number;
+  name: string;
+  descr: string;
+  limit_descr: string;
+}
+
+/**
+ * Get summary of trigpoints needing attention
+ */
+export async function fetchNeedsAttentionSummary(
+  token: string
+): Promise<TrigNeedsAttentionSummary> {
+  return apiGet<TrigNeedsAttentionSummary>(
+    `/v1/admin/trigs/needs-attention/summary`,
+    token
+  );
+}
+
+/**
+ * Get paginated list of trigpoints needing attention
+ */
+export async function fetchNeedsAttentionTrigs(
+  params: { skip?: number; limit?: number },
+  token: string
+): Promise<TrigNeedsAttentionListResponse> {
+  const skip = params.skip ?? 0;
+  const limit = params.limit ?? 20;
+  return apiGet<TrigNeedsAttentionListResponse>(
+    `/v1/admin/trigs/needs-attention?skip=${skip}&limit=${limit}`,
+    token
+  );
+}
+
+/**
+ * Get trigpoint details for admin editing
+ */
+export async function fetchTrigForEdit(
+  trigId: number,
+  token: string
+): Promise<TrigAdminDetail> {
+  return apiGet<TrigAdminDetail>(`/v1/admin/trigs/${trigId}`, token);
+}
+
+/**
+ * Update trigpoint with admin privileges
+ */
+export async function updateTrigAdmin(
+  trigId: number,
+  data: TrigAdminUpdate,
+  token: string
+): Promise<TrigAdminDetail> {
+  return apiPatch<TrigAdminDetail>(`/v1/admin/trigs/${trigId}`, data, token);
+}
+
+/**
+ * Get all status records for dropdowns
+ */
+export async function fetchStatuses(token: string): Promise<StatusRecord[]> {
+  return apiGet<StatusRecord[]>(`/v1/admin/statuses`, token);
+}
+
 

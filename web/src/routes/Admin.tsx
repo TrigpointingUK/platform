@@ -15,8 +15,10 @@ import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
 import {
   AdminUserSearchResult,
+  fetchNeedsAttentionSummary,
   migrateLegacyUser,
   searchLegacyUsers,
+  TrigNeedsAttentionSummary,
 } from "../lib/api";
 
 // const ADMIN_REAUTH_DELAY_MS = import.meta.env.MODE === "test" ? 0 : 5000;
@@ -496,6 +498,134 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
   );
 }
 
+interface NeedsAttentionCardProps {
+  getAccessTokenSilently: GetAccessTokenSilently;
+}
+
+function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps) {
+  const [summary, setSummary] = useState<TrigNeedsAttentionSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
+  const panelId = useId();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchSummary = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const token = await getAccessTokenSilently({
+          authorizationParams: { ...ADMIN_AUTH_PARAMS },
+        });
+        const data = await fetchNeedsAttentionSummary(token);
+
+        if (!cancelled) {
+          setSummary(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load summary");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchSummary();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getAccessTokenSilently]);
+
+  return (
+    <Card className="mb-6">
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-[#046935]"
+        >
+          <svg
+            className={`h-4 w-4 text-[#046935] transition-transform duration-200 ${
+              isOpen ? "rotate-90" : ""
+            }`}
+            viewBox="0 0 8 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M1.5 1L6.5 6L1.5 11"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="text-2xl font-semibold">
+            Trigpoints Needing Attention
+          </span>
+        </button>
+      </div>
+
+      {isOpen ? (
+        <div id={panelId} className="mt-3">
+          {isLoading && (
+            <div className="flex items-center gap-2">
+              <Spinner size="sm" />
+              <span className="text-gray-600">Loading summary...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="text-red-600 text-sm">
+              Error: {error}
+            </div>
+          )}
+
+          {summary && !isLoading && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <div className="text-sm text-gray-600">Total flagged</div>
+                  <div className="text-2xl font-bold text-gray-800">
+                    {summary.count}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <div className="text-sm text-gray-600">Latest update</div>
+                  <div className="text-lg font-semibold text-gray-800">
+                    {summary.latest_update
+                      ? new Date(summary.latest_update).toLocaleString()
+                      : "None"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <a
+                  href="/admin/needs-attention"
+                  className="inline-block bg-[#046935] hover:bg-[#035228] text-white font-medium px-4 py-2 rounded-md transition-colors"
+                >
+                  View all trigpoints needing attention →
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 export default function Admin() {
   const { user, getAccessTokenSilently, loginWithRedirect, isLoading: isAuth0Loading } = useAuth0();
   const [hasAdminScope, setHasAdminScope] = useState<boolean | null>(null);
@@ -723,6 +853,8 @@ export default function Admin() {
             Welcome to the admin area. More features coming soon.
           </p>
         </Card>
+
+        <NeedsAttentionCard getAccessTokenSilently={getAccessTokenSilently} />
 
         <LegacyMigrationCard getAccessTokenSilently={getAccessTokenSilently} />
 
