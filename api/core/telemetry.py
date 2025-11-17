@@ -265,8 +265,6 @@ def initialize_telemetry(
                 # Enable profiling for CPU
                 "detect_subprocesses": False,  # Disable subprocess profiling for FastAPI
                 "oncpu": True,  # Enable CPU profiling (default, very low overhead)
-                # Add logging callback to debug upload issues
-                "log_level": "debug",  # Enable debug logging for pyroscope
             }
 
             # Add authentication based on server type
