@@ -255,28 +255,37 @@ export default function TrigDetail() {
                       </div>
                     )}
 
-                    {trig.details.stn_number_osgb36 && (
+                    {trig.details.stn_number_active && trig.details.stn_number_active.trim() !== "" && (
                       <div>
                         <span className="font-semibold text-gray-700">
-                          OSGB36 Station:
+                          Active Station:
                         </span>{" "}
-                        {trig.details.stn_number_osgb36}
+                        {trig.details.stn_number_active}
                       </div>
                     )}
 
-                    {trig.details.stn_number && trig.details.stn_number.trim() !== "" && (
+                    {trig.details.stn_number_passive && trig.details.stn_number_passive.trim() !== "" && (
                       <div>
                         <span className="font-semibold text-gray-700">
                           Passive Station:
                         </span>{" "}
                         <a
-                          href={`https://www.ordnancesurvey.co.uk/geodesy-positioning/legacy-data/passive-search/passive-station/${trig.details.stn_number}`}
+                          href={`https://www.ordnancesurvey.co.uk/geodesy-positioning/legacy-data/passive-search/passive-station/${trig.details.stn_number_passive}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-trig-green-600 hover:underline"
                         >
-                          {trig.details.stn_number}
+                          {trig.details.stn_number_passive}
                         </a>
+                      </div>
+                    )}
+
+                    {trig.details.stn_number_osgb36 && trig.details.stn_number_osgb36.trim() !== "" && (
+                      <div>
+                        <span className="font-semibold text-gray-700">
+                          OSGB36 Station:
+                        </span>{" "}
+                        {trig.details.stn_number_osgb36}
                       </div>
                     )}
 
