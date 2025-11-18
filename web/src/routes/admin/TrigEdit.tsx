@@ -437,7 +437,7 @@ export default function TrigEdit() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Station Number
+                  Station Number (Deprecated)
                 </label>
                 <input
                   type="text"
