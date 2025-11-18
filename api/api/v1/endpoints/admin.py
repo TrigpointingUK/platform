@@ -656,22 +656,22 @@ def update_trig_admin(
         else new_comment
     )
 
-    # Prepare updates dictionary
+    # Prepare updates dictionary - convert None to empty string for text fields
     updates = {
         "name": update_data.name,
-        "fb_number": update_data.fb_number,
-        "stn_number": update_data.stn_number,
+        "fb_number": update_data.fb_number or "",
+        "stn_number": update_data.stn_number or "",
         "status_id": update_data.status_id,
-        "current_use": update_data.current_use,
-        "historic_use": update_data.historic_use,
-        "physical_type": update_data.physical_type,
-        "condition": update_data.condition,
+        "current_use": update_data.current_use or "none",
+        "historic_use": update_data.historic_use or "none",
+        "physical_type": update_data.physical_type or "Pillar",
+        "condition": update_data.condition or "G",
         "wgs_lat": update_data.wgs_lat,
         "wgs_long": update_data.wgs_long,
         "wgs_height": update_data.wgs_height,
         "osgb_eastings": update_data.osgb_eastings,
         "osgb_northings": update_data.osgb_northings,
-        "osgb_gridref": update_data.osgb_gridref,
+        "osgb_gridref": update_data.osgb_gridref or "",
         "osgb_height": update_data.osgb_height,
         "postcode": nearest_postcode or trig.postcode,  # Use existing if lookup fails
         "needs_attention": needs_attention_value,

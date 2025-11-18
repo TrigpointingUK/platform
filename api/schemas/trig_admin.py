@@ -69,15 +69,15 @@ class TrigAdminUpdate(BaseModel):
 
     # Basic fields
     name: str = Field(..., min_length=1, max_length=50)
-    fb_number: str = Field(default="", max_length=10)
-    stn_number: str = Field(default="", max_length=20)
+    fb_number: Optional[str] = Field(default="", max_length=10)
+    stn_number: Optional[str] = Field(default="", max_length=20)
 
     # Classification
     status_id: int = Field(..., ge=1)
-    current_use: str = Field(..., max_length=25)
-    historic_use: str = Field(..., max_length=30)
-    physical_type: str = Field(..., max_length=25)
-    condition: str = Field(..., min_length=1, max_length=1)
+    current_use: Optional[str] = Field(default="none", max_length=25)
+    historic_use: Optional[str] = Field(default="none", max_length=30)
+    physical_type: Optional[str] = Field(default="Pillar", max_length=25)
+    condition: Optional[str] = Field(default="G", min_length=1, max_length=1)
 
     # Coordinates - WGS84
     wgs_lat: Decimal = Field(..., ge=-90, le=90)
@@ -87,7 +87,7 @@ class TrigAdminUpdate(BaseModel):
     # Coordinates - OSGB
     osgb_eastings: int = Field(..., ge=0)
     osgb_northings: int = Field(..., ge=0)
-    osgb_gridref: str = Field(..., max_length=14)
+    osgb_gridref: Optional[str] = Field(default="", max_length=14)
     osgb_height: int
 
     # Admin action
