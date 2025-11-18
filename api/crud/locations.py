@@ -105,7 +105,10 @@ def search_trigpoints_by_station_number(
     db: Session, query: str, skip: int = 0, limit: int = 10
 ) -> List[Trig]:
     """
-    Search trigpoints by station numbers (fb_number, stn_number variants).
+    Search trigpoints by station numbers (fb_number and variant station numbers).
+
+    Note: stn_number field is deprecated - searches only the specific variants
+    (active, passive, osgb36) to encourage migration to specific fields.
 
     Args:
         db: Database session
@@ -122,7 +125,6 @@ def search_trigpoints_by_station_number(
         .filter(
             or_(
                 Trig.fb_number.ilike(f"%{query_upper}%"),
-                Trig.stn_number.ilike(f"%{query_upper}%"),
                 Trig.stn_number_active.ilike(f"%{query_upper}%"),
                 Trig.stn_number_passive.ilike(f"%{query_upper}%"),
                 Trig.stn_number_osgb36.ilike(f"%{query_upper}%"),
@@ -138,6 +140,9 @@ def count_trigpoints_by_station_number(db: Session, query: str) -> int:
     """
     Count trigpoints matching station number query.
 
+    Note: stn_number field is deprecated - counts only the specific variants
+    (active, passive, osgb36) to encourage migration to specific fields.
+
     Args:
         db: Database session
         query: Search query
@@ -151,7 +156,6 @@ def count_trigpoints_by_station_number(db: Session, query: str) -> int:
         .filter(
             or_(
                 Trig.fb_number.ilike(f"%{query_upper}%"),
-                Trig.stn_number.ilike(f"%{query_upper}%"),
                 Trig.stn_number_active.ilike(f"%{query_upper}%"),
                 Trig.stn_number_passive.ilike(f"%{query_upper}%"),
                 Trig.stn_number_osgb36.ilike(f"%{query_upper}%"),

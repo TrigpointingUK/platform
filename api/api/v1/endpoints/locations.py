@@ -129,8 +129,21 @@ def search_locations(
         query_upper = q.upper()
         if trig.fb_number and query_upper in str(trig.fb_number).upper():
             parts.append(f"FB: {trig.fb_number}")
-        if trig.stn_number and query_upper in str(trig.stn_number).upper():
-            parts.append(f"Stn: {trig.stn_number}")
+        if (
+            trig.stn_number_active
+            and query_upper in str(trig.stn_number_active).upper()
+        ):
+            parts.append(f"Active Stn: {trig.stn_number_active}")
+        if (
+            trig.stn_number_passive
+            and query_upper in str(trig.stn_number_passive).upper()
+        ):
+            parts.append(f"Passive Stn: {trig.stn_number_passive}")
+        if (
+            trig.stn_number_osgb36
+            and query_upper in str(trig.stn_number_osgb36).upper()
+        ):
+            parts.append(f"OSGB36 Stn: {trig.stn_number_osgb36}")
         description = " - ".join(parts) if parts else "Station Number"
 
         results.append(
@@ -334,8 +347,21 @@ def search_all(
         query_upper = q.upper()
         if trig.fb_number and query_upper in str(trig.fb_number).upper():
             parts.append(f"FB: {trig.fb_number}")
-        if trig.stn_number and query_upper in str(trig.stn_number).upper():
-            parts.append(f"Stn: {trig.stn_number}")
+        if (
+            trig.stn_number_active
+            and query_upper in str(trig.stn_number_active).upper()
+        ):
+            parts.append(f"Active Stn: {trig.stn_number_active}")
+        if (
+            trig.stn_number_passive
+            and query_upper in str(trig.stn_number_passive).upper()
+        ):
+            parts.append(f"Passive Stn: {trig.stn_number_passive}")
+        if (
+            trig.stn_number_osgb36
+            and query_upper in str(trig.stn_number_osgb36).upper()
+        ):
+            parts.append(f"OSGB36 Stn: {trig.stn_number_osgb36}")
         description = " - ".join(parts) if parts else "Station Number Match"
         station_number_items.append(
             LocationSearchResult(
@@ -614,8 +640,21 @@ def search_station_numbers_only(
         query_upper = q.upper()
         if trig.fb_number and query_upper in str(trig.fb_number).upper():
             parts.append(f"FB: {trig.fb_number}")
-        if trig.stn_number and query_upper in str(trig.stn_number).upper():
-            parts.append(f"Stn: {trig.stn_number}")
+        if (
+            trig.stn_number_active
+            and query_upper in str(trig.stn_number_active).upper()
+        ):
+            parts.append(f"Active Stn: {trig.stn_number_active}")
+        if (
+            trig.stn_number_passive
+            and query_upper in str(trig.stn_number_passive).upper()
+        ):
+            parts.append(f"Passive Stn: {trig.stn_number_passive}")
+        if (
+            trig.stn_number_osgb36
+            and query_upper in str(trig.stn_number_osgb36).upper()
+        ):
+            parts.append(f"OSGB36 Stn: {trig.stn_number_osgb36}")
         description = " - ".join(parts) if parts else "Station Number Match"
         items.append(
             LocationSearchResult(
