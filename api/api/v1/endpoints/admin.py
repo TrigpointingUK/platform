@@ -38,7 +38,11 @@ from api.services.auth0_service import (
     Auth0UserCreationFailedError,
     auth0_service,
 )
-from api.services.cache_invalidator import invalidate_patterns, invalidate_user_caches
+from api.services.cache_invalidator import (
+    invalidate_patterns,
+    invalidate_trig_caches,
+    invalidate_user_caches,
+)
 from api.services.cache_service import cache_delete_pattern, get_redis_client
 from api.services.email_service import email_service
 
@@ -685,6 +689,9 @@ def update_trig_admin(
 
     if not updated_trig:
         raise HTTPException(status_code=500, detail="Failed to update trigpoint")
+
+    # Invalidate caches for the updated trigpoint
+    invalidate_trig_caches(trig_id)
 
     logger.info(
         json.dumps(
