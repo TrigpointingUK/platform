@@ -287,15 +287,25 @@ export default function TrigEdit() {
               <h1 className="text-3xl font-bold text-gray-800 mb-2">
                 Edit Trigpoint: {trig.name}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-2">
                 Waypoint: {trig.waypoint} | ID: {trig.id}
               </p>
+              <div className="flex gap-4 text-sm">
+                <Link
+                  to={`/trigs/${trig.id}`}
+                  className="text-[#046935] hover:text-[#035228] font-medium"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View Trigpoint Details →
+                </Link>
+              </div>
             </div>
             <Link
               to="/admin/needs-attention"
               className="text-[#046935] hover:text-[#035228] font-medium"
             >
-              ← Back to List
+              ← Back to Admin
             </Link>
           </div>
         </Card>
@@ -571,7 +581,7 @@ export default function TrigEdit() {
             </Button>
             <Link to="/admin/needs-attention">
               <Button type="button" variant="secondary">
-                Cancel
+                Back to Admin
               </Button>
             </Link>
           </div>
