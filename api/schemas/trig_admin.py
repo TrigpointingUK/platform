@@ -42,16 +42,16 @@ class TrigAdminDetail(BaseModel):
     fb_number: Optional[str] = ""
     stn_number: Optional[str] = ""
     status_id: int
-    current_use: str
-    historic_use: str
-    physical_type: str
-    condition: str
+    current_use: Optional[str] = "none"
+    historic_use: Optional[str] = "none"
+    physical_type: Optional[str] = "Pillar"
+    condition: Optional[str] = "G"
     wgs_lat: Decimal
     wgs_long: Decimal
     wgs_height: int
     osgb_eastings: int
     osgb_northings: int
-    osgb_gridref: str
+    osgb_gridref: Optional[str] = ""
     osgb_height: int
     postcode: Optional[str] = ""
     county: Optional[str] = ""
