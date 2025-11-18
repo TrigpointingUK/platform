@@ -31,8 +31,12 @@ export default function TrigDetail() {
   const { trigId } = useParams<{ trigId: string }>();
   const trigIdNum = trigId ? parseInt(trigId, 10) : null;
   const navigate = useNavigate();
-  const { isAuthenticated, loginWithRedirect } = useAuth0();
+  const { isAuthenticated, loginWithRedirect, user } = useAuth0();
   const [showLogForm, setShowLogForm] = useState(false);
+
+  // Check if user has admin role
+  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
+  const hasAdminRole = userRoles.includes("api-admin");
 
   const {
     data: trig,
@@ -488,10 +492,17 @@ export default function TrigDetail() {
 
         {/* Log This Trig Section */}
         {!showLogForm && (
-          <div className="my-8">
+          <div className="my-8 flex flex-wrap gap-3">
             <Button onClick={handleLogThisTrig} className="w-full md:w-auto">
               📝 Log This Trig
             </Button>
+            {hasAdminRole && (
+              <Link to={`/admin/trigs/${trigId}/edit`}>
+                <Button variant="secondary" className="w-full md:w-auto">
+                  ✏️ Edit This Trig
+                </Button>
+              </Link>
+            )}
           </div>
         )}
 
