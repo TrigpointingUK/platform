@@ -41,6 +41,9 @@ class TrigAdminDetail(BaseModel):
     name: str
     fb_number: Optional[str] = ""
     stn_number: Optional[str] = ""
+    stn_number_active: Optional[str] = ""
+    stn_number_passive: Optional[str] = ""
+    stn_number_osgb36: Optional[str] = ""
     status_id: int
     current_use: Optional[str] = "none"
     historic_use: Optional[str] = "none"
@@ -71,6 +74,9 @@ class TrigAdminUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     fb_number: Optional[str] = Field(default="", max_length=10)
     stn_number: Optional[str] = Field(default="", max_length=20)
+    stn_number_active: Optional[str] = Field(default="", max_length=20)
+    stn_number_passive: Optional[str] = Field(default="", max_length=20)
+    stn_number_osgb36: Optional[str] = Field(default="", max_length=20)
 
     # Classification
     status_id: int = Field(..., ge=1)

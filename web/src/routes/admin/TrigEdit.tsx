@@ -81,6 +81,9 @@ export default function TrigEdit() {
   const [name, setName] = useState("");
   const [fbNumber, setFbNumber] = useState("");
   const [stnNumber, setStnNumber] = useState("");
+  const [stnNumberActive, setStnNumberActive] = useState("");
+  const [stnNumberPassive, setStnNumberPassive] = useState("");
+  const [stnNumberOsgb36, setStnNumberOsgb36] = useState("");
   const [statusId, setStatusId] = useState(1);
   const [currentUse, setCurrentUse] = useState("none");
   const [historicUse, setHistoricUse] = useState("none");
@@ -129,6 +132,9 @@ export default function TrigEdit() {
           setName(trigData.name);
           setFbNumber(trigData.fb_number);
           setStnNumber(trigData.stn_number);
+          setStnNumberActive(trigData.stn_number_active);
+          setStnNumberPassive(trigData.stn_number_passive);
+          setStnNumberOsgb36(trigData.stn_number_osgb36);
           setStatusId(trigData.status_id);
           setCurrentUse(trigData.current_use);
           setHistoricUse(trigData.historic_use);
@@ -194,6 +200,9 @@ export default function TrigEdit() {
           name,
           fb_number: fbNumber,
           stn_number: stnNumber,
+          stn_number_active: stnNumberActive,
+          stn_number_passive: stnNumberPassive,
+          stn_number_osgb36: stnNumberOsgb36,
           status_id: statusId,
           current_use: currentUse,
           historic_use: historicUse,
@@ -434,6 +443,42 @@ export default function TrigEdit() {
                   type="text"
                   value={stnNumber}
                   onChange={(e) => setStnNumber(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Station Number (Active)
+                </label>
+                <input
+                  type="text"
+                  value={stnNumberActive}
+                  onChange={(e) => setStnNumberActive(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Station Number (Passive)
+                </label>
+                <input
+                  type="text"
+                  value={stnNumberPassive}
+                  onChange={(e) => setStnNumberPassive(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Station Number (OSGB36)
+                </label>
+                <input
+                  type="text"
+                  value={stnNumberOsgb36}
+                  onChange={(e) => setStnNumberOsgb36(e.target.value)}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 />
               </div>

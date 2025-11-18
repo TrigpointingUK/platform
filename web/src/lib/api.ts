@@ -446,6 +446,9 @@ export interface TrigAdminDetail {
   name: string;
   fb_number: string;
   stn_number: string;
+  stn_number_active: string;
+  stn_number_passive: string;
+  stn_number_osgb36: string;
   status_id: number;
   current_use: string;
   historic_use: string;
@@ -470,6 +473,9 @@ export interface TrigAdminUpdate {
   name: string;
   fb_number: string;
   stn_number: string;
+  stn_number_active: string;
+  stn_number_passive: string;
+  stn_number_osgb36: string;
   status_id: number;
   current_use: string;
   historic_use: string;
