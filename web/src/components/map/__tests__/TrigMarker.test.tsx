@@ -153,9 +153,9 @@ describe('TrigMarker', () => {
       expect(iconUrl).toContain('grey');
     });
 
-    it('should use green icon when logged as found', () => {
+    it('should use green icon when logged in good condition', () => {
       const trig = createMockTrig();
-      const logStatus: UserLogStatus = { hasLogged: true, foundStatus: true };
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'G' };
       render(<TrigMarker trig={trig} colorMode="userLog" logStatus={logStatus} />);
       
       const marker = screen.getByTestId('marker');
@@ -163,9 +163,9 @@ describe('TrigMarker', () => {
       expect(iconUrl).toContain('green');
     });
 
-    it('should use red icon when logged as not found', () => {
+    it('should use red icon when logged as missing', () => {
       const trig = createMockTrig();
-      const logStatus: UserLogStatus = { hasLogged: true, foundStatus: false };
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
       render(<TrigMarker trig={trig} colorMode="userLog" logStatus={logStatus} />);
       
       const marker = screen.getByTestId('marker');
@@ -424,7 +424,7 @@ describe('TrigMarker', () => {
     it('should work with Map page color modes', () => {
       // Map page can switch between modes
       const trig = createMockTrig({ condition: 'G' });
-      const logStatus: UserLogStatus = { hasLogged: true, foundStatus: false };
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
       
       const { rerender } = render(
         <TrigMarker trig={trig} colorMode="condition" />

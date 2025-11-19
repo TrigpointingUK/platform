@@ -54,7 +54,7 @@ export type ConditionCode =
  */
 export interface UserLogStatus {
   hasLogged: boolean;
-  foundStatus?: boolean; // true = found, false = not found
+  condition?: string; // Condition code from the user's log
 }
 
 /**
@@ -141,18 +141,32 @@ export const getConditionColor = (condition: string): IconColor => {
 
 /**
  * Get color for user log mode
+ * 
+ * For userLog mode, colors are based on the condition reported in the user's log:
+ * - Green: Found in good condition (G, E, R)
+ * - Yellow: Found but damaged (D, S, C, X, T)
+ * - Red: Not found, missing, or unknown condition (M, P, N, U, Q)
+ * - Grey: Not logged by the user
+ * 
+ * Special case: Unknown (U) and Questionable (Q) conditions count as "red" 
+ * in userLog mode (vs grey in condition mode) because the user made the effort to log it.
  */
 export const getUserLogColor = (logStatus: UserLogStatus): IconColor => {
   if (!logStatus.hasLogged) {
     return 'grey';
   }
   
-  // If logged but foundStatus not available, assume found
-  if (logStatus.foundStatus === undefined || logStatus.foundStatus === true) {
-    return 'green';
+  // Get the condition from the log (default to Unknown if not provided)
+  const condition = logStatus.condition || 'U';
+  
+  // Special case: Unknown/Questionable condition counts as "red" for userLog mode
+  // because user made the effort to log it, even if they couldn't determine condition
+  if (condition.toUpperCase() === 'U' || condition.toUpperCase() === 'Q') {
+    return 'red';
   }
   
-  return 'red'; // Not found
+  // Otherwise use standard condition-to-color mapping
+  return getConditionColor(condition);
 };
 
 /**
@@ -261,8 +275,9 @@ export const ICON_LEGENDS = {
     { color: 'grey', label: 'Unknown condition' },
   ],
   userLog: [
-    { color: 'green', label: 'Logged as found' },
-    { color: 'red', label: 'Logged as not found' },
+    { color: 'green', label: 'Logged - good condition' },
+    { color: 'yellow', label: 'Logged - damaged' },
+    { color: 'red', label: 'Logged - missing/not found/unknown' },
     { color: 'grey', label: 'Not logged by you' },
   ],
 } as const;

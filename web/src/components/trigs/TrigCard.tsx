@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import type { UserLogStatus } from "../../lib/mapIcons";
 
 interface Trig {
   id: number;
@@ -19,6 +20,7 @@ interface TrigCardProps {
   centerLat?: number;
   centerLon?: number;
   distanceUnit?: 'K' | 'M'; // K=km, M=miles
+  logStatus?: UserLogStatus | null;
 }
 
 // Helper function to get condition icon and label
@@ -86,7 +88,8 @@ export function TrigCard({
   showDistance = true, 
   centerLat, 
   centerLon,
-  distanceUnit = 'K' 
+  distanceUnit = 'K',
+  logStatus = null
 }: TrigCardProps) {
   // Calculate bearing if we have center coordinates
   let bearing: number | null = null;
@@ -131,6 +134,16 @@ export function TrigCard({
             <h3 className="font-medium text-gray-900 truncate">
               {trig.name}
             </h3>
+            
+            {/* Logged indicator - show checkmark if user has logged this trig */}
+            {logStatus?.hasLogged && (
+              <span 
+                className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-trig-green-600 rounded-full" 
+                title="You have logged this trig"
+              >
+                ✓
+              </span>
+            )}
             
             {/* Condition indicator */}
             <img 

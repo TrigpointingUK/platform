@@ -10,17 +10,26 @@ import TilesetSelector from "../components/map/TilesetSelector";
 import IconColorModeSelector from "../components/map/IconColorModeSelector";
 import LocationButton from "../components/map/LocationButton";
 import { StatusFilter } from "../components/trigs/StatusFilter";
+import { ColorFilter } from "../components/trigs/ColorFilter";
 import Layout from "../components/layout/Layout";
 import Spinner from "../components/ui/Spinner";
 import { useMapTrigsWithProgress, type MapBounds } from "../hooks/useMapTrigsWithProgress";
 import { useMapTrigsGeoJSON, type GeoJSONTrig } from "../hooks/useMapTrigsGeoJSON";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useUserLoggedTrigs } from "../hooks/useUserLoggedTrigs";
+import type { UserLogStatus } from "../lib/mapIcons";
 import {
   getPreferredTileLayer,
   MAP_CONFIG,
   DEFAULT_TILE_LAYER,
 } from "../lib/mapConfig";
-import { getPreferredIconColorMode, type IconColorMode } from "../lib/mapIcons";
+import {
+  getPreferredIconColorMode,
+  type IconColorMode,
+  getUserLogColor,
+  getConditionColor,
+  type IconColor
+} from "../lib/mapIcons";
 import { Menu, X } from "lucide-react";
 
 // All status levels (IDs)
@@ -45,6 +54,9 @@ const STATUS_DISPLAY_NAMES: Record<number, string> = {
   50: "User Added",
   60: "Controversial",
 };
+
+const ALL_ICON_COLORS: IconColor[] = ["green", "yellow", "red", "grey"];
+const USER_LOG_ICON_COLORS: IconColor[] = ["green", "yellow", "red"];
 
 /**
  * Component to track map viewport changes
@@ -111,6 +123,9 @@ export default function Map() {
   // Fetch user profile to get status_max preference
   const { data: userProfile } = useUserProfile("me");
   
+  // Fetch user's logged trigpoints for icon coloring
+  const { data: loggedTrigsMap } = useUserLoggedTrigs();
+  
   // Data source mode: always use geojson (now includes all status levels)
   const [dataSource] = useState<'geojson' | 'paginated'>('geojson');
   
@@ -127,6 +142,7 @@ export default function Map() {
     // Select all statuses up to and including user's max
     return ALL_STATUSES.filter(s => s <= userStatusMax);
   });
+  const [selectedColors, setSelectedColors] = useState<IconColor[]>(() => [...ALL_ICON_COLORS]);
   const [excludeFound, setExcludeFound] = useState<boolean>(
     () => searchParams.get("excludeFound") === "true"
   );
@@ -136,6 +152,9 @@ export default function Map() {
   const [renderMode, setRenderMode] = useState<'auto' | 'markers' | 'heatmap'>('auto');
   const [currentZoom, setCurrentZoom] = useState<number>(MAP_CONFIG.defaultZoom);
   const maxTrigpoints = 50000; // Always load all trigpoints
+  
+  // Track if we've initialized statuses from user preferences
+  const [statusesInitialized, setStatusesInitialized] = useState(false);
   
   // Get center from URL params or use default
   const initialCenter: [number, number] = useMemo(() => {
@@ -232,18 +251,6 @@ export default function Map() {
     return trigs;
   }, [geojsonData, selectedStatuses]);
   
-  // Calculate physical type counts from geojsonTrigs
-  const physicalTypeCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    
-    for (const trig of geojsonTrigs) {
-      const type = trig.physical_type || "Unknown";
-      counts[type] = (counts[type] || 0) + 1;
-    }
-    
-    return counts;
-  }, [geojsonTrigs]);
-  
   // Client-side filtering by status (for paginated mode - not currently used)
   const paginatedTrigs = useMemo(() => {
     // If all statuses selected, no need to filter
@@ -260,12 +267,64 @@ export default function Map() {
   const isLoading = dataSource === 'geojson' ? isGeoJSONLoading : isPaginatedLoading;
   const error = dataSource === 'geojson' ? geoJsonError : paginatedError;
   
+  // Helper function to get log status for a trigpoint
+  const getLogStatus = useCallback((trigId: number): UserLogStatus | null => {
+    // Only return log status if using userLog color mode
+    if (iconColorMode !== 'userLog' || !loggedTrigsMap) {
+      return null;
+    }
+    
+    const condition = loggedTrigsMap.get(trigId);
+    return condition 
+      ? { hasLogged: true, condition }
+      : { hasLogged: false };
+  }, [iconColorMode, loggedTrigsMap]);
+  
+  // Helper function to get the color for a trigpoint based on current mode
+  const getTrigColor = useCallback((trig: typeof trigpoints[0]): IconColor => {
+    if (iconColorMode === 'condition') {
+      return getConditionColor(trig.condition);
+    } else {
+      // userLog mode
+      const logStatus = getLogStatus(trig.id);
+      if (!logStatus) return 'grey';
+      return getUserLogColor(logStatus);
+    }
+  }, [iconColorMode, getLogStatus]);
+
+  const colorFilteredTrigpoints = useMemo(() => {
+    if (selectedColors.length === 0) {
+      return [];
+    }
+
+    const allColorsSelected =
+      selectedColors.length === ALL_ICON_COLORS.length &&
+      ALL_ICON_COLORS.every((color) => selectedColors.includes(color));
+
+    if (allColorsSelected) {
+      return trigpoints;
+    }
+
+    return trigpoints.filter((trig) => selectedColors.includes(getTrigColor(trig)));
+  }, [trigpoints, selectedColors, getTrigColor]);
+  
+  // Calculate physical type counts from filtered trigpoints
+  const physicalTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    for (const trig of colorFilteredTrigpoints) {
+      const type = trig.physical_type || "Unknown";
+      counts[type] = (counts[type] || 0) + 1;
+    }
+
+    return counts;
+  }, [colorFilteredTrigpoints]);
+  
   // Filter trigpoints by viewport bounds for performance
   const visibleTrigpoints = useMemo(() => {
-    if (!mapBounds) return trigpoints;
+    if (!mapBounds) return colorFilteredTrigpoints;
     
-    // Filter trigpoints that are within the current viewport
-    return trigpoints.filter((trig) => {
+    return colorFilteredTrigpoints.filter((trig) => {
       const lat = parseFloat(trig.wgs_lat);
       const lon = parseFloat(trig.wgs_long);
       
@@ -276,7 +335,7 @@ export default function Map() {
         lon <= mapBounds.east
       );
     });
-  }, [trigpoints, mapBounds]);
+  }, [colorFilteredTrigpoints, mapBounds]);
   
   // Determine whether to show markers or heatmap based on visible trigpoint count
   const shouldShowHeatmap = useMemo(() => {
@@ -289,13 +348,26 @@ export default function Map() {
   
   // Initialize selected statuses from user preference when profile loads
   useEffect(() => {
-    // Only apply user preference if no URL params are set
-    if (!searchParams.get("statuses") && userProfile?.prefs?.status_max) {
+    // Only apply user preference if:
+    // 1. No URL params are set
+    // 2. We haven't already initialized from preferences
+    // 3. User profile is available
+    if (!searchParams.get("statuses") && !statusesInitialized && userProfile?.prefs?.status_max) {
       const userStatusMax = userProfile.prefs.status_max;
       const defaultStatuses = ALL_STATUSES.filter(s => s <= userStatusMax);
       setSelectedStatuses(defaultStatuses);
+      setStatusesInitialized(true);
     }
-  }, [userProfile, searchParams]);
+  }, [userProfile, searchParams, statusesInitialized]);
+  
+  // Handle color selection when switching between Condition and My Logs modes
+  useEffect(() => {
+    if (iconColorMode === 'condition') {
+      setSelectedColors(() => [...ALL_ICON_COLORS]);
+    } else {
+      setSelectedColors(() => [...USER_LOG_ICON_COLORS]);
+    }
+  }, [iconColorMode]);
   
   // Update URL params when filters change
   useEffect(() => {
@@ -327,8 +399,19 @@ export default function Map() {
     });
   }, []);
   
+  const handleToggleColor = useCallback((color: IconColor) => {
+    setSelectedColors((prev) => {
+      if (prev.includes(color)) {
+        return prev.filter((c) => c !== color);
+      } else {
+        return [...prev, color];
+      }
+    });
+  }, []);
+  
   const handleClearFilters = useCallback(() => {
     setSelectedStatuses(ALL_STATUSES);
+    setSelectedColors(() => [...ALL_ICON_COLORS]);
     setExcludeFound(false);
     setRenderMode('auto');
     setTileLayerId(DEFAULT_TILE_LAYER);
@@ -373,20 +456,16 @@ export default function Map() {
               />
             </div>
             
-            {/* Exclude found checkbox */}
-            {isAuthenticated && (
-              <div className="mb-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={excludeFound}
-                    onChange={(e) => setExcludeFound(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Exclude trigpoints I've found</span>
-                </label>
-              </div>
-            )}
+            {/* Color filter */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Marker Colors
+              </label>
+              <ColorFilter
+                selectedColors={selectedColors}
+                onToggleColor={handleToggleColor}
+              />
+            </div>
             
             {/* Icon color mode selector */}
             <div className="mb-4">
@@ -451,11 +530,11 @@ export default function Map() {
                   <div className="mt-2 text-xs text-gray-600">
                     {shouldShowHeatmap ? (
                       <span className="text-amber-600">
-                        Showing heatmap ({visibleTrigpoints.length} visible, {trigpoints.length} total)
+                        Showing heatmap ({visibleTrigpoints.length} visible, {colorFilteredTrigpoints.length} total)
                       </span>
                     ) : (
                       <span className="text-trig-green-600">
-                        Showing {visibleTrigpoints.length} markers ({trigpoints.length} total)
+                        Showing {visibleTrigpoints.length} markers ({colorFilteredTrigpoints.length} total)
                       </span>
                     )}
                   </div>
@@ -487,7 +566,7 @@ export default function Map() {
                 </div>
               ) : (
                 <div>
-                  <div className="font-semibold">Showing {trigpoints.length} trigpoints</div>
+                  <div className="font-semibold">Showing {colorFilteredTrigpoints.length} trigpoints</div>
                   <div className="text-xs text-gray-500 mt-1">
                     {dataSource === 'geojson' ? (
                       <>
@@ -516,6 +595,11 @@ export default function Map() {
                       Filtered by status (client-side)
                     </div>
                   )}
+                  {iconColorMode === 'condition' && selectedColors.length !== ALL_ICON_COLORS.length && (
+                    <div className="text-xs text-blue-600 mt-1">
+                      Filtered by marker colours
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -539,7 +623,7 @@ export default function Map() {
             
             {/* Render trigpoint markers or heatmap */}
             {shouldShowHeatmap ? (
-              <HeatmapLayer trigpoints={trigpoints} />
+              <HeatmapLayer trigpoints={colorFilteredTrigpoints} />
             ) : (
               <>
                 {visibleTrigpoints.map((trig) => (
@@ -547,7 +631,7 @@ export default function Map() {
                     key={trig.id}
                     trig={trig}
                     colorMode={iconColorMode}
-                    logStatus={null} // TODO: Implement user log status
+                    logStatus={getLogStatus(trig.id)}
                   />
                 ))}
               </>

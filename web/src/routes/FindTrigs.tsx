@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInfiniteTrigs } from "../hooks/useInfiniteTrigs";
+import { useUserLoggedTrigs } from "../hooks/useUserLoggedTrigs";
 import { LocationSearch } from "../components/trigs/LocationSearch";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUserProfile } from "../hooks/useUserProfile";
+import type { UserLogStatus } from "../lib/mapIcons";
 import Layout from "../components/layout/Layout";
 
 // Default location: Buxton
@@ -22,6 +24,9 @@ export default function FindTrigs() {
   
   // Fetch user profile to get status_max preference
   const { data: userProfile } = useUserProfile("me");
+  
+  // Fetch user's logged trigpoints for badge indicator
+  const { data: loggedTrigsMap } = useUserLoggedTrigs();
 
   // Track if we've attempted to get user location
   const [locationAttempted, setLocationAttempted] = useState<boolean>(false);
@@ -192,6 +197,15 @@ export default function FindTrigs() {
       observer.disconnect();
     };
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  
+  // Helper function to get log status for a trigpoint
+  const getLogStatus = (trigId: number): UserLogStatus | null => {
+    if (!loggedTrigsMap) return null;
+    const condition = loggedTrigsMap.get(trigId);
+    return condition 
+      ? { hasLogged: true, condition }
+      : { hasLogged: false };
+  };
 
   return (
     <Layout>
@@ -319,6 +333,7 @@ export default function FindTrigs() {
                   centerLat={centerLat ?? 0}
                   centerLon={centerLon ?? 0}
                   distanceUnit={(userProfile?.prefs?.distance_ind as 'K' | 'M') || 'K'}
+                  logStatus={getLogStatus(trig.id)}
                 />
               ))}
             </div>

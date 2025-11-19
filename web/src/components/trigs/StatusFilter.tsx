@@ -38,7 +38,7 @@ export function StatusFilter({
               transition-all duration-200
               ${
                 isSelected
-                  ? `${status.color} shadow-md scale-105 ring-2 ring-white`
+                  ? "bg-trig-green-600 shadow-md scale-105 ring-2 ring-white"
                   : "bg-gray-200 hover:bg-gray-300"
               }
               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500

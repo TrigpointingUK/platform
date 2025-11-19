@@ -111,19 +111,24 @@ describe('mapIcons', () => {
       expect(getUserLogColor(logStatus)).toBe('grey');
     });
 
-    it('should return green when logged as found', () => {
-      const logStatus: UserLogStatus = { hasLogged: true, foundStatus: true };
+    it('should return green when logged in good condition', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'G' };
       expect(getUserLogColor(logStatus)).toBe('green');
     });
 
-    it('should return green when logged without foundStatus (assumes found)', () => {
-      const logStatus: UserLogStatus = { hasLogged: true };
-      expect(getUserLogColor(logStatus)).toBe('green');
-    });
-
-    it('should return red when logged as not found', () => {
-      const logStatus: UserLogStatus = { hasLogged: true, foundStatus: false };
+    it('should return red when logged as Unknown (U)', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'U' };
       expect(getUserLogColor(logStatus)).toBe('red');
+    });
+
+    it('should return red when logged as missing', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
+      expect(getUserLogColor(logStatus)).toBe('red');
+    });
+
+    it('should return yellow when logged as damaged', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'D' };
+      expect(getUserLogColor(logStatus)).toBe('yellow');
     });
   });
 
@@ -184,13 +189,13 @@ describe('mapIcons', () => {
     });
 
     it('should use log status color in userLog mode', () => {
-      const logStatus: UserLogStatus = { hasLogged: true, foundStatus: true };
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'G' };
       const url = getIconUrlForTrig('Pillar', 'M', 'userLog', logStatus);
       expect(url).toBe('/icons/mapicon_pillar_green.png');
     });
 
-    it('should use red for not found in userLog mode', () => {
-      const logStatus: UserLogStatus = { hasLogged: true, foundStatus: false };
+    it('should use red for missing in userLog mode', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
       const url = getIconUrlForTrig('Pillar', 'G', 'userLog', logStatus);
       expect(url).toBe('/icons/mapicon_pillar_red.png');
     });
@@ -267,7 +272,7 @@ describe('mapIcons', () => {
     it('should have legend for userLog mode', () => {
       expect(ICON_LEGENDS.userLog).toBeDefined();
       expect(Array.isArray(ICON_LEGENDS.userLog)).toBe(true);
-      expect(ICON_LEGENDS.userLog.length).toBe(3);
+      expect(ICON_LEGENDS.userLog.length).toBe(4);
     });
 
     it('should have stable condition legend entries', () => {
@@ -277,7 +282,7 @@ describe('mapIcons', () => {
 
     it('should have stable userLog legend entries', () => {
       const legendColors = ICON_LEGENDS.userLog.map(item => item.color);
-      expect(legendColors).toEqual(['green', 'red', 'grey']);
+      expect(legendColors).toEqual(['green', 'yellow', 'red', 'grey']);
     });
 
     it('should have labels for all legend entries', () => {

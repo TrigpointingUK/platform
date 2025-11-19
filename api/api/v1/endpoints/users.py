@@ -553,6 +553,51 @@ def update_current_user_profile(
 
 
 @router.get(
+    "/me/logged-trigs",
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Get list of trigpoints the current user has logged with conditions. Used for map icon coloring.",
+    ),
+)
+def get_current_user_logged_trigs(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get list of trigpoints the current user has logged with conditions.
+
+    Returns a lightweight list containing just trig_id and condition for each log.
+    This is used by the frontend to color map markers based on the user's log history.
+
+    Cache is automatically invalidated when the user creates, updates, or deletes a log
+    via the existing user:{user_id}:* cache invalidation pattern.
+
+    The caching is handled in a wrapper that calls the user-specific version.
+
+    Returns:
+        List of dicts with trig_id and condition for each log
+    """
+    # Call the cached version with the user_id
+    return get_user_logged_trigs_cached(current_user.id, db)
+
+
+@cached(
+    resource_type="user",
+    ttl=31536000,
+    resource_id_param="user_id",
+    subresource="logged-trigs",
+)  # 1 year - invalidated by log CRUD operations
+def get_user_logged_trigs_cached(user_id: int, db: Session):
+    """Cached implementation for getting user's logged trigs."""
+    logs = db.query(TLog.trig_id, TLog.condition).filter(TLog.user_id == user_id).all()
+
+    return [
+        {"trig_id": int(log.trig_id), "condition": str(log.condition or "U")}
+        for log in logs
+    ]
+
+
+@router.get(
     "/{user_id}/badge",
     responses={
         200: {
