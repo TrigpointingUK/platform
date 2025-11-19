@@ -125,6 +125,12 @@ export default function Map() {
   
   // Fetch user's logged trigpoints for icon coloring
   const { data: loggedTrigsMap } = useUserLoggedTrigs();
+
+  // Derive preferred statuses from user preferences (defaults to Minor mark max)
+  const preferredStatuses = useMemo(() => {
+    const userStatusMax = userProfile?.prefs?.status_max ?? 30;
+    return ALL_STATUSES.filter((status) => status <= userStatusMax);
+  }, [userProfile]);
   
   // Data source mode: always use geojson (now includes all status levels)
   const [dataSource] = useState<'geojson' | 'paginated'>('geojson');
@@ -136,11 +142,7 @@ export default function Map() {
     const statuses = searchParams.get("statuses");
     if (statuses) return statuses.split(",").map(Number);
     
-    // Default based on user preference or fallback to 30 (Minor mark)
-    const userStatusMax = userProfile?.prefs?.status_max || 30;
-    
-    // Select all statuses up to and including user's max
-    return ALL_STATUSES.filter(s => s <= userStatusMax);
+    return preferredStatuses;
   });
   const [selectedColors, setSelectedColors] = useState<IconColor[]>(() => [...ALL_ICON_COLORS]);
   const [excludeFound, setExcludeFound] = useState<boolean>(
@@ -351,14 +353,12 @@ export default function Map() {
     // Only apply user preference if:
     // 1. No URL params are set
     // 2. We haven't already initialized from preferences
-    // 3. User profile is available
-    if (!searchParams.get("statuses") && !statusesInitialized && userProfile?.prefs?.status_max) {
-      const userStatusMax = userProfile.prefs.status_max;
-      const defaultStatuses = ALL_STATUSES.filter(s => s <= userStatusMax);
-      setSelectedStatuses(defaultStatuses);
+    // 3. We have a preferred status list computed
+    if (!searchParams.get("statuses") && !statusesInitialized && preferredStatuses.length > 0) {
+      setSelectedStatuses([...preferredStatuses]);
       setStatusesInitialized(true);
     }
-  }, [userProfile, searchParams, statusesInitialized]);
+  }, [preferredStatuses, searchParams, statusesInitialized]);
   
   // Handle color selection when switching between Condition and My Logs modes
   useEffect(() => {
@@ -410,7 +410,7 @@ export default function Map() {
   }, []);
   
   const handleClearFilters = useCallback(() => {
-    setSelectedStatuses(ALL_STATUSES);
+    setSelectedStatuses([...preferredStatuses]);
     setSelectedColors(() => [...ALL_ICON_COLORS]);
     setExcludeFound(false);
     setRenderMode('auto');
@@ -423,7 +423,7 @@ export default function Map() {
         MAP_CONFIG.defaultZoom
       );
     }
-  }, [mapInstance]);
+  }, [mapInstance, preferredStatuses]);
   
   return (
     <Layout>
