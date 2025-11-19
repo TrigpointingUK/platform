@@ -8,7 +8,7 @@ import os
 from datetime import date as date_type
 from datetime import datetime
 from math import cos, radians, sqrt
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -112,79 +112,67 @@ def export_trigs_geojson(
     db: Session = Depends(get_db),
 ):
     """
-    Export FBM and Pillar trigpoints in GeoJSON format for map display.
+    Export trigpoints in GeoJSON format for map display, grouped by status.
 
-    Returns two FeatureCollections (one for each physical type).
-    Each feature contains id, name, condition, and osgb_gridref in properties and Point geometry.
+    Returns FeatureCollections for each status level (Pillar, Major mark, Minor mark, etc.).
+    Each feature contains id, name, condition, osgb_gridref, and physical_type in properties.
+
+    Excludes soft-deleted records (status >= 90).
 
     This endpoint is heavily cached (1 year) as the data is essentially static.
     Cache can be manually cleared via admin endpoints if needed.
     """
-    # Query FBM trigpoints
-    fbm_items = trig_crud.list_trigs_filtered(
-        db,
-        physical_types=["FBM"],
-        skip=0,
-        limit=limit if limit else 50000,
-    )
+    # Fetch all status types
+    all_statuses = status_crud.get_all_statuses(db)
 
-    # Query Pillar trigpoints
-    pillar_items = trig_crud.list_trigs_filtered(
-        db,
-        physical_types=["Pillar"],
-        skip=0,
-        limit=limit if limit else 50000,
-    )
+    # Filter to non-deleted statuses only (< 90)
+    active_statuses = [s for s in all_statuses if s.id < 90]
 
-    # Build GeoJSON FeatureCollection for FBM
-    fbm_features = []
-    for item in fbm_items:
-        fbm_features.append(
-            {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
-                },
-                "properties": {
-                    "id": item.id,
-                    "name": item.name,
-                    "condition": item.condition,
-                    "osgb_gridref": item.osgb_gridref,
-                },
-            }
+    result: dict[str, Any] = {}
+
+    for status in active_statuses:
+        # Query trigpoints for this status
+        status_id_int = int(status.id)  # Ensure it's an int for type checking
+        items = trig_crud.list_trigs_filtered(
+            db,
+            status_ids=[status_id_int],
+            skip=0,
+            limit=limit if limit else 50000,
+            exclude_soft_deleted=True,  # Ensure we exclude status >= 90
         )
 
-    fbm_collection = {"type": "FeatureCollection", "features": fbm_features}
+        # Build GeoJSON features
+        features = []
+        for item in items:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
+                    },
+                    "properties": {
+                        "id": item.id,
+                        "name": item.name,
+                        "condition": item.condition,
+                        "osgb_gridref": item.osgb_gridref,
+                        "physical_type": item.physical_type,
+                    },
+                }
+            )
 
-    # Build GeoJSON FeatureCollection for Pillar
-    pillar_features = []
-    for item in pillar_items:
-        pillar_features.append(
-            {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
-                },
-                "properties": {
-                    "id": item.id,
-                    "name": item.name,
-                    "condition": item.condition,
-                    "osgb_gridref": item.osgb_gridref,
-                },
-            }
-        )
+        # Convert status name to snake_case for dict key
+        status_key = status.name.strip().lower().replace(" ", "_")
+        result[status_key] = {
+            "type": "FeatureCollection",
+            "features": features,
+        }
 
-    pillar_collection = {"type": "FeatureCollection", "features": pillar_features}
+    # Add metadata
+    result["generated_at"] = datetime.utcnow().isoformat()
+    result["cache_info"] = "This export is cached for 1 year"
 
-    # Return both collections
-    return {
-        "fbm": fbm_collection,
-        "pillar": pillar_collection,
-        "generated_at": datetime.utcnow().isoformat(),
-        "cache_info": "This export is cached for 1 year",
-    }
+    return result
 
 
 @cached(resource_type="trig", ttl=86400, resource_id_param="trig_id")  # 24 hours
@@ -325,6 +313,9 @@ def list_trigs(
     physical_types: Optional[str] = Query(
         None, description="Comma-separated physical types to include"
     ),
+    status_ids: Optional[str] = Query(
+        None, description="Comma-separated status IDs to include (e.g., '10,20,30')"
+    ),
     exclude_found: Optional[bool] = Query(
         False, description="Exclude trigpoints already logged by authenticated user"
     ),
@@ -337,9 +328,13 @@ def list_trigs(
     """
     Filtered collection endpoint for trigs returning envelope with items, pagination, links.
 
-    New filters:
+    Filters:
     - physical_types: Filter by physical type (e.g., "Pillar,Bolt,FBM")
+    - status_ids: Filter by status IDs (e.g., "10,20,30")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
+
+    If authenticated, applies user's status_max preference to limit visible trigs.
+    Always excludes soft-deleted records (status >= 90).
     """
     # Record trig search metric
     metrics = get_metrics_collector()
@@ -353,6 +348,21 @@ def list_trigs(
         physical_types_list = [
             pt.strip() for pt in physical_types.split(",") if pt.strip()
         ]
+
+    # Parse status IDs
+    status_ids_list = None
+    if status_ids:
+        status_ids_list = [
+            int(sid.strip()) for sid in status_ids.split(",") if sid.strip()
+        ]
+
+    # Apply user's status_max preference if authenticated
+    max_status = None
+    if current_user and hasattr(current_user, "status_max") and current_user.status_max:
+        max_status = int(current_user.status_max)
+    else:
+        # Default for unauthenticated users
+        max_status = 30
 
     # Get user ID for exclude_found filter
     exclude_found_by_user_id = None
@@ -370,7 +380,10 @@ def list_trigs(
         max_km=max_km,
         order=order,
         physical_types=physical_types_list,
+        status_ids=status_ids_list,
+        max_status=max_status,
         exclude_found_by_user_id=exclude_found_by_user_id,
+        exclude_soft_deleted=True,  # Always exclude status >= 90
     )
     total = trig_crud.count_trigs_filtered(
         db,
@@ -380,7 +393,10 @@ def list_trigs(
         center_lon=lon,
         max_km=max_km,
         physical_types=physical_types_list,
+        status_ids=status_ids_list,
+        max_status=max_status,
         exclude_found_by_user_id=exclude_found_by_user_id,
+        exclude_soft_deleted=True,  # Always exclude status >= 90
     )
 
     # serialise
@@ -412,6 +428,8 @@ def list_trigs(
         params.append(f"order={order}")
     if physical_types:
         params.append(f"physical_types={physical_types}")
+    if status_ids:
+        params.append(f"status_ids={status_ids}")
     if exclude_found:
         params.append("exclude_found=true")
     params.append(f"limit={limit}")

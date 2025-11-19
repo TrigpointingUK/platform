@@ -115,11 +115,26 @@ def list_trigs_filtered(
     max_km: Optional[float] = None,
     order: Optional[str] = None,
     physical_types: Optional[List[str]] = None,
+    status_ids: Optional[List[int]] = None,
+    max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
+    exclude_soft_deleted: bool = True,
 ) -> list[Trig]:
     query = db.query(Trig)
 
-    # Filter by physical types
+    # Global filter: exclude soft-deleted records (status >= 90) unless explicitly requested
+    if exclude_soft_deleted:
+        query = query.filter(Trig.status_id < 90)
+
+    # Filter by status IDs (specific statuses)
+    if status_ids:
+        query = query.filter(Trig.status_id.in_(status_ids))
+
+    # Filter by max status (status <= max_status)
+    if max_status is not None:
+        query = query.filter(Trig.status_id <= max_status)
+
+    # Filter by physical types (kept for backward compatibility)
     if physical_types:
         query = query.filter(Trig.physical_type.in_(physical_types))
 
@@ -190,11 +205,26 @@ def count_trigs_filtered(
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
     physical_types: Optional[List[str]] = None,
+    status_ids: Optional[List[int]] = None,
+    max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
+    exclude_soft_deleted: bool = True,
 ) -> int:
     query = db.query(func.count(Trig.id))
 
-    # Filter by physical types
+    # Global filter: exclude soft-deleted records (status >= 90) unless explicitly requested
+    if exclude_soft_deleted:
+        query = query.filter(Trig.status_id < 90)
+
+    # Filter by status IDs (specific statuses)
+    if status_ids:
+        query = query.filter(Trig.status_id.in_(status_ids))
+
+    # Filter by max status (status <= max_status)
+    if max_status is not None:
+        query = query.filter(Trig.status_id <= max_status)
+
+    # Filter by physical types (kept for backward compatibility)
     if physical_types:
         query = query.filter(Trig.physical_type.in_(physical_types))
 

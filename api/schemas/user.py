@@ -91,7 +91,10 @@ class UserUpdate(BaseModel):
     about: Optional[str] = Field(None, description="About/description text")
 
     # Preference fields
-    status_max: Optional[int] = Field(None, description="Status preference")
+    status_max: Optional[int] = Field(
+        None,
+        description="Maximum status level (10=Pillar, 20=Major mark, 30=Minor mark, 40=Intersected, 50=User Added, 60=Controversial)",
+    )
     distance_ind: Optional[str] = Field(
         None, pattern="^[KM]$", description="Distance units (K=km, M=miles)"
     )
@@ -104,6 +107,22 @@ class UserUpdate(BaseModel):
     online_map_type2: Optional[str] = Field(
         None, max_length=10, description="Secondary map type preference"
     )
+
+    @field_validator("status_max")
+    @classmethod
+    def validate_status_max(cls, v: Optional[int]) -> Optional[int]:
+        if v is None:
+            return v
+
+        # Valid status IDs (must be < 90 to exclude soft-deleted)
+        valid_statuses = [10, 20, 30, 40, 50, 60]
+
+        if v not in valid_statuses:
+            raise ValueError(
+                f"Invalid status_max value. Must be one of {valid_statuses}"
+            )
+
+        return v
 
     @field_validator("name")
     @classmethod

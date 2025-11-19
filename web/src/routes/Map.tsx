@@ -9,11 +9,12 @@ import HeatmapLayer from "../components/map/HeatmapLayer";
 import TilesetSelector from "../components/map/TilesetSelector";
 import IconColorModeSelector from "../components/map/IconColorModeSelector";
 import LocationButton from "../components/map/LocationButton";
-import { PhysicalTypeFilter } from "../components/trigs/PhysicalTypeFilter";
+import { StatusFilter } from "../components/trigs/StatusFilter";
 import Layout from "../components/layout/Layout";
 import Spinner from "../components/ui/Spinner";
 import { useMapTrigsWithProgress, type MapBounds } from "../hooks/useMapTrigsWithProgress";
-import { useMapTrigsGeoJSON } from "../hooks/useMapTrigsGeoJSON";
+import { useMapTrigsGeoJSON, type GeoJSONTrig } from "../hooks/useMapTrigsGeoJSON";
+import { useUserProfile } from "../hooks/useUserProfile";
 import {
   getPreferredTileLayer,
   MAP_CONFIG,
@@ -22,19 +23,28 @@ import {
 import { getPreferredIconColorMode, type IconColorMode } from "../lib/mapIcons";
 import { Menu, X } from "lucide-react";
 
-// GeoJSON physical types (only Pillar and FBM)
-const GEOJSON_PHYSICAL_TYPES = ["Pillar", "FBM"];
+// All status levels (IDs)
+const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
-// All physical types
-const ALL_PHYSICAL_TYPES = [
-  "Pillar",
-  "Bolt",
-  "FBM",
-  "Passive Station",
-  "Active Station",
-  "Intersection",
-  "Other",
-];
+// Status ID to name mapping (for API keys)
+const STATUS_NAMES: Record<number, string> = {
+  10: "pillar",
+  20: "major_mark",
+  30: "minor_mark",
+  40: "intersected",
+  50: "user_added",
+  60: "controversial",
+};
+
+// Status ID to display name mapping
+const STATUS_DISPLAY_NAMES: Record<number, string> = {
+  10: "Pillar",
+  20: "Major mark",
+  30: "Minor mark",
+  40: "Intersected",
+  50: "User Added",
+  60: "Controversial",
+};
 
 /**
  * Component to track map viewport changes
@@ -98,21 +108,24 @@ export default function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
   
-  // Data source mode: geojson for Pillars+FBMs, paginated for others
-  const [dataSource] = useState<'geojson' | 'paginated'>('geojson');
+  // Fetch user profile to get status_max preference
+  const { data: userProfile } = useUserProfile("me");
   
-  // Use GeoJSON types when in geojson mode
-  const availablePhysicalTypes = dataSource === 'geojson' 
-    ? GEOJSON_PHYSICAL_TYPES 
-    : ALL_PHYSICAL_TYPES;
+  // Data source mode: always use geojson (now includes all status levels)
+  const [dataSource] = useState<'geojson' | 'paginated'>('geojson');
   
   // State
   const [tileLayerId, setTileLayerId] = useState(getPreferredTileLayer());
   const [iconColorMode, setIconColorMode] = useState<IconColorMode>(getPreferredIconColorMode());
-  const [selectedPhysicalTypes, setSelectedPhysicalTypes] = useState<string[]>(() => {
-    const types = searchParams.get("types");
-    if (types) return types.split(",");
-    return dataSource === 'geojson' ? GEOJSON_PHYSICAL_TYPES : ALL_PHYSICAL_TYPES;
+  const [selectedStatuses, setSelectedStatuses] = useState<number[]>(() => {
+    const statuses = searchParams.get("statuses");
+    if (statuses) return statuses.split(",").map(Number);
+    
+    // Default based on user preference or fallback to 30 (Minor mark)
+    const userStatusMax = userProfile?.prefs?.status_max || 30;
+    
+    // Select all statuses up to and including user's max
+    return ALL_STATUSES.filter(s => s <= userStatusMax);
   });
   const [excludeFound, setExcludeFound] = useState<boolean>(
     () => searchParams.get("excludeFound") === "true"
@@ -170,14 +183,35 @@ export default function Map() {
   const geojsonTrigs = useMemo(() => {
     if (!geojsonData) return [];
     
+    // Debug: log the structure we received
+    console.log('GeoJSON data keys:', Object.keys(geojsonData));
+    
     const trigs: typeof allTrigsData = [];
     
-    // Add FBM trigpoints if FBM is selected
-    if (selectedPhysicalTypes.includes("FBM")) {
-      geojsonData.fbm.features.forEach((feature) => {
+    // Iterate through all selected statuses
+    for (const statusId of selectedStatuses) {
+      const statusKey = STATUS_NAMES[statusId];
+      if (!statusKey) continue;
+      
+      // Safely access the collection
+      const collection = geojsonData[statusKey as keyof typeof geojsonData];
+      
+      // Check if collection exists and has features array
+      if (!collection || typeof collection === 'string') {
+        console.log(`Skipping ${statusKey} - not a collection:`, typeof collection);
+        continue;
+      }
+      if (!collection.features || !Array.isArray(collection.features)) {
+        console.warn(`No features array for status ${statusKey}:`, collection);
+        continue;
+      }
+      
+      console.log(`Processing ${statusKey}: ${collection.features.length} features`);
+      
+      collection.features.forEach((feature: GeoJSONTrig) => {
         // Skip features with missing critical data
         if (!feature.properties?.id || !feature.geometry?.coordinates?.[0] || !feature.geometry?.coordinates?.[1]) {
-          console.warn('Skipping FBM feature with missing data:', feature);
+          console.warn('Skipping feature with missing data:', feature);
           return;
         }
         
@@ -185,52 +219,41 @@ export default function Map() {
           id: feature.properties.id,
           waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
           name: feature.properties.name || "",
-          physical_type: "FBM",
+          physical_type: feature.properties.physical_type || "Unknown",
           condition: feature.properties.condition || "U",
           wgs_lat: feature.geometry.coordinates[1].toString(),
           wgs_long: feature.geometry.coordinates[0].toString(),
           osgb_gridref: feature.properties.osgb_gridref || "",
-        });
-      });
-    }
-    
-    // Add Pillar trigpoints if Pillar is selected
-    if (selectedPhysicalTypes.includes("Pillar")) {
-      geojsonData.pillar.features.forEach((feature) => {
-        // Skip features with missing critical data
-        if (!feature.properties?.id || !feature.geometry?.coordinates?.[0] || !feature.geometry?.coordinates?.[1]) {
-          console.warn('Skipping Pillar feature with missing data:', feature);
-          return;
-        }
-        
-        trigs.push({
-          id: feature.properties.id,
-          waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
-          name: feature.properties.name || "",
-          physical_type: "Pillar",
-          condition: feature.properties.condition || "U",
-          wgs_lat: feature.geometry.coordinates[1].toString(),
-          wgs_long: feature.geometry.coordinates[0].toString(),
-          osgb_gridref: feature.properties.osgb_gridref || "",
+          status_name: STATUS_DISPLAY_NAMES[statusId] || "",
         });
       });
     }
     
     return trigs;
-  }, [geojsonData, selectedPhysicalTypes]);
+  }, [geojsonData, selectedStatuses]);
   
-  // Client-side filtering by physical type (for paginated mode)
+  // Calculate physical type counts from geojsonTrigs
+  const physicalTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    for (const trig of geojsonTrigs) {
+      const type = trig.physical_type || "Unknown";
+      counts[type] = (counts[type] || 0) + 1;
+    }
+    
+    return counts;
+  }, [geojsonTrigs]);
+  
+  // Client-side filtering by status (for paginated mode - not currently used)
   const paginatedTrigs = useMemo(() => {
-    // If all types selected, no need to filter
-    if (selectedPhysicalTypes.length === ALL_PHYSICAL_TYPES.length) {
+    // If all statuses selected, no need to filter
+    if (selectedStatuses.length === ALL_STATUSES.length) {
       return allTrigsData;
     }
     
-    // Filter by selected physical types
-    return allTrigsData.filter(trig => 
-      selectedPhysicalTypes.includes(trig.physical_type)
-    );
-  }, [allTrigsData, selectedPhysicalTypes]);
+    // Filter by selected statuses (would need status_id in data)
+    return allTrigsData;
+  }, [allTrigsData, selectedStatuses]);
   
   // Determine which data to use based on mode
   const trigpoints = dataSource === 'geojson' ? geojsonTrigs : paginatedTrigs;
@@ -264,12 +287,22 @@ export default function Map() {
     return tooManyVisibleMarkers;
   }, [renderMode, visibleTrigpoints.length]);
   
+  // Initialize selected statuses from user preference when profile loads
+  useEffect(() => {
+    // Only apply user preference if no URL params are set
+    if (!searchParams.get("statuses") && userProfile?.prefs?.status_max) {
+      const userStatusMax = userProfile.prefs.status_max;
+      const defaultStatuses = ALL_STATUSES.filter(s => s <= userStatusMax);
+      setSelectedStatuses(defaultStatuses);
+    }
+  }, [userProfile, searchParams]);
+  
   // Update URL params when filters change
   useEffect(() => {
     const params = new URLSearchParams();
     
-    if (selectedPhysicalTypes.length !== ALL_PHYSICAL_TYPES.length) {
-      params.set("types", selectedPhysicalTypes.join(","));
+    if (selectedStatuses.length !== ALL_STATUSES.length) {
+      params.set("statuses", selectedStatuses.join(","));
     }
     
     if (excludeFound) {
@@ -277,25 +310,25 @@ export default function Map() {
     }
     
     setSearchParams(params, { replace: true });
-  }, [selectedPhysicalTypes, excludeFound, setSearchParams]);
+  }, [selectedStatuses, excludeFound, setSearchParams]);
   
   // Handle bounds change with debouncing
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
     setMapBounds(bounds);
   }, []);
   
-  const handleTogglePhysicalType = useCallback((type: string) => {
-    setSelectedPhysicalTypes((prev) => {
-      if (prev.includes(type)) {
-        return prev.filter((t) => t !== type);
+  const handleToggleStatus = useCallback((statusId: number) => {
+    setSelectedStatuses((prev) => {
+      if (prev.includes(statusId)) {
+        return prev.filter((s) => s !== statusId);
       } else {
-        return [...prev, type];
+        return [...prev, statusId];
       }
     });
   }, []);
   
   const handleClearFilters = useCallback(() => {
-    setSelectedPhysicalTypes(availablePhysicalTypes);
+    setSelectedStatuses(ALL_STATUSES);
     setExcludeFound(false);
     setRenderMode('auto');
     setTileLayerId(DEFAULT_TILE_LAYER);
@@ -307,7 +340,7 @@ export default function Map() {
         MAP_CONFIG.defaultZoom
       );
     }
-  }, [availablePhysicalTypes, mapInstance]);
+  }, [mapInstance]);
   
   return (
     <Layout>
@@ -329,15 +362,14 @@ export default function Map() {
               </button>
             </div>
             
-            {/* Physical type filter */}
+            {/* Status filter */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Physical Types
+                Status Levels
               </label>
-              <PhysicalTypeFilter
-                selectedTypes={selectedPhysicalTypes}
-                onToggleType={handleTogglePhysicalType}
-                visibleTypes={availablePhysicalTypes}
+              <StatusFilter
+                selectedStatuses={selectedStatuses}
+                onToggleStatus={handleToggleStatus}
               />
             </div>
             
@@ -459,9 +491,19 @@ export default function Map() {
                   <div className="text-xs text-gray-500 mt-1">
                     {dataSource === 'geojson' ? (
                       <>
-                        GeoJSON mode: {geojsonData ? 
-                          `${geojsonData.fbm.features.length} FBMs + ${geojsonData.pillar.features.length} Pillars` 
-                          : 'Loading...'}
+                        Comprising: {geojsonData ? (
+                          <>
+                            {Object.entries(physicalTypeCounts)
+                              .sort(([, countA], [, countB]) => countB - countA)
+                              .map(([type, count], index, arr) => (
+                                <span key={type}>
+                                  {count} {type}{count !== 1 ? 's' : ''}
+                                  {index < arr.length - 1 ? ', ' : ''}
+                                </span>
+                              ))
+                            }
+                          </>
+                        ) : 'Loading...'}
                       </>
                     ) : (
                       <>
@@ -469,9 +511,9 @@ export default function Map() {
                       </>
                     )}
                   </div>
-                  {selectedPhysicalTypes.length < availablePhysicalTypes.length && (
+                  {selectedStatuses.length < ALL_STATUSES.length && (
                     <div className="text-xs text-blue-600 mt-1">
-                      Filtered by type (client-side)
+                      Filtered by status (client-side)
                     </div>
                   )}
                 </div>

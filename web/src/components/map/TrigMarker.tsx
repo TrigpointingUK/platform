@@ -45,7 +45,8 @@ export default function TrigMarker({
     trig.condition,
     colorMode,
     logStatus,
-    highlighted
+    highlighted,
+    trig.status_name  // Pass status_name to override icon for minor marks
   );
   
   // Create Leaflet icon

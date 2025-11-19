@@ -18,6 +18,7 @@ interface TrigCardProps {
   showDistance?: boolean;
   centerLat?: number;
   centerLon?: number;
+  distanceUnit?: 'K' | 'M'; // K=km, M=miles
 }
 
 // Helper function to get condition icon and label
@@ -42,18 +43,23 @@ function getConditionInfo(code: string): { icon: string; label: string } {
   return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
-// Helper to get physical type abbreviation
-function getPhysicalTypeAbbrev(type: string): string {
-  const abbrevs: Record<string, string> = {
-    Pillar: "P",
-    Bolt: "B",
-    FBM: "F",
-    "Passive Station": "PS",
-    "Active Station": "AS",
-    Intersection: "I",
-    Other: "O",
+// Helper to get status badge info (abbreviation and color)
+function getStatusInfo(statusName?: string): { abbrev: string; color: string } {
+  const statusMap: Record<string, { abbrev: string; color: string }> = {
+    Pillar: { abbrev: "P", color: "bg-blue-600" },
+    "Major mark": { abbrev: "MM", color: "bg-green-600" },
+    "Minor mark": { abbrev: "m", color: "bg-yellow-600" },
+    Intersected: { abbrev: "I", color: "bg-orange-600" },
+    "User Added": { abbrev: "UA", color: "bg-red-600" },
+    Controversial: { abbrev: "C", color: "bg-gray-600" },
   };
-  return abbrevs[type] || type.charAt(0).toUpperCase();
+  
+  if (statusName && statusMap[statusName]) {
+    return statusMap[statusName];
+  }
+  
+  // Default fallback
+  return { abbrev: "?", color: "bg-gray-400" };
 }
 
 // Calculate bearing from one point to another (in degrees, 0 = North)
@@ -75,7 +81,13 @@ function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number
   return (bearing + 360) % 360;
 }
 
-export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: TrigCardProps) {
+export function TrigCard({ 
+  trig, 
+  showDistance = true, 
+  centerLat, 
+  centerLon,
+  distanceUnit = 'K' 
+}: TrigCardProps) {
   // Calculate bearing if we have center coordinates
   let bearing: number | null = null;
   if (centerLat !== undefined && centerLon !== undefined) {
@@ -86,7 +98,17 @@ export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: Tr
     }
   }
   
+  // Convert distance based on unit preference
+  const displayDistance = trig.distance_km !== undefined
+    ? distanceUnit === 'M'
+      ? trig.distance_km * 0.621371  // km to miles
+      : trig.distance_km
+    : undefined;
+  
+  const distanceLabel = distanceUnit === 'M' ? 'mi' : 'km';
+  
   const conditionInfo = getConditionInfo(trig.condition);
+  const statusInfo = getStatusInfo(trig.status_name);
   
   return (
     <Link
@@ -97,9 +119,12 @@ export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: Tr
         {/* Left side: Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {/* Physical type badge */}
-            <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-blue-600 rounded">
-              {getPhysicalTypeAbbrev(trig.physical_type)}
+            {/* Status badge */}
+            <span 
+              className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${statusInfo.color}`}
+              title={trig.status_name || "Unknown status"}
+            >
+              {statusInfo.abbrev}
             </span>
             
             {/* Name */}
@@ -116,16 +141,22 @@ export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: Tr
             />
           </div>
           
-          {/* Grid reference & waypoint */}
+          {/* Grid reference, waypoint & physical type */}
           <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
             <span className="font-mono">{trig.osgb_gridref}</span>
             <span className="text-gray-400">•</span>
             <span>{trig.waypoint}</span>
+            {trig.physical_type && (
+              <>
+                <span className="text-gray-400">•</span>
+                <span className="text-gray-500 text-xs">{trig.physical_type}</span>
+              </>
+            )}
           </div>
         </div>
         
         {/* Right side: Direction arrow and Distance */}
-        {showDistance && trig.distance_km !== undefined && (
+        {showDistance && displayDistance !== undefined && (
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Direction arrow */}
             {bearing !== null && (
@@ -149,9 +180,9 @@ export function TrigCard({ trig, showDistance = true, centerLat, centerLon }: Tr
             {/* Distance */}
             <div className="text-right">
               <div className="text-lg font-semibold text-gray-900">
-                {trig.distance_km.toFixed(1)}
+                {displayDistance.toFixed(1)}
               </div>
-              <div className="text-xs text-gray-500">km</div>
+              <div className="text-xs text-gray-500">{distanceLabel}</div>
             </div>
           </div>
         )}

@@ -178,13 +178,21 @@ export const getIconUrl = (
 
 /**
  * Get icon URL based on color mode
+ * 
+ * @param physicalType - Physical type of the trigpoint
+ * @param condition - Condition code
+ * @param colorMode - Icon color mode (condition or userLog)
+ * @param logStatus - User's log status for this trig
+ * @param highlighted - Whether to highlight the icon
+ * @param statusName - Status name (e.g., "Minor mark") - used to override icon type
  */
 export const getIconUrlForTrig = (
   physicalType: string,
   condition: string,
   colorMode: IconColorMode,
   logStatus: UserLogStatus | null,
-  highlighted: boolean = false
+  highlighted: boolean = false,
+  statusName?: string
 ): string => {
   let color: IconColor;
   
@@ -200,7 +208,13 @@ export const getIconUrlForTrig = (
     }
   }
   
-  return getIconUrl(physicalType, color, highlighted);
+  // Override physical type icon for Minor marks - use passive icon
+  let iconPhysicalType = physicalType;
+  if (statusName && statusName.trim() === 'Minor mark') {
+    iconPhysicalType = 'Passive Station';  // This maps to 'passive' icon
+  }
+  
+  return getIconUrl(iconPhysicalType, color, highlighted);
 };
 
 /**

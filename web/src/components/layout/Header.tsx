@@ -109,11 +109,11 @@ export default function Header() {
                       Profile
                     </Link>
                     <Link
-                      to="/settings"
+                      to="/preferences"
                       className="block px-4 py-2 hover:bg-gray-100"
                       onClick={() => setUserMenuOpen(false)}
                     >
-                      Settings
+                      Preferences
                     </Link>
                     {hasAdminRole && (
                       <Link

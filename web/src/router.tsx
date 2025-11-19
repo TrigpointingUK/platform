@@ -14,6 +14,7 @@ const LogDetail = lazy(() => import("./routes/LogDetail"));
 const UserProfile = lazy(() => import("./routes/UserProfile"));
 const UserLogs = lazy(() => import("./routes/UserLogs"));
 const UserPhotos = lazy(() => import("./routes/UserPhotos"));
+const Preferences = lazy(() => import("./routes/Preferences"));
 const About = lazy(() => import("./routes/About"));
 const AppDetail = lazy(() => import("./routes/AppDetail"));
 const FindTrigs = lazy(() => import("./routes/FindTrigs"));
@@ -171,6 +172,18 @@ const router = createBrowserRouter(
           <UserProfile />
         </Suspense>
       ),
+    },
+    {
+      path: "/preferences",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <Preferences />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/settings",
+      element: <Navigate to="/preferences" replace />,
     },
     {
       path: "/about",

@@ -33,7 +33,7 @@ export interface MapBounds {
 
 export interface UseMapTrigsOptions {
   bounds?: MapBounds;
-  physicalTypes?: string[];
+  statusIds?: number[]; // Status IDs to filter by (10, 20, 30, etc.)
   excludeFound?: boolean;
   enabled?: boolean;
   zoom?: number; // Current zoom level
@@ -68,7 +68,7 @@ function boundsToCenter(bounds: MapBounds): { lat: number; lon: number; maxKm: n
  */
 export function useMapTrigs({
   bounds,
-  physicalTypes,
+  statusIds,
   excludeFound = false,
   enabled = true,
   zoom = 7,
@@ -80,8 +80,8 @@ export function useMapTrigs({
     // When zoomed out, only invalidate on filter changes, not viewport
     // When zoomed in, include bounds in key
     queryKey: zoom < 9 
-      ? ["map-trigs-all", physicalTypes, excludeFound] 
-      : ["map-trigs-viewport", bounds, physicalTypes, excludeFound],
+      ? ["map-trigs-all", statusIds, excludeFound] 
+      : ["map-trigs-viewport", bounds, statusIds, excludeFound],
     enabled: enabled && !!bounds,
     // For zoomed out (all trigpoints), cache for 1 hour
     // For zoomed in (viewport), cache for 2 minutes
@@ -99,21 +99,21 @@ export function useMapTrigs({
       // For zoomed in views, get trigpoints within viewport
       const isZoomedOut = zoom < 9;
       
-      // Get auth token if authenticated and exclude_found is enabled
+      // Get auth token if authenticated (needed for status_max and exclude_found)
       const headers: Record<string, string> = {};
-      if (excludeFound && isAuthenticated) {
+      if (isAuthenticated) {
         try {
           const token = await getAccessTokenSilently({ cacheMode: "on" });
           headers["Authorization"] = `Bearer ${token}`;
         } catch (error) {
           console.error("Failed to get access token for map trigs:", error);
-          // Continue without auth - backend will simply not filter
+          // Continue without auth - backend will use default status_max
         }
       }
       
       if (isZoomedOut) {
         // Fetch ALL trigpoints for heatmap using parallel batch requests
-        // Note: physical_types filter is NOT applied - we filter client-side
+        // Note: status filter is NOT applied - we filter client-side
         const batchSize = 3000; // Larger batches for fewer requests
         const numBatches = 4; // Parallel requests
         
@@ -124,9 +124,13 @@ export function useMapTrigs({
           params.append("limit", batchSize.toString());
           params.append("skip", skip.toString());
           
-          // Only apply excludeFound filter, NOT physical_types
+          // Apply filters (backend auto-applies status_max for authenticated users)
           if (excludeFound) {
             params.append("exclude_found", "true");
+          }
+          
+          if (statusIds && statusIds.length > 0) {
+            params.append("status_ids", statusIds.join(","));
           }
           
           return fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers })
@@ -171,7 +175,7 @@ export function useMapTrigs({
         const batchSize = 500;
         const numBatches = 2; // Fetch up to 1000 markers
         
-        // Note: physical_types filter is NOT applied - we filter client-side
+        // Note: status filter is applied on backend (auto status_max for authenticated users)
         const fetchPromises = Array.from({ length: numBatches }, (_, i) => {
           const skip = i * batchSize;
           const params = new URLSearchParams();
@@ -182,9 +186,13 @@ export function useMapTrigs({
           params.append("max_km", maxKm.toString());
           params.append("order", "distance");
           
-          // Only apply excludeFound filter, NOT physical_types
+          // Apply filters
           if (excludeFound) {
             params.append("exclude_found", "true");
+          }
+          
+          if (statusIds && statusIds.length > 0) {
+            params.append("status_ids", statusIds.join(","));
           }
           
           return fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers })

@@ -2,9 +2,10 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInfiniteTrigs } from "../hooks/useInfiniteTrigs";
 import { LocationSearch } from "../components/trigs/LocationSearch";
-import { PhysicalTypeFilter } from "../components/trigs/PhysicalTypeFilter";
+import { StatusFilter } from "../components/trigs/StatusFilter";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useUserProfile } from "../hooks/useUserProfile";
 import Layout from "../components/layout/Layout";
 
 // Default location: Buxton
@@ -12,20 +13,15 @@ const DEFAULT_LAT = 53.2585;
 const DEFAULT_LON = -1.9106;
 const DEFAULT_LOCATION_NAME = "Buxton";
 
-// All physical types (default: all enabled)
-const ALL_PHYSICAL_TYPES = [
-  "Pillar",
-  "Bolt",
-  "FBM",
-  "Passive Station",
-  "Active Station",
-  "Intersection",
-  "Other",
-];
+// All status levels (default: all enabled)
+const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
 export default function FindTrigs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
+  
+  // Fetch user profile to get status_max preference
+  const { data: userProfile } = useUserProfile("me");
 
   // Track if we've attempted to get user location
   const [locationAttempted, setLocationAttempted] = useState<boolean>(false);
@@ -43,10 +39,16 @@ export default function FindTrigs() {
     () => searchParams.get("location") || ""
   );
   
-  const [selectedPhysicalTypes, setSelectedPhysicalTypes] = useState<string[]>(
+  const [selectedStatuses, setSelectedStatuses] = useState<number[]>(
     () => {
-      const types = searchParams.get("types");
-      return types ? types.split(",") : ALL_PHYSICAL_TYPES;
+      const statuses = searchParams.get("statuses");
+      if (statuses) return statuses.split(",").map(Number);
+      
+      // Default based on user preference or fallback to 30 (Minor mark)
+      const userStatusMax = userProfile?.prefs?.status_max || 30;
+      
+      // Select all statuses up to and including user's max
+      return ALL_STATUSES.filter(s => s <= userStatusMax);
     }
   );
   
@@ -88,6 +90,16 @@ export default function FindTrigs() {
     );
   }, [centerLat, locationAttempted]);
 
+  // Initialize selected statuses from user preference when profile loads
+  useEffect(() => {
+    // Only apply user preference if no URL params are set
+    if (!searchParams.get("statuses") && userProfile?.prefs?.status_max) {
+      const userStatusMax = userProfile.prefs.status_max;
+      const defaultStatuses = ALL_STATUSES.filter(s => s <= userStatusMax);
+      setSelectedStatuses(defaultStatuses);
+    }
+  }, [userProfile, searchParams]);
+
   // Update URL when filters change (only if location is set)
   useEffect(() => {
     if (centerLat === null || centerLon === null) {
@@ -99,8 +111,8 @@ export default function FindTrigs() {
     params.set("lon", centerLon.toString());
     params.set("location", locationName);
     
-    if (selectedPhysicalTypes.length !== ALL_PHYSICAL_TYPES.length) {
-      params.set("types", selectedPhysicalTypes.join(","));
+    if (selectedStatuses.length !== ALL_STATUSES.length) {
+      params.set("statuses", selectedStatuses.join(","));
     }
     
     if (excludeFound) {
@@ -108,7 +120,7 @@ export default function FindTrigs() {
     }
     
     setSearchParams(params, { replace: true });
-  }, [centerLat, centerLon, locationName, selectedPhysicalTypes, excludeFound, setSearchParams]);
+  }, [centerLat, centerLon, locationName, selectedStatuses, excludeFound, setSearchParams]);
 
   // Fetch trigpoints with current filters (only if location is set)
   const {
@@ -121,7 +133,7 @@ export default function FindTrigs() {
   } = useInfiniteTrigs({
     lat: centerLat ?? undefined,
     lon: centerLon ?? undefined,
-    physicalTypes: selectedPhysicalTypes.length > 0 ? selectedPhysicalTypes : undefined,
+    statusIds: selectedStatuses.length > 0 ? selectedStatuses : undefined,
     excludeFound,
   });
 
@@ -134,18 +146,18 @@ export default function FindTrigs() {
     []
   );
 
-  const handleTogglePhysicalType = useCallback((type: string) => {
-    setSelectedPhysicalTypes((prev) => {
-      if (prev.includes(type)) {
-        return prev.filter((t) => t !== type);
+  const handleToggleStatus = useCallback((statusId: number) => {
+    setSelectedStatuses((prev) => {
+      if (prev.includes(statusId)) {
+        return prev.filter((s) => s !== statusId);
       } else {
-        return [...prev, type];
+        return [...prev, statusId];
       }
     });
   }, []);
 
   const handleClearFilters = useCallback(() => {
-    setSelectedPhysicalTypes(ALL_PHYSICAL_TYPES);
+    setSelectedStatuses(ALL_STATUSES);
     setExcludeFound(false);
     setCenterLat(DEFAULT_LAT);
     setCenterLon(DEFAULT_LON);
@@ -215,14 +227,14 @@ export default function FindTrigs() {
               />
             </div>
 
-            {/* Physical type filter */}
+            {/* Status filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Physical Types
+                Status Levels
               </label>
-              <PhysicalTypeFilter
-                selectedTypes={selectedPhysicalTypes}
-                onToggleType={handleTogglePhysicalType}
+              <StatusFilter
+                selectedStatuses={selectedStatuses}
+                onToggleStatus={handleToggleStatus}
               />
             </div>
 
@@ -306,6 +318,7 @@ export default function FindTrigs() {
                   showDistance={centerLat !== null && centerLon !== null}
                   centerLat={centerLat ?? 0}
                   centerLon={centerLon ?? 0}
+                  distanceUnit={(userProfile?.prefs?.distance_ind as 'K' | 'M') || 'K'}
                 />
               ))}
             </div>
