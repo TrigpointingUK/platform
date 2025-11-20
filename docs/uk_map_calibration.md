@@ -60,3 +60,14 @@ json.dump(d, open(path, "w"), indent=2)
 - Forward (lon,lat → x,y): apply `affine`.
 - Reverse (x,y → lon,lat): apply `inverse`.
 - In code, use `CalibrationResult.lonlat_to_xy` and `CalibrationResult.xy_to_lonlat` from `app.utils.geocalibrate`.
+
+### API exposure for frontend mini maps
+
+- `/v1/logs` responses now include `trig_lat` and `trig_lon` fields (in the
+  `TLogResponse` schema) so the SPA can plot log locations without an extra API
+  call.
+- The SPA loads `stretched53_default.(png|json)` directly from
+  `web/public/maps/mini-map/` and reuses the same affine matrices documented
+  above.
+- When regenerating map assets, update both the backend `res/` copies _and_ the
+  frontend public copies to keep the calibration data in sync.

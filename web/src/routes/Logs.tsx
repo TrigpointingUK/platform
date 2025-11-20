@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import Layout from "../components/layout/Layout";
 import LogCard from "../components/logs/LogCard";
+import MiniTrigMap from "../components/map/MiniTrigMap";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
+import type { Log } from "../hooks/useInfiniteLogs";
 
 export default function Logs() {
   const {
@@ -17,8 +19,7 @@ export default function Logs() {
   } = useInfiniteLogs();
 
   const [centerLogIndex, setCenterLogIndex] = useState<number | null>(null);
-  const [featuredTrigId, setFeaturedTrigId] = useState<number>(24266);
-  const [featuredTrigName, setFeaturedTrigName] = useState<string>("");
+  const [featuredLog, setFeaturedLog] = useState<Log | null>(null);
   const logRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Intersection observer to trigger loading more logs
@@ -28,7 +29,7 @@ export default function Logs() {
   });
 
   // Flatten all pages into a single array (memoized to prevent re-creation on every render)
-  const allLogs = useMemo(
+  const allLogs = useMemo<Log[]>(
     () => data?.pages.flatMap((page) => page.items) || [],
     [data?.pages]
   );
@@ -77,12 +78,13 @@ export default function Logs() {
         }
       }
 
-      if (firstFullyVisibleIndex !== null && firstFullyVisibleIndex !== centerLogIndex) {
-        setCenterLogIndex(firstFullyVisibleIndex);
-        // Update the featured trig based on the visible log
-        if (allLogs[firstFullyVisibleIndex]) {
-          setFeaturedTrigId(allLogs[firstFullyVisibleIndex].trig_id);
-          setFeaturedTrigName(allLogs[firstFullyVisibleIndex].trig_name || "");
+      if (firstFullyVisibleIndex !== null) {
+        if (firstFullyVisibleIndex !== centerLogIndex) {
+          setCenterLogIndex(firstFullyVisibleIndex);
+        }
+        const candidate = allLogs[firstFullyVisibleIndex];
+        if (candidate && candidate.id !== featuredLog?.id) {
+          setFeaturedLog(candidate);
         }
       }
     };
@@ -109,7 +111,13 @@ export default function Logs() {
         window.cancelAnimationFrame(timeoutId);
       }
     };
-  }, [allLogs.length, allLogs, centerLogIndex]);
+  }, [allLogs.length, allLogs, centerLogIndex, featuredLog]);
+
+  useEffect(() => {
+    if (!featuredLog && allLogs.length > 0) {
+      setFeaturedLog(allLogs[0]);
+    }
+  }, [allLogs, featuredLog]);
 
   if (error) {
     return (
@@ -126,8 +134,6 @@ export default function Logs() {
       </Layout>
     );
   }
-
-  const apiBase = import.meta.env.VITE_API_BASE as string;
 
   return (
     <Layout>
@@ -208,15 +214,13 @@ export default function Logs() {
           <div className="fixed top-22 right-2 lg:right-8 z-40">
             <div className="bg-white rounded-lg border-2 border-gray-300 shadow-2xl overflow-hidden">
               <div className="relative">
-                <img
-                  key={featuredTrigId}
-                  src={`${apiBase}/v1/trigs/${featuredTrigId}/map`}
-                  alt={`Trigpoint ${featuredTrigId} map`}
+                <MiniTrigMap
+                  trigId={featuredLog?.trig_id ?? null}
+                  trigName={featuredLog?.trig_name ?? ""}
+                  lat={featuredLog?.trig_lat ?? null}
+                  lon={featuredLog?.trig_lon ?? null}
                   className="w-[160px] h-[160px] lg:w-[190px] lg:h-[190px]"
                 />
-                <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs font-mono text-gray-700 max-w-[calc(100%-1rem)] truncate shadow-sm">
-                  {featuredTrigName && `${featuredTrigName}`}
-                </div>
               </div>
             </div>
           </div>

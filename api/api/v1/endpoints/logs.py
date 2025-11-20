@@ -64,7 +64,9 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
     user_ids = list(set(log.user_id for log in logs))
 
     trigs = (
-        db.query(Trig.id, Trig.name).filter(Trig.id.in_(trig_ids)).all()
+        db.query(Trig.id, Trig.name, Trig.wgs_lat, Trig.wgs_long)
+        .filter(Trig.id.in_(trig_ids))
+        .all()
         if trig_ids
         else []
     )
@@ -74,14 +76,24 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
         else []
     )
 
-    trig_names = {t.id: t.name for t in trigs}
+    trig_meta = {
+        t.id: {
+            "name": t.name,
+            "lat": float(t.wgs_lat) if t.wgs_lat is not None else None,
+            "lon": float(t.wgs_long) if t.wgs_long is not None else None,
+        }
+        for t in trigs
+    }
     user_names = {u.id: u.name for u in users}
 
     # Convert to dicts and add denormalized fields
     result = []
     for log in logs:
         log_dict = TLogResponse.model_validate(log).model_dump()
-        log_dict["trig_name"] = trig_names.get(log.trig_id)
+        trig_info = trig_meta.get(log.trig_id, {})
+        log_dict["trig_name"] = trig_info.get("name")
+        log_dict["trig_lat"] = trig_info.get("lat")
+        log_dict["trig_lon"] = trig_info.get("lon")
         log_dict["user_name"] = user_names.get(log.user_id)
         result.append(log_dict)
 

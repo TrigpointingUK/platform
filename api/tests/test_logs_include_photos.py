@@ -100,6 +100,10 @@ def test_list_logs_include_photos(client: TestClient, db: Session):
     assert "photos" in first
     assert isinstance(first["photos"], list)
     assert len(first["photos"]) >= 2
+    assert "trig_lat" in first
+    assert "trig_lon" in first
+    assert isinstance(first["trig_lat"], float)
+    assert isinstance(first["trig_lon"], float)
     # Check for our specific photo IDs (use dynamic IDs)
     photo_ids = {p["id"] for p in first["photos"]}
     assert photo1.id in photo_ids

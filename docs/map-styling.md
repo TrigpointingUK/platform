@@ -13,6 +13,13 @@ The `/v1/trigs/{trigid}/map` endpoint now uses pre-styled map images for perform
 3. **Copy** files to `res/` directory
 4. **Use** in API via the `style` parameter
 
+### Shipping to the SPA mini map
+
+- Copy the same `.png` and `.json` files to `web/public/maps/mini-map/` so the
+  `/logs` page can render its embedded map without calling `/v1/trigs/{id}/map`.
+- Keep the filenames in sync between `res/` and `web/public` to avoid confusing
+  diffs and ensure both layers use the same calibration matrices.
+
 ## Script Usage
 
 ### Basic Syntax

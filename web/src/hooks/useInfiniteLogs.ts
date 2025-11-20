@@ -1,12 +1,14 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Photo } from "../lib/api";
 
-interface Log {
+export interface Log {
   id: number;
   trig_id: number;
   user_id: number;
   trig_name?: string;
   user_name?: string;
+  trig_lat?: number | null;
+  trig_lon?: number | null;
   date: string;
   time: string;
   condition: string;

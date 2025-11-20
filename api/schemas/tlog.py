@@ -40,6 +40,8 @@ class TLogResponse(TLogBase):
     # Denormalized fields for convenience (populated via JOINs)
     trig_name: Optional[str] = None
     user_name: Optional[str] = None
+    trig_lat: Optional[float] = None
+    trig_lon: Optional[float] = None
 
 
 class TLogWithIncludes(TLogResponse):
