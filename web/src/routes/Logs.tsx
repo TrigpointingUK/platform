@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import Layout from "../components/layout/Layout";
 import LogCard from "../components/logs/LogCard";
@@ -18,9 +18,46 @@ export default function Logs() {
     error,
   } = useInfiniteLogs();
 
+  const MAP_SPACING = 24;
+  const MAP_FALLBACK_WIDTH = 200;
   const [centerLogIndex, setCenterLogIndex] = useState<number | null>(null);
   const [featuredLog, setFeaturedLog] = useState<Log | null>(null);
   const logRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const mapOverlayRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [mapRightOffset, setMapRightOffset] = useState<number>(8);
+  const [mapLeftOffset, setMapLeftOffset] = useState<number | null>(null);
+  const updateMapOffset = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const mapWidth = mapOverlayRef.current?.offsetWidth ?? MAP_FALLBACK_WIDTH;
+    const candidateLeft = rect.right + MAP_SPACING;
+    const fitsLeft =
+      candidateLeft + mapWidth + MAP_SPACING <= window.innerWidth;
+
+    if (fitsLeft) {
+      setMapLeftOffset(candidateLeft);
+    } else {
+      const rightOffset = Math.max(
+        MAP_SPACING,
+        window.innerWidth - rect.right
+      );
+      setMapLeftOffset(null);
+      setMapRightOffset(rightOffset);
+    }
+  }, [MAP_SPACING]);
+
+  useEffect(() => {
+    updateMapOffset();
+    window.addEventListener("resize", updateMapOffset);
+
+    return () => {
+      window.removeEventListener("resize", updateMapOffset);
+    };
+  }, [updateMapOffset]);
 
   // Intersection observer to trigger loading more logs
   const { ref: loadMoreRef, inView } = useInView({
@@ -34,6 +71,10 @@ export default function Logs() {
     [data?.pages]
   );
 
+  useEffect(() => {
+    updateMapOffset();
+  }, [isLoading, allLogs.length, updateMapOffset]);
+
   // Auto-fetch when scrolling into view
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) {
@@ -46,43 +87,34 @@ export default function Logs() {
     const handleScroll = () => {
       if (allLogs.length === 0) return;
 
-      const viewportTop = 0;
-      const viewportBottom = window.innerHeight;
-      let firstFullyVisibleIndex: number | null = null;
+      const mapBottom =
+        mapOverlayRef.current?.getBoundingClientRect().bottom ?? 0;
 
-      // Iterate through logs in order to find the first fully visible one
-      for (const [index, element] of logRefs.current.entries()) {
+      let firstBelowIndex: number | null = null;
+      for (let i = 0; i < allLogs.length; i += 1) {
+        const element = logRefs.current.get(i);
+        if (!element) {
+          continue;
+        }
         const rect = element.getBoundingClientRect();
-        
-        // Check if the element is fully visible in the viewport
-        const isFullyVisible = rect.top >= viewportTop && rect.bottom <= viewportBottom;
-        
-        if (isFullyVisible) {
-          firstFullyVisibleIndex = index;
-          break; // Found the first one, no need to continue
+        if (rect.top >= mapBottom) {
+          firstBelowIndex = i;
+          break;
         }
       }
 
-      // If no card is fully visible, fall back to the first partially visible card
-      if (firstFullyVisibleIndex === null) {
-        for (const [index, element] of logRefs.current.entries()) {
-          const rect = element.getBoundingClientRect();
-          
-          // Check if at least part of the element is visible
-          const isPartiallyVisible = rect.bottom > viewportTop && rect.top < viewportBottom;
-          
-          if (isPartiallyVisible) {
-            firstFullyVisibleIndex = index;
-            break;
-          }
-        }
-      }
+      const targetIndex =
+        firstBelowIndex !== null
+          ? Math.max(0, firstBelowIndex - 1)
+          : allLogs.length > 0
+          ? allLogs.length - 1
+          : null;
 
-      if (firstFullyVisibleIndex !== null) {
-        if (firstFullyVisibleIndex !== centerLogIndex) {
-          setCenterLogIndex(firstFullyVisibleIndex);
+      if (targetIndex !== null) {
+        if (targetIndex !== centerLogIndex) {
+          setCenterLogIndex(targetIndex);
         }
-        const candidate = allLogs[firstFullyVisibleIndex];
+        const candidate = allLogs[targetIndex];
         if (candidate && candidate.id !== featuredLog?.id) {
           setFeaturedLog(candidate);
         }
@@ -137,7 +169,7 @@ export default function Logs() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto relative">
+      <div className="max-w-4xl mx-auto relative" ref={containerRef}>
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Visit Logs</h1>
@@ -162,25 +194,35 @@ export default function Logs() {
         {!isLoading && allLogs.length > 0 && (
           <>
             <div className="space-y-4">
-              {allLogs.map((log, index) => (
-                <div
-                  key={log.id}
-                  ref={(el) => {
-                    if (el) {
-                      logRefs.current.set(index, el);
-                    } else {
-                      logRefs.current.delete(index);
-                    }
-                  }}
-                  className={`transition-all duration-300 ${
-                    centerLogIndex === index
-                      ? "border-2 border-trig-green-300 rounded-xl shadow-lg"
-                      : "border-2 border-transparent"
-                  }`}
-                >
-                  <LogCard log={log} />
-                </div>
-              ))}
+              {allLogs.map((log, index) => {
+                const isFeatured = centerLogIndex === index;
+                const isAboveFeatured =
+                  centerLogIndex !== null && index < centerLogIndex;
+
+                return (
+                  <div
+                    key={log.id}
+                    ref={(el) => {
+                      if (el) {
+                        logRefs.current.set(index, el);
+                      } else {
+                        logRefs.current.delete(index);
+                      }
+                    }}
+                    className={`transition-all duration-300 ${
+                      isFeatured
+                        ? "border-2 border-trig-green-300 rounded-xl shadow-lg"
+                        : "border-2 border-transparent"
+                    } ${
+                      isAboveFeatured
+                        ? "opacity-50 blur-[1.5px]"
+                        : "opacity-100 blur-0"
+                    }`}
+                  >
+                    <LogCard log={log} />
+                  </div>
+                );
+              })}
             </div>
 
             {/* Load More Trigger */}
@@ -211,7 +253,15 @@ export default function Logs() {
 
         {/* Floating Map Overlay - Fixed position on desktop */}
         {!isLoading && allLogs.length > 0 && (
-          <div className="fixed top-22 right-2 lg:right-8 z-40">
+          <div
+            className="fixed top-22 z-40"
+            ref={mapOverlayRef}
+            style={
+              mapLeftOffset !== null && mapLeftOffset > 0
+                ? { left: mapLeftOffset }
+                : { right: mapRightOffset }
+            }
+          >
             <div className="bg-white rounded-lg border-2 border-gray-300 shadow-2xl overflow-hidden">
               <div className="relative">
                 <MiniTrigMap
