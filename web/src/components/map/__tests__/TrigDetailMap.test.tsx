@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { BrowserRouter } from 'react-router-dom';
 import TrigDetailMap from '../TrigDetailMap';
@@ -123,45 +123,31 @@ describe('TrigDetailMap', () => {
   });
 
   describe('Zoom Level Behavior', () => {
-    it('should use default zoom level for EPSG:3857 tiles', () => {
-      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osm');
+    it('should use default zoom level (8) for initial OS Paper tiles', () => {
+      // OS Paper uses EPSG:27700 and zoom 8 by default
       const trig = createMockTrig();
       renderWithRouter(<TrigDetailMap trig={trig} />);
       
       const mapContainer = screen.getByTestId('map-container');
       const zoom = parseInt(mapContainer.getAttribute('data-zoom') || '0');
-      expect(zoom).toBe(MAP_CONFIG.detailMapZoom); // 14
-    });
-
-    it('should use adjusted zoom level for EPSG:27700 tiles', () => {
-      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osPaper');
-      const trig = createMockTrig();
-      renderWithRouter(<TrigDetailMap trig={trig} />);
-      
-      const mapContainer = screen.getByTestId('map-container');
-      const zoom = parseInt(mapContainer.getAttribute('data-zoom') || '0');
-      expect(zoom).toBe(8); // Special zoom for EPSG:27700
+      expect(zoom).toBe(8); 
     });
 
     it('should recalculate zoom when tile layer changes', () => {
-      // Start with OSM
-      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osm');
-      const { unmount } = renderWithRouter(<TrigDetailMap trig={createMockTrig()} />);
+      const trig = createMockTrig();
+      renderWithRouter(<TrigDetailMap trig={trig} />);
       
-      // Initially should have default zoom for EPSG:3857
-      let mapContainer = screen.getByTestId('map-container');
-      let zoom = parseInt(mapContainer.getAttribute('data-zoom') || '0');
-      expect(zoom).toBe(MAP_CONFIG.detailMapZoom);
+      // Initially OS Paper (zoom 8)
+      const initialMapContainer = screen.getByTestId('map-container');
+      expect(parseInt(initialMapContainer.getAttribute('data-zoom') || '0')).toBe(8);
       
-      unmount();
+      // Switch to OSM (zoom 14)
+      const selector = screen.getByRole('combobox');
+      fireEvent.change(selector, { target: { value: 'osm' } });
       
-      // Change to EPSG:27700
-      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osPaper');
-      renderWithRouter(<TrigDetailMap trig={createMockTrig()} />);
-      
-      mapContainer = screen.getByTestId('map-container');
-      zoom = parseInt(mapContainer.getAttribute('data-zoom') || '0');
-      expect(zoom).toBe(8);
+      // Re-query because BaseMap remounts when CRS changes
+      const updatedMapContainer = screen.getByTestId('map-container');
+      expect(parseInt(updatedMapContainer.getAttribute('data-zoom') || '0')).toBe(MAP_CONFIG.detailMapZoom);
     });
   });
 
@@ -235,19 +221,17 @@ describe('TrigDetailMap', () => {
   });
 
   describe('Tile Layer Preferences', () => {
-    it('should initialize with preferred tile layer from localStorage', () => {
-      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osDigital');
+    it('should initialize with OS Paper regardless of localStorage', () => {
+      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osm');
       const trig = createMockTrig();
       renderWithRouter(<TrigDetailMap trig={trig} />);
       
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
-    });
-
-    it('should fall back to default tile layer if no preference', () => {
-      const trig = createMockTrig();
-      renderWithRouter(<TrigDetailMap trig={trig} />);
+      const mapContainer = screen.getByTestId('map-container');
+      const zoom = parseInt(mapContainer.getAttribute('data-zoom') || '0');
+      expect(zoom).toBe(8); // OS Paper zoom, not OSM zoom (14)
       
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      const selector = screen.getByRole('combobox') as HTMLSelectElement;
+      expect(selector.value).toBe('osPaper');
     });
 
     it('should allow switching between tile layers', () => {
@@ -256,6 +240,20 @@ describe('TrigDetailMap', () => {
       
       const selector = screen.getByRole('combobox');
       expect(selector).toBeInTheDocument();
+      
+      fireEvent.change(selector, { target: { value: 'osm' } });
+      expect((selector as HTMLSelectElement).value).toBe('osm');
+    });
+    
+    it('should NOT update localStorage when switching layers', () => {
+       const trig = createMockTrig();
+       renderWithRouter(<TrigDetailMap trig={trig} />);
+       
+       const selector = screen.getByRole('combobox');
+       fireEvent.change(selector, { target: { value: 'osm' } });
+       
+       // Should still be what it was (or null if empty)
+       expect(localStorageMock.localStorageMock.getItem(TILE_LAYER_STORAGE_KEY)).toBeNull();
     });
   });
 
@@ -342,16 +340,18 @@ describe('TrigDetailMap', () => {
 
   describe('CRS Handling', () => {
     it('should support EPSG:3857 projection', () => {
-      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osm');
+      // Need to switch to OSM to test this since default is now OS Paper
       const trig = createMockTrig();
       renderWithRouter(<TrigDetailMap trig={trig} />);
+      const selector = screen.getByRole('combobox');
+      fireEvent.change(selector, { target: { value: 'osm' } });
       
       const mapContainer = screen.getByTestId('map-container');
       expect(mapContainer).toBeInTheDocument();
     });
 
     it('should support EPSG:27700 projection', () => {
-      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osPaper');
+      // Default is OS Paper (EPSG:27700)
       const trig = createMockTrig();
       renderWithRouter(<TrigDetailMap trig={trig} />);
       
@@ -401,4 +401,3 @@ describe('TrigDetailMap', () => {
     });
   });
 });
-

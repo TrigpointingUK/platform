@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import BaseMap from "./BaseMap";
 import TrigMarker from "./TrigMarker";
 import TilesetSelector from "./TilesetSelector";
-import { getPreferredTileLayer, getTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
+import { getTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
 import type { TrigDetailMapProps, IconColorMode } from "./types";
 
 /**
@@ -16,7 +16,8 @@ export default function TrigDetailMap({
   height = MAP_CONFIG.detailMapHeight,
   className = "",
 }: TrigDetailMapProps) {
-  const [tileLayerId, setTileLayerId] = useState(getPreferredTileLayer());
+  // Always start with OS Paper for detail maps, independent of global preference
+  const [tileLayerId, setTileLayerId] = useState('osPaper');
   
   // Always use condition mode for detail maps (simpler UX)
   const colorMode: IconColorMode = 'condition';
@@ -57,6 +58,7 @@ export default function TrigDetailMap({
         <TilesetSelector
           value={tileLayerId}
           onChange={setTileLayerId}
+          persistSelection={false}
         />
       </div>
     </div>
