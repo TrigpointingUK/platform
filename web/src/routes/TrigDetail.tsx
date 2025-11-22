@@ -203,14 +203,12 @@ export default function TrigDetail() {
                   </a>
                 </div>
 
-                {trig.details && trig.details.osgb_height && (
-                  <div>
-                    <span className="font-semibold text-gray-700">
-                      Height (OSGB):
-                    </span>{" "}
-                    {trig.details.osgb_height}m
-                  </div>
-                )}
+                <div className="hidden">
+                  <span className="font-semibold text-gray-700">
+                    Height (OSGB):
+                  </span>{" "}
+                  {trig.details?.osgb_height}m
+                </div>
 
                 {trig.details && trig.details.postcode && (
                   <div>

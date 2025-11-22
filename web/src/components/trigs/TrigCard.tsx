@@ -45,19 +45,31 @@ function getConditionInfo(code: string): { icon: string; label: string } {
   return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
-// Helper to get status badge info (abbreviation and color)
-function getStatusInfo(statusName?: string): { abbrev: string; color: string } {
-  const statusMap: Record<string, { abbrev: string; color: string }> = {
-    Pillar: { abbrev: "P", color: "bg-blue-600" },
-    "Major mark": { abbrev: "MM", color: "bg-green-600" },
-    "Minor mark": { abbrev: "m", color: "bg-yellow-600" },
-    Intersected: { abbrev: "I", color: "bg-orange-600" },
-    "User Added": { abbrev: "UA", color: "bg-red-600" },
-    Controversial: { abbrev: "C", color: "bg-gray-600" },
+// Helper to get status badge info (icon, abbrev and color)
+function getStatusInfo(statusName?: string): { icon?: string; abbrev: string; color: string } {
+  const statusMap: Record<string, { icon: string; abbrev: string; color: string }> = {
+    Pillar: { icon: "/icons/t_pillar.png", abbrev: "P", color: "bg-blue-600" },
+    "Major mark": { icon: "/icons/t_fbm.png", abbrev: "MM", color: "bg-green-600" },
+    "Minor mark": { icon: "/icons/t_passive.png", abbrev: "m", color: "bg-yellow-600" },
+    Intersected: { icon: "/icons/t_intersected.png", abbrev: "I", color: "bg-orange-600" },
+    "User Added": { icon: "/icons/t_user_added.svg", abbrev: "UA", color: "bg-red-600" },
+    Controversial: { icon: "/icons/t_controversial.svg", abbrev: "C", color: "bg-gray-600" },
   };
   
-  if (statusName && statusMap[statusName]) {
-    return statusMap[statusName];
+  // Normalize keys to handle whitespace or case differences
+  const normalizedStatusName = statusName?.trim();
+  
+  if (normalizedStatusName && statusMap[normalizedStatusName]) {
+    return statusMap[normalizedStatusName];
+  }
+  
+  // Fallback check for case-insensitive match
+  if (normalizedStatusName) {
+    const lowerName = normalizedStatusName.toLowerCase();
+    const match = Object.keys(statusMap).find(key => key.toLowerCase() === lowerName);
+    if (match) {
+      return statusMap[match];
+    }
   }
   
   // Default fallback
@@ -123,12 +135,21 @@ export function TrigCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {/* Status badge */}
-            <span 
-              className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${statusInfo.color}`}
-              title={trig.status_name || "Unknown status"}
-            >
-              {statusInfo.abbrev}
-            </span>
+            {statusInfo.icon ? (
+              <img 
+                src={statusInfo.icon}
+                alt={statusInfo.abbrev}
+                className="w-6 h-6 object-contain"
+                title={trig.status_name || "Unknown status"}
+              />
+            ) : (
+              <span 
+                className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${statusInfo.color}`}
+                title={trig.status_name || "Unknown status"}
+              >
+                {statusInfo.abbrev}
+              </span>
+            )}
             
             {/* Name */}
             <h3 className="font-medium text-gray-900 truncate">

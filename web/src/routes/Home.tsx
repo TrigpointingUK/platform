@@ -22,7 +22,7 @@ function WelcomeSection() {
       <div className="flex gap-3 flex-wrap w-full">
         <Button variant="primary" className="flex-1 min-w-[140px]">
           <Link
-            to="/find-trigs"
+            to="/trigs"
             className="block w-full text-center text-current"
           >
             Nearest

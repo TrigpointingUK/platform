@@ -448,7 +448,7 @@ export default function Map() {
             {/* Status filter */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status Levels
+                Trigpoint types
               </label>
               <StatusFilter
                 selectedStatuses={selectedStatuses}

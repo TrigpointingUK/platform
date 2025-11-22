@@ -4,7 +4,7 @@ interface StatusFilterProps {
   visibleStatuses?: number[]; // Only show these statuses
 }
 
-// Status levels with icons and colors
+// Trigpoint types with icons and colors
 const STATUS_LEVELS = [
   { id: 10, name: "Pillar", icon: "/icons/t_pillar.png", color: "bg-blue-600" },
   { id: 20, name: "Major mark", icon: "/icons/t_fbm.png", color: "bg-green-600" },
