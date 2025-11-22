@@ -51,14 +51,6 @@ export default function Sidebar() {
           </a>        </nav>
       </Card>
 
-      {/* About */}
-      <Card>
-        <h3 className="font-bold text-lg mb-2 text-gray-800">About</h3>
-        <p className="text-sm text-gray-600">
-          Trigpointing UK is the largest database of triangulation pillars and survey
-          markers in the UK.
-        </p>
-      </Card>
     </aside>
   );
 }

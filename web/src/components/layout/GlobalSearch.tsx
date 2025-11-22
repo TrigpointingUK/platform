@@ -105,7 +105,7 @@ export function GlobalSearch({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className="w-full px-4 py-2 pr-10 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-trig-green-400"
+          className="w-full px-4 py-2 pr-10 rounded-md text-gray-900 bg-white border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-trig-green-400 focus:border-trig-green-400"
           aria-label="Global search"
           aria-autocomplete="list"
           aria-controls="search-results"

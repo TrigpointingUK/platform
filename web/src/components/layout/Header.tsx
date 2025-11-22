@@ -53,22 +53,6 @@ export default function Header() {
             >
               Forum
             </a>
-            <a
-              href="https://trigpointing.uk/trigtools"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-trig-green-100 transition-colors"
-            >
-              TrigTools
-            </a>
-            <Link to="/map" className="hover:text-trig-green-100 transition-colors">
-              Map
-            </Link>
-            {isAuthenticated && (
-              <Link to="/mytrigs" className="hover:text-trig-green-100 transition-colors">
-                MyTrigs
-              </Link>
-            )}
           </nav>
 
           {/* Search Bar - Desktop */}
@@ -196,30 +180,6 @@ export default function Header() {
               >
                 Forum
               </a>
-              <a
-                href="https://trigpointing.uk/trigtools"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-              >
-                TrigTools
-              </a>
-              <Link
-                to="/map"
-                className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Map
-              </Link>
-              {isAuthenticated && (
-                <Link
-                  to="/mytrigs"
-                  className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  MyTrigs
-                </Link>
-              )}
             </nav>
           </div>
         )}

@@ -19,12 +19,19 @@ function WelcomeSection() {
         The UK's premier resource for triangulation pillars and survey markers.
         Join thousands of enthusiasts exploring Britain's geodetic heritage.
       </p>
-      <div className="flex gap-3 flex-wrap">
-        <Button variant="primary">
-          <Link to="/trigs">Browse Trig Points</Link>
+      <div className="flex gap-3 flex-wrap w-full">
+        <Button variant="primary" className="flex-1 min-w-[140px]">
+          <Link
+            to="/find-trigs"
+            className="block w-full text-center text-current"
+          >
+            Nearest
+          </Link>
         </Button>
-        <Button variant="secondary">
-          <Link to="/map">View Map</Link>
+        <Button variant="primary" className="flex-1 min-w-[140px]">
+          <Link to="/map" className="block w-full text-center text-current">
+            Map
+          </Link>
         </Button>
       </div>
     </Card>
