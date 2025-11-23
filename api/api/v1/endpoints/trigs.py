@@ -137,20 +137,14 @@ def export_trigs(
             },
         )
 
-    base_cache_key = generate_cache_key(
+    cache_key = generate_cache_key(
         resource_type="trigs", subresource="export", version="v1"
     )
-    cache_key = base_cache_key
-    timestamp_key = f"{base_cache_key}:timestamp"
-    lock_key = f"{base_cache_key}:lock"
+    lock_key = f"{cache_key}:lock"
 
     # Get cached data and timestamp
-    cached_value, cache_age = cache_get(cache_key)
-    cached_timestamp = redis_client.get(timestamp_key)
-
-    # Decode cached timestamp if exists
-    if cached_timestamp and isinstance(cached_timestamp, bytes):
-        cached_timestamp = cached_timestamp.decode("utf-8")
+    cached_entry, cache_age = cache_get(cache_key)
+    cached_value, cached_timestamp = _extract_cached_payload(cached_entry)
 
     # Get current data timestamp from DB (fast query, ~163ms without index)
     current_timestamp = _get_max_trig_timestamp(db)
@@ -194,8 +188,11 @@ def export_trigs(
     if cached_value is not None and cached_timestamp == current_timestamp_str:
         # Data hasn't changed - extend cache without regenerating!
         logger.info("Export data unchanged, extending cache without regeneration")
-        cache_set(cache_key, jsonable_encoder(cached_value), 60)
-        redis_client.setex(timestamp_key, 60, current_timestamp_str)
+        cache_set(
+            cache_key,
+            jsonable_encoder(_wrap_cache_payload(cached_value, current_timestamp_str)),
+            60,
+        )
 
         from fastapi.responses import JSONResponse
 
@@ -214,10 +211,8 @@ def export_trigs(
 
     with lock:
         # Double-check cache (another request may have just populated it)
-        cached_value, _ = cache_get(cache_key)
-        cached_timestamp = redis_client.get(timestamp_key)
-        if cached_timestamp and isinstance(cached_timestamp, bytes):
-            cached_timestamp = cached_timestamp.decode("utf-8")
+        cached_entry, _ = cache_get(cache_key)
+        cached_value, cached_timestamp = _extract_cached_payload(cached_entry)
 
         if cached_value is not None and cached_timestamp == current_timestamp_str:
             # Another request just regenerated
@@ -238,8 +233,11 @@ def export_trigs(
         result = _generate_export_data(db)
 
         # Store with both data and timestamp
-        cache_set(cache_key, jsonable_encoder(result), 60)
-        redis_client.setex(timestamp_key, 60, current_timestamp_str)
+        cache_set(
+            cache_key,
+            jsonable_encoder(_wrap_cache_payload(result, current_timestamp_str)),
+            60,
+        )
 
         from fastapi.responses import JSONResponse
 
@@ -312,6 +310,40 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
     return result
 
 
+def _wrap_cache_payload(payload: Any, data_timestamp: str) -> dict[str, Any]:
+    """Wrap a cached payload with metadata so we can track data freshness."""
+    return {
+        "_payload": payload,
+        "_data_timestamp": data_timestamp,
+    }
+
+
+def _extract_cached_payload(
+    cached_entry: Any,
+) -> tuple[Optional[Any], Optional[str]]:
+    """
+    Extract the payload and timestamp from a cached entry.
+
+    Supports both the new wrapped format (payload + metadata) and the legacy
+    format where only the payload was stored.
+    """
+    if cached_entry is None:
+        return None, None
+
+    if isinstance(cached_entry, dict):
+        if "_payload" in cached_entry and "_data_timestamp" in cached_entry:
+            return (
+                cached_entry.get("_payload"),
+                cached_entry.get("_data_timestamp"),
+            )
+        # Legacy payload – fall back to using the payload directly, with any
+        # generated_at field as a best-effort timestamp.
+        return cached_entry, cached_entry.get("generated_at")
+
+    # Non-dict payloads (unlikely) – treat as raw payload with no timestamp.
+    return cached_entry, None
+
+
 @router.get(
     "/geojson",
     openapi_extra=openapi_lifecycle("beta", note="GeoJSON export for map rendering"),
@@ -342,8 +374,6 @@ def export_trigs_geojson(
 
     from redis.lock import Lock
 
-    from api.services.cache_service import cache_get, cache_set, get_redis_client
-
     redis_client = get_redis_client()
     if redis_client is None:
         # If Redis is not available, fall back to generating fresh data
@@ -359,20 +389,14 @@ def export_trigs_geojson(
         )
 
     params = {"limit": limit} if limit is not None else None
-    base_cache_key = generate_cache_key(
+    cache_key = generate_cache_key(
         resource_type="trigs", subresource="geojson", params=params, version="v1"
     )
-    cache_key = base_cache_key
-    timestamp_key = f"{base_cache_key}:timestamp"
-    lock_key = f"{base_cache_key}:lock"
+    lock_key = f"{cache_key}:lock"
 
-    # Get cached data and timestamp
-    cached_value, cache_age = cache_get(cache_key)
-    cached_timestamp = redis_client.get(timestamp_key)
-
-    # Decode cached timestamp if exists
-    if cached_timestamp and isinstance(cached_timestamp, bytes):
-        cached_timestamp = cached_timestamp.decode("utf-8")
+    # Get cached data and timestamp metadata
+    cached_entry, cache_age = cache_get(cache_key)
+    cached_value, cached_timestamp = _extract_cached_payload(cached_entry)
 
     # Get current data timestamp from DB (fast query, ~163ms without index)
     current_timestamp = _get_max_trig_timestamp(db)
@@ -414,10 +438,12 @@ def export_trigs_geojson(
 
     # Cache expired or missing - check if data actually changed
     if cached_value is not None and cached_timestamp == current_timestamp_str:
-        # Data hasn't changed - extend cache without regenerating!
         logger.info("GeoJSON data unchanged, extending cache without regeneration")
-        cache_set(cache_key, jsonable_encoder(cached_value), 60)
-        redis_client.setex(timestamp_key, 60, current_timestamp_str)
+        cache_set(
+            cache_key,
+            jsonable_encoder(_wrap_cache_payload(cached_value, current_timestamp_str)),
+            60,
+        )
 
         from fastapi.responses import JSONResponse
 
@@ -436,13 +462,10 @@ def export_trigs_geojson(
 
     with lock:
         # Double-check cache (another request may have just populated it)
-        cached_value, _ = cache_get(cache_key)
-        cached_timestamp = redis_client.get(timestamp_key)
-        if cached_timestamp and isinstance(cached_timestamp, bytes):
-            cached_timestamp = cached_timestamp.decode("utf-8")
+        cached_entry, _ = cache_get(cache_key)
+        cached_value, cached_timestamp = _extract_cached_payload(cached_entry)
 
         if cached_value is not None and cached_timestamp == current_timestamp_str:
-            # Another request just regenerated
             logger.info("Cache populated by another request during lock wait")
             from fastapi.responses import JSONResponse
 
@@ -459,9 +482,12 @@ def export_trigs_geojson(
         logger.info("Regenerating GeoJSON (data changed or cache empty)")
         result = _generate_geojson_data(db, limit)
 
-        # Store with both data and timestamp
-        cache_set(cache_key, jsonable_encoder(result), 60)
-        redis_client.setex(timestamp_key, 60, current_timestamp_str)
+        # Store with both data and timestamp metadata
+        cache_set(
+            cache_key,
+            jsonable_encoder(_wrap_cache_payload(result, current_timestamp_str)),
+            60,
+        )
 
         from fastapi.responses import JSONResponse
 
