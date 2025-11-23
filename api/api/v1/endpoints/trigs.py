@@ -311,10 +311,16 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
 
 
 def _wrap_cache_payload(payload: Any, data_timestamp: str) -> dict[str, Any]:
-    """Wrap a cached payload with metadata so we can track data freshness."""
+    """
+    Wrap a cached payload with metadata so we can track data freshness.
+
+    Metadata fields are placed first so they're visible at the top when
+    viewing large payloads in Redis debugging tools.
+    """
     return {
-        "_payload": payload,
         "_data_timestamp": data_timestamp,
+        "_cache_version": "v1",
+        "_payload": payload,
     }
 
 
