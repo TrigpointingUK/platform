@@ -5,7 +5,7 @@ orientation-model:
 	@echo "Model exported to res/models/orientation_classifier.onnx"
 .PHONY: help install install-dev test test-cov lint format type-check security build run clean docker-build docker-run docker-down mysql-client diff-cov \
 	run-staging db-tunnel-staging-start db-tunnel-staging-stop mysql-staging \
-	bastion-ssm-shell db-tunnel-staging-ssm-start postgres-tunnel-staging-ssm-start bastion-allow-my-ip bastion-revoke-my-ip \
+	bastion-ssm-shell db-tunnel-staging-ssm-start bastion-allow-my-ip bastion-revoke-my-ip \
 	redis-tunnel-staging-ssm-start redis-cli-staging \
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
@@ -152,19 +152,7 @@ bastion-ssm-shell: ## Start interactive shell on bastion over SSM (no SSH ingres
 	@echo "🔐 Starting SSM shell to $(_bastion_instance)"
 	aws --region $(AWS_REGION) ssm start-session --target "$(_bastion_instance)"
 
-db-tunnel-staging-ssm-start: ## Start SSM remote host port forward to RDS → localhost:$(LOCAL_DB_TUNNEL_PORT)
-	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
-	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found."; exit 1; }
-	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
-	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id $(STAGING_SECRET_ARN) --query SecretString --output text); \
-	RDS_HOST=$$(echo "$$SECRET_JSON" | jq -r '.host'); \
-	echo "🔐 SSM forwarding: 127.0.0.1:$(LOCAL_DB_TUNNEL_PORT) → $$RDS_HOST:3306 via $(_bastion_instance)"; \
-	aws --region $(AWS_REGION) ssm start-session \
-	  --target "$(_bastion_instance)" \
-	  --document-name AWS-StartPortForwardingSessionToRemoteHost \
-	  --parameters "host=[$$RDS_HOST],portNumber=['3306'],localPortNumber=['$(LOCAL_DB_TUNNEL_PORT)']"
-
-postgres-tunnel-staging-ssm-start: ## Start SSM remote host port forward to PostgreSQL RDS → localhost:5433
+db-tunnel-staging-ssm-start: ## Start SSM remote host port forward to PostgreSQL RDS → localhost:5433
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
 	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found."; exit 1; }
 	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
