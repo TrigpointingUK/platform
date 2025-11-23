@@ -335,7 +335,9 @@ resource "auth0_client" "alb" {
       "https://pgadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
     ],
     # Preview site only exists in production
-    var.environment == "production" ? ["https://preview.trigpointing.uk/oauth2/idpresponse"] : []
+    var.environment == "production" ? ["https://preview.trigpointing.uk/oauth2/idpresponse"] : [],
+    # Staging site (trigpointing.me) protected by production tenant
+    var.environment == "production" ? ["https://trigpointing.me/oauth2/idpresponse"] : []
   )
 
   allowed_logout_urls = concat(
@@ -345,7 +347,9 @@ resource "auth0_client" "alb" {
       "https://pgadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
     ],
     # Preview site only exists in production
-    var.environment == "production" ? ["https://preview.trigpointing.uk"] : []
+    var.environment == "production" ? ["https://preview.trigpointing.uk"] : [],
+    # Staging site (trigpointing.me) protected by production tenant
+    var.environment == "production" ? ["https://trigpointing.me"] : []
   )
 
   grant_types = [
