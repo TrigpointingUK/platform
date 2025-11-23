@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import os
+import time
 from datetime import date as date_type
 from datetime import datetime
 from math import cos, radians, sqrt
@@ -154,10 +155,12 @@ def export_trigs(
     )
     lock_key = f"{cache_key}:lock"
 
+    metadata = _get_cache_metadata(cache_key)
     cached_entry, _ = cache_get(cache_key)
-    cached_value, cached_timestamp, last_validation = _extract_cached_payload(
+    cached_value, cached_timestamp, legacy_last_validation = _extract_cached_payload(
         cached_entry
     )
+    last_validation = metadata.get("last_validation") or legacy_last_validation
 
     cache_status = "HIT"
     if cached_value is None:
@@ -169,9 +172,11 @@ def export_trigs(
             limit=None,
             log_label="Export cache miss",
         )
-        cached_value, cached_timestamp, last_validation = _extract_cached_payload(
-            cached_entry
+        cached_value, cached_timestamp, legacy_last_validation = (
+            _extract_cached_payload(cached_entry)
         )
+        metadata = _get_cache_metadata(cache_key)
+        last_validation = metadata.get("last_validation") or legacy_last_validation
         cache_status = "MISS"
 
     if cached_value is None:
@@ -194,7 +199,7 @@ def export_trigs(
     if_none_match = request.headers.get("If-None-Match")
 
     if cached_entry and _should_revalidate(last_validation, now):
-        refreshed_entry, refresh_status = _maybe_refresh_cache_entry(
+        refreshed_entry, metadata, refresh_status = _maybe_refresh_cache_entry(
             cache_key=cache_key,
             lock_key=lock_key,
             cached_entry=cached_entry,
@@ -202,12 +207,14 @@ def export_trigs(
             generator_fn=_generate_export_payload,
             limit=None,
             log_label="Export cache",
+            metadata=metadata,
         )
         if refreshed_entry is not None:
             cached_entry = refreshed_entry
-            cached_value, cached_timestamp, last_validation = _extract_cached_payload(
-                refreshed_entry
+            cached_value, cached_timestamp, legacy_last_validation = (
+                _extract_cached_payload(refreshed_entry)
             )
+        last_validation = metadata.get("last_validation") or legacy_last_validation
         cache_status = refresh_status
 
     etag = _build_etag(cached_timestamp)
@@ -310,7 +317,6 @@ def _wrap_cache_payload(
     """
     return {
         "_data_timestamp": data_timestamp,
-        "_last_validation": last_validation or datetime.utcnow().isoformat(),
         "_cache_version": CACHE_VERSION,
         "_payload": payload,
     }
@@ -357,7 +363,46 @@ def _generate_geojson_payload(db: Session, limit: Optional[int] = None) -> dict:
 
 
 def _write_cache_entry(cache_key: str, wrapper: dict[str, Any]) -> None:
-    cache_set(cache_key, jsonable_encoder(wrapper), CACHE_PERSIST_TTL)
+    serialize_start = time.perf_counter()
+    serializable_wrapper = jsonable_encoder(wrapper)
+    serialize_ms = (time.perf_counter() - serialize_start) * 1000
+
+    write_start = time.perf_counter()
+    success = cache_set(cache_key, serializable_wrapper, CACHE_PERSIST_TTL)
+    write_ms = (time.perf_counter() - write_start) * 1000
+
+    logger.info(
+        "Cache write key=%s success=%s serialize_ms=%.2f write_ms=%.2f",
+        cache_key,
+        success,
+        serialize_ms,
+        write_ms,
+    )
+
+
+def _metadata_key(cache_key: str) -> str:
+    return f"{cache_key}:meta"
+
+
+def _get_cache_metadata(cache_key: str) -> dict[str, Any]:
+    metadata_entry, _ = cache_get(_metadata_key(cache_key))
+    if isinstance(metadata_entry, dict):
+        return metadata_entry
+    return {}
+
+
+def _set_cache_metadata(cache_key: str, metadata: dict[str, Any]) -> float:
+    metadata_key = _metadata_key(cache_key)
+    start = time.perf_counter()
+    success = cache_set(metadata_key, metadata, CACHE_PERSIST_TTL)
+    duration_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "Cache metadata write key=%s success=%s duration_ms=%.2f",
+        metadata_key,
+        success,
+        duration_ms,
+    )
+    return duration_ms
 
 
 def _get_entry_timestamp(entry: Optional[dict[str, Any]]) -> str:
@@ -393,6 +438,11 @@ def _generate_and_cache_payload(
             timestamp_str = _current_timestamp_str(db)
             wrapper = _wrap_cache_payload(payload, timestamp_str)
             _write_cache_entry(cache_key, wrapper)
+            metadata = {
+                "last_validation": datetime.utcnow().isoformat(),
+                "cache_version": CACHE_VERSION,
+            }
+            _set_cache_metadata(cache_key, metadata)
             logger.info(f"{log_label}: Cache populated")
             return wrapper
 
@@ -400,6 +450,11 @@ def _generate_and_cache_payload(
     timestamp_str = _current_timestamp_str(db)
     wrapper = _wrap_cache_payload(payload, timestamp_str)
     _write_cache_entry(cache_key, wrapper)
+    metadata = {
+        "last_validation": datetime.utcnow().isoformat(),
+        "cache_version": CACHE_VERSION,
+    }
+    _set_cache_metadata(cache_key, metadata)
     logger.info(f"{log_label}: Cache populated without Redis lock")
     return wrapper
 
@@ -413,37 +468,56 @@ def _maybe_refresh_cache_entry(
     generator_fn,
     limit: Optional[int],
     log_label: str,
-) -> tuple[Optional[dict[str, Any]], str]:
+    metadata: Optional[dict[str, Any]] = None,
+) -> tuple[Optional[dict[str, Any]], dict[str, Any], str]:
+    metadata = dict(metadata or {})
     redis_client = get_redis_client()
     if redis_client is None:
-        return None, "STALE"
+        return None, metadata, "STALE"
 
     lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=0)
     try:
         with lock:
+            db_start = time.perf_counter()
             current_timestamp_str = _current_timestamp_str(db)
+            db_duration_ms = (time.perf_counter() - db_start) * 1000
             cached_timestamp = cached_entry.get("_data_timestamp")
             now_iso = datetime.utcnow().isoformat()
 
             if cached_timestamp == current_timestamp_str:
-                cached_entry["_last_validation"] = now_iso
-                _write_cache_entry(cache_key, cached_entry)
+                metadata["last_validation"] = now_iso
+                metadata["cache_version"] = CACHE_VERSION
+                meta_duration_ms = _set_cache_metadata(cache_key, metadata)
                 logger.info(
-                    f"{log_label}: Data unchanged; validation timestamp updated"
+                    "%s: Data unchanged; validation timestamp updated (db_ms=%.2f, meta_ms=%.2f)",
+                    log_label,
+                    db_duration_ms,
+                    meta_duration_ms,
                 )
-                return cached_entry, "REVALIDATED"
+                return cached_entry, metadata, "REVALIDATED"
 
+            regen_start = time.perf_counter()
             payload = generator_fn(db, limit)
+            regen_duration_ms = (time.perf_counter() - regen_start) * 1000
             wrapper = _wrap_cache_payload(
                 payload, current_timestamp_str, last_validation=now_iso
             )
             _write_cache_entry(cache_key, wrapper)
-            logger.info(f"{log_label}: Data changed; cache refreshed")
-            return wrapper, "REFRESHED"
+            metadata["last_validation"] = now_iso
+            metadata["cache_version"] = CACHE_VERSION
+            meta_duration_ms = _set_cache_metadata(cache_key, metadata)
+            logger.info(
+                "%s: Data changed; cache refreshed (db_ms=%.2f, regen_ms=%.2f, meta_ms=%.2f)",
+                log_label,
+                db_duration_ms,
+                regen_duration_ms,
+                meta_duration_ms,
+            )
+            return wrapper, metadata, "REFRESHED"
 
     except LockError:
         logger.info(f"{log_label}: Refresh already in progress; serving stale data")
-        return None, "REFRESH_IN_PROGRESS"
+        return None, metadata, "REFRESH_IN_PROGRESS"
 
 
 @router.get(
@@ -478,10 +552,12 @@ def export_trigs_geojson(
     )
     lock_key = f"{cache_key}:lock"
 
+    metadata = _get_cache_metadata(cache_key)
     cached_entry, _ = cache_get(cache_key)
-    cached_value, cached_timestamp, last_validation = _extract_cached_payload(
+    cached_value, cached_timestamp, legacy_last_validation = _extract_cached_payload(
         cached_entry
     )
+    last_validation = metadata.get("last_validation") or legacy_last_validation
 
     cache_status = "HIT"
     if cached_value is None:
@@ -493,9 +569,11 @@ def export_trigs_geojson(
             limit=limit,
             log_label="GeoJSON cache miss",
         )
-        cached_value, cached_timestamp, last_validation = _extract_cached_payload(
-            cached_entry
+        cached_value, cached_timestamp, legacy_last_validation = (
+            _extract_cached_payload(cached_entry)
         )
+        metadata = _get_cache_metadata(cache_key)
+        last_validation = metadata.get("last_validation") or legacy_last_validation
         cache_status = "MISS"
 
     if cached_value is None:
@@ -518,7 +596,7 @@ def export_trigs_geojson(
     if_none_match = request.headers.get("If-None-Match")
 
     if cached_entry and _should_revalidate(last_validation, now):
-        refreshed_entry, refresh_status = _maybe_refresh_cache_entry(
+        refreshed_entry, metadata, refresh_status = _maybe_refresh_cache_entry(
             cache_key=cache_key,
             lock_key=lock_key,
             cached_entry=cached_entry,
@@ -526,12 +604,14 @@ def export_trigs_geojson(
             generator_fn=_generate_geojson_payload,
             limit=limit,
             log_label="GeoJSON cache",
+            metadata=metadata,
         )
         if refreshed_entry is not None:
             cached_entry = refreshed_entry
-            cached_value, cached_timestamp, last_validation = _extract_cached_payload(
-                refreshed_entry
+            cached_value, cached_timestamp, legacy_last_validation = (
+                _extract_cached_payload(refreshed_entry)
             )
+        last_validation = metadata.get("last_validation") or legacy_last_validation
         cache_status = refresh_status
 
     etag = _build_etag(cached_timestamp)

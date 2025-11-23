@@ -158,3 +158,20 @@ def test_users_browse_paginates_with_cursor(client: TestClient, db: Session) -> 
     second_payload = second_page.json()
     assert len(second_payload["items"]) == 1
     assert second_payload["items"][0]["id"] != first_payload["items"][0]["id"]
+
+
+def test_users_browse_excludes_zero_activity_users(
+    client: TestClient, db: Session
+) -> None:
+    prefix = f"inactive_{uuid.uuid4().hex[:6]}"
+    inactive = _create_user(db, f"{prefix}_idle", date(2020, 5, 1))
+    active = _create_user(db, f"{prefix}_active", date(2020, 5, 1))
+    _add_log(db, active, 42)
+
+    response = client.get(f"{settings.API_V1_STR}/users/browse?q={prefix}")
+    assert response.status_code == 200, response.json()
+    payload = response.json()
+    ids = [item["id"] for item in payload["items"]]
+    assert ids == [active.id]
+    assert inactive.id not in ids
+    assert payload["total"] == 1
