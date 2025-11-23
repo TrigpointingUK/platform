@@ -22,23 +22,25 @@ resource "cloudflare_ruleset" "cache_rules" {
       }
     },
 
-    # Rule 2: Long cache for Android export file
-    # This file is generated infrequently and can be cached for a long time
+    # Rule 2: API Export endpoints - short cache with revalidation
+    # Combines /v1/trigs/export and /v1/trigs/geojson to save on rule limit
     {
       action      = "set_cache_settings"
-      expression  = "(http.host in {\"api.trigpointing.uk\"}) and (http.request.uri.path eq \"/android-export\")"
-      description = "Android Export File - long cache"
+      expression  = "(http.request.uri.path wildcard r\"/v1/trigs/export\") or (http.request.uri.path wildcard r\"/v1/trigs/geojson\")"
+      description = "API Export endpoints - short cache, revalidates via ETag"
       enabled     = true
 
       action_parameters = {
         cache = true
         edge_ttl = {
           mode    = "override_origin"
-          default = 86400 # 24 hours
+          default = 300 # 5 minutes (API handles freshness with 60s checks)
         }
         browser_ttl = {
-          mode    = "override_origin"
-          default = 3600 # 1 hour
+          mode = "respect_origin" # Respect the Cache-Control: max-age=60
+        }
+        serve_stale = {
+          disable_stale_while_updating = false
         }
       }
     },
