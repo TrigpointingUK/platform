@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, Mapping, Optional, Union
 
 import numpy as np
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer
@@ -61,6 +62,15 @@ security = HTTPBearer(auto_error=False)
 
 
 _DEFAULT_JOINED_DATE = date_type(1900, 1, 1)
+
+USER_ACTIVITY_SUMMARY = sa.table(
+    "user_activity_summary",
+    sa.column("user_id", sa.Integer),
+    sa.column("member_since", sa.Date),
+    sa.column("total_logs", sa.Integer),
+    sa.column("total_trigs_logged", sa.Integer),
+    sa.column("total_photos", sa.Integer),
+)
 
 
 def _encode_cursor_value(value: Any) -> Any:
@@ -748,66 +758,32 @@ def browse_users(
     infinite scrolling without relying on brittle offsets.
     """
 
-    log_stats_subquery = (
-        db.query(
-            TLog.user_id.label("user_id"),
-            func.count(TLog.id).label("total_logs"),
-            func.count(func.distinct(TLog.trig_id)).label("total_trigs_logged"),
-        )
-        .group_by(TLog.user_id)
-        .subquery()
+    activity_summary = USER_ACTIVITY_SUMMARY.alias("uas")
+    total_logs_column = activity_summary.c.total_logs.label("total_logs")
+    total_trigs_column = activity_summary.c.total_trigs_logged.label(
+        "total_trigs_logged"
     )
-    photo_counts_subquery = (
-        db.query(
-            TLog.user_id.label("user_id"),
-            func.count(TPhoto.id).label("total_photos"),
-        )
-        .join(TPhoto, TPhoto.tlog_id == TLog.id)
-        .filter(TPhoto.deleted_ind != "Y")
-        .group_by(TLog.user_id)
-        .subquery()
-    )
+    total_photos_column = activity_summary.c.total_photos.label("total_photos")
+    member_since_column = activity_summary.c.member_since.label("member_since")
 
-    total_logs_expr = func.coalesce(log_stats_subquery.c.total_logs, 0)
-    total_trigs_expr = func.coalesce(log_stats_subquery.c.total_trigs_logged, 0)
-    total_photos_expr = func.coalesce(photo_counts_subquery.c.total_photos, 0)
-
-    total_logs_column = total_logs_expr.label("total_logs")
-    total_trigs_column = total_trigs_expr.label("total_trigs_logged")
-    total_photos_column = total_photos_expr.label("total_photos")
-
-    query = (
-        db.query(
-            User.id.label("id"),
-            User.name.label("name"),
-            User.firstname,
-            User.surname,
-            User.crt_date.label("member_since"),
-            total_logs_column,
-            total_trigs_column,
-            total_photos_column,
-        )
-        .outerjoin(log_stats_subquery, log_stats_subquery.c.user_id == User.id)
-        .outerjoin(photo_counts_subquery, photo_counts_subquery.c.user_id == User.id)
-    )
+    query = db.query(
+        User.id.label("id"),
+        User.name.label("name"),
+        User.firstname,
+        User.surname,
+        member_since_column,
+        total_logs_column,
+        total_trigs_column,
+        total_photos_column,
+    ).join(activity_summary, activity_summary.c.user_id == User.id)
 
     search_term = q.strip() if q else None
     like_pattern = f"%{search_term}%" if search_term else None
     if like_pattern:
         query = query.filter(User.name.ilike(like_pattern))
 
-    activity_filter = or_(
-        total_trigs_expr > 0,
-        total_photos_expr > 0,
-        total_logs_expr > 0,
-    )
-    query = query.filter(activity_filter)
-
-    count_query = (
-        db.query(func.count(User.id))
-        .outerjoin(log_stats_subquery, log_stats_subquery.c.user_id == User.id)
-        .outerjoin(photo_counts_subquery, photo_counts_subquery.c.user_id == User.id)
-        .filter(activity_filter)
+    count_query = db.query(func.count(User.id)).join(
+        activity_summary, activity_summary.c.user_id == User.id
     )
     if like_pattern:
         count_query = count_query.filter(User.name.ilike(like_pattern))
@@ -816,7 +792,8 @@ def browse_users(
     sort_expression_map = {
         UserSortField.TRIGPOINTS: total_trigs_column,
         UserSortField.PHOTOS: total_photos_column,
-        UserSortField.JOINED: func.coalesce(User.crt_date, _DEFAULT_JOINED_DATE),
+        UserSortField.LOGS: total_logs_column,
+        UserSortField.JOINED: func.coalesce(member_since_column, _DEFAULT_JOINED_DATE),
         UserSortField.NAME: func.lower(User.name),
     }
     sort_expression = sort_expression_map.get(sort, total_trigs_column)

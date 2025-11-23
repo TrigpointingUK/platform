@@ -40,6 +40,7 @@ class UserSortField(str, Enum):
 
     TRIGPOINTS = "trigs"
     PHOTOS = "photos"
+    LOGS = "logs"
     JOINED = "joined"
     NAME = "name"
 

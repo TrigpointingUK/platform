@@ -4,7 +4,6 @@ import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import {
-  USERS_SORT_OPTIONS,
   UserSortDirection,
   UserSortOption,
   useUsersDirectory,
@@ -90,12 +89,66 @@ export default function UsersPage() {
     )}`;
   }, [debouncedSearch, isLoading, totalCount, users.length]);
 
-  const toggleDirection = () =>
-    setDirection((prev) => (prev === "desc" ? "asc" : "desc"));
+  const handleSortClick = (field: UserSortOption) => {
+    if (sort === field) {
+      setDirection((prev) => (prev === "desc" ? "asc" : "desc"));
+      return;
+    }
+    setSort(field);
+    setDirection(field === "name" ? "asc" : "desc");
+  };
+
+  const renderHeaderCell = (
+    label: string,
+    field?: UserSortOption,
+    alignment: "left" | "center" = "left"
+  ) => {
+    const alignClass =
+      alignment === "center"
+        ? "justify-center text-center"
+        : "justify-start text-left";
+
+    if (!field) {
+      return (
+        <span
+          className={`flex items-center gap-1 uppercase tracking-wide text-xs font-semibold text-gray-500 ${alignClass}`}
+        >
+          {label}
+        </span>
+      );
+    }
+
+    const isActive = sort === field;
+    const ariaSort = isActive
+      ? direction === "desc"
+        ? "descending"
+        : "ascending"
+      : "none";
+    const icon = direction === "desc" ? "▼" : "▲";
+
+    return (
+      <button
+        type="button"
+        onClick={() => handleSortClick(field)}
+        className={`flex items-center gap-1 uppercase tracking-wide text-xs font-semibold transition-colors ${alignClass} ${
+          isActive ? "text-trig-green-700" : "text-gray-500 hover:text-trig-green-600"
+        }`}
+        role="columnheader"
+        aria-sort={ariaSort}
+      >
+        <span>{label}</span>
+        {isActive && (
+          <span aria-hidden="true" className="text-[0.6rem] leading-none">
+            {icon}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto flex flex-col gap-6">
         <div className="space-y-2">
           <p className="text-sm uppercase tracking-wide text-trig-green-600 font-semibold">
             Community
@@ -110,85 +163,54 @@ export default function UsersPage() {
         </div>
 
         <Card className="shadow-sm border border-gray-100">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end">
-            <div className="flex-1">
-              <label
-                htmlFor="user-search"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Find a user
-              </label>
-              <div className="relative">
-                <input
-                  id="user-search"
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Start typing a username…"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-base shadow-inner-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-800"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-              <div>
-                <label
-                  htmlFor="user-sort"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Sort by
-                </label>
-                <select
-                  id="user-sort"
-                  value={sort}
-                  onChange={(event) =>
-                    setSort(event.target.value as UserSortOption)
-                  }
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
-                >
-                  {USERS_SORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <span className="block text-sm font-medium text-gray-700 mb-2">
-                  Direction
-                </span>
+          <div>
+            <label
+              htmlFor="user-search"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Find a user
+            </label>
+            <div className="relative">
+              <input
+                id="user-search"
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Start typing a username…"
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-base shadow-inner-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
+              />
+              {search && (
                 <button
                   type="button"
-                  onClick={toggleDirection}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-800"
                 >
-                  {direction === "desc" ? "Descending" : "Ascending"}
-                  <span aria-hidden="true">
-                    {direction === "desc" ? "↓" : "↑"}
-                  </span>
+                  Clear
                 </button>
-              </div>
+              )}
             </div>
           </div>
         </Card>
 
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <p className="text-sm text-gray-600">{resultSummary}</p>
           {debouncedSearch && (
             <span className="text-xs uppercase tracking-wide text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
               Filtered by “{debouncedSearch}”
             </span>
           )}
+        </div>
+
+        <div className="sticky top-16 z-40 bg-white border-b border-gray-200 shadow-sm">
+          <div className="px-4 py-3">
+            <div className="grid grid-cols-2 gap-4 text-xs font-semibold uppercase tracking-wide text-gray-500 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))]">
+              {renderHeaderCell("Name", "name")}
+              {renderHeaderCell("Member since", "joined")}
+              {renderHeaderCell("Trigpoints", "trigs", "center")}
+              {renderHeaderCell("Photos", "photos", "center")}
+              {renderHeaderCell("Logs", "logs", "center")}
+            </div>
+          </div>
         </div>
 
         {isError && (
@@ -219,38 +241,44 @@ export default function UsersPage() {
         )}
 
         {users.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-0.5">
             {users.map((user) => (
-              <Link to={user.profile_path} key={user.id}>
-                <Card className="p-0 transition-shadow hover:shadow-lg">
-                  <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:gap-6">
-                    <div className="flex-1">
-                      <p className="text-2xl font-bold text-gray-900">
-                        {user.name}
-                      </p>
-                    </div>
-                    <div className="text-sm text-gray-600 lg:text-center lg:min-w-[170px]">
-                      <p className="uppercase tracking-wide text-gray-500 text-xs mb-1">
-                        Member since
-                      </p>
-                      <p className="font-medium text-gray-900">
-                        {formatMemberSince(user.member_since)}
-                      </p>
-                    </div>
-                    <div className="flex flex-1 flex-wrap gap-3 justify-start lg:justify-end">
-                      <StatPill
-                        label="Trigpoints"
-                        value={user.stats.total_trigs_logged}
-                      />
-                      <StatPill
-                        label="Photos"
-                        value={user.stats.total_photos}
-                      />
-                      <StatPill label="Logs" value={user.stats.total_logs} />
-                    </div>
-                  </div>
-                </Card>
-              </Link>
+              <Card className="p-0 transition-shadow hover:shadow-md" key={user.id}>
+                <div className="grid gap-0.5 px-3 py-0.5 text-[0.95rem] text-gray-700 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))] sm:items-center leading-tight">
+                  <Link
+                    to={user.profile_path}
+                    className="text-left text-[0.95rem] font-semibold text-gray-900 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
+                  >
+                    {user.name}
+                  </Link>
+                  <Link
+                    to={user.profile_path}
+                    className="text-gray-600 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
+                  >
+                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 sm:hidden leading-tight">
+                      Member since
+                    </p>
+                    <p className="font-medium text-gray-900 leading-tight">
+                      {formatMemberSince(user.member_since)}
+                    </p>
+                  </Link>
+                  <CountCell
+                    label="Trigpoints"
+                    value={user.stats.total_trigs_logged}
+                    to={`${user.profile_path}/logs`}
+                  />
+                  <CountCell
+                    label="Photos"
+                    value={user.stats.total_photos}
+                    to={`${user.profile_path}/photos`}
+                  />
+                  <CountCell
+                    label="Logs"
+                    value={user.stats.total_logs}
+                    to={`${user.profile_path}/logs`}
+                  />
+                </div>
+              </Card>
             ))}
           </div>
         )}
@@ -268,22 +296,24 @@ export default function UsersPage() {
   );
 }
 
-interface StatPillProps {
+interface CountCellProps {
   label: string;
   value: number;
+  to: string;
 }
 
-function StatPill({ label, value }: StatPillProps) {
+function CountCell({ label, value, to }: CountCellProps) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-center">
-      <p className="text-xl font-semibold text-trig-green-700 leading-tight">
-        {value.toLocaleString("en-GB")}
-      </p>
-      <p className="text-[0.7rem] uppercase tracking-wide text-gray-500">
+    <Link
+      to={to}
+      className="text-right sm:text-center leading-snug hover:text-trig-green-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
+    >
+      <p className="text-[0.6rem] uppercase tracking-wide text-gray-500 sm:hidden leading-tight">
         {label}
       </p>
-    </div>
+      <p className="text-base font-semibold text-trig-green-700 leading-snug">
+        {value.toLocaleString("en-GB")}
+      </p>
+    </Link>
   );
 }
-
-

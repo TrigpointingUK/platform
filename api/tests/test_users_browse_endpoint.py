@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from api.core.config import settings
 from api.models.tphoto import TPhoto
 from api.models.user import TLog, User
+from api.services.user_stats import refresh_user_activity_summary
 
 
 def _create_user(db: Session, name: str, joined: date) -> User:
@@ -82,6 +83,8 @@ def test_users_browse_orders_by_trigs(client: TestClient, db: Session) -> None:
         _add_log(db, prolific, trig)
     _add_log(db, steady, 10)
 
+    refresh_user_activity_summary(db)
+
     response = client.get(f"{settings.API_V1_STR}/users/browse?limit=5&q={prefix}")
     assert response.status_code == 200, response.json()
     payload = response.json()
@@ -99,6 +102,8 @@ def test_users_browse_filters_by_query(client: TestClient, db: Session) -> None:
     target = _create_user(db, f"{prefix}_AliceWonder", date(2019, 6, 1))
     _add_log(db, target, 1)
     _create_user(db, f"{prefix}_BobBuilder", date(2018, 6, 1))
+
+    refresh_user_activity_summary(db)
 
     response = client.get(
         f"{settings.API_V1_STR}/users/browse?q={f'{prefix}_alice'.lower()}"
@@ -122,6 +127,8 @@ def test_users_browse_sorts_by_photos(client: TestClient, db: Session) -> None:
     casual_log = _add_log(db, casual, 2)
     _add_photo(db, casual_log, "single")
 
+    refresh_user_activity_summary(db)
+
     response = client.get(
         f"{settings.API_V1_STR}/users/browse?sort=photos&direction=asc&q={prefix}"
     )
@@ -135,12 +142,37 @@ def test_users_browse_sorts_by_photos(client: TestClient, db: Session) -> None:
     assert payload["items"][1]["stats"]["total_photos"] == 2
 
 
+def test_users_browse_sorts_by_logs(client: TestClient, db: Session) -> None:
+    prefix = f"logs_{uuid.uuid4().hex[:6]}"
+    prolific = _create_user(db, f"{prefix}_prolific", date(2020, 5, 1))
+    steady = _create_user(db, f"{prefix}_steady", date(2020, 5, 1))
+    for trig in range(1, 5):
+        _add_log(db, prolific, trig)
+    _add_log(db, steady, 99)
+
+    refresh_user_activity_summary(db)
+
+    response = client.get(
+        f"{settings.API_V1_STR}/users/browse?sort=logs&direction=desc&q={prefix}"
+    )
+    assert response.status_code == 200, response.json()
+    payload = response.json()
+    assert [item["id"] for item in payload["items"]] == [
+        prolific.id,
+        steady.id,
+    ]
+    assert payload["items"][0]["stats"]["total_logs"] == 4
+    assert payload["items"][1]["stats"]["total_logs"] == 1
+
+
 def test_users_browse_paginates_with_cursor(client: TestClient, db: Session) -> None:
     prefix = f"cursor_{uuid.uuid4().hex[:6]}"
     first = _create_user(db, f"{prefix}_first", date(2017, 1, 1))
     second = _create_user(db, f"{prefix}_second", date(2016, 1, 1))
     _add_log(db, first, 1)
     _add_log(db, second, 2)
+
+    refresh_user_activity_summary(db)
 
     first_page = client.get(
         f"{settings.API_V1_STR}/users/browse?limit=1&sort=joined&q={prefix}"
@@ -167,6 +199,8 @@ def test_users_browse_excludes_zero_activity_users(
     inactive = _create_user(db, f"{prefix}_idle", date(2020, 5, 1))
     active = _create_user(db, f"{prefix}_active", date(2020, 5, 1))
     _add_log(db, active, 42)
+
+    refresh_user_activity_summary(db)
 
     response = client.get(f"{settings.API_V1_STR}/users/browse?q={prefix}")
     assert response.status_code == 200, response.json()

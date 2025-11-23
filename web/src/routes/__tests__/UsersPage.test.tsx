@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import UsersPage from "../UsersPage";
 import { useUsersDirectory } from "../../hooks/useUsersDirectory";
@@ -14,6 +14,7 @@ vi.mock("../../hooks/useUsersDirectory", () => ({
   USERS_SORT_OPTIONS: [
     { label: "Trigpoints logged", value: "trigs" },
     { label: "Photos uploaded", value: "photos" },
+    { label: "Logs recorded", value: "logs" },
     { label: "Joined date", value: "joined" },
     { label: "Alphabetical", value: "name" },
   ],
@@ -96,8 +97,21 @@ describe("UsersPage", () => {
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(
-      screen.getByRole("combobox", { name: /Sort by/i })
-    ).toHaveValue("trigs");
+      screen.getByRole("columnheader", { name: /Trigpoints/i })
+    ).toHaveAttribute("aria-sort", "descending");
+    expect(
+      screen.getByRole("columnheader", { name: /Name/i })
+    ).toHaveAttribute("aria-sort", "none");
+    expect(
+      screen.getByRole("columnheader", { name: /Logs/i })
+    ).toHaveAttribute("aria-sort", "none");
+
+    const trigLinks = screen.getAllByRole("link", { name: /Trigpoints/i });
+    expect(trigLinks[0]).toHaveAttribute("href", "/profile/1/logs");
+    expect(trigLinks[1]).toHaveAttribute("href", "/profile/2/logs");
+    const photoLinks = screen.getAllByRole("link", { name: /Photos/i });
+    expect(photoLinks[0]).toHaveAttribute("href", "/profile/1/photos");
+    expect(photoLinks[1]).toHaveAttribute("href", "/profile/2/photos");
   });
 
   it("shows empty state when no results", () => {
@@ -141,6 +155,28 @@ describe("UsersPage", () => {
     expect(
       screen.getByText(/Loading the community directory/i)
     ).toBeInTheDocument();
+  });
+
+  it("allows sorting via column headers", () => {
+    render(
+      <MemoryRouter>
+        <UsersPage />
+      </MemoryRouter>
+    );
+
+    const nameHeader = screen.getByRole("columnheader", { name: /Name/i });
+    fireEvent.click(nameHeader);
+    expect(nameHeader).toHaveAttribute("aria-sort", "ascending");
+
+    fireEvent.click(nameHeader);
+    expect(nameHeader).toHaveAttribute("aria-sort", "descending");
+
+    const logsHeader = screen.getByRole("columnheader", { name: /Logs/i });
+    fireEvent.click(logsHeader);
+    expect(logsHeader).toHaveAttribute("aria-sort", "descending");
+
+    fireEvent.click(logsHeader);
+    expect(logsHeader).toHaveAttribute("aria-sort", "ascending");
   });
 });
 

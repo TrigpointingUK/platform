@@ -3,7 +3,7 @@ Admin endpoints for cache management and contact form.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -45,9 +45,49 @@ from api.services.cache_invalidator import (
 )
 from api.services.cache_service import cache_delete_pattern, get_redis_client
 from api.services.email_service import email_service
+from api.services.user_stats import refresh_user_activity_summary
 
 logger = get_logger(__name__)
 router = APIRouter()
+ADMIN_SCOPE_DEPENDENCY = require_admin()
+
+
+@router.post(
+    "/user-stats/refresh",
+    status_code=status.HTTP_202_ACCEPTED,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Trigger a concurrent refresh of the user activity materialised view.",
+    ),
+)
+def refresh_user_stats_view(
+    admin_user: User = Depends(ADMIN_SCOPE_DEPENDENCY),
+    db: Session = Depends(get_db),
+):
+    """
+    Trigger a concurrent refresh of the user activity summary materialised view.
+
+    Requires `api:admin` scope.
+    """
+
+    try:
+        refresh_user_activity_summary(db, concurrently=True)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error(
+            "Failed to refresh user activity summary",
+            extra={"admin_user_id": int(admin_user.id), "error": str(exc)},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to refresh user activity summary. Please try again later.",
+        ) from exc
+
+    return {
+        "message": "User activity summary refresh started.",
+        "concurrent": True,
+        "refreshed_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.get(

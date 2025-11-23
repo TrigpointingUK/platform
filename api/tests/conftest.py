@@ -12,6 +12,10 @@ from sqlalchemy.pool import StaticPool
 
 # from api.core.security import get_password_hash  # No longer needed - using Unix crypt
 from api.db.database import Base, get_db
+from api.db.user_activity_summary_view import (
+    CREATE_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS,
+    DROP_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS,
+)
 from api.main import app
 from api.models.user import TLog, User
 
@@ -101,6 +105,11 @@ def setup_test_tables(request):
     # Create tables (will only succeed for the first worker due to PostgreSQL's transactional DDL)
     try:
         Base.metadata.create_all(bind=engine)
+        with engine.begin() as connection:
+            for statement in DROP_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS:
+                connection.execute(text(statement))
+            for statement in CREATE_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS:
+                connection.execute(text(statement))
     except Exception:
         # Tables likely already exist from another worker
         pass

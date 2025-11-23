@@ -106,6 +106,22 @@ describe("useUsersDirectory", () => {
       expect.objectContaining({ method: "GET" })
     );
   });
+
+  it("requests alternative sort options", async () => {
+    const { result } = renderHook(
+      () => useUsersDirectory({ sort: "logs", direction: "asc" }),
+      {
+        wrapper: createWrapper(),
+      }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://localhost:8000/v1/users/browse?limit=40&sort=logs&direction=asc",
+      expect.objectContaining({ method: "GET" })
+    );
+  });
 });
 
 

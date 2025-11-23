@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-export type UserSortOption = "trigs" | "photos" | "joined" | "name";
+export type UserSortOption = "trigs" | "photos" | "logs" | "joined" | "name";
 export type UserSortDirection = "asc" | "desc";
 
 export interface UserDirectoryItem {
@@ -36,6 +36,7 @@ export interface UseUsersDirectoryOptions {
 export const USERS_SORT_OPTIONS: { label: string; value: UserSortOption }[] = [
   { label: "Trigpoints logged", value: "trigs" },
   { label: "Photos uploaded", value: "photos" },
+  { label: "Logs recorded", value: "logs" },
   { label: "Joined date", value: "joined" },
   { label: "Alphabetical", value: "name" },
 ];
