@@ -13,6 +13,7 @@ from typing import Any, Optional
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import Request as FastAPIRequest
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
 from sqlalchemy.orm import Session
@@ -39,6 +40,12 @@ from api.schemas.trig import (
 from api.schemas.trig import TrigStats as TrigStatsSchema
 from api.schemas.trig import (
     TrigWithIncludes,
+)
+from api.services.cache_service import (
+    cache_get,
+    cache_set,
+    generate_cache_key,
+    get_redis_client,
 )
 from api.utils.cache_decorator import cached
 from api.utils.geocalibrate import CalibrationResult
@@ -116,8 +123,6 @@ def export_trigs(
 
     from redis.lock import Lock
 
-    from api.services.cache_service import cache_get, cache_set, get_redis_client
-
     redis_client = get_redis_client()
     if redis_client is None:
         # If Redis is not available, fall back to generating fresh data
@@ -132,9 +137,12 @@ def export_trigs(
             },
         )
 
-    cache_key = "trigs:export:v1:data"
-    timestamp_key = "trigs:export:v1:timestamp"
-    lock_key = "trigs:export:v1:lock"
+    base_cache_key = generate_cache_key(
+        resource_type="trigs", subresource="export", version="v1"
+    )
+    cache_key = base_cache_key
+    timestamp_key = f"{base_cache_key}:timestamp"
+    lock_key = f"{base_cache_key}:lock"
 
     # Get cached data and timestamp
     cached_value, cache_age = cache_get(cache_key)
@@ -186,7 +194,7 @@ def export_trigs(
     if cached_value is not None and cached_timestamp == current_timestamp_str:
         # Data hasn't changed - extend cache without regenerating!
         logger.info("Export data unchanged, extending cache without regeneration")
-        cache_set(cache_key, cached_value, 60)
+        cache_set(cache_key, jsonable_encoder(cached_value), 60)
         redis_client.setex(timestamp_key, 60, current_timestamp_str)
 
         from fastapi.responses import JSONResponse
@@ -230,7 +238,7 @@ def export_trigs(
         result = _generate_export_data(db)
 
         # Store with both data and timestamp
-        cache_set(cache_key, result, 60)
+        cache_set(cache_key, jsonable_encoder(result), 60)
         redis_client.setex(timestamp_key, 60, current_timestamp_str)
 
         from fastapi.responses import JSONResponse
@@ -350,11 +358,13 @@ def export_trigs_geojson(
             },
         )
 
-    # Include limit in cache key if specified
-    cache_suffix = f":limit_{limit}" if limit else ""
-    cache_key = f"trigs:geojson:v1:data{cache_suffix}"
-    timestamp_key = f"trigs:geojson:v1:timestamp{cache_suffix}"
-    lock_key = f"trigs:geojson:v1:lock{cache_suffix}"
+    params = {"limit": limit} if limit is not None else None
+    base_cache_key = generate_cache_key(
+        resource_type="trigs", subresource="geojson", params=params, version="v1"
+    )
+    cache_key = base_cache_key
+    timestamp_key = f"{base_cache_key}:timestamp"
+    lock_key = f"{base_cache_key}:lock"
 
     # Get cached data and timestamp
     cached_value, cache_age = cache_get(cache_key)
@@ -406,7 +416,7 @@ def export_trigs_geojson(
     if cached_value is not None and cached_timestamp == current_timestamp_str:
         # Data hasn't changed - extend cache without regenerating!
         logger.info("GeoJSON data unchanged, extending cache without regeneration")
-        cache_set(cache_key, cached_value, 60)
+        cache_set(cache_key, jsonable_encoder(cached_value), 60)
         redis_client.setex(timestamp_key, 60, current_timestamp_str)
 
         from fastapi.responses import JSONResponse
@@ -450,7 +460,7 @@ def export_trigs_geojson(
         result = _generate_geojson_data(db, limit)
 
         # Store with both data and timestamp
-        cache_set(cache_key, result, 60)
+        cache_set(cache_key, jsonable_encoder(result), 60)
         redis_client.setex(timestamp_key, 60, current_timestamp_str)
 
         from fastapi.responses import JSONResponse
