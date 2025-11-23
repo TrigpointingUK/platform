@@ -2,6 +2,7 @@
 Trig endpoints for trigpoint data.
 """
 
+import hashlib
 import io
 import json
 import os
@@ -16,6 +17,8 @@ from fastapi import Request as FastAPIRequest
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
+from redis.exceptions import LockError
+from redis.lock import Lock
 from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user_optional, get_db
@@ -53,6 +56,33 @@ from api.utils.url import join_url
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+CACHE_VALIDATION_INTERVAL_SECONDS = 60
+CACHE_PERSIST_TTL: Optional[int] = None  # Persist until explicitly replaced
+CACHE_VERSION = "v2"
+
+
+def _build_etag(data_timestamp: Optional[str]) -> str:
+    """
+    Build a stable ETag from the data timestamp stored in the cache wrapper.
+    """
+    base = data_timestamp or "unknown"
+    return f'"{hashlib.md5(base.encode(), usedforsecurity=False).hexdigest()}"'  # nosec B324
+
+
+def _should_revalidate(last_validation_iso: Optional[str], now: datetime) -> bool:
+    if not last_validation_iso:
+        return True
+    try:
+        last_validation = datetime.fromisoformat(last_validation_iso)
+    except ValueError:
+        return True
+    return (now - last_validation).total_seconds() >= CACHE_VALIDATION_INTERVAL_SECONDS
+
+
+def _current_timestamp_str(db: Session) -> str:
+    current_timestamp = _get_max_trig_timestamp(db)
+    return current_timestamp.isoformat() if current_timestamp else "never"
 
 
 def _get_max_trig_timestamp(db: Session) -> Optional[datetime]:
@@ -114,51 +144,75 @@ def export_trigs(
     Returns all ~30,000 trigpoints with minimal fields.
 
     Uses intelligent caching based on data freshness:
-    - Cache TTL: 60 seconds
-    - Checks MAX(upd_timestamp) when cache expires
-    - Only regenerates if data actually changed
+    - Cached payload persists until the trig data actually changes
+    - Revalidates at most once every 60 seconds
+    - Serves stale content while a refresh is in progress
     - Supports ETag for HTTP 304 responses
     """
-    import hashlib
-
-    from redis.lock import Lock
-
-    redis_client = get_redis_client()
-    if redis_client is None:
-        # If Redis is not available, fall back to generating fresh data
-        result = _generate_export_data(db)
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(
-            content=result,
-            headers={
-                "Cache-Control": "public, max-age=60",
-                "X-Cache-Status": "REDIS-UNAVAILABLE",
-            },
-        )
-
     cache_key = generate_cache_key(
         resource_type="trigs", subresource="export", version="v1"
     )
     lock_key = f"{cache_key}:lock"
 
-    # Get cached data and timestamp
-    cached_entry, cache_age = cache_get(cache_key)
-    cached_value, cached_timestamp = _extract_cached_payload(cached_entry)
-
-    # Get current data timestamp from DB (fast query, ~163ms without index)
-    current_timestamp = _get_max_trig_timestamp(db)
-    current_timestamp_str = (
-        current_timestamp.isoformat() if current_timestamp else "never"
+    cached_entry, _ = cache_get(cache_key)
+    cached_value, cached_timestamp, last_validation = _extract_cached_payload(
+        cached_entry
     )
 
-    # Generate ETag from timestamp (consistent across all responses with same data)
-    etag = f'"{hashlib.md5(current_timestamp_str.encode(), usedforsecurity=False).hexdigest()}"'  # nosec B324
+    cache_status = "HIT"
+    if cached_value is None:
+        cached_entry = _generate_and_cache_payload(
+            cache_key=cache_key,
+            lock_key=lock_key,
+            db=db,
+            generator_fn=_generate_export_payload,
+            limit=None,
+            log_label="Export cache miss",
+        )
+        cached_value, cached_timestamp, last_validation = _extract_cached_payload(
+            cached_entry
+        )
+        cache_status = "MISS"
 
-    # Check If-None-Match for HTTP 304 optimization
+    if cached_value is None:
+        payload = _generate_export_data(db)
+        timestamp_str = _current_timestamp_str(db)
+        etag = _build_etag(timestamp_str)
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            content=payload,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+                "X-Cache-Status": "MISS-NO-CACHE",
+                "X-Data-Timestamp": timestamp_str,
+            },
+        )
+
+    now = datetime.utcnow()
     if_none_match = request.headers.get("If-None-Match")
-    if if_none_match == etag and cached_value is not None:
-        # Client has current version - return 304 Not Modified
+
+    if cached_entry and _should_revalidate(last_validation, now):
+        refreshed_entry, refresh_status = _maybe_refresh_cache_entry(
+            cache_key=cache_key,
+            lock_key=lock_key,
+            cached_entry=cached_entry,
+            db=db,
+            generator_fn=_generate_export_payload,
+            limit=None,
+            log_label="Export cache",
+        )
+        if refreshed_entry is not None:
+            cached_entry = refreshed_entry
+            cached_value, cached_timestamp, last_validation = _extract_cached_payload(
+                refreshed_entry
+            )
+        cache_status = refresh_status
+
+    etag = _build_etag(cached_timestamp)
+
+    if if_none_match == etag:
         from fastapi import Response
 
         return Response(
@@ -170,86 +224,21 @@ def export_trigs(
             },
         )
 
-    # Cache is fresh (within 60s) - return immediately
-    if cached_value is not None and cache_age is not None and cache_age < 60:
-        from fastapi.responses import JSONResponse
+    from fastapi.responses import JSONResponse
 
-        return JSONResponse(
-            content=cached_value,
-            headers={
-                "ETag": etag,
-                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-                "X-Cache-Status": "HIT",
-                "X-Cache-Age": str(cache_age),
-            },
-        )
+    data_timestamp_header = _get_entry_timestamp(
+        cached_entry if isinstance(cached_entry, dict) else None
+    )
 
-    # Cache expired or missing - check if data actually changed
-    if cached_value is not None and cached_timestamp == current_timestamp_str:
-        # Data hasn't changed - extend cache without regenerating!
-        logger.info("Export data unchanged, extending cache without regeneration")
-        cache_set(
-            cache_key,
-            jsonable_encoder(_wrap_cache_payload(cached_value, current_timestamp_str)),
-            60,
-        )
-
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(
-            content=cached_value,
-            headers={
-                "ETag": etag,
-                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-                "X-Cache-Status": "EXTENDED",
-                "X-Data-Unchanged": "true",
-            },
-        )
-
-    # Data changed or no cache - need to regenerate (with lock for stampede protection)
-    lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=60)
-
-    with lock:
-        # Double-check cache (another request may have just populated it)
-        cached_entry, _ = cache_get(cache_key)
-        cached_value, cached_timestamp = _extract_cached_payload(cached_entry)
-
-        if cached_value is not None and cached_timestamp == current_timestamp_str:
-            # Another request just regenerated
-            logger.info("Cache populated by another request during lock wait")
-            from fastapi.responses import JSONResponse
-
-            return JSONResponse(
-                content=cached_value,
-                headers={
-                    "ETag": etag,
-                    "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-                    "X-Cache-Status": "HIT-AFTER-WAIT",
-                },
-            )
-
-        # Generate fresh data
-        logger.info("Regenerating export (data changed or cache empty)")
-        result = _generate_export_data(db)
-
-        # Store with both data and timestamp
-        cache_set(
-            cache_key,
-            jsonable_encoder(_wrap_cache_payload(result, current_timestamp_str)),
-            60,
-        )
-
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(
-            content=result,
-            headers={
-                "ETag": etag,
-                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-                "X-Cache-Status": "REGENERATED",
-                "X-Data-Timestamp": current_timestamp_str,
-            },
-        )
+    return JSONResponse(
+        content=cached_value,
+        headers={
+            "ETag": etag,
+            "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+            "X-Cache-Status": cache_status,
+            "X-Data-Timestamp": data_timestamp_header,
+        },
+    )
 
 
 def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
@@ -310,7 +299,9 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
     return result
 
 
-def _wrap_cache_payload(payload: Any, data_timestamp: str) -> dict[str, Any]:
+def _wrap_cache_payload(
+    payload: Any, data_timestamp: str, *, last_validation: Optional[str] = None
+) -> dict[str, Any]:
     """
     Wrap a cached payload with metadata so we can track data freshness.
 
@@ -319,14 +310,15 @@ def _wrap_cache_payload(payload: Any, data_timestamp: str) -> dict[str, Any]:
     """
     return {
         "_data_timestamp": data_timestamp,
-        "_cache_version": "v1",
+        "_last_validation": last_validation or datetime.utcnow().isoformat(),
+        "_cache_version": CACHE_VERSION,
         "_payload": payload,
     }
 
 
 def _extract_cached_payload(
     cached_entry: Any,
-) -> tuple[Optional[Any], Optional[str]]:
+) -> tuple[Optional[Any], Optional[str], Optional[str]]:
     """
     Extract the payload and timestamp from a cached entry.
 
@@ -334,20 +326,124 @@ def _extract_cached_payload(
     format where only the payload was stored.
     """
     if cached_entry is None:
-        return None, None
+        return None, None, None
 
     if isinstance(cached_entry, dict):
         if "_payload" in cached_entry and "_data_timestamp" in cached_entry:
             return (
                 cached_entry.get("_payload"),
                 cached_entry.get("_data_timestamp"),
+                cached_entry.get("_last_validation"),
             )
         # Legacy payload – fall back to using the payload directly, with any
         # generated_at field as a best-effort timestamp.
-        return cached_entry, cached_entry.get("generated_at")
+        return (
+            cached_entry,
+            cached_entry.get("generated_at"),
+            cached_entry.get("_last_validation"),
+        )
 
     # Non-dict payloads (unlikely) – treat as raw payload with no timestamp.
-    return cached_entry, None
+    return cached_entry, None, None
+
+
+def _generate_export_payload(db: Session, limit: Optional[int] = None) -> dict:
+    # limit parameter kept for API symmetry; not used for export payload
+    return _generate_export_data(db)
+
+
+def _generate_geojson_payload(db: Session, limit: Optional[int] = None) -> dict:
+    return _generate_geojson_data(db, limit)
+
+
+def _write_cache_entry(cache_key: str, wrapper: dict[str, Any]) -> None:
+    cache_set(cache_key, jsonable_encoder(wrapper), CACHE_PERSIST_TTL)
+
+
+def _get_entry_timestamp(entry: Optional[dict[str, Any]]) -> str:
+    if isinstance(entry, dict):
+        ts = entry.get("_data_timestamp")
+        if isinstance(ts, str):
+            return ts
+    return "unknown"
+
+
+def _generate_and_cache_payload(
+    *,
+    cache_key: str,
+    lock_key: str,
+    db: Session,
+    generator_fn,
+    limit: Optional[int],
+    log_label: str,
+) -> dict:
+    """
+    Generate a fresh payload, storing it in cache. Handles locking so that
+    only one request populates the cache on a miss.
+    """
+    redis_client = get_redis_client()
+    if redis_client is not None:
+        lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=60)
+        with lock:
+            cached_entry, _ = cache_get(cache_key)
+            if cached_entry:
+                return cached_entry
+
+            payload = generator_fn(db, limit)
+            timestamp_str = _current_timestamp_str(db)
+            wrapper = _wrap_cache_payload(payload, timestamp_str)
+            _write_cache_entry(cache_key, wrapper)
+            logger.info(f"{log_label}: Cache populated")
+            return wrapper
+
+    payload = generator_fn(db, limit)
+    timestamp_str = _current_timestamp_str(db)
+    wrapper = _wrap_cache_payload(payload, timestamp_str)
+    _write_cache_entry(cache_key, wrapper)
+    logger.info(f"{log_label}: Cache populated without Redis lock")
+    return wrapper
+
+
+def _maybe_refresh_cache_entry(
+    *,
+    cache_key: str,
+    lock_key: str,
+    cached_entry: dict[str, Any],
+    db: Session,
+    generator_fn,
+    limit: Optional[int],
+    log_label: str,
+) -> tuple[Optional[dict[str, Any]], str]:
+    redis_client = get_redis_client()
+    if redis_client is None:
+        return None, "STALE"
+
+    lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=0)
+    try:
+        with lock:
+            current_timestamp_str = _current_timestamp_str(db)
+            cached_timestamp = cached_entry.get("_data_timestamp")
+            now_iso = datetime.utcnow().isoformat()
+
+            if cached_timestamp == current_timestamp_str:
+                cached_entry["_last_validation"] = now_iso
+                _write_cache_entry(cache_key, cached_entry)
+                logger.info(
+                    f"{log_label}: Data unchanged; validation timestamp updated"
+                )
+                return cached_entry, "REVALIDATED"
+
+            payload = generator_fn(db, limit)
+            wrapper = _wrap_cache_payload(
+                payload, current_timestamp_str, last_validation=now_iso
+            )
+            _write_cache_entry(cache_key, wrapper)
+            logger.info(f"{log_label}: Data changed; cache refreshed")
+            return wrapper, "REFRESHED"
+
+    except LockError:
+        logger.info(f"{log_label}: Refresh already in progress; serving stale data")
+        return None, "REFRESH_IN_PROGRESS"
 
 
 @router.get(
@@ -371,52 +467,76 @@ def export_trigs_geojson(
     Excludes soft-deleted records (status >= 90).
 
     Uses intelligent caching based on data freshness:
-    - Cache TTL: 60 seconds
-    - Checks MAX(upd_timestamp) when cache expires
-    - Only regenerates if data actually changed
+    - Cached payload persists until the trig data actually changes
+    - Revalidates at most once every 60 seconds
+    - Serves stale content while a refresh is in progress
     - Supports ETag for HTTP 304 responses
     """
-    import hashlib
-
-    from redis.lock import Lock
-
-    redis_client = get_redis_client()
-    if redis_client is None:
-        # If Redis is not available, fall back to generating fresh data
-        result = _generate_geojson_data(db, limit)
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(
-            content=result,
-            headers={
-                "Cache-Control": "public, max-age=60",
-                "X-Cache-Status": "REDIS-UNAVAILABLE",
-            },
-        )
-
     params = {"limit": limit} if limit is not None else None
     cache_key = generate_cache_key(
         resource_type="trigs", subresource="geojson", params=params, version="v1"
     )
     lock_key = f"{cache_key}:lock"
 
-    # Get cached data and timestamp metadata
-    cached_entry, cache_age = cache_get(cache_key)
-    cached_value, cached_timestamp = _extract_cached_payload(cached_entry)
-
-    # Get current data timestamp from DB (fast query, ~163ms without index)
-    current_timestamp = _get_max_trig_timestamp(db)
-    current_timestamp_str = (
-        current_timestamp.isoformat() if current_timestamp else "never"
+    cached_entry, _ = cache_get(cache_key)
+    cached_value, cached_timestamp, last_validation = _extract_cached_payload(
+        cached_entry
     )
 
-    # Generate ETag from timestamp (consistent across all responses with same data)
-    etag = f'"{hashlib.md5(current_timestamp_str.encode(), usedforsecurity=False).hexdigest()}"'  # nosec B324
+    cache_status = "HIT"
+    if cached_value is None:
+        cached_entry = _generate_and_cache_payload(
+            cache_key=cache_key,
+            lock_key=lock_key,
+            db=db,
+            generator_fn=_generate_geojson_payload,
+            limit=limit,
+            log_label="GeoJSON cache miss",
+        )
+        cached_value, cached_timestamp, last_validation = _extract_cached_payload(
+            cached_entry
+        )
+        cache_status = "MISS"
 
-    # Check If-None-Match for HTTP 304 optimization
+    if cached_value is None:
+        payload = _generate_geojson_data(db, limit)
+        timestamp_str = _current_timestamp_str(db)
+        etag = _build_etag(timestamp_str)
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            content=payload,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+                "X-Cache-Status": "MISS-NO-CACHE",
+                "X-Data-Timestamp": timestamp_str,
+            },
+        )
+
+    now = datetime.utcnow()
     if_none_match = request.headers.get("If-None-Match")
-    if if_none_match == etag and cached_value is not None:
-        # Client has current version - return 304 Not Modified
+
+    if cached_entry and _should_revalidate(last_validation, now):
+        refreshed_entry, refresh_status = _maybe_refresh_cache_entry(
+            cache_key=cache_key,
+            lock_key=lock_key,
+            cached_entry=cached_entry,
+            db=db,
+            generator_fn=_generate_geojson_payload,
+            limit=limit,
+            log_label="GeoJSON cache",
+        )
+        if refreshed_entry is not None:
+            cached_entry = refreshed_entry
+            cached_value, cached_timestamp, last_validation = _extract_cached_payload(
+                refreshed_entry
+            )
+        cache_status = refresh_status
+
+    etag = _build_etag(cached_timestamp)
+
+    if if_none_match == etag:
         from fastapi import Response
 
         return Response(
@@ -428,96 +548,21 @@ def export_trigs_geojson(
             },
         )
 
-    # Cache is fresh (within 60s) - return immediately
-    if cached_value is not None and cache_age is not None and cache_age < 60:
-        from fastapi.responses import JSONResponse
+    from fastapi.responses import JSONResponse
 
-        return JSONResponse(
-            content=cached_value,
-            headers={
-                "ETag": etag,
-                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-                "X-Cache-Status": "HIT",
-                "X-Cache-Age": str(cache_age),
-            },
-        )
+    data_timestamp_header = _get_entry_timestamp(
+        cached_entry if isinstance(cached_entry, dict) else None
+    )
 
-    # Cache expired or missing - check if data actually changed
-    if cached_value is not None and cached_timestamp == current_timestamp_str:
-        logger.info("GeoJSON data unchanged, extending cache without regeneration")
-        cache_set(
-            cache_key,
-            jsonable_encoder(_wrap_cache_payload(cached_value, current_timestamp_str)),
-            60,
-        )
-
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(
-            content=cached_value,
-            headers={
-                "ETag": etag,
-                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-                "X-Cache-Status": "EXTENDED",
-                "X-Data-Unchanged": "true",
-            },
-        )
-
-    # Data changed or no cache - need to regenerate (with lock for stampede protection)
-    lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=60)
-
-    with lock:
-        # Double-check cache (another request may have just populated it)
-        cached_entry, _ = cache_get(cache_key)
-        cached_value, cached_timestamp = _extract_cached_payload(cached_entry)
-
-        if cached_value is not None and cached_timestamp == current_timestamp_str:
-            logger.info("Cache populated by another request during lock wait")
-            from fastapi.responses import JSONResponse
-
-            return JSONResponse(
-                content=cached_value,
-                headers={
-                    "ETag": etag,
-                    "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-                    "X-Cache-Status": "HIT-AFTER-WAIT",
-                },
-            )
-
-        # Generate fresh data
-        logger.info("Regenerating GeoJSON (data changed or cache empty)")
-        result = _generate_geojson_data(db, limit)
-
-        # Log the result size for debugging
-        logger.info(
-            f"Generated GeoJSON with {len(result)} top-level keys, "
-            f"wrapping and caching with timestamp {current_timestamp_str}"
-        )
-
-        # Store with both data and timestamp metadata
-        wrapped_payload = _wrap_cache_payload(result, current_timestamp_str)
-        cache_set(
-            cache_key,
-            jsonable_encoder(wrapped_payload),
-            60,
-        )
-
-        from fastapi.responses import JSONResponse
-
-        logger.info(
-            f"Returning GeoJSON response with {len(result)} keys, "
-            f"X-Cache-Status: REGENERATED"
-        )
-
-        return JSONResponse(
-            content=result,
-            headers={
-                "ETag": etag,
-                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-                "X-Cache-Status": "REGENERATED",
-                "X-Data-Timestamp": current_timestamp_str,
-            },
-        )
+    return JSONResponse(
+        content=cached_value,
+        headers={
+            "ETag": etag,
+            "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+            "X-Cache-Status": cache_status,
+            "X-Data-Timestamp": data_timestamp_header,
+        },
+    )
 
 
 @cached(resource_type="trig", ttl=86400, resource_id_param="trig_id")  # 24 hours

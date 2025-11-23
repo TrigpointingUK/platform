@@ -222,14 +222,14 @@ def cache_get(key: str) -> tuple[Optional[Any], Optional[int]]:
         return None, None
 
 
-def cache_set(key: str, value: Any, ttl: int) -> bool:
+def cache_set(key: str, value: Any, ttl: Optional[int] = None) -> bool:
     """
     Set value in cache with TTL.
 
     Args:
         key: Cache key
         value: Value to cache (must be JSON serializable)
-        ttl: Time to live in seconds
+        ttl: Time to live in seconds. When None, the key does not expire.
 
     Returns:
         True if successful, False otherwise
@@ -247,7 +247,11 @@ def cache_set(key: str, value: Any, ttl: int) -> bool:
         }
 
         serialized = json.dumps(cache_data)
-        client.setex(key, ttl, serialized)
+
+        if ttl is None:
+            client.set(key, serialized)
+        else:
+            client.setex(key, ttl, serialized)
 
         logger.debug(
             json.dumps(
