@@ -4,6 +4,7 @@ Pydantic schemas for user endpoints with permission-based field filtering.
 
 import re
 from datetime import date  # noqa: F401
+from enum import Enum
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -32,6 +33,50 @@ class UserStats(BaseModel):
     total_logs: int
     total_trigs_logged: int
     total_photos: int
+
+
+class UserSortField(str, Enum):
+    """Supported sort keys for user listings."""
+
+    TRIGPOINTS = "trigs"
+    PHOTOS = "photos"
+    JOINED = "joined"
+    NAME = "name"
+
+
+class SortDirection(str, Enum):
+    """Sort ordering for user listings."""
+
+    ASC = "asc"
+    DESC = "desc"
+
+
+class UserListItem(BaseModel):
+    """Slim user representation for directory responses."""
+
+    id: int
+    name: str
+    member_since: Optional[date] = None
+    stats: UserStats
+    profile_path: str
+
+
+class UserListFilters(BaseModel):
+    """Echoed filter metadata for user directory responses."""
+
+    query: Optional[str] = None
+    sort: UserSortField = UserSortField.TRIGPOINTS
+    direction: SortDirection = SortDirection.DESC
+    limit: int = 40
+
+
+class UserListResponse(BaseModel):
+    """Cursor-based directory response."""
+
+    items: list[UserListItem]
+    next_cursor: Optional[str] = None
+    total: int
+    applied_filters: UserListFilters
 
 
 class UserBreakdown(BaseModel):

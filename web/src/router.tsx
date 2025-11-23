@@ -11,6 +11,7 @@ const PhotoDetail = lazy(() => import("./routes/PhotoDetail"));
 const TrigDetail = lazy(() => import("./routes/TrigDetail"));
 const TrigPhotos = lazy(() => import("./routes/TrigPhotos"));
 const LogDetail = lazy(() => import("./routes/LogDetail"));
+const UsersPage = lazy(() => import("./routes/UsersPage"));
 const UserProfile = lazy(() => import("./routes/UserProfile"));
 const UserLogs = lazy(() => import("./routes/UserLogs"));
 const UserPhotos = lazy(() => import("./routes/UserPhotos"));
@@ -64,6 +65,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <Logs />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/users",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <UsersPage />
         </Suspense>
       ),
     },
