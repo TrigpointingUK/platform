@@ -768,15 +768,13 @@ def browse_users(
         .subquery()
     )
 
-    total_logs_column = func.coalesce(log_stats_subquery.c.total_logs, 0).label(
-        "total_logs"
-    )
-    total_trigs_column = func.coalesce(
-        log_stats_subquery.c.total_trigs_logged, 0
-    ).label("total_trigs_logged")
-    total_photos_column = func.coalesce(photo_counts_subquery.c.total_photos, 0).label(
-        "total_photos"
-    )
+    total_logs_expr = func.coalesce(log_stats_subquery.c.total_logs, 0)
+    total_trigs_expr = func.coalesce(log_stats_subquery.c.total_trigs_logged, 0)
+    total_photos_expr = func.coalesce(photo_counts_subquery.c.total_photos, 0)
+
+    total_logs_column = total_logs_expr.label("total_logs")
+    total_trigs_column = total_trigs_expr.label("total_trigs_logged")
+    total_photos_column = total_photos_expr.label("total_photos")
 
     query = (
         db.query(
@@ -794,13 +792,24 @@ def browse_users(
     )
 
     search_term = q.strip() if q else None
-    if search_term:
-        like_pattern = f"%{search_term}%"
+    like_pattern = f"%{search_term}%" if search_term else None
+    if like_pattern:
         query = query.filter(User.name.ilike(like_pattern))
 
-    count_query = db.query(func.count(User.id))
-    if search_term:
-        like_pattern = f"%{search_term}%"
+    activity_filter = or_(
+        total_trigs_expr > 0,
+        total_photos_expr > 0,
+        total_logs_expr > 0,
+    )
+    query = query.filter(activity_filter)
+
+    count_query = (
+        db.query(func.count(User.id))
+        .outerjoin(log_stats_subquery, log_stats_subquery.c.user_id == User.id)
+        .outerjoin(photo_counts_subquery, photo_counts_subquery.c.user_id == User.id)
+        .filter(activity_filter)
+    )
+    if like_pattern:
         count_query = count_query.filter(User.name.ilike(like_pattern))
     total_count = int(count_query.scalar() or 0)
 
