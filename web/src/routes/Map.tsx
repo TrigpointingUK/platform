@@ -434,7 +434,7 @@ export default function Map() {
             isSidebarOpen ? 'w-80' : 'w-0'
           } transition-all duration-300 bg-white border-r border-gray-200 overflow-hidden flex-shrink-0`}
         >
-          <div className="p-4 h-full overflow-y-auto">
+          <div className="p-4 h-full overflow-y-auto scrollbar-hide">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Map Filters</h2>
               <button
