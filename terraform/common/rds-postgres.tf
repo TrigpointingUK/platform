@@ -36,6 +36,18 @@ resource "aws_db_parameter_group" "postgres" {
   }
 
   parameter {
+    name         = "shared_preload_libraries"
+    value        = "pg_cron"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name         = "cron.database_name"
+    value        = var.postgres_cron_database_name
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
     name         = "effective_cache_size"
     value        = "{DBInstanceClassMemory*3/4096}" # 75% of instance memory
     apply_method = "immediate"

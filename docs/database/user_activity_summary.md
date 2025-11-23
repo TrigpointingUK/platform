@@ -17,10 +17,10 @@ The response returns HTTP `202 Accepted` with metadata indicating the refresh st
 
 ## Scheduled refresh via pg_cron
 
-1. **Enable pg_cron (RDS specific)**
-   - Attach `pg_cron` to the RDS parameter group: `shared_preload_libraries = 'pg_cron'`
-   - Reboot the instance to load the extension
-   - Connect as a superuser and run `CREATE EXTENSION IF NOT EXISTS pg_cron;`
+1. **Enable pg_cron (Terraform managed)**
+   - `terraform/common` now sets `shared_preload_libraries = 'pg_cron'` and `cron.database_name` via `var.postgres_cron_database_name` (default `tuk_production`)
+   - After applying that stack, reboot the instance to load the library
+   - `terraform/postgres` creates `pg_cron` in the target database using the master connection; no manual SQL is required once the parameter update is active
 
 2. **Grant permissions**
    - `GRANT USAGE ON SCHEMA cron TO <app_role>;`

@@ -93,6 +93,12 @@ variable "db_performance_insights_retention_period" {
   default     = 7
 }
 
+variable "postgres_cron_database_name" {
+  description = "Name of the PostgreSQL database where pg_cron should run"
+  type        = string
+  default     = "tuk_production"
+}
+
 # CloudFlare SSL Configuration
 variable "enable_cloudflare_ssl" {
   description = "Enable HTTPS with CloudFlare origin certificates"

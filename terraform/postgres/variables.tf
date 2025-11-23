@@ -10,3 +10,9 @@ variable "project_name" {
   default     = "trigpointing"
 }
 
+variable "pgcron_database_name" {
+  description = "Database where pg_cron extension should be installed"
+  type        = string
+  default     = "tuk_production"
+}
+

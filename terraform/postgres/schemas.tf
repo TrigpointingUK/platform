@@ -53,6 +53,18 @@ resource "postgresql_extension" "postgis_staging" {
   database = postgresql_database.staging.name
 }
 
+# Enable pg_cron extension in the configured database once the library is available
+resource "postgresql_extension" "pgcron" {
+  name     = "pg_cron"
+  database = var.pgcron_database_name
+
+  depends_on = [
+    postgresql_extension.postgis_default,
+    postgresql_database.production,
+    postgresql_database.staging
+  ]
+}
+
 # Create production user
 resource "postgresql_role" "production" {
   name     = "fastapi_production"
