@@ -482,14 +482,26 @@ def export_trigs_geojson(
         logger.info("Regenerating GeoJSON (data changed or cache empty)")
         result = _generate_geojson_data(db, limit)
 
+        # Log the result size for debugging
+        logger.info(
+            f"Generated GeoJSON with {len(result)} top-level keys, "
+            f"wrapping and caching with timestamp {current_timestamp_str}"
+        )
+
         # Store with both data and timestamp metadata
+        wrapped_payload = _wrap_cache_payload(result, current_timestamp_str)
         cache_set(
             cache_key,
-            jsonable_encoder(_wrap_cache_payload(result, current_timestamp_str)),
+            jsonable_encoder(wrapped_payload),
             60,
         )
 
         from fastapi.responses import JSONResponse
+
+        logger.info(
+            f"Returning GeoJSON response with {len(result)} keys, "
+            f"X-Cache-Status: REGENERATED"
+        )
 
         return JSONResponse(
             content=result,

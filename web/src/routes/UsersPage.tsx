@@ -223,16 +223,21 @@ export default function UsersPage() {
             {users.map((user) => (
               <Link to={user.profile_path} key={user.id}>
                 <Card className="p-0 transition-shadow hover:shadow-lg">
-                  <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">
-                        {formatMemberSince(user.member_since)}
-                      </p>
+                  <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:gap-6">
+                    <div className="flex-1">
                       <p className="text-2xl font-bold text-gray-900">
                         {user.name}
                       </p>
                     </div>
-                    <div className="flex flex-1 flex-wrap gap-4 sm:justify-end">
+                    <div className="text-sm text-gray-600 lg:text-center lg:min-w-[170px]">
+                      <p className="uppercase tracking-wide text-gray-500 text-xs mb-1">
+                        Member since
+                      </p>
+                      <p className="font-medium text-gray-900">
+                        {formatMemberSince(user.member_since)}
+                      </p>
+                    </div>
+                    <div className="flex flex-1 flex-wrap gap-3 justify-start lg:justify-end">
                       <StatPill
                         label="Trigpoints"
                         value={user.stats.total_trigs_logged}
@@ -243,10 +248,6 @@ export default function UsersPage() {
                       />
                       <StatPill label="Logs" value={user.stats.total_logs} />
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3 text-sm text-trig-green-600">
-                    <span>View profile</span>
-                    <span aria-hidden="true">→</span>
                   </div>
                 </Card>
               </Link>
@@ -274,11 +275,13 @@ interface StatPillProps {
 
 function StatPill({ label, value }: StatPillProps) {
   return (
-    <div className="min-w-[100px] rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center">
-      <p className="text-xl font-semibold text-trig-green-700">
+    <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-center">
+      <p className="text-xl font-semibold text-trig-green-700 leading-tight">
         {value.toLocaleString("en-GB")}
       </p>
-      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-[0.7rem] uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
     </div>
   );
 }
