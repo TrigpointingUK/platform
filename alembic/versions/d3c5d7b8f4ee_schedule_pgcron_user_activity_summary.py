@@ -24,28 +24,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def _unschedule_job() -> None:
-    op.execute(
-        sa.text(
-            """
-            SELECT cron.unschedule(jobid)
-            FROM cron.job
-            WHERE jobname = :jobname
-            """
-        ),
-        {"jobname": JOB_NAME},
-    )
+    stmt = sa.text(
+        """
+        SELECT cron.unschedule(jobid)
+        FROM cron.job
+        WHERE jobname = :jobname
+        """
+    ).bindparams(jobname=JOB_NAME)
+    op.execute(stmt)
 
 
 def upgrade() -> None:
     """Ensure a pg_cron job refreshes the materialised view every five minutes."""
     _unschedule_job()
-    op.execute(
-        sa.text("SELECT cron.schedule(:jobname, :cron, :command)").bindparams(
-            jobname=JOB_NAME,
-            cron=CRON_EXPRESSION,
-            command=REFRESH_SQL,
-        )
+    stmt = sa.text("SELECT cron.schedule(:jobname, :cron, :command)").bindparams(
+        jobname=JOB_NAME,
+        cron=CRON_EXPRESSION,
+        command=REFRESH_SQL,
     )
+    op.execute(stmt)
 
 
 def downgrade() -> None:
