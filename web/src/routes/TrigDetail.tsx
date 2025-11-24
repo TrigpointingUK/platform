@@ -20,10 +20,19 @@ const conditionMap: Record<
   string,
   { label: string; variant: "good" | "damaged" | "missing" | "unknown" }
 > = {
+  Z: { label: "Not Logged", variant: "unknown" },
+  N: { label: "Couldn't Find", variant: "missing" },
   G: { label: "Good", variant: "good" },
+  S: { label: "Slightly Damaged", variant: "damaged" },
+  C: { label: "Converted", variant: "damaged" },
   D: { label: "Damaged", variant: "damaged" },
-  M: { label: "Missing", variant: "missing" },
-  P: { label: "Possibly Missing", variant: "damaged" },
+  R: { label: "Remains", variant: "damaged" },
+  T: { label: "Toppled", variant: "damaged" },
+  M: { label: "Moved", variant: "missing" },
+  Q: { label: "Possibly Missing", variant: "damaged" },
+  X: { label: "Destroyed", variant: "missing" },
+  V: { label: "Unreachable but Visible", variant: "unknown" },
+  P: { label: "Inaccessible", variant: "unknown" },
   U: { label: "Unknown", variant: "unknown" },
 };
 

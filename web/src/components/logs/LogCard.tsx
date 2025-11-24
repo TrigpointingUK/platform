@@ -1,6 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../ui/Card";
-import Badge from "../ui/Badge";
 import StarRating from "../ui/StarRating";
 import { Photo } from "../../lib/api";
 
@@ -26,17 +25,31 @@ interface LogCardProps {
   onPhotoUpdate?: () => void;
 }
 
-const conditionMap: Record<string, { label: string; variant: "good" | "damaged" | "missing" | "unknown" }> = {
-  G: { label: "Good", variant: "good" },
-  D: { label: "Damaged", variant: "damaged" },
-  M: { label: "Missing", variant: "missing" },
-  P: { label: "Possibly Missing", variant: "damaged" },
-  U: { label: "Unknown", variant: "unknown" },
-};
+// Helper function to get condition icon and label
+function getConditionInfo(code: string): { icon: string; label: string } {
+  const conditions: Record<string, { icon: string; label: string }> = {
+    Z: { icon: "c_unknown.png", label: "Not Logged" },
+    N: { icon: "c_possiblymissing.png", label: "Couldn't Find" },
+    G: { icon: "c_good.png", label: "Good" },
+    S: { icon: "c_slightlydamaged.png", label: "Slightly Damaged" },
+    C: { icon: "c_slightlydamaged.png", label: "Converted" },
+    D: { icon: "c_damaged.png", label: "Damaged" },
+    R: { icon: "c_toppled.png", label: "Remains" },
+    T: { icon: "c_toppled.png", label: "Toppled" },
+    M: { icon: "c_toppled.png", label: "Moved" },
+    Q: { icon: "c_possiblymissing.png", label: "Possibly Missing" },
+    X: { icon: "c_definitelymissing.png", label: "Destroyed" },
+    V: { icon: "c_unreachablebutvisible.png", label: "Unreachable but Visible" },
+    P: { icon: "c_unknown.png", label: "Inaccessible" },
+    U: { icon: "c_unknown.png", label: "Unknown" },
+    "-": { icon: "c_nolog.png", label: "Not Visited" },
+  };
+  return conditions[code] || { icon: "c_unknown.png", label: code };
+}
 
 export default function LogCard({ log, userName, trigName }: LogCardProps) {
   const navigate = useNavigate();
-  const condition = conditionMap[log.condition] || conditionMap.U;
+  const conditionInfo = getConditionInfo(log.condition);
   const formattedDate = new Date(log.date).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -111,7 +124,13 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
                 )}
               </span>
               <span className="text-gray-400">·</span>
-              <Badge variant={condition.variant}>{condition.label}</Badge>
+              {/* Condition Icon */}
+              <img 
+                src={`/icons/conditions/${conditionInfo.icon}`}
+                alt={conditionInfo.label}
+                title={conditionInfo.label}
+                className="w-4 h-4"
+              />
               <StarRating 
                 rating={log.score / 2} 
                 size="sm" 

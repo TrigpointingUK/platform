@@ -42,9 +42,12 @@ describe('LogCard', () => {
     expect(screen.getByText(/User #100/)).toBeInTheDocument();
   });
 
-  it('should render condition badge', () => {
+  it('should render condition icon with hover text', () => {
     renderWithRouter(<LogCard log={mockLog} />);
-    expect(screen.getByText('Good')).toBeInTheDocument();
+    // The condition is now displayed as an icon with title attribute
+    const conditionIcon = screen.getByTitle('Good');
+    expect(conditionIcon).toBeInTheDocument();
+    expect(conditionIcon).toHaveAttribute('src', '/icons/conditions/c_good.png');
   });
 
   it('should render score out of 10', () => {
@@ -118,9 +121,12 @@ describe('LogCard', () => {
     renderWithRouter(<LogCard log={logWithPhotos} />);
     
     const images = screen.getAllByRole('img');
-    expect(images).toHaveLength(2);
-    expect(images[0]).toHaveAttribute('src', 'photo1.jpg');
-    expect(images[1]).toHaveAttribute('src', 'photo2.jpg');
+    // 1 condition icon + 2 photos = 3 images total
+    expect(images).toHaveLength(3);
+    // Check the photo images (skip the first one which is the condition icon)
+    const photoImages = images.slice(1);
+    expect(photoImages[0]).toHaveAttribute('src', 'photo1.jpg');
+    expect(photoImages[1]).toHaveAttribute('src', 'photo2.jpg');
   });
 
   it('should show +X indicator when more than 20 photos', () => {
@@ -150,17 +156,23 @@ describe('LogCard', () => {
 
   it('should handle different condition codes', () => {
     const conditions = [
-      { code: 'D', label: 'Damaged' },
-      { code: 'M', label: 'Missing' },
-      { code: 'P', label: 'Possibly Missing' },
-      { code: 'U', label: 'Unknown' },
+      { code: 'G', label: 'Good', icon: 'c_good.png' },
+      { code: 'S', label: 'Slightly Damaged', icon: 'c_slightlydamaged.png' },
+      { code: 'D', label: 'Damaged', icon: 'c_damaged.png' },
+      { code: 'M', label: 'Moved', icon: 'c_toppled.png' },
+      { code: 'Q', label: 'Possibly Missing', icon: 'c_possiblymissing.png' },
+      { code: 'P', label: 'Inaccessible', icon: 'c_unknown.png' },
+      { code: 'U', label: 'Unknown', icon: 'c_unknown.png' },
+      { code: 'X', label: 'Destroyed', icon: 'c_definitelymissing.png' },
     ];
 
-    conditions.forEach(({ code, label }) => {
+    conditions.forEach(({ code, label, icon }) => {
       const { unmount } = renderWithRouter(
         <LogCard log={{ ...mockLog, condition: code }} />
       );
-      expect(screen.getByText(label)).toBeInTheDocument();
+      const conditionIcon = screen.getByTitle(label);
+      expect(conditionIcon).toBeInTheDocument();
+      expect(conditionIcon).toHaveAttribute('src', `/icons/conditions/${icon}`);
       unmount();
     });
   });
