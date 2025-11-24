@@ -111,6 +111,12 @@ if ($smtpUsername && $smtpPassword) {
 wfLoadExtension( 'PluggableAuth' );
 wfLoadExtension( 'OpenIDConnect' );
 
+# Disable password attempt throttling to prevent DoS attacks
+# Since we use Auth0 for authentication, MediaWiki's built-in throttling
+# is not needed and creates a vulnerability where bad actors can lock out
+# legitimate users by triggering failed login attempts
+$wgPasswordAttemptThrottle = false;
+
 $providerURL   = getenv('OIDC_PROVIDER_URL') ?: '';
 $clientID      = getenv('OIDC_CLIENT_ID') ?: '';
 $clientSecret  = getenv('OIDC_CLIENT_SECRET') ?: '';
