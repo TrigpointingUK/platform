@@ -196,12 +196,78 @@ export default function UsersPage() {
           <p className="text-sm text-gray-600">{resultSummary}</p>
           {debouncedSearch && (
             <span className="text-xs uppercase tracking-wide text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              Filtered by “{debouncedSearch}”
+              Filtered by "{debouncedSearch}"
             </span>
           )}
         </div>
 
-        <div className="sticky top-16 z-40 bg-white border-b border-gray-200 shadow-sm">
+        {/* Mobile sort controls (non-sticky) */}
+        <Card className="sm:hidden shadow-sm border border-gray-100 mb-4">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Sort by
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleSortClick("name")}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  sort === "name"
+                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                }`}
+              >
+                Name {sort === "name" && (direction === "desc" ? "▼" : "▲")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSortClick("joined")}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  sort === "joined"
+                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                }`}
+              >
+                Joined {sort === "joined" && (direction === "desc" ? "▼" : "▲")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSortClick("trigs")}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  sort === "trigs"
+                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                }`}
+              >
+                Trigpoints {sort === "trigs" && (direction === "desc" ? "▼" : "▲")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSortClick("photos")}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  sort === "photos"
+                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                }`}
+              >
+                Photos {sort === "photos" && (direction === "desc" ? "▼" : "▲")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSortClick("logs")}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  sort === "logs"
+                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                }`}
+              >
+                Logs {sort === "logs" && (direction === "desc" ? "▼" : "▲")}
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        <div className="sticky top-16 z-40 bg-white border-b border-gray-200 shadow-sm hidden sm:block">
           <div className="px-4 py-3">
             <div className="grid grid-cols-2 gap-4 text-xs font-semibold uppercase tracking-wide text-gray-500 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))]">
               {renderHeaderCell("Name", "name")}
@@ -244,39 +310,77 @@ export default function UsersPage() {
           <div className="space-y-0.5">
             {users.map((user) => (
               <Card className="p-0 transition-shadow hover:shadow-md" key={user.id}>
-                <div className="grid gap-0.5 px-3 py-0.5 text-[0.95rem] text-gray-700 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))] sm:items-center leading-tight">
-                  <Link
-                    to={user.profile_path}
-                    className="text-left text-[0.95rem] font-semibold text-gray-900 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
-                  >
-                    {user.name}
-                  </Link>
-                  <Link
-                    to={user.profile_path}
-                    className="text-gray-600 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
-                  >
-                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 sm:hidden leading-tight">
-                      Member since
-                    </p>
-                    <p className="font-medium text-gray-900 leading-tight">
-                      {formatMemberSince(user.member_since)}
-                    </p>
-                  </Link>
-                  <CountCell
-                    label="Trigpoints"
-                    value={user.stats.total_trigs_logged}
-                    to={`${user.profile_path}/logs`}
-                  />
-                  <CountCell
-                    label="Photos"
-                    value={user.stats.total_photos}
-                    to={`${user.profile_path}/photos`}
-                  />
-                  <CountCell
-                    label="Logs"
-                    value={user.stats.total_logs}
-                    to={`${user.profile_path}/logs`}
-                  />
+                <div className="px-3 py-2 sm:py-0.5">
+                  {/* Mobile layout */}
+                  <div className="sm:hidden space-y-2">
+                    <div className="flex flex-wrap justify-between items-baseline gap-x-3 gap-y-1">
+                      <Link
+                        to={user.profile_path}
+                        className="text-left text-[0.95rem] font-semibold text-gray-900 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
+                      >
+                        {user.name}
+                      </Link>
+                      <Link
+                        to={user.profile_path}
+                        className="text-right text-[0.8rem] text-gray-600 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded whitespace-nowrap"
+                      >
+                        <span className="text-gray-500">Member Since:</span>{" "}
+                        <span className="font-medium text-gray-900">
+                          {formatMemberSince(user.member_since)}
+                        </span>
+                      </Link>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <CountCell
+                        label="Trigpoints"
+                        value={user.stats.total_trigs_logged}
+                        to={`${user.profile_path}/logs`}
+                      />
+                      <CountCell
+                        label="Photos"
+                        value={user.stats.total_photos}
+                        to={`${user.profile_path}/photos`}
+                      />
+                      <CountCell
+                        label="Logs"
+                        value={user.stats.total_logs}
+                        to={`${user.profile_path}/logs`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Desktop layout */}
+                  <div className="hidden sm:grid gap-0.5 text-[0.95rem] text-gray-700 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))] sm:items-center leading-tight">
+                    <Link
+                      to={user.profile_path}
+                      className="text-left text-[0.95rem] font-semibold text-gray-900 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
+                    >
+                      {user.name}
+                    </Link>
+                    <Link
+                      to={user.profile_path}
+                      className="text-gray-600 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
+                    >
+                      <p className="font-medium text-gray-900 leading-tight">
+                        {formatMemberSince(user.member_since)}
+                      </p>
+                    </Link>
+                    <CountCell
+                      label="Trigpoints"
+                      value={user.stats.total_trigs_logged}
+                      to={`${user.profile_path}/logs`}
+                    />
+                    <CountCell
+                      label="Photos"
+                      value={user.stats.total_photos}
+                      to={`${user.profile_path}/photos`}
+                    />
+                    <CountCell
+                      label="Logs"
+                      value={user.stats.total_logs}
+                      to={`${user.profile_path}/logs`}
+                    />
+                  </div>
                 </div>
               </Card>
             ))}
@@ -306,9 +410,9 @@ function CountCell({ label, value, to }: CountCellProps) {
   return (
     <Link
       to={to}
-      className="text-right sm:text-center leading-snug hover:text-trig-green-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
+      className="text-center leading-snug hover:text-trig-green-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
     >
-      <p className="text-[0.6rem] uppercase tracking-wide text-gray-500 sm:hidden leading-tight">
+      <p className="text-[0.6rem] uppercase tracking-wide text-gray-500 leading-tight">
         {label}
       </p>
       <p className="text-base font-semibold text-trig-green-700 leading-snug">

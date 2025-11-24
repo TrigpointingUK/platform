@@ -94,8 +94,11 @@ describe("UsersPage", () => {
     expect(
       screen.getByRole("heading", { name: /Trigpointing members/i })
     ).toBeInTheDocument();
-    expect(screen.getByText("Alice")).toBeInTheDocument();
-    expect(screen.getByText("Bob")).toBeInTheDocument();
+    
+    // Names appear in both mobile and desktop layouts
+    expect(screen.getAllByText("Alice").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Bob").length).toBeGreaterThanOrEqual(1);
+    
     expect(
       screen.getByRole("columnheader", { name: /Trigpoints/i })
     ).toHaveAttribute("aria-sort", "descending");
@@ -106,12 +109,16 @@ describe("UsersPage", () => {
       screen.getByRole("columnheader", { name: /Logs/i })
     ).toHaveAttribute("aria-sort", "none");
 
+    // Stats links appear twice per user (mobile + desktop layouts)
     const trigLinks = screen.getAllByRole("link", { name: /Trigpoints/i });
+    expect(trigLinks).toHaveLength(4); // 2 users × 2 layouts
     expect(trigLinks[0]).toHaveAttribute("href", "/profile/1/logs");
-    expect(trigLinks[1]).toHaveAttribute("href", "/profile/2/logs");
+    expect(trigLinks[2]).toHaveAttribute("href", "/profile/2/logs");
+    
     const photoLinks = screen.getAllByRole("link", { name: /Photos/i });
+    expect(photoLinks).toHaveLength(4); // 2 users × 2 layouts
     expect(photoLinks[0]).toHaveAttribute("href", "/profile/1/photos");
-    expect(photoLinks[1]).toHaveAttribute("href", "/profile/2/photos");
+    expect(photoLinks[2]).toHaveAttribute("href", "/profile/2/photos");
   });
 
   it("shows empty state when no results", () => {
