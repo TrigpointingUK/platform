@@ -183,9 +183,30 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
               const currSlideData = pswp.currSlide?.data;
               if (currSlideData && 'photo' in currSlideData) {
                 const photo = currSlideData.photo as Photo;
+                console.log('Rotate left clicked for photo:', photo.id);
                 try {
-                  const token = await getAccessTokenSilently();
+                  console.log('Requesting access token...');
+                  
+                  // Try to get a fresh token (bypassing cache)
+                  // This helps when the cached token is invalid or expired
+                  let token: string;
+                  try {
+                    token = await getAccessTokenSilently({ 
+                      cacheMode: "off",
+                      timeoutInSeconds: 5  // Add timeout
+                    });
+                    console.log('Fresh token received');
+                  } catch (tokenError) {
+                    console.error('Failed to get fresh token:', tokenError);
+                    // Fall back to cached token
+                    console.log('Trying cached token...');
+                    token = await getAccessTokenSilently({ cacheMode: "on" });
+                    console.log('Cached token retrieved');
+                  }
+                  
+                  console.log('Access token received, calling rotatePhoto API...');
                   const updatedPhoto = await rotatePhoto(photo.id, 270, token);
+                  console.log('Photo rotated successfully:', updatedPhoto);
                   
                   toast.success('Photo rotated successfully');
                   
@@ -206,6 +227,12 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
                   }
                 } catch (error) {
                   console.error('Failed to rotate photo:', error);
+                  console.error('Error details:', {
+                    message: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined,
+                    errorType: typeof error,
+                    errorConstructor: error?.constructor?.name,
+                  });
                   toast.error('Failed to rotate photo. Please try again.');
                 }
               }
@@ -243,9 +270,30 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
               const currSlideData = pswp.currSlide?.data;
               if (currSlideData && 'photo' in currSlideData) {
                 const photo = currSlideData.photo as Photo;
+                console.log('Rotate right clicked for photo:', photo.id);
                 try {
-                  const token = await getAccessTokenSilently();
+                  console.log('Requesting access token...');
+                  
+                  // Try to get a fresh token (bypassing cache)
+                  // This helps when the cached token is invalid or expired
+                  let token: string;
+                  try {
+                    token = await getAccessTokenSilently({ 
+                      cacheMode: "off",
+                      timeoutInSeconds: 5  // Add timeout
+                    });
+                    console.log('Fresh token received');
+                  } catch (tokenError) {
+                    console.error('Failed to get fresh token:', tokenError);
+                    // Fall back to cached token
+                    console.log('Trying cached token...');
+                    token = await getAccessTokenSilently({ cacheMode: "on" });
+                    console.log('Cached token retrieved');
+                  }
+                  
+                  console.log('Access token received, calling rotatePhoto API...');
                   const updatedPhoto = await rotatePhoto(photo.id, 90, token);
+                  console.log('Photo rotated successfully:', updatedPhoto);
                   
                   toast.success('Photo rotated successfully');
                   
@@ -266,6 +314,12 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
                   }
                 } catch (error) {
                   console.error('Failed to rotate photo:', error);
+                  console.error('Error details:', {
+                    message: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined,
+                    errorType: typeof error,
+                    errorConstructor: error?.constructor?.name,
+                  });
                   toast.error('Failed to rotate photo. Please try again.');
                 }
               }

@@ -40,6 +40,7 @@ export default function PhotoThumbnail({
     e.stopPropagation();
     e.preventDefault();
 
+    console.log('Rotate clicked for photo:', photo.id, 'angle:', angle);
     setRotating(true);
     
     // Apply optimistic rotation immediately
@@ -49,8 +50,28 @@ export default function PhotoThumbnail({
     setOptimisticRotation(newRotation);
 
     try {
-      const token = await getAccessTokenSilently();
+      console.log('Requesting access token...');
+      
+      // Try to get a fresh token (bypassing cache)
+      // This helps when the cached token is invalid or expired
+      let token: string;
+      try {
+        token = await getAccessTokenSilently({ 
+          cacheMode: "off",
+          timeoutInSeconds: 5  // Add timeout
+        });
+        console.log('Fresh token received');
+      } catch (tokenError) {
+        console.error('Failed to get fresh token:', tokenError);
+        // Fall back to cached token
+        console.log('Trying cached token...');
+        token = await getAccessTokenSilently({ cacheMode: "on" });
+        console.log('Cached token retrieved');
+      }
+      
+      console.log('Access token received, calling rotatePhoto API...');
       const response = await rotatePhoto(photo.id, angle, token);
+      console.log('Photo rotated successfully:', response);
       
       toast.success("Photo rotated successfully");
       
@@ -64,6 +85,12 @@ export default function PhotoThumbnail({
       setOptimisticRotation(0);
     } catch (error) {
       console.error("Failed to rotate photo:", error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name,
+      });
       toast.error("Failed to rotate photo. Please try again.");
       
       // Revert optimistic rotation on error

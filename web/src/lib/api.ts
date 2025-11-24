@@ -1,5 +1,12 @@
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
+// Debug logging for API_BASE
+if (!API_BASE) {
+  console.error('CRITICAL: VITE_API_BASE is not defined!');
+} else {
+  console.log('API_BASE configured as:', API_BASE);
+}
+
 export async function apiGet<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, {
     method: "GET",
@@ -23,7 +30,10 @@ export async function apiPost<T>(
   data: unknown,
   token?: string
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${url}`, {
+  const fullUrl = `${API_BASE}${url}`;
+  console.log('apiPost called:', { url, fullUrl, API_BASE, hasToken: !!token });
+  
+  const res = await fetch(fullUrl, {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -33,12 +43,18 @@ export async function apiPost<T>(
     body: JSON.stringify(data),
   });
   
+  console.log('apiPost response:', { url, status: res.status, ok: res.ok });
+  
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+    const errorMsg = `HTTP ${res.status}: ${text || res.statusText}`;
+    console.error('apiPost error:', errorMsg);
+    throw new Error(errorMsg);
   }
   
-  return res.json() as Promise<T>;
+  const jsonResponse = await res.json() as Promise<T>;
+  console.log('apiPost success:', { url, response: jsonResponse });
+  return jsonResponse;
 }
 
 export async function apiPatch<T>(
