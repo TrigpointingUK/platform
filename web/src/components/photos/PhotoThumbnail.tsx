@@ -25,6 +25,13 @@ function formatLogDate(dateString?: string): string {
   });
 }
 
+// Check if a value is empty or "none"
+function isEmptyOrNone(value: string | undefined): boolean {
+  if (!value) return true;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed === "" || trimmed === "none";
+}
+
 export default function PhotoThumbnail({
   photo,
   onClick,
@@ -210,12 +217,12 @@ export default function PhotoThumbnail({
             )}
 
             {/* Caption */}
-            {photo.caption && (
+            {!isEmptyOrNone(photo.caption) && (
               <div className="font-bold line-clamp-2">{photo.caption}</div>
             )}
 
             {/* Description */}
-            {photo.text_desc && (
+            {!isEmptyOrNone(photo.text_desc) && (
               <div className="text-xs text-white/90 line-clamp-2">
                 {photo.text_desc}
               </div>

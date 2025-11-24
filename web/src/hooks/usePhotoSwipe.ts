@@ -12,6 +12,13 @@ export interface PhotoSwipeOptions {
   onPhotoRotated?: (updatedPhoto: Photo) => void;
 }
 
+// Helper function to check if a value is empty or "none"
+function isEmptyOrNone(value: string | null | undefined): boolean {
+  if (!value) return true;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed === '' || trimmed === 'none';
+}
+
 // Helper function to create metadata overlay HTML
 function createMetadataOverlay(photo: Photo): string {
   const photoTypes: Record<string, string> = {
@@ -43,11 +50,15 @@ function createMetadataOverlay(photo: Photo): string {
     year: 'numeric'
   }) : null;
 
+  // Check if caption and description are meaningful (not empty or "none")
+  const hasCaption = !isEmptyOrNone(photo.caption);
+  const hasDescription = !isEmptyOrNone(photo.text_desc);
+
   return `
     <div class="pswp__custom-caption">
       <div class="pswp__caption-content">
-        <h3 class="pswp__caption-title">${photo.caption || 'Untitled'}</h3>
-        ${photo.text_desc ? `<p class="pswp__caption-desc">${photo.text_desc}</p>` : ''}
+        ${hasCaption ? `<h3 class="pswp__caption-title">${photo.caption}</h3>` : ''}
+        ${hasDescription ? `<p class="pswp__caption-desc">${photo.text_desc}</p>` : ''}
         ${waypoint && photo.trig_name ? `<div class="pswp__caption-location">${waypoint} · ${photo.trig_name}</div>` : ''}
         ${photo.user_name ? `<div class="pswp__caption-user">By ${photo.user_name}</div>` : ''}
         ${formattedDate ? `<div class="pswp__caption-date">${formattedDate}</div>` : ''}
