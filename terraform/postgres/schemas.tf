@@ -53,14 +53,26 @@ resource "postgresql_extension" "postgis_staging" {
   database = postgresql_database.staging.name
 }
 
-# Enable pg_cron extension in the configured database once the library is available
-resource "postgresql_extension" "pgcron" {
+# Enable pg_cron extension in production database if configured
+resource "postgresql_extension" "pgcron_production" {
+  count    = var.pgcron_database_name == postgresql_database.production.name ? 1 : 0
   name     = "pg_cron"
-  database = var.pgcron_database_name
+  database = postgresql_database.production.name
 
   depends_on = [
     postgresql_extension.postgis_default,
     postgresql_database.production,
+  ]
+}
+
+# Enable pg_cron extension in staging database if configured
+resource "postgresql_extension" "pgcron_staging" {
+  count    = var.pgcron_database_name == postgresql_database.staging.name ? 1 : 0
+  name     = "pg_cron"
+  database = postgresql_database.staging.name
+
+  depends_on = [
+    postgresql_extension.postgis_default,
     postgresql_database.staging,
   ]
 }
@@ -73,7 +85,7 @@ resource "postgresql_grant" "production_cron_schema_usage" {
   schema      = "cron"
   object_type = "schema"
   privileges  = ["USAGE"]
-  depends_on  = [postgresql_extension.pgcron]
+  depends_on  = [postgresql_extension.pgcron_production]
 }
 
 resource "postgresql_grant" "production_cron_job_table" {
@@ -84,7 +96,7 @@ resource "postgresql_grant" "production_cron_job_table" {
   object_type = "table"
   objects     = ["job", "job_run_details"]
   privileges  = ["SELECT", "INSERT", "UPDATE", "DELETE"]
-  depends_on  = [postgresql_extension.pgcron]
+  depends_on  = [postgresql_extension.pgcron_production]
 }
 
 resource "postgresql_grant" "staging_cron_schema_usage" {
@@ -94,7 +106,7 @@ resource "postgresql_grant" "staging_cron_schema_usage" {
   schema      = "cron"
   object_type = "schema"
   privileges  = ["USAGE"]
-  depends_on  = [postgresql_extension.pgcron]
+  depends_on  = [postgresql_extension.pgcron_staging]
 }
 
 resource "postgresql_grant" "staging_cron_job_table" {
@@ -105,7 +117,7 @@ resource "postgresql_grant" "staging_cron_job_table" {
   object_type = "table"
   objects     = ["job", "job_run_details"]
   privileges  = ["SELECT", "INSERT", "UPDATE", "DELETE"]
-  depends_on  = [postgresql_extension.pgcron]
+  depends_on  = [postgresql_extension.pgcron_staging]
 }
 
 # Create production user
