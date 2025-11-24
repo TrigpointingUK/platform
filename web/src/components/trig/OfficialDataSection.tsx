@@ -29,20 +29,9 @@ export default function OfficialDataSection({
                     colSpan={attrIds.length}
                     className="border border-gray-300 px-3 py-2 text-left"
                   >
-                    {sourceData.source.url ? (
-                      <a
-                        href={sourceData.source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-trig-green-600 hover:underline font-semibold"
-                      >
-                        {sourceData.source.name}
-                      </a>
-                    ) : (
-                      <span className="font-semibold">
-                        {sourceData.source.name}
-                      </span>
-                    )}
+                    <span className="font-semibold">
+                      {sourceData.source.name}
+                    </span>
                   </th>
                 </tr>
                 {/* Column headers row */}
