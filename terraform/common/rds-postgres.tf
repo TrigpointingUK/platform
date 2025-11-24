@@ -88,7 +88,6 @@ resource "aws_db_parameter_group" "postgres" {
   lifecycle {
     create_before_destroy = true
     ignore_changes = [
-      parameter,
       tags
     ]
   }
@@ -96,6 +95,11 @@ resource "aws_db_parameter_group" "postgres" {
   tags = {
     Name = "trigpointing-postgres-params"
   }
+}
+
+resource "random_password" "postgres_master" {
+  length  = 32
+  special = false
 }
 
 # PostgreSQL RDS Instance
@@ -139,10 +143,7 @@ resource "aws_db_instance" "postgres" {
 
   # Initial admin user
   username = "postgres"
-  # Password is managed by AWS when manage_master_user_password is true
-
-  # Password rotation
-  manage_master_user_password = true
+  password = random_password.postgres_master.result
 
   # Performance Insights
   performance_insights_enabled = var.db_performance_insights_enabled

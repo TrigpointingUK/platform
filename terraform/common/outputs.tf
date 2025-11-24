@@ -332,3 +332,9 @@ output "postgres_security_group_id" {
   description = "ID of the PostgreSQL RDS security group"
   value       = aws_security_group.postgres_rds.id
 }
+
+output "postgres_master_password" {
+  description = "Master password for the PostgreSQL RDS instance"
+  value       = random_password.postgres_master.result
+  sensitive   = true
+}

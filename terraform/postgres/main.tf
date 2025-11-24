@@ -48,19 +48,9 @@ provider "postgresql" {
   host     = split(":", data.terraform_remote_state.common.outputs.postgres_rds_endpoint)[0]
   port     = data.terraform_remote_state.common.outputs.postgres_rds_port
   username = "postgres"
-  # Password is retrieved from AWS Secrets Manager by the RDS master user password rotation
-  password = jsondecode(data.aws_secretsmanager_secret_version.postgres_master.secret_string)["password"]
+  password = data.terraform_remote_state.common.outputs.postgres_master_password
   sslmode  = "require"
   # Don't use superuser mode - we want to ensure proper permissions
   superuser = false
-}
-
-# Fetch master password from Secrets Manager
-data "aws_secretsmanager_secret" "postgres_master" {
-  arn = data.terraform_remote_state.common.outputs.postgres_rds_master_secret_arn
-}
-
-data "aws_secretsmanager_secret_version" "postgres_master" {
-  secret_id = data.aws_secretsmanager_secret.postgres_master.id
 }
 

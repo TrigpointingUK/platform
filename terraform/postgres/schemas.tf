@@ -61,8 +61,51 @@ resource "postgresql_extension" "pgcron" {
   depends_on = [
     postgresql_extension.postgis_default,
     postgresql_database.production,
-    postgresql_database.staging
+    postgresql_database.staging,
   ]
+}
+
+# Grant permissions on the cron schema for the application user
+resource "postgresql_grant" "production_cron_schema_usage" {
+  count       = var.pgcron_database_name == postgresql_database.production.name ? 1 : 0
+  database    = postgresql_database.production.name
+  role        = postgresql_role.production.name
+  schema      = "cron"
+  object_type = "schema"
+  privileges  = ["USAGE"]
+  depends_on  = [postgresql_extension.pgcron]
+}
+
+resource "postgresql_grant" "production_cron_job_table" {
+  count       = var.pgcron_database_name == postgresql_database.production.name ? 1 : 0
+  database    = postgresql_database.production.name
+  role        = postgresql_role.production.name
+  schema      = "cron"
+  object_type = "table"
+  objects     = ["job", "job_run_details"]
+  privileges  = ["SELECT", "INSERT", "UPDATE", "DELETE"]
+  depends_on  = [postgresql_extension.pgcron]
+}
+
+resource "postgresql_grant" "staging_cron_schema_usage" {
+  count       = var.pgcron_database_name == postgresql_database.staging.name ? 1 : 0
+  database    = postgresql_database.staging.name
+  role        = postgresql_role.staging.name
+  schema      = "cron"
+  object_type = "schema"
+  privileges  = ["USAGE"]
+  depends_on  = [postgresql_extension.pgcron]
+}
+
+resource "postgresql_grant" "staging_cron_job_table" {
+  count       = var.pgcron_database_name == postgresql_database.staging.name ? 1 : 0
+  database    = postgresql_database.staging.name
+  role        = postgresql_role.staging.name
+  schema      = "cron"
+  object_type = "table"
+  objects     = ["job", "job_run_details"]
+  privileges  = ["SELECT", "INSERT", "UPDATE", "DELETE"]
+  depends_on  = [postgresql_extension.pgcron]
 }
 
 # Create production user

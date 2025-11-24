@@ -37,6 +37,8 @@ echo -e "${YELLOW}Do you want to apply these changes? (yes/no)${NC}"
 read -r CONFIRM
 
 if [ "$CONFIRM" = "yes" ]; then
+    echo -e "${YELLOW}Waiting for 30 seconds for RDS to stabilize after potential reboot...${NC}"
+    sleep 30
     echo -e "${GREEN}Applying changes...${NC}"
     terraform apply tfplan
     echo ""
