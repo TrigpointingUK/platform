@@ -37,12 +37,6 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <Link
-              to="/users"
-              className="hover:text-trig-green-100 transition-colors"
-            >
-              Users
-            </Link>
             <a
               href="https://wiki.trigpointing.uk/"
               target="_blank"
@@ -170,13 +164,6 @@ export default function Header() {
                   onSearch={handleSearchComplete}
                 />
               </div>
-              <Link
-                to="/users"
-                className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Users
-              </Link>
               <a
                 href="https://wiki.trigpointing.uk"
                 target="_blank"

@@ -50,7 +50,6 @@ export default function Sidebar() {
             🔧 Solve your Login problems here!
           </a>        </nav>
       </Card>
-https://www.haroldstreet.org.uk/
     </aside>
   );
 }
