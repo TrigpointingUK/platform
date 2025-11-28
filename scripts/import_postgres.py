@@ -21,7 +21,7 @@ import argparse
 import csv
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 from urllib.parse import quote_plus
@@ -97,16 +97,19 @@ class PostgreSQLImporter:
             
             if should_truncate:
                 print("  Truncating tables...")
-                for table_name in existing_tables:
-                    try:
-                        # Use a new session for each table to avoid transaction issues
-                        with self.Session() as session:
+                # Use AUTOCOMMIT isolation level for TRUNCATE
+                with self.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+                    for table_name in existing_tables:
+                        try:
+                            # Skip system tables
+                            if table_name in ('spatial_ref_sys', 'geography_columns', 'geometry_columns', 'raster_columns', 'raster_overviews'):
+                                continue
                             # Quote table name to handle reserved words
                             quoted_name = f'"{table_name}"' if table_name in ('user', 'order', 'group') else table_name
-                            session.execute(text(f"TRUNCATE TABLE {quoted_name} CASCADE"))
-                            session.commit()
-                    except Exception as e:
-                        print(f"    ⚠️  Could not truncate {table_name}: {e}")
+                            conn.execute(text(f"TRUNCATE TABLE {quoted_name} RESTART IDENTITY CASCADE"))
+                            print(f"    ✓ Truncated {table_name}")
+                        except Exception as e:
+                            print(f"    ⚠️  Could not truncate {table_name}: {e}")
                 print("  ✓ Tables truncated")
 
     def get_csv_files(self) -> List[Path]:
@@ -191,18 +194,86 @@ class PostgreSQLImporter:
         with open(csv_file, "r", encoding="utf-8") as f:
             return sum(1 for _ in f) - 1  # Subtract header row
 
+    def import_csv_with_copy(self, csv_file: Path):
+        """
+        Import a CSV file using PostgreSQL COPY command (much faster).
+        
+        Falls back to INSERT method for tables with PostGIS location columns.
+        
+        Args:
+            csv_file: Path to CSV file
+        """
+        table_name = csv_file.stem
+        if table_name.endswith('_transformed'):
+            table_name = table_name.replace('_transformed', '')
+        
+        total_rows = self.get_row_count(csv_file)
+        print(f"\nImporting {table_name} ({total_rows:,} rows)...")
+
+        if total_rows == 0:
+            print("  ✓ Skipped (no rows)")
+            return
+        
+        # Get column names from CSV
+        with open(csv_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            columns = list(reader.fieldnames) if reader.fieldnames else []
+        
+        # For tables with PostGIS location column, use INSERT method (needs ST_GeogFromText)
+        if "location" in columns:
+            print(f"  📍 Table has PostGIS location column - using INSERT method with spatial conversion")
+            self.import_csv(csv_file, batch_size=10000)
+            return
+        
+        # Use raw psycopg2 connection for COPY
+        start_time = datetime.now()
+        raw_conn = self.engine.raw_connection()
+        
+        try:
+            cursor = raw_conn.cursor()
+            
+            # Quote table name if it's a reserved word
+            quoted_table_name = f'"{table_name}"' if table_name in ('user', 'order', 'group') else table_name
+            
+            # Quote all column names
+            quoted_columns = [f'"{col}"' for col in columns]
+            cols_str = ', '.join(quoted_columns)
+            
+            # Use COPY command - much faster than INSERT
+            copy_sql = f"COPY {quoted_table_name} ({cols_str}) FROM STDIN WITH (FORMAT CSV, HEADER TRUE, NULL '')"
+            
+            with open(csv_file, 'r', encoding='utf-8') as f:
+                cursor.copy_expert(copy_sql, f)
+            
+            raw_conn.commit()
+            elapsed = datetime.now() - start_time
+            rate = total_rows / elapsed.total_seconds() if elapsed.total_seconds() > 0 else 0
+            print(f"  ✓ Imported {total_rows:,} rows in {elapsed} ({rate:,.0f} rows/s)")
+            
+        except Exception as e:
+            raw_conn.rollback()
+            print(f"  ✗ COPY failed: {e}")
+            print(f"  🔄 Falling back to INSERT method...")
+            raw_conn.close()
+            # Fallback to INSERT method
+            self.import_csv(csv_file, batch_size=10000)
+        else:
+            raw_conn.close()
+
     def import_csv(
         self,
         csv_file: Path,
-        batch_size: int = 5000,
+        batch_size: int = 10000,
         progress_interval: int = None,
     ):
         """
-        Import a single CSV file to PostgreSQL.
+        Import a single CSV file to PostgreSQL using INSERT statements.
+        
+        Used as fallback or for tables requiring special handling (e.g., PostGIS).
 
         Args:
             csv_file: Path to CSV file
-            batch_size: Number of rows to insert per batch
+            batch_size: Number of rows to insert per batch (increased from 5000 to 10000)
             progress_interval: How often to print progress updates (auto-calculated if None)
         """
         table_name = csv_file.stem
@@ -212,27 +283,29 @@ class PostgreSQLImporter:
         
         total_rows = self.get_row_count(csv_file)
 
-        print(f"\nImporting {table_name} ({total_rows:,} rows)...")
+        print(f"\nImporting {table_name} ({total_rows:,} rows) using INSERT...")
 
         if total_rows == 0:
             print("  ✓ Skipped (no rows)")
             return
         
-        # Auto-calculate progress interval based on table size
+        # Auto-calculate progress interval based on table size (more frequent updates)
         if progress_interval is None:
             if total_rows < 10000:
-                progress_interval = 5000
+                progress_interval = 2500
             elif total_rows < 100000:
-                progress_interval = 25000
+                progress_interval = 10000
             elif total_rows < 1000000:
-                progress_interval = 50000
+                progress_interval = 25000
             else:
-                # For massive tables (1M+ rows), report every 100k rows
-                progress_interval = 100000
+                # For massive tables (1M+ rows), report every 50k rows
+                progress_interval = 50000
 
         # Read CSV and prepare data
+        start_time = datetime.now()
         rows_imported = 0
         batch = []
+        last_progress_time = datetime.now()
 
         with open(csv_file, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
@@ -330,19 +403,54 @@ class PostgreSQLImporter:
                             rows_imported += len(batch)
                             batch = []
 
-                            # Print progress
-                            if rows_imported % progress_interval == 0:
+                            # Print progress (row-based OR time-based every 30 seconds)
+                            current_time = datetime.now()
+                            time_since_last = (current_time - last_progress_time).total_seconds()
+                            
+                            if (rows_imported % progress_interval == 0) or (time_since_last >= 30):
                                 pct = 100 * rows_imported / total_rows
+                                elapsed = current_time - start_time
+                                rate = rows_imported / elapsed.total_seconds() if elapsed.total_seconds() > 0 else 0
+                                eta_seconds = (total_rows - rows_imported) / rate if rate > 0 else 0
+                                eta = str(timedelta(seconds=int(eta_seconds)))
                                 print(
-                                    f"  Progress: {rows_imported:,}/{total_rows:,} ({pct:.1f}%)"
+                                    f"  Progress: {rows_imported:,}/{total_rows:,} ({pct:.1f}%) "
+                                    f"[{rate:,.0f} rows/s, ETA: {eta}]"
                                 )
+                                last_progress_time = current_time
                         except Exception as e:
                             session.rollback()
                             print(f"  ✗ Error inserting batch: {e}")
-                            # Print first row of failed batch for debugging
-                            if batch:
-                                print(f"  First row: {batch[0]}")
-                            raise
+                            # Try to insert rows individually to identify and skip bad rows
+                            print(f"  🔄 Attempting row-by-row insert to skip bad data...")
+                            bad_rows = 0
+                            for row_data in batch:
+                                try:
+                                    # Sanitize TIME values on-the-fly
+                                    for key, value in row_data.items():
+                                        if isinstance(value, str) and 'time' in key.lower() and ':' in value:
+                                            parts = value.split(':')
+                                            if len(parts) == 3:
+                                                try:
+                                                    hours = int(parts[0])
+                                                    if hours > 23:
+                                                        # Cap at 23:59:59
+                                                        row_data[key] = "23:59:59"
+                                                except (ValueError, IndexError):
+                                                    pass
+                                    
+                                    session.execute(text(insert_sql), [row_data])
+                                    session.commit()
+                                    rows_imported += 1
+                                except Exception as row_err:
+                                    session.rollback()
+                                    bad_rows += 1
+                                    if bad_rows <= 5:  # Only log first 5 bad rows
+                                        print(f"    ⚠️  Skipping bad row (id={row_data.get('id', '?')}): {row_err}")
+                            
+                            if bad_rows > 0:
+                                print(f"  ⚠️  Skipped {bad_rows:,} invalid rows, imported {len(batch) - bad_rows:,} rows")
+                            batch = []  # Clear the batch
 
                 # Insert remaining rows
                 if batch:
@@ -353,11 +461,38 @@ class PostgreSQLImporter:
                     except Exception as e:
                         session.rollback()
                         print(f"  ✗ Error inserting final batch: {e}")
-                        if batch:
-                            print(f"  First row: {batch[0]}")
-                        raise
+                        # Try row-by-row
+                        print(f"  🔄 Attempting row-by-row insert for final batch...")
+                        bad_rows = 0
+                        for row_data in batch:
+                            try:
+                                # Sanitize TIME values on-the-fly
+                                for key, value in row_data.items():
+                                    if isinstance(value, str) and 'time' in key.lower() and ':' in value:
+                                        parts = value.split(':')
+                                        if len(parts) == 3:
+                                            try:
+                                                hours = int(parts[0])
+                                                if hours > 23:
+                                                    row_data[key] = "23:59:59"
+                                            except (ValueError, IndexError):
+                                                pass
+                                
+                                session.execute(text(insert_sql), [row_data])
+                                session.commit()
+                                rows_imported += 1
+                            except Exception as row_err:
+                                session.rollback()
+                                bad_rows += 1
+                                if bad_rows <= 5:
+                                    print(f"    ⚠️  Skipping bad row (id={row_data.get('id', '?')}): {row_err}")
+                        
+                        if bad_rows > 0:
+                            print(f"  ⚠️  Skipped {bad_rows:,} invalid rows from final batch")
 
-        print(f"  ✓ Imported {rows_imported:,} rows")
+        elapsed = datetime.now() - start_time
+        rate = rows_imported / elapsed.total_seconds() if elapsed.total_seconds() > 0 else 0
+        print(f"  ✓ Imported {rows_imported:,} rows in {elapsed} ({rate:,.0f} rows/s)")
 
     def create_spatial_indexes(self):
         """Create spatial indexes on PostGIS columns."""
@@ -431,13 +566,26 @@ class PostgreSQLImporter:
         # Get CSV files
         csv_files = self.get_csv_files()
         print(f"\nFound {len(csv_files)} CSV files to import")
+        
+        # Print import order
+        print("\nImport order:")
+        for i, csv_file in enumerate(csv_files, 1):
+            table_name = csv_file.stem.replace('_transformed', '')
+            row_count = self.get_row_count(csv_file)
+            print(f"  {i}. {table_name} ({row_count:,} rows)")
 
         # Import each file
-        start_time = datetime.now()
+        overall_start_time = datetime.now()
+        tables_imported = 0
 
         for csv_file in csv_files:
+            table_start_time = datetime.now()
             try:
-                self.import_csv(csv_file)
+                # Use COPY command for faster imports (falls back to INSERT for spatial tables)
+                self.import_csv_with_copy(csv_file)
+                tables_imported += 1
+                table_elapsed = datetime.now() - table_start_time
+                print(f"  ⏱️  Table completed in {table_elapsed}")
             except Exception as e:
                 print(f"\n✗ Failed to import {csv_file.name}: {e}")
                 print("\nImport aborted. You may need to:")
@@ -445,6 +593,8 @@ class PostgreSQLImporter:
                 print("  2. Drop and recreate the database")
                 print("  3. Re-run the import")
                 return False
+
+        print(f"\n✅ Successfully imported {tables_imported}/{len(csv_files)} tables")
 
         # Create spatial indexes
         try:
@@ -459,11 +609,12 @@ class PostgreSQLImporter:
             print(f"\n⚠ Warning: Failed to run VACUUM ANALYZE: {e}")
 
         # Summary
-        elapsed = datetime.now() - start_time
+        total_elapsed = datetime.now() - overall_start_time
         print("\n" + "=" * 60)
         print("✅ Import completed successfully!")
         print("=" * 60)
-        print(f"Elapsed time: {elapsed}")
+        print(f"Total elapsed time: {total_elapsed}")
+        print(f"Tables imported: {tables_imported}")
         print()
 
         return True

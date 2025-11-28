@@ -102,6 +102,7 @@ scp -i "${SSH_KEY_PATH_EXPANDED}" \
     scripts/export_mysql_to_postgres.py \
     scripts/transform_coordinates_to_postgis.py \
     scripts/create_postgres_schema.py \
+    scripts/sanitize_csv_data.py \
     scripts/import_postgres.py \
     scripts/validate_migration.py \
     "${BASTION_USER}@${BASTION_HOST}:${REMOTE_DIR}/scripts/"
@@ -131,7 +132,7 @@ cd /home/ec2-user/postgres-migration
 
 # Get MySQL RDS endpoint from AWS Secrets Manager
 MYSQL_SECRET=$(aws secretsmanager get-secret-value \
-    --secret-id fastapi-staging-credentials \
+    --secret-id fastapi-legacy-credentials \
     --region eu-west-1 \
     --query SecretString --output text)
 
@@ -182,7 +183,7 @@ cd /home/ec2-user/postgres-migration
 
 # Get MySQL RDS endpoint from AWS Secrets Manager
 MYSQL_SECRET=$(aws secretsmanager get-secret-value \
-    --secret-id fastapi-staging-credentials \
+    --secret-id fastapi-legacy-credentials \
     --region eu-west-1 \
     --query SecretString --output text)
 
@@ -273,18 +274,22 @@ if [ "$IMPORT_ONLY" = "false" ]; then
     echo "🔄 Step 2: Transforming coordinates to PostGIS format..."
     python3 scripts/transform_coordinates_to_postgis.py --input-dir mysql_export
     echo ""
+    
+    echo "🧹 Step 3: Sanitizing CSV data for PostgreSQL compatibility..."
+    python3 scripts/sanitize_csv_data.py --input-dir mysql_export
+    echo ""
 fi
 
 if [ "$EXPORT_ONLY" = "false" ]; then
-    echo "🗄️  Step 3: Creating PostgreSQL schema from MySQL..."
+    echo "🗄️  Step 4: Creating PostgreSQL schema from MySQL..."
     python3 scripts/create_postgres_schema.py
     echo ""
     
-    echo "📥 Step 4: Importing data to PostgreSQL..."
+    echo "📥 Step 5: Importing data to PostgreSQL..."
     python3 scripts/import_postgres.py --input-dir mysql_export
     echo ""
     
-    echo "✅ Step 5: Validating migration..."
+    echo "✅ Step 6: Validating migration..."
     python3 scripts/validate_migration.py
     echo ""
 fi
