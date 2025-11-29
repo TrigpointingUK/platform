@@ -119,7 +119,8 @@ class TestConfigComprehensive:
             DB_NAME="db",
         )
         assert (
-            settings.DATABASE_URL == "postgresql+psycopg2://user:pass@localhost:5432/db"
+            settings.DATABASE_URL
+            == "postgresql+psycopg2://user:pass@localhost:5432/db?sslmode=require"
         )
 
     def test_environment_variable_override(self):
@@ -145,7 +146,7 @@ class TestConfigComprehensive:
             assert settings.DB_NAME == "env-db"
             assert (
                 settings.DATABASE_URL
-                == "postgresql+psycopg2://env-user:env-pass@env-host:5432/env-db"
+                == "postgresql+psycopg2://env-user:env-pass@env-host:5432/env-db?sslmode=require"
             )
             assert settings.AUTH0_CUSTOM_DOMAIN == "env.auth0.com"
 
