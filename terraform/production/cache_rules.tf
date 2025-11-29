@@ -1,10 +1,13 @@
 # Cloudflare Cache Rules for Production Environment
 # These rules control caching behavior for trigpointing.uk and www.trigpointing.uk
+#
+# NOTE: This manages the existing "default" cache ruleset for the zone.
+# Imported with: terraform import cloudflare_ruleset.cache_rules zones/5a8a43d37aff74c0504bb729ed4f379e/b36366930c0045a8aa24b79b35d26cf6
 
 resource "cloudflare_ruleset" "cache_rules" {
   zone_id     = data.cloudflare_zones.production.result[0].id
-  name        = "Production Cache Rules"
-  description = "Cache rules for production: bypass HTML, long cache for static assets and API exports"
+  name        = "default"
+  description = ""
   kind        = "zone"
   phase       = "http_request_cache_settings"
 

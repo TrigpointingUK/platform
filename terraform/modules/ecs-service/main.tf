@@ -64,6 +64,10 @@ resource "aws_ecs_task_definition" "app" {
           value = tostring(var.db_pool_size)
         },
         {
+          name  = "DATABASE_POOL_MAX_OVERFLOW"
+          value = tostring(var.db_pool_max_overflow)
+        },
+        {
           name  = "DATABASE_POOL_RECYCLE"
           value = tostring(var.db_pool_recycle)
         },
