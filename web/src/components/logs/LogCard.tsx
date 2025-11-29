@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Card from "../ui/Card";
 import StarRating from "../ui/StarRating";
 import { Photo } from "../../lib/api";
+import { osgbToWGS84 } from "../../lib/coordinates";
 
 interface Log {
   id: number;
@@ -9,12 +10,16 @@ interface Log {
   user_id: number;
   trig_name?: string;
   user_name?: string;
+  trig_lat?: number | null;
+  trig_lon?: number | null;
   date: string;
   time: string;
   condition: string;
   comment: string;
   score: number;
   osgb_gridref?: string;
+  osgb_eastings?: number;
+  osgb_northings?: number;
   location_distance_m?: number;
   photos?: Photo[];
 }
@@ -65,7 +70,31 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
   // Format trig ID with minimum 4 digits (TP0023, TP1234, TP34567)
   const formattedTrigId = `TP${log.trig_id.toString().padStart(4, '0')}`;
 
-  // Format distance based on threshold
+  // Calculate bearing from point A to point B (in degrees, 0 = North)
+  const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const toRad = (deg: number) => deg * (Math.PI / 180);
+    const toDeg = (rad: number) => rad * (180 / Math.PI);
+    
+    const φ1 = toRad(lat1);
+    const φ2 = toRad(lat2);
+    const Δλ = toRad(lon2 - lon1);
+    
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+    const θ = Math.atan2(y, x);
+    
+    return (toDeg(θ) + 360) % 360; // Normalize to 0-360
+  };
+
+  // Get arrow for bearing
+  const getDirectionArrow = (bearing: number): string => {
+    // 8 cardinal directions: N, NE, E, SE, S, SW, W, NW
+    const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+    const index = Math.round(bearing / 45) % 8;
+    return arrows[index];
+  };
+
+  // Format distance with direction arrow
   const formatDistance = (distance?: number) => {
     if (distance === undefined || distance === null) return null;
     
@@ -75,9 +104,19 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
     
     const colorClass = distance <= 25 ? 'text-gray-500' : 'text-red-700';
     
+    // Calculate bearing if we have coordinates
+    let arrow = '';
+    if (log.trig_lat != null && log.trig_lon != null && 
+        log.osgb_eastings !== undefined && log.osgb_northings !== undefined) {
+      // Convert log OSGB to WGS84
+      const logWGS84 = osgbToWGS84(log.osgb_eastings, log.osgb_northings);
+      const bearing = calculateBearing(log.trig_lat, log.trig_lon, logWGS84.lat, logWGS84.lon);
+      arrow = getDirectionArrow(bearing);
+    }
+    
     return (
       <span className={colorClass}>
-        {distanceText}
+        {distanceText}{arrow && <span className="ml-0.5">{arrow}</span>}
       </span>
     );
   };
