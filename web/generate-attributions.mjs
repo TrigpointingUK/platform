@@ -13,7 +13,11 @@ import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const rootDir = join(__dirname, '..');
+
+// When running in Docker, requirements files are in ./parent/
+// When running locally, they're in the parent directory ../
+const isDocker = process.env.DOCKER_BUILD === 'true';
+const rootDir = isDocker ? __dirname : join(__dirname, '..');
 
 /**
  * Extract license information from package-lock.json
@@ -161,8 +165,37 @@ function getNpmDependencies() {
  */
 function getPythonDependencies() {
   try {
-    const requirementsPath = join(rootDir, 'requirements.txt');
-    const requirementsDevPath = join(rootDir, 'requirements-dev.txt');
+    // Try multiple possible locations for requirements files
+    const possibleRootDirs = [
+      join(__dirname, 'parent'),  // Docker build location
+      join(__dirname, '..'),      // Local development location
+      __dirname                   // Current directory (fallback)
+    ];
+    
+    let requirementsPath = null;
+    let requirementsDevPath = null;
+    
+    // Find the requirements files
+    for (const rootDir of possibleRootDirs) {
+      const reqPath = join(rootDir, 'requirements.txt');
+      const reqDevPath = join(rootDir, 'requirements-dev.txt');
+      
+      try {
+        readFileSync(reqPath, 'utf-8');
+        requirementsPath = reqPath;
+        requirementsDevPath = reqDevPath;
+        console.log(`  Found requirements files in: ${rootDir}`);
+        break;
+      } catch (e) {
+        // Try next location
+        continue;
+      }
+    }
+    
+    if (!requirementsPath) {
+      console.warn('⚠️  Could not find requirements.txt in any expected location');
+      return [];
+    }
     
     const dependencies = [];
     

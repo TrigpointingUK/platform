@@ -6,13 +6,17 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY web/package.json web/package-lock.json* ./
 
 # Install dependencies
 RUN npm ci
 
+# Copy requirements files for attribution generation
+# These are needed by generate-attributions.mjs during prebuild
+COPY requirements.txt requirements-dev.txt ./parent/
+
 # Copy source code
-COPY . .
+COPY web/ .
 
 # Build arguments for environment-specific builds
 ARG VITE_ENVIRONMENT
@@ -38,7 +42,7 @@ FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY web/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80
 EXPOSE 80
