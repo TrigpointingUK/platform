@@ -58,16 +58,6 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
     year: "numeric",
   });
 
-  // Debug logging for location data
-  if (log.osgb_gridref || log.location_distance_m !== undefined) {
-    console.log('LogCard location data:', {
-      id: log.id,
-      gridref: log.osgb_gridref,
-      distance: log.location_distance_m,
-      showLocation: !!(log.osgb_gridref && log.location_distance_m !== undefined)
-    });
-  }
-
   // Use denormalized fields if available, otherwise fall back to props
   const displayTrigName = log.trig_name || trigName;
   const displayUserName = log.user_name || userName;
