@@ -105,7 +105,7 @@ export function GlobalSearch({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className="w-full px-4 py-2 pr-10 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-trig-green-400"
+          className="w-full px-4 py-2 pr-14 rounded-md text-gray-900 bg-white border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-trig-green-400 focus:border-trig-green-400"
           aria-label="Global search"
           aria-autocomplete="list"
           aria-controls="search-results"
@@ -113,8 +113,9 @@ export function GlobalSearch({
         />
         <button
           type="submit"
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-trig-green-600 transition-colors"
+          className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded border border-gray-200 flex items-center justify-center transition-colors"
           aria-label="Search"
+          title="Go to search page"
         >
           <svg
             className="w-5 h-5"

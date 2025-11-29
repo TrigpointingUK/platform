@@ -6,10 +6,7 @@ export default function Footer() {
       <div className="container mx-auto px-4 py-2">
         {/* Top row: Heading and description */}
         <div className="text-center mb-1">
-          <h3 className="text-white font-bold text-sm inline mr-2">TrigpointingUK</h3>
-          <span className="text-xs">
-            The UK's premier resource for OS triangulation pillars and survey markers.
-          </span>
+          <h3 className="text-white font-bold text-sm inline mr-2">© {currentYear} TrigpointingUK</h3>
         </div>
 
         {/* Bottom row: Links with dot separators and copyright */}
@@ -36,22 +33,18 @@ export default function Footer() {
           </a>
           <span className="text-gray-500">•</span>
           <a 
-            href="/contact" 
-            className="hover:text-white"
-          >
-            Contact Us
-          </a>
-          <span className="text-gray-500">•</span>
-          <a 
             href="/attributions" 
             className="hover:text-white"
           >
             Floss
           </a>
-          <span className="text-gray-500 hidden sm:inline">•</span>
-          <span className="w-full sm:w-auto text-center sm:text-left mt-1 sm:mt-0">
-            © {currentYear} Trigpointing UK
-          </span>
+          <span className="text-gray-500">•</span>
+          <a 
+            href="/contact" 
+            className="hover:text-white"
+          >
+            Contact Us
+          </a>
         </div>
       </div>
     </footer>

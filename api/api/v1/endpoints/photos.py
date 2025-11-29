@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from api.api.deps import get_current_user, get_db
 from api.api.lifecycle import openapi_lifecycle
 from api.core.config import settings
+from api.core.metrics import get_metrics_collector
 from api.crud import tphoto as tphoto_crud
 from api.models.server import Server
 from api.models.trig import Trig
@@ -208,9 +209,16 @@ def create_photo(
         raise HTTPException(status_code=400, detail=validation_message)
 
     # Process image
-    processed_photo, processed_thumbnail, image_dims, thumbnail_dims = (
-        image_processor.process_image(file_contents)
-    )
+    metrics = get_metrics_collector()
+    if metrics:
+        with metrics.track_photo_processing():
+            processed_photo, processed_thumbnail, image_dims, thumbnail_dims = (
+                image_processor.process_image(file_contents)
+            )
+    else:
+        processed_photo, processed_thumbnail, image_dims, thumbnail_dims = (
+            image_processor.process_image(file_contents)
+        )
 
     if (
         not processed_photo
@@ -290,9 +298,17 @@ def create_photo(
         from api.services.content_moderation import moderate_photo_async
 
         moderate_photo_async(int(created.id))
+
+        # Record successful photo upload
+        if metrics:
+            metrics.record_photo_upload("success", trig_id=int(tlog.trig_id))
     except Exception as e:
         logger.warning(f"Failed to trigger content moderation: {e}")
         # Don't fail the upload, just log the warning
+
+        # Still record success since upload succeeded
+        if metrics:
+            metrics.record_photo_upload("success", trig_id=int(tlog.trig_id))
 
     # Return response
     server: Server | None = (

@@ -53,6 +53,16 @@
   .border-trig-green-800 { border-color: var(--color-trig-green-800); }
   .border-trig-green-900 { border-color: var(--color-trig-green-900); }
   .border-trig-green-950 { border-color: var(--color-trig-green-950); }
+
+  /* Hide scrollbar while maintaining scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
 }
 
 html, body, #root {

@@ -111,6 +111,8 @@ export interface TilesetSelectorProps {
   onChange: (tileLayerId: string) => void;
   /** Additional CSS classes */
   className?: string;
+  /** Whether to persist selection to localStorage (default: true) */
+  persistSelection?: boolean;
 }
 
 /**

@@ -2,22 +2,30 @@
 Trig endpoints for trigpoint data.
 """
 
+import hashlib
 import io
 import json
 import os
+import time
 from datetime import date as date_type
 from datetime import datetime
 from math import cos, radians, sqrt
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Request as FastAPIRequest
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
+from redis.exceptions import LockError
+from redis.lock import Lock
 from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user_optional, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
+from api.core.logging import get_logger
+from api.core.metrics import get_metrics_collector
 from api.crud import attr as attr_crud
 from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
@@ -37,34 +45,67 @@ from api.schemas.trig import TrigStats as TrigStatsSchema
 from api.schemas.trig import (
     TrigWithIncludes,
 )
+from api.services.cache_service import (
+    cache_get,
+    cache_set,
+    generate_cache_key,
+    get_redis_client,
+)
 from api.utils.cache_decorator import cached
 from api.utils.geocalibrate import CalibrationResult
 from api.utils.url import join_url
 
 router = APIRouter()
+logger = get_logger(__name__)
+
+CACHE_VALIDATION_INTERVAL_SECONDS = 60
+CACHE_PERSIST_TTL: Optional[int] = None  # Persist until explicitly replaced
+CACHE_VERSION = "v2"
 
 
-@router.get(
-    "/export",
-    openapi_extra=openapi_lifecycle("beta", note="Bulk export for offline apps"),
-)
-@cached(
-    resource_type="trigs",
-    ttl=31536000,  # 1 year (matching tile endpoints)
-    subresource="export",
-    include_query_params=False,  # Ignore query params for caching
-    cache_control="public, max-age=31536000",  # 1 year for Cloudflare
-)
-def export_trigs(
-    _lc=lifecycle("beta"),
-    db: Session = Depends(get_db),
-):
+def _build_etag(data_timestamp: Optional[str]) -> str:
     """
-    Export all trigpoints for offline use (Android app).
+    Build a stable ETag from the data timestamp stored in the cache wrapper.
+    """
+    base = data_timestamp or "unknown"
+    return f'"{hashlib.md5(base.encode(), usedforsecurity=False).hexdigest()}"'  # nosec B324
 
-    Returns all ~30,000 trigpoints with minimal fields.
-    This endpoint is heavily cached and not automatically invalidated.
-    Cache can be manually cleared via admin endpoints if needed.
+
+def _should_revalidate(last_validation_iso: Optional[str], now: datetime) -> bool:
+    if not last_validation_iso:
+        return True
+    try:
+        last_validation = datetime.fromisoformat(last_validation_iso)
+    except ValueError:
+        return True
+    return (now - last_validation).total_seconds() >= CACHE_VALIDATION_INTERVAL_SECONDS
+
+
+def _current_timestamp_str(db: Session) -> str:
+    current_timestamp = _get_max_trig_timestamp(db)
+    return current_timestamp.isoformat() if current_timestamp else "never"
+
+
+def _get_max_trig_timestamp(db: Session) -> Optional[datetime]:
+    """
+    Get the maximum upd_timestamp from trig table.
+
+    This is a fast query that tells us if ANY trig has been updated
+    since last cache generation. Used for smart cache invalidation.
+
+    Returns None if no trigs have timestamps.
+    """
+    from sqlalchemy import func
+
+    result = db.query(func.max(Trig.upd_timestamp)).scalar()
+    return result
+
+
+def _generate_export_data(db: Session) -> dict:
+    """
+    Generate the expensive export data for /export endpoint.
+
+    Only called when data actually changed based on timestamp check.
     """
     # Get all trigs (no pagination, no filters)
     items = trig_crud.list_trigs_filtered(
@@ -82,27 +123,409 @@ def export_trigs(
     for item, orig in zip(items_serialized, items):
         item["status_name"] = status_crud.get_status_name_by_id(db, int(orig.status_id))
 
-    # Return dict - cache decorator will wrap in JSONResponse with Cache-Control header
     return {
         "items": items_serialized,
         "total": len(items_serialized),
         "generated_at": datetime.utcnow().isoformat(),
-        "cache_info": "This export is cached for 1 year",
     }
+
+
+@router.get(
+    "/export",
+    openapi_extra=openapi_lifecycle("beta", note="Bulk export for offline apps"),
+)
+def export_trigs(
+    request: FastAPIRequest,
+    _lc=lifecycle("beta"),
+    db: Session = Depends(get_db),
+):
+    """
+    Export all trigpoints for offline use (Android app).
+
+    Returns all ~30,000 trigpoints with minimal fields.
+
+    Uses intelligent caching based on data freshness:
+    - Cached payload persists until the trig data actually changes
+    - Revalidates at most once every 60 seconds
+    - Serves stale content while a refresh is in progress
+    - Supports ETag for HTTP 304 responses
+    """
+    cache_key = generate_cache_key(
+        resource_type="trigs", subresource="export", version="v1"
+    )
+    lock_key = f"{cache_key}:lock"
+
+    metadata = _get_cache_metadata(cache_key)
+    cached_entry, _ = cache_get(cache_key)
+    cached_value, cached_timestamp, legacy_last_validation = _extract_cached_payload(
+        cached_entry
+    )
+    last_validation = metadata.get("last_validation") or legacy_last_validation
+
+    cache_status = "HIT"
+    if cached_value is None:
+        cached_entry = _generate_and_cache_payload(
+            cache_key=cache_key,
+            lock_key=lock_key,
+            db=db,
+            generator_fn=_generate_export_payload,
+            limit=None,
+            log_label="Export cache miss",
+        )
+        cached_value, cached_timestamp, legacy_last_validation = (
+            _extract_cached_payload(cached_entry)
+        )
+        metadata = _get_cache_metadata(cache_key)
+        last_validation = metadata.get("last_validation") or legacy_last_validation
+        cache_status = "MISS"
+
+    if cached_value is None:
+        payload = _generate_export_data(db)
+        timestamp_str = _current_timestamp_str(db)
+        etag = _build_etag(timestamp_str)
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            content=payload,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+                "X-Cache-Status": "MISS-NO-CACHE",
+                "X-Data-Timestamp": timestamp_str,
+            },
+        )
+
+    now = datetime.utcnow()
+    if_none_match = request.headers.get("If-None-Match")
+
+    if cached_entry and _should_revalidate(last_validation, now):
+        refreshed_entry, metadata, refresh_status = _maybe_refresh_cache_entry(
+            cache_key=cache_key,
+            lock_key=lock_key,
+            cached_entry=cached_entry,
+            db=db,
+            generator_fn=_generate_export_payload,
+            limit=None,
+            log_label="Export cache",
+            metadata=metadata,
+        )
+        if refreshed_entry is not None:
+            cached_entry = refreshed_entry
+            cached_value, cached_timestamp, legacy_last_validation = (
+                _extract_cached_payload(refreshed_entry)
+            )
+        last_validation = metadata.get("last_validation") or legacy_last_validation
+        cache_status = refresh_status
+
+    etag = _build_etag(cached_timestamp)
+
+    if if_none_match == etag:
+        from fastapi import Response
+
+        return Response(
+            status_code=304,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+                "X-Cache-Status": "NOT-MODIFIED",
+            },
+        )
+
+    from fastapi.responses import JSONResponse
+
+    data_timestamp_header = _get_entry_timestamp(
+        cached_entry if isinstance(cached_entry, dict) else None
+    )
+
+    return JSONResponse(
+        content=cached_value,
+        headers={
+            "ETag": etag,
+            "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+            "X-Cache-Status": cache_status,
+            "X-Data-Timestamp": data_timestamp_header,
+        },
+    )
+
+
+def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
+    """
+    Generate the expensive GeoJSON export data.
+
+    Only called when data actually changed based on timestamp check.
+    """
+    # Fetch all status types
+    all_statuses = status_crud.get_all_statuses(db)
+
+    # Filter to non-deleted statuses only (< 90)
+    active_statuses = [s for s in all_statuses if s.id < 90]
+
+    result: dict[str, Any] = {}
+
+    for status in active_statuses:
+        # Query trigpoints for this status
+        status_id_int = int(status.id)  # Ensure it's an int for type checking
+        items = trig_crud.list_trigs_filtered(
+            db,
+            status_ids=[status_id_int],
+            skip=0,
+            limit=limit if limit else 50000,
+            exclude_soft_deleted=True,  # Ensure we exclude status >= 90
+        )
+
+        # Build GeoJSON features
+        features = []
+        for item in items:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
+                    },
+                    "properties": {
+                        "id": item.id,
+                        "name": item.name,
+                        "condition": item.condition,
+                        "osgb_gridref": item.osgb_gridref,
+                        "physical_type": item.physical_type,
+                    },
+                }
+            )
+
+        # Convert status name to snake_case for dict key
+        status_key = status.name.strip().lower().replace(" ", "_")
+        result[status_key] = {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+
+    # Add metadata
+    result["generated_at"] = datetime.utcnow().isoformat()
+
+    return result
+
+
+def _wrap_cache_payload(
+    payload: Any, data_timestamp: str, *, last_validation: Optional[str] = None
+) -> dict[str, Any]:
+    """
+    Wrap a cached payload with metadata so we can track data freshness.
+
+    Metadata fields are placed first so they're visible at the top when
+    viewing large payloads in Redis debugging tools.
+    """
+    return {
+        "_data_timestamp": data_timestamp,
+        "_cache_version": CACHE_VERSION,
+        "_payload": payload,
+    }
+
+
+def _extract_cached_payload(
+    cached_entry: Any,
+) -> tuple[Optional[Any], Optional[str], Optional[str]]:
+    """
+    Extract the payload and timestamp from a cached entry.
+
+    Supports both the new wrapped format (payload + metadata) and the legacy
+    format where only the payload was stored.
+    """
+    if cached_entry is None:
+        return None, None, None
+
+    if isinstance(cached_entry, dict):
+        if "_payload" in cached_entry and "_data_timestamp" in cached_entry:
+            return (
+                cached_entry.get("_payload"),
+                cached_entry.get("_data_timestamp"),
+                cached_entry.get("_last_validation"),
+            )
+        # Legacy payload – fall back to using the payload directly, with any
+        # generated_at field as a best-effort timestamp.
+        return (
+            cached_entry,
+            cached_entry.get("generated_at"),
+            cached_entry.get("_last_validation"),
+        )
+
+    # Non-dict payloads (unlikely) – treat as raw payload with no timestamp.
+    return cached_entry, None, None
+
+
+def _generate_export_payload(db: Session, limit: Optional[int] = None) -> dict:
+    # limit parameter kept for API symmetry; not used for export payload
+    return _generate_export_data(db)
+
+
+def _generate_geojson_payload(db: Session, limit: Optional[int] = None) -> dict:
+    return _generate_geojson_data(db, limit)
+
+
+def _write_cache_entry(cache_key: str, wrapper: dict[str, Any]) -> None:
+    serialize_start = time.perf_counter()
+    serializable_wrapper = jsonable_encoder(wrapper)
+    serialize_ms = (time.perf_counter() - serialize_start) * 1000
+
+    write_start = time.perf_counter()
+    success = cache_set(cache_key, serializable_wrapper, CACHE_PERSIST_TTL)
+    write_ms = (time.perf_counter() - write_start) * 1000
+
+    logger.info(
+        "Cache write key=%s success=%s serialize_ms=%.2f write_ms=%.2f",
+        cache_key,
+        success,
+        serialize_ms,
+        write_ms,
+    )
+
+
+def _metadata_key(cache_key: str) -> str:
+    return f"{cache_key}:meta"
+
+
+def _get_cache_metadata(cache_key: str) -> dict[str, Any]:
+    metadata_entry, _ = cache_get(_metadata_key(cache_key))
+    if isinstance(metadata_entry, dict):
+        return metadata_entry
+    return {}
+
+
+def _set_cache_metadata(cache_key: str, metadata: dict[str, Any]) -> float:
+    metadata_key = _metadata_key(cache_key)
+    start = time.perf_counter()
+    success = cache_set(metadata_key, metadata, CACHE_PERSIST_TTL)
+    duration_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "Cache metadata write key=%s success=%s duration_ms=%.2f",
+        metadata_key,
+        success,
+        duration_ms,
+    )
+    return duration_ms
+
+
+def _get_entry_timestamp(entry: Optional[dict[str, Any]]) -> str:
+    if isinstance(entry, dict):
+        ts = entry.get("_data_timestamp")
+        if isinstance(ts, str):
+            return ts
+    return "unknown"
+
+
+def _generate_and_cache_payload(
+    *,
+    cache_key: str,
+    lock_key: str,
+    db: Session,
+    generator_fn,
+    limit: Optional[int],
+    log_label: str,
+) -> dict:
+    """
+    Generate a fresh payload, storing it in cache. Handles locking so that
+    only one request populates the cache on a miss.
+    """
+    redis_client = get_redis_client()
+    if redis_client is not None:
+        lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=60)
+        with lock:
+            cached_entry, _ = cache_get(cache_key)
+            if cached_entry:
+                return cached_entry
+
+            payload = generator_fn(db, limit)
+            timestamp_str = _current_timestamp_str(db)
+            wrapper = _wrap_cache_payload(payload, timestamp_str)
+            _write_cache_entry(cache_key, wrapper)
+            metadata = {
+                "last_validation": datetime.utcnow().isoformat(),
+                "cache_version": CACHE_VERSION,
+            }
+            _set_cache_metadata(cache_key, metadata)
+            logger.info(f"{log_label}: Cache populated")
+            return wrapper
+
+    payload = generator_fn(db, limit)
+    timestamp_str = _current_timestamp_str(db)
+    wrapper = _wrap_cache_payload(payload, timestamp_str)
+    _write_cache_entry(cache_key, wrapper)
+    metadata = {
+        "last_validation": datetime.utcnow().isoformat(),
+        "cache_version": CACHE_VERSION,
+    }
+    _set_cache_metadata(cache_key, metadata)
+    logger.info(f"{log_label}: Cache populated without Redis lock")
+    return wrapper
+
+
+def _maybe_refresh_cache_entry(
+    *,
+    cache_key: str,
+    lock_key: str,
+    cached_entry: dict[str, Any],
+    db: Session,
+    generator_fn,
+    limit: Optional[int],
+    log_label: str,
+    metadata: Optional[dict[str, Any]] = None,
+) -> tuple[Optional[dict[str, Any]], dict[str, Any], str]:
+    metadata = dict(metadata or {})
+    redis_client = get_redis_client()
+    if redis_client is None:
+        return None, metadata, "STALE"
+
+    lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=0)
+    try:
+        with lock:
+            db_start = time.perf_counter()
+            current_timestamp_str = _current_timestamp_str(db)
+            db_duration_ms = (time.perf_counter() - db_start) * 1000
+            cached_timestamp = cached_entry.get("_data_timestamp")
+            now_iso = datetime.utcnow().isoformat()
+
+            if cached_timestamp == current_timestamp_str:
+                metadata["last_validation"] = now_iso
+                metadata["cache_version"] = CACHE_VERSION
+                meta_duration_ms = _set_cache_metadata(cache_key, metadata)
+                logger.info(
+                    "%s: Data unchanged; validation timestamp updated (db_ms=%.2f, meta_ms=%.2f)",
+                    log_label,
+                    db_duration_ms,
+                    meta_duration_ms,
+                )
+                return cached_entry, metadata, "REVALIDATED"
+
+            regen_start = time.perf_counter()
+            payload = generator_fn(db, limit)
+            regen_duration_ms = (time.perf_counter() - regen_start) * 1000
+            wrapper = _wrap_cache_payload(
+                payload, current_timestamp_str, last_validation=now_iso
+            )
+            _write_cache_entry(cache_key, wrapper)
+            metadata["last_validation"] = now_iso
+            metadata["cache_version"] = CACHE_VERSION
+            meta_duration_ms = _set_cache_metadata(cache_key, metadata)
+            logger.info(
+                "%s: Data changed; cache refreshed (db_ms=%.2f, regen_ms=%.2f, meta_ms=%.2f)",
+                log_label,
+                db_duration_ms,
+                regen_duration_ms,
+                meta_duration_ms,
+            )
+            return wrapper, metadata, "REFRESHED"
+
+    except LockError:
+        logger.info(f"{log_label}: Refresh already in progress; serving stale data")
+        return None, metadata, "REFRESH_IN_PROGRESS"
 
 
 @router.get(
     "/geojson",
     openapi_extra=openapi_lifecycle("beta", note="GeoJSON export for map rendering"),
 )
-@cached(
-    resource_type="trigs",
-    ttl=31536000,  # 1 year (matching /export endpoint)
-    subresource="geojson",
-    include_query_params=True,  # Include limit param in cache key
-    cache_control="public, max-age=31536000",  # 1 year for Cloudflare
-)
 def export_trigs_geojson(
+    request: FastAPIRequest,
     limit: Optional[int] = Query(
         None, description="Limit results per type (for testing only)"
     ),
@@ -110,102 +533,125 @@ def export_trigs_geojson(
     db: Session = Depends(get_db),
 ):
     """
-    Export FBM and Pillar trigpoints in GeoJSON format for map display.
+    Export trigpoints in GeoJSON format for map display, grouped by status.
 
-    Returns two FeatureCollections (one for each physical type).
-    Each feature contains id, name, condition, and osgb_gridref in properties and Point geometry.
+    Returns FeatureCollections for each status level (Pillar, Major mark, Minor mark, etc.).
+    Each feature contains id, name, condition, osgb_gridref, and physical_type in properties.
 
-    This endpoint is heavily cached (1 year) as the data is essentially static.
-    Cache can be manually cleared via admin endpoints if needed.
+    Excludes soft-deleted records (status >= 90).
+
+    Uses intelligent caching based on data freshness:
+    - Cached payload persists until the trig data actually changes
+    - Revalidates at most once every 60 seconds
+    - Serves stale content while a refresh is in progress
+    - Supports ETag for HTTP 304 responses
     """
-    # Query FBM trigpoints
-    fbm_items = trig_crud.list_trigs_filtered(
-        db,
-        physical_types=["FBM"],
-        skip=0,
-        limit=limit if limit else 50000,
+    params = {"limit": limit} if limit is not None else None
+    cache_key = generate_cache_key(
+        resource_type="trigs", subresource="geojson", params=params, version="v1"
     )
+    lock_key = f"{cache_key}:lock"
 
-    # Query Pillar trigpoints
-    pillar_items = trig_crud.list_trigs_filtered(
-        db,
-        physical_types=["Pillar"],
-        skip=0,
-        limit=limit if limit else 50000,
+    metadata = _get_cache_metadata(cache_key)
+    cached_entry, _ = cache_get(cache_key)
+    cached_value, cached_timestamp, legacy_last_validation = _extract_cached_payload(
+        cached_entry
     )
+    last_validation = metadata.get("last_validation") or legacy_last_validation
 
-    # Build GeoJSON FeatureCollection for FBM
-    fbm_features = []
-    for item in fbm_items:
-        fbm_features.append(
-            {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
-                },
-                "properties": {
-                    "id": item.id,
-                    "name": item.name,
-                    "condition": item.condition,
-                    "osgb_gridref": item.osgb_gridref,
-                },
-            }
+    cache_status = "HIT"
+    if cached_value is None:
+        cached_entry = _generate_and_cache_payload(
+            cache_key=cache_key,
+            lock_key=lock_key,
+            db=db,
+            generator_fn=_generate_geojson_payload,
+            limit=limit,
+            log_label="GeoJSON cache miss",
+        )
+        cached_value, cached_timestamp, legacy_last_validation = (
+            _extract_cached_payload(cached_entry)
+        )
+        metadata = _get_cache_metadata(cache_key)
+        last_validation = metadata.get("last_validation") or legacy_last_validation
+        cache_status = "MISS"
+
+    if cached_value is None:
+        payload = _generate_geojson_data(db, limit)
+        timestamp_str = _current_timestamp_str(db)
+        etag = _build_etag(timestamp_str)
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            content=payload,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+                "X-Cache-Status": "MISS-NO-CACHE",
+                "X-Data-Timestamp": timestamp_str,
+            },
         )
 
-    fbm_collection = {"type": "FeatureCollection", "features": fbm_features}
+    now = datetime.utcnow()
+    if_none_match = request.headers.get("If-None-Match")
 
-    # Build GeoJSON FeatureCollection for Pillar
-    pillar_features = []
-    for item in pillar_items:
-        pillar_features.append(
-            {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
-                },
-                "properties": {
-                    "id": item.id,
-                    "name": item.name,
-                    "condition": item.condition,
-                    "osgb_gridref": item.osgb_gridref,
-                },
-            }
+    if cached_entry and _should_revalidate(last_validation, now):
+        refreshed_entry, metadata, refresh_status = _maybe_refresh_cache_entry(
+            cache_key=cache_key,
+            lock_key=lock_key,
+            cached_entry=cached_entry,
+            db=db,
+            generator_fn=_generate_geojson_payload,
+            limit=limit,
+            log_label="GeoJSON cache",
+            metadata=metadata,
+        )
+        if refreshed_entry is not None:
+            cached_entry = refreshed_entry
+            cached_value, cached_timestamp, legacy_last_validation = (
+                _extract_cached_payload(refreshed_entry)
+            )
+        last_validation = metadata.get("last_validation") or legacy_last_validation
+        cache_status = refresh_status
+
+    etag = _build_etag(cached_timestamp)
+
+    if if_none_match == etag:
+        from fastapi import Response
+
+        return Response(
+            status_code=304,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+                "X-Cache-Status": "NOT-MODIFIED",
+            },
         )
 
-    pillar_collection = {"type": "FeatureCollection", "features": pillar_features}
+    from fastapi.responses import JSONResponse
 
-    # Return both collections
-    return {
-        "fbm": fbm_collection,
-        "pillar": pillar_collection,
-        "generated_at": datetime.utcnow().isoformat(),
-        "cache_info": "This export is cached for 1 year",
-    }
+    data_timestamp_header = _get_entry_timestamp(
+        cached_entry if isinstance(cached_entry, dict) else None
+    )
+
+    return JSONResponse(
+        content=cached_value,
+        headers={
+            "ETag": etag,
+            "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+            "X-Cache-Status": cache_status,
+            "X-Data-Timestamp": data_timestamp_header,
+        },
+    )
 
 
-@router.get(
-    "/{trig_id}",
-    response_model=TrigWithIncludes,
-    openapi_extra=openapi_lifecycle(
-        "beta", note="Shape may change; fieldset stabilising"
-    ),
-)
 @cached(resource_type="trig", ttl=86400, resource_id_param="trig_id")  # 24 hours
-def get_trig(
+def _get_trig_cached(
     trig_id: int,
-    include: Optional[str] = Query(
-        None, description="Comma-separated list of includes: details,stats,attrs"
-    ),
-    _lc=lifecycle("beta", note="Shape may change"),
-    db: Session = Depends(get_db),
+    include: Optional[str],
+    db: Session,
 ):
-    """
-    Get a trigpoint by ID.
-
-    Default: minimal fields. Supports include=details,stats,attrs.
-    """
+    """Internal cached function for fetching trig data."""
     trig = trig_crud.get_trig_by_id(db, trig_id=trig_id)
     if trig is None:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
@@ -244,6 +690,54 @@ def get_trig(
     return TrigWithIncludes(
         **minimal_data, details=details_obj, stats=stats_obj, attrs=attrs_obj
     )
+
+
+@router.get(
+    "/{trig_id}",
+    response_model=TrigWithIncludes,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Shape may change; fieldset stabilising"
+    ),
+)
+def get_trig(
+    trig_id: int,
+    request: FastAPIRequest,
+    include: Optional[str] = Query(
+        None, description="Comma-separated list of includes: details,stats,attrs"
+    ),
+    _lc=lifecycle("beta", note="Shape may change"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a trigpoint by ID.
+
+    Default: minimal fields. Supports include=details,stats,attrs.
+    """
+    # Determine cache status by checking if the cached function will return cached data
+    # Generate the same cache key that the @cached decorator will use
+    from api.utils.cache_decorator import cache_get, generate_cache_key
+
+    cache_key = generate_cache_key(
+        resource_type="trig",
+        resource_id=str(trig_id),
+        params={"include": include} if include else None,
+    )
+
+    # Check if we have a cached value
+    cached_value, _ = cache_get(cache_key)
+    cache_status = "hit" if cached_value is not None else "miss"
+
+    # Check for cache bypass header
+    if request and "no-cache" in request.headers.get("cache-control", "").lower():
+        cache_status = "bypass"
+
+    # Record trig view metric with cache status
+    metrics = get_metrics_collector()
+    if metrics:
+        metrics.record_trig_view(trig_id, cache_status=cache_status)
+
+    # Call the cached function to get the data
+    return _get_trig_cached(trig_id=trig_id, include=include, db=db)
 
 
 @router.get(
@@ -289,6 +783,9 @@ def list_trigs(
     physical_types: Optional[str] = Query(
         None, description="Comma-separated physical types to include"
     ),
+    status_ids: Optional[str] = Query(
+        None, description="Comma-separated status IDs to include (e.g., '10,20,30')"
+    ),
     exclude_found: Optional[bool] = Query(
         False, description="Exclude trigpoints already logged by authenticated user"
     ),
@@ -301,16 +798,41 @@ def list_trigs(
     """
     Filtered collection endpoint for trigs returning envelope with items, pagination, links.
 
-    New filters:
+    Filters:
     - physical_types: Filter by physical type (e.g., "Pillar,Bolt,FBM")
+    - status_ids: Filter by status IDs (e.g., "10,20,30")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
+
+    If authenticated, applies user's status_max preference to limit visible trigs.
+    Always excludes soft-deleted records (status >= 90).
     """
+    # Record trig search metric
+    metrics = get_metrics_collector()
+    if metrics:
+        search_type = "nearby" if (lat and lon and max_km) else "general"
+        metrics.record_trig_search(search_type)
+
     # Parse physical types
     physical_types_list = None
     if physical_types:
         physical_types_list = [
             pt.strip() for pt in physical_types.split(",") if pt.strip()
         ]
+
+    # Parse status IDs
+    status_ids_list = None
+    if status_ids:
+        status_ids_list = [
+            int(sid.strip()) for sid in status_ids.split(",") if sid.strip()
+        ]
+
+    # Apply user's status_max preference if authenticated
+    max_status = None
+    if current_user and hasattr(current_user, "status_max") and current_user.status_max:
+        max_status = int(current_user.status_max)
+    else:
+        # Default for unauthenticated users
+        max_status = 30
 
     # Get user ID for exclude_found filter
     exclude_found_by_user_id = None
@@ -328,7 +850,10 @@ def list_trigs(
         max_km=max_km,
         order=order,
         physical_types=physical_types_list,
+        status_ids=status_ids_list,
+        max_status=max_status,
         exclude_found_by_user_id=exclude_found_by_user_id,
+        exclude_soft_deleted=True,  # Always exclude status >= 90
     )
     total = trig_crud.count_trigs_filtered(
         db,
@@ -338,7 +863,10 @@ def list_trigs(
         center_lon=lon,
         max_km=max_km,
         physical_types=physical_types_list,
+        status_ids=status_ids_list,
+        max_status=max_status,
         exclude_found_by_user_id=exclude_found_by_user_id,
+        exclude_soft_deleted=True,  # Always exclude status >= 90
     )
 
     # serialise
@@ -370,6 +898,8 @@ def list_trigs(
         params.append(f"order={order}")
     if physical_types:
         params.append(f"physical_types={physical_types}")
+    if status_ids:
+        params.append(f"status_ids={status_ids}")
     if exclude_found:
         params.append("exclude_found=true")
     params.append(f"limit={limit}")

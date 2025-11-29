@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Script to connect to PostgreSQL RDS master user using the managed secret
+
+set -e
+
+AWS_REGION="{{ aws_region }}"
+AWS_SECRET="{{ pg_secret_name }}"
+
+echo "================================================"
+echo "PostgreSQL RDS Master Connection"
+echo "================================================"
+
+# Retrieve credentials from Secrets Manager
+echo "🔐 Retrieving master credentials from AWS Secrets Manager..."
+MASTER_JSON=$(aws secretsmanager get-secret-value \
+  --secret-id "$AWS_SECRET" \
+  --region "$AWS_REGION" \
+  --query SecretString \
+  --output text)
+
+if [[ $? -ne 0 ]]; then
+    echo "❌ Failed to retrieve master credentials from AWS Secrets Manager"
+    echo "   Make sure AWS CLI is configured and you have permissions to access the secret"
+    exit 1
+fi
+
+# Parse master credentials from JSON
+DB_HOST="{{ pg_host }}"
+DB_PORT="{{ pg_port }}"
+DB_USER=$(echo "$MASTER_JSON" | jq -r '.username')
+DB_PASS=$(echo "$MASTER_JSON" | jq -r '.password')
+DB_NAME="{{ pg_database }}"
+
+echo "📊 PostgreSQL connection details:"
+echo "   Host: $DB_HOST"
+echo "   Port: $DB_PORT"
+echo "   Username: $DB_USER"
+echo "   Database: $DB_NAME"
+echo ""
+echo "🔌 Connecting to PostgreSQL database as master user..."
+echo "================================================"
+echo ""
+
+# Set PGPASSWORD to avoid password prompt
+export PGPASSWORD="$DB_PASS"
+
+# Connect to PostgreSQL database as master user
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
+

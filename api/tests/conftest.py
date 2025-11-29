@@ -6,12 +6,16 @@ import warnings
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 # from api.core.security import get_password_hash  # No longer needed - using Unix crypt
 from api.db.database import Base, get_db
+from api.db.user_activity_summary_view import (
+    CREATE_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS,
+    DROP_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS,
+)
 from api.main import app
 from api.models.user import TLog, User
 
@@ -27,23 +31,57 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="passlib.*
 
 
 def get_test_database_url():
-    """Get database URL, with unique DB file for each pytest-xdist worker."""
+    """Get PostgreSQL database URL for testing."""
     import os
 
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
-    # Use in-memory database for single-process runs, file-based for parallel
-    if worker_id == "master":
-        return "sqlite:///:memory:"
-    else:
-        return f"sqlite:///./test_{worker_id}.db"
+    # Use environment variable if set (for CI), otherwise use default test DB
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        return db_url
+
+    # Default local PostgreSQL for tests - use single database with schema isolation
+    # PostgreSQL handles parallel access better than separate databases
+    return "postgresql+psycopg2://test_user:test_password@localhost:5432/test_db"
 
 
-# Test database URL (in-memory SQLite for single runs, file-based for parallel)
+def setup_test_database():
+    """Create test database and schema if needed."""
+    import os
+
+    from sqlalchemy import create_engine
+
+    # Only run setup for parallel workers or when DATABASE_URL not set
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        # In CI, database already exists
+        return
+
+    # For local development, ensure test database exists
+    admin_url = "postgresql+psycopg2://test_user:test_password@localhost:5432/postgres"
+    try:
+        admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+        with admin_engine.connect() as conn:
+            # Check if test_db exists
+            result = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname='test_db'")
+            )
+            if not result.scalar():
+                conn.execute(text("CREATE DATABASE test_db"))
+        admin_engine.dispose()
+    except Exception:
+        # Database likely already exists or we don't have permissions
+        # Tests will fail if it's a real issue
+        pass
+
+
+# Setup database before creating engine
+setup_test_database()
+
+# Test database URL
 SQLALCHEMY_DATABASE_URL = get_test_database_url()
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -61,16 +99,39 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_tables(request):
+    """Create all tables once at the session start for each worker."""
+    # Create tables (will only succeed for the first worker due to PostgreSQL's transactional DDL)
+    try:
+        Base.metadata.create_all(bind=engine)
+        with engine.begin() as connection:
+            for statement in DROP_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS:
+                connection.execute(text(statement))
+            for statement in CREATE_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS:
+                connection.execute(text(statement))
+    except Exception:
+        # Tables likely already exist from another worker
+        pass
+
+    yield
+
+    # Don't drop tables - let the test database cleanup handle it
+
+
 @pytest.fixture(scope="function")
 def db():
-    """Create test database."""
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
+    """Create test database session.
+
+    Note: Tests share the same database, so use unique IDs/names to avoid conflicts.
+    The session-scoped setup creates tables once, and they persist across tests.
+    """
+    session = TestingSessionLocal()
     try:
-        yield db
+        yield session
     finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+        session.rollback()  # Rollback any uncommitted changes
+        session.close()
 
 
 @pytest.fixture(scope="function")
@@ -130,18 +191,20 @@ def client(monkeypatch):
 @pytest.fixture
 def test_user(db):
     """Create a test user."""
+    import uuid
+
     from passlib.hash import des_crypt
 
     # Create Unix crypt hash for testing
     test_password = "testpassword123"
     cryptpw = des_crypt.hash(test_password)
 
+    unique_name = f"testuser_{uuid.uuid4().hex[:8]}"
     user = User(
-        id=1000,  # Avoid conflicts with real data
-        name="testuser",
+        name=unique_name,
         firstname="Test",
         surname="User",
-        email="test@example.com",
+        email=f"{unique_name}@example.com",
         cryptpw=cryptpw,
         about="Test user for unit tests",
         email_valid="Y",
@@ -154,14 +217,14 @@ def test_user(db):
 
 
 @pytest.fixture
-def test_tlog_entries(db):
+def test_tlog_entries(db, test_user):
     """Create test tlog entries."""
     from datetime import date, datetime, time
 
     entries = [
         TLog(
             trig_id=1,
-            user_id=1000,
+            user_id=test_user.id,
             date=date(2023, 12, 15),
             time=time(14, 30, 0),
             osgb_eastings=100000,
@@ -177,7 +240,7 @@ def test_tlog_entries(db):
         ),
         TLog(
             trig_id=1,
-            user_id=1000,
+            user_id=test_user.id,
             date=date(2023, 12, 10),
             time=time(10, 15, 0),
             osgb_eastings=100000,
@@ -193,7 +256,7 @@ def test_tlog_entries(db):
         ),
         TLog(
             trig_id=1,
-            user_id=1000,
+            user_id=test_user.id,
             date=date(2023, 12, 5),
             time=time(16, 45, 0),
             osgb_eastings=100000,

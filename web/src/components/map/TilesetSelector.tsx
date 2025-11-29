@@ -9,18 +9,21 @@ import type { TilesetSelectorProps } from "./types";
 /**
  * Dropdown to select and switch between available tile layers
  * 
- * Persists the user's selection to localStorage.
+ * Persists the user's selection to localStorage unless persistSelection is false.
  */
 export default function TilesetSelector({
   value,
   onChange,
   className = "",
+  persistSelection = true,
 }: TilesetSelectorProps) {
   const [tileLayers] = useState<TileLayer[]>(getAvailableTileLayers());
   
   const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newLayerId = event.target.value;
-    setPreferredTileLayer(newLayerId);
+    if (persistSelection) {
+      setPreferredTileLayer(newLayerId);
+    }
     onChange(newLayerId);
   };
   
@@ -44,4 +47,3 @@ export default function TilesetSelector({
     </div>
   );
 }
-

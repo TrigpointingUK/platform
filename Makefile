@@ -7,7 +7,9 @@ orientation-model:
 	run-staging db-tunnel-staging-start db-tunnel-staging-stop mysql-staging \
 	bastion-ssm-shell db-tunnel-staging-ssm-start bastion-allow-my-ip bastion-revoke-my-ip \
 	redis-tunnel-staging-ssm-start redis-cli-staging \
-	web-install web-dev web-build web-test web-lint web-type-check
+	test-db-start test-db-stop \
+	web-install web-dev web-build web-test web-lint web-type-check \
+	migration-create migration-upgrade migration-downgrade migration-history migration-current migration-check
 
 # Default target
 help: ## Show this help message
@@ -22,12 +24,12 @@ help: ## Show this help message
 
 # Defaults (override on the command line or environment as needed)
 AWS_REGION ?= eu-west-1
-STAGING_SECRET_ARN ?= arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-staging-credentials-udrQoU
+STAGING_SECRET_ARN ?= arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-staging-postgres-credentials
 PRODUCTION_SECRET_ARN ?= arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-legacy-credentials-p9KGQI
 SSH_BASTION_HOST ?= bastion.trigpointing.uk
 SSH_BASTION_USER ?= ec2-user
 SSH_KEY_PATH ?= ~/.ssh/trigpointing-bastion.pem
-LOCAL_DB_TUNNEL_PORT ?= 3307
+LOCAL_DB_TUNNEL_PORT ?= 5433
 LOCAL_DB_TUNNEL_PORT_PROD ?= 3308
 LOCAL_REDIS_TUNNEL_PORT ?= 6379
 BASTION_SG_ID ?=
@@ -150,17 +152,18 @@ bastion-ssm-shell: ## Start interactive shell on bastion over SSM (no SSH ingres
 	@echo "🔐 Starting SSM shell to $(_bastion_instance)"
 	aws --region $(AWS_REGION) ssm start-session --target "$(_bastion_instance)"
 
-db-tunnel-staging-ssm-start: ## Start SSM remote host port forward to RDS → localhost:$(LOCAL_DB_TUNNEL_PORT)
+db-tunnel-staging-ssm-start: ## Start SSM remote host port forward to PostgreSQL RDS → localhost:5433
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
 	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found."; exit 1; }
 	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
-	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id $(STAGING_SECRET_ARN) --query SecretString --output text); \
+	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id fastapi-staging-postgres-credentials --query SecretString --output text); \
 	RDS_HOST=$$(echo "$$SECRET_JSON" | jq -r '.host'); \
-	echo "🔐 SSM forwarding: 127.0.0.1:$(LOCAL_DB_TUNNEL_PORT) → $$RDS_HOST:3306 via $(_bastion_instance)"; \
+	RDS_PORT=$$(echo "$$SECRET_JSON" | jq -r '.port'); \
+	echo "🔐 SSM forwarding: 127.0.0.1:5433 → $$RDS_HOST:$$RDS_PORT via $(_bastion_instance)"; \
 	aws --region $(AWS_REGION) ssm start-session \
 	  --target "$(_bastion_instance)" \
 	  --document-name AWS-StartPortForwardingSessionToRemoteHost \
-	  --parameters "host=[$$RDS_HOST],portNumber=['3306'],localPortNumber=['$(LOCAL_DB_TUNNEL_PORT)']"
+	  --parameters "host=[$$RDS_HOST],portNumber=['$$RDS_PORT'],localPortNumber=['5433']"
 
 redis-tunnel-staging-ssm-start: ## Start SSM remote host port forward to Valkey → localhost:$(LOCAL_REDIS_TUNNEL_PORT)
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
@@ -232,7 +235,23 @@ install-dev: ## Install development dependencies
 	pre-commit install
 
 # Testing
-test: ## Run tests
+test-db-start: ## Start local PostgreSQL test database
+	@docker-compose -f docker-compose.test.yml up -d
+	@echo "⏳ Waiting for PostgreSQL to be ready..."
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+		if docker-compose -f docker-compose.test.yml exec -T test-db pg_isready -U test_user -d test_db > /dev/null 2>&1; then \
+			echo "✅ Test database ready on localhost:5432"; \
+			exit 0; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "✅ Test database ready on localhost:5432"
+
+test-db-stop: ## Stop local PostgreSQL test database
+	docker-compose -f docker-compose.test.yml down -v
+
+test: ## Run tests (requires test-db-start)
+	@docker-compose -f docker-compose.test.yml ps test-db | grep -q "Up" || { echo "❌ Test database not running. Run 'make test-db-start' first."; exit 1; }
 	CACHE_ENABLED=false pytest -n auto
 
 test-cov: ## Run tests with coverage
@@ -268,6 +287,47 @@ type-check: ## Run type checking
 security: ## Run security checks
 	bandit -r api --skip B101 --exclude api/tests
 	-safety check
+
+# Database migrations with Alembic
+migration-create: ## Create a new migration (usage: make migration-create MSG="description")
+	@if [ -z "$(MSG)" ]; then \
+		echo "❌ Error: MSG parameter required"; \
+		echo "Usage: make migration-create MSG=\"your migration description\""; \
+		exit 1; \
+	fi
+	@echo "🔧 Creating new migration: $(MSG)"
+	alembic revision --autogenerate -m "$(MSG)"
+	@echo "✅ Migration created. Review the file in alembic/versions/ before applying"
+
+migration-upgrade: ## Apply all pending migrations locally
+	@echo "⬆️  Applying migrations..."
+	alembic upgrade head
+	@echo "✅ Migrations applied"
+
+migration-downgrade: ## Rollback one migration locally
+	@echo "⬇️  Rolling back one migration..."
+	alembic downgrade -1
+	@echo "✅ Migration rolled back"
+
+migration-history: ## Show migration history
+	@echo "📜 Migration history:"
+	alembic history --verbose
+
+migration-current: ## Show current migration revision
+	@echo "📍 Current revision:"
+	alembic current --verbose
+
+migration-check: ## Check if database is up to date (exits 1 if pending migrations)
+	@CURRENT=$$(alembic current 2>&1 | grep -o '[a-f0-9]\{12\}' | head -1); \
+	HEAD=$$(alembic heads 2>&1 | grep -o '[a-f0-9]\{12\}' | head -1); \
+	if [ "$$CURRENT" = "$$HEAD" ]; then \
+		echo "✅ Database is up to date ($$CURRENT)"; \
+	else \
+		echo "⚠️  Pending migrations detected"; \
+		echo "   Current: $$CURRENT"; \
+		echo "   Latest:  $$HEAD"; \
+		exit 1; \
+	fi
 
 # Application
 build: ## Build the application
@@ -377,7 +437,7 @@ tf-fmt: ## Format Terraform files
 pre-commit: ## Run pre-commit hooks
 	pre-commit run --all-files
 
-ci: terraform-format-check format-check lint type-check security test web-lint web-type-check web-test ## Run all CI checks
+ci: terraform-format-check test-db-start format-check lint type-check security test web-lint web-type-check web-test test-db-stop ## Run all CI checks
 
 # Web application targets
 web-install: ## Install web application dependencies

@@ -5,6 +5,7 @@ import string
 
 import boto3
 import pymysql
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -24,8 +25,15 @@ def handler(event, context):
         current_secret = secrets_client.get_secret_value(SecretId=secret_arn)
         current_credentials = json.loads(current_secret["SecretString"])
 
-        # Generate new password
-        new_password = generate_password()
+        # Generate a new password
+        try:
+            response = secrets_client.get_random_password(
+                ExcludeCharacters='@/"\\', ExcludePunctuation=True
+            )
+            new_password = response["RandomPassword"]
+        except ClientError as e:
+            logger.error(f"Error generating random password: {e}")
+            raise e
 
         # Get RDS endpoint from the secret ARN context or hardcode for now
         # In a real implementation, you'd get this from the secret or environment

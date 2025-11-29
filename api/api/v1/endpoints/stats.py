@@ -5,6 +5,7 @@ Site-wide statistics endpoint with Redis caching.
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.api.deps import get_db
@@ -35,29 +36,88 @@ def get_site_stats(db: Session = Depends(get_db)):
 
     This endpoint is expensive to compute, so results are cached in Redis for 60 minutes.
     Cache is automatically invalidated when logs, photos, or users are created.
+
+    Performance: Uses optimized PostgreSQL pg_class statistics for fast approximate counts
+    instead of slow COUNT(*) queries for better performance on large tables.
     """
-    # Basic counts
-    total_trigs = db.query(Trig).count()
-    total_users = db.query(User).count()
-    total_logs = db.query(TLog).count()
-    total_photos = db.query(TPhoto).filter(TPhoto.deleted_ind != "Y").count()
-
-    # Recent activity
+    # Calculate date thresholds once
     seven_days_ago = datetime.now() - timedelta(days=7)
-    recent_logs_7d = db.query(TLog).filter(TLog.upd_timestamp >= seven_days_ago).count()
-
     thirty_days_ago = datetime.now() - timedelta(days=30)
-    recent_users_30d = (
-        db.query(User).filter(User.crt_date >= thirty_days_ago.date()).count()
-    )
 
-    result = {
-        "total_trigs": total_trigs,
-        "total_users": total_users,
-        "total_logs": total_logs,
-        "total_photos": total_photos,
-        "recent_logs_7d": recent_logs_7d,
-        "recent_users_30d": recent_users_30d,
-    }
+    # Strategy: Use approximate counts from PostgreSQL statistics for large tables
+    # These are much faster and usually accurate enough for dashboard stats
+    try:
+        # Try to use pg_class for fast approximate counts (PostgreSQL specific)
+        # This is orders of magnitude faster than COUNT(*) on large tables
+        approx_stats = db.execute(
+            text(
+                """
+            SELECT
+                (SELECT reltuples::bigint FROM pg_class WHERE relname = 'trig') as total_trigs,
+                (SELECT reltuples::bigint FROM pg_class WHERE relname = 'user') as total_users,
+                (SELECT reltuples::bigint FROM pg_class WHERE relname = 'tlog') as total_logs
+            """
+            )
+        ).first()
+
+        # For photos, we need exact count due to deleted_ind filter, but optimize it
+        total_photos = db.execute(
+            text("SELECT COUNT(*) FROM tphoto WHERE deleted_ind != 'Y'")
+        ).scalar()
+
+        # For recent activity, use optimized queries with proper indexes
+        recent_logs_7d = db.execute(
+            text("SELECT COUNT(*) FROM tlog WHERE upd_timestamp >= :seven_days_ago"),
+            {"seven_days_ago": seven_days_ago},
+        ).scalar()
+
+        recent_users_30d = db.execute(
+            text('SELECT COUNT(*) FROM "user" WHERE crt_date >= :thirty_days_ago'),
+            {"thirty_days_ago": thirty_days_ago.date()},
+        ).scalar()
+
+        result = {
+            "total_trigs": (
+                int(approx_stats[0]) if approx_stats and approx_stats[0] else 0
+            ),
+            "total_users": (
+                int(approx_stats[1]) if approx_stats and approx_stats[1] else 0
+            ),
+            "total_logs": (
+                int(approx_stats[2]) if approx_stats and approx_stats[2] else 0
+            ),
+            "total_photos": int(total_photos) if total_photos else 0,
+            "recent_logs_7d": int(recent_logs_7d) if recent_logs_7d else 0,
+            "recent_users_30d": int(recent_users_30d) if recent_users_30d else 0,
+        }
+
+        logger.debug(f"Site stats computed using optimized pg_class approach: {result}")
+
+    except Exception as e:
+        # Fallback to standard COUNT queries if pg_class fails (e.g., on MySQL or in tests)
+        logger.warning(
+            f"Failed to use pg_class for stats, falling back to standard counts: {e}"
+        )
+
+        total_trigs = db.query(Trig).count()
+        total_users = db.query(User).count()
+        total_logs = db.query(TLog).count()
+        total_photos = db.query(TPhoto).filter(TPhoto.deleted_ind != "Y").count()
+
+        recent_logs_7d = (
+            db.query(TLog).filter(TLog.upd_timestamp >= seven_days_ago).count()
+        )
+        recent_users_30d = (
+            db.query(User).filter(User.crt_date >= thirty_days_ago.date()).count()
+        )
+
+        result = {
+            "total_trigs": total_trigs,
+            "total_users": total_users,
+            "total_logs": total_logs,
+            "total_photos": total_photos,
+            "recent_logs_7d": recent_logs_7d,
+            "recent_users_30d": recent_users_30d,
+        }
 
     return result

@@ -12,30 +12,6 @@ export default function Sidebar() {
         <h3 className="font-bold text-lg mb-3 text-gray-800">Quick Links</h3>
         <nav className="space-y-2">
           <a
-            href="https://wiki.trigpointing.uk"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
-          >
-            📖 Wiki
-          </a>
-          <a
-            href="https://wiki.trigpointing.uk"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
-          >
-            💬 Forum
-          </a>
-          <a
-            href="https://trigpointing.uk/trigtools"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
-          >
-            🔧 TrigTools
-          </a>
-          <a
             href="https://www.ordnancesurvey.co.uk"
             target="_blank"
             rel="noopener noreferrer"
@@ -44,20 +20,35 @@ export default function Sidebar() {
             🗺️ Ordnance Survey
           </a>
           <a
+            href="https://www.bench-marks.org.uk/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+          >
+            📖 Bench Mark Database
+          </a>
+          <a
+            href="https://interactivemaps.uk/os-benchmark-archive"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+          >
+            🗺️ OS Benchmark Archive
+          </a>          
+          <a
+            href="https://www.haroldstreet.org.uk/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+          >
+            🗺️ Harold Street
+          </a>
+          <a
             href="/legacy-migration"
             className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
           >
             🔧 Solve your Login problems here!
           </a>        </nav>
-      </Card>
-
-      {/* About */}
-      <Card>
-        <h3 className="font-bold text-lg mb-2 text-gray-800">About</h3>
-        <p className="text-sm text-gray-600">
-          Trigpointing UK is the largest database of triangulation pillars and survey
-          markers in the UK.
-        </p>
       </Card>
     </aside>
   );

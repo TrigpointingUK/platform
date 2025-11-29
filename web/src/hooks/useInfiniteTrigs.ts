@@ -41,17 +41,17 @@ interface TrigsResponse {
 export interface UseInfiniteTrigsOptions {
   lat?: number;
   lon?: number;
-  physicalTypes?: string[];
+  statusIds?: number[]; // Status IDs to filter by (10, 20, 30, etc.)
   excludeFound?: boolean;
   maxKm?: number;
 }
 
 export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
-  const { lat, lon, physicalTypes, excludeFound, maxKm } = options;
+  const { lat, lon, statusIds, excludeFound, maxKm } = options;
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigsResponse>({
-    queryKey: ["trigs", "infinite", lat, lon, physicalTypes, excludeFound, maxKm],
+    queryKey: ["trigs", "infinite", lat, lon, statusIds, excludeFound, maxKm],
     enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
       const skip = typeof pageParam === "number" ? pageParam : 0;
@@ -71,23 +71,23 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         params.append("max_km", maxKm.toString());
       }
       
-      if (physicalTypes && physicalTypes.length > 0) {
-        params.append("physical_types", physicalTypes.join(","));
+      if (statusIds && statusIds.length > 0) {
+        params.append("status_ids", statusIds.join(","));
       }
       
       if (excludeFound) {
         params.append("exclude_found", "true");
       }
       
-      // Get auth token if authenticated and exclude_found is enabled
+      // Get auth token if authenticated (needed for status_max and exclude_found)
       const headers: Record<string, string> = {};
-      if (excludeFound && isAuthenticated) {
+      if (isAuthenticated) {
         try {
           const token = await getAccessTokenSilently({ cacheMode: "on" });
           headers["Authorization"] = `Bearer ${token}`;
         } catch (error) {
           console.error("Failed to get access token for trigs query:", error);
-          // Continue without auth - backend will simply not filter
+          // Continue without auth - backend will use default status_max
         }
       }
       

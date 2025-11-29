@@ -152,30 +152,30 @@ export default function AdvertCarousel() {
       onClick={() => setIsPaused(true)}
       className="overflow-hidden"
     >
-      {/* Fixed 656x438px container */}
+      {/* Responsive container - fixed height, flexible width */}
       <div className="relative w-full h-[438px] flex items-center justify-center">
         {/* Carousel track with side cards visible */}
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           {/* Previous ad (blurred, partial) - animated */}
           {hasMultipleAds && (
             <div 
-              className={`absolute left-0 w-[328px] h-[438px] -translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
+              className={`absolute left-0 w-40 h-[438px] -translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
                 isTransitioning ? 'opacity-0' : 'opacity-100'
               }`}
             >
-              <div className="w-[656px] h-[438px]">
+              <div className="w-80 h-[438px]">
                 <AdvertCard advert={prevAdvert} isBlurred={true} />
               </div>
             </div>
           )}
           
-          {/* Current ad (center, full visibility) - Fixed 656x438px with animation */}
+          {/* Current ad (center, full visibility) - Fixed 320px width with animation */}
           <div 
             className={`absolute inset-0 flex items-center justify-center z-10 transition-opacity duration-700 ease-in-out ${
               isTransitioning ? 'opacity-0' : 'opacity-100'
             }`}
           >
-            <div className="w-[656px] h-[438px]">
+            <div className="w-80 h-[438px] flex-shrink-0">
               <AdvertCard advert={currentAdvert} />
             </div>
           </div>
@@ -183,11 +183,11 @@ export default function AdvertCarousel() {
           {/* Next ad (blurred, partial) - animated */}
           {hasMultipleAds && (
             <div 
-              className={`absolute right-0 w-[328px] h-[438px] translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
+              className={`absolute right-0 w-40 h-[438px] translate-x-1/2 pointer-events-none z-0 transition-opacity duration-700 ease-in-out ${
                 isTransitioning ? 'opacity-0' : 'opacity-100'
               }`}
             >
-              <div className="w-[656px] h-[438px]">
+              <div className="w-80 h-[438px]">
                 <AdvertCard advert={nextAdvert} isBlurred={true} />
               </div>
             </div>

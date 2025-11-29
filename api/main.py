@@ -16,6 +16,8 @@ from api.api.v1.api import api_router
 from api.core.config import settings
 from api.core.logging import setup_logging
 from api.core.profiling import ProfilingMiddleware, should_enable_profiling
+from api.core.telemetry import initialize_telemetry
+from api.core.timing import TimingMiddleware
 from api.db.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Configure logging first
 setup_logging()
 
+# Create FastAPI app instance
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
@@ -38,6 +41,22 @@ app = FastAPI(
             "audience": settings.AUTH0_API_AUDIENCE or "",
         },
     },
+)
+
+# Initialize OpenTelemetry (traces, metrics, Pyroscope)
+# NOTE: FastAPI instrumentation happens AFTER routes are added (see end of file)
+initialize_telemetry(
+    enabled=settings.OTEL_ENABLED,
+    metrics_enabled=settings.OTEL_METRICS_ENABLED,
+    service_name=settings.OTEL_SERVICE_NAME,
+    environment=settings.ENVIRONMENT,
+    otlp_endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
+    otlp_headers=settings.OTEL_EXPORTER_OTLP_HEADERS,
+    pyroscope_enabled=settings.PYROSCOPE_ENABLED,
+    pyroscope_server_address=settings.PYROSCOPE_SERVER_ADDRESS,
+    pyroscope_auth_token=settings.PYROSCOPE_AUTH_TOKEN,
+    pyroscope_application_name=settings.PYROSCOPE_APPLICATION_NAME,
+    app_instance=None,  # Don't instrument yet - routes not added
 )
 
 # Configure security scheme for Swagger UI
@@ -172,6 +191,9 @@ def custom_openapi():
 
 
 app.openapi = custom_openapi  # type: ignore
+
+# Add timing middleware first to capture total request time
+app.add_middleware(TimingMiddleware)
 
 
 class HealthCheckLoggingFilter(BaseHTTPMiddleware):
@@ -314,6 +336,18 @@ def logout():
     )
 
     return RedirectResponse(url=logout_url)
+
+
+# Instrument FastAPI app AFTER all routes are added
+# This must be done at the end so the instrumentor can see all routes
+if settings.OTEL_ENABLED:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(
+        app,
+        excluded_urls="/health,/metrics",
+    )
+    logger.info("FastAPI app instrumented with OpenTelemetry (after routes added)")
 
 
 if __name__ == "__main__":

@@ -24,10 +24,13 @@ def mock_webhook_secret(monkeypatch):
 
 def test_create_user_success(db: Session, mock_webhook_secret):
     """Test successful user creation via POST endpoint."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
     payload = {
-        "username": "newuser",
-        "email": "newuser@example.com",
-        "auth0_user_id": "auth0|newuser123",
+        "username": f"newuser_{unique_suffix}",
+        "email": f"newuser_{unique_suffix}@example.com",
+        "auth0_user_id": f"auth0|newuser_{unique_suffix}",
     }
 
     response = client.post(
@@ -38,9 +41,9 @@ def test_create_user_success(db: Session, mock_webhook_secret):
 
     assert response.status_code == 201
     data = response.json()
-    assert data["name"] == "newuser"
-    assert data["email"] == "newuser@example.com"
-    assert data["auth0_user_id"] == "auth0|newuser123"
+    assert data["name"] == f"newuser_{unique_suffix}"
+    assert data["email"] == f"newuser_{unique_suffix}@example.com"
+    assert data["auth0_user_id"] == f"auth0|newuser_{unique_suffix}"
     assert "id" in data
 
 
@@ -80,19 +83,24 @@ def test_create_user_duplicate_username(db: Session, mock_webhook_secret):
     This test verifies the error format that the Auth0 Action relies on
     to detect username collisions and retry with a different name.
     """
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    duplicate_name = f"duplicate_{unique_suffix}"
+
     # Create first user directly in DB
     create_user(
         db=db,
-        username="duplicate",
-        email="first@example.com",
-        auth0_user_id="auth0|first123",
+        username=duplicate_name,
+        email=f"first_{unique_suffix}@example.com",
+        auth0_user_id=f"auth0|first_{unique_suffix}",
     )
 
     # Try to create second user with same username via API
     payload = {
-        "username": "duplicate",
-        "email": "second@example.com",
-        "auth0_user_id": "auth0|second123",
+        "username": duplicate_name,
+        "email": f"second_{unique_suffix}@example.com",
+        "auth0_user_id": f"auth0|second_{unique_suffix}",
     }
 
     response = client.post(
@@ -106,24 +114,29 @@ def test_create_user_duplicate_username(db: Session, mock_webhook_secret):
     # Auth0 Action checks for "username" in the error message
     assert "username" in detail.lower()
     # Verify it includes the attempted username for debugging
-    assert "duplicate" in detail.lower()
+    assert duplicate_name.lower() in detail.lower()
 
 
 def test_create_user_duplicate_email(db: Session, mock_webhook_secret):
     """Test that duplicate email returns 409."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    duplicate_email = f"duplicate_{unique_suffix}@example.com"
+
     # Create first user directly in DB
     create_user(
         db=db,
-        username="user1",
-        email="duplicate@example.com",
-        auth0_user_id="auth0|user1",
+        username=f"user1_{unique_suffix}",
+        email=duplicate_email,
+        auth0_user_id=f"auth0|user1_{unique_suffix}",
     )
 
     # Try to create second user with same email via API
     payload = {
-        "username": "user2",
-        "email": "duplicate@example.com",
-        "auth0_user_id": "auth0|user2",
+        "username": f"user2_{unique_suffix}",
+        "email": duplicate_email,
+        "auth0_user_id": f"auth0|user2_{unique_suffix}",
     }
 
     response = client.post(
@@ -138,19 +151,24 @@ def test_create_user_duplicate_email(db: Session, mock_webhook_secret):
 
 def test_create_user_duplicate_auth0_user_id(db: Session, mock_webhook_secret):
     """Test that duplicate auth0_user_id returns 409."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    duplicate_auth0 = f"auth0|duplicate_{unique_suffix}"
+
     # Create first user directly in DB
     create_user(
         db=db,
-        username="user1",
-        email="user1@example.com",
-        auth0_user_id="auth0|duplicate",
+        username=f"user1_{unique_suffix}",
+        email=f"user1_{unique_suffix}@example.com",
+        auth0_user_id=duplicate_auth0,
     )
 
     # Try to create second user with same auth0_user_id via API
     payload = {
-        "username": "user2",
-        "email": "user2@example.com",
-        "auth0_user_id": "auth0|duplicate",
+        "username": f"user2_{unique_suffix}",
+        "email": f"user2_{unique_suffix}@example.com",
+        "auth0_user_id": duplicate_auth0,
     }
 
     response = client.post(

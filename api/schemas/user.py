@@ -4,6 +4,7 @@ Pydantic schemas for user endpoints with permission-based field filtering.
 
 import re
 from datetime import date  # noqa: F401
+from enum import Enum
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -15,10 +16,10 @@ class UserResponse(BaseModel):
     # Always included
     id: int
     name: str
-    firstname: str
-    surname: str
-    homepage: Optional[str] = Field(..., description="User homepage URL")
-    about: str
+    firstname: Optional[str] = None  # Nullable for PostgreSQL compatibility
+    surname: Optional[str] = None  # Nullable for PostgreSQL compatibility
+    homepage: Optional[str] = Field(None, description="User homepage URL")
+    about: Optional[str] = Field(None, description="About/description text")
     member_since: Optional[date] = Field(None, description="Date user joined")
     auth0_user_id: Optional[str] = Field(
         None, description="Auth0 user ID (own profile only)"
@@ -32,6 +33,51 @@ class UserStats(BaseModel):
     total_logs: int
     total_trigs_logged: int
     total_photos: int
+
+
+class UserSortField(str, Enum):
+    """Supported sort keys for user listings."""
+
+    TRIGPOINTS = "trigs"
+    PHOTOS = "photos"
+    LOGS = "logs"
+    JOINED = "joined"
+    NAME = "name"
+
+
+class SortDirection(str, Enum):
+    """Sort ordering for user listings."""
+
+    ASC = "asc"
+    DESC = "desc"
+
+
+class UserListItem(BaseModel):
+    """Slim user representation for directory responses."""
+
+    id: int
+    name: str
+    member_since: Optional[date] = None
+    stats: UserStats
+    profile_path: str
+
+
+class UserListFilters(BaseModel):
+    """Echoed filter metadata for user directory responses."""
+
+    query: Optional[str] = None
+    sort: UserSortField = UserSortField.TRIGPOINTS
+    direction: SortDirection = SortDirection.DESC
+    limit: int = 40
+
+
+class UserListResponse(BaseModel):
+    """Cursor-based directory response."""
+
+    items: list[UserListItem]
+    next_cursor: Optional[str] = None
+    total: int
+    applied_filters: UserListFilters
 
 
 class UserBreakdown(BaseModel):
@@ -91,7 +137,10 @@ class UserUpdate(BaseModel):
     about: Optional[str] = Field(None, description="About/description text")
 
     # Preference fields
-    status_max: Optional[int] = Field(None, description="Status preference")
+    status_max: Optional[int] = Field(
+        None,
+        description="Maximum status level (10=Pillar, 20=Major mark, 30=Minor mark, 40=Intersected, 50=User Added, 60=Controversial)",
+    )
     distance_ind: Optional[str] = Field(
         None, pattern="^[KM]$", description="Distance units (K=km, M=miles)"
     )
@@ -104,6 +153,22 @@ class UserUpdate(BaseModel):
     online_map_type2: Optional[str] = Field(
         None, max_length=10, description="Secondary map type preference"
     )
+
+    @field_validator("status_max")
+    @classmethod
+    def validate_status_max(cls, v: Optional[int]) -> Optional[int]:
+        if v is None:
+            return v
+
+        # Valid status IDs (must be < 90 to exclude soft-deleted)
+        valid_statuses = [10, 20, 30, 40, 50, 60]
+
+        if v not in valid_statuses:
+            raise ValueError(
+                f"Invalid status_max value. Must be one of {valid_statuses}"
+            )
+
+        return v
 
     @field_validator("name")
     @classmethod

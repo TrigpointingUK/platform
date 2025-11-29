@@ -9,9 +9,17 @@ interface ConditionOption {
 
 const CONDITIONS: ConditionOption[] = [
   { value: "G", label: "Good", variant: "good" },
+  { value: "S", label: "Slightly Damaged", variant: "damaged" },
   { value: "D", label: "Damaged", variant: "damaged" },
-  { value: "M", label: "Missing", variant: "missing" },
-  { value: "P", label: "Possibly Missing", variant: "damaged" },
+  { value: "C", label: "Converted", variant: "damaged" },
+  { value: "T", label: "Toppled", variant: "damaged" },
+  { value: "R", label: "Remains", variant: "damaged" },
+  { value: "M", label: "Moved", variant: "missing" },
+  { value: "Q", label: "Possibly Missing", variant: "damaged" },
+  { value: "P", label: "Inaccessible", variant: "unknown" },
+  { value: "X", label: "Destroyed", variant: "missing" },
+  { value: "V", label: "Unreachable but Visible", variant: "unknown" },
+  { value: "N", label: "Couldn't Find", variant: "missing" },
   { value: "U", label: "Unknown", variant: "unknown" },
 ];
 

@@ -1,0 +1,8 @@
+- name: "pg-connect script"
+  ansible.builtin.template:
+    src: templates/pg-connect.j2
+    dest: /home/ec2-user/pg-connect.sh
+    owner: root
+    group: root
+    mode: "0755"
+

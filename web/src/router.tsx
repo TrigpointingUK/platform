@@ -11,9 +11,11 @@ const PhotoDetail = lazy(() => import("./routes/PhotoDetail"));
 const TrigDetail = lazy(() => import("./routes/TrigDetail"));
 const TrigPhotos = lazy(() => import("./routes/TrigPhotos"));
 const LogDetail = lazy(() => import("./routes/LogDetail"));
+const UsersPage = lazy(() => import("./routes/UsersPage"));
 const UserProfile = lazy(() => import("./routes/UserProfile"));
 const UserLogs = lazy(() => import("./routes/UserLogs"));
 const UserPhotos = lazy(() => import("./routes/UserPhotos"));
+const Preferences = lazy(() => import("./routes/Preferences"));
 const About = lazy(() => import("./routes/About"));
 const AppDetail = lazy(() => import("./routes/AppDetail"));
 const FindTrigs = lazy(() => import("./routes/FindTrigs"));
@@ -23,6 +25,8 @@ const LegacyMigration = lazy(() => import("./routes/LegacyMigration"));
 const Contact = lazy(() => import("./routes/Contact"));
 const Attributions = lazy(() => import("./routes/Attributions"));
 const Admin = lazy(() => import("./routes/Admin"));
+const AdminNeedsAttention = lazy(() => import("./routes/admin/NeedsAttention"));
+const AdminTrigEdit = lazy(() => import("./routes/admin/TrigEdit"));
 
 // Redirect component for old /trig/ URLs
 function TrigRedirect() {
@@ -61,6 +65,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <Logs />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/users",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <UsersPage />
         </Suspense>
       ),
     },
@@ -171,6 +183,18 @@ const router = createBrowserRouter(
       ),
     },
     {
+      path: "/preferences",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <Preferences />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/settings",
+      element: <Navigate to="/preferences" replace />,
+    },
+    {
       path: "/about",
       element: (
         <Suspense fallback={<LoadingFallback />}>
@@ -215,6 +239,22 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <Admin />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/needs-attention",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminNeedsAttention />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/trigs/:trigId/edit",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminTrigEdit />
         </Suspense>
       ),
     },

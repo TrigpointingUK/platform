@@ -12,9 +12,9 @@ from api.models.tphoto import TPhoto
 from api.models.user import TLog
 
 
-def seed_tlog(db: Session, trig_id: int, user_id: int, tlog_id: int) -> TLog:
+def seed_tlog(db: Session, trig_id: int, user_id: int) -> TLog:
+    """Create a TLog without hardcoded ID."""
     tlog = TLog(
-        id=tlog_id,
         trig_id=trig_id,
         user_id=user_id,
         date=datetime(2024, 1, 2).date(),
@@ -31,20 +31,25 @@ def seed_tlog(db: Session, trig_id: int, user_id: int, tlog_id: int) -> TLog:
     )
     db.add(tlog)
     db.commit()
+    db.refresh(tlog)
     return tlog
 
 
-def create_photo(db: Session, tlog_id: int, photo_id: int) -> TPhoto:
+def create_photo(db: Session, tlog_id: int) -> TPhoto:
+    """Create a TPhoto without hardcoded ID."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     photo = TPhoto(
-        id=photo_id,
         tlog_id=tlog_id,
         server_id=1,
         type="T",
-        filename="000/P00001.jpg",
+        filename=f"000/P{unique_suffix}.jpg",
         filesize=100,
         height=100,
         width=100,
-        icon_filename="000/I00001.jpg",
+        icon_filename=f"000/I{unique_suffix}.jpg",
         icon_filesize=10,
         icon_height=10,
         icon_width=10,
@@ -64,9 +69,9 @@ def create_photo(db: Session, tlog_id: int, photo_id: int) -> TPhoto:
 
 def test_trig_logs_include_photos(client: TestClient, db: Session):
     trig_id = 555
-    tlog = seed_tlog(db, trig_id=trig_id, user_id=1010, tlog_id=9001)
-    create_photo(db, tlog_id=tlog.id, photo_id=9101)  # type: ignore[arg-type]
-    create_photo(db, tlog_id=tlog.id, photo_id=9102)  # type: ignore[arg-type]
+    tlog = seed_tlog(db, trig_id=trig_id, user_id=1010)
+    photo1 = create_photo(db, tlog_id=int(tlog.id))
+    photo2 = create_photo(db, tlog_id=int(tlog.id))
 
     resp = client.get(f"{settings.API_V1_STR}/trigs/{trig_id}/logs?include=photos")
     assert resp.status_code == 200
@@ -81,12 +86,14 @@ def test_trig_logs_include_photos(client: TestClient, db: Session):
     assert found is not None
     assert "photos" in found and isinstance(found["photos"], list)
     ids = {p["id"] for p in found["photos"]}
-    assert {9101, 9102}.issubset(ids)
+    # Check for our specific dynamic photo IDs
+    assert photo1.id in ids
+    assert photo2.id in ids
 
 
 def test_trig_logs_unknown_include(client: TestClient, db: Session):
     trig_id = 556
-    seed_tlog(db, trig_id=trig_id, user_id=1011, tlog_id=9002)
+    seed_tlog(db, trig_id=trig_id, user_id=1011)
 
     resp = client.get(f"{settings.API_V1_STR}/trigs/{trig_id}/logs?include=bogus")
     assert resp.status_code == 400

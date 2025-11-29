@@ -5,6 +5,7 @@ Core configuration settings for the FastAPI application.
 import json
 import logging
 from typing import List, Optional, Union
+from urllib.parse import quote_plus
 
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,7 +26,7 @@ class Settings(BaseSettings):
 
     # Database - constructed from individual components
     DB_HOST: str = "localhost"
-    DB_PORT: int = 3306
+    DB_PORT: int = 5432  # PostgreSQL default port
     DB_USER: str = "user"
     DB_PASSWORD: str = "pass"
     DB_NAME: str = "db"
@@ -36,8 +37,11 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
-        """Construct DATABASE_URL from individual database components."""
-        return f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        """Construct DATABASE_URL from individual database components with URL-encoded credentials."""
+        # URL-encode username and password to handle special characters
+        encoded_user = quote_plus(self.DB_USER)
+        encoded_password = quote_plus(self.DB_PASSWORD)
+        return f"postgresql+psycopg2://{encoded_user}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
@@ -79,6 +83,25 @@ class Settings(BaseSettings):
     # Profiling Configuration
     PROFILING_ENABLED: bool = False  # Enable profiling middleware
     PROFILING_DEFAULT_FORMAT: str = "html"  # Options: "html" or "speedscope"
+
+    # Pyroscope Configuration (for continuous profiling)
+    PYROSCOPE_ENABLED: bool = False  # Enable Pyroscope continuous profiling
+    PYROSCOPE_SERVER_ADDRESS: Optional[str] = None  # Pyroscope server URL
+    PYROSCOPE_AUTH_TOKEN: Optional[str] = None  # Pyroscope auth token
+    PYROSCOPE_APPLICATION_NAME: Optional[str] = (
+        None  # App name (auto-generated if not set)
+    )
+
+    # OpenTelemetry Configuration (for distributed tracing and performance monitoring)
+    OTEL_ENABLED: bool = False  # Enable OpenTelemetry tracing
+    OTEL_METRICS_ENABLED: bool = False  # Enable OpenTelemetry metrics
+    OTEL_EXPORTER_OTLP_ENDPOINT: Optional[str] = (
+        None  # OTLP endpoint (e.g., Grafana Cloud)
+    )
+    OTEL_EXPORTER_OTLP_HEADERS: Optional[str] = (
+        None  # OTLP auth headers (e.g., API key)
+    )
+    OTEL_SERVICE_NAME: Optional[str] = None  # Service name (auto-generated if not set)
 
     # Orientation model (ONNX) configuration
     ORIENTATION_MODEL_ENABLED: bool = False

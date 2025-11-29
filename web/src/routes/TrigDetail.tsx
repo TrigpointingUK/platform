@@ -20,10 +20,19 @@ const conditionMap: Record<
   string,
   { label: string; variant: "good" | "damaged" | "missing" | "unknown" }
 > = {
+  Z: { label: "Not Logged", variant: "unknown" },
+  N: { label: "Couldn't Find", variant: "missing" },
   G: { label: "Good", variant: "good" },
+  S: { label: "Slightly Damaged", variant: "damaged" },
+  C: { label: "Converted", variant: "damaged" },
   D: { label: "Damaged", variant: "damaged" },
-  M: { label: "Missing", variant: "missing" },
-  P: { label: "Possibly Missing", variant: "damaged" },
+  R: { label: "Remains", variant: "damaged" },
+  T: { label: "Toppled", variant: "damaged" },
+  M: { label: "Moved", variant: "missing" },
+  Q: { label: "Possibly Missing", variant: "damaged" },
+  X: { label: "Destroyed", variant: "missing" },
+  V: { label: "Unreachable but Visible", variant: "unknown" },
+  P: { label: "Inaccessible", variant: "unknown" },
   U: { label: "Unknown", variant: "unknown" },
 };
 
@@ -31,8 +40,12 @@ export default function TrigDetail() {
   const { trigId } = useParams<{ trigId: string }>();
   const trigIdNum = trigId ? parseInt(trigId, 10) : null;
   const navigate = useNavigate();
-  const { isAuthenticated, loginWithRedirect } = useAuth0();
+  const { isAuthenticated, loginWithRedirect, user } = useAuth0();
   const [showLogForm, setShowLogForm] = useState(false);
+
+  // Check if user has admin role
+  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
+  const hasAdminRole = userRoles.includes("api-admin");
 
   const {
     data: trig,
@@ -150,7 +163,7 @@ export default function TrigDetail() {
   // Helper function to create wiki links
   const getWikiUrl = (value: string) => {
     const wikiValue = value.replace(/ /g, "_");
-    return `https://trigpointing.uk/wiki/${wikiValue}`;
+    return `https://wiki.trigpointing.uk/${wikiValue}`;
   };
 
   // Helper function to check if a value should have a wiki link
@@ -199,6 +212,22 @@ export default function TrigDetail() {
                   </a>
                 </div>
 
+                <div className="hidden">
+                  <span className="font-semibold text-gray-700">
+                    Height (OSGB):
+                  </span>{" "}
+                  {trig.details?.osgb_height}m
+                </div>
+
+                {trig.details && trig.details.postcode && (
+                  <div>
+                    <span className="font-semibold text-gray-700">
+                      Postcode:
+                    </span>{" "}
+                    {trig.details.postcode}
+                  </div>
+                )}
+
                 <div>
                   <span className="font-semibold text-gray-700">Type:</span>{" "}
                   {shouldHaveWikiLink(trig.physical_type) ? (
@@ -233,7 +262,32 @@ export default function TrigDetail() {
                       </div>
                     )}
 
-                    {trig.details.stn_number_osgb36 && (
+                    {trig.details.stn_number_active && trig.details.stn_number_active.trim() !== "" && (
+                      <div>
+                        <span className="font-semibold text-gray-700">
+                          Active Station:
+                        </span>{" "}
+                        {trig.details.stn_number_active}
+                      </div>
+                    )}
+
+                    {trig.details.stn_number_passive && trig.details.stn_number_passive.trim() !== "" && (
+                      <div>
+                        <span className="font-semibold text-gray-700">
+                          Passive Station:
+                        </span>{" "}
+                        <a
+                          href={`https://www.ordnancesurvey.co.uk/geodesy-positioning/legacy-data/passive-search/passive-station/${trig.details.stn_number_passive}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-trig-green-600 hover:underline"
+                        >
+                          {trig.details.stn_number_passive}
+                        </a>
+                      </div>
+                    )}
+
+                    {trig.details.stn_number_osgb36 && trig.details.stn_number_osgb36.trim() !== "" && (
                       <div>
                         <span className="font-semibold text-gray-700">
                           OSGB36 Station:
@@ -242,25 +296,9 @@ export default function TrigDetail() {
                       </div>
                     )}
 
-                    {trig.details.stn_number && trig.details.stn_number.trim() !== "" && (
-                      <div>
-                        <span className="font-semibold text-gray-700">
-                          Passive Station:
-                        </span>{" "}
-                        <a
-                          href={`https://www.ordnancesurvey.co.uk/geodesy-positioning/legacy-data/passive-search/passive-station/${trig.details.stn_number}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-trig-green-600 hover:underline"
-                        >
-                          {trig.details.stn_number}
-                        </a>
-                      </div>
-                    )}
-
                     <div>
                       <span className="font-semibold text-gray-700">
-                        Current use:
+                        Recent use:
                       </span>{" "}
                       {shouldHaveWikiLink(trig.details.current_use) ? (
                         <a
@@ -312,22 +350,32 @@ export default function TrigDetail() {
               </div>
 
               {/* Map Links */}
-              <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
-                <div>
-                  <Link
-                    to={`/map?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&trig=${trigIdNum}`}
-                    className="text-trig-green-600 hover:underline font-semibold"
-                  >
-                    🗺️ View on Interactive Map
-                  </Link>
-                </div>
-                <div>
-                  <Link
-                    to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
-                    className="text-trig-green-600 hover:underline font-semibold"
-                  >
-                    📍 View Nearby Trigpoints
-                  </Link>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <Link
+                      to={`/map?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&trig=${trigIdNum}`}
+                      className="text-trig-green-600 hover:underline font-semibold"
+                    >
+                      🗺️ View on Interactive Map
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      to={`/trigs/${trigIdNum}/photos`}
+                      className="text-trig-green-600 hover:underline font-semibold"
+                    >
+                      📷 View Photo Album
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
+                      className="text-trig-green-600 hover:underline font-semibold"
+                    >
+                      📍 View Nearby Trigpoints
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
@@ -460,10 +508,17 @@ export default function TrigDetail() {
 
         {/* Log This Trig Section */}
         {!showLogForm && (
-          <div className="my-8">
+          <div className="my-8 flex flex-wrap gap-3">
             <Button onClick={handleLogThisTrig} className="w-full md:w-auto">
               📝 Log This Trig
             </Button>
+            {hasAdminRole && (
+              <Link to={`/admin/trigs/${trigId}/edit`}>
+                <Button variant="secondary" className="w-full md:w-auto">
+                  ✏️ Edit This Trig
+                </Button>
+              </Link>
+            )}
           </div>
         )}
 

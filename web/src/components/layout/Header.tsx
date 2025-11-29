@@ -53,22 +53,6 @@ export default function Header() {
             >
               Forum
             </a>
-            <a
-              href="https://trigpointing.uk/trigtools"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-trig-green-100 transition-colors"
-            >
-              TrigTools
-            </a>
-            <Link to="/map" className="hover:text-trig-green-100 transition-colors">
-              Map
-            </Link>
-            {isAuthenticated && (
-              <Link to="/mytrigs" className="hover:text-trig-green-100 transition-colors">
-                MyTrigs
-              </Link>
-            )}
           </nav>
 
           {/* Search Bar - Desktop */}
@@ -109,11 +93,11 @@ export default function Header() {
                       Profile
                     </Link>
                     <Link
-                      to="/settings"
+                      to="/preferences"
                       className="block px-4 py-2 hover:bg-gray-100"
                       onClick={() => setUserMenuOpen(false)}
                     >
-                      Settings
+                      Preferences
                     </Link>
                     {hasAdminRole && (
                       <Link
@@ -181,7 +165,7 @@ export default function Header() {
                 />
               </div>
               <a
-                href="https://trigpointing.uk/wiki"
+                href="https://wiki.trigpointing.uk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
@@ -189,37 +173,13 @@ export default function Header() {
                 Wiki
               </a>
               <a
-                href="https://trigpointing.uk/forum"
+                href="https://forum.trigpointing.uk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
               >
                 Forum
               </a>
-              <a
-                href="https://trigpointing.uk/trigtools"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-              >
-                TrigTools
-              </a>
-              <Link
-                to="/map"
-                className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Map
-              </Link>
-              {isAuthenticated && (
-                <Link
-                  to="/mytrigs"
-                  className="px-3 py-2 hover:bg-trig-green-700 rounded-md"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  MyTrigs
-                </Link>
-              )}
             </nav>
           </div>
         )}

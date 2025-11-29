@@ -92,6 +92,12 @@ describe("Admin route", () => {
     const getAccessTokenSilently = vi.fn().mockResolvedValue(tokenWithAdminScope);
     const loginWithRedirect = vi.fn();
 
+    // Mock fetch for NeedsAttentionCard API call
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ count: 5, latest_update: new Date().toISOString() }),
+    }) as unknown as typeof fetch;
+
     mockUseAuth0.mockReturnValue({
       user: {
         name: "Admin User",

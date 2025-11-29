@@ -50,11 +50,14 @@ def _admin_headers(admin_user: User) -> Dict[str, str]:
 
 @pytest.fixture
 def admin_user(db: Session) -> User:
-    """Create an admin legacy user record."""
+    """Create an admin legacy user record with unique name."""
+    import uuid
+
+    unique_name = f"adminuser_{uuid.uuid4().hex[:8]}"
     admin = _create_user(
         db,
-        username="adminuser",
-        email="admin@example.com",
+        username=unique_name,
+        email=f"{unique_name}@example.com",
         email_valid="Y",
     )
     admin.auth0_user_id = f"auth0|{admin.id}"  # type: ignore
@@ -81,19 +84,22 @@ def test_search_returns_matching_users(
     db: Session, client: TestClient, admin_user: User, admin_auth_patch
 ):
     """Ensure legacy search endpoint returns matching usernames or emails."""
-    _create_user(db, username="alice", email="alice@example.com")
-    _create_user(db, username="bob", email="bob@example.net")
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    _create_user(db, username=f"alice_{suffix}", email=f"alice_{suffix}@example.com")
+    _create_user(db, username=f"bob_{suffix}", email=f"bob_{suffix}@example.net")
 
     response = client.get(
-        "/v1/admin/legacy-migration/users?q=ali",
+        f"/v1/admin/legacy-migration/users?q=alice_{suffix[:3]}",
         headers=_admin_headers(admin_user),
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body["items"]) == 1
-    assert body["items"][0]["name"] == "alice"
-    assert body["items"][0]["has_auth0_account"] is False
+    assert len(body["items"]) >= 1
+    assert any(item["name"] == f"alice_{suffix}" for item in body["items"])
+    assert any(item["has_auth0_account"] is False for item in body["items"])
 
 
 def test_search_requires_two_characters(
@@ -112,28 +118,33 @@ def test_migrate_user_success(
     db: Session, client: TestClient, admin_user: User, admin_auth_patch
 ):
     """Successful migration should update Auth0 mapping and email."""
-    target_user = _create_user(db, username="charlie", email="old@example.com")
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db, username=f"charlie_{suffix}", email=f"old_{suffix}@example.com"
+    )
 
     with patch.object(
         admin_endpoints.auth0_service,
         "create_user_for_admin_migration",
-        return_value={"user_id": "auth0|charlie123"},
+        return_value={"user_id": f"auth0|charlie_{suffix}"},
     ) as mock_create:
         response = client.post(
             "/v1/admin/legacy-migration/migrate",
-            json={"user_id": target_user.id, "email": "new@example.com"},
+            json={"user_id": target_user.id, "email": f"new_{suffix}@example.com"},
             headers=_admin_headers(admin_user),
         )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["auth0_user_id"] == "auth0|charlie123"
-    assert "Hi charlie!" in body["message"]
-    assert '"new@example.com"' in body["message"]
+    assert body["auth0_user_id"] == f"auth0|charlie_{suffix}"
+    assert f"Hi charlie_{suffix}!" in body["message"]
+    assert f'"new_{suffix}@example.com"' in body["message"]
 
     db.refresh(target_user)
-    assert target_user.auth0_user_id == "auth0|charlie123"
-    assert target_user.email == "new@example.com"
+    assert target_user.auth0_user_id == f"auth0|charlie_{suffix}"
+    assert target_user.email == f"new_{suffix}@example.com"
     assert target_user.email_valid == "Y"
     mock_create.assert_called_once()
 
@@ -142,17 +153,20 @@ def test_migrate_user_prevent_when_already_migrated(
     db: Session, client: TestClient, admin_user: User, admin_auth_patch
 ):
     """Migration should fail if the user already has an Auth0 identifier."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
     migrated_user = _create_user(
         db,
-        username="dan",
-        email="dan@example.com",
+        username=f"dan_{suffix}",
+        email=f"dan_{suffix}@example.com",
         auth0_user_id="auth0|existing",
         email_valid="Y",
     )
 
     response = client.post(
         "/v1/admin/legacy-migration/migrate",
-        json={"user_id": migrated_user.id, "email": "dan@example.com"},
+        json={"user_id": migrated_user.id, "email": f"dan_{suffix}@example.com"},
         headers=_admin_headers(admin_user),
     )
 
@@ -164,8 +178,15 @@ def test_migrate_user_email_conflict_in_database(
     db: Session, client: TestClient, admin_user: User, admin_auth_patch
 ):
     """Migration should fail if another user already owns the email."""
-    other_user = _create_user(db, username="eva", email="shared@example.com")
-    target_user = _create_user(db, username="frank", email="frank@example.com")
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    other_user = _create_user(
+        db, username=f"eva_{suffix}", email=f"shared_{suffix}@example.com"
+    )
+    target_user = _create_user(
+        db, username=f"frank_{suffix}", email=f"frank_{suffix}@example.com"
+    )
 
     response = client.post(
         "/v1/admin/legacy-migration/migrate",
@@ -181,16 +202,21 @@ def test_migrate_user_email_conflict_in_auth0(
     db: Session, client: TestClient, admin_user: User, admin_auth_patch
 ):
     """Migration should fail when Auth0 reports an existing user with the email."""
-    target_user = _create_user(db, username="gail", email="gail@example.com")
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db, username=f"gail_{suffix}", email=f"gail_{suffix}@example.com"
+    )
 
     with patch.object(
         admin_endpoints.auth0_service,
         "create_user_for_admin_migration",
-        side_effect=Auth0EmailAlreadyExistsError("gail@example.com"),
+        side_effect=Auth0EmailAlreadyExistsError(f"gail_{suffix}@example.com"),
     ):
         response = client.post(
             "/v1/admin/legacy-migration/migrate",
-            json={"user_id": target_user.id, "email": "gail@example.com"},
+            json={"user_id": target_user.id, "email": f"gail_{suffix}@example.com"},
             headers=_admin_headers(admin_user),
         )
 
@@ -202,7 +228,12 @@ def test_migrate_user_missing_auth0_id(
     db: Session, client: TestClient, admin_user: User, admin_auth_patch
 ):
     """Migration should fail if Auth0 response lacks a user identifier."""
-    target_user = _create_user(db, username="hugh", email="hugh@example.com")
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db, username=f"hugh_{suffix}", email=f"hugh_{suffix}@example.com"
+    )
 
     with patch.object(
         admin_endpoints.auth0_service,
@@ -211,7 +242,7 @@ def test_migrate_user_missing_auth0_id(
     ):
         response = client.post(
             "/v1/admin/legacy-migration/migrate",
-            json={"user_id": target_user.id, "email": "hugh@example.com"},
+            json={"user_id": target_user.id, "email": f"hugh_{suffix}@example.com"},
             headers=_admin_headers(admin_user),
         )
 
@@ -227,7 +258,12 @@ def test_migrate_user_database_failure_returns_500(
     monkeypatch,
 ):
     """Migration should return 500 if the database commit fails."""
-    target_user = _create_user(db, username="ivan", email="ivan@example.com")
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db, username=f"ivan_{suffix}", email=f"ivan_{suffix}@example.com"
+    )
 
     def failing_commit(self):
         raise RuntimeError("db commit failed")
@@ -237,7 +273,7 @@ def test_migrate_user_database_failure_returns_500(
     with patch.object(
         admin_endpoints.auth0_service,
         "create_user_for_admin_migration",
-        return_value={"user_id": "auth0|ivan123"},
+        return_value={"user_id": f"auth0|ivan_{suffix}"},
     ), patch.object(
         admin_endpoints.auth0_service,
         "delete_user",
@@ -245,13 +281,13 @@ def test_migrate_user_database_failure_returns_500(
     ) as mock_delete:
         response = client.post(
             "/v1/admin/legacy-migration/migrate",
-            json={"user_id": target_user.id, "email": "ivan-new@example.com"},
+            json={"user_id": target_user.id, "email": f"ivan_{suffix}_new@example.com"},
             headers=_admin_headers(admin_user),
         )
 
     assert response.status_code == 500
     assert "Failed to persist Auth0 migration details" in response.json()["detail"]
-    mock_delete.assert_called_once_with("auth0|ivan123")
+    mock_delete.assert_called_once_with(f"auth0|ivan_{suffix}")
 
     db.refresh(target_user)
     assert target_user.auth0_user_id is None

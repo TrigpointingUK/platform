@@ -76,6 +76,18 @@ resource "aws_ecs_task_definition" "app" {
           value = var.profiling_default_format
         },
         {
+          name  = "OTEL_ENABLED"
+          value = "true"
+        },
+        {
+          name  = "OTEL_METRICS_ENABLED"
+          value = "true"
+        },
+        {
+          name  = "PYROSCOPE_ENABLED"
+          value = "true"
+        },
+        {
           name  = "PHOTOS_S3_BUCKET"
           value = var.photos_s3_bucket
         },
@@ -163,6 +175,28 @@ resource "aws_ecs_task_definition" "app" {
           {
             name      = "OS_API_KEY"
             valueFrom = "${var.secrets_arn}:os_api_key::"
+          }
+        ],
+        # OpenTelemetry (for distributed tracing and metrics)
+        [
+          {
+            name      = "OTEL_EXPORTER_OTLP_ENDPOINT"
+            valueFrom = "${var.secrets_arn}:otel_exporter_otlp_endpoint::"
+          },
+          {
+            name      = "OTEL_EXPORTER_OTLP_HEADERS"
+            valueFrom = "${var.secrets_arn}:otel_exporter_otlp_headers::"
+          }
+        ],
+        # Pyroscope (for continuous profiling)
+        [
+          {
+            name      = "PYROSCOPE_SERVER_ADDRESS"
+            valueFrom = "${var.secrets_arn}:pyroscope_server_address::"
+          },
+          {
+            name      = "PYROSCOPE_AUTH_TOKEN"
+            valueFrom = "${var.secrets_arn}:pyroscope_auth_token::"
           }
         ]
       )

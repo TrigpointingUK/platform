@@ -10,7 +10,8 @@
       - awscli
       - htop
       - jq
-      - mariadb1011
+      - mariadb1011          # MySQL client
+      - postgresql15         # PostgreSQL client (psql)
       - python3
       - python3-pip
       - redis6

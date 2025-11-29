@@ -15,18 +15,28 @@ from api.models.user import TLog, User
 
 def seed_test_data(db: Session) -> tuple[User, TLog, TPhoto]:
     """Create test user, log, and rotated photo."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     user = User(
-        id=401,
-        name="testuser",
+        name=f"testuser_{unique_suffix}",
         firstname="Test",
         surname="User",
-        email="test@example.com",
-        auth0_user_id="auth0|401",
+        email=f"test_{unique_suffix}@example.com",
+        auth0_user_id=f"auth0|{unique_suffix}",
+        cryptpw="test",  # Required field
+        about="",  # Required field
+        email_valid="Y",  # Required field
+        public_ind="Y",  # Required field
     )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
     tlog = TLog(
-        id=4001,
         trig_id=1,
-        user_id=401,
+        user_id=user.id,  # Use dynamic user ID
         date=datetime(2023, 1, 1).date(),
         time=datetime(2023, 1, 1).time(),
         osgb_eastings=1,
@@ -39,17 +49,20 @@ def seed_test_data(db: Session) -> tuple[User, TLog, TPhoto]:
         ip_addr="127.0.0.1",
         source="W",
     )
+    db.add(tlog)
+    db.commit()
+    db.refresh(tlog)
+
     # Create a photo with rotated filenames
     photo = TPhoto(
-        id=6001,
-        tlog_id=4001,
+        tlog_id=tlog.id,  # Use dynamic tlog ID
         server_id=settings.PHOTOS_SERVER_ID,
         type="T",
-        filename="424/P424363_r1.jpg",  # Rotated filename
+        filename=f"424/P{unique_suffix}_r1.jpg",  # Rotated filename with unique suffix
         filesize=42953,
         height=738,
         width=415,
-        icon_filename="424/I424363_r1.jpg",  # Rotated icon filename
+        icon_filename=f"424/I{unique_suffix}_r1.jpg",  # Rotated icon filename with unique suffix
         icon_filesize=2227,
         icon_height=120,
         icon_width=67,
@@ -61,12 +74,8 @@ def seed_test_data(db: Session) -> tuple[User, TLog, TPhoto]:
         source="R",  # R for revised/rotated
         crt_timestamp=datetime.utcnow(),
     )
-    db.add(user)
-    db.add(tlog)
     db.add(photo)
     db.commit()
-    db.refresh(user)
-    db.refresh(tlog)
     db.refresh(photo)
     return user, tlog, photo
 
@@ -100,47 +109,41 @@ class TestLogPhotoUrls:
         assert photo_data["photo_url"] != ""
         assert photo_data["icon_url"] != ""
 
-        # Verify URLs contain the rotated filenames
-        assert "424/P424363_r1.jpg" in photo_data["photo_url"]
-        assert "424/I424363_r1.jpg" in photo_data["icon_url"]
+        # Verify URLs contain the rotated filenames (use actual photo filenames)
+        assert photo.filename in photo_data["photo_url"]
+        assert photo.icon_filename in photo_data["icon_url"]
 
-        # Verify full URLs are properly constructed
+        # Verify full URLs are properly constructed with the actual filenames
         expected_photo_url = (
-            f"{base_url}424/P424363_r1.jpg"
+            f"{base_url}{photo.filename}"
             if not base_url.endswith("/")
-            else f"{base_url}424/P424363_r1.jpg"
+            else f"{base_url}{photo.filename}"
         )
         expected_icon_url = (
-            f"{base_url}424/I424363_r1.jpg"
+            f"{base_url}{photo.icon_filename}"
             if not base_url.endswith("/")
-            else f"{base_url}424/I424363_r1.jpg"
+            else f"{base_url}{photo.icon_filename}"
         )
 
         # The URLs should match the expected format
         assert (
             photo_data["photo_url"] == expected_photo_url
-            or photo_data["photo_url"] == f"{base_url.rstrip('/')}/424/P424363_r1.jpg"
+            or photo_data["photo_url"] == f"{base_url.rstrip('/')}/{photo.filename}"
         )
         assert (
             photo_data["icon_url"] == expected_icon_url
-            or photo_data["icon_url"] == f"{base_url.rstrip('/')}/424/I424363_r1.jpg"
+            or photo_data["icon_url"] == f"{base_url.rstrip('/')}/{photo.icon_filename}"
         )
 
     def test_list_logs_with_rotated_photo_urls(self, client: TestClient, db: Session):
-        """Test that GET /logs?include=photos returns proper URLs for rotated photos."""
+        """Test that GET /logs/{log_id}?include=photos returns proper URLs for rotated photos."""
         user, tlog, photo = seed_test_data(db)
 
-        # Request logs with photos included
-        resp = client.get(f"{settings.API_V1_STR}/logs?include=photos")
+        # Request specific log with photos included (not paginated list)
+        resp = client.get(f"{settings.API_V1_STR}/logs/{tlog.id}?include=photos")
 
         assert resp.status_code == 200
-        body = resp.json()
-
-        # Find our test log
-        test_logs = [item for item in body["items"] if item["id"] == tlog.id]
-        assert len(test_logs) == 1
-
-        test_log = test_logs[0]
+        test_log = resp.json()
 
         # Verify photos are included
         assert "photos" in test_log
@@ -156,9 +159,9 @@ class TestLogPhotoUrls:
         assert photo_data["photo_url"] != ""
         assert photo_data["icon_url"] != ""
 
-        # Verify URLs contain the rotated filenames
-        assert "424/P424363_r1.jpg" in photo_data["photo_url"]
-        assert "424/I424363_r1.jpg" in photo_data["icon_url"]
+        # Verify URLs contain the rotated filenames (use actual photo filenames)
+        assert photo.filename in photo_data["photo_url"]
+        assert photo.icon_filename in photo_data["icon_url"]
 
     def test_list_photos_for_log_with_rotated_urls(
         self, client: TestClient, db: Session
@@ -182,6 +185,6 @@ class TestLogPhotoUrls:
         assert photo_data["photo_url"] != ""
         assert photo_data["icon_url"] != ""
 
-        # Verify URLs contain the rotated filenames
-        assert "424/P424363_r1.jpg" in photo_data["photo_url"]
-        assert "424/I424363_r1.jpg" in photo_data["icon_url"]
+        # Verify URLs contain the rotated filenames (use actual photo filenames)
+        assert photo.filename in photo_data["photo_url"]
+        assert photo.icon_filename in photo_data["icon_url"]

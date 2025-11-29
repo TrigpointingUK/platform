@@ -77,20 +77,21 @@ class TrigMinimal(BaseModel):
 class TrigDetails(BaseModel):
     """Details sub-object for /trig/{id}/details or include=details."""
 
-    current_use: str
-    historic_use: str
+    current_use: Optional[str] = None
+    historic_use: Optional[str] = None
     wgs_height: int
-    postcode: str = Field(..., validation_alias="postcode6")
-    county: str
-    town: str
-    fb_number: str
-    stn_number: str
+    osgb_height: int
+    postcode: Optional[str] = None
+    county: Optional[str] = None
+    town: Optional[str] = None
+    fb_number: Optional[str] = None
+    stn_number: Optional[str] = None
     stn_number_active: Optional[str] = None
     stn_number_passive: Optional[str] = None
     stn_number_osgb36: Optional[str] = None
 
     @field_serializer("town")
-    def serialize_town(self, value: str) -> str:
+    def serialize_town(self, value: Optional[str]) -> Optional[str]:
         """Convert town name from ALL CAPS to Mixed Case."""
         return value.title() if value else value
 

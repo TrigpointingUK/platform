@@ -24,17 +24,16 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      mysql:
-        image: mysql:8.0
+      postgres:
+        image: postgis/postgis:16-3.5
         env:
-          MYSQL_ROOT_PASSWORD: root_password
-          MYSQL_DATABASE: test_db
-          MYSQL_USER: test_user
-          MYSQL_PASSWORD: test_password
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping"
+          --health-cmd="pg_isready -U test_user -d test_db"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
@@ -85,7 +84,7 @@ jobs:
 
     - name: Run tests
       env:
-        DATABASE_URL: mysql+pymysql://test_user:test_password@localhost:3306/test_db
+        DATABASE_URL: postgresql+psycopg2://test_user:test_password@localhost:5432/test_db
       run: |
         pytest --cov=api --cov-report=xml --cov-report=html
 

@@ -2,18 +2,21 @@
 User endpoints with permission-based field filtering.
 """
 
+import base64
 import io
 import json
 import os
 from datetime import date as date_type
-from typing import Dict, Optional, Union
+from datetime import datetime
+from typing import Any, Dict, Mapping, Optional, Union
 
 import numpy as np
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from api.api.deps import (
@@ -31,11 +34,16 @@ from api.models.trig import Trig
 from api.models.user import TLog, User
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.user import (
+    SortDirection,
     UserBreakdown,
     UserCreate,
     UserCreateResponse,
+    UserListFilters,
+    UserListItem,
+    UserListResponse,
     UserPrefs,
     UserResponse,
+    UserSortField,
     UserStats,
     UserUpdate,
     UserWithIncludes,
@@ -51,6 +59,64 @@ from api.utils.url import join_url
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
+
+
+_DEFAULT_JOINED_DATE = date_type(1900, 1, 1)
+
+USER_ACTIVITY_SUMMARY = sa.table(
+    "user_activity_summary",
+    sa.column("user_id", sa.Integer),
+    sa.column("member_since", sa.Date),
+    sa.column("total_logs", sa.Integer),
+    sa.column("total_trigs_logged", sa.Integer),
+    sa.column("total_photos", sa.Integer),
+)
+
+
+def _encode_cursor_value(value: Any) -> Any:
+    if isinstance(value, (date_type, datetime)):
+        return value.isoformat()
+    return value
+
+
+def _encode_cursor_token(
+    sort_value: Any, user_id: int, sort: UserSortField, direction: SortDirection
+) -> str:
+    payload = {
+        "sort_value": _encode_cursor_value(sort_value),
+        "user_id": user_id,
+        "sort": sort.value,
+        "direction": direction.value,
+    }
+    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("utf-8")
+
+
+def _decode_cursor_token(cursor: str) -> dict[str, Any]:
+    try:
+        decoded = base64.urlsafe_b64decode(cursor.encode("utf-8")).decode("utf-8")
+        data = json.loads(decoded)
+        if not isinstance(data, dict):
+            raise ValueError("Cursor payload must be an object")
+        return data
+    except Exception as exc:  # pragma: no cover - defensive branch
+        raise HTTPException(status_code=400, detail="Invalid cursor token") from exc
+
+
+def _coerce_cursor_value(sort_field: UserSortField, raw_value: Any) -> Any:
+    if sort_field == UserSortField.JOINED:
+        if not raw_value:
+            return _DEFAULT_JOINED_DATE
+        try:
+            return date_type.fromisoformat(str(raw_value))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid cursor value") from exc
+    if sort_field in {UserSortField.TRIGPOINTS, UserSortField.PHOTOS}:
+        return int(raw_value or 0)
+    if sort_field == UserSortField.NAME:
+        return str(raw_value or "")
+    # Fallback for future enum entries
+    return raw_value
 
 
 @router.post(
@@ -553,6 +619,51 @@ def update_current_user_profile(
 
 
 @router.get(
+    "/me/logged-trigs",
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Get list of trigpoints the current user has logged with conditions. Used for map icon coloring.",
+    ),
+)
+def get_current_user_logged_trigs(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get list of trigpoints the current user has logged with conditions.
+
+    Returns a lightweight list containing just trig_id and condition for each log.
+    This is used by the frontend to color map markers based on the user's log history.
+
+    Cache is automatically invalidated when the user creates, updates, or deletes a log
+    via the existing user:{user_id}:* cache invalidation pattern.
+
+    The caching is handled in a wrapper that calls the user-specific version.
+
+    Returns:
+        List of dicts with trig_id and condition for each log
+    """
+    # Call the cached version with the user_id
+    return get_user_logged_trigs_cached(current_user.id, db)
+
+
+@cached(
+    resource_type="user",
+    ttl=31536000,
+    resource_id_param="user_id",
+    subresource="logged-trigs",
+)  # 1 year - invalidated by log CRUD operations
+def get_user_logged_trigs_cached(user_id: int, db: Session):
+    """Cached implementation for getting user's logged trigs."""
+    logs = db.query(TLog.trig_id, TLog.condition).filter(TLog.user_id == user_id).all()
+
+    return [
+        {"trig_id": int(log.trig_id), "condition": str(log.condition or "U")}
+        for log in logs
+    ]
+
+
+@router.get(
     "/{user_id}/badge",
     responses={
         200: {
@@ -608,6 +719,179 @@ def get_user_badge(
         raise HTTPException(status_code=500, detail=f"Server configuration error: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating badge: {e}")
+
+
+@router.get(
+    "/browse",
+    response_model=UserListResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note=(
+            "Cursor-based directory of public users with sortable metrics. "
+            "Supports substring filtering and highlights trig logs plus uploaded photos."
+        ),
+    ),
+)
+def browse_users(
+    cursor: Optional[str] = Query(
+        None, description="Opaque cursor token returned by the previous response"
+    ),
+    q: Optional[str] = Query(
+        None, description="Case-insensitive substring match against usernames"
+    ),
+    limit: int = Query(
+        40, ge=1, le=100, description="Maximum number of users returned per page"
+    ),
+    sort: UserSortField = Query(
+        UserSortField.TRIGPOINTS,
+        description="Sort field: trigs, photos, joined, or name",
+    ),
+    direction: SortDirection = Query(
+        SortDirection.DESC, description="Sort direction: asc or desc"
+    ),
+    db: Session = Depends(get_db),
+) -> UserListResponse:
+    """
+    Return a cursor-based listing of users with aggregated activity metrics.
+
+    The endpoint favours deterministic ordering so that the frontend can implement
+    infinite scrolling without relying on brittle offsets.
+    """
+
+    activity_summary = USER_ACTIVITY_SUMMARY.alias("uas")
+    total_logs_column = activity_summary.c.total_logs.label("total_logs")
+    total_trigs_column = activity_summary.c.total_trigs_logged.label(
+        "total_trigs_logged"
+    )
+    total_photos_column = activity_summary.c.total_photos.label("total_photos")
+    member_since_column = activity_summary.c.member_since.label("member_since")
+
+    query = db.query(
+        User.id.label("id"),
+        User.name.label("name"),
+        User.firstname,
+        User.surname,
+        member_since_column,
+        total_logs_column,
+        total_trigs_column,
+        total_photos_column,
+    ).join(activity_summary, activity_summary.c.user_id == User.id)
+
+    search_term = q.strip() if q else None
+    like_pattern = f"%{search_term}%" if search_term else None
+    if like_pattern:
+        query = query.filter(User.name.ilike(like_pattern))
+
+    count_query = db.query(func.count(User.id)).join(
+        activity_summary, activity_summary.c.user_id == User.id
+    )
+    if like_pattern:
+        count_query = count_query.filter(User.name.ilike(like_pattern))
+    total_count = int(count_query.scalar() or 0)
+
+    sort_expression_map = {
+        UserSortField.TRIGPOINTS: total_trigs_column,
+        UserSortField.PHOTOS: total_photos_column,
+        UserSortField.LOGS: total_logs_column,
+        UserSortField.JOINED: func.coalesce(member_since_column, _DEFAULT_JOINED_DATE),
+        UserSortField.NAME: func.lower(User.name),
+    }
+    sort_expression = sort_expression_map.get(sort, total_trigs_column)
+
+    if cursor:
+        cursor_payload = _decode_cursor_token(cursor)
+        if cursor_payload.get("sort") != sort.value:
+            raise HTTPException(
+                status_code=400,
+                detail="Cursor sort does not match the current request parameters",
+            )
+        if cursor_payload.get("direction") != direction.value:
+            raise HTTPException(
+                status_code=400,
+                detail="Cursor direction does not match the current request parameters",
+            )
+        cursor_value = _coerce_cursor_value(sort, cursor_payload.get("sort_value"))
+        raw_user_id = cursor_payload.get("user_id")
+        if raw_user_id is None:
+            raise HTTPException(status_code=400, detail="Invalid cursor token")
+        try:
+            cursor_user_id = int(raw_user_id)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive branch
+            raise HTTPException(status_code=400, detail="Invalid cursor token") from exc
+
+        if direction == SortDirection.DESC:
+            cursor_condition = or_(
+                sort_expression < cursor_value,
+                and_(sort_expression == cursor_value, User.id < cursor_user_id),
+            )
+        else:
+            cursor_condition = or_(
+                sort_expression > cursor_value,
+                and_(sort_expression == cursor_value, User.id > cursor_user_id),
+            )
+        query = query.filter(cursor_condition)
+
+    primary_order = (
+        sort_expression.desc()
+        if direction == SortDirection.DESC
+        else sort_expression.asc()
+    )
+    secondary_order = (
+        User.id.desc() if direction == SortDirection.DESC else User.id.asc()
+    )
+
+    rows = query.order_by(primary_order, secondary_order).limit(limit + 1).all()
+    page_rows = rows[:limit]
+
+    def _extract_sort_value(row_data: Mapping[str, Any]) -> Any:
+        if sort == UserSortField.TRIGPOINTS:
+            return int(row_data["total_trigs_logged"])
+        if sort == UserSortField.PHOTOS:
+            return int(row_data["total_photos"])
+        if sort == UserSortField.JOINED:
+            return row_data["member_since"] or _DEFAULT_JOINED_DATE
+        return str(row_data["name"]).lower()
+
+    items: list[UserListItem] = []
+    for row in page_rows:
+        data = dict(row._mapping)
+        stats = UserStats(
+            total_logs=int(data["total_logs"]),
+            total_trigs_logged=int(data["total_trigs_logged"]),
+            total_photos=int(data["total_photos"]),
+        )
+        items.append(
+            UserListItem(
+                id=int(data["id"]),
+                name=str(data["name"]),
+                member_since=data["member_since"],
+                stats=stats,
+                profile_path=f"/profile/{int(data['id'])}",
+            )
+        )
+
+    next_cursor = None
+    if len(rows) > limit and page_rows:
+        last_row_data = dict(page_rows[-1]._mapping)
+        sort_value = _extract_sort_value(last_row_data)
+        next_cursor = _encode_cursor_token(
+            sort_value=sort_value,
+            user_id=int(last_row_data["id"]),
+            sort=sort,
+            direction=direction,
+        )
+
+    return UserListResponse(
+        items=items,
+        next_cursor=next_cursor,
+        total=total_count,
+        applied_filters=UserListFilters(
+            query=search_term,
+            sort=sort,
+            direction=direction,
+            limit=limit,
+        ),
+    )
 
 
 @router.get("/{user_id}", response_model=UserWithIncludes)

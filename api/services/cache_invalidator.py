@@ -144,10 +144,12 @@ def invalidate_trig_caches(trig_id: int):
 
     Args:
         trig_id: ID of the trig
+
+    Note: Does NOT invalidate trigs:export:* or trigs:geojson:* to preserve bulk exports.
     """
     patterns = [
         f"trig:{trig_id}:*",  # All trig-related caches
-        "trigs:list:*",  # All trig list queries
+        "trigs:list:v1:*",  # Trig list queries only (not export/geojson)
     ]
 
     invalidate_patterns(patterns)

@@ -15,9 +15,12 @@ from api.crud.user import (
 
 def test_create_user_success(db: Session):
     """Test successful user creation."""
-    username = "testuser"
-    email = "test@example.com"
-    auth0_user_id = "auth0|12345"
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    username = f"testuser_{unique_suffix}"
+    email = f"test_{unique_suffix}@example.com"
+    auth0_user_id = f"auth0|{unique_suffix}"
 
     user = create_user(
         db=db,
@@ -42,11 +45,14 @@ def test_create_user_success(db: Session):
 
 def test_create_user_cryptpw_is_random(db: Session):
     """Test that cryptpw is set to a random string, not empty."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
     user = create_user(
         db=db,
-        username="randomtest",
-        email="random@example.com",
-        auth0_user_id="auth0|random123",
+        username=f"randomtest_{unique_suffix}",
+        email=f"random_{unique_suffix}@example.com",
+        auth0_user_id=f"auth0|random_{unique_suffix}",
     )
 
     assert user.cryptpw != ""
@@ -55,11 +61,14 @@ def test_create_user_cryptpw_is_random(db: Session):
 
 def test_create_user_firstname_surname_empty(db: Session):
     """Test that firstname and surname default to empty strings."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
     user = create_user(
         db=db,
-        username="emptyname",
-        email="empty@example.com",
-        auth0_user_id="auth0|empty123",
+        username=f"emptyname_{unique_suffix}",
+        email=f"empty_{unique_suffix}@example.com",
+        auth0_user_id=f"auth0|empty_{unique_suffix}",
     )
 
     assert user.firstname == ""
@@ -68,11 +77,14 @@ def test_create_user_firstname_surname_empty(db: Session):
 
 def test_create_user_duplicate_username(db: Session):
     """Test that duplicate username is rejected."""
-    username = "duplicateuser"
-    email1 = "dup1@example.com"
-    email2 = "dup2@example.com"
-    auth0_id1 = "auth0|dup1"
-    auth0_id2 = "auth0|dup2"
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    username = f"duplicateuser_{unique_suffix}"
+    email1 = f"dup1_{unique_suffix}@example.com"
+    email2 = f"dup2_{unique_suffix}@example.com"
+    auth0_id1 = f"auth0|dup1_{unique_suffix}"
+    auth0_id2 = f"auth0|dup2_{unique_suffix}"
 
     # Create first user
     create_user(db=db, username=username, email=email1, auth0_user_id=auth0_id1)
@@ -84,11 +96,14 @@ def test_create_user_duplicate_username(db: Session):
 
 def test_create_user_duplicate_email(db: Session):
     """Test that duplicate email is rejected."""
-    username1 = "user1"
-    username2 = "user2"
-    email = "duplicate@example.com"
-    auth0_id1 = "auth0|email1"
-    auth0_id2 = "auth0|email2"
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    username1 = f"user1_{unique_suffix}"
+    username2 = f"user2_{unique_suffix}"
+    email = f"duplicate_{unique_suffix}@example.com"
+    auth0_id1 = f"auth0|email1_{unique_suffix}"
+    auth0_id2 = f"auth0|email2_{unique_suffix}"
 
     # Create first user
     create_user(db=db, username=username1, email=email, auth0_user_id=auth0_id1)
@@ -100,11 +115,14 @@ def test_create_user_duplicate_email(db: Session):
 
 def test_create_user_duplicate_auth0_user_id(db: Session):
     """Test that duplicate auth0_user_id is rejected."""
-    username1 = "user1"
-    username2 = "user2"
-    email1 = "email1@example.com"
-    email2 = "email2@example.com"
-    auth0_user_id = "auth0|duplicate"
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    username1 = f"user1_{unique_suffix}"
+    username2 = f"user2_{unique_suffix}"
+    email1 = f"email1_{unique_suffix}@example.com"
+    email2 = f"email2_{unique_suffix}@example.com"
+    auth0_user_id = f"auth0|duplicate_{unique_suffix}"
 
     # Create first user
     create_user(db=db, username=username1, email=email1, auth0_user_id=auth0_user_id)
@@ -118,11 +136,14 @@ def test_create_user_duplicate_auth0_user_id(db: Session):
 
 def test_create_user_default_values(db: Session):
     """Test that default values are applied correctly."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
     user = create_user(
         db=db,
-        username="defaultuser",
-        email="default@example.com",
-        auth0_user_id="auth0|default123",
+        username=f"defaultuser_{unique_suffix}",
+        email=f"default_{unique_suffix}@example.com",
+        auth0_user_id=f"auth0|default_{unique_suffix}",
     )
 
     assert user.email_valid == "Y"  # Auth0 verified
@@ -138,9 +159,12 @@ def test_create_user_default_values(db: Session):
 
 def test_create_user_can_be_retrieved(db: Session):
     """Test that created user can be retrieved by various methods."""
-    username = "retrieveuser"
-    email = "retrieve@example.com"
-    auth0_user_id = "auth0|retrieve123"
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    username = f"retrieveuser_{unique_suffix}"
+    email = f"retrieve_{unique_suffix}@example.com"
+    auth0_user_id = f"auth0|retrieve_{unique_suffix}"
 
     created_user = create_user(
         db=db,

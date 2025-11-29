@@ -11,6 +11,7 @@ export interface GeoJSONTrig {
     name: string;
     condition: string;
     osgb_gridref: string;
+    physical_type: string; // Added for new structure
   };
 }
 
@@ -19,11 +20,17 @@ export interface GeoJSONFeatureCollection {
   features: GeoJSONTrig[];
 }
 
+// New status-based structure
 export interface GeoJSONResponse {
-  fbm: GeoJSONFeatureCollection;
-  pillar: GeoJSONFeatureCollection;
+  pillar?: GeoJSONFeatureCollection;
+  major_mark?: GeoJSONFeatureCollection;
+  minor_mark?: GeoJSONFeatureCollection;
+  intersected?: GeoJSONFeatureCollection;
+  user_added?: GeoJSONFeatureCollection;
+  controversial?: GeoJSONFeatureCollection;
   generated_at: string;
   cache_info: string;
+  [key: string]: GeoJSONFeatureCollection | string | undefined; // Allow dynamic keys
 }
 
 export interface UseMapTrigsGeoJSONOptions {

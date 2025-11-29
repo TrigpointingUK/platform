@@ -27,7 +27,7 @@ class TestConfigComprehensive:
         assert model_fields["DEBUG"].default is False
         # DATABASE_URL is now a property, so test the individual DB components
         assert model_fields["DB_HOST"].default == "localhost"
-        assert model_fields["DB_PORT"].default == 3306
+        assert model_fields["DB_PORT"].default == 5432  # PostgreSQL default
         assert model_fields["DB_USER"].default == "user"
         assert model_fields["DB_PASSWORD"].default == "pass"
         assert model_fields["DB_NAME"].default == "db"
@@ -118,7 +118,9 @@ class TestConfigComprehensive:
             DB_PASSWORD="pass",
             DB_NAME="db",
         )
-        assert settings.DATABASE_URL == "mysql+pymysql://user:pass@localhost:5432/db"
+        assert (
+            settings.DATABASE_URL == "postgresql+psycopg2://user:pass@localhost:5432/db"
+        )
 
     def test_environment_variable_override(self):
         """Test that environment variables override default values."""
@@ -143,7 +145,7 @@ class TestConfigComprehensive:
             assert settings.DB_NAME == "env-db"
             assert (
                 settings.DATABASE_URL
-                == "mysql+pymysql://env-user:env-pass@env-host:5432/env-db"
+                == "postgresql+psycopg2://env-user:env-pass@env-host:5432/env-db"
             )
             assert settings.AUTH0_CUSTOM_DOMAIN == "env.auth0.com"
 
