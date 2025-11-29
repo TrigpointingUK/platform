@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     # Database Pool Configuration
     DATABASE_POOL_SIZE: int = 5
+    DATABASE_POOL_MAX_OVERFLOW: int = 10  # Additional connections beyond pool_size
     DATABASE_POOL_RECYCLE: int = 300
 
     @property

@@ -156,6 +156,12 @@ variable "db_pool_size" {
   default     = 5
 }
 
+variable "db_pool_max_overflow" {
+  description = "Maximum number of connections that can be created beyond pool_size"
+  type        = number
+  default     = 10
+}
+
 variable "db_pool_recycle" {
   description = "Database connection pool recycle time (seconds)"
   type        = number
