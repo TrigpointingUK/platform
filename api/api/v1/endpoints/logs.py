@@ -103,9 +103,7 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
             trig_lon = trig_info.get("lon")
 
             if trig_lat is not None and trig_lon is not None:
-                # Convert log's OSGB coordinates to WGS84
-                # Note: This uses a simplified conversion that's only accurate for
-                # southern England. For better accuracy, consider using pyproj.
+                # Convert log's OSGB coordinates to WGS84 using Helmert transformation
                 log_lat, log_lon = osgb_to_wgs84(
                     int(log.osgb_eastings), int(log.osgb_northings)
                 )

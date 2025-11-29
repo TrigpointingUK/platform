@@ -51,17 +51,23 @@ def test_osgb_to_wgs84_conversion():
 
 
 def test_osgb_to_wgs84_fetlar():
-    """Test conversion with real data from Fetlar trigpoint."""
-    # Fetlar (trigid=1): HU 609 917 = E:460900, N:1191700
-    eastings = 460900
-    northings = 1191700
+    """Test conversion with real data from Fetlar trigpoint.
+
+    Tests against Ordnance Survey ETRS89 coordinates:
+    60.620248808764, -0.864837687763
+
+    Note: WGS84 and ETRS89 are effectively identical for UK mapping purposes.
+    """
+    # Fetlar trigpoint location: HU 62229 93521
+    eastings = 462229
+    northings = 1193521
 
     lat, lon = osgb_to_wgs84(eastings, northings)
 
-    # Expected WGS84 coordinates for Fetlar: approximately 60.61, -0.87
-    # Allow wider tolerance due to simplified conversion algorithm
-    assert 60.5 < lat < 60.7
-    assert -1.3 < lon < -0.7
+    # Check against OS coordinates with reasonable tolerance
+    # (Helmert transformation should be accurate to ~5m / ~0.00005°)
+    assert abs(lat - 60.620248808764) < 0.0001  # ~10m tolerance
+    assert abs(lon - (-0.864837687763)) < 0.0001  # ~10m tolerance
 
 
 def test_haversine_distance_short_distance():
