@@ -27,10 +27,11 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Fix all sequences to start from max(id) + 1."""
     # List of tables with auto-increment IDs
+    # Note: table names are quoted to handle reserved keywords like 'user'
     tables_with_sequences = [
         ("tlog", "tlog_id_seq"),
         ("tphoto", "tphoto_id_seq"),
-        ("user", "user_id_seq"),
+        ('"user"', "user_id_seq"),  # Quoted because 'user' is a reserved keyword
         ("trig", "trig_id_seq"),
         ("attr", "attr_id_seq"),
         ("attrval", "attrval_id_seq"),
@@ -43,11 +44,14 @@ def upgrade() -> None:
     conn = op.get_bind()
 
     for table_name, sequence_name in tables_with_sequences:
+        # Remove quotes for checking table existence
+        unquoted_name = table_name.strip('"')
+
         # Check if table and sequence exist before trying to fix
         table_exists = conn.execute(
             sa.text(
                 f"SELECT EXISTS (SELECT FROM information_schema.tables "
-                f"WHERE table_schema = 'public' AND table_name = '{table_name}')"
+                f"WHERE table_schema = 'public' AND table_name = '{unquoted_name}')"
             )
         ).scalar()
 
@@ -66,6 +70,7 @@ def upgrade() -> None:
 
         # Reset the sequence to max(id) + 1
         # Using false as third parameter means the next nextval() will return the specified value
+        # Table name is already quoted if needed
         conn.execute(
             sa.text(
                 f"SELECT setval('{sequence_name}', "
