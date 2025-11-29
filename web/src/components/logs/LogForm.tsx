@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Log, LogCreateInput, LogUpdateInput } from "../../lib/api";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
@@ -9,6 +9,8 @@ import DateTimeEditor from "../forms/DateTimeEditor";
 import LocationPicker from "../forms/LocationPicker";
 import PhotoManager from "../photos/PhotoManager";
 import { useLogPhotos } from "../../hooks/useLogPhotos";
+import { parseLocation } from "../../lib/locationParser";
+import { calculateDistance, osgbToWGS84 } from "../../lib/coordinates";
 
 interface LogFormProps {
   trigGridRef: string;
@@ -56,9 +58,21 @@ export default function LogForm({
     existingLog ? existingLog.time !== "12:00:00" : true // Default to true for new logs
   );
   const [locationSet, setLocationSet] = useState(!!existingLog);
+  const [locationInput, setLocationInput] = useState("");
+  const [locationError, setLocationError] = useState("");
+  const [distanceFromTrig, setDistanceFromTrig] = useState<number | null>(null);
+  const [showDistanceWarning, setShowDistanceWarning] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<Partial<LogCreateInput> | null>(null);
 
   // Fetch photos for existing logs
   const { data: photos = [] } = useLogPhotos(existingLog?.id);
+
+  // Initialize location input from existing log
+  useEffect(() => {
+    if (existingLog) {
+      setLocationInput(formData.osgb_gridref);
+    }
+  }, [existingLog, formData.osgb_gridref, formData.osgb_eastings, formData.osgb_northings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,11 +94,36 @@ export default function LogForm({
       submitData.osgb_northings = formData.osgb_northings;
     }
 
+    // Check distance if location is set
+    if (locationSet && distanceFromTrig !== null && distanceFromTrig > 20) {
+      // Show confirmation dialog
+      setPendingSubmit(submitData);
+      setShowDistanceWarning(true);
+      return;
+    }
+
     try {
       await onSubmit(submitData as LogCreateInput | LogUpdateInput);
     } catch (error) {
       console.error("Failed to submit log:", error);
     }
+  };
+
+  const handleDistanceConfirm = async () => {
+    setShowDistanceWarning(false);
+    if (pendingSubmit) {
+      try {
+        await onSubmit(pendingSubmit as LogCreateInput | LogUpdateInput);
+        setPendingSubmit(null);
+      } catch (error) {
+        console.error("Failed to submit log:", error);
+      }
+    }
+  };
+
+  const handleDistanceCancel = () => {
+    setShowDistanceWarning(false);
+    setPendingSubmit(null);
   };
 
   const handleChange = (
@@ -98,6 +137,51 @@ export default function LogForm({
       setFormData((prev) => ({ ...prev, [name]: parseInt(value, 10) || 0 }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Auto-uppercase for grid references
+    const uppercased = value.toUpperCase();
+    setLocationInput(uppercased);
+
+    // Parse the location
+    const result = parseLocation(uppercased);
+    
+    if (result.success && result.data) {
+      // Valid location
+      setFormData((prev) => ({
+        ...prev,
+        osgb_gridref: result.data!.gridRef,
+        osgb_eastings: result.data!.eastings,
+        osgb_northings: result.data!.northings,
+      }));
+      setLocationSet(true);
+      setLocationError("");
+
+      // Calculate distance from trigpoint
+      try {
+        const { lat, lon } = osgbToWGS84(result.data.eastings, result.data.northings);
+        const distance = calculateDistance(lat, lon, trigLatitude, trigLongitude);
+        setDistanceFromTrig(distance);
+      } catch (error) {
+        console.error("Failed to calculate distance:", error);
+        setDistanceFromTrig(null);
+      }
+    } else {
+      // Invalid or empty location
+      if (uppercased.trim() === "") {
+        // Empty input - clear everything
+        setLocationSet(false);
+        setLocationError("");
+        setDistanceFromTrig(null);
+      } else {
+        // Invalid input - show error
+        setLocationSet(false);
+        setLocationError(result.error || "Invalid location format");
+        setDistanceFromTrig(null);
+      }
     }
   };
 
@@ -136,63 +220,134 @@ export default function LogForm({
           />
         </div>
 
-        {/* Location - Use Current Location Button */}
+        {/* Location */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Location (optional)
           </label>
           
-          {!locationSet ? (
-            <LocationPicker
-              onLocationSelected={(location) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  osgb_gridref: location.gridRef,
-                  osgb_eastings: location.eastings,
-                  osgb_northings: location.northings,
-                }));
-                setLocationSet(true);
-              }}
-              maxAccuracy={10}
-              trigLatitude={trigLatitude}
-              trigLongitude={trigLongitude}
-              maxDistance={25}
-            />
-          ) : (
-            <div className="space-y-2">
-              <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="font-semibold text-green-800 mb-1">
-                      Location Set
-                    </div>
-                    <div className="text-sm text-green-700 space-y-1">
-                      <div>
-                        <span className="font-medium">Grid Ref:</span>{" "}
-                        {formData.osgb_gridref}
-                      </div>
-                      <div>
-                        <span className="font-medium">Eastings:</span>{" "}
-                        {formData.osgb_eastings}
-                      </div>
-                      <div>
-                        <span className="font-medium">Northings:</span>{" "}
-                        {formData.osgb_northings}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setLocationSet(false)}
-                    className="text-sm text-green-700 hover:text-green-900 underline flex-shrink-0"
-                  >
-                    Change
-                  </button>
-                </div>
+          <div className="flex flex-col gap-2">
+            {/* Location Input Textbox */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={locationInput}
+                onChange={handleLocationInputChange}
+                placeholder="Enter grid ref (e.g., TL 137 055) or coordinates (e.g., 53.69417, -1.78231)"
+                className={`flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-trig-green-500 ${
+                  locationError && locationInput.trim() !== "" 
+                    ? "border-red-300 bg-red-50" 
+                    : "border-gray-300 bg-white"
+                }`}
+              />
+              
+              {/* Distance Display */}
+              <input
+                type="text"
+                value={
+                  distanceFromTrig !== null 
+                    ? `${distanceFromTrig.toFixed(1)}m from trig`
+                    : ""
+                }
+                readOnly
+                placeholder="Distance"
+                className="w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm"
+              />
+              
+              {/* Buttons - kept together on small screens */}
+              <div className="flex gap-2 flex-shrink-0">
+                <LocationPicker
+                  onLocationSelected={(location) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      osgb_gridref: location.gridRef,
+                      osgb_eastings: location.eastings,
+                      osgb_northings: location.northings,
+                    }));
+                    setLocationSet(true);
+                    setLocationInput(location.gridRef);
+                    
+                    // Calculate distance
+                    try {
+                      const { lat, lon } = osgbToWGS84(location.eastings, location.northings);
+                      const distance = calculateDistance(lat, lon, trigLatitude, trigLongitude);
+                      setDistanceFromTrig(distance);
+                    } catch (error) {
+                      console.error("Failed to calculate distance:", error);
+                      setDistanceFromTrig(null);
+                    }
+                  }}
+                  maxAccuracy={10}
+                  trigLatitude={trigLatitude}
+                  trigLongitude={trigLongitude}
+                  maxDistance={25}
+                />
+                
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!locationSet}
+                  onClick={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      osgb_gridref: trigGridRef,
+                      osgb_eastings: trigEastings,
+                      osgb_northings: trigNorthings,
+                    }));
+                    setLocationSet(false);
+                    setLocationInput("");
+                    setLocationError("");
+                    setDistanceFromTrig(null);
+                  }}
+                  className="flex-shrink-0"
+                >
+                  🗑️ Clear Location
+                </Button>
               </div>
             </div>
-          )}
+            
+            {/* Validation Error */}
+            {locationError && locationInput.trim() !== "" && (
+              <div className="text-xs text-gray-500">
+                {locationError}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Distance Warning Modal */}
+        {showDistanceWarning && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">Location Distance Warning</h3>
+              <p className="text-gray-700 mb-4">
+                The location you've entered is <strong>{distanceFromTrig?.toFixed(1)}m</strong> from the 
+                recorded trigpoint location. This is more than 20 meters away.
+              </p>
+              <p className="text-gray-600 mb-6 text-sm">
+                Are you sure this is correct? Large distances may indicate:
+              </p>
+              <ul className="text-sm text-gray-600 mb-6 list-disc list-inside space-y-1">
+                <li>The trigpoint has been moved</li>
+                <li>GPS accuracy issues</li>
+                <li>An incorrect location entry</li>
+              </ul>
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={handleDistanceCancel}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleDistanceConfirm}
+                >
+                  Confirm and Submit
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Grid Reference Fields - Hidden but included for form submission */}
         <input type="hidden" name="osgb_gridref" value={formData.osgb_gridref} />

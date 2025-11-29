@@ -42,6 +42,9 @@ class TLogResponse(TLogBase):
     user_name: Optional[str] = None
     trig_lat: Optional[float] = None
     trig_lon: Optional[float] = None
+    location_distance_m: Optional[float] = (
+        None  # Distance from log location to trig location
+    )
 
 
 class TLogWithIncludes(TLogResponse):

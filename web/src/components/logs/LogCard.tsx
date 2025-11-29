@@ -1,7 +1,9 @@
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../ui/Card";
 import StarRating from "../ui/StarRating";
+import DirectionArrow from "../ui/DirectionArrow";
 import { Photo } from "../../lib/api";
+import { osgbToWGS84 } from "../../lib/coordinates";
 
 interface Log {
   id: number;
@@ -9,11 +11,17 @@ interface Log {
   user_id: number;
   trig_name?: string;
   user_name?: string;
+  trig_lat?: number | null;
+  trig_lon?: number | null;
   date: string;
   time: string;
   condition: string;
   comment: string;
   score: number;
+  osgb_gridref?: string;
+  osgb_eastings?: number;
+  osgb_northings?: number;
+  location_distance_m?: number;
   photos?: Photo[];
 }
 
@@ -63,6 +71,49 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
   // Format trig ID with minimum 4 digits (TP0023, TP1234, TP34567)
   const formattedTrigId = `TP${log.trig_id.toString().padStart(4, '0')}`;
 
+  // Calculate bearing from point A to point B (in degrees, 0 = North)
+  const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const toRad = (deg: number) => deg * (Math.PI / 180);
+    const toDeg = (rad: number) => rad * (180 / Math.PI);
+    
+    const φ1 = toRad(lat1);
+    const φ2 = toRad(lat2);
+    const Δλ = toRad(lon2 - lon1);
+    
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+    const θ = Math.atan2(y, x);
+    
+    return (toDeg(θ) + 360) % 360; // Normalize to 0-360
+  };
+
+  // Format distance with direction arrow
+  const formatDistance = (distance?: number) => {
+    if (distance === undefined || distance === null) return null;
+    
+    const distanceText = distance < 1000 
+      ? `${Math.round(distance)}m` 
+      : `${(distance / 1000).toFixed(1)}km`;
+    
+    const colorClass = distance <= 25 ? 'text-gray-500' : 'text-red-700';
+    
+    // Calculate bearing if we have coordinates
+    let bearing: number | null = null;
+    if (log.trig_lat != null && log.trig_lon != null && 
+        log.osgb_eastings !== undefined && log.osgb_northings !== undefined) {
+      // Convert log OSGB to WGS84
+      const logWGS84 = osgbToWGS84(log.osgb_eastings, log.osgb_northings);
+      bearing = calculateBearing(log.trig_lat, log.trig_lon, logWGS84.lat, logWGS84.lon);
+    }
+    
+    return (
+      <span className={`${colorClass} inline-flex items-center gap-1`}>
+        {distanceText}
+        {bearing !== null && <DirectionArrow bearing={bearing} size={14} />}
+      </span>
+    );
+  };
+
   const handlePhotoClick = (photo: Photo, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click when clicking a photo
     // Navigate with the photo data and all photos from the log in state
@@ -102,13 +153,13 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
                 </>
               )}
             </Link>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+            <div className="flex flex-wrap items-center gap-2 text-base text-gray-600">
               <span>
                 by{" "}
                 {displayUserName ? (
                   <Link
                     to={`/profile/${log.user_id}`}
-                    className="text-trig-green-600 hover:underline font-semibold text-base"
+                    className="text-trig-green-600 hover:underline font-semibold text-lg"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {displayUserName}
@@ -116,7 +167,7 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
                 ) : (
                   <Link
                     to={`/profile/${log.user_id}`}
-                    className="text-trig-green-600 hover:underline font-semibold text-base"
+                    className="text-trig-green-600 hover:underline font-semibold text-lg"
                     onClick={(e) => e.stopPropagation()}
                   >
                     User #{log.user_id}
@@ -139,7 +190,17 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
               <span className="text-gray-400">·</span>
               <span className="text-gray-700">{formattedDate}</span>
               {log.time && log.time !== "12:00:00" && (
-                <span className="text-gray-500 text-xs">{log.time}</span>
+                <span className="text-gray-500">{log.time}</span>
+              )}
+              
+              {/* Location and Distance */}
+              {log.osgb_gridref && log.location_distance_m !== undefined && (
+                <>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-gray-600 font-mono">{log.osgb_gridref}</span>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-sm">{formatDistance(log.location_distance_m)}</span>
+                </>
               )}
             </div>
           </div>

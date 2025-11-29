@@ -3,7 +3,7 @@ import { ReactNode } from "react";
 interface ButtonProps {
   children: ReactNode;
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
-  variant?: "primary" | "secondary" | "ghost" | "outline";
+  variant?: "primary" | "secondary" | "ghost" | "outline" | "danger";
   size?: "sm" | "md" | "lg";
   type?: "button" | "submit" | "reset";
   disabled?: boolean;
@@ -28,10 +28,11 @@ export default function Button({
   };
   
   const variantClasses = {
-    primary: "bg-trig-green-600 text-white hover:bg-trig-green-700 focus:ring-trig-green-500 disabled:bg-gray-300",
+    primary: "bg-trig-green-600 text-white hover:bg-trig-green-500 focus:ring-trig-green-500 disabled:bg-gray-300",
     secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-500 disabled:bg-gray-100",
     ghost: "bg-transparent text-trig-green-600 hover:bg-trig-green-50 focus:ring-trig-green-500",
     outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-500 disabled:bg-gray-50 disabled:text-gray-400",
+    danger: "bg-red-800 text-white hover:bg-red-700 focus:ring-red-500 disabled:bg-gray-300",
   };
 
   return (

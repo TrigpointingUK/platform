@@ -42,6 +42,18 @@
   .bg-trig-green-900 { background-color: var(--color-trig-green-900); }
   .bg-trig-green-950 { background-color: var(--color-trig-green-950); }
   
+  .hover\:bg-trig-green-50:hover { background-color: var(--color-trig-green-50); }
+  .hover\:bg-trig-green-100:hover { background-color: var(--color-trig-green-100); }
+  .hover\:bg-trig-green-200:hover { background-color: var(--color-trig-green-200); }
+  .hover\:bg-trig-green-300:hover { background-color: var(--color-trig-green-300); }
+  .hover\:bg-trig-green-400:hover { background-color: var(--color-trig-green-400); }
+  .hover\:bg-trig-green-500:hover { background-color: var(--color-trig-green-500); }
+  .hover\:bg-trig-green-600:hover { background-color: var(--color-trig-green-600); }
+  .hover\:bg-trig-green-700:hover { background-color: var(--color-trig-green-700); }
+  .hover\:bg-trig-green-800:hover { background-color: var(--color-trig-green-800); }
+  .hover\:bg-trig-green-900:hover { background-color: var(--color-trig-green-900); }
+  .hover\:bg-trig-green-950:hover { background-color: var(--color-trig-green-950); }
+  
   .border-trig-green-50 { border-color: var(--color-trig-green-50); }
   .border-trig-green-100 { border-color: var(--color-trig-green-100); }
   .border-trig-green-200 { border-color: var(--color-trig-green-200); }

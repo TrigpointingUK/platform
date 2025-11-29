@@ -269,6 +269,8 @@ export interface Log {
   user_id: number;
   trig_name?: string;
   user_name?: string;
+  trig_lat?: number;
+  trig_lon?: number;
   date: string;
   time: string;
   osgb_eastings: number;
@@ -279,6 +281,7 @@ export interface Log {
   comment: string;
   score: number;
   source: string;
+  location_distance_m?: number;
   photos?: Photo[];
 }
 
@@ -328,6 +331,27 @@ export async function updateLog(
   token: string
 ): Promise<Log> {
   return apiPatch<Log>(`/v1/logs/${logId}`, data, token);
+}
+
+/**
+ * Delete a log (hard delete - also soft-deletes associated photos)
+ */
+export async function deleteLog(
+  logId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/logs/${logId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
 }
 
 export interface LegacyLoginRequest {
