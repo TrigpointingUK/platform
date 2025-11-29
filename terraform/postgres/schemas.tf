@@ -53,6 +53,19 @@ resource "postgresql_extension" "postgis_staging" {
   database = postgresql_database.staging.name
 }
 
+# Enable pg_cron extension - IMPORTANT LIMITATION
+# ================================================
+# In AWS RDS PostgreSQL, pg_cron can ONLY be enabled in ONE database per RDS instance.
+# This is because:
+# 1. pg_cron is loaded via shared_preload_libraries (instance-wide parameter)
+# 2. The cron.database_name parameter specifies which database gets the extension
+# 3. Only that ONE database can have the cron schema and functions
+#
+# Therefore, either production OR staging can have pg_cron, but not both.
+# For production cutover, we enable it on tuk_production.
+#
+# The count conditional checks if var.pgcron_database_name matches the database name.
+
 # Enable pg_cron extension in production database if configured
 resource "postgresql_extension" "pgcron_production" {
   count    = var.pgcron_database_name == postgresql_database.production.name ? 1 : 0

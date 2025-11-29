@@ -11,7 +11,7 @@ variable "project_name" {
 }
 
 variable "pgcron_database_name" {
-  description = "Database where pg_cron extension should be installed"
+  description = "Database where pg_cron extension should be installed (ONLY ONE per RDS instance)"
   type        = string
   default     = "tuk_production"
 }

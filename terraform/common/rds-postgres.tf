@@ -35,6 +35,10 @@ resource "aws_db_parameter_group" "postgres" {
     apply_method = "immediate"
   }
 
+  # pg_cron extension configuration
+  # IMPORTANT: pg_cron can only run in ONE database per RDS instance
+  # The shared_preload_libraries loads pg_cron at the instance level,
+  # but cron.database_name specifies which single database gets the extension
   parameter {
     name         = "shared_preload_libraries"
     value        = "pg_cron"

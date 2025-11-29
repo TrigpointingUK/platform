@@ -124,32 +124,6 @@ export default function Preferences() {
             </div>
           </div>
         </Card>
-
-        {/* Privacy Preferences */}
-        <Card className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Privacy Preferences
-          </h2>
-          <div className="grid grid-cols-1 gap-6">
-            {/* Public Profile */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Public Profile
-              </label>
-              <select
-                value={user.prefs?.public_ind || "N"}
-                onChange={(e) => handleFieldUpdate("public_ind", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="Y">Public - visible to everyone</option>
-                <option value="N">Private - visible only to you</option>
-              </select>
-              <p className="mt-2 text-xs text-gray-500">
-                Controls whether other users can view your profile
-              </p>
-            </div>
-          </div>
-        </Card>
       </div>
     </Layout>
   );

@@ -94,7 +94,7 @@ variable "db_performance_insights_retention_period" {
 }
 
 variable "postgres_cron_database_name" {
-  description = "Name of the PostgreSQL database where pg_cron should run"
+  description = "Name of the PostgreSQL database where pg_cron should run (ONLY ONE per RDS instance)"
   type        = string
   default     = "tuk_production"
 }
