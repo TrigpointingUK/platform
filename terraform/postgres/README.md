@@ -41,8 +41,27 @@ terraform apply
 
 - **Databases**: `tuk_production`, `tuk_staging`
 - **Users**: `fastapi_production`, `fastapi_staging`, `backups`
-- **Extensions**: PostGIS enabled on all databases
+- **Extensions**: PostGIS enabled on all databases, pg_cron enabled on production
 - **Secrets**: Stored in AWS Secrets Manager for each user
+
+### ⚠️ pg_cron Extension Limitation
+
+**CRITICAL**: The `pg_cron` extension can only be enabled in **ONE database per RDS instance**.
+
+This is an AWS RDS limitation:
+- `pg_cron` is loaded via `shared_preload_libraries` (instance-wide)
+- The `cron.database_name` parameter specifies which single database gets the extension
+- Only that database will have the `cron` schema and be able to schedule jobs
+
+**Current Configuration**: pg_cron is enabled on `tuk_production`
+
+This means:
+- ✅ Production database can schedule cron jobs (e.g., refreshing materialized views)
+- ❌ Staging database **cannot** use pg_cron
+- If you need to test pg_cron features in staging, you must:
+  1. Change `postgres_cron_database_name = "tuk_staging"` in `terraform/common/terraform.tfvars`
+  2. Apply Terraform changes (requires RDS instance reboot)
+  3. Note: This will **disable** pg_cron in production during staging tests
 
 ## Connecting to Database
 
