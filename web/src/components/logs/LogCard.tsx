@@ -58,6 +58,16 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
     year: "numeric",
   });
 
+  // Debug logging for location data
+  if (log.osgb_gridref || log.location_distance_m !== undefined) {
+    console.log('LogCard location data:', {
+      id: log.id,
+      gridref: log.osgb_gridref,
+      distance: log.location_distance_m,
+      showLocation: !!(log.osgb_gridref && log.location_distance_m !== undefined)
+    });
+  }
+
   // Use denormalized fields if available, otherwise fall back to props
   const displayTrigName = log.trig_name || trigName;
   const displayUserName = log.user_name || userName;
@@ -155,26 +165,20 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
                 size="sm" 
                 title={`${log.score}/10`}
               />
-            </div>
-            
-            {/* Date and Location Row */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">·</span>
-                <span className="text-gray-700">{formattedDate}</span>
-                {log.time && log.time !== "12:00:00" && (
-                  <span className="text-gray-500 text-xs">{log.time}</span>
-                )}
-              </div>
+              <span className="text-gray-400">·</span>
+              <span className="text-gray-700">{formattedDate}</span>
+              {log.time && log.time !== "12:00:00" && (
+                <span className="text-gray-500 text-xs">{log.time}</span>
+              )}
               
               {/* Location and Distance */}
               {log.osgb_gridref && log.location_distance_m !== undefined && (
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400 hidden sm:inline">·</span>
+                <>
+                  <span className="text-gray-400">·</span>
                   <span className="text-gray-600 text-xs font-mono">{log.osgb_gridref}</span>
                   <span className="text-gray-400">·</span>
                   {formatDistance(log.location_distance_m)}
-                </div>
+                </>
               )}
             </div>
           </div>
