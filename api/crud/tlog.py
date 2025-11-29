@@ -76,7 +76,10 @@ def create_log(
     user_id: int,
     values: dict,
 ) -> TLog:
-    log = TLog(trig_id=trig_id, user_id=user_id, **values)
+    # Remove trig_id and user_id from values to avoid duplicate keyword arguments
+    # These are explicitly set via function parameters
+    log_values = {k: v for k, v in values.items() if k not in ("trig_id", "user_id")}
+    log = TLog(trig_id=trig_id, user_id=user_id, **log_values)
     db.add(log)
     db.commit()
     db.refresh(log)

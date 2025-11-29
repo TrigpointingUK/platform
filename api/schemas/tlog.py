@@ -51,8 +51,8 @@ class TLogWithIncludes(TLogResponse):
 
 class TLogCreate(BaseModel):
     # user_id is set from current user on POST endpoints
-    # trig_id is usually provided
-    trig_id: int
+    # trig_id is provided as a query parameter, not in the body
+    trig_id: Optional[int] = None
     date: DateType
     time: TimeType
     osgb_eastings: Optional[int] = None
