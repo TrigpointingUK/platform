@@ -330,6 +330,27 @@ export async function updateLog(
   return apiPatch<Log>(`/v1/logs/${logId}`, data, token);
 }
 
+/**
+ * Delete a log (hard delete - also soft-deletes associated photos)
+ */
+export async function deleteLog(
+  logId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/logs/${logId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
 export interface LegacyLoginRequest {
   username: string;
   password: string;

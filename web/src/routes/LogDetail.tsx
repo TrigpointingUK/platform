@@ -10,6 +10,7 @@ import LogForm from "../components/logs/LogForm";
 import { useLogDetail } from "../hooks/useLogDetail";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useUpdateLog } from "../hooks/useUpdateLog";
+import { useDeleteLog } from "../hooks/useDeleteLog";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { LogUpdateInput } from "../lib/api";
 
@@ -20,6 +21,7 @@ export default function LogDetail() {
   const navigate = useNavigate();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const {
     data: log,
@@ -39,6 +41,7 @@ export default function LogDetail() {
   } = useTrigDetail(shouldFetchTrig ? log.trig_id : undefined);
 
   const updateLogMutation = useUpdateLog(logIdNum!);
+  const deleteLogMutation = useDeleteLog(logIdNum!, log?.trig_id || 0);
 
   // Check if the current user is the owner of this log
   const isOwner = !!currentUser && !!log && currentUser.id === log.user_id;
@@ -66,6 +69,30 @@ export default function LogDetail() {
       // Error handling - could show toast notification
       throw error;
     }
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await deleteLogMutation.mutateAsync();
+      // Navigate back to the trig page after successful deletion
+      if (log) {
+        navigate(`/trigs/${log.trig_id}`);
+      } else {
+        navigate(-1);
+      }
+    } catch (error) {
+      console.error("Failed to delete log:", error);
+      // Error handling - could show toast notification
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
   };
 
   if (!logIdNum) {
@@ -162,12 +189,47 @@ export default function LogDetail() {
             {/* Read-only view */}
             <LogCard log={log} />
             
-            {/* Edit button - only show if user owns this log */}
+            {/* Edit and Delete buttons - only show if user owns this log */}
             {isOwner && (
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <Button onClick={handleEdit}>
                   ✏️ Edit Log
                 </Button>
+                <Button 
+                  onClick={handleDeleteClick}
+                  variant="danger"
+                >
+                  🧹 Delete Log
+                </Button>
+              </div>
+            )}
+
+            {/* Delete confirmation modal */}
+            {showDeleteConfirm && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <Card className="max-w-md mx-4">
+                  <h3 className="text-lg font-semibold mb-4">Delete Log?</h3>
+                  <p className="text-gray-600 mb-6">
+                    Are you sure you want to delete this log? This action cannot be undone.
+                    All photos associated with this log will also be removed.
+                  </p>
+                  <div className="flex gap-2 justify-end">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleDeleteCancel}
+                      disabled={deleteLogMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleDeleteConfirm}
+                      disabled={deleteLogMutation.isPending}
+                      variant="danger"
+                    >
+                      {deleteLogMutation.isPending ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
+                </Card>
               </div>
             )}
           </>
