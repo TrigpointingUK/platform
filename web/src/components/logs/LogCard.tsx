@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../ui/Card";
 import StarRating from "../ui/StarRating";
+import DirectionArrow from "../ui/DirectionArrow";
 import { Photo } from "../../lib/api";
 import { osgbToWGS84 } from "../../lib/coordinates";
 
@@ -86,14 +87,6 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
     return (toDeg(θ) + 360) % 360; // Normalize to 0-360
   };
 
-  // Get arrow for bearing
-  const getDirectionArrow = (bearing: number): string => {
-    // 8 cardinal directions: N, NE, E, SE, S, SW, W, NW
-    const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
-    const index = Math.round(bearing / 45) % 8;
-    return arrows[index];
-  };
-
   // Format distance with direction arrow
   const formatDistance = (distance?: number) => {
     if (distance === undefined || distance === null) return null;
@@ -105,18 +98,18 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
     const colorClass = distance <= 25 ? 'text-gray-500' : 'text-red-700';
     
     // Calculate bearing if we have coordinates
-    let arrow = '';
+    let bearing: number | null = null;
     if (log.trig_lat != null && log.trig_lon != null && 
         log.osgb_eastings !== undefined && log.osgb_northings !== undefined) {
       // Convert log OSGB to WGS84
       const logWGS84 = osgbToWGS84(log.osgb_eastings, log.osgb_northings);
-      const bearing = calculateBearing(log.trig_lat, log.trig_lon, logWGS84.lat, logWGS84.lon);
-      arrow = getDirectionArrow(bearing);
+      bearing = calculateBearing(log.trig_lat, log.trig_lon, logWGS84.lat, logWGS84.lon);
     }
     
     return (
-      <span className={colorClass}>
-        {distanceText}{arrow && <span className="ml-0.5">{arrow}</span>}
+      <span className={`${colorClass} inline-flex items-center gap-1`}>
+        {distanceText}
+        {bearing !== null && <DirectionArrow bearing={bearing} size={14} />}
       </span>
     );
   };
