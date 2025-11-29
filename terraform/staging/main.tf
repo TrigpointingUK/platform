@@ -116,6 +116,7 @@ module "ecs_service" {
   log_level                    = var.log_level
   cors_origins                 = var.cors_origins
   db_pool_size                 = var.db_pool_size
+  db_pool_max_overflow         = var.db_pool_max_overflow
   db_pool_recycle              = var.db_pool_recycle
   profiling_enabled            = var.profiling_enabled
   profiling_default_format     = var.profiling_default_format

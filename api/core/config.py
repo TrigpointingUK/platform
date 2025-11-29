@@ -42,7 +42,7 @@ class Settings(BaseSettings):
         # URL-encode username and password to handle special characters
         encoded_user = quote_plus(self.DB_USER)
         encoded_password = quote_plus(self.DB_PASSWORD)
-        return f"postgresql+psycopg2://{encoded_user}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        return f"postgresql+psycopg2://{encoded_user}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?sslmode=require"
 
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
