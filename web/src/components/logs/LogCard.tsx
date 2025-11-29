@@ -14,6 +14,8 @@ interface Log {
   condition: string;
   comment: string;
   score: number;
+  osgb_gridref?: string;
+  location_distance_m?: number;
   photos?: Photo[];
 }
 
@@ -62,6 +64,23 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
 
   // Format trig ID with minimum 4 digits (TP0023, TP1234, TP34567)
   const formattedTrigId = `TP${log.trig_id.toString().padStart(4, '0')}`;
+
+  // Format distance based on threshold
+  const formatDistance = (distance?: number) => {
+    if (distance === undefined || distance === null) return null;
+    
+    const distanceText = distance < 1000 
+      ? `${Math.round(distance)}m` 
+      : `${(distance / 1000).toFixed(1)}km`;
+    
+    const colorClass = distance <= 25 ? 'text-gray-500' : 'text-red-700';
+    
+    return (
+      <span className={colorClass}>
+        {distanceText}
+      </span>
+    );
+  };
 
   const handlePhotoClick = (photo: Photo, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click when clicking a photo
@@ -136,10 +155,26 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
                 size="sm" 
                 title={`${log.score}/10`}
               />
-              <span className="text-gray-400">·</span>
-              <span className="text-gray-700">{formattedDate}</span>
-              {log.time && log.time !== "12:00:00" && (
-                <span className="text-gray-500 text-xs">{log.time}</span>
+            </div>
+            
+            {/* Date and Location Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">·</span>
+                <span className="text-gray-700">{formattedDate}</span>
+                {log.time && log.time !== "12:00:00" && (
+                  <span className="text-gray-500 text-xs">{log.time}</span>
+                )}
+              </div>
+              
+              {/* Location and Distance */}
+              {log.osgb_gridref && log.location_distance_m !== undefined && (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 hidden sm:inline">·</span>
+                  <span className="text-gray-600 text-xs font-mono">{log.osgb_gridref}</span>
+                  <span className="text-gray-400">·</span>
+                  {formatDistance(log.location_distance_m)}
+                </div>
               )}
             </div>
           </div>

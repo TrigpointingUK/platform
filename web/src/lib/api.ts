@@ -269,6 +269,8 @@ export interface Log {
   user_id: number;
   trig_name?: string;
   user_name?: string;
+  trig_lat?: number;
+  trig_lon?: number;
   date: string;
   time: string;
   osgb_eastings: number;
@@ -279,6 +281,7 @@ export interface Log {
   comment: string;
   score: number;
   source: string;
+  location_distance_m?: number;
   photos?: Photo[];
 }
 

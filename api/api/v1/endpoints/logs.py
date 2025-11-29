@@ -21,6 +21,7 @@ from api.models.user import User
 from api.schemas.tlog import TLogCreate, TLogResponse, TLogUpdate, TLogWithIncludes
 from api.schemas.tphoto import TPhotoResponse
 from api.utils.cache_decorator import cached
+from api.utils.geodesy import haversine_distance, osgb_to_wgs84
 from api.utils.url import join_url
 
 router = APIRouter()
@@ -53,7 +54,7 @@ def get_client_ip(request: Request) -> str:
 
 def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
     """
-    Add trig_name and user_name to logs using bulk queries to avoid N+1.
+    Add trig_name, user_name, and location_distance_m to logs using bulk queries to avoid N+1.
     Returns list of dictionaries.
     """
     if not logs:
@@ -95,6 +96,26 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
         log_dict["trig_lat"] = trig_info.get("lat")
         log_dict["trig_lon"] = trig_info.get("lon")
         log_dict["user_name"] = user_names.get(log.user_id)
+
+        # Calculate distance if log has custom location
+        if log.osgb_eastings is not None and log.osgb_northings is not None:
+            trig_lat = trig_info.get("lat")
+            trig_lon = trig_info.get("lon")
+
+            if trig_lat is not None and trig_lon is not None:
+                # Convert log's OSGB coordinates to WGS84
+                log_lat, log_lon = osgb_to_wgs84(
+                    int(log.osgb_eastings), int(log.osgb_northings)
+                )
+
+                # Calculate distance using Haversine formula
+                distance = haversine_distance(log_lat, log_lon, trig_lat, trig_lon)
+                log_dict["location_distance_m"] = round(distance, 1)
+            else:
+                log_dict["location_distance_m"] = None
+        else:
+            log_dict["location_distance_m"] = None
+
         result.append(log_dict)
 
     return result
