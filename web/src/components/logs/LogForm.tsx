@@ -70,7 +70,7 @@ export default function LogForm({
   // Initialize location input from existing log
   useEffect(() => {
     if (existingLog) {
-      setLocationInput(`${formData.osgb_gridref} (E:${formData.osgb_eastings}, N:${formData.osgb_northings})`);
+      setLocationInput(formData.osgb_gridref);
     }
   }, [existingLog, formData.osgb_gridref, formData.osgb_eastings, formData.osgb_northings]);
 
@@ -265,7 +265,7 @@ export default function LogForm({
                       osgb_northings: location.northings,
                     }));
                     setLocationSet(true);
-                    setLocationInput(`${location.gridRef} (E:${location.eastings}, N:${location.northings})`);
+                    setLocationInput(location.gridRef);
                     
                     // Calculate distance
                     try {
