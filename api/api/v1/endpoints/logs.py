@@ -65,14 +65,7 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
     user_ids = list(set(log.user_id for log in logs))
 
     trigs = (
-        db.query(
-            Trig.id,
-            Trig.name,
-            Trig.wgs_lat,
-            Trig.wgs_long,
-            Trig.osgb_eastings,
-            Trig.osgb_northings,
-        )
+        db.query(Trig.id, Trig.name, Trig.wgs_lat, Trig.wgs_long)
         .filter(Trig.id.in_(trig_ids))
         .all()
         if trig_ids
@@ -89,8 +82,6 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
             "name": t.name,
             "lat": float(t.wgs_lat) if t.wgs_lat is not None else None,
             "lon": float(t.wgs_long) if t.wgs_long is not None else None,
-            "osgb_eastings": t.osgb_eastings,
-            "osgb_northings": t.osgb_northings,
         }
         for t in trigs
     }
@@ -108,16 +99,16 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
 
         # Calculate distance if log has custom location
         if log.osgb_eastings is not None and log.osgb_northings is not None:
-            trig_osgb_e = trig_info.get("osgb_eastings")
-            trig_osgb_n = trig_info.get("osgb_northings")
+            trig_lat = trig_info.get("lat")
+            trig_lon = trig_info.get("lon")
 
-            if trig_osgb_e is not None and trig_osgb_n is not None:
-                # Convert both log and trig OSGB coordinates to WGS84
-                # This ensures consistency even if database WGS84 values are incorrect
+            if trig_lat is not None and trig_lon is not None:
+                # Convert log's OSGB coordinates to WGS84
+                # Note: This uses a simplified conversion that's only accurate for
+                # southern England. For better accuracy, consider using pyproj.
                 log_lat, log_lon = osgb_to_wgs84(
                     int(log.osgb_eastings), int(log.osgb_northings)
                 )
-                trig_lat, trig_lon = osgb_to_wgs84(int(trig_osgb_e), int(trig_osgb_n))
 
                 # Calculate distance using Haversine formula
                 distance = haversine_distance(log_lat, log_lon, trig_lat, trig_lon)
