@@ -19,6 +19,7 @@ The database has several `varchar(15)` columns for storing IP addresses:
 - `trig.crt_ip_addr` (creator IP)
 - `trig.admin_ip_addr` (admin update IP)
 - `tphoto.ip_addr` (photo upload IP)
+- `tlog.ip_addr` (trigpoint log IP) ⚠️
 
 These columns were sized for IPv4 addresses (max 15 characters: `255.255.255.255`), but **IPv6 addresses can be up to 39 characters long** (e.g., `2001:0db8:85a3:0000:0000:8a2e:0370:7334`).
 
@@ -41,8 +42,9 @@ Created a utility function to normalize IP addresses for storage in legacy `varc
 **Updated endpoints**:
 - `api/api/v1/endpoints/admin.py`: Admin trigpoint updates
 - `api/api/v1/endpoints/photos.py`: Photo uploads
+- `api/api/v1/endpoints/logs.py`: Trigpoint log creation ⚠️ **Critical fix**
 
-Both now normalize IP addresses before storing in the database.
+All now normalize IP addresses before storing in the database.
 
 ### Example Behaviour
 
@@ -80,6 +82,7 @@ ALTER TABLE user ALTER COLUMN ip_addr TYPE VARCHAR(45);
 ALTER TABLE trig ALTER COLUMN crt_ip_addr TYPE VARCHAR(45);
 ALTER TABLE trig ALTER COLUMN admin_ip_addr TYPE VARCHAR(45);
 ALTER TABLE tphoto ALTER COLUMN ip_addr TYPE VARCHAR(45);
+ALTER TABLE tlog ALTER COLUMN ip_addr TYPE VARCHAR(45);  -- Added
 ```
 
 **Why 45 characters?**
@@ -102,13 +105,12 @@ ALTER TABLE tphoto ALTER COLUMN ip_addr TYPE VARCHAR(45);
 
 ## Deployment
 
-The fix has been applied to the following locations:
-1. Admin endpoint (trigpoint updates)
-2. Photo upload endpoint
+The fix has been applied to **all three critical locations**:
+1. ✅ Admin endpoint (trigpoint updates)
+2. ✅ Photo upload endpoint
+3. ✅ **Log creation endpoint (trigpoint logs)** - This was the missing piece!
 
-**Additional locations to check**:
-- Any other places where IP addresses are captured and stored
-- Consider adding this normalization to the `get_client_ip()` function in `api/api/v1/endpoints/logs.py` for consistency
+This covers all places where IP addresses are stored in the database.
 
 ## Verification
 
