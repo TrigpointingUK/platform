@@ -1,4 +1,4 @@
-# Database Cleanup Summary - Audit Tables and GC Columns
+gs# Database Cleanup Summary - Audit Tables and GC Columns
 
 **Date**: 2025-11-30  
 **Migration ID**: 726a21695c73

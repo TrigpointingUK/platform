@@ -18,7 +18,8 @@ This guide covers everything you need to know about managing database migrations
 
 - Python virtual environment activated: `source venv/bin/activate`
 - Alembic is already installed (see `requirements.txt`)
-- Database credentials configured in your `.env` file or environment variables
+- AWS CLI configured with appropriate credentials
+- For remote migrations: SSM tunnel to database running
 
 ### Basic Commands
 
@@ -35,11 +36,21 @@ make migration-history
 # Check current database version
 make migration-current
 
-# Apply all pending migrations
+# Apply migrations locally (for testing)
 make migration-upgrade
 
-# Rollback one migration
+# Rollback one migration locally
 make migration-downgrade
+
+# Apply migrations to staging (requires SSM tunnel running)
+make migrate-staging
+
+# Apply migrations to production (requires SSM tunnel + confirmation)
+make migrate-production
+
+# Check migration status on remote environment
+make migrate-status ENV=staging
+make migrate-status ENV=production
 ```
 
 ## Local Development Workflow
@@ -122,112 +133,62 @@ alembic downgrade <revision_id>
 
 ## Staging Deployment
 
-### Connecting to Staging Database
+**Recommended Approach: Make Targets with SSM Tunnel**
 
-You have two options for applying migrations to staging:
+This is the simplest and most reliable method for applying migrations to staging.
 
-#### Option A: Via Bastion SSH Tunnel (Recommended)
+### 1. Start the SSM Tunnel
 
-1. **Start the PostgreSQL tunnel:**
+In a separate terminal window:
 
 ```bash
-make postgres-tunnel-staging-ssm-start
+make db-tunnel-staging-ssm-start
 ```
 
-This opens a tunnel: `localhost:5433` → Staging RDS
+Keep this terminal open - it maintains the tunnel connection.
 
-2. **Set environment variables for the tunnel:**
+### 2. Apply Migrations
+
+In your main terminal:
 
 ```bash
-# Get credentials from AWS Secrets Manager
-export SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
+# Apply all pending migrations to staging
+make migrate-staging
+```
+
+This will:
+- Automatically fetch staging credentials from AWS Secrets Manager
+- Show "🔍 Alembic running against: STAGING" to confirm the environment
+- Apply all pending migrations
+- Display the current migration status
+
+### 3. Verify
+
+```bash
+# Check current migration status
+make migrate-status ENV=staging
+```
+
+### Alternative: Manual Alembic with Environment Variables
+
+If you prefer more control, you can set environment variables manually:
+
+```bash
+# Start tunnel (in separate terminal)
+make db-tunnel-staging-ssm-start
+
+# Fetch credentials and run alembic
+SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
   --secret-id fastapi-staging-postgres-credentials \
   --query SecretString --output text)
 
-export DB_HOST=localhost
-export DB_PORT=5433
-export DB_USER=$(echo "$SECRET_JSON" | jq -r '.username')
-export DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
-export DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname')
-```
-
-3. **Check current migration status:**
-
-```bash
-source venv/bin/activate
-alembic current
-```
-
-4. **Apply migrations:**
-
-```bash
+DB_HOST=localhost \
+DB_PORT=5433 \
+DB_USER=$(echo "$SECRET_JSON" | jq -r '.username') \
+DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password') \
+DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname') \
+ENV_NAME=STAGING \
 alembic upgrade head
-```
-
-5. **Verify:**
-
-```bash
-alembic current
-```
-
-#### Option B: Directly on Bastion Host
-
-1. **SSH to bastion:**
-
-```bash
-ssh -i ~/.ssh/trigpointing-bastion.pem ec2-user@bastion.trigpointing.uk
-```
-
-2. **Clone/pull latest code:**
-
-```bash
-cd ~/platform  # or wherever your code is deployed
-git pull origin develop
-```
-
-3. **Activate virtual environment:**
-
-```bash
-source venv/bin/activate
-```
-
-4. **Set database credentials:**
-
-```bash
-# Fetch from Secrets Manager
-export SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
-  --secret-id fastapi-staging-postgres-credentials \
-  --query SecretString --output text)
-
-export DB_HOST=$(echo "$SECRET_JSON" | jq -r '.host')
-export DB_PORT=$(echo "$SECRET_JSON" | jq -r '.port')
-export DB_USER=$(echo "$SECRET_JSON" | jq -r '.username')
-export DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
-export DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname')
-```
-
-5. **Check current state:**
-
-```bash
-alembic current
-alembic history
-```
-
-6. **Apply migrations:**
-
-```bash
-# Dry run first (show SQL without executing)
-alembic upgrade head --sql
-
-# Apply for real
-alembic upgrade head
-```
-
-7. **Verify:**
-
-```bash
-alembic current
-# Should show: Current revision for postgresql://...: <revision_id> (head)
 ```
 
 ## Production Deployment
@@ -237,63 +198,67 @@ alembic current
 ### Pre-Deployment Checklist
 
 - [ ] Migrations tested and verified on staging
-- [ ] Database backup created
+- [ ] Database backup created (if applicable)
 - [ ] Rollback plan documented
 - [ ] Downtime window communicated (if needed)
 - [ ] Team notified
 
 ### Deployment Steps
 
-The process is identical to staging, but with production credentials:
+**Recommended Approach: Make Targets with SSM Tunnel**
 
-1. **Connect to bastion:**
+1. **Start the SSM Tunnel**
+
+In a separate terminal window:
 
 ```bash
-ssh -i ~/.ssh/trigpointing-bastion.pem ec2-user@bastion.trigpointing.uk
+make db-tunnel-staging-ssm-start  # Uses same tunnel, different credentials
 ```
 
-2. **Navigate to production deployment:**
+2. **Apply migrations with confirmation:**
 
 ```bash
-cd ~/platform-production  # adjust path as needed
-git pull origin main      # or your production branch
-source venv/bin/activate
+make migrate-production
 ```
 
-3. **Set production database credentials:**
+You will be prompted to type `production` to confirm. This provides a safety check.
+
+The command will:
+- Automatically fetch production credentials from AWS Secrets Manager
+- Show "🔍 Alembic running against: PRODUCTION" to confirm the environment
+- Apply all pending migrations
+- Display the current migration status
+
+3. **Verify:**
 
 ```bash
-# Use production secret ARN
-export SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
-  --secret-id arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-legacy-credentials-p9KGQI \
+# Check migration status
+make migrate-status ENV=production
+
+# Test the application
+curl https://api.trigpointing.uk/health
+```
+
+### Alternative: Manual Approach
+
+If you prefer direct control:
+
+```bash
+# Start tunnel (in separate terminal)
+make db-tunnel-staging-ssm-start
+
+# Fetch production credentials and apply
+SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
+  --secret-id fastapi-production-postgres-credentials \
   --query SecretString --output text)
 
-export DB_HOST=$(echo "$SECRET_JSON" | jq -r '.host')
-export DB_PORT=$(echo "$SECRET_JSON" | jq -r '.port')
-export DB_USER=$(echo "$SECRET_JSON" | jq -r '.username')
-export DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
-export DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname')
-```
-
-4. **Review what will be applied:**
-
-```bash
-alembic current
-alembic upgrade head --sql  # Review SQL without executing
-```
-
-5. **Apply migrations:**
-
-```bash
+DB_HOST=localhost \
+DB_PORT=5433 \
+DB_USER=$(echo "$SECRET_JSON" | jq -r '.username') \
+DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password') \
+DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname') \
+ENV_NAME=PRODUCTION \
 alembic upgrade head
-```
-
-6. **Verify:**
-
-```bash
-alembic current
-# Test the application
-curl https://api.trigpointing.uk/health  # or appropriate health check
 ```
 
 ### Rollback in Production
@@ -301,14 +266,14 @@ curl https://api.trigpointing.uk/health  # or appropriate health check
 If something goes wrong:
 
 ```bash
-# Rollback one migration
+# Rollback one migration (with tunnel still running)
+DB_HOST=localhost DB_PORT=5433 \
+DB_USER=<user> DB_PASSWORD=<pass> DB_NAME=<db> \
+ENV_NAME=PRODUCTION \
 alembic downgrade -1
 
-# Or rollback to specific revision
-alembic downgrade <previous_revision_id>
-
-# Check the history to find revision IDs
-alembic history
+# Or use local migration commands if you have credentials set
+alembic downgrade -1
 ```
 
 ## Common Tasks
