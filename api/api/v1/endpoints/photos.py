@@ -192,7 +192,11 @@ def create_photo(
                 )
         # Legacy tokens not supported - Auth0 only
 
-    client_ip = request.client.host if request.client else "127.0.0.1"
+    # Get client IP address (normalized for varchar(15) storage)
+    from api.utils.ip_address import get_client_ip_normalized
+
+    raw_ip = request.client.host if request.client else "127.0.0.1"
+    client_ip = get_client_ip_normalized(raw_ip)
 
     # Read file contents
     try:
