@@ -56,7 +56,7 @@ class TestContactEndpoint:
         # Verify email service was called correctly
         mock_email_service.send_contact_email.assert_called_once()
         call_args = mock_email_service.send_contact_email.call_args
-        assert call_args.kwargs["to_email"] == "contact@teasel.org"
+        assert call_args.kwargs["to_email"] == "trigpointing@teasel.org"
         assert call_args.kwargs["reply_to"] == "john@example.com"
         assert call_args.kwargs["subject"] == "Test Subject"
         assert call_args.kwargs["message"] == "This is a test message"

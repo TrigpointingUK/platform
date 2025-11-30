@@ -292,17 +292,18 @@ These are automatically configured via Terraform:
 
 For local development, OpenTelemetry is **disabled by default**. To enable it:
 
-1. Create a `.env` file:
+1. Set environment variables before running:
    ```bash
-   OTEL_ENABLED=true
-   OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-eu-west-0.grafana.net/otlp
-   OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic MTIzNDU2...
+   export OTEL_ENABLED=true
+   export OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-eu-west-0.grafana.net/otlp
+   export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic MTIzNDU2..."
    ```
 
-2. Run the application:
+2. Run the application (connected to staging):
    ```bash
    source venv/bin/activate
-   make run
+   make postgres-tunnel  # In another terminal
+   make run-staging
    ```
 
 3. Check logs for successful initialisation

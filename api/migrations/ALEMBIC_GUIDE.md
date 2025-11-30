@@ -18,7 +18,8 @@ This guide covers everything you need to know about managing database migrations
 
 - Python virtual environment activated: `source venv/bin/activate`
 - Alembic is already installed (see `requirements.txt`)
-- Database credentials configured in your `.env` file or environment variables
+- AWS CLI configured with appropriate credentials
+- For remote migrations: SSM tunnel to database running
 
 ### Basic Commands
 
@@ -32,14 +33,15 @@ make migration-create MSG="add user preferences table"
 # View migration history
 make migration-history
 
-# Check current database version
-make migration-current
+# Apply migrations to staging (requires SSM tunnel running)
+make migrate-staging
 
-# Apply all pending migrations
-make migration-upgrade
+# Apply migrations to production (requires SSM tunnel + confirmation)
+make migrate-production
 
-# Rollback one migration
-make migration-downgrade
+# Check migration status on remote environment
+make migrate-status ENV=staging
+make migrate-status ENV=production
 ```
 
 ## Local Development Workflow
@@ -92,17 +94,18 @@ Edit the migration file if needed. Common adjustments:
 - Set default values for existing rows
 - Add custom SQL operations
 
-### 4. Apply Migration Locally
+### 4. Test Your Changes
+
+After reviewing the migration, test it using the CLI directly:
 
 ```bash
-# Apply all pending migrations
-make migration-upgrade
+# Option 1: Test against staging via tunnel
+make postgres-tunnel  # In another terminal
+make migrate-staging
 
-# Or use alembic directly
-alembic upgrade head
+# Option 2: Use alembic CLI directly (if needed)
+alembic upgrade head  # Runs against local/configured database
 ```
-
-### 5. Test Your Changes
 
 Run your application and tests to ensure everything works:
 
@@ -110,11 +113,13 @@ Run your application and tests to ensure everything works:
 make test
 ```
 
-### 6. Rollback if Needed
+### 5. Rollback if Needed (CLI Only)
+
+For troubleshooting, use Alembic CLI directly:
 
 ```bash
 # Rollback one migration
-make migration-downgrade
+alembic downgrade -1
 
 # Or rollback to a specific revision
 alembic downgrade <revision_id>
@@ -122,112 +127,62 @@ alembic downgrade <revision_id>
 
 ## Staging Deployment
 
-### Connecting to Staging Database
+**Recommended Approach: Make Targets with SSM Tunnel**
 
-You have two options for applying migrations to staging:
+This is the simplest and most reliable method for applying migrations to staging.
 
-#### Option A: Via Bastion SSH Tunnel (Recommended)
+### 1. Start the SSM Tunnel
 
-1. **Start the PostgreSQL tunnel:**
+In a separate terminal window:
 
 ```bash
-make postgres-tunnel-staging-ssm-start
+make postgres-tunnel
 ```
 
-This opens a tunnel: `localhost:5433` → Staging RDS
+Keep this terminal open - it maintains the tunnel connection to the shared PostgreSQL instance.
 
-2. **Set environment variables for the tunnel:**
+### 2. Apply Migrations
+
+In your main terminal:
 
 ```bash
-# Get credentials from AWS Secrets Manager
-export SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
+# Apply all pending migrations to staging
+make migrate-staging
+```
+
+This will:
+- Automatically fetch staging credentials from AWS Secrets Manager
+- Show "🔍 Alembic running against: STAGING" to confirm the environment
+- Apply all pending migrations
+- Display the current migration status
+
+### 3. Verify
+
+```bash
+# Check current migration status
+make migrate-status ENV=staging
+```
+
+### Alternative: Manual Alembic with Environment Variables
+
+If you prefer more control, you can set environment variables manually:
+
+```bash
+# Start tunnel (in separate terminal)
+make postgres-tunnel
+
+# Fetch credentials and run alembic
+SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
   --secret-id fastapi-staging-postgres-credentials \
   --query SecretString --output text)
 
-export DB_HOST=localhost
-export DB_PORT=5433
-export DB_USER=$(echo "$SECRET_JSON" | jq -r '.username')
-export DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
-export DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname')
-```
-
-3. **Check current migration status:**
-
-```bash
-source venv/bin/activate
-alembic current
-```
-
-4. **Apply migrations:**
-
-```bash
+DB_HOST=localhost \
+DB_PORT=5433 \
+DB_USER=$(echo "$SECRET_JSON" | jq -r '.username') \
+DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password') \
+DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname') \
+ENV_NAME=STAGING \
 alembic upgrade head
-```
-
-5. **Verify:**
-
-```bash
-alembic current
-```
-
-#### Option B: Directly on Bastion Host
-
-1. **SSH to bastion:**
-
-```bash
-ssh -i ~/.ssh/trigpointing-bastion.pem ec2-user@bastion.trigpointing.uk
-```
-
-2. **Clone/pull latest code:**
-
-```bash
-cd ~/platform  # or wherever your code is deployed
-git pull origin develop
-```
-
-3. **Activate virtual environment:**
-
-```bash
-source venv/bin/activate
-```
-
-4. **Set database credentials:**
-
-```bash
-# Fetch from Secrets Manager
-export SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
-  --secret-id fastapi-staging-postgres-credentials \
-  --query SecretString --output text)
-
-export DB_HOST=$(echo "$SECRET_JSON" | jq -r '.host')
-export DB_PORT=$(echo "$SECRET_JSON" | jq -r '.port')
-export DB_USER=$(echo "$SECRET_JSON" | jq -r '.username')
-export DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
-export DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname')
-```
-
-5. **Check current state:**
-
-```bash
-alembic current
-alembic history
-```
-
-6. **Apply migrations:**
-
-```bash
-# Dry run first (show SQL without executing)
-alembic upgrade head --sql
-
-# Apply for real
-alembic upgrade head
-```
-
-7. **Verify:**
-
-```bash
-alembic current
-# Should show: Current revision for postgresql://...: <revision_id> (head)
 ```
 
 ## Production Deployment
@@ -237,78 +192,80 @@ alembic current
 ### Pre-Deployment Checklist
 
 - [ ] Migrations tested and verified on staging
-- [ ] Database backup created
+- [ ] Database backup created (if applicable)
 - [ ] Rollback plan documented
 - [ ] Downtime window communicated (if needed)
 - [ ] Team notified
 
 ### Deployment Steps
 
-The process is identical to staging, but with production credentials:
+**Recommended Approach: Make Targets with SSM Tunnel**
 
-1. **Connect to bastion:**
+1. **Start the SSM Tunnel**
+
+In a separate terminal window:
 
 ```bash
-ssh -i ~/.ssh/trigpointing-bastion.pem ec2-user@bastion.trigpointing.uk
+make postgres-tunnel
 ```
 
-2. **Navigate to production deployment:**
+2. **Apply migrations with confirmation:**
 
 ```bash
-cd ~/platform-production  # adjust path as needed
-git pull origin main      # or your production branch
-source venv/bin/activate
+make migrate-production
 ```
 
-3. **Set production database credentials:**
+You will be prompted to type `production` to confirm. This provides a safety check.
+
+The command will:
+- Automatically fetch production credentials from AWS Secrets Manager
+- Show "🔍 Alembic running against: PRODUCTION" to confirm the environment
+- Apply all pending migrations
+- Display the current migration status
+
+3. **Verify:**
 
 ```bash
-# Use production secret ARN
-export SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
-  --secret-id arn:aws:secretsmanager:eu-west-1:534526983272:secret:fastapi-legacy-credentials-p9KGQI \
+# Check migration status
+make migrate-status ENV=production
+
+# Test the application
+curl https://api.trigpointing.uk/health
+```
+
+### Alternative: Manual Approach
+
+If you prefer direct control:
+
+```bash
+# Start tunnel (in separate terminal)
+make postgres-tunnel
+
+# Fetch production credentials and apply
+SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
+  --secret-id fastapi-production-postgres-credentials \
   --query SecretString --output text)
 
-export DB_HOST=$(echo "$SECRET_JSON" | jq -r '.host')
-export DB_PORT=$(echo "$SECRET_JSON" | jq -r '.port')
-export DB_USER=$(echo "$SECRET_JSON" | jq -r '.username')
-export DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
-export DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname')
-```
-
-4. **Review what will be applied:**
-
-```bash
-alembic current
-alembic upgrade head --sql  # Review SQL without executing
-```
-
-5. **Apply migrations:**
-
-```bash
+DB_HOST=localhost \
+DB_PORT=5433 \
+DB_USER=$(echo "$SECRET_JSON" | jq -r '.username') \
+DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password') \
+DB_NAME=$(echo "$SECRET_JSON" | jq -r '.dbname') \
+ENV_NAME=PRODUCTION \
 alembic upgrade head
-```
-
-6. **Verify:**
-
-```bash
-alembic current
-# Test the application
-curl https://api.trigpointing.uk/health  # or appropriate health check
 ```
 
 ### Rollback in Production
 
-If something goes wrong:
+If something goes wrong, use Alembic CLI directly:
 
 ```bash
-# Rollback one migration
+# Rollback one migration (with tunnel still running)
+# Set credentials manually:
+DB_HOST=localhost DB_PORT=5433 \
+DB_USER=<user> DB_PASSWORD=<pass> DB_NAME=<db> \
+ENV_NAME=PRODUCTION \
 alembic downgrade -1
-
-# Or rollback to specific revision
-alembic downgrade <previous_revision_id>
-
-# Check the history to find revision IDs
-alembic history
 ```
 
 ## Common Tasks
@@ -342,13 +299,6 @@ def downgrade() -> None:
     """Remove performance indexes."""
     op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_tlog_created_at;")
     op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_user_email_lower;")
-```
-
-### Check Pending Migrations
-
-```bash
-make migration-check
-# Exits 0 if up-to-date, 1 if pending migrations exist
 ```
 
 ### View SQL Without Executing
@@ -568,6 +518,23 @@ If you encounter issues:
 5. Ask the team in Slack/Discord
 
 ## Migration History
+
+### 726a21695c73 - remove_audit_tables_and_gc_columns (2025-11-30)
+
+Remove legacy audit tables and Geocaching.com integration columns that are no longer used in the modern Auth0-based authentication system.
+
+**Tables removed**:
+- `audit` - Legacy audit logging (1 row of data)
+- `audit_simple` - Simplified audit logging (0 rows)
+
+**Columns removed from user table**:
+- `gc_licence_ind`, `gc_licence_timestamp`
+- `gc_auth_ind`, `gc_auth_challenge`, `gc_auth_timestamp`
+- `gc_premium_ind`, `gc_premium_timestamp`
+
+**Impact**: Removes unused legacy features. No functional impact on current system. Note: Admin tracking fields (admin_user_id, admin_timestamp, admin_ip_addr) remain on the trig table and are unaffected.
+
+**Code changes**: Removed `has_gc_auth()` and `has_gc_premium()` functions from `api/crud/user.py`.
 
 ### 0e59c3885358 - make_tlog_location_nullable (2025-11-04)
 

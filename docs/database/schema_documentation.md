@@ -13,8 +13,6 @@
 - **attrset_attrval**: 441,252 rows, 3 columns
 - **attrsource**: 2 rows, 6 columns
 - **attrval**: 142,930 rows, 8 columns
-- **audit**: 1 rows, 16 columns
-- **audit_simple**: 0 rows, 4 columns
 - **barrytools**: 76 rows, 21 columns
 - **cache**: 0 rows, 37 columns
 - **coord2county**: 35,247 rows, 4 columns
@@ -366,65 +364,6 @@
 ]
 ```
 
-### audit
-
-**Rows:** 1
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | INTEGER | No |  | ✅ |
-| authid | MEDIUMINT | No |  |  |
-| authname | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-| authcid | MEDIUMINT | No |  |  |
-| http_host | VARCHAR(25) COLLATE "latin1_swedish_ci" | No |  |  |
-| request_uri | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| script_name | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-| query_string | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-| request_method | VARCHAR(5) COLLATE "latin1_swedish_ci" | No |  |  |
-| script_filename | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-| http_user_agent | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-| remote_user | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-| remote_addr | VARCHAR(15) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-| date_local | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-| date_gmt | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "authid": 1,
-    "authname": "Teasel",
-    "authcid": 43129,
-    "http_host": "www.geocacheuk.com",
-    "request_uri": "/mystats/preferences.php",
-    "script_name": "/mystats/preferences.php",
-    "query_string": "",
-    "request_method": "GET",
-    "script_filename": "/home/geocache/public_html/stats/mystats/preferences.php",
-    "http_user_agent": "Mozilla/5.0 (X11; U; Linux i686; en-GB; rv:1.8.1.12) Gecko/20080207 Ubuntu/7.10 ",
-    "remote_user": "",
-    "remote_addr": "87.127.168.137",
-    "upd_timestamp": "2008-03-23 20:47:16",
-    "date_local": "Sun, 23 Mar 2008 20:47:16 UTC",
-    "date_gmt": "Sun, 23 Mar 2008 20:47:16 GMT"
-  }
-]
-```
-
-### audit_simple
-
-**Rows:** 0
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| authid | MEDIUMINT | No |  |  |
-| script_name | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  |  |
-| remote_addr | VARCHAR(15) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
 ### barrytools
 
 **Rows:** 76
@@ -2046,13 +1985,6 @@
 | upd_timestamp | TIMESTAMP | Yes |  |  |
 | disclaimer_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
 | disclaimer_timestamp | TIMESTAMP | Yes |  |  |
-| gc_licence_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| gc_licence_timestamp | TIMESTAMP | Yes |  |  |
-| gc_auth_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| gc_auth_challenge | VARCHAR(34) COLLATE "latin1_swedish_ci" | No |  |  |
-| gc_auth_timestamp | TIMESTAMP | Yes |  |  |
-| gc_premium_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| gc_premium_timestamp | TIMESTAMP | Yes |  |  |
 | nearest_max_m | INTEGER | No |  |  |
 | online_map_type | VARCHAR(10) COLLATE "latin1_swedish_ci" | No |  |  |
 | online_map_type2 | VARCHAR(10) COLLATE "latin1_swedish_ci" | No |  |  |
@@ -2106,13 +2038,6 @@
     "upd_timestamp": "2022-08-15 21:57:52",
     "disclaimer_ind": "Y",
     "disclaimer_timestamp": "2003-04-18 13:07:49",
-    "gc_licence_ind": "Y",
-    "gc_licence_timestamp": "2003-06-22 03:19:43",
-    "gc_auth_ind": "Y",
-    "gc_auth_challenge": "",
-    "gc_auth_timestamp": "0000-00-00 00:00:00",
-    "gc_premium_ind": "Y",
-    "gc_premium_timestamp": "2005-05-09 11:24:32",
     "nearest_max_m": 10,
     "online_map_type": "mm25kl",
     "online_map_type2": "ge",
@@ -2163,13 +2088,6 @@
     "upd_timestamp": "2008-12-26 22:27:01",
     "disclaimer_ind": "Y",
     "disclaimer_timestamp": "2003-04-18 15:47:50",
-    "gc_licence_ind": "Y",
-    "gc_licence_timestamp": "2003-06-25 03:10:08",
-    "gc_auth_ind": "Y",
-    "gc_auth_challenge": "",
-    "gc_auth_timestamp": "0000-00-00 00:00:00",
-    "gc_premium_ind": "N",
-    "gc_premium_timestamp": "2005-05-09 11:11:12",
     "nearest_max_m": 50000,
     "online_map_type": "",
     "online_map_type2": "lla",
@@ -2220,13 +2138,6 @@
     "upd_timestamp": "2005-10-04 04:04:26",
     "disclaimer_ind": "Y",
     "disclaimer_timestamp": "2003-04-18 16:35:11",
-    "gc_licence_ind": "Y",
-    "gc_licence_timestamp": "2003-07-12 02:34:33",
-    "gc_auth_ind": "Y",
-    "gc_auth_challenge": "",
-    "gc_auth_timestamp": "0000-00-00 00:00:00",
-    "gc_premium_ind": "N",
-    "gc_premium_timestamp": "2005-05-09 11:11:12",
     "nearest_max_m": 50000,
     "online_map_type": "sm25k",
     "online_map_type2": "lla",

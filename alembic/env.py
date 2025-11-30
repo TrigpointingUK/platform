@@ -10,6 +10,10 @@ from alembic import context
 # Add the project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# Show which environment we're running against
+ENV_NAME = os.getenv("ENV_NAME", "LOCAL")
+print(f"\n🔍 Alembic running against: {ENV_NAME}\n")
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

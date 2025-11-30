@@ -44,6 +44,8 @@ A modern FastAPI-based API to gradually migrate the 20-year-old PHP/MySQL websit
 
 ### Local Development Setup
 
+This project uses a **staging-connected development** workflow - you develop against the staging database via SSM tunnels, not a local database.
+
 1. **Clone the repository**
    ```bash
    git clone <your-repo-url>
@@ -61,20 +63,19 @@ A modern FastAPI-based API to gradually migrate the 20-year-old PHP/MySQL websit
    make install-dev
    ```
 
-4. **Set up environment variables**
+4. **Start SSM tunnels to shared infrastructure** (in separate terminals)
    ```bash
-   cp env.example .env
-   # Edit .env with your database credentials and secrets
+   # Terminal 1: Database tunnel (shared PostgreSQL)
+   make postgres-tunnel
+   
+   # Terminal 2: Redis/Valkey tunnel (shared cache)
+   make redis-tunnel
    ```
 
-5. **Start with Docker Compose (Recommended)**
+5. **Run the API (connected to staging)**
    ```bash
-   make docker-dev
-   ```
-
-   Or run manually:
-   ```bash
-   make run
+   # Terminal 3
+   make run-staging
    ```
 
 6. **Access the application**
@@ -82,18 +83,25 @@ A modern FastAPI-based API to gradually migrate the 20-year-old PHP/MySQL websit
    - Interactive docs: http://localhost:8000/docs
    - Alternative docs: http://localhost:8000/redoc
 
+**Note:** You develop against the staging environment using the shared PostgreSQL and Valkey/Redis instances (used by both staging and production). This ensures your development environment matches the actual infrastructure.
+
 ### Database Setup
 
-The Docker Compose setup includes a MySQL container with sample data. For connecting to your existing database:
+The project uses SSM tunnels to connect to the shared PostgreSQL RDS instance (used by both staging and production).
 
-1. Update the `DATABASE_URL` in your `.env` file:
-   ```
-   DATABASE_URL=mysql+pymysql://user:password@host:port/database
-   ```
+**No local database setup is required** - `make run-staging` automatically configures the connection through the SSM tunnel.
 
-2. Ensure your existing database has the required tables:
-   - `user` table with columns: `user_id`, `email`, `password_hash`, `admin_ind`
-   - `tlog` table with columns: `id`, `trig_id`, and other legacy columns
+If you need to run tests:
+```bash
+# Start test database (Docker)
+make test-db-start
+
+# Run tests
+make test
+
+# Stop test database
+make test-db-stop
+```
 
 ## 🔍 Code Quality Requirements (CRITICAL)
 
@@ -202,68 +210,100 @@ make ci
 
 ## 🐳 Docker
 
-### Development
-```bash
-# Start development environment
-make docker-dev
-
-# View logs
-make docker-logs
-
-# Stop containers
-make docker-down
-```
-
-### Production
+### Production Build
 ```bash
 # Build production image
 make docker-build
-
-# Run production setup
-make docker-run
 ```
+
+**Note:** Local development uses `make run-staging` (not Docker). Docker is only used for:
+- Production deployments (ECS Fargate)
+- Test database (`make test-db-start`)
 
 ## ☁️ AWS Deployment
 
+### Overview
+
+Infrastructure is managed with Terraform and organized by environment:
+- `terraform/common/` - Shared resources (VPC, bastion, RDS PostgreSQL, Valkey, etc.)
+- `terraform/staging/` - Staging-specific resources (API, SPA)
+- `terraform/production/` - Production-specific resources (API, SPA)
+
 ### Prerequisites
 
-1. AWS CLI configured
-2. Terraform installed
-3. S3 bucket for Terraform state (recommended)
+1. AWS CLI configured (`aws configure`)
+2. Terraform installed (`brew install terraform` or from [terraform.io](https://terraform.io))
+3. S3 bucket for Terraform state (already configured in backend.conf files)
 
-### Staging Deployment
+### Deployment Workflow
+
+#### Option 1: Using deploy.sh (Automated)
+
+The `scripts/deploy.sh` script handles Docker builds and Terraform deployment:
 
 ```bash
-cd terraform
+# Deploy to staging
+./scripts/deploy.sh staging
 
-# Initialize Terraform
-make tf-init
-
-# Plan deployment
-make tf-plan env=staging
-
-# Apply changes
-make tf-apply env=staging
+# Deploy to production (requires confirmation)
+./scripts/deploy.sh production
 ```
 
-### Production Deployment
+**Note:** This script may need updates for your specific Docker registry and infrastructure setup.
+
+#### Option 2: Manual Terraform Deployment
+
+For infrastructure-only changes or more granular control:
+
+**Common Infrastructure (VPC, RDS, Bastion):**
+```bash
+cd terraform/common
+terraform init -backend-config=backend.conf
+terraform plan
+terraform apply
+```
+
+**Staging Environment:**
+```bash
+cd terraform/staging
+terraform init -backend-config=backend.conf
+terraform plan
+terraform apply
+```
+
+**Production Environment:**
+```bash
+cd terraform/production
+terraform init -backend-config=backend.conf
+terraform plan
+terraform apply
+```
+
+### Terraform Validation and Formatting
 
 ```bash
-# Plan production deployment
-make tf-plan env=production
+# Validate all configurations (from project root)
+make tf-validate
 
-# Apply production changes
-make tf-apply env=production
+# Check formatting (used by CI)
+make terraform-format-check
+
+# Auto-format all Terraform files
+terraform fmt -recursive terraform/
 ```
 
 ### Infrastructure Components
 
+Current infrastructure (PostgreSQL + Valkey):
+
 - **VPC**: Multi-AZ setup with public/private subnets
-- **ECS Fargate**: Serverless container hosting
-- **Application Load Balancer**: High availability load balancing
-- **RDS MySQL**: Managed database service
-- **CloudWatch**: Monitoring and logging
-- **Auto Scaling**: Automatic scaling based on CPU/memory
+- **ECS Fargate**: Serverless container hosting for API, SPA, Forum, Wiki
+- **Application Load Balancer**: High availability load balancing with OIDC authentication
+- **RDS PostgreSQL**: Managed PostgreSQL database with PostGIS extension
+- **Valkey (Redis)**: ElastiCache-compatible caching layer
+- **CloudWatch**: Monitoring, logging, and alarms
+- **Bastion Host**: Secure access to private resources
+- **CloudFront/CloudFlare**: CDN and edge security
 
 ## 🔧 Configuration
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-11-29T18:33:51.257Z",
+  "generatedAt": "2025-11-29T22:11:32.435Z",
   "npm": [
     {
       "name": "@acemir/cssom",
@@ -3640,6 +3640,15 @@
       "type": "python"
     },
     {
+      "name": "pyproj",
+      "version": "3.7.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pyproj/",
+      "author": "Unknown",
+      "description": "",
+      "type": "python"
+    },
+    {
       "name": "pyroscope-io",
       "version": "0.8.11",
       "license": "Unknown",
@@ -3758,8 +3767,8 @@
     }
   ],
   "summary": {
-    "total": 417,
+    "total": 418,
     "npm": 374,
-    "python": 43
+    "python": 44
   }
 }
