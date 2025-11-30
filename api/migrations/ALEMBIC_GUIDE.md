@@ -519,6 +519,44 @@ If you encounter issues:
 
 ## Migration History
 
+### bb808d64115f - remove_legacy_tables_and_user_columns (2025-11-30)
+
+Remove legacy database tables and user columns that are no longer used in the modern system.
+
+**Tables removed** (11 total):
+- `ad2user` (0 rows) - Ad campaign tracking
+- `cache` (0 rows) - Legacy cache table (now using Valkey)
+- `nearest` (72 rows) - Nearest points cache
+- `osgbiw` (31,518 rows) - OSGB Inland Waters data
+- `percentile` (0 rows) - Statistics percentiles
+- `route_item` (0 rows) - Route planning
+- `sms` (518 rows) - SMS notification data
+- `tphotostats` (0 rows) - Photo statistics
+- `tuserstats` (0 rows) - User statistics
+- `twatch` (5 rows) - Watch list
+
+**User columns removed** (25 total):
+- `email_challenge` - Legacy email validation
+- `home1_name`, `home1_eastings`, `home1_northings`, `home1_gridref` (home location 1)
+- `home2_name`, `home2_eastings`, `home2_northings`, `home2_gridref` (home location 2)
+- `home3_name`, `home3_eastings`, `home3_northings`, `home3_gridref` (home location 3)
+- `album_rows`, `album_cols` - Photo album layout preferences
+- `sms_number`, `sms_credit`, `sms_grace` - SMS notification feature
+- `cacher_ind`, `cacher_id` - Geocacher integration
+- `trigger_ind` - Trigger flag
+- `nearest_max_m` - Nearest search distance
+- `online_map_type`, `online_map_type2` - Map preferences
+- `trigmap_b`, `trigmap_l`, `trigmap_c` - Map display preferences
+- `showscores`, `showhandi` - Display preferences
+
+**Impact**: Removes obsolete features (SMS notifications, geocaching integration, legacy map preferences, home locations). No functional impact on current system. `postcode6` and `postcode8` tables were kept as they are actively used for postcode search functionality.
+
+**Code changes**:
+- Removed `is_cacher()` and `is_trigger()` functions from `api/crud/user.py`
+- Removed `online_map_type` and `online_map_type2` from User model, schemas, and endpoints
+- Updated tests to remove references to deleted columns
+- Updated documentation: schema_documentation.md, schema_complete.json, schema_complete.yaml
+
 ### 726a21695c73 - remove_audit_tables_and_gc_columns (2025-11-30)
 
 Remove legacy audit tables and Geocaching.com integration columns that are no longer used in the modern Auth0-based authentication system.

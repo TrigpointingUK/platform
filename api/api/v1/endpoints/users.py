@@ -381,8 +381,6 @@ def get_current_user_profile(
                 status_max=int(current_user.status_max),
                 distance_ind=str(current_user.distance_ind),
                 public_ind=str(current_user.public_ind),
-                online_map_type=str(current_user.online_map_type),
-                online_map_type2=str(current_user.online_map_type2),
                 email=str(current_user.email),
                 email_valid=str(current_user.email_valid),
             )
@@ -450,8 +448,6 @@ def update_current_user_profile(
             status_max=int(current_user.status_max),
             distance_ind=str(current_user.distance_ind),
             public_ind=str(current_user.public_ind),
-            online_map_type=str(current_user.online_map_type),
-            online_map_type2=str(current_user.online_map_type2),
             email=str(current_user.email),
             email_valid=str(current_user.email_valid),
         )
@@ -609,8 +605,6 @@ def update_current_user_profile(
         status_max=int(current_user.status_max),
         distance_ind=str(current_user.distance_ind),
         public_ind=str(current_user.public_ind),
-        online_map_type=str(current_user.online_map_type),
-        online_map_type2=str(current_user.online_map_type2),
         email=str(current_user.email),
         email_valid=str(current_user.email_valid),
     )

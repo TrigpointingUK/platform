@@ -221,8 +221,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                     status_max=int(user.status_max),
                     distance_ind=str(user.distance_ind),
                     public_ind=str(user.public_ind),
-                    online_map_type=str(user.online_map_type),
-                    online_map_type2=str(user.online_map_type2),
                     email=str(user.email),
                     email_valid=str(user.email_valid),
                 )
@@ -443,8 +441,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 status_max=int(user.status_max),
                 distance_ind=str(user.distance_ind),
                 public_ind=str(user.public_ind),
-                online_map_type=str(user.online_map_type),
-                online_map_type2=str(user.online_map_type2),
                 email=str(user.email),
                 email_valid=str(user.email_valid),
             )

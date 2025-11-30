@@ -272,8 +272,6 @@ def test_update_no_auth0_id_skips_sync(db: Session, mock_auth0_token):
         crt_date=date.today(),
         crt_time=time(),
         upd_timestamp=datetime.now(),
-        online_map_type="",
-        online_map_type2="lla",
     )
 
     db.add(user)

@@ -318,32 +318,6 @@ def get_users_count(db: Session) -> int:
     return db.query(User).count()
 
 
-def is_cacher(user: User) -> bool:
-    """
-    Check if user is a geocacher.
-
-    Args:
-        user: User object
-
-    Returns:
-        True if user is a geocacher, False otherwise
-    """
-    return str(user.cacher_ind) == "Y"
-
-
-def is_trigger(user: User) -> bool:
-    """
-    Check if user is a trigger.
-
-    Args:
-        user: User object
-
-    Returns:
-        True if user is a trigger, False otherwise
-    """
-    return str(user.trigger_ind) == "Y"
-
-
 def is_email_validated(user: User) -> bool:
     """
     Check if user's email is validated.
@@ -542,8 +516,6 @@ def create_user(db: Session, username: str, email: str, auth0_user_id: str) -> U
         crt_date=current_date,
         crt_time=current_time,
         upd_timestamp=now,
-        online_map_type="",
-        online_map_type2="lla",
     )
 
     db.add(new_user)

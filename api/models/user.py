@@ -72,14 +72,6 @@ class User(Base):
         DateTime, nullable=True, default=datetime.now
     )  # Nullable for PostgreSQL compatibility
 
-    # Display and search preferences
-    online_map_type = Column(
-        String(10), nullable=True, default=""
-    )  # Nullable for PostgreSQL compatibility
-    online_map_type2 = Column(
-        String(10), nullable=True, default="lla"
-    )  # Nullable for PostgreSQL compatibility
-
 
 class TLog(Base):
     """TLog model for the tlog table."""
