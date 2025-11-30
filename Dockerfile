@@ -45,5 +45,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=10)" || exit 1
 
-# Run the application
-CMD ["python", "api/start.py"]
+# Run the application (as module to ensure proper Python path)
+CMD ["python", "-m", "api.start"]
