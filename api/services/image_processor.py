@@ -124,24 +124,51 @@ class ImageProcessor:
         return new_width, new_height
 
     def validate_image(self, image_bytes: bytes) -> Tuple[bool, str]:
-        """Validate uploaded image file."""
+        """
+        Validate uploaded image file.
+
+        Accepts JPEG and JPEG-based formats (including MPO from iPhones).
+        All images are converted to standard JPEG during processing.
+        """
         try:
+            # Check file size first (before loading)
+            if len(image_bytes) > settings.MAX_IMAGE_SIZE:
+                return (
+                    False,
+                    f"File size exceeds maximum of {settings.MAX_IMAGE_SIZE // (1024 * 1024)}MB",
+                )
+
+            # Check for JPEG magic bytes at start of file
+            # JPEG files start with FF D8 FF
+            # This includes:
+            # - Standard JPEG/JPG files
+            # - MPO files (Multi-Picture Object, used by iPhones with depth data)
+            # - JFIF files (JPEG File Interchange Format)
+            if len(image_bytes) < 3:
+                return False, "File is too small to be a valid image"
+
+            if not (
+                image_bytes[0] == 0xFF
+                and image_bytes[1] == 0xD8
+                and image_bytes[2] == 0xFF
+            ):
+                return False, "Only JPEG images are supported"
+
+            # Try to open and validate the image with PIL
             with Image.open(io.BytesIO(image_bytes)) as img:
-                # Check file size
-                if len(image_bytes) > settings.MAX_IMAGE_SIZE:
-                    return (
-                        False,
-                        f"File size exceeds maximum of {settings.MAX_IMAGE_SIZE // (1024 * 1024)}MB",
-                    )
+                # Load the image data to ensure it's valid
+                # This will raise an exception if the image is corrupted
+                img.load()
 
-                # Check format
-                if img.format not in ["JPEG", "JPG"]:
-                    return False, "Only JPEG images are supported"
+                # Verify we can get basic properties
+                _ = img.size
+                _ = img.mode
 
-                # Check if image is valid
-                img.verify()
+                logger.info(
+                    f"Image validated: {img.size}, format={img.format}, mode={img.mode}"
+                )
 
-                return True, "Image is valid"
+            return True, "Image is valid"
 
         except Exception as e:
             logger.error(f"Image validation failed: {e}")
