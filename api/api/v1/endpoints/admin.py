@@ -289,7 +289,7 @@ def submit_contact(
 
     # Send email via SES
     success = email_service.send_contact_email(
-        to_email="contact@teasel.org",
+        to_email="trigpointing@teasel.org",
         reply_to=contact_request.email,
         subject=contact_request.subject,
         message=contact_request.message,
