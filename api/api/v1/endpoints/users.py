@@ -616,7 +616,7 @@ def update_current_user_profile(
     "/me/logged-trigs",
     openapi_extra=openapi_lifecycle(
         "beta",
-        note="Get list of trigpoints the current user has logged with conditions. Used for map icon coloring.",
+        note="Get list of trigpoints the current user has logged with conditions. Used for map marker coloring.",
     ),
 )
 def get_current_user_logged_trigs(
