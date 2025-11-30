@@ -72,14 +72,6 @@ class User(Base):
         DateTime, nullable=True, default=datetime.now
     )  # Nullable for PostgreSQL compatibility
 
-    # Display and search preferences
-    online_map_type = Column(
-        String(10), nullable=True, default=""
-    )  # Nullable for PostgreSQL compatibility
-    online_map_type2 = Column(
-        String(10), nullable=True, default="lla"
-    )  # Nullable for PostgreSQL compatibility
-
 
 class TLog(Base):
     """TLog model for the tlog table."""
@@ -139,20 +131,5 @@ class TQuery(Base):
     osgb_northings = Column(Integer, nullable=False)
     user_id = Column(Integer, index=True, nullable=True)
     system_ind = Column(CHAR(1), nullable=False)
-    upd_timestamp = Column(DateTime, nullable=True)
-    crt_timestamp = Column(DateTime, nullable=True)
-
-
-class TQuizScores(Base):
-    """TQuizScores model for the tquizscores table."""
-
-    __tablename__ = "tquizscores"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, index=True, nullable=False)
-    quiz_date = Column(Date, nullable=False)
-    quiz_time = Column(Time, nullable=False)
-    score = Column(SmallInteger, nullable=False)
-    outof = Column(SmallInteger, nullable=False)
     upd_timestamp = Column(DateTime, nullable=True)
     crt_timestamp = Column(DateTime, nullable=True)

@@ -221,8 +221,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                     status_max=int(user.status_max),
                     distance_ind=str(user.distance_ind),
                     public_ind=str(user.public_ind),
-                    online_map_type=str(user.online_map_type),
-                    online_map_type2=str(user.online_map_type2),
                     email=str(user.email),
                     email_valid=str(user.email_valid),
                 )
@@ -443,8 +441,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 status_max=int(user.status_max),
                 distance_ind=str(user.distance_ind),
                 public_ind=str(user.public_ind),
-                online_map_type=str(user.online_map_type),
-                online_map_type2=str(user.online_map_type2),
                 email=str(user.email),
                 email_valid=str(user.email_valid),
             )
@@ -576,7 +572,7 @@ def merge_users(
     6. If dry_run=false and no conflicts, execute merge
 
     The merge:
-    - Updates user_id in tlog, tphotovote, tquery, tquizscores
+    - Updates user_id in tlog, tphotovote, tquery
     - Updates primary user profile with best values
     - Deletes secondary users
 

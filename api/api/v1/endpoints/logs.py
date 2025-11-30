@@ -329,8 +329,11 @@ def create_log(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Get client IP address
-    client_ip = get_client_ip(request)
+    # Get client IP address (normalized for varchar(15) storage)
+    from api.utils.ip_address import get_client_ip_normalized
+
+    raw_ip = get_client_ip(request)
+    client_ip = get_client_ip_normalized(raw_ip)
 
     # Add ip_addr to the payload data
     log_data = payload.model_dump()

@@ -153,8 +153,6 @@ def test_create_user_default_values(db: Session):
     assert user.homepage == ""
     assert user.about == ""
     assert user.status_max == 0
-    assert user.online_map_type == ""
-    assert user.online_map_type2 == "lla"
 
 
 def test_create_user_can_be_retrieved(db: Session):

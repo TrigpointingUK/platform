@@ -89,7 +89,6 @@ class RecordCounts(BaseModel):
     tphoto: int = 0
     tphotovote: int = 0
     tquery: int = 0
-    tquizscores: int = 0
 
 
 class UserMergePreview(BaseModel):

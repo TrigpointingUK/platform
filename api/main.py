@@ -6,9 +6,10 @@ import logging
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer
 from sqlalchemy import text
+from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -191,6 +192,74 @@ def custom_openapi():
 
 
 app.openapi = custom_openapi  # type: ignore
+
+
+@app.exception_handler(DatabaseError)
+async def database_error_handler(request: Request, exc: DatabaseError):
+    """
+    Handler for database errors (SQLAlchemy/psycopg2).
+
+    This ensures database errors are logged properly in JSON format with
+    full context about the request and database operation.
+    """
+    # Extract original database error if available
+    orig_error = getattr(exc, "orig", None)
+    db_error_class = (
+        orig_error.__class__.__name__ if orig_error else exc.__class__.__name__
+    )
+
+    # Log with full context
+    logger.error(
+        f"Database error: {db_error_class}: {str(exc)}",
+        exc_info=exc,
+        extra={
+            "method": request.method,
+            "url": str(request.url),
+            "path": request.url.path,
+            "client": request.client.host if request.client else None,
+            "db_error_type": db_error_class,
+        },
+    )
+
+    # Return appropriate error response
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "detail": "Database operation failed",
+            "type": db_error_class,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global exception handler to ensure all unhandled exceptions are logged in JSON format.
+
+    This catches any exceptions that weren't handled by route-specific handlers,
+    logs them with full context, and returns a proper error response.
+    """
+    # Log the exception with full context
+    logger.error(
+        f"Unhandled exception: {exc.__class__.__name__}: {str(exc)}",
+        exc_info=exc,
+        extra={
+            "method": request.method,
+            "url": str(request.url),
+            "path": request.url.path,
+            "client": request.client.host if request.client else None,
+        },
+    )
+
+    # Return generic error response (don't expose internal details)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Internal server error",
+            "type": exc.__class__.__name__,
+        },
+    )
+
 
 # Add timing middleware first to capture total request time
 app.add_middleware(TimingMiddleware)

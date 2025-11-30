@@ -7,7 +7,12 @@ import logging
 import sys
 from unittest.mock import MagicMock, patch
 
-from api.core.logging import JSONFormatter, get_logger, setup_logging
+from api.core.logging import (
+    JSONFormatter,
+    get_logger,
+    get_uvicorn_log_config,
+    setup_logging,
+)
 
 
 class TestLoggingConfiguration:
@@ -261,3 +266,116 @@ class TestLoggingConfiguration:
         handler = root_logger.handlers[0]
         assert isinstance(handler.formatter, logging.Formatter)
         assert not isinstance(handler.formatter, JSONFormatter)
+
+    def test_json_formatter_with_uvicorn_fields(self):
+        """Test JSONFormatter includes uvicorn-specific fields."""
+        formatter = JSONFormatter(datefmt="%Y-%m-%d %H:%M:%S")
+        record = logging.LogRecord(
+            name="uvicorn.access",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=42,
+            msg="Request completed",
+            args=(),
+            exc_info=None,
+        )
+        # Add uvicorn-specific fields
+        record.status_code = 200
+        record.method = "GET"
+        record.path = "/api/v1/test"
+
+        formatted = formatter.format(record)
+        parsed = json.loads(formatted)
+
+        assert parsed["status_code"] == 200
+        assert parsed["method"] == "GET"
+        assert parsed["path"] == "/api/v1/test"
+
+    def test_json_formatter_with_extra_fields(self):
+        """Test JSONFormatter includes extra fields."""
+        formatter = JSONFormatter(datefmt="%Y-%m-%d %H:%M:%S")
+        record = logging.LogRecord(
+            name="test.logger",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=42,
+            msg="Test message",
+            args=(),
+            exc_info=None,
+        )
+        # Add extra fields
+        record.extra = {"request_id": "123", "user_id": "456"}
+
+        formatted = formatter.format(record)
+        parsed = json.loads(formatted)
+
+        assert parsed["request_id"] == "123"
+        assert parsed["user_id"] == "456"
+
+    def test_json_formatter_with_stack_info(self):
+        """Test JSONFormatter includes stack trace."""
+        formatter = JSONFormatter(datefmt="%Y-%m-%d %H:%M:%S")
+        record = logging.LogRecord(
+            name="test.logger",
+            level=logging.WARNING,
+            pathname="test.py",
+            lineno=42,
+            msg="Test message",
+            args=(),
+            exc_info=None,
+        )
+        record.stack_info = "Stack trace line 1\nStack trace line 2"
+
+        formatted = formatter.format(record)
+        parsed = json.loads(formatted)
+
+        assert "stack_info" in parsed
+        assert "\\n" in parsed["stack_info"]
+
+    def test_get_uvicorn_log_config_production(self):
+        """Test get_uvicorn_log_config returns JSON formatters for production."""
+        mock_settings = MagicMock()
+        mock_settings.DEBUG = False
+        mock_settings.LOG_LEVEL = "INFO"
+
+        with patch("api.core.logging.settings", mock_settings):
+            config = get_uvicorn_log_config()
+
+        assert config["version"] == 1
+        assert not config["disable_existing_loggers"]
+        assert "formatters" in config
+        assert config["formatters"]["default"]["()"] == "api.core.logging.JSONFormatter"
+        assert config["formatters"]["access"]["()"] == "api.core.logging.JSONFormatter"
+
+    def test_get_uvicorn_log_config_development(self):
+        """Test get_uvicorn_log_config returns default formatters for development."""
+        mock_settings = MagicMock()
+        mock_settings.DEBUG = True
+        mock_settings.LOG_LEVEL = "DEBUG"
+
+        with patch("api.core.logging.settings", mock_settings):
+            config = get_uvicorn_log_config()
+
+        assert config["version"] == 1
+        assert not config["disable_existing_loggers"]
+        assert "formatters" in config
+        assert (
+            config["formatters"]["default"]["()"] == "uvicorn.logging.DefaultFormatter"
+        )
+        assert config["formatters"]["access"]["()"] == "uvicorn.logging.AccessFormatter"
+
+    def test_get_uvicorn_log_config_loggers(self):
+        """Test get_uvicorn_log_config configures loggers correctly."""
+        mock_settings = MagicMock()
+        mock_settings.DEBUG = False
+        mock_settings.LOG_LEVEL = "WARNING"
+
+        with patch("api.core.logging.settings", mock_settings):
+            config = get_uvicorn_log_config()
+
+        assert "loggers" in config
+        assert "uvicorn" in config["loggers"]
+        assert "uvicorn.error" in config["loggers"]
+        assert "uvicorn.access" in config["loggers"]
+        assert config["loggers"]["uvicorn"]["level"] == "WARNING"
+        assert not config["loggers"]["uvicorn.access"]["propagate"]

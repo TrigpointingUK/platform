@@ -676,8 +676,11 @@ def update_trig_admin(
     if not trig:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
 
-    # Get client IP address
-    client_ip = request.client.host if request.client else "unknown"
+    # Get client IP address (normalized for varchar(15) storage)
+    from api.utils.ip_address import get_client_ip_normalized
+
+    raw_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip_normalized(raw_ip)
 
     # Auto-set postcode based on WGS coordinates
     nearest_postcode = location_crud.find_nearest_postcode(

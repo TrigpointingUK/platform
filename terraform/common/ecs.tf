@@ -150,6 +150,19 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
             "elasticfilesystem:AccessPointArn" = "arn:aws:elasticfilesystem:${var.aws_region}:*:access-point/*"
           }
         }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ses:SendEmail",
+          "ses:SendRawEmail"
+        ]
+        Resource = [
+          "arn:aws:ses:${var.aws_region}:*:identity/trigpointing.uk",
+          "arn:aws:ses:${var.aws_region}:*:identity/trigpointing.me",
+          "arn:aws:ses:${var.aws_region}:*:identity/trigpointing@teasel.org",
+          "arn:aws:ses:${var.aws_region}:*:identity/ian@teasel.org"
+        ]
       }
     ]
   })

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.core.logging import get_logger
 from api.models.tphoto import TPhoto
-from api.models.user import TLog, TPhotoVote, TQuery, TQuizScores, User
+from api.models.user import TLog, TPhotoVote, TQuery, User
 from api.schemas.user_merge import ConflictingUser, RecordCounts
 
 logger = get_logger(__name__)
@@ -34,7 +34,7 @@ def get_user_last_activity(db: Session, user_id: int) -> Optional[datetime]:
     """
     Get the most recent activity timestamp for a user across all activity tables.
 
-    Checks: tlog, tphoto (via tlog_id), tphotovote, tquery, tquizscores
+    Checks: tlog, tphoto (via tlog_id), tphotovote, tquery
 
     Args:
         db: Database session
@@ -80,15 +80,6 @@ def get_user_last_activity(db: Session, user_id: int) -> Optional[datetime]:
     if tquery_latest:
         timestamps.append(tquery_latest)
 
-    # Check tquizscores
-    tquizscores_latest = (
-        db.query(func.max(TQuizScores.upd_timestamp))
-        .filter(TQuizScores.user_id == user_id)
-        .scalar()
-    )
-    if tquizscores_latest:
-        timestamps.append(tquizscores_latest)
-
     # Return the most recent timestamp
     if timestamps:
         return max([t for t in timestamps if t is not None], default=None)
@@ -126,11 +117,6 @@ def get_user_activity_counts(db: Session, user_id: int) -> Dict[str, int]:
 
     # Count queries
     counts["queries"] = db.query(TQuery).filter(TQuery.user_id == user_id).count()
-
-    # Count quiz scores
-    counts["quiz_scores"] = (
-        db.query(TQuizScores).filter(TQuizScores.user_id == user_id).count()
-    )
 
     return counts
 
@@ -284,11 +270,6 @@ def count_records_for_users(db: Session, user_ids: List[int]) -> RecordCounts:
     # Count tquery records
     counts.tquery = db.query(TQuery).filter(TQuery.user_id.in_(user_ids)).count()
 
-    # Count tquizscores records
-    counts.tquizscores = (
-        db.query(TQuizScores).filter(TQuizScores.user_id.in_(user_ids)).count()
-    )
-
     return counts
 
 
@@ -352,15 +333,6 @@ def merge_users(
     )
     counts.tquery = tquery_count
     logger.info(f"Updated {tquery_count} tquery records")
-
-    # Update tquizscores records
-    tquizscores_count = (
-        db.query(TQuizScores)
-        .filter(TQuizScores.user_id.in_(secondary_user_ids))
-        .update({TQuizScores.user_id: primary_user_id}, synchronize_session=False)
-    )
-    counts.tquizscores = tquizscores_count
-    logger.info(f"Updated {tquizscores_count} tquizscores records")
 
     # Note: tphoto records are linked via tlog_id, so they're automatically
     # reassigned when we update the tlog records above

@@ -51,7 +51,13 @@ variable "key_pair_name" {
   default     = "trigpointing-bastion"
 }
 
-variable "db_instance_class" {
+variable "db_instance_class_postgres" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t4g.medium"
+}
+
+variable "db_instance_class_mysql" {
   description = "RDS instance class"
   type        = string
   default     = "db.t4g.micro"

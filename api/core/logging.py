@@ -25,6 +25,14 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
+        # Add additional uvicorn-specific fields if present
+        if hasattr(record, "status_code"):
+            log_data["status_code"] = record.status_code
+        if hasattr(record, "method"):
+            log_data["method"] = record.method
+        if hasattr(record, "path"):
+            log_data["path"] = record.path
+
         # Add exception info if present - format as single line with \n preserved in string
         if record.exc_info:
             exception_text = self.formatException(record.exc_info)
@@ -122,3 +130,75 @@ def get_logger(name: str) -> logging.Logger:
         Configured logger instance
     """
     return logging.getLogger(name)
+
+
+def get_uvicorn_log_config() -> dict:
+    """
+    Get uvicorn log configuration dict for structured JSON logging.
+
+    This ensures uvicorn's own logging (access logs, errors, etc.)
+    also uses JSON format in production environments.
+
+    Returns:
+        Dict compatible with uvicorn's log_config parameter
+    """
+    # Determine log level
+    log_level = (
+        settings.LOG_LEVEL
+        if hasattr(settings, "LOG_LEVEL")
+        else ("DEBUG" if settings.DEBUG else "INFO")
+    )
+
+    # Choose formatter based on environment
+    if settings.DEBUG:
+        # Use default uvicorn formatters for development
+        formatters = {
+            "default": {
+                "()": "uvicorn.logging.DefaultFormatter",
+                "fmt": "%(levelprefix)s %(message)s",
+                "use_colors": None,
+            },
+            "access": {
+                "()": "uvicorn.logging.AccessFormatter",
+                "fmt": '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            },
+        }
+    else:
+        # Use JSON formatter for production/staging
+        formatters = {
+            "default": {
+                "()": "api.core.logging.JSONFormatter",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "access": {
+                "()": "api.core.logging.JSONFormatter",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+        }
+
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": formatters,
+        "handlers": {
+            "default": {
+                "formatter": "default",
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",
+            },
+            "access": {
+                "formatter": "access",
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",
+            },
+        },
+        "loggers": {
+            "uvicorn": {"handlers": ["default"], "level": log_level.upper()},
+            "uvicorn.error": {"level": "INFO"},
+            "uvicorn.access": {
+                "handlers": ["access"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+    }

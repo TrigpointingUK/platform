@@ -102,8 +102,6 @@ class UserPrefs(BaseModel):
     status_max: int
     distance_ind: str
     public_ind: str
-    online_map_type: str
-    online_map_type2: str
     email: str
     email_valid: str = Field(
         ..., description="Email validation status (Y/N) - read-only"
@@ -146,12 +144,6 @@ class UserUpdate(BaseModel):
     )
     public_ind: Optional[str] = Field(
         None, pattern="^[YN]$", description="Public visibility (Y/N)"
-    )
-    online_map_type: Optional[str] = Field(
-        None, max_length=10, description="Primary map type preference"
-    )
-    online_map_type2: Optional[str] = Field(
-        None, max_length=10, description="Secondary map type preference"
     )
 
     @field_validator("status_max")

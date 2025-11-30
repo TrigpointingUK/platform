@@ -2,140 +2,50 @@
 
 **Database:** trigpoin_trigs
 **Export Date:** 2025-08-22 00:06:18.288963
-**Total Tables:** 38
+**Total Tables:** 21
 
 ## Table Overview
 
 - **OSGBIW**: 31,518 rows, 15 columns
-- **ad2user**: 0 rows, 4 columns
+
 - **attr**: 14 rows, 12 columns
 - **attrset**: 31,518 rows, 5 columns
 - **attrset_attrval**: 441,252 rows, 3 columns
 - **attrsource**: 2 rows, 6 columns
 - **attrval**: 142,930 rows, 8 columns
-- **barrytools**: 76 rows, 21 columns
-- **cache**: 0 rows, 37 columns
-- **coord2county**: 35,247 rows, 4 columns
+
+
+
 - **county**: 72 rows, 8 columns
-- **nearest**: 72 rows, 8 columns
+
 - **os_net_web**: 844 rows, 2 columns
-- **percentile**: 0 rows, 4 columns
+
 - **place**: 39,134 rows, 15 columns
 - **postcode6**: 8,481 rows, 10 columns
 - **postcode8**: 54,552 rows, 5 columns
-- **route_item**: 0 rows, 4 columns
+
 - **server**: 3 rows, 4 columns
-- **sms**: 518 rows, 13 columns
+
 - **status**: 7 rows, 4 columns
 - **tlog**: 468,414 rows, 15 columns
 - **town**: 1,915 rows, 6 columns
 - **tphoto**: 402,671 rows, 19 columns
-- **tphotoclass**: 5,292 rows, 2 columns
-- **tphotostats**: 0 rows, 4 columns
+
+
 - **tphotovote**: 94,832 rows, 5 columns
 - **tquery**: 2,456,719 rows, 13 columns
-- **tquizscores**: 3,277 rows, 8 columns
+
 - **trig**: 25,810 rows, 36 columns
-- **trigdata**: 7,314 rows, 33 columns
-- **trigdatafields**: 32 rows, 10 columns
+
+
 - **trigstats**: 25,066 rows, 11 columns
-- **tuserstats**: 0 rows, 2 columns
-- **twatch**: 5 rows, 5 columns
+
+
 - **user**: 14,682 rows, 55 columns
 
 ## Detailed Table Schemas
 
-### OSGBIW
 
-**Rows:** 31,518
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | INTEGER | No |  | ✅ |
-| Trig Name | VARCHAR(255) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-| Original Name | VARCHAR(255) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-| New Name | VARCHAR(255) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-| EASTING | DECIMAL(10, 2) | Yes |  |  |
-| NORTHING | DECIMAL(10, 2) | Yes |  |  |
-| HEIGHT | DECIMAL(9, 3) | Yes |  |  |
-| ORDER | INTEGER | Yes |  |  |
-| TYPE OF MARK | VARCHAR(255) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-| Computing Date | VARCHAR(10) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-| CLASS OF LEVELLING | INTEGER | Yes |  |  |
-| Date of Levelling | VARCHAR(255) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-| LEVELLING DATUM | VARCHAR(255) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-| DESTROYED MARK INDICATOR | INTEGER | Yes |  |  |
-| COMMENTS | VARCHAR(255) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "Trig Name": "Thoresby Wtr Twr",
-    "Original Name": "/PP154",
-    "New Name": "0",
-    "EASTING": "463765.24",
-    "NORTHING": "367685.93",
-    "HEIGHT": "94.599",
-    "ORDER": 2,
-    "TYPE OF MARK": "BOLT",
-    "Computing Date": "01/06/1987",
-    "CLASS OF LEVELLING": 2,
-    "Date of Levelling": "01/06/1987",
-    "LEVELLING DATUM": "N",
-    "DESTROYED MARK INDICATOR": 0,
-    "COMMENTS": "N CEN ENGLAND ADJUSTMENT"
-  },
-  {
-    "id": 2,
-    "Trig Name": "Wingreen (old)",
-    "Original Name": "/PP17",
-    "New Name": "PPP17",
-    "EASTING": "392498.78",
-    "NORTHING": "120648.73",
-    "HEIGHT": "0.000",
-    "ORDER": 3,
-    "TYPE OF MARK": "OLD TRIG",
-    "Computing Date": "01/06/1936",
-    "CLASS OF LEVELLING": 0,
-    "Date of Levelling": "",
-    "LEVELLING DATUM": "",
-    "DESTROYED MARK INDICATOR": 0,
-    "COMMENTS": ""
-  },
-  {
-    "id": 3,
-    "Trig Name": "East Grinstead Ch Twr",
-    "Original Name": "/PP170",
-    "New Name": "0",
-    "EASTING": "539633.26",
-    "NORTHING": "137997.00",
-    "HEIGHT": "0.000",
-    "ORDER": 3,
-    "TYPE OF MARK": "PINNACLE",
-    "Computing Date": "01/06/1975",
-    "CLASS OF LEVELLING": 0,
-    "Date of Levelling": "",
-    "LEVELLING DATUM": "",
-    "DESTROYED MARK INDICATOR": 0,
-    "COMMENTS": "SE pinnacle"
-  }
-]
-```
-
-### ad2user
-
-**Rows:** 0
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| ad_code | CHAR(6) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| user_id | MEDIUMINT | No |  | ✅ |
-| eligible_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
 ### attr
 
 **Rows:** 14
@@ -364,189 +274,7 @@
 ]
 ```
 
-### barrytools
 
-**Rows:** 76
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | INTEGER | No |  | ✅ |
-| name | VARCHAR(64) COLLATE "latin1_swedish_ci" | No |  |  |
-| used_by | SET | No |  |  |
-| theme | ENUM | No |  |  |
-| theme_others | SET | No |  |  |
-| type | ENUM | No |  |  |
-| status | ENUM | No |  |  |
-| linkable_ind | ENUM | No |  |  |
-| title | VARCHAR(64) COLLATE "latin1_swedish_ci" | No |  |  |
-| short_desc | VARCHAR(64) COLLATE "latin1_swedish_ci" | No |  |  |
-| description | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| p_u | ENUM | No |  |  |
-| p_by | ENUM | No |  |  |
-| p_county | ENUM | No |  |  |
-| p_type | ENUM | No |  |  |
-| p_size | ENUM | No |  |  |
-| p_date | ENUM | No |  |  |
-| p_q | ENUM | No |  |  |
-| p_others | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-| crt_timestamp | TIMESTAMP | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "name": "active_cachers.php",
-    "used_by": "C",
-    "theme": "cachers",
-    "theme_others": "logs,cachers",
-    "type": "groupby",
-    "status": "public",
-    "linkable_ind": "Y",
-    "title": "Active Cachers in the last...",
-    "short_desc": "",
-    "description": "Shows now many cachers have been logging cachers in the past",
-    "p_u": "N",
-    "p_by": "N",
-    "p_county": "N",
-    "p_type": "N",
-    "p_size": "N",
-    "p_date": "N",
-    "p_q": "N",
-    "p_others": "",
-    "upd_timestamp": "2005-06-17 12:05:53",
-    "crt_timestamp": "2005-06-10 00:26:47"
-  },
-  {
-    "id": 3,
-    "name": "active_users.php",
-    "used_by": "T",
-    "theme": "users",
-    "theme_others": "logs",
-    "type": "groupby",
-    "status": "public",
-    "linkable_ind": "Y",
-    "title": "Active Users in the last...",
-    "short_desc": "",
-    "description": "",
-    "p_u": "N",
-    "p_by": "N",
-    "p_county": "N",
-    "p_type": "N",
-    "p_size": "N",
-    "p_date": "N",
-    "p_q": "N",
-    "p_others": "",
-    "upd_timestamp": "2005-06-17 12:13:29",
-    "crt_timestamp": "0000-00-00 00:00:00"
-  },
-  {
-    "id": 4,
-    "name": "album.php",
-    "used_by": "T",
-    "theme": "photos",
-    "theme_others": "trigs,logs,users",
-    "type": "album",
-    "status": "public",
-    "linkable_ind": "Y",
-    "title": "Highly Rated Photographs",
-    "short_desc": "",
-    "description": "",
-    "p_u": "O",
-    "p_by": "N",
-    "p_county": "O",
-    "p_type": "O",
-    "p_size": "N",
-    "p_date": "N",
-    "p_q": "N",
-    "p_others": "big - D\r\nalt - O\r\npage - D\r\nskipped - O\r\neach - O \r\nclass -O\r\nmean - O",
-    "upd_timestamp": "2005-06-17 12:23:01",
-    "crt_timestamp": "0000-00-00 00:00:00"
-  }
-]
-```
-
-### cache
-
-**Rows:** 0
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | MEDIUMINT | No |  | ✅ |
-| owner_id | MEDIUMINT | Yes |  |  |
-| name | VARCHAR(80) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| placed_date | DATE | Yes |  |  |
-| type | CHAR(1) COLLATE "latin1_swedish_ci" | Yes |  |  |
-| size | CHAR(1) COLLATE "latin1_swedish_ci" | Yes |  |  |
-| difficulty | DECIMAL(2, 1) | Yes |  |  |
-| terrain | DECIMAL(2, 1) | Yes |  |  |
-| waypoint | VARCHAR(8) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| wgs_lat | DECIMAL(9, 6) | Yes |  |  |
-| wgs_long | DECIMAL(9, 6) | Yes |  |  |
-| osgb_eastings | MEDIUMINT | Yes |  |  |
-| osgb_northings | MEDIUMINT | Yes |  |  |
-| osgb_gridref | VARCHAR(14) COLLATE "latin1_swedish_ci" | Yes |  |  |
-| postcode6 | VARCHAR(6) COLLATE "latin1_swedish_ci" | Yes |  |  |
-| county | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
-| town | VARCHAR(50) COLLATE "latin1_swedish_ci" | No |  |  |
-| available_ind | CHAR(1) COLLATE "latin1_swedish_ci" | Yes |  |  |
-| archived_ind | CHAR(1) COLLATE "latin1_swedish_ci" | Yes |  |  |
-| archived_date | DATE | Yes |  |  |
-| country_id | SMALLINT | No |  |  |
-| uk_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| short_description | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| long_description | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| encoded_hints | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| guid | VARCHAR(36) COLLATE "latin1_swedish_ci" | No |  |  |
-| problem_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-| process_xml_timestamp | TIMESTAMP | Yes |  |  |
-| process_xml_warning | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
-| process_web_timestamp | TIMESTAMP | Yes |  |  |
-| process_web_warning | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
-| update_xml_timestamp | TIMESTAMP | Yes |  |  |
-| update_web_timestamp | TIMESTAMP | Yes |  |  |
-| update_xml_auditid | MEDIUMINT | No |  |  |
-| changed_timestamp | TIMESTAMP | Yes |  |  |
-| crt_timestamp | TIMESTAMP | Yes |  |  |
-### coord2county
-
-**Rows:** 35,247
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| osgb_eastings | MEDIUMINT | No |  | ✅ |
-| osgb_northings | MEDIUMINT | No |  | ✅ |
-| county_id | TINYINT | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "osgb_eastings": 54900,
-    "osgb_northings": 780256,
-    "county_id": 49,
-    "upd_timestamp": "2012-07-28 16:04:51"
-  },
-  {
-    "osgb_eastings": 54903,
-    "osgb_northings": 780255,
-    "county_id": 49,
-    "upd_timestamp": "2012-07-29 16:05:54"
-  },
-  {
-    "osgb_eastings": 57032,
-    "osgb_northings": 780143,
-    "county_id": 49,
-    "upd_timestamp": "2012-07-28 15:51:03"
-  }
-]
-```
 
 ### county
 
@@ -600,57 +328,6 @@
 ]
 ```
 
-### nearest
-
-**Rows:** 72
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | MEDIUMINT | No |  | ✅ |
-| user_id | MEDIUMINT | No |  |  |
-| osgb_eastings | MEDIUMINT | No |  |  |
-| osgb_northings | MEDIUMINT | No |  |  |
-| osgb_gridref | VARCHAR(14) COLLATE "latin1_swedish_ci" | No |  |  |
-| comment | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| url | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "user_id": 1,
-    "osgb_eastings": 405000,
-    "osgb_northings": 372998,
-    "osgb_gridref": "SK 05000 72998",
-    "comment": "Buxton",
-    "url": "http://www.geocacheuk.com/",
-    "upd_timestamp": "2003-06-23 14:55:02"
-  },
-  {
-    "id": 2,
-    "user_id": 1,
-    "osgb_eastings": 514999,
-    "osgb_northings": 206998,
-    "osgb_gridref": "TL 14999 06998",
-    "comment": "St Albans",
-    "url": "http://www.trigpointinguk.com",
-    "upd_timestamp": "2003-06-23 14:56:06"
-  },
-  {
-    "id": 4,
-    "user_id": 1,
-    "osgb_eastings": 412200,
-    "osgb_northings": 434500,
-    "osgb_gridref": "SE 12200 34500",
-    "comment": "Somewhere new",
-    "url": "http://www.google.com",
-    "upd_timestamp": "2003-06-23 15:35:43"
-  }
-]
-```
 
 ### os_net_web
 
@@ -680,17 +357,7 @@
 ]
 ```
 
-### percentile
 
-**Rows:** 0
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| type | CHAR(6) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| percent | TINYINT | No |  | ✅ |
-| value | DECIMAL(6, 2) | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
 ### place
 
 **Rows:** 39,134
@@ -871,17 +538,7 @@
 ]
 ```
 
-### route_item
 
-**Rows:** 0
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| route_id | MEDIUMINT | No |  |  |
-| routeitem_id | MEDIUMINT | No |  | ✅ |
-| osgb_eastings | MEDIUMINT | No |  |  |
-| osgb_northings | MEDIUMINT | No |  |  |
 ### server
 
 **Rows:** 3
@@ -918,77 +575,6 @@
 ]
 ```
 
-### sms
-
-**Rows:** 518
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | MEDIUMINT | No |  | ✅ |
-| in_keyword | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
-| in_message | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| in_sender | VARCHAR(12) COLLATE "latin1_swedish_ci" | No |  |  |
-| in_time | VARCHAR(19) COLLATE "latin1_swedish_ci" | No |  |  |
-| user_id | MEDIUMINT | No |  |  |
-| proc_sql | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| proc_debug1 | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| proc_debug2 | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| out_message | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| out_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| out_error | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "in_keyword": "trig",
-    "in_message": " tq1865173160 LT",
-    "in_sender": "447932761671",
-    "in_time": "2003-05-04 19:39:38",
-    "user_id": 0,
-    "proc_sql": "\t\tSELECT DISTINCT\n\t\t\t   trig.osgb_gridref\n\t\t     , trig.physical_type\n\t\t\t , coalesce(logu.user_id = 18, 0) as log_user\n\t\t\t , count(distinct(logo.id)) as log_count\n\t\tFROM trig\n\t\t\t left outer join log logu on trig.id = logu.trig_id and logu.user_id = 18\n\t\t\t left outer join log logo on trig.id = logo.trig_id\n\t\t \n\t\tGROUP BY trig.osgb_gridref\n\t\t       , trig.physical_type\n\t\t\t   , log_user\n\t\tORDER BY pow(trig.osgb_eastings - 518651,2) + pow(trig.osgb_northings - 173160,2)\n\t\tLIMIT 0,10\n",
-    "proc_debug1": "",
-    "proc_debug2": "",
-    "out_message": "Trigs near TQ186731\nTQ18657316 P*\nTQ16967319 O*\nTQ18216332 P?\nTQ17808406 P?\nTQ16188438 P*\nTQ30346881 P?\nTQ12108410 P?\nTQ16676036 P?\nTQ30627838 A\nTQ19308736 P?\n",
-    "out_ind": "N",
-    "out_error": "Test facility - no SMS sent.  Reply would have been:\n Trigs near TQ186731\nTQ18657316 P*\nTQ16967319 O*\nTQ18216332 P?\nTQ17808406 P?\nTQ16188438 P*\nTQ30346881 P?\nTQ12108410 P?\nTQ16676036 P?\nTQ30627838 A\nTQ19308736 P?\n",
-    "upd_timestamp": "2003-05-04 11:52:25"
-  },
-  {
-    "id": 2,
-    "in_keyword": "trig",
-    "in_message": " su972774",
-    "in_sender": "447876648764",
-    "in_time": "2003-05-05 21:40:22",
-    "user_id": 0,
-    "proc_sql": "\t\tSELECT DISTINCT\n\t\t\t   trig.osgb_gridref\n\t\t     , trig.physical_type\n\t\t\t , coalesce(logu.user_id = 1, 0) as log_user\n\t\t\t , count(distinct(logo.id)) as log_count\n\t\tFROM trig\n\t\t\t left outer join log logu on trig.id = logu.trig_id and logu.user_id = 1\n\t\t\t left outer join log logo on trig.id = logo.trig_id\n\t\tWHERE  logu.user_id is null  \n\t\tGROUP BY trig.osgb_gridref\n\t\t       , trig.physical_type\n\t\t\t   , log_user\n\t\tORDER BY pow(trig.osgb_eastings - 497200,2) + pow(trig.osgb_northings - 177400,2)\n\t\tLIMIT 0,10\n",
-    "proc_debug1": "",
-    "proc_debug2": "",
-    "out_message": "Trigs near SU972774\nSU97377757 O?\nSU97307697 F?\nSU99417215 P?\nSU87527656 P?\nSU87108261 P?\nSU86958444 P?\nSU97266479 P?\nSU97246478 O?\nSU82408110 P?\nTQ12108410 P?\n",
-    "out_ind": "Y",
-    "out_error": "",
-    "upd_timestamp": "2003-05-05 13:53:26"
-  },
-  {
-    "id": 3,
-    "in_keyword": "trig",
-    "in_message": " se246241",
-    "in_sender": "447876648764",
-    "in_time": "2003-05-07 18:31:13",
-    "user_id": 0,
-    "proc_sql": "\t\tSELECT DISTINCT\n\t\t\t   trig.osgb_gridref\n\t\t     , trig.physical_type\n\t\t\t , coalesce(logu.user_id = 1, 0) as log_user\n\t\t\t , count(distinct(logo.id)) as log_count\n\t\tFROM trig\n\t\t\t left outer join log logu on trig.id = logu.trig_id and logu.user_id = 1\n\t\t\t left outer join log logo on trig.id = logo.trig_id\n\t\tWHERE  logu.user_id is null  \n\t\tGROUP BY trig.osgb_gridref\n\t\t       , trig.physical_type\n\t\t\t   , log_user\n\t\tORDER BY pow(trig.osgb_eastings - 424600,2) + pow(trig.osgb_northings - 424100,2)\n\t\tLIMIT 0,10\n",
-    "proc_debug1": "",
-    "proc_debug2": "",
-    "out_message": "Trigs near SE246241\nSE25942435 P\nSE22062469 P\nSE21652164 P?\nSE28092609 P\nSE27142089 P\nSE20582270 P\nSE24841928 P\nSE26171921 P\nSE28222801 P?\nSE24722944 P?\n",
-    "out_ind": "Y",
-    "out_error": "",
-    "upd_timestamp": "2003-05-07 10:44:30"
-  }
-]
-```
 
 ### status
 
@@ -1246,45 +832,7 @@
 ]
 ```
 
-### tphotoclass
 
-**Rows:** 5,292
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | MEDIUMINT | No |  | ✅ |
-| photo_class | TINYINT | No |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "photo_class": 10
-  },
-  {
-    "id": 2,
-    "photo_class": 4
-  },
-  {
-    "id": 4,
-    "photo_class": 3
-  }
-]
-```
-
-### tphotostats
-
-**Rows:** 0
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | MEDIUMINT | No |  | ✅ |
-| score_mean | DECIMAL(5, 2) | No |  |  |
-| score_baysian | DECIMAL(5, 2) | No |  |  |
-| logged_count | SMALLINT | No |  |  |
 ### tphotovote
 
 **Rows:** 94,832
@@ -1397,57 +945,6 @@
 ]
 ```
 
-### tquizscores
-
-**Rows:** 3,277
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | MEDIUMINT | No |  | ✅ |
-| trig_id | MEDIUMINT | No |  |  |
-| photo_id | MEDIUMINT | No |  |  |
-| result | VARCHAR(5) COLLATE "latin1_swedish_ci" | No |  |  |
-| correct | ENUM | No |  |  |
-| user_id | MEDIUMINT | No |  |  |
-| Game | CHAR(2) COLLATE "latin1_swedish_ci" | No |  |  |
-| crt_timestamp | TIMESTAMP | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "trig_id": 3428,
-    "photo_id": 11627,
-    "result": "",
-    "correct": "-",
-    "user_id": 844,
-    "Game": "A3",
-    "crt_timestamp": "2005-03-03 16:20:47"
-  },
-  {
-    "id": 2,
-    "trig_id": 4216,
-    "photo_id": 13413,
-    "result": "4216",
-    "correct": "Y",
-    "user_id": 844,
-    "Game": "A3",
-    "crt_timestamp": "2005-03-03 16:20:47"
-  },
-  {
-    "id": 3,
-    "trig_id": 2492,
-    "photo_id": 9609,
-    "result": "2492",
-    "correct": "Y",
-    "user_id": 844,
-    "Game": "A3",
-    "crt_timestamp": "2005-03-03 16:20:47"
-  }
-]
-```
 
 ### trig
 
@@ -1613,217 +1110,7 @@
 ]
 ```
 
-### trigdata
 
-**Rows:** 7,314
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | INTEGER | No |  | ✅ |
-| near1 | INTEGER | No |  |  |
-| near2 | INTEGER | No |  |  |
-| near3 | INTEGER | No |  |  |
-| near4 | INTEGER | No |  |  |
-| near5 | INTEGER | No |  |  |
-| near10 | INTEGER | No |  |  |
-| near15 | INTEGER | No |  |  |
-| near20 | INTEGER | No |  |  |
-| near100 | INTEGER | No |  |  |
-| near1000 | INTEGER | No |  |  |
-| mwayjtn | VARCHAR(10) COLLATE "latin1_swedish_ci" | No |  |  |
-| mwaydist | INTEGER | No |  |  |
-| aroaddist | INTEGER | No |  |  |
-| aroade | MEDIUMINT | No |  |  |
-| aroadn | MEDIUMINT | No |  |  |
-| area_osgb_height | INTEGER | No |  |  |
-| osgb_height_dif | INTEGER | No |  |  |
-| trackdist | INTEGER | No |  |  |
-| tracke | MEDIUMINT | No |  |  |
-| trackn | MEDIUMINT | No |  |  |
-| broaddist | INTEGER | No |  |  |
-| broade | MEDIUMINT | No |  |  |
-| broadn | MEDIUMINT | No |  |  |
-| croaddist | INTEGER | No |  |  |
-| croadn | MEDIUMINT | No |  |  |
-| croade | MEDIUMINT | No |  |  |
-| countryside | DOUBLE | No |  |  |
-| woodland | DOUBLE | No |  |  |
-| urban | DOUBLE | No |  |  |
-| stndist | INTEGER | No |  |  |
-| stne | MEDIUMINT | No |  |  |
-| stnn | MEDIUMINT | No |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "near1": 3592,
-    "near2": 8553,
-    "near3": 14112,
-    "near4": 20958,
-    "near5": 27839,
-    "near10": 84598,
-    "near15": 160551,
-    "near20": 256716,
-    "near100": 7457147,
-    "near1000": 356866295,
-    "mwayjtn": "M90-11",
-    "mwaydist": 495249,
-    "aroaddist": 2100,
-    "aroade": 461102,
-    "aroadn": 1191749,
-    "area_osgb_height": 131,
-    "osgb_height_dif": 28,
-    "trackdist": 271901,
-    "tracke": 311279,
-    "trackn": 967370,
-    "broaddist": 2148,
-    "broade": 461500,
-    "broadn": 1191500,
-    "croaddist": 2659,
-    "croadn": 1191500,
-    "croade": 460500,
-    "countryside": 99.68,
-    "woodland": 0.0,
-    "urban": 0.0,
-    "stndist": 272557,
-    "stne": 329156,
-    "stnn": 955657
-  },
-  {
-    "id": 2,
-    "near1": 5081,
-    "near2": 10281,
-    "near3": 16477,
-    "near4": 24044,
-    "near5": 34781,
-    "near10": 93405,
-    "near15": 169717,
-    "near20": 276746,
-    "near100": 3761914,
-    "near1000": 126580739,
-    "mwayjtn": "M90-11",
-    "mwaydist": 212216,
-    "aroaddist": 3873,
-    "aroade": 173991,
-    "aroadn": 886176,
-    "area_osgb_height": 267,
-    "osgb_height_dif": 30,
-    "trackdist": 46914,
-    "tracke": 199605,
-    "trackn": 848296,
-    "broaddist": 3301,
-    "broade": 174500,
-    "broadn": 886500,
-    "croaddist": 1067,
-    "croadn": 889500,
-    "croade": 175500,
-    "countryside": 95.27,
-    "woodland": 4.73,
-    "urban": 0.0,
-    "stndist": 47003,
-    "stne": 200280,
-    "stnn": 848583
-  },
-  {
-    "id": 3,
-    "near1": 2363,
-    "near2": 7305,
-    "near3": 12560,
-    "near4": 18777,
-    "near5": 26602,
-    "near10": 80629,
-    "near15": 176161,
-    "near20": 321119,
-    "near100": 6019782,
-    "near1000": 160914688,
-    "mwayjtn": "M8-31",
-    "mwaydist": 211656,
-    "aroaddist": 840,
-    "aroade": 69947,
-    "aroadn": 799640,
-    "area_osgb_height": 1,
-    "osgb_height_dif": 25,
-    "trackdist": 96546,
-    "tracke": 166014,
-    "trackn": 787823,
-    "broaddist": 16293,
-    "broade": 74500,
-    "broadn": 814500,
-    "croaddist": 672,
-    "croadn": 798500,
-    "croade": 69500,
-    "countryside": 7.85,
-    "woodland": 0.0,
-    "urban": 0.0,
-    "stndist": 98197,
-    "stne": 168099,
-    "stnn": 792645
-  }
-]
-```
-
-### trigdatafields
-
-**Rows:** 32
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| field | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| field_group | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
-| field_enabled | ENUM | No |  |  |
-| multipler | DOUBLE | No |  |  |
-| description | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| description_low | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| description_high | VARCHAR(255) COLLATE "latin1_swedish_ci" | No |  |  |
-| includes_position | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
-| data_source | VARCHAR(10) COLLATE "latin1_swedish_ci" | No |  |  |
-| explanation | VARCHAR(64) COLLATE "latin1_swedish_ci" | No |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "field": "area_osgb_height",
-    "field_group": "height",
-    "field_enabled": "y",
-    "multipler": 0.089605735,
-    "description": "Height",
-    "description_low": "Areas of Low Altitude",
-    "description_high": "Areas of High Altitude",
-    "includes_position": "",
-    "data_source": "os",
-    "explanation": "Average Area Height"
-  },
-  {
-    "field": "aroaddist",
-    "field_group": "aroad",
-    "field_enabled": "y",
-    "multipler": 0.001388833,
-    "description": "to A Roads",
-    "description_low": "Near",
-    "description_high": "Far",
-    "includes_position": "en",
-    "data_source": "dcw",
-    "explanation": "Distance to Nearest A Road"
-  },
-  {
-    "field": "aroade",
-    "field_group": "",
-    "field_enabled": "",
-    "multipler": 0.0,
-    "description": "",
-    "description_low": "",
-    "description_high": "",
-    "includes_position": "",
-    "data_source": "",
-    "explanation": ""
-  }
-]
-```
 
 ### trigstats
 
@@ -1889,54 +1176,7 @@
 ]
 ```
 
-### tuserstats
 
-**Rows:** 0
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| user_id | INTEGER | No |  | ✅ |
-| avg_visits | FLOAT | No |  |  |
-### twatch
-
-**Rows:** 5
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| user_id | MEDIUMINT | No |  | ✅ |
-| trig_id | MEDIUMINT | No |  | ✅ |
-| email_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-| crt_timestamp | TIMESTAMP | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "user_id": 1,
-    "trig_id": 2448,
-    "email_ind": "",
-    "upd_timestamp": "2004-06-25 21:58:54",
-    "crt_timestamp": "2004-06-25 21:41:42"
-  },
-  {
-    "user_id": 1,
-    "trig_id": 3229,
-    "email_ind": "",
-    "upd_timestamp": "2004-06-25 21:39:57",
-    "crt_timestamp": "2004-06-25 21:39:57"
-  },
-  {
-    "user_id": 844,
-    "trig_id": 577,
-    "email_ind": "",
-    "upd_timestamp": "2004-08-05 21:23:05",
-    "crt_timestamp": "2004-08-05 21:23:05"
-  }
-]
-```
 
 ### user
 
