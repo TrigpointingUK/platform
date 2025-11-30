@@ -519,6 +519,33 @@ If you encounter issues:
 
 ## Migration History
 
+### 6b9cf6a8d304 - remove_legacy_tables_and_user_columns_batch_2 (2025-11-30)
+
+Remove additional legacy database tables and user columns (batch 2 cleanup).
+
+**Tables removed** (6 total):
+- `barrytools` (76 rows) - Legacy "Barry's Tools" feature
+- `coord2county` (35,247 rows) - Coordinate-to-county lookup
+- `trigdata` (7,314 rows) - Extended trigpoint data
+- `trigdatafields` (32 rows) - Field definitions for trigdata
+- `tphotoclass` (5,292 rows) - Photo classification
+- `tquizscores` (3,277 rows) - Quiz scores feature
+
+**User columns removed** (3 total):
+- `admin_ind` - Legacy admin flag (replaced by Auth0 roles/scopes)
+- `disclaimer_ind` - Terms acceptance flag
+- `disclaimer_timestamp` - Terms acceptance timestamp
+
+**Impact**: Removes obsolete features (Barry's tools, quiz scores, coordinate lookups). No functional impact on current system. Quiz score tracking removed from user merge functionality.
+
+**Code changes**:
+- Removed `TQuizScores` model from `api/models/user.py`
+- Removed `TQuizScores` from imports in `api/models/__init__.py`
+- Removed tquizscores references from `api/crud/user_merge.py` (4 locations)
+- Removed `tquizscores` field from `RecordCounts` schema in `api/schemas/user_merge.py`
+- Updated user merge docstring in `api/api/v1/endpoints/legacy.py`
+- Updated documentation: schema_documentation.md, schema_complete.json, schema_complete.yaml
+
 ### bb808d64115f - remove_legacy_tables_and_user_columns (2025-11-30)
 
 Remove legacy database tables and user columns that are no longer used in the modern system.

@@ -283,7 +283,6 @@ def test_update_user_auth0_mapping_exception_does_not_crash(monkeypatch, caplog)
 #         )
 #     assert ok is True
 #     assert user.auth0_user_id == "auth0|y"
-#     # auth0_username field removed from User model
 #     # Fallback retry logic removed
 
 

@@ -229,13 +229,15 @@ def is_admin(user: User) -> bool:
     """
     Check if user has admin privileges.
 
+    Admin functionality is now handled via Auth0 roles/scopes.
+    This function always returns False for legacy compatibility.
+
     Args:
         user: User object
 
     Returns:
-        True if user is admin, False otherwise
+        Always False - admin checks should use Auth0 scopes
     """
-    # admin_ind field removed - admin functionality now handled via Auth0 roles/scopes
     return False
 
 

@@ -572,7 +572,7 @@ def merge_users(
     6. If dry_run=false and no conflicts, execute merge
 
     The merge:
-    - Updates user_id in tlog, tphotovote, tquery, tquizscores
+    - Updates user_id in tlog, tphotovote, tquery
     - Updates primary user profile with best values
     - Deletes secondary users
 

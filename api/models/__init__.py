@@ -3,14 +3,13 @@ from .location import Postcode, Postcode6, Postcode8, Town
 from .server import Server
 from .tphoto import TPhoto
 from .trig import Trig
-from .user import TLog, TPhotoVote, TQuery, TQuizScores, User
+from .user import TLog, TPhotoVote, TQuery, User
 
 __all__ = [
     "User",
     "TLog",
     "TPhotoVote",
     "TQuery",
-    "TQuizScores",
     "Trig",
     "TPhoto",
     "Server",
