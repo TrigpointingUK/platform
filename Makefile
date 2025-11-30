@@ -4,7 +4,7 @@ orientation-model:
 	python scripts/train_export_orientation.py --data ./res/orientation_data --output ./res/models/orientation_classifier.onnx --epochs 3 --batch-size 64 --lr 1e-3
 	@echo "Model exported to res/models/orientation_classifier.onnx"
 .PHONY: help install install-dev test test-cov lint format type-check security build run clean docker-build \
-	run-staging db-tunnel-staging-ssm-start bastion-ssm-shell bastion-allow-my-ip bastion-revoke-my-ip \
+	run-staging db-tunnel-staging-ssm-start bastion-ssm-shell bastion-allow-my-ip \
 	redis-tunnel-staging-ssm-start redis-cli-staging \
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
@@ -110,14 +110,6 @@ bastion-allow-my-ip: ## Add current public IP (/32) to bastion SG for SSH; set B
 	[ -n "$$SG_ID" ] || { echo "❌ Could not determine bastion SG id"; exit 1; }; \
 	echo "🔓 Authorising $$MYIP/32 on $$SG_ID"; \
 	aws --region $(AWS_REGION) ec2 authorize-security-group-ingress --group-id "$$SG_ID" --ip-permissions IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges='[{CidrIp="'$$MYIP'/32",Description="Admin dynamic IP"}]' || true
-
-bastion-revoke-my-ip: ## Remove current public IP (/32) from bastion SG ingress
-	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
-	@MYIP=$$(curl -s https://ifconfig.me); \
-	SG_ID=$${BASTION_SG_ID:-$$(aws --region $(AWS_REGION) ec2 describe-security-groups --filters Name=group-name,Values=fastapi-bastion-sg --query 'SecurityGroups[0].GroupId' --output text)}; \
-	[ -n "$$SG_ID" ] || { echo "❌ Could not determine bastion SG id"; exit 1; }; \
-	echo "🔒 Revoking $$MYIP/32 from $$SG_ID"; \
-	aws --region $(AWS_REGION) ec2 revoke-security-group-ingress --group-id "$$SG_ID" --ip-permissions IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges='[{CidrIp="'$$MYIP'/32"}]' || true
 
 ecs-exec-phpbb: ## Open a shell in the first running phpBB ECS task (requires ECS Exec + SSM perms)
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
