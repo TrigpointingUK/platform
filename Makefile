@@ -316,48 +316,22 @@ clean: ## Clean up temporary files
 	rm -rf dist
 	rm -rf *.egg-info
 
-# Terraform commands
-tf-init: ## Initialize Terraform with environment-specific backend (usage: make tf-init env=staging)
-	cd terraform && terraform init -backend-config="backend-$(env).conf"
-
-tf-plan: ## Plan Terraform changes (usage: make tf-plan env=staging)
-	@if [ ! -f "terraform/cloudflare-cert-trigpointing-$(shell echo $(env) | sed 's/staging/me/;s/production/uk/').tfvars" ]; then \
-		echo "🔑 CloudFlare certificate file not found. Using base configuration only..."; \
-		cd terraform && terraform plan -var-file="$(env).tfvars"; \
-	else \
-		echo "🔑 Using CloudFlare certificates for $(env)..."; \
-		cd terraform && terraform plan -var-file="$(env).tfvars" -var-file="cloudflare-cert-trigpointing-$(shell echo $(env) | sed 's/staging/me/;s/production/uk/').tfvars"; \
-	fi
-
-tf-apply: ## Apply Terraform changes (usage: make tf-apply env=staging)
-	@if [ ! -f "terraform/cloudflare-cert-trigpointing-$(shell echo $(env) | sed 's/staging/me/;s/production/uk/').tfvars" ]; then \
-		echo "🔑 CloudFlare certificate file not found. Using base configuration only..."; \
-		cd terraform && terraform apply -var-file="$(env).tfvars"; \
-	else \
-		echo "🔑 Using CloudFlare certificates for $(env)..."; \
-		cd terraform && terraform apply -var-file="$(env).tfvars" -var-file="cloudflare-cert-trigpointing-$(shell echo $(env) | sed 's/staging/me/;s/production/uk/').tfvars"; \
-	fi
-
-tf-destroy: ## Destroy Terraform infrastructure (usage: make tf-destroy env=staging)
-	@if [ ! -f "terraform/cloudflare-cert-trigpointing-$(shell echo $(env) | sed 's/staging/me/;s/production/uk/').tfvars" ]; then \
-		echo "🔑 CloudFlare certificate file not found. Using base configuration only..."; \
-		cd terraform && terraform destroy -var-file="$(env).tfvars"; \
-	else \
-		echo "🔑 Using CloudFlare certificates for $(env)..."; \
-		cd terraform && terraform destroy -var-file="$(env).tfvars" -var-file="cloudflare-cert-trigpointing-$(shell echo $(env) | sed 's/staging/me/;s/production/uk/').tfvars"; \
-	fi
-
+# Terraform validation (used by CI)
 tf-validate: ## Validate Terraform configuration
-	cd terraform && terraform validate
-
-tf-fmt: ## Format Terraform files
-	cd terraform && terraform fmt -recursive
+	@cd terraform/common && terraform init -backend=false >/dev/null 2>&1 || true
+	@cd terraform/staging && terraform init -backend=false >/dev/null 2>&1 || true
+	@cd terraform/production && terraform init -backend=false >/dev/null 2>&1 || true
+	@echo "🔍 Validating Terraform configuration..."
+	@cd terraform/common && terraform validate
+	@cd terraform/staging && terraform validate
+	@cd terraform/production && terraform validate
+	@echo "✅ Terraform configuration is valid"
 
 # CI/CD
 pre-commit: ## Run pre-commit hooks
 	pre-commit run --all-files
 
-ci: terraform-format-check test-db-start format-check lint type-check security test web-lint web-type-check web-test test-db-stop ## Run all CI checks
+ci: terraform-format-check tf-validate test-db-start format-check lint type-check security test web-lint web-type-check web-test test-db-stop ## Run all CI checks
 
 # Web application targets
 web-install: ## Install web application dependencies
