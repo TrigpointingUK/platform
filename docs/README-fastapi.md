@@ -44,6 +44,8 @@ A modern FastAPI-based API to gradually migrate the 20-year-old PHP/MySQL websit
 
 ### Local Development Setup
 
+This project uses a **staging-connected development** workflow - you develop against the staging database via SSM tunnels, not a local database.
+
 1. **Clone the repository**
    ```bash
    git clone <your-repo-url>
@@ -61,20 +63,19 @@ A modern FastAPI-based API to gradually migrate the 20-year-old PHP/MySQL websit
    make install-dev
    ```
 
-4. **Set up environment variables**
+4. **Start SSM tunnels to staging** (in separate terminals)
    ```bash
-   cp env.example .env
-   # Edit .env with your database credentials and secrets
+   # Terminal 1: Database tunnel
+   make db-tunnel-staging-ssm-start
+   
+   # Terminal 2: Redis/Valkey tunnel
+   make redis-tunnel-staging-ssm-start
    ```
 
-5. **Start with Docker Compose (Recommended)**
+5. **Run the API (connected to staging)**
    ```bash
-   make docker-dev
-   ```
-
-   Or run manually:
-   ```bash
-   make run
+   # Terminal 3
+   make run-staging
    ```
 
 6. **Access the application**
@@ -82,18 +83,25 @@ A modern FastAPI-based API to gradually migrate the 20-year-old PHP/MySQL websit
    - Interactive docs: http://localhost:8000/docs
    - Alternative docs: http://localhost:8000/redoc
 
+**Note:** You develop against the staging environment, not a local database. This ensures your development environment matches staging/production infrastructure
+
 ### Database Setup
 
-The Docker Compose setup includes a MySQL container with sample data. For connecting to your existing database:
+The project uses SSM tunnels to connect to the staging PostgreSQL database (RDS).
 
-1. Update the `DATABASE_URL` in your `.env` file:
-   ```
-   DATABASE_URL=mysql+pymysql://user:password@host:port/database
-   ```
+**No local database setup is required** - `make run-staging` automatically configures the connection through the SSM tunnel.
 
-2. Ensure your existing database has the required tables:
-   - `user` table with columns: `user_id`, `email`, `password_hash`, `admin_ind`
-   - `tlog` table with columns: `id`, `trig_id`, and other legacy columns
+If you need to run tests:
+```bash
+# Start test database (Docker)
+make test-db-start
+
+# Run tests
+make test
+
+# Stop test database
+make test-db-stop
+```
 
 ## 🔍 Code Quality Requirements (CRITICAL)
 
@@ -202,26 +210,15 @@ make ci
 
 ## 🐳 Docker
 
-### Development
-```bash
-# Start development environment
-make docker-dev
-
-# View logs
-make docker-logs
-
-# Stop containers
-make docker-down
-```
-
-### Production
+### Production Build
 ```bash
 # Build production image
 make docker-build
-
-# Run production setup
-make docker-run
 ```
+
+**Note:** Local development uses `make run-staging` (not Docker). Docker is only used for:
+- Production deployments (ECS Fargate)
+- Test database (`make test-db-start`)
 
 ## ☁️ AWS Deployment
 

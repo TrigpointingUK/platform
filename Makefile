@@ -282,9 +282,6 @@ migrate-status: ## Check migration status (ENV=staging|production)
 build: ## Build the application
 	docker build -t platform-api .
 
-run: ## Run the application locally
-	uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-
 # Docker commands
 docker-build: ## Build Docker image
 	docker build -t platform-api .

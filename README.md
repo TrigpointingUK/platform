@@ -74,15 +74,20 @@ Monorepo containing all infrastructure, applications, and services for Trigpoint
 git clone git@github.com:USERNAME/platform.git
 cd platform
 
-# API Development - ensure you're in the platform root
+# Set up Python virtual environment
+python -m venv venv
 source venv/bin/activate
 pip install -r requirements-dev.txt
-make run
+
+# API Development - connect to staging environment
+make db-tunnel-staging-ssm-start  # In one terminal
+make redis-tunnel-staging-ssm-start  # In another terminal
+make run-staging  # Runs API against staging database
 
 # Web App Development
 cd web
 npm ci
-npm run dev
+npm run dev  # Runs on http://localhost:5173
 
 # Run all quality checks
 make ci
