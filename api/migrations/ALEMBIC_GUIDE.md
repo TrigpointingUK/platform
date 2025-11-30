@@ -33,15 +33,6 @@ make migration-create MSG="add user preferences table"
 # View migration history
 make migration-history
 
-# Check current database version
-make migration-current
-
-# Apply migrations locally (for testing)
-make migration-upgrade
-
-# Rollback one migration locally
-make migration-downgrade
-
 # Apply migrations to staging (requires SSM tunnel running)
 make migrate-staging
 
@@ -103,17 +94,18 @@ Edit the migration file if needed. Common adjustments:
 - Set default values for existing rows
 - Add custom SQL operations
 
-### 4. Apply Migration Locally
+### 4. Test Your Changes
+
+After reviewing the migration, test it using the CLI directly:
 
 ```bash
-# Apply all pending migrations
-make migration-upgrade
+# Option 1: Test against staging via tunnel
+make db-tunnel-staging-ssm-start  # In another terminal
+make migrate-staging
 
-# Or use alembic directly
-alembic upgrade head
+# Option 2: Use alembic CLI directly (if needed)
+alembic upgrade head  # Runs against local/configured database
 ```
-
-### 5. Test Your Changes
 
 Run your application and tests to ensure everything works:
 
@@ -121,11 +113,13 @@ Run your application and tests to ensure everything works:
 make test
 ```
 
-### 6. Rollback if Needed
+### 5. Rollback if Needed (CLI Only)
+
+For troubleshooting, use Alembic CLI directly:
 
 ```bash
 # Rollback one migration
-make migration-downgrade
+alembic downgrade -1
 
 # Or rollback to a specific revision
 alembic downgrade <revision_id>
@@ -263,16 +257,14 @@ alembic upgrade head
 
 ### Rollback in Production
 
-If something goes wrong:
+If something goes wrong, use Alembic CLI directly:
 
 ```bash
 # Rollback one migration (with tunnel still running)
+# Set credentials manually:
 DB_HOST=localhost DB_PORT=5433 \
 DB_USER=<user> DB_PASSWORD=<pass> DB_NAME=<db> \
 ENV_NAME=PRODUCTION \
-alembic downgrade -1
-
-# Or use local migration commands if you have credentials set
 alembic downgrade -1
 ```
 
@@ -307,13 +299,6 @@ def downgrade() -> None:
     """Remove performance indexes."""
     op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_tlog_created_at;")
     op.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_user_email_lower;")
-```
-
-### Check Pending Migrations
-
-```bash
-make migration-check
-# Exits 0 if up-to-date, 1 if pending migrations exist
 ```
 
 ### View SQL Without Executing

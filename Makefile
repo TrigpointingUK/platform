@@ -3,12 +3,12 @@ orientation-model:
 	python -m pip install -q -r requirements-train.txt
 	python scripts/train_export_orientation.py --data ./res/orientation_data --output ./res/models/orientation_classifier.onnx --epochs 3 --batch-size 64 --lr 1e-3
 	@echo "Model exported to res/models/orientation_classifier.onnx"
-.PHONY: help install install-dev test test-cov lint format type-check security build run clean docker-build \
+.PHONY: help install install-dev test test-cov lint format type-check security build clean docker-build \
 	run-staging db-tunnel-staging-ssm-start bastion-ssm-shell bastion-allow-my-ip \
 	redis-tunnel-staging-ssm-start redis-cli-staging \
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
-	migration-create migration-upgrade migration-downgrade migration-history migration-current migration-check \
+	migration-create migration-history \
 	migrate-staging migrate-production migrate-status
 
 # Default target
@@ -202,35 +202,9 @@ migration-create: ## Create a new migration (usage: make migration-create MSG="d
 	alembic revision --autogenerate -m "$(MSG)"
 	@echo "✅ Migration created. Review the file in alembic/versions/ before applying"
 
-migration-upgrade: ## Apply all pending migrations locally
-	@echo "⬆️  Applying migrations..."
-	alembic upgrade head
-	@echo "✅ Migrations applied"
-
-migration-downgrade: ## Rollback one migration locally
-	@echo "⬇️  Rolling back one migration..."
-	alembic downgrade -1
-	@echo "✅ Migration rolled back"
-
 migration-history: ## Show migration history
 	@echo "📜 Migration history:"
 	alembic history --verbose
-
-migration-current: ## Show current migration revision
-	@echo "📍 Current revision:"
-	alembic current --verbose
-
-migration-check: ## Check if database is up to date (exits 1 if pending migrations)
-	@CURRENT=$$(alembic current 2>&1 | grep -o '[a-f0-9]\{12\}' | head -1); \
-	HEAD=$$(alembic heads 2>&1 | grep -o '[a-f0-9]\{12\}' | head -1); \
-	if [ "$$CURRENT" = "$$HEAD" ]; then \
-		echo "✅ Database is up to date ($$CURRENT)"; \
-	else \
-		echo "⚠️  Pending migrations detected"; \
-		echo "   Current: $$CURRENT"; \
-		echo "   Latest:  $$HEAD"; \
-		exit 1; \
-	fi
 
 migrate-staging: ## Apply migrations to staging via SSM tunnel (requires db-tunnel-staging-ssm-start)
 	@echo "🔧 Applying migrations to STAGING"
@@ -285,13 +259,6 @@ build: ## Build the application
 # Docker commands
 docker-build: ## Build Docker image
 	docker build -t platform-api .
-
-# Database
-db-migrate: ## Run database migrations
-	alembic upgrade head
-
-db-migration: ## Create new database migration
-	alembic revision --autogenerate -m "$(msg)"
 
 # Cleanup
 clean: ## Clean up temporary files
