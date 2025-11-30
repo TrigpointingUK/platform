@@ -659,7 +659,10 @@ def update_trig_admin(
     db: Session = Depends(get_db),
 ) -> TrigAdminDetail:
     """
-    Update trigpoint with admin audit trail.
+    Update trigpoint with admin tracking.
+
+    Updates the trigpoint record and populates admin tracking fields
+    (admin_user_id, admin_timestamp, admin_ip_addr) on the trig table.
 
     Handles three action types:
     - 'solved': Set needs_attention to 0 (problem resolved)
@@ -725,7 +728,7 @@ def update_trig_admin(
         "attention_comment": updated_attention_comment,
     }
 
-    # Update with admin audit trail
+    # Update with admin tracking (stores admin_* fields on trig table)
     updated_trig = trig_crud.update_trig_admin(
         db, trig_id, int(admin_user.id), client_ip, updates
     )

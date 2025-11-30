@@ -569,6 +569,23 @@ If you encounter issues:
 
 ## Migration History
 
+### 726a21695c73 - remove_audit_tables_and_gc_columns (2025-11-30)
+
+Remove legacy audit tables and Geocaching.com integration columns that are no longer used in the modern Auth0-based authentication system.
+
+**Tables removed**:
+- `audit` - Legacy audit logging (1 row of data)
+- `audit_simple` - Simplified audit logging (0 rows)
+
+**Columns removed from user table**:
+- `gc_licence_ind`, `gc_licence_timestamp`
+- `gc_auth_ind`, `gc_auth_challenge`, `gc_auth_timestamp`
+- `gc_premium_ind`, `gc_premium_timestamp`
+
+**Impact**: Removes unused legacy features. No functional impact on current system. Note: Admin tracking fields (admin_user_id, admin_timestamp, admin_ip_addr) remain on the trig table and are unaffected.
+
+**Code changes**: Removed `has_gc_auth()` and `has_gc_premium()` functions from `api/crud/user.py`.
+
 ### 0e59c3885358 - make_tlog_location_nullable (2025-11-04)
 
 Make location fields (osgb_eastings, osgb_northings, osgb_gridref) nullable in tlog table to allow logs without specific location data.

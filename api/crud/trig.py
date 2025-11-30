@@ -332,7 +332,10 @@ def update_trig_admin(
     updates: dict,
 ) -> Optional[Trig]:
     """
-    Update trigpoint with admin audit trail.
+    Update trigpoint with admin tracking fields.
+
+    Updates the trigpoint record and populates admin tracking fields
+    (admin_user_id, admin_timestamp, admin_ip_addr) on the trig table.
 
     Args:
         db: Database session
@@ -355,7 +358,7 @@ def update_trig_admin(
         if hasattr(trig, field):
             setattr(trig, field, value)
 
-    # Update admin audit fields
+    # Update admin tracking fields (stored on trig table)
     trig.admin_user_id = admin_user_id  # type: ignore
     trig.admin_timestamp = datetime.utcnow()  # type: ignore
     trig.admin_ip_addr = admin_ip_addr  # type: ignore

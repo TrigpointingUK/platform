@@ -5800,13 +5800,6 @@ tables:
       email_ind: O
       email_valid: Y
       firstname: Ian
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: Y
-      gc_licence_timestamp: 2003-06-22 03:19:43
-      gc_premium_ind: Y
-      gc_premium_timestamp: 2005-05-09 11:24:32
       home1_eastings: 534403
       home1_gridref: TL 34403 72179
       home1_name: home
@@ -5858,13 +5851,6 @@ tables:
       email_ind: O
       email_valid: Y
       firstname: John
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: Y
-      gc_licence_timestamp: 2003-06-25 03:10:08
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 348600
       home1_gridref: SJ 48600 96000
       home1_name: Home
@@ -5916,13 +5902,6 @@ tables:
       email_ind: N
       email_valid: Y
       firstname: Andy
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: Y
-      gc_licence_timestamp: 2003-07-12 02:34:33
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 452100
       home1_gridref: SU 52100 67972
       home1_name: subarite
@@ -5974,13 +5953,6 @@ tables:
       email_ind: Y
       email_valid: Y
       firstname: Mark
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: 2003-07-13 14:19:55
-      gc_licence_ind: Y
-      gc_licence_timestamp: 2003-07-13 14:18:10
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 0
       home1_gridref: ''
       home1_name: home
@@ -6032,13 +6004,6 @@ tables:
       email_ind: O
       email_valid: Y
       firstname: Dan
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: N
-      gc_licence_timestamp: '0000-00-00 00:00:00'
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 0
       home1_gridref: ''
       home1_name: Home
@@ -6090,13 +6055,6 @@ tables:
       email_ind: N
       email_valid: N
       firstname: Harold, Albert & Hercules
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: N
-      gc_licence_timestamp: '0000-00-00 00:00:00'
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 0
       home1_gridref: ''
       home1_name: home
@@ -6148,13 +6106,6 @@ tables:
       email_ind: N
       email_valid: Y
       firstname: Chris
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: Y
-      gc_licence_timestamp: 2003-07-13 14:31:53
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 0
       home1_gridref: ''
       home1_name: home
@@ -6206,13 +6157,6 @@ tables:
       email_ind: N
       email_valid: Y
       firstname: Ciemon
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: N
-      gc_licence_timestamp: '0000-00-00 00:00:00'
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 0
       home1_gridref: ''
       home1_name: home
@@ -6264,13 +6208,6 @@ tables:
       email_ind: O
       email_valid: Y
       firstname: Martyn
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: Y
-      gc_licence_timestamp: 2003-08-31 06:42:50
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 0
       home1_gridref: ''
       home1_name: home
@@ -6322,13 +6259,6 @@ tables:
       email_ind: N
       email_valid: Y
       firstname: ''
-      gc_auth_challenge: ''
-      gc_auth_ind: Y
-      gc_auth_timestamp: '0000-00-00 00:00:00'
-      gc_licence_ind: Y
-      gc_licence_timestamp: 2004-01-18 07:20:12
-      gc_premium_ind: N
-      gc_premium_timestamp: 2005-05-09 11:11:12
       home1_eastings: 318165
       home1_gridref: SJ 18165 73869
       home1_name: home
@@ -6563,37 +6493,30 @@ tables:
         primary_key: false
         type: TIMESTAMP
       - default: null
-        name: gc_licence_ind
         nullable: false
         primary_key: false
         type: CHAR(1) COLLATE "latin1_swedish_ci"
       - default: null
-        name: gc_licence_timestamp
         nullable: true
         primary_key: false
         type: TIMESTAMP
       - default: null
-        name: gc_auth_ind
         nullable: false
         primary_key: false
         type: CHAR(1) COLLATE "latin1_swedish_ci"
       - default: null
-        name: gc_auth_challenge
         nullable: false
         primary_key: false
         type: VARCHAR(34) COLLATE "latin1_swedish_ci"
       - default: null
-        name: gc_auth_timestamp
         nullable: true
         primary_key: false
         type: TIMESTAMP
       - default: null
-        name: gc_premium_ind
         nullable: false
         primary_key: false
         type: CHAR(1) COLLATE "latin1_swedish_ci"
       - default: null
-        name: gc_premium_timestamp
         nullable: true
         primary_key: false
         type: TIMESTAMP

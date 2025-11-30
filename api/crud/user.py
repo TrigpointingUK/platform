@@ -357,32 +357,6 @@ def is_email_validated(user: User) -> bool:
     return str(user.email_valid) == "Y"
 
 
-def has_gc_auth(user: User) -> bool:
-    """
-    Check if user has Geocaching.com authentication.
-
-    Args:
-        user: User object
-
-    Returns:
-        True if user has GC auth, False otherwise
-    """
-    return str(user.gc_auth_ind) == "Y"
-
-
-def has_gc_premium(user: User) -> bool:
-    """
-    Check if user has Geocaching.com premium status.
-
-    Args:
-        user: User object
-
-    Returns:
-        True if user has GC premium, False otherwise
-    """
-    return str(user.gc_premium_ind) == "Y"
-
-
 def get_all_usernames(db: Session) -> List[str]:
     """
     Get all usernames from the legacy database.
