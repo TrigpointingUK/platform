@@ -56,7 +56,7 @@ Simplified and rationalized the database migration workflow by:
 - `migrate-status` ✅ - Check migration status (ENV=staging|production)
 
 #### Kept Targets:
-- All SSM-based tunnels (`db-tunnel-staging-ssm-start`, etc.) ✅
+- All SSM-based tunnels (`postgres-tunnel`, `redis-tunnel`, etc.) ✅
 - Test database targets (`test-db-start`, `test-db-stop`) ✅
 - Existing migration targets (`migration-create`, etc.) ✅
 - Core development targets (`run-staging`, `web-dev`, etc.) ✅
@@ -85,10 +85,10 @@ Simplified and rationalized the database migration workflow by:
 ### Daily Development:
 ```bash
 # Terminal 1
-make db-tunnel-staging-ssm-start
+make postgres-tunnel
 
 # Terminal 2
-make redis-tunnel-staging-ssm-start
+make redis-tunnel
 
 # Terminal 3
 make run-staging

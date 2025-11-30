@@ -4,8 +4,8 @@ orientation-model:
 	python scripts/train_export_orientation.py --data ./res/orientation_data --output ./res/models/orientation_classifier.onnx --epochs 3 --batch-size 64 --lr 1e-3
 	@echo "Model exported to res/models/orientation_classifier.onnx"
 .PHONY: help install install-dev test test-cov lint format type-check security build clean docker-build \
-	run-staging db-tunnel-staging-ssm-start bastion-ssm-shell bastion-allow-my-ip \
-	redis-tunnel-staging-ssm-start redis-cli-staging \
+	run-staging postgres-tunnel bastion-ssm-shell bastion-allow-my-ip \
+	redis-tunnel redis-cli \
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
 	migration-create migration-history \
@@ -37,7 +37,7 @@ BASTION_SG_ID ?=
 _bastion_instance := $(shell aws --region $(AWS_REGION) ec2 describe-instances --filters Name=tag:Name,Values='*bastion*' Name=instance-state-name,Values=running --query 'Reservations[0].Instances[0].InstanceId' --output text 2>/dev/null)
 
 # Run FastAPI locally with live reload, using staging credentials via the tunnel
-run-staging: ## Run FastAPI locally against staging DB (requires db-tunnel-staging-ssm-start)
+run-staging: ## Run FastAPI locally against staging DB (requires postgres-tunnel)
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found. Install and configure AWS credentials."; exit 1; }
 	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found. Please install jq."; exit 1; }
 	@SECRET_JSON=$$(aws --region $(AWS_REGION) secretsmanager get-secret-value --secret-id $(STAGING_SECRET_ARN) --query SecretString --output text); \
@@ -45,7 +45,7 @@ run-staging: ## Run FastAPI locally against staging DB (requires db-tunnel-stagi
 	DB_PASSWORD=$$(echo "$$SECRET_JSON" | jq -r '.password'); \
 	DB_NAME=$$(echo "$$SECRET_JSON" | jq -r '.dbname // .database'); \
 	echo "🚀 Starting FastAPI with hot reload on http://127.0.0.1:8000"; \
-	echo "💡 Note: If using Redis tunnel, make sure redis-tunnel-staging-ssm-start is running"; \
+	echo "💡 Note: If using Redis, make sure redis-tunnel is running"; \
 	. venv/bin/activate && \
 	ENVIRONMENT=development \
 	DB_HOST=127.0.0.1 DB_PORT=$(LOCAL_DB_TUNNEL_PORT) \
@@ -63,7 +63,7 @@ bastion-ssm-shell: ## Start interactive shell on bastion over SSM (no SSH ingres
 	@echo "🔐 Starting SSM shell to $(_bastion_instance)"
 	aws --region $(AWS_REGION) ssm start-session --target "$(_bastion_instance)"
 
-db-tunnel-staging-ssm-start: ## Start SSM remote host port forward to PostgreSQL RDS → localhost:5433
+postgres-tunnel: ## Start SSM tunnel to shared PostgreSQL RDS → localhost:5433
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
 	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found."; exit 1; }
 	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
@@ -71,12 +71,13 @@ db-tunnel-staging-ssm-start: ## Start SSM remote host port forward to PostgreSQL
 	RDS_HOST=$$(echo "$$SECRET_JSON" | jq -r '.host'); \
 	RDS_PORT=$$(echo "$$SECRET_JSON" | jq -r '.port'); \
 	echo "🔐 SSM forwarding: 127.0.0.1:5433 → $$RDS_HOST:$$RDS_PORT via $(_bastion_instance)"; \
+	echo "💡 Note: This connects to the shared PostgreSQL instance (used by both staging and production)"; \
 	aws --region $(AWS_REGION) ssm start-session \
 	  --target "$(_bastion_instance)" \
 	  --document-name AWS-StartPortForwardingSessionToRemoteHost \
 	  --parameters "host=[$$RDS_HOST],portNumber=['$$RDS_PORT'],localPortNumber=['5433']"
 
-redis-tunnel-staging-ssm-start: ## Start SSM remote host port forward to Valkey → localhost:$(LOCAL_REDIS_TUNNEL_PORT)
+redis-tunnel: ## Start SSM tunnel to shared Valkey (Redis) → localhost:6379
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
 	@[ -n "$(_bastion_instance)" ] || { echo "❌ Could not find running bastion instance."; exit 1; }
 	@echo "🔎 Fetching Valkey endpoint from Terraform outputs"
@@ -88,12 +89,13 @@ redis-tunnel-staging-ssm-start: ## Start SSM remote host port forward to Valkey 
 	  exit 1; \
 	fi; \
 	echo "🔐 SSM forwarding: 127.0.0.1:$(LOCAL_REDIS_TUNNEL_PORT) → $$VALKEY_HOST:$$VALKEY_PORT via $(_bastion_instance)"; \
+	echo "💡 Note: This connects to the shared Valkey instance (used by both staging and production)"; \
 	aws --region $(AWS_REGION) ssm start-session \
 	  --target "$(_bastion_instance)" \
 	  --document-name AWS-StartPortForwardingSessionToRemoteHost \
 	  --parameters "host=[$$VALKEY_HOST],portNumber=['$$VALKEY_PORT'],localPortNumber=['$(LOCAL_REDIS_TUNNEL_PORT)']"
 
-redis-cli-staging: ## Open redis-cli against staging via tunnel (requires redis-tunnel-staging-ssm-start)
+redis-cli: ## Open redis-cli against shared Valkey via tunnel (requires redis-tunnel)
 	@command -v redis-cli >/dev/null 2>&1 || { echo "❌ redis-cli not found. Install redis-tools: sudo apt install redis-tools"; exit 1; }
 	@echo "🔗 Connecting redis-cli to 127.0.0.1:$(LOCAL_REDIS_TUNNEL_PORT)"
 	@echo "💡 Common commands: KEYS *, GET key, SET key value, DEL key, FLUSHDB, INFO, PING"
@@ -206,7 +208,7 @@ migration-history: ## Show migration history
 	@echo "📜 Migration history:"
 	alembic history --verbose
 
-migrate-staging: ## Apply migrations to staging via SSM tunnel (requires db-tunnel-staging-ssm-start)
+migrate-staging: ## Apply migrations to staging via SSM tunnel (requires postgres-tunnel)
 	@echo "🔧 Applying migrations to STAGING"
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
 	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found."; exit 1; }
@@ -221,7 +223,7 @@ migrate-staging: ## Apply migrations to staging via SSM tunnel (requires db-tunn
 	ENV_NAME=STAGING \
 	alembic upgrade head
 
-migrate-production: ## Apply migrations to production via SSM tunnel (requires tunnel, with confirmation)
+migrate-production: ## Apply migrations to production via SSM tunnel (requires postgres-tunnel, with confirmation)
 	@echo "⚠️  PRODUCTION MIGRATION ⚠️"
 	@read -p "Type 'production' to confirm: " confirm && [ "$$confirm" = "production" ] || { echo "❌ Cancelled"; exit 1; }
 	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }

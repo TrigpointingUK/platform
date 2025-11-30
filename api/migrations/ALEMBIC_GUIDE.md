@@ -100,7 +100,7 @@ After reviewing the migration, test it using the CLI directly:
 
 ```bash
 # Option 1: Test against staging via tunnel
-make db-tunnel-staging-ssm-start  # In another terminal
+make postgres-tunnel  # In another terminal
 make migrate-staging
 
 # Option 2: Use alembic CLI directly (if needed)
@@ -136,10 +136,10 @@ This is the simplest and most reliable method for applying migrations to staging
 In a separate terminal window:
 
 ```bash
-make db-tunnel-staging-ssm-start
+make postgres-tunnel
 ```
 
-Keep this terminal open - it maintains the tunnel connection.
+Keep this terminal open - it maintains the tunnel connection to the shared PostgreSQL instance.
 
 ### 2. Apply Migrations
 
@@ -169,7 +169,7 @@ If you prefer more control, you can set environment variables manually:
 
 ```bash
 # Start tunnel (in separate terminal)
-make db-tunnel-staging-ssm-start
+make postgres-tunnel
 
 # Fetch credentials and run alembic
 SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \
@@ -206,7 +206,7 @@ alembic upgrade head
 In a separate terminal window:
 
 ```bash
-make db-tunnel-staging-ssm-start  # Uses same tunnel, different credentials
+make postgres-tunnel
 ```
 
 2. **Apply migrations with confirmation:**
@@ -239,7 +239,7 @@ If you prefer direct control:
 
 ```bash
 # Start tunnel (in separate terminal)
-make db-tunnel-staging-ssm-start
+make postgres-tunnel
 
 # Fetch production credentials and apply
 SECRET_JSON=$(aws --region eu-west-1 secretsmanager get-secret-value \

@@ -79,10 +79,10 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements-dev.txt
 
-# API Development - connect to staging environment
-make db-tunnel-staging-ssm-start  # In one terminal
-make redis-tunnel-staging-ssm-start  # In another terminal
-make run-staging  # Runs API against staging database
+# API Development - connect to shared database
+make postgres-tunnel  # In one terminal
+make redis-tunnel     # In another terminal
+make run-staging      # Runs API against staging database
 
 # Web App Development
 cd web

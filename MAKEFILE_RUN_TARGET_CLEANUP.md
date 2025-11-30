@@ -25,9 +25,9 @@ Removed the `make run` target and updated all documentation to accurately reflec
 **Before:** Showed `make run` as the way to start API development
 **After:** Shows actual multi-terminal workflow:
 ```bash
-make db-tunnel-staging-ssm-start      # Terminal 1: Database
-make redis-tunnel-staging-ssm-start   # Terminal 2: Cache
-make run-staging                      # Terminal 3: API
+make postgres-tunnel      # Terminal 1: Database
+make redis-tunnel         # Terminal 2: Cache
+make run-staging          # Terminal 3: API
 ```
 
 #### docs/README-fastapi.md (API Documentation)
@@ -65,10 +65,10 @@ make run-staging                      # Terminal 3: API
 
 ```bash
 # Terminal 1: Database tunnel
-make db-tunnel-staging-ssm-start
+make postgres-tunnel
 
 # Terminal 2: Redis tunnel  
-make redis-tunnel-staging-ssm-start
+make redis-tunnel
 
 # Terminal 3: Run API
 make run-staging  # Fetches staging credentials, runs against staging
@@ -90,8 +90,8 @@ make run-staging  # Fetches staging credentials, runs against staging
 
 ### Still Available (and used)
 - `make run-staging` - Run against staging (primary development)
-- `make db-tunnel-staging-ssm-start` - Start database tunnel
-- `make redis-tunnel-staging-ssm-start` - Start Redis tunnel
+- `make postgres-tunnel` - Start database tunnel
+- `make redis-tunnel` - Start Redis tunnel
 - `make test` - Run tests (uses Docker test database)
 - `make test-db-start` - Start test database
 - `make docker-build` - Build production Docker image
@@ -126,9 +126,9 @@ make run-staging  # Fetches staging credentials, runs against staging
 To verify documentation is correct:
 ```bash
 # This should work (actual workflow):
-make db-tunnel-staging-ssm-start  # Terminal 1
-make redis-tunnel-staging-ssm-start  # Terminal 2  
-make run-staging  # Terminal 3
+make postgres-tunnel  # Terminal 1
+make redis-tunnel     # Terminal 2  
+make run-staging      # Terminal 3
 curl http://localhost:8000/health  # Should return 200
 
 # This no longer exists:

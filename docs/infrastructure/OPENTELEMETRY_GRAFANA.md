@@ -302,7 +302,7 @@ For local development, OpenTelemetry is **disabled by default**. To enable it:
 2. Run the application (connected to staging):
    ```bash
    source venv/bin/activate
-   make db-tunnel-staging-ssm-start  # In another terminal
+   make postgres-tunnel  # In another terminal
    make run-staging
    ```
 

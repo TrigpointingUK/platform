@@ -56,8 +56,8 @@ make migration-create MSG="add user preferences"
 # 4. Edit if needed
 
 # 5. Test on staging
-make db-tunnel-staging-ssm-start  # Terminal 1
-make migrate-staging              # Terminal 2
+make postgres-tunnel  # Terminal 1
+make migrate-staging  # Terminal 2
 
 # 6. Commit
 git add alembic/versions/xxx_add_user_preferences.py
@@ -68,7 +68,7 @@ git commit -m "Add user preferences migration"
 
 ```bash
 # 1. Ensure tunnel is running
-make db-tunnel-staging-ssm-start  # Uses same tunnel, different creds
+make postgres-tunnel  # Uses same tunnel, different creds
 
 # 2. Deploy with confirmation
 make migrate-production  # Requires typing "production"

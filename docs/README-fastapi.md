@@ -63,13 +63,13 @@ This project uses a **staging-connected development** workflow - you develop aga
    make install-dev
    ```
 
-4. **Start SSM tunnels to staging** (in separate terminals)
+4. **Start SSM tunnels to shared infrastructure** (in separate terminals)
    ```bash
-   # Terminal 1: Database tunnel
-   make db-tunnel-staging-ssm-start
+   # Terminal 1: Database tunnel (shared PostgreSQL)
+   make postgres-tunnel
    
-   # Terminal 2: Redis/Valkey tunnel
-   make redis-tunnel-staging-ssm-start
+   # Terminal 2: Redis/Valkey tunnel (shared cache)
+   make redis-tunnel
    ```
 
 5. **Run the API (connected to staging)**
@@ -83,11 +83,11 @@ This project uses a **staging-connected development** workflow - you develop aga
    - Interactive docs: http://localhost:8000/docs
    - Alternative docs: http://localhost:8000/redoc
 
-**Note:** You develop against the staging environment, not a local database. This ensures your development environment matches staging/production infrastructure
+**Note:** You develop against the staging environment using the shared PostgreSQL and Valkey/Redis instances (used by both staging and production). This ensures your development environment matches the actual infrastructure.
 
 ### Database Setup
 
-The project uses SSM tunnels to connect to the staging PostgreSQL database (RDS).
+The project uses SSM tunnels to connect to the shared PostgreSQL RDS instance (used by both staging and production).
 
 **No local database setup is required** - `make run-staging` automatically configures the connection through the SSM tunnel.
 
