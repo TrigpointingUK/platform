@@ -129,11 +129,52 @@ Delivered to trigpointing@teasel.org
 
 ## Deployment
 
-This fix can be deployed directly to both staging and production:
-- No infrastructure changes required
-- No environment variable changes required
-- No database migrations required
-- Code change only
+### Initial Code Fix (Completed)
+The initial fix was deployed:
+- ✅ Changed recipient email to verified address
+- ✅ Updated tests
+- ✅ Deployed to production
+
+### IAM Permissions Issue (Discovered)
+After deploying the code fix, a second issue was discovered:
+
+**Error**: `User 'arn:aws:sts::534526983272:assumed-role/trigpointing-ecs-task-role/...' is not authorized to perform 'ses:SendEmail'`
+
+**Cause**: The ECS task role didn't have SES permissions.
+
+**Solution**: Added SES permissions to the ECS task role in `terraform/common/ecs.tf`
+
+### Terraform Changes Required
+
+The following Terraform change needs to be applied to **common** infrastructure:
+
+```bash
+# Navigate to common infrastructure
+cd terraform/common
+
+# Initialize and validate
+terraform init
+terraform validate
+
+# Review changes (should only show ECS task role policy update)
+terraform plan
+
+# Apply the changes
+terraform apply
+```
+
+**What this does**:
+- Adds `ses:SendEmail` and `ses:SendRawEmail` permissions to the ECS task role
+- Allows sending from verified SES identities:
+  - `trigpointing.uk` (domain)
+  - `trigpointing.me` (domain)
+  - `trigpointing@teasel.org` (individual email)
+  - `ian@teasel.org` (individual email)
+
+**Impact**:
+- Updates the IAM policy for `trigpointing-ecs-task-role`
+- No service restart required (IAM changes are immediate)
+- Affects all environments (common infrastructure is shared)
 
 ## Related Files
 
