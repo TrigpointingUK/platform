@@ -227,6 +227,7 @@ def create_user_from_auth0(
                 "username": user_data.username,
                 "email": user_data.email,
             },
+            exc_info=True,  # Include full traceback
         )
         raise HTTPException(
             status_code=500,
