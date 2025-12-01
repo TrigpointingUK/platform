@@ -424,7 +424,7 @@ export async function searchLegacyUsers(
   token: string
 ): Promise<AdminUserSearchResponse> {
   return apiGet<AdminUserSearchResponse>(
-    `/v1/admin/legacy-migration/users?q=${encodeURIComponent(query)}`,
+    `/v1/admin/legacy-migration/users?q=${encodeURIComponent(query)}&limit=250`,
     token
   );
 }

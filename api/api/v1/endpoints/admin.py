@@ -326,10 +326,10 @@ def search_legacy_users_for_migration(
         min_length=2,
     ),
     limit: int = Query(
-        20,
+        250,
         ge=1,
-        le=50,
-        description="Maximum number of results to return (default 20, max 50).",
+        le=250,
+        description="Maximum number of results to return (default 250, max 250).",
     ),
     admin_user: User = Depends(require_admin()),
     db: Session = Depends(get_db),
