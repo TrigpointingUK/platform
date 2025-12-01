@@ -1012,24 +1012,20 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
                   <div className="border border-gray-200 rounded-md p-4">
                     <h3 className="font-semibold text-gray-800 mb-2">Target User (KEEP)</h3>
                     <div className="text-sm text-gray-600 space-y-1">
-                      <p><strong>ID:</strong> {preview.target_user.id}</p>
+                      <p><strong>User ID:</strong> {preview.target_user.id}</p>
                       <p><strong>Name:</strong> {preview.target_user.name}</p>
                       <p><strong>Email:</strong> {preview.target_user.email || "(none)"}</p>
-                      {preview.target_user.auth0_user_id && (
-                        <p><strong>Auth0 ID:</strong> {preview.target_user.auth0_user_id}</p>
-                      )}
+                      <p><strong>Auth0 ID:</strong> {preview.target_user.auth0_user_id || "(none)"}</p>
                     </div>
                   </div>
 
                   <div className="border border-red-200 rounded-md p-4 bg-red-50">
                     <h3 className="font-semibold text-red-800 mb-2">Source User (DELETE)</h3>
                     <div className="text-sm text-red-700 space-y-1">
-                      <p><strong>ID:</strong> {preview.source_user.id}</p>
+                      <p><strong>User ID:</strong> {preview.source_user.id}</p>
                       <p><strong>Name:</strong> {preview.source_user.name}</p>
                       <p><strong>Email:</strong> {preview.source_user.email || "(none)"}</p>
-                      {preview.source_user.auth0_user_id && (
-                        <p><strong>Auth0 ID:</strong> {preview.source_user.auth0_user_id}</p>
-                      )}
+                      <p><strong>Auth0 ID:</strong> {preview.source_user.auth0_user_id || "(none)"}</p>
                     </div>
                   </div>
 
