@@ -15,7 +15,10 @@ import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
 import {
   AdminUserSearchResult,
+  AdminMergeUsersPreview,
+  AdminMergeUsersResponse,
   fetchNeedsAttentionSummary,
+  mergeUsers,
   migrateLegacyUser,
   searchLegacyUsers,
   TrigNeedsAttentionSummary,
@@ -626,6 +629,473 @@ function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps)
   );
 }
 
+interface MergeUsersCardProps {
+  getAccessTokenSilently: GetAccessTokenSilently;
+}
+
+function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
+  const [targetQuery, setTargetQuery] = useState("");
+  const [sourceQuery, setSourceQuery] = useState("");
+  const [targetResults, setTargetResults] = useState<AdminUserSearchResult[]>([]);
+  const [sourceResults, setSourceResults] = useState<AdminUserSearchResult[]>([]);
+  const [isSearchingTarget, setIsSearchingTarget] = useState(false);
+  const [isSearchingSource, setIsSearchingSource] = useState(false);
+  const [selectedTargetUserId, setSelectedTargetUserId] = useState<number | null>(null);
+  const [selectedSourceUserId, setSelectedSourceUserId] = useState<number | null>(null);
+  const [preview, setPreview] = useState<AdminMergeUsersPreview | null>(null);
+  const [mergeResult, setMergeResult] = useState<AdminMergeUsersResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  const targetSearchTimeoutRef = useRef<number | null>(null);
+  const sourceSearchTimeoutRef = useRef<number | null>(null);
+  const targetSearchRequestRef = useRef(0);
+  const sourceSearchRequestRef = useRef(0);
+
+  const targetSearchInputId = useId();
+  const targetSelectId = useId();
+  const sourceSearchInputId = useId();
+  const sourceSelectId = useId();
+  const panelId = useId();
+
+  // Search for target users
+  useEffect(() => {
+    const trimmedQuery = targetQuery.trim();
+
+    if (targetSearchTimeoutRef.current !== null) {
+      window.clearTimeout(targetSearchTimeoutRef.current);
+      targetSearchTimeoutRef.current = null;
+    }
+
+    if (trimmedQuery.length < 2) {
+      setTargetResults([]);
+      setIsSearchingTarget(false);
+      return;
+    }
+
+    setIsSearchingTarget(true);
+    const currentRequest = targetSearchRequestRef.current + 1;
+    targetSearchRequestRef.current = currentRequest;
+
+    targetSearchTimeoutRef.current = window.setTimeout(() => {
+      (async () => {
+        try {
+          const token = await getAccessTokenSilently({
+            authorizationParams: { ...ADMIN_AUTH_PARAMS },
+          });
+          const data = await searchLegacyUsers(trimmedQuery, token);
+          if (targetSearchRequestRef.current !== currentRequest) {
+            return;
+          }
+          setTargetResults(data.items);
+        } catch (error) {
+          if (targetSearchRequestRef.current !== currentRequest) {
+            return;
+          }
+          setTargetResults([]);
+          setError(error instanceof Error ? error.message : "Failed to search users");
+        } finally {
+          if (targetSearchRequestRef.current === currentRequest) {
+            setIsSearchingTarget(false);
+          }
+        }
+      })();
+    }, 300);
+
+    return () => {
+      if (targetSearchTimeoutRef.current !== null) {
+        window.clearTimeout(targetSearchTimeoutRef.current);
+        targetSearchTimeoutRef.current = null;
+      }
+    };
+  }, [getAccessTokenSilently, targetQuery]);
+
+  // Search for source users
+  useEffect(() => {
+    const trimmedQuery = sourceQuery.trim();
+
+    if (sourceSearchTimeoutRef.current !== null) {
+      window.clearTimeout(sourceSearchTimeoutRef.current);
+      sourceSearchTimeoutRef.current = null;
+    }
+
+    if (trimmedQuery.length < 2) {
+      setSourceResults([]);
+      setIsSearchingSource(false);
+      return;
+    }
+
+    setIsSearchingSource(true);
+    const currentRequest = sourceSearchRequestRef.current + 1;
+    sourceSearchRequestRef.current = currentRequest;
+
+    sourceSearchTimeoutRef.current = window.setTimeout(() => {
+      (async () => {
+        try {
+          const token = await getAccessTokenSilently({
+            authorizationParams: { ...ADMIN_AUTH_PARAMS },
+          });
+          const data = await searchLegacyUsers(trimmedQuery, token);
+          if (sourceSearchRequestRef.current !== currentRequest) {
+            return;
+          }
+          setSourceResults(data.items);
+        } catch (error) {
+          if (sourceSearchRequestRef.current !== currentRequest) {
+            return;
+          }
+          setSourceResults([]);
+          setError(error instanceof Error ? error.message : "Failed to search users");
+        } finally {
+          if (sourceSearchRequestRef.current === currentRequest) {
+            setIsSearchingSource(false);
+          }
+        }
+      })();
+    }, 300);
+
+    return () => {
+      if (sourceSearchTimeoutRef.current !== null) {
+        window.clearTimeout(sourceSearchTimeoutRef.current);
+        sourceSearchTimeoutRef.current = null;
+      }
+    };
+  }, [getAccessTokenSilently, sourceQuery]);
+
+  const handlePreviewMerge = useCallback(async () => {
+    if (!selectedTargetUserId || !selectedSourceUserId) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setPreview(null);
+    setMergeResult(null);
+
+    try {
+      const token = await getAccessTokenSilently({
+        authorizationParams: { ...ADMIN_AUTH_PARAMS },
+      });
+      const response = await mergeUsers(
+        {
+          target_user_id: selectedTargetUserId,
+          source_user_id: selectedSourceUserId,
+          dry_run: true,
+        },
+        token
+      );
+
+      if ("dry_run" in response && response.dry_run) {
+        setPreview(response);
+        setShowConfirmDialog(true);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to preview merge");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedTargetUserId, selectedSourceUserId, getAccessTokenSilently]);
+
+  const handleConfirmMerge = useCallback(async () => {
+    if (!selectedTargetUserId || !selectedSourceUserId) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const token = await getAccessTokenSilently({
+        authorizationParams: { ...ADMIN_AUTH_PARAMS },
+      });
+      const response = await mergeUsers(
+        {
+          target_user_id: selectedTargetUserId,
+          source_user_id: selectedSourceUserId,
+          dry_run: false,
+        },
+        token
+      );
+
+      if ("success" in response && response.success) {
+        setMergeResult(response);
+        setShowConfirmDialog(false);
+        setPreview(null);
+        // Reset selections
+        setSelectedTargetUserId(null);
+        setSelectedSourceUserId(null);
+        setTargetQuery("");
+        setSourceQuery("");
+        setTargetResults([]);
+        setSourceResults([]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to execute merge");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedTargetUserId, selectedSourceUserId, getAccessTokenSilently]);
+
+  const canPreview = Boolean(
+    selectedTargetUserId &&
+      selectedSourceUserId &&
+      selectedTargetUserId !== selectedSourceUserId &&
+      !isLoading
+  );
+
+  return (
+    <Card className="mb-6">
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-[#046935]"
+        >
+          <svg
+            className={`h-4 w-4 text-[#046935] transition-transform duration-200 ${
+              isOpen ? "rotate-90" : ""
+            }`}
+            viewBox="0 0 8 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M1.5 1L6.5 6L1.5 11"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="text-2xl font-semibold">Merge Users</span>
+        </button>
+      </div>
+
+      {isOpen ? (
+        <>
+          <p className="text-gray-600 mb-4 mt-3">
+            Merge a source user (to delete) into a target user (to keep). All logs and photo votes
+            will be transferred, and blank profile fields will be filled from the source user.
+          </p>
+
+          <div id={panelId} className="space-y-5">
+            {/* Target User Selection */}
+            <div>
+              <label htmlFor={targetSearchInputId} className="block text-sm font-medium text-gray-700 mb-1">
+                Search for target user (keep)
+              </label>
+              <input
+                id={targetSearchInputId}
+                type="text"
+                value={targetQuery}
+                onChange={(e) => setTargetQuery(e.target.value)}
+                placeholder="Start typing username or email..."
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+              />
+              {isSearchingTarget && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Spinner size="sm" />
+                  <span className="text-sm text-gray-500">Searching...</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor={targetSelectId} className="block text-sm font-medium text-gray-700 mb-1">
+                Target user (keep)
+              </label>
+              <select
+                id={targetSelectId}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100"
+                value={selectedTargetUserId ?? ""}
+                onChange={(e) => setSelectedTargetUserId(e.target.value ? Number(e.target.value) : null)}
+                disabled={targetResults.length === 0}
+              >
+                <option value="">Select target user…</option>
+                {targetResults.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {`${user.name} — ${user.email || "no email"} — ID: ${user.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Source User Selection */}
+            <div>
+              <label htmlFor={sourceSearchInputId} className="block text-sm font-medium text-gray-700 mb-1">
+                Search for source user (delete)
+              </label>
+              <input
+                id={sourceSearchInputId}
+                type="text"
+                value={sourceQuery}
+                onChange={(e) => setSourceQuery(e.target.value)}
+                placeholder="Start typing username or email..."
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+              />
+              {isSearchingSource && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Spinner size="sm" />
+                  <span className="text-sm text-gray-500">Searching...</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor={sourceSelectId} className="block text-sm font-medium text-gray-700 mb-1">
+                Source user (delete)
+              </label>
+              <select
+                id={sourceSelectId}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100"
+                value={selectedSourceUserId ?? ""}
+                onChange={(e) => setSelectedSourceUserId(e.target.value ? Number(e.target.value) : null)}
+                disabled={sourceResults.length === 0}
+              >
+                <option value="">Select source user…</option>
+                {sourceResults.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {`${user.name} — ${user.email || "no email"} — ID: ${user.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedTargetUserId && selectedSourceUserId && selectedTargetUserId === selectedSourceUserId && (
+              <p className="text-sm text-red-600">Target and source users must be different!</p>
+            )}
+
+            {error && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <Button type="button" onClick={handlePreviewMerge} disabled={!canPreview}>
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner size="sm" />
+                    <span>Loading...</span>
+                  </span>
+                ) : (
+                  "Preview Merge"
+                )}
+              </Button>
+            </div>
+
+            {mergeResult && (
+              <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3">
+                <h3 className="font-semibold text-green-800 mb-2">Merge Completed Successfully!</h3>
+                <ul className="text-sm text-green-700 space-y-1">
+                  <li>• {mergeResult.updated_records.tlog} logs transferred</li>
+                  <li>• {mergeResult.updated_records.tphotovote} photo votes transferred</li>
+                  {mergeResult.profile_updated && <li>• Profile fields updated</li>}
+                  {mergeResult.auth0_updated && <li>• Auth0 account synchronized</li>}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Confirmation Dialog */}
+          {showConfirmDialog && preview && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Confirm User Merge</h2>
+
+                <div className="space-y-4 mb-6">
+                  <div className="border border-gray-200 rounded-md p-4">
+                    <h3 className="font-semibold text-gray-800 mb-2">Target User (KEEP)</h3>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p><strong>ID:</strong> {preview.target_user.id}</p>
+                      <p><strong>Name:</strong> {preview.target_user.name}</p>
+                      <p><strong>Email:</strong> {preview.target_user.email || "(none)"}</p>
+                      {preview.target_user.auth0_user_id && (
+                        <p><strong>Auth0 ID:</strong> {preview.target_user.auth0_user_id}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border border-red-200 rounded-md p-4 bg-red-50">
+                    <h3 className="font-semibold text-red-800 mb-2">Source User (DELETE)</h3>
+                    <div className="text-sm text-red-700 space-y-1">
+                      <p><strong>ID:</strong> {preview.source_user.id}</p>
+                      <p><strong>Name:</strong> {preview.source_user.name}</p>
+                      <p><strong>Email:</strong> {preview.source_user.email || "(none)"}</p>
+                      {preview.source_user.auth0_user_id && (
+                        <p><strong>Auth0 ID:</strong> {preview.source_user.auth0_user_id}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border border-blue-200 rounded-md p-4 bg-blue-50">
+                    <h3 className="font-semibold text-blue-800 mb-2">Changes</h3>
+                    <div className="text-sm text-blue-700 space-y-1">
+                      <p><strong>Logs to transfer:</strong> {preview.estimated_records.tlog}</p>
+                      <p><strong>Photo votes to transfer:</strong> {preview.estimated_records.tphotovote}</p>
+                      {Object.keys(preview.profile_updates).length > 0 && (
+                        <>
+                          <p className="mt-2"><strong>Profile fields to update:</strong></p>
+                          <ul className="ml-4">
+                            {Object.entries(preview.profile_updates).map(([field, value]) => (
+                              <li key={field}>• {field}: {String(value)}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      {preview.auth0_will_update && (
+                        <p className="mt-2 font-semibold text-amber-700">⚠️ Auth0 account will be synchronized</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-red-300 bg-red-100 px-4 py-3">
+                    <p className="text-sm text-red-800 font-semibold">
+                      ⚠️ Warning: This action cannot be undone. The source user will be permanently deleted.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowConfirmDialog(false);
+                      setPreview(null);
+                    }}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleConfirmMerge}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Spinner size="sm" />
+                        <span>Merging...</span>
+                      </span>
+                    ) : (
+                      "Confirm Merge"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
+    </Card>
+  );
+}
+
 export default function Admin() {
   const { user, getAccessTokenSilently, loginWithRedirect, isLoading: isAuth0Loading } = useAuth0();
   const [hasAdminScope, setHasAdminScope] = useState<boolean | null>(null);
@@ -855,6 +1325,8 @@ export default function Admin() {
         </Card>
 
         <NeedsAttentionCard getAccessTokenSilently={getAccessTokenSilently} />
+
+        <MergeUsersCard getAccessTokenSilently={getAccessTokenSilently} />
 
         <LegacyMigrationCard getAccessTokenSilently={getAccessTokenSilently} />
 

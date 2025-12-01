@@ -424,7 +424,7 @@ export async function searchLegacyUsers(
   token: string
 ): Promise<AdminUserSearchResponse> {
   return apiGet<AdminUserSearchResponse>(
-    `/v1/admin/legacy-migration/users?q=${encodeURIComponent(query)}`,
+    `/v1/admin/legacy-migration/users?q=${encodeURIComponent(query)}&limit=250`,
     token
   );
 }
@@ -594,4 +594,49 @@ export async function fetchStatuses(token: string): Promise<StatusRecord[]> {
   return apiGet<StatusRecord[]>(`/v1/admin/statuses`, token);
 }
 
+// Merge Users Types and Functions
+
+export interface AdminMergeUsersRequest {
+  target_user_id: number;
+  source_user_id: number;
+  dry_run: boolean;
+}
+
+export interface MergeRecordCounts {
+  tlog: number;
+  tphoto: number;
+  tphotovote: number;
+}
+
+export interface AdminMergeUsersPreview {
+  dry_run: true;
+  target_user: Record<string, string | number | null | undefined>;
+  source_user: Record<string, string | number | null | undefined>;
+  estimated_records: MergeRecordCounts;
+  profile_updates: Record<string, string | null>;
+  auth0_will_update: boolean;
+}
+
+export interface AdminMergeUsersResponse {
+  success: boolean;
+  target_user_id: number;
+  source_user_id: number;
+  updated_records: MergeRecordCounts;
+  profile_updated: boolean;
+  auth0_updated: boolean;
+}
+
+/**
+ * Merge source user into target user (admin only)
+ */
+export async function mergeUsers(
+  payload: AdminMergeUsersRequest,
+  token: string
+): Promise<AdminMergeUsersPreview | AdminMergeUsersResponse> {
+  return apiPost<AdminMergeUsersPreview | AdminMergeUsersResponse>(
+    `/v1/admin/merge-users`,
+    payload,
+    token
+  );
+}
 

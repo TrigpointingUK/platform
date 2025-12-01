@@ -18,12 +18,17 @@ from api.crud import location as location_crud
 from api.crud import status as status_crud
 from api.crud import trig as trig_crud
 from api.crud import user as user_crud
+from api.crud import user_merge as user_merge_crud
 from api.models.user import User
 from api.schemas.admin import (
+    AdminMergeUsersPreview,
+    AdminMergeUsersRequest,
+    AdminMergeUsersResponse,
     AdminMigrationRequest,
     AdminMigrationResponse,
     AdminUserSearchResponse,
     AdminUserSearchResult,
+    MergeRecordCounts,
 )
 from api.schemas.contact import ContactRequest, ContactResponse
 from api.schemas.trig_admin import (
@@ -326,10 +331,10 @@ def search_legacy_users_for_migration(
         min_length=2,
     ),
     limit: int = Query(
-        20,
+        250,
         ge=1,
-        le=50,
-        description="Maximum number of results to return (default 20, max 50).",
+        le=250,
+        description="Maximum number of results to return (default 250, max 250).",
     ),
     admin_user: User = Depends(require_admin()),
     db: Session = Depends(get_db),
@@ -771,3 +776,224 @@ def get_all_statuses(
     """Get all status records for dropdown population."""
     statuses = status_crud.get_all_statuses(db)
     return [StatusResponse.model_validate(s) for s in statuses]
+
+
+@router.post(
+    "/merge-users",
+    response_model=AdminMergeUsersPreview | AdminMergeUsersResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Merge source user into target user (admin only). Supports dry-run preview.",
+    ),
+)
+def merge_users_admin(
+    request: AdminMergeUsersRequest,
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> AdminMergeUsersPreview | AdminMergeUsersResponse:
+    """
+    Merge source user into target user.
+
+    This endpoint allows manual user merging where the admin explicitly selects
+    both the target (to keep) and source (to delete) users.
+
+    Dry-run mode (default):
+    - Returns preview of changes without executing
+    - Shows which records will be updated
+    - Shows which profile fields will be copied
+    - Indicates if Auth0 will be synchronized
+
+    Execute mode (dry_run=false):
+    - Updates all source user's logs (tlog) to target user
+    - Updates all source user's photo votes (tphotovote) to target user
+    - Copies blank profile fields from source to target
+    - If auth0_user_id was copied, synchronizes Auth0 user
+    - Deletes source user
+
+    Requires `api:admin` scope.
+    """
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_merge_users_requested",
+                "admin_user_id": int(admin_user.id),
+                "target_user_id": request.target_user_id,
+                "source_user_id": request.source_user_id,
+                "dry_run": request.dry_run,
+            }
+        )
+    )
+
+    # Validate users exist and are different
+    if request.target_user_id == request.source_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Target and source users must be different",
+        )
+
+    target_user = user_crud.get_user_by_id(db, request.target_user_id)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Target user {request.target_user_id} not found",
+        )
+
+    source_user = user_crud.get_user_by_id(db, request.source_user_id)
+    if not source_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Source user {request.source_user_id} not found",
+        )
+
+    # Call CRUD function
+    try:
+        result = user_merge_crud.merge_users_admin(
+            db,
+            target_user_id=request.target_user_id,
+            source_user_id=request.source_user_id,
+            dry_run=request.dry_run,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            json.dumps(
+                {
+                    "event": "admin_merge_users_error",
+                    "admin_user_id": int(admin_user.id),
+                    "target_user_id": request.target_user_id,
+                    "source_user_id": request.source_user_id,
+                    "error": str(e),
+                }
+            ),
+            exc_info=True,
+        )
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Merge failed: {str(e)}",
+        )
+
+    # If dry run, return preview
+    if request.dry_run:
+        preview = AdminMergeUsersPreview(
+            dry_run=True,
+            target_user=result["target_user"],
+            source_user=result["source_user"],
+            estimated_records=MergeRecordCounts(**result["estimated_records"]),
+            profile_updates=result["profile_updates"],
+            auth0_will_update=result["auth0_will_update"],
+        )
+
+        logger.info(
+            json.dumps(
+                {
+                    "event": "admin_merge_users_preview_generated",
+                    "admin_user_id": int(admin_user.id),
+                    "target_user_id": request.target_user_id,
+                    "source_user_id": request.source_user_id,
+                    "auth0_will_update": result["auth0_will_update"],
+                }
+            )
+        )
+
+        return preview
+
+    # Execute mode - handle Auth0 synchronization if needed
+    auth0_updated = False
+    if result.get("auth0_transferred"):
+        try:
+            # Refresh target user from db to get updated auth0_user_id
+            db.refresh(target_user)
+
+            if target_user.auth0_user_id:
+                auth0_user_id = str(target_user.auth0_user_id)
+
+                # Get Auth0 user to fetch email
+                auth0_user = auth0_service.find_user_by_auth0_id(auth0_user_id)
+
+                if auth0_user:
+                    # Update Auth0 user profile
+                    auth0_service.update_user_profile(
+                        auth0_user_id, nickname=str(target_user.name)
+                    )
+
+                    # Update app_metadata with target user ID
+                    auth0_service.update_user_app_metadata(
+                        auth0_user_id, {"database_user_id": int(target_user.id)}
+                    )
+
+                    # Get email from Auth0 and update target user
+                    auth0_email = auth0_user.get("email")
+                    if auth0_email:
+                        target_user.email = auth0_email  # type: ignore
+                        db.add(target_user)
+                        db.commit()
+
+                    auth0_updated = True
+
+                    logger.info(
+                        json.dumps(
+                            {
+                                "event": "admin_merge_users_auth0_updated",
+                                "admin_user_id": int(admin_user.id),
+                                "target_user_id": request.target_user_id,
+                                "auth0_user_id": auth0_user_id,
+                            }
+                        )
+                    )
+                else:
+                    logger.warning(
+                        json.dumps(
+                            {
+                                "event": "admin_merge_users_auth0_user_not_found",
+                                "admin_user_id": int(admin_user.id),
+                                "target_user_id": request.target_user_id,
+                                "auth0_user_id": auth0_user_id,
+                            }
+                        )
+                    )
+        except Exception as e:
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "admin_merge_users_auth0_sync_failed",
+                        "admin_user_id": int(admin_user.id),
+                        "target_user_id": request.target_user_id,
+                        "error": str(e),
+                    }
+                ),
+                exc_info=True,
+            )
+            # Don't fail the whole merge if Auth0 sync fails
+
+    # Invalidate user caches
+    invalidate_user_caches(user_id=request.target_user_id)
+    invalidate_user_caches(user_id=request.source_user_id)
+
+    response = AdminMergeUsersResponse(
+        success=True,
+        target_user_id=result["target_user_id"],
+        source_user_id=result["source_user_id"],
+        updated_records=MergeRecordCounts(**result["updated_records"]),
+        profile_updated=result["profile_updated"],
+        auth0_updated=auth0_updated,
+    )
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_merge_users_completed",
+                "admin_user_id": int(admin_user.id),
+                "target_user_id": request.target_user_id,
+                "source_user_id": request.source_user_id,
+                "auth0_updated": auth0_updated,
+                "profile_updated": result["profile_updated"],
+            }
+        )
+    )
+
+    return response

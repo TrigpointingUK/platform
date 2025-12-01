@@ -44,6 +44,7 @@ export default function TrigDetailMap({
         zoom={zoomLevel}
         height={height}
         tileLayerId={tileLayerId}
+        scrollWheelZoom={false}
       >
         <TrigMarker
           trig={trig}
