@@ -62,6 +62,8 @@ export interface BaseMapProps {
   onMapReady?: (map: L.Map) => void;
   /** Additional CSS classes */
   className?: string;
+  /** Whether to enable scroll wheel zoom (default: true) */
+  scrollWheelZoom?: boolean;
 }
 
 /**

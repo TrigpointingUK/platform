@@ -74,6 +74,7 @@ export default function BaseMap({
   children,
   onMapReady,
   className = "",
+  scrollWheelZoom = true,
 }: BaseMapProps) {
   const tileLayer = getTileLayer(tileLayerId);
   
@@ -97,7 +98,7 @@ export default function BaseMap({
         zoom={zoom}
         crs={crs}
         style={{ height: '100%', width: '100%' }}
-        scrollWheelZoom={true}
+        scrollWheelZoom={scrollWheelZoom}
         className="rounded-lg"
         minZoom={minZoom}
         maxZoom={maxZoom}
