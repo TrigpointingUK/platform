@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.models.location import Postcode, Postcode6, Town
 from api.models.trig import Trig
+from api.utils.geodesy import osgb_to_wgs84 as geodesy_osgb_to_wgs84
 
 # OSGB Grid reference mapping for 100km squares
 OSGB_GRID_LETTERS = {
@@ -235,10 +236,12 @@ def search_postcodes(
 
 def osgb_to_wgs84(eastings: int, northings: int) -> Tuple[float, float]:
     """
-    Convert OSGB36 eastings/northings to WGS84 lat/lon.
+    Convert OSGB36 eastings/northings to WGS84 lat/lon using Helmert transformation.
 
-    This is a simplified approximation using Helmert transformation.
-    For production, consider using a proper library like pyproj.
+    Uses the proper implementation from api.utils.geodesy which includes:
+    - Inverse Transverse Mercator projection (OSGB36 grid → OSGB36 lat/lon)
+    - Full 7-parameter Helmert transformation (OSGB36 → WGS84)
+    - Accuracy within metres across all of GB
 
     Args:
         eastings: OSGB eastings
@@ -247,26 +250,7 @@ def osgb_to_wgs84(eastings: int, northings: int) -> Tuple[float, float]:
     Returns:
         Tuple of (latitude, longitude) in WGS84
     """
-    # Simplified conversion - this is an approximation
-    # For a proper implementation, you'd use pyproj or similar
-    # For now, use a linear approximation good enough for UK
-
-    # Origin point (approximately SW England)
-    lat0 = 49.0
-    lon0 = -2.0
-
-    # Scale factors (approximate)
-    lat_per_m = 1.0 / 111320.0  # meters per degree latitude
-    lon_per_m = 1.0 / (111320.0 * 0.7)  # adjusted for UK latitude
-
-    # Convert from false origin
-    e = eastings - 400000  # OSGB false easting
-    n = northings - -100000  # OSGB false northing
-
-    lat = lat0 + n * lat_per_m
-    lon = lon0 + e * lon_per_m
-
-    return lat, lon
+    return geodesy_osgb_to_wgs84(eastings, northings)
 
 
 def parse_grid_reference(gridref: str) -> Optional[Tuple[float, float, str]]:

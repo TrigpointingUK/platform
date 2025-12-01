@@ -80,3 +80,35 @@ def test_haversine_distance_short_distance():
 
     # Should be close to 100m (within 10% tolerance)
     assert 90 < distance < 110
+
+
+def test_osgb_to_wgs84_distance_bug_regression():
+    """Regression test for distance calculation bug (Dec 2025).
+
+    This test ensures that grid references very close together are converted
+    to WGS84 coordinates that are also very close together.
+
+    Bug: SD 65113 72134 and SD 65114 72131 (3m apart) were showing as 5.7km apart
+    due to incorrect coordinate conversion using linear approximation instead of
+    proper Helmert transformation.
+    """
+    # Two grid references that are ~3 metres apart
+    # SD 65113 72134
+    eastings1 = 365113
+    northings1 = 472134
+
+    # SD 65114 72131
+    eastings2 = 365114
+    northings2 = 472131
+
+    # Convert both to WGS84
+    lat1, lon1 = osgb_to_wgs84(eastings1, northings1)
+    lat2, lon2 = osgb_to_wgs84(eastings2, northings2)
+
+    # Calculate distance
+    distance = haversine_distance(lat1, lon1, lat2, lon2)
+
+    # Grid difference: 1m east, 3m south ≈ 3.2m diagonal
+    # With proper Helmert transformation, distance should be ~3m, not ~5700m
+    assert distance < 10, f"Distance {distance:.1f}m too large (bug regression!)"
+    assert 2 < distance < 5, f"Distance {distance:.1f}m should be ~3.2m"
