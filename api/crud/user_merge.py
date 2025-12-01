@@ -2,7 +2,7 @@
 CRUD operations for user merge functionality.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func
@@ -10,8 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.core.logging import get_logger
 from api.models.tphoto import TPhoto
-from api.models.user import TLog, TPhotoVote, TQuery, User
-from api.schemas.user_merge import ConflictingUser, RecordCounts
+from api.models.user import TLog, TPhotoVote, User
 
 logger = get_logger(__name__)
 
@@ -34,7 +33,7 @@ def get_user_last_activity(db: Session, user_id: int) -> Optional[datetime]:
     """
     Get the most recent activity timestamp for a user across all activity tables.
 
-    Checks: tlog, tphoto (via tlog_id), tphotovote, tquery
+    Checks: tlog, tphoto (via tlog_id), tphotovote
 
     Args:
         db: Database session
@@ -71,15 +70,6 @@ def get_user_last_activity(db: Session, user_id: int) -> Optional[datetime]:
     if tphotovote_latest:
         timestamps.append(tphotovote_latest)
 
-    # Check tquery
-    tquery_latest = (
-        db.query(func.max(TQuery.upd_timestamp))
-        .filter(TQuery.user_id == user_id)
-        .scalar()
-    )
-    if tquery_latest:
-        timestamps.append(tquery_latest)
-
     # Return the most recent timestamp
     if timestamps:
         return max([t for t in timestamps if t is not None], default=None)
@@ -114,255 +104,6 @@ def get_user_activity_counts(db: Session, user_id: int) -> Dict[str, int]:
     counts["photo_votes"] = (
         db.query(TPhotoVote).filter(TPhotoVote.user_id == user_id).count()
     )
-
-    # Count queries
-    counts["queries"] = db.query(TQuery).filter(TQuery.user_id == user_id).count()
-
-    return counts
-
-
-def get_users_with_activity(
-    db: Session, users: List[User]
-) -> List[Tuple[User, Optional[datetime]]]:
-    """
-    Get users with their last activity timestamp.
-
-    Args:
-        db: Database session
-        users: List of User objects
-
-    Returns:
-        List of tuples (User, last_activity_datetime) sorted by activity (most recent first)
-    """
-    users_with_activity = []
-    for user in users:
-        last_activity = get_user_last_activity(db, int(user.id))
-        users_with_activity.append((user, last_activity))
-
-    # Sort by last activity (most recent first, None values last)
-    users_with_activity.sort(
-        key=lambda x: (
-            x[1] if x[1] is not None else datetime.min.replace(tzinfo=timezone.utc)
-        ),
-        reverse=True,
-    )
-
-    return users_with_activity
-
-
-def check_merge_conflicts(
-    db: Session,
-    users_with_activity: List[Tuple[User, Optional[datetime]]],
-    threshold_days: int,
-) -> Tuple[Optional[User], List[ConflictingUser]]:
-    """
-    Check if merge can proceed based on activity threshold.
-
-    Args:
-        db: Database session
-        users_with_activity: List of (User, last_activity) tuples sorted by activity
-        threshold_days: Threshold in days for conflict detection
-
-    Returns:
-        Tuple of (primary_user, conflicting_users)
-        primary_user is the user with most recent activity
-        conflicting_users contains users with activity within threshold of primary
-    """
-    if not users_with_activity:
-        return None, []
-
-    primary_user, primary_activity = users_with_activity[0]
-    conflicting_users = []
-
-    # If primary user has no activity, use creation date as fallback
-    if primary_activity is None:
-        # Use user creation date as fallback
-        primary_activity = datetime.combine(
-            primary_user.crt_date, primary_user.crt_time  # type: ignore[arg-type]
-        ).replace(tzinfo=timezone.utc)
-
-    for user, last_activity in users_with_activity[1:]:
-        if last_activity is None:
-            # User with no activity - use creation date
-            last_activity = datetime.combine(user.crt_date, user.crt_time).replace(  # type: ignore[arg-type]
-                tzinfo=timezone.utc
-            )
-
-        # Calculate days difference
-        days_diff = (primary_activity - last_activity).days
-
-        if days_diff < threshold_days:
-            conflicting_users.append(
-                ConflictingUser(
-                    user_id=int(user.id),
-                    username=str(user.name),
-                    last_activity=last_activity,
-                    days_since_primary=float(days_diff),
-                )
-            )
-
-    return primary_user, conflicting_users
-
-
-def select_best_profile_values(
-    db: Session, user_ids: List[int], fields: List[str]
-) -> Dict[str, Optional[str]]:
-    """
-    Select best (most recent non-empty) values for profile fields.
-
-    Args:
-        db: Database session
-        user_ids: List of user IDs to consider
-        fields: List of field names to select from
-
-    Returns:
-        Dictionary mapping field names to selected values
-    """
-    users = db.query(User).filter(User.id.in_(user_ids)).all()
-
-    # Sort by update timestamp (most recent first)
-    users.sort(key=lambda u: u.upd_timestamp, reverse=True)  # type: ignore[arg-type,return-value]
-
-    result: Dict[str, Optional[str]] = {}
-    for field in fields:
-        result[field] = None
-        for user in users:
-            value = getattr(user, field, None)
-            # Select first non-empty value
-            if value and str(value).strip():
-                result[field] = str(value)
-                break
-
-    return result
-
-
-def count_records_for_users(db: Session, user_ids: List[int]) -> RecordCounts:
-    """
-    Count records that would be affected by merging users.
-
-    Args:
-        db: Database session
-        user_ids: List of user IDs to count records for
-
-    Returns:
-        RecordCounts object with counts by table
-    """
-    counts = RecordCounts()
-
-    if not user_ids:
-        return counts
-
-    # Count tlog records
-    counts.tlog = db.query(TLog).filter(TLog.user_id.in_(user_ids)).count()
-
-    # Count tphoto records via tlog
-    tlog_ids = [
-        row[0] for row in db.query(TLog.id).filter(TLog.user_id.in_(user_ids)).all()
-    ]
-    if tlog_ids:
-        counts.tphoto = db.query(TPhoto).filter(TPhoto.tlog_id.in_(tlog_ids)).count()
-
-    # Count tphotovote records
-    counts.tphotovote = (
-        db.query(TPhotoVote).filter(TPhotoVote.user_id.in_(user_ids)).count()
-    )
-
-    # Count tquery records
-    counts.tquery = db.query(TQuery).filter(TQuery.user_id.in_(user_ids)).count()
-
-    return counts
-
-
-def merge_users(
-    db: Session, primary_user_id: int, secondary_user_ids: List[int]
-) -> RecordCounts:
-    """
-    Merge secondary users into primary user.
-
-    Updates all activity records to point to primary user, updates profile fields,
-    and deletes secondary users.
-
-    Args:
-        db: Database session
-        primary_user_id: ID of user to keep
-        secondary_user_ids: IDs of users to merge and delete
-
-    Returns:
-        RecordCounts with number of records updated
-
-    Raises:
-        ValueError: If primary user not found or any validation fails
-    """
-    if not secondary_user_ids:
-        return RecordCounts()
-
-    # Validate primary user exists
-    primary_user = db.query(User).filter(User.id == primary_user_id).first()
-    if not primary_user:
-        raise ValueError(f"Primary user {primary_user_id} not found")
-
-    logger.info(
-        f"Starting merge of users {secondary_user_ids} into primary user {primary_user_id}"
-    )
-
-    counts = RecordCounts()
-
-    # Update tlog records
-    tlog_count = (
-        db.query(TLog)
-        .filter(TLog.user_id.in_(secondary_user_ids))
-        .update({TLog.user_id: primary_user_id}, synchronize_session=False)
-    )
-    counts.tlog = tlog_count
-    logger.info(f"Updated {tlog_count} tlog records")
-
-    # Update tphotovote records
-    tphotovote_count = (
-        db.query(TPhotoVote)
-        .filter(TPhotoVote.user_id.in_(secondary_user_ids))
-        .update({TPhotoVote.user_id: primary_user_id}, synchronize_session=False)
-    )
-    counts.tphotovote = tphotovote_count
-    logger.info(f"Updated {tphotovote_count} tphotovote records")
-
-    # Update tquery records
-    tquery_count = (
-        db.query(TQuery)
-        .filter(TQuery.user_id.in_(secondary_user_ids))
-        .update({TQuery.user_id: primary_user_id}, synchronize_session=False)
-    )
-    counts.tquery = tquery_count
-    logger.info(f"Updated {tquery_count} tquery records")
-
-    # Note: tphoto records are linked via tlog_id, so they're automatically
-    # reassigned when we update the tlog records above
-
-    # Update primary user profile with best values
-    all_user_ids = [primary_user_id] + secondary_user_ids
-    profile_fields = ["firstname", "surname", "homepage", "about"]
-    best_values = select_best_profile_values(db, all_user_ids, profile_fields)
-
-    profile_updated = False
-    for field, value in best_values.items():
-        if value and value != getattr(primary_user, field):
-            setattr(primary_user, field, value)
-            profile_updated = True
-            logger.info(f"Updated primary user {field} to: {value}")
-
-    if profile_updated:
-        primary_user.upd_timestamp = datetime.now()  # type: ignore[assignment]
-        db.add(primary_user)
-
-    # Delete secondary users
-    deleted_count = (
-        db.query(User)
-        .filter(User.id.in_(secondary_user_ids))
-        .delete(synchronize_session=False)
-    )
-    logger.info(f"Deleted {deleted_count} secondary users")
-
-    # Commit the transaction
-    db.commit()
 
     return counts
 
@@ -403,3 +144,195 @@ def get_email_duplicates_summary(
         result.append((str(email), users))
 
     return result
+
+
+def count_records_for_user(db: Session, user_id: int) -> Dict[str, int]:
+    """
+    Count records for a specific user.
+
+    Args:
+        db: Database session
+        user_id: User ID to count records for
+
+    Returns:
+        Dictionary with counts: tlog, tphoto, tphotovote
+    """
+    counts = {"tlog": 0, "tphoto": 0, "tphotovote": 0}
+
+    # Count tlog records
+    counts["tlog"] = db.query(TLog).filter(TLog.user_id == user_id).count()
+
+    # Count tphoto records via tlog
+    tlog_ids = [
+        row[0] for row in db.query(TLog.id).filter(TLog.user_id == user_id).all()
+    ]
+    if tlog_ids:
+        counts["tphoto"] = db.query(TPhoto).filter(TPhoto.tlog_id.in_(tlog_ids)).count()
+
+    # Count tphotovote records
+    counts["tphotovote"] = (
+        db.query(TPhotoVote).filter(TPhotoVote.user_id == user_id).count()
+    )
+
+    return counts
+
+
+def merge_users_admin(
+    db: Session,
+    target_user_id: int,
+    source_user_id: int,
+    dry_run: bool = True,
+) -> Dict:
+    """
+    Merge source user into target user for admin operations.
+
+    Args:
+        db: Database session
+        target_user_id: ID of user to keep
+        source_user_id: ID of user to merge and delete
+        dry_run: If True, only preview changes without executing
+
+    Returns:
+        Dictionary with merge results or preview
+
+    Raises:
+        ValueError: If users not found or validation fails
+    """
+    # Validate users exist
+    target_user = db.query(User).filter(User.id == target_user_id).first()
+    if not target_user:
+        raise ValueError(f"Target user {target_user_id} not found")
+
+    source_user = db.query(User).filter(User.id == source_user_id).first()
+    if not source_user:
+        raise ValueError(f"Source user {source_user_id} not found")
+
+    if target_user_id == source_user_id:
+        raise ValueError("Target and source users must be different")
+
+    # Count records
+    source_counts = count_records_for_user(db, source_user_id)
+
+    # Determine profile updates
+    profile_fields = [
+        "firstname",
+        "surname",
+        "email",
+        "homepage",
+        "about",
+        "auth0_user_id",
+    ]
+    profile_updates = {}
+    auth0_will_update = False
+
+    for field in profile_fields:
+        target_value = getattr(target_user, field)
+        source_value = getattr(source_user, field)
+
+        # Only copy if target is blank/empty
+        if not target_value or str(target_value).strip() == "":
+            if source_value and str(source_value).strip():
+                profile_updates[field] = str(source_value)
+                if field == "auth0_user_id":
+                    auth0_will_update = True
+
+    # If dry run, return preview
+    if dry_run:
+        return {
+            "dry_run": True,
+            "target_user": {
+                "id": int(target_user.id),
+                "name": str(target_user.name),
+                "email": str(target_user.email) if target_user.email else "",
+                "auth0_user_id": (
+                    str(target_user.auth0_user_id)
+                    if target_user.auth0_user_id
+                    else None
+                ),
+                "firstname": (
+                    str(target_user.firstname) if target_user.firstname else ""
+                ),
+                "surname": str(target_user.surname) if target_user.surname else "",
+                "homepage": str(target_user.homepage) if target_user.homepage else "",
+                "about": str(target_user.about) if target_user.about else "",
+            },
+            "source_user": {
+                "id": int(source_user.id),
+                "name": str(source_user.name),
+                "email": str(source_user.email) if source_user.email else "",
+                "auth0_user_id": (
+                    str(source_user.auth0_user_id)
+                    if source_user.auth0_user_id
+                    else None
+                ),
+                "firstname": (
+                    str(source_user.firstname) if source_user.firstname else ""
+                ),
+                "surname": str(source_user.surname) if source_user.surname else "",
+                "homepage": str(source_user.homepage) if source_user.homepage else "",
+                "about": str(source_user.about) if source_user.about else "",
+            },
+            "estimated_records": source_counts,
+            "profile_updates": profile_updates,
+            "auth0_will_update": auth0_will_update,
+        }
+
+    # Execute the merge
+    logger.info(
+        f"Starting admin merge of user {source_user_id} into user {target_user_id}"
+    )
+
+    updated_counts = {"tlog": 0, "tphoto": source_counts["tphoto"], "tphotovote": 0}
+
+    # Update tlog records
+    tlog_count = (
+        db.query(TLog)
+        .filter(TLog.user_id == source_user_id)
+        .update({TLog.user_id: target_user_id}, synchronize_session=False)
+    )
+    updated_counts["tlog"] = tlog_count
+    logger.info(f"Updated {tlog_count} tlog records")
+
+    # Update tphotovote records
+    tphotovote_count = (
+        db.query(TPhotoVote)
+        .filter(TPhotoVote.user_id == source_user_id)
+        .update({TPhotoVote.user_id: target_user_id}, synchronize_session=False)
+    )
+    updated_counts["tphotovote"] = tphotovote_count
+    logger.info(f"Updated {tphotovote_count} tphotovote records")
+
+    # Note: tphoto records are linked via tlog_id, so they're automatically
+    # reassigned when we update the tlog records above
+
+    # Update target user profile with source values (only if target is blank)
+    profile_updated = False
+    auth0_transferred = False
+
+    for field, value in profile_updates.items():
+        if value:
+            setattr(target_user, field, value)
+            profile_updated = True
+            if field == "auth0_user_id":
+                auth0_transferred = True
+            logger.info(f"Updated target user {field}")
+
+    if profile_updated:
+        target_user.upd_timestamp = datetime.now()  # type: ignore[assignment]
+        db.add(target_user)
+
+    # Delete source user
+    db.query(User).filter(User.id == source_user_id).delete(synchronize_session=False)
+    logger.info(f"Deleted source user {source_user_id}")
+
+    # Commit the transaction
+    db.commit()
+
+    return {
+        "success": True,
+        "target_user_id": target_user_id,
+        "source_user_id": source_user_id,
+        "updated_records": updated_counts,
+        "profile_updated": profile_updated,
+        "auth0_transferred": auth0_transferred,
+    }
