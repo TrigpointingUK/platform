@@ -639,7 +639,9 @@ def get_current_user_logged_trigs(
         List of dicts with trig_id and condition for each log
     """
     # Call the cached version with the user_id
-    return get_user_logged_trigs_cached(current_user.id, db)
+    # IMPORTANT: Must use keyword arguments so the @cached decorator can extract
+    # user_id from kwargs for the cache key (positional args are not checked)
+    return get_user_logged_trigs_cached(user_id=current_user.id, db=db)
 
 
 @cached(
