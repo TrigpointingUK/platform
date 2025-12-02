@@ -46,7 +46,7 @@ def search_locations(
     Searches:
     - Trigpoint names and waypoints
     - Town names
-    - UK postcodes (NSPL dataset and legacy postcode6)
+    - UK postcodes (NSPL dataset)
     - OSGB grid references
     - Lat/lon coordinate strings
     - User names
@@ -175,34 +175,9 @@ def search_locations(
             )
         )
 
-    # Search postcodes
-    pc6_results, postcodes_results = locations_crud.search_postcodes(
-        db, q, limit=min(5, limit)
-    )
+    # Search postcodes (NSPL dataset)
+    postcodes_results = locations_crud.search_postcodes(db, q, limit=min(5, limit))
 
-    # For postcode6, use OSGB eastings/northings as wgs_lat is corrupted
-    for pc in pc6_results:
-        # Skip if missing required fields
-        if not pc.code or pc.osgb_eastings is None or pc.osgb_northings is None:
-            continue
-
-        lat, lon = locations_crud.osgb_to_wgs84(
-            int(pc.osgb_eastings), int(pc.osgb_northings)
-        )
-        description = str(pc.postal_town).strip() if pc.postal_town else "Postcode"
-
-        results.append(
-            LocationSearchResult(
-                type="postcode",
-                name=str(pc.code).strip(),
-                lat=lat,
-                lon=lon,
-                description=description,
-                id=None,
-            )
-        )
-
-    # For postcodes table (NSPL), use lat/lon directly
     for pc in postcodes_results:
         # Skip if missing required fields
         if not pc.code or pc.lat is None or pc.long is None:
@@ -410,28 +385,9 @@ def search_all(
             )
         )
 
-    # Postcodes
-    pc6_results, postcodes_results = locations_crud.search_postcodes(
-        db, q, skip=0, limit=limit
-    )
+    # Postcodes (NSPL dataset)
+    postcodes_results = locations_crud.search_postcodes(db, q, skip=0, limit=limit)
     postcode_items: List[LocationSearchResult] = []
-    for pc in pc6_results:
-        if not pc.code or pc.osgb_eastings is None or pc.osgb_northings is None:
-            continue
-        lat, lon = locations_crud.osgb_to_wgs84(
-            int(pc.osgb_eastings), int(pc.osgb_northings)
-        )
-        description = str(pc.postal_town).strip() if pc.postal_town else "Postcode"
-        postcode_items.append(
-            LocationSearchResult(
-                type="postcode",
-                name=str(pc.code).strip(),
-                lat=lat,
-                lon=lon,
-                description=description,
-                id=None,
-            )
-        )
     for pc in postcodes_results:
         if not pc.code or pc.lat is None or pc.long is None:
             continue
@@ -445,19 +401,13 @@ def search_all(
                 id=None,
             )
         )
-    # Get total counts for both tables
-    from api.models.location import Postcode, Postcode6
+    # Get total count
+    from api.models.location import Postcode
 
-    query_upper = q.upper().strip()
-    query_no_space = query_upper.replace(" ", "")
-    query_normalized = " ".join(query_upper.split())
-    pc6_total = (
-        db.query(Postcode6).filter(Postcode6.code.like(f"{query_no_space}%")).count()
-    )
-    postcodes_total = (
+    query_normalized = " ".join(q.upper().strip().split())
+    postcode_total = (
         db.query(Postcode).filter(Postcode.code.like(f"{query_normalized}%")).count()
     )
-    postcode_total = pc6_total + postcodes_total
 
     # Log substring search
     log_substring_items: List[LogSearchResult] = []
@@ -763,30 +713,10 @@ def search_postcodes_only(
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
 ):
-    """Search postcodes."""
-    pc6_results, postcodes_results = locations_crud.search_postcodes(
-        db, q, skip=skip, limit=limit
-    )
+    """Search postcodes (NSPL dataset)."""
+    postcodes_results = locations_crud.search_postcodes(db, q, skip=skip, limit=limit)
 
     items: List[LocationSearchResult] = []
-    for pc in pc6_results:
-        if not pc.code or pc.osgb_eastings is None or pc.osgb_northings is None:
-            continue
-        lat, lon = locations_crud.osgb_to_wgs84(
-            int(pc.osgb_eastings), int(pc.osgb_northings)
-        )
-        description = str(pc.postal_town).strip() if pc.postal_town else "Postcode"
-        items.append(
-            LocationSearchResult(
-                type="postcode",
-                name=str(pc.code).strip(),
-                lat=lat,
-                lon=lon,
-                description=description,
-                id=None,
-            )
-        )
-
     for pc in postcodes_results:
         if not pc.code or pc.lat is None or pc.long is None:
             continue
@@ -801,19 +731,13 @@ def search_postcodes_only(
             )
         )
 
-    # Get total counts for both tables
-    from api.models.location import Postcode, Postcode6
+    # Get total count
+    from api.models.location import Postcode
 
-    query_upper = q.upper().strip()
-    query_no_space = query_upper.replace(" ", "")
-    query_normalized = " ".join(query_upper.split())
-    pc6_total = (
-        db.query(Postcode6).filter(Postcode6.code.like(f"{query_no_space}%")).count()
-    )
-    postcodes_total = (
+    query_normalized = " ".join(q.upper().strip().split())
+    total = (
         db.query(Postcode).filter(Postcode.code.like(f"{query_normalized}%")).count()
     )
-    total = pc6_total + postcodes_total
 
     return SearchCategoryResults(
         total=total, items=items, has_more=total > skip + len(items), query=q

@@ -26,40 +26,6 @@ class Town(Base):
         return f"<Town(name='{self.name}')>"
 
 
-class Postcode6(Base):
-    """Postcode model for 6-character postcodes."""
-
-    __tablename__ = "postcode6"
-
-    code = Column(CHAR(6), primary_key=True, nullable=False)
-    code4 = Column(CHAR(4), nullable=False)
-    wgs_lat: Any = Column(DECIMAL(6, 5), nullable=False)
-    wgs_long: Any = Column(DECIMAL(6, 5), nullable=False)
-    osgb_eastings = Column(Integer, nullable=False)
-    osgb_northings = Column(Integer, nullable=False)
-    osgb_gridref = Column(CHAR(14), nullable=False)
-    county = Column(CHAR(20), nullable=False)
-    town = Column(CHAR(50), nullable=False)
-    postal_town = Column(CHAR(50), nullable=False)
-
-    def __repr__(self):
-        return f"<Postcode6(code='{self.code}', town='{self.town}')>"
-
-
-class Postcode8(Base):
-    """Postcode model for 8-character postcodes (legacy)."""
-
-    __tablename__ = "postcode8"
-
-    code = Column(CHAR(8), primary_key=True, nullable=False)
-    osgb_eastings = Column(Integer, nullable=False)
-    osgb_northings = Column(Integer, nullable=False)
-    source = Column(CHAR(20), nullable=False)
-
-    def __repr__(self):
-        return f"<Postcode8(code='{self.code}')>"
-
-
 class Postcode(Base):
     """Postcode model for all UK postcodes from NSPL dataset."""
 
