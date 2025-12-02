@@ -42,16 +42,17 @@ export interface UseInfiniteTrigsOptions {
   lat?: number;
   lon?: number;
   statusIds?: number[]; // Status IDs to filter by (10, 20, 30, etc.)
-  excludeFound?: boolean;
+  showLogged?: boolean; // Show trigpoints logged by user (default: true)
+  showNotLogged?: boolean; // Show trigpoints not logged by user (default: true)
   maxKm?: number;
 }
 
 export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
-  const { lat, lon, statusIds, excludeFound, maxKm } = options;
+  const { lat, lon, statusIds, showLogged = true, showNotLogged = true, maxKm } = options;
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigsResponse>({
-    queryKey: ["trigs", "infinite", lat, lon, statusIds, excludeFound, maxKm],
+    queryKey: ["trigs", "infinite", lat, lon, statusIds, showLogged, showNotLogged, maxKm],
     enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
       const skip = typeof pageParam === "number" ? pageParam : 0;
@@ -75,11 +76,15 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         params.append("status_ids", statusIds.join(","));
       }
       
-      if (excludeFound) {
+      // Log filter: showLogged=false means exclude found, showNotLogged=false means only found
+      if (!showLogged) {
         params.append("exclude_found", "true");
       }
+      if (!showNotLogged) {
+        params.append("only_found", "true");
+      }
       
-      // Get auth token if authenticated (needed for status_max and exclude_found)
+      // Get auth token if authenticated (needed for status_max and log filters)
       const headers: Record<string, string> = {};
       if (isAuthenticated) {
         try {

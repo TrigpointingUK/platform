@@ -4,6 +4,7 @@ import { useInfiniteTrigs } from "../hooks/useInfiniteTrigs";
 import { useUserLoggedTrigs } from "../hooks/useUserLoggedTrigs";
 import { LocationSearch } from "../components/trigs/LocationSearch";
 import { StatusFilter } from "../components/trigs/StatusFilter";
+import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUserProfile } from "../hooks/useUserProfile";
@@ -57,8 +58,12 @@ export default function FindTrigs() {
     }
   );
   
-  const [excludeFound, setExcludeFound] = useState<boolean>(
-    () => searchParams.get("excludeFound") === "true"
+  // Log filter state: show logged and not-logged trigpoints (both default to true)
+  const [showLogged, setShowLogged] = useState<boolean>(
+    () => searchParams.get("showLogged") !== "false"
+  );
+  const [showNotLogged, setShowNotLogged] = useState<boolean>(
+    () => searchParams.get("showNotLogged") !== "false"
   );
 
   // Attempt to get user's current location on mount
@@ -120,12 +125,16 @@ export default function FindTrigs() {
       params.set("statuses", selectedStatuses.join(","));
     }
     
-    if (excludeFound) {
-      params.set("excludeFound", "true");
+    // Only add to URL if not showing (default is to show both)
+    if (!showLogged) {
+      params.set("showLogged", "false");
+    }
+    if (!showNotLogged) {
+      params.set("showNotLogged", "false");
     }
     
     setSearchParams(params, { replace: true });
-  }, [centerLat, centerLon, locationName, selectedStatuses, excludeFound, setSearchParams]);
+  }, [centerLat, centerLon, locationName, selectedStatuses, showLogged, showNotLogged, setSearchParams]);
 
   // Fetch trigpoints with current filters (only if location is set)
   const {
@@ -139,7 +148,8 @@ export default function FindTrigs() {
     lat: centerLat ?? undefined,
     lon: centerLon ?? undefined,
     statusIds: selectedStatuses.length > 0 ? selectedStatuses : undefined,
-    excludeFound,
+    showLogged,
+    showNotLogged,
   });
 
   const handleSelectLocation = useCallback(
@@ -163,7 +173,8 @@ export default function FindTrigs() {
 
   const handleClearFilters = useCallback(() => {
     setSelectedStatuses(ALL_STATUSES);
-    setExcludeFound(false);
+    setShowLogged(true);
+    setShowNotLogged(true);
     setCenterLat(DEFAULT_LAT);
     setCenterLon(DEFAULT_LON);
     setLocationName(DEFAULT_LOCATION_NAME);
@@ -252,26 +263,26 @@ export default function FindTrigs() {
               />
             </div>
 
-            {/* Additional filters */}
+            {/* Log filter and clear button */}
             <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-4">
-                {isAuthenticated && (
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={excludeFound}
-                      onChange={(e) => setExcludeFound(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>Exclude trigpoints I've found</span>
+              {isAuthenticated && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    My logged condition
                   </label>
-                )}
-              </div>
+                  <LoggedConditionFilter
+                    showLogged={showLogged}
+                    showNotLogged={showNotLogged}
+                    onToggleLogged={() => setShowLogged((prev) => !prev)}
+                    onToggleNotLogged={() => setShowNotLogged((prev) => !prev)}
+                  />
+                </div>
+              )}
               
               <button
                 type="button"
                 onClick={handleClearFilters}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium self-end"
               >
                 Clear filters
               </button>

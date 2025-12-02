@@ -118,6 +118,7 @@ def list_trigs_filtered(
     status_ids: Optional[List[int]] = None,
     max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
+    only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
 ) -> list[Trig]:
     query = db.query(Trig)
@@ -148,6 +149,16 @@ def list_trigs_filtered(
             .subquery()
         )
         query = query.filter(~Trig.id.in_(subquery))  # type: ignore[arg-type]
+
+    # Include ONLY trigpoints found by user (inverse of exclude_found)
+    if only_found_by_user_id is not None:
+        subquery = (
+            db.query(TLog.trig_id)
+            .filter(TLog.user_id == only_found_by_user_id)
+            .distinct()
+            .subquery()
+        )
+        query = query.filter(Trig.id.in_(subquery))  # type: ignore[arg-type]
 
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
@@ -208,6 +219,7 @@ def count_trigs_filtered(
     status_ids: Optional[List[int]] = None,
     max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
+    only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
 ) -> int:
     query = db.query(func.count(Trig.id))
@@ -237,6 +249,16 @@ def count_trigs_filtered(
             .subquery()
         )
         query = query.filter(~Trig.id.in_(subquery))  # type: ignore[arg-type]
+
+    # Include ONLY trigpoints found by user (inverse of exclude_found)
+    if only_found_by_user_id is not None:
+        subquery = (
+            db.query(TLog.trig_id)
+            .filter(TLog.user_id == only_found_by_user_id)
+            .distinct()
+            .subquery()
+        )
+        query = query.filter(Trig.id.in_(subquery))  # type: ignore[arg-type]
 
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))

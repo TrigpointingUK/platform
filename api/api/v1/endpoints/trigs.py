@@ -789,6 +789,9 @@ def list_trigs(
     exclude_found: Optional[bool] = Query(
         False, description="Exclude trigpoints already logged by authenticated user"
     ),
+    only_found: Optional[bool] = Query(
+        False, description="Include only trigpoints logged by authenticated user"
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     _lc=lifecycle("beta"),
@@ -802,6 +805,7 @@ def list_trigs(
     - physical_types: Filter by physical type (e.g., "Pillar,Bolt,FBM")
     - status_ids: Filter by status IDs (e.g., "10,20,30")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
+    - only_found: Include only trigpoints the user has logged (requires authentication)
 
     If authenticated, applies user's status_max preference to limit visible trigs.
     Always excludes soft-deleted records (status >= 90).
@@ -839,6 +843,11 @@ def list_trigs(
     if exclude_found and current_user:
         exclude_found_by_user_id = int(current_user.id)
 
+    # Get user ID for only_found filter
+    only_found_by_user_id = None
+    if only_found and current_user:
+        only_found_by_user_id = int(current_user.id)
+
     items = trig_crud.list_trigs_filtered(
         db,
         name=name,
@@ -853,6 +862,7 @@ def list_trigs(
         status_ids=status_ids_list,
         max_status=max_status,
         exclude_found_by_user_id=exclude_found_by_user_id,
+        only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status >= 90
     )
     total = trig_crud.count_trigs_filtered(
@@ -866,6 +876,7 @@ def list_trigs(
         status_ids=status_ids_list,
         max_status=max_status,
         exclude_found_by_user_id=exclude_found_by_user_id,
+        only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status >= 90
     )
 
@@ -902,6 +913,8 @@ def list_trigs(
         params.append(f"status_ids={status_ids}")
     if exclude_found:
         params.append("exclude_found=true")
+    if only_found:
+        params.append("only_found=true")
     params.append(f"limit={limit}")
     # self link
     self_link = base + "?" + "&".join(params + [f"skip={skip}"])
