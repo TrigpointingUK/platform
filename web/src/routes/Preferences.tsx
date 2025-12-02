@@ -77,11 +77,7 @@ export default function Preferences() {
           </p>
         </div>
 
-        {/* Visibility Preferences */}
         <Card className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Visibility Preferences
-          </h2>
           <div className="grid grid-cols-1 gap-6">
             {/* Status Max Preference */}
             <div>
@@ -120,6 +116,24 @@ export default function Preferences() {
               </select>
               <p className="mt-2 text-xs text-gray-500">
                 Choose your preferred unit for displaying distances
+              </p>
+            </div>
+
+            {/* Default Photo Licence Preference */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Default Photo Licence
+              </label>
+              <select
+                value={user.prefs?.public_ind || "N"}
+                onChange={(e) => handleFieldUpdate("public_ind", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="N">Copyright me</option>
+                <option value="Y">Public domain</option>
+              </select>
+              <p className="mt-2 text-xs text-gray-500">
+                Choose the default licence for photos you upload
               </p>
             </div>
           </div>
