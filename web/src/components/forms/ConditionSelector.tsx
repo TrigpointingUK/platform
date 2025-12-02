@@ -4,23 +4,24 @@ import Badge from "../ui/Badge";
 interface ConditionOption {
   value: string;
   label: string;
+  icon: string;
   variant: "good" | "damaged" | "missing" | "unknown";
 }
 
 const CONDITIONS: ConditionOption[] = [
-  { value: "G", label: "Good", variant: "good" },
-  { value: "S", label: "Slightly Damaged", variant: "damaged" },
-  { value: "D", label: "Damaged", variant: "damaged" },
-  { value: "C", label: "Converted", variant: "damaged" },
-  { value: "T", label: "Toppled", variant: "damaged" },
-  { value: "R", label: "Remains", variant: "damaged" },
-  { value: "M", label: "Moved", variant: "missing" },
-  { value: "Q", label: "Possibly Missing", variant: "damaged" },
-  { value: "P", label: "Inaccessible", variant: "unknown" },
-  { value: "X", label: "Destroyed", variant: "missing" },
-  { value: "V", label: "Unreachable but Visible", variant: "unknown" },
-  { value: "N", label: "Couldn't Find", variant: "missing" },
-  { value: "U", label: "Unknown", variant: "unknown" },
+  { value: "G", label: "Good", icon: "c_good.png", variant: "good" },
+  { value: "S", label: "Slightly Damaged", icon: "c_slightlydamaged.png", variant: "damaged" },
+  { value: "D", label: "Damaged", icon: "c_damaged.png", variant: "damaged" },
+  { value: "C", label: "Converted", icon: "c_slightlydamaged.png", variant: "damaged" },
+  { value: "T", label: "Toppled", icon: "c_toppled.png", variant: "damaged" },
+  { value: "R", label: "Remains", icon: "c_toppled.png", variant: "damaged" },
+  { value: "M", label: "Moved", icon: "c_toppled.png", variant: "missing" },
+  { value: "Q", label: "Possibly Missing", icon: "c_possiblymissing.png", variant: "damaged" },
+  { value: "P", label: "Inaccessible", icon: "c_unknown.png", variant: "unknown" },
+  { value: "X", label: "Destroyed", icon: "c_definitelymissing.png", variant: "missing" },
+  { value: "V", label: "Unreachable but Visible", icon: "c_unreachablebutvisible.png", variant: "unknown" },
+  { value: "N", label: "Couldn't Find", icon: "c_possiblymissing.png", variant: "missing" },
+  { value: "U", label: "Unknown", icon: "c_unknown.png", variant: "unknown" },
 ];
 
 interface ConditionSelectorProps {
@@ -56,6 +57,11 @@ export default function ConditionSelector({
         className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-trig-green-500 flex items-center justify-between"
       >
         <Badge variant={selectedCondition.variant}>
+          <img
+            src={`/icons/conditions/${selectedCondition.icon}`}
+            alt=""
+            className="w-4 h-4 inline-block mr-1.5"
+          />
           {selectedCondition.label}
         </Badge>
         <svg
@@ -85,7 +91,7 @@ export default function ConditionSelector({
           />
           
           {/* Options */}
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-64 overflow-y-auto">
             {CONDITIONS.map((condition) => (
               <button
                 key={condition.value}
@@ -95,7 +101,14 @@ export default function ConditionSelector({
                   condition.value === value ? "bg-gray-50" : ""
                 }`}
               >
-                <Badge variant={condition.variant}>{condition.label}</Badge>
+                <Badge variant={condition.variant}>
+                  <img
+                    src={`/icons/conditions/${condition.icon}`}
+                    alt=""
+                    className="w-4 h-4 inline-block mr-1.5"
+                  />
+                  {condition.label}
+                </Badge>
                 {condition.value === value && (
                   <svg
                     className="w-4 h-4 text-trig-green-600 ml-auto"

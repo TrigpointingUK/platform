@@ -19,6 +19,7 @@ interface LogFormProps {
   trigLatitude: number;
   trigLongitude: number;
   existingLog?: Log;
+  defaultCondition?: string;
   onSubmit: (data: LogCreateInput | LogUpdateInput) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -31,6 +32,7 @@ export default function LogForm({
   trigLatitude,
   trigLongitude,
   existingLog,
+  defaultCondition = "G",
   onSubmit,
   onCancel,
   isSubmitting,
@@ -44,7 +46,7 @@ export default function LogForm({
   const [formData, setFormData] = useState({
     date: existingLog?.date || new Date().toISOString().split("T")[0],
     time: existingLog?.time || getCurrentTime(), // Use current time for new logs
-    condition: existingLog?.condition || "G",
+    condition: existingLog?.condition || defaultCondition,
     score: existingLog?.score || 5,
     comment: existingLog?.comment || "",
     osgb_gridref: existingLog?.osgb_gridref || trigGridRef,

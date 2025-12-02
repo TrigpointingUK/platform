@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Photo } from "../../lib/api";
 import { useUploadPhoto, useUpdatePhoto, useDeletePhoto, useRotatePhoto } from "../../hooks/useLogPhotos";
+import { useUserProfile } from "../../hooks/useUserProfile";
 import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
 import { Trash2, RotateCw, Edit2, X, Check, Upload } from "lucide-react";
@@ -12,6 +13,10 @@ interface PhotoManagerProps {
 }
 
 export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerProps) {
+  // Fetch user's default license preference
+  const { data: userProfile } = useUserProfile("me");
+  const defaultLicense = userProfile?.prefs?.public_ind || "N";
+
   const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({
     caption: "",
@@ -23,11 +28,18 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
     caption: "",
     text_desc: "",
     type: "T",
-    license: "Y",
+    license: "N", // Will be updated when user profile loads
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update upload form default license when user profile loads
+  useEffect(() => {
+    if (defaultLicense) {
+      setUploadForm((prev) => ({ ...prev, license: defaultLicense }));
+    }
+  }, [defaultLicense]);
 
   const uploadMutation = useUploadPhoto(logId!);
   const updateMutation = useUpdatePhoto();
@@ -60,7 +72,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
         caption: "",
         text_desc: "",
         type: "T",
-        license: "Y",
+        license: defaultLicense,
       });
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -78,7 +90,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
       caption: "",
       text_desc: "",
       type: "T",
-      license: "Y",
+      license: defaultLicense,
     });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";

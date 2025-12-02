@@ -20,22 +20,22 @@ import { LogCreateInput, LogUpdateInput } from "../lib/api";
 
 const conditionMap: Record<
   string,
-  { label: string; variant: "good" | "damaged" | "missing" | "unknown" }
+  { label: string; icon: string; variant: "good" | "damaged" | "missing" | "unknown" }
 > = {
-  Z: { label: "Not Logged", variant: "unknown" },
-  N: { label: "Couldn't Find", variant: "missing" },
-  G: { label: "Good", variant: "good" },
-  S: { label: "Slightly Damaged", variant: "damaged" },
-  C: { label: "Converted", variant: "damaged" },
-  D: { label: "Damaged", variant: "damaged" },
-  R: { label: "Remains", variant: "damaged" },
-  T: { label: "Toppled", variant: "damaged" },
-  M: { label: "Moved", variant: "missing" },
-  Q: { label: "Possibly Missing", variant: "damaged" },
-  X: { label: "Destroyed", variant: "missing" },
-  V: { label: "Unreachable but Visible", variant: "unknown" },
-  P: { label: "Inaccessible", variant: "unknown" },
-  U: { label: "Unknown", variant: "unknown" },
+  Z: { label: "Not Logged", icon: "c_unknown.png", variant: "unknown" },
+  N: { label: "Couldn't Find", icon: "c_possiblymissing.png", variant: "missing" },
+  G: { label: "Good", icon: "c_good.png", variant: "good" },
+  S: { label: "Slightly Damaged", icon: "c_slightlydamaged.png", variant: "damaged" },
+  C: { label: "Converted", icon: "c_slightlydamaged.png", variant: "damaged" },
+  D: { label: "Damaged", icon: "c_damaged.png", variant: "damaged" },
+  R: { label: "Remains", icon: "c_toppled.png", variant: "damaged" },
+  T: { label: "Toppled", icon: "c_toppled.png", variant: "damaged" },
+  M: { label: "Moved", icon: "c_toppled.png", variant: "missing" },
+  Q: { label: "Possibly Missing", icon: "c_possiblymissing.png", variant: "damaged" },
+  X: { label: "Destroyed", icon: "c_definitelymissing.png", variant: "missing" },
+  V: { label: "Unreachable but Visible", icon: "c_unreachablebutvisible.png", variant: "unknown" },
+  P: { label: "Inaccessible", icon: "c_unknown.png", variant: "unknown" },
+  U: { label: "Unknown", icon: "c_unknown.png", variant: "unknown" },
 };
 
 export default function TrigDetail() {
@@ -259,7 +259,14 @@ export default function TrigDetail() {
                   <span className="font-semibold text-gray-700">
                     Condition:
                   </span>
-                  <Badge variant={condition.variant}>{condition.label}</Badge>
+                  <Badge variant={condition.variant}>
+                    <img
+                      src={`/icons/conditions/${condition.icon}`}
+                      alt=""
+                      className="w-4 h-4 inline-block mr-1.5"
+                    />
+                    {condition.label}
+                  </Badge>
                 </div>
 
                 {trig.details && (
@@ -541,6 +548,7 @@ export default function TrigDetail() {
               trigNorthings={parseInt(trig.osgb_gridref.substring(7, 12))} // Simplified - would need proper conversion
               trigLatitude={parseFloat(trig.wgs_lat)}
               trigLongitude={parseFloat(trig.wgs_long)}
+              defaultCondition={trig.condition}
               onSubmit={handleLogSubmit}
               onCancel={handleLogCancel}
               isSubmitting={createLogMutation.isPending}
