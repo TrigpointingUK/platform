@@ -13,6 +13,8 @@ import OfficialDataSection from "../components/trig/OfficialDataSection";
 import TrigDetailMap from "../components/map/TrigDetailMap";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useTrigLogs } from "../hooks/useTrigLogs";
+import { useUserTrigLogs } from "../hooks/useUserTrigLogs";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useCreateLog } from "../hooks/useCreateLog";
 import { LogCreateInput, LogUpdateInput } from "../lib/api";
 
@@ -61,6 +63,15 @@ export default function TrigDetail() {
     isLoading: isLogsLoading,
     error: logsError,
   } = useTrigLogs(trigIdNum!);
+
+  // Get current user for highlighting their logs
+  const { data: currentUser } = useCurrentUser();
+
+  // Fetch current user's logs for this trig
+  const {
+    data: userLogs,
+    isLoading: isUserLogsLoading,
+  } = useUserTrigLogs(trigIdNum!, currentUser?.id);
 
   const createLogMutation = useCreateLog(trigIdNum!);
 
@@ -510,7 +521,7 @@ export default function TrigDetail() {
         {!showLogForm && (
           <div className="my-8 flex flex-wrap gap-3">
             <Button onClick={handleLogThisTrig} className="w-full md:w-auto">
-              📝 Log This Trig
+              📝 {userLogs && userLogs.length > 0 ? "Log This Trig Again" : "Log This Trig"}
             </Button>
             {hasAdminRole && (
               <Link to={`/admin/trigs/${trigId}/edit`}>
@@ -540,6 +551,21 @@ export default function TrigDetail() {
         {/* Divider */}
         <div className="border-t-4 border-gray-200 my-8"></div>
 
+        {/* Your Visits Section - only shown when user is logged in and has logs */}
+        {isAuthenticated && userLogs && userLogs.length > 0 && (
+          <Card className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Your Visits
+            </h2>
+            <LogList
+              logs={userLogs}
+              isLoading={isUserLogsLoading}
+              emptyMessage="You haven't logged this trig yet"
+              currentUserId={currentUser?.id}
+            />
+          </Card>
+        )}
+
         {/* Logged Visits Section */}
         <Card>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
@@ -556,6 +582,7 @@ export default function TrigDetail() {
                 logs={allLogs}
                 isLoading={isLogsLoading}
                 emptyMessage="No logged visits yet"
+                currentUserId={currentUser?.id}
               />
 
               {/* Load More Trigger */}

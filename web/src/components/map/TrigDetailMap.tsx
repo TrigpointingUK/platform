@@ -38,13 +38,13 @@ export default function TrigDetailMap({
   }, [currentTileLayer.crs]);
   
   return (
-    <div className={`relative z-0 ${className}`}>
+    <div className={`relative ${className}`}>
       <BaseMap
         center={center}
         zoom={zoomLevel}
         height={height}
         tileLayerId={tileLayerId}
-        scrollWheelZoom={false}
+        interactive={false}
       >
         <TrigMarker
           trig={trig}
@@ -54,8 +54,8 @@ export default function TrigDetailMap({
         />
       </BaseMap>
       
-      {/* Tileset selector in top-right corner */}
-      <div className="absolute top-2 right-2 z-10">
+      {/* Tileset selector in top-right corner - z-[1001] to be above Leaflet controls */}
+      <div className="absolute top-2 right-2 z-[1001]">
         <TilesetSelector
           value={tileLayerId}
           onChange={setTileLayerId}
