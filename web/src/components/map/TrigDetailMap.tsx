@@ -38,7 +38,7 @@ export default function TrigDetailMap({
   }, [currentTileLayer.crs]);
   
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative z-0 ${className}`}>
       <BaseMap
         center={center}
         zoom={zoomLevel}
@@ -55,7 +55,7 @@ export default function TrigDetailMap({
       </BaseMap>
       
       {/* Tileset selector in top-right corner */}
-      <div className="absolute top-2 right-2 z-[1000]">
+      <div className="absolute top-2 right-2 z-10">
         <TilesetSelector
           value={tileLayerId}
           onChange={setTileLayerId}
