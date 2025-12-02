@@ -1,5 +1,5 @@
 from .attr import Attr, AttrSet, AttrSetAttrVal, AttrSource, AttrVal
-from .location import Postcode, Postcode6, Postcode8, Town
+from .location import Postcode, Town
 from .server import Server
 from .tphoto import TPhoto
 from .trig import Trig
@@ -15,8 +15,6 @@ __all__ = [
     "Server",
     "Town",
     "Postcode",
-    "Postcode6",
-    "Postcode8",
     "AttrSource",
     "Attr",
     "AttrSet",

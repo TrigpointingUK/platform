@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from api.models.location import Postcode, Postcode6, Town
+from api.models.location import Postcode, Town
 from api.models.trig import Trig
 from api.utils.geodesy import osgb_to_wgs84 as geodesy_osgb_to_wgs84
 
@@ -192,46 +192,30 @@ def search_towns(db: Session, query: str, limit: int = 10) -> List[Town]:
 
 def search_postcodes(
     db: Session, query: str, skip: int = 0, limit: int = 10
-) -> Tuple[List[Postcode6], List[Postcode]]:
+) -> List[Postcode]:
     """
-    Search postcodes in both postcode6 and postcodes tables.
+    Search postcodes in the postcodes table (NSPL dataset).
 
     Args:
         db: Database session
         query: Search query (postcode)
         skip: Number of results to skip
-        limit: Maximum results to return per table
+        limit: Maximum results to return
 
     Returns:
-        Tuple of (Postcode6 list, Postcode list)
+        List of Postcode objects matching the query
     """
-    # Normalize postcode: uppercase
-    query_upper = query.upper().strip()
-
-    # For postcode6 table (no spaces in codes)
-    query_no_space = query_upper.replace(" ", "")
-
-    # Search postcode6 (codes stored without spaces)
-    pc6_results = (
-        db.query(Postcode6)
-        .filter(Postcode6.code.like(f"{query_no_space}%"))
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    # Normalize postcode: uppercase, single spaces
+    query_normalized = " ".join(query.upper().strip().split())
 
     # Search postcodes table (codes stored WITH spaces like "PE27 4AB")
-    # Replace multiple spaces with single space and search as-is
-    query_normalized = " ".join(query_upper.split())
-    postcodes_results = (
+    return (
         db.query(Postcode)
         .filter(Postcode.code.like(f"{query_normalized}%"))
         .offset(skip)
         .limit(limit)
         .all()
     )
-
-    return pc6_results, postcodes_results
 
 
 def osgb_to_wgs84(eastings: int, northings: int) -> Tuple[float, float]:

@@ -32,7 +32,7 @@ from api.models.user import User, TLog, TPhotoVote, TQuery
 from api.models.trig import Trig
 from api.models.trigstats import TrigStats
 from api.models.status import Status
-from api.models.location import Town, Postcode, Postcode6, Postcode8
+from api.models.location import Town, Postcode
 from api.models.attr import Attr, AttrSource, AttrVal, AttrSet, AttrSetAttrVal
 from api.models.tphoto import TPhoto
 from api.models.server import Server
