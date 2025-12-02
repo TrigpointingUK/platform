@@ -31,6 +31,7 @@ interface LogCardProps {
   userName?: string;
   trigName?: string;
   onPhotoUpdate?: () => void;
+  isCurrentUserLog?: boolean;
 }
 
 // Helper function to get condition icon and label
@@ -55,7 +56,7 @@ function getConditionInfo(code: string): { icon: string; label: string } {
   return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
-export default function LogCard({ log, userName, trigName }: LogCardProps) {
+export default function LogCard({ log, userName, trigName, isCurrentUserLog = false }: LogCardProps) {
   const navigate = useNavigate();
   const conditionInfo = getConditionInfo(log.condition);
   const formattedDate = new Date(log.date).toLocaleDateString("en-GB", {
@@ -131,9 +132,15 @@ export default function LogCard({ log, userName, trigName }: LogCardProps) {
     navigate(`/logs/${log.id}`);
   };
 
+  // Apply light green background for current user's logs
+  // Use !bg-green-50 to override Card's default bg-white
+  const cardClassName = isCurrentUserLog
+    ? "hover:shadow-lg transition-shadow cursor-pointer !bg-green-50"
+    : "hover:shadow-lg transition-shadow cursor-pointer";
+
   return (
     <Card 
-      className="hover:shadow-lg transition-shadow cursor-pointer" 
+      className={cardClassName}
       onClick={handleCardClick}
     >
       <div className="flex flex-col gap-3">

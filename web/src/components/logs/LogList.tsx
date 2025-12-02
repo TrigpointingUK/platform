@@ -20,12 +20,14 @@ interface LogListProps {
   logs: Log[];
   isLoading?: boolean;
   emptyMessage?: string;
+  currentUserId?: number;
 }
 
 export default function LogList({
   logs,
   isLoading = false,
   emptyMessage = "No logs found",
+  currentUserId,
 }: LogListProps) {
   if (isLoading) {
     return (
@@ -47,7 +49,11 @@ export default function LogList({
   return (
     <div className="space-y-4">
       {logs.map((log) => (
-        <LogCard key={log.id} log={log} />
+        <LogCard
+          key={log.id}
+          log={log}
+          isCurrentUserLog={currentUserId !== undefined && log.user_id === currentUserId}
+        />
       ))}
     </div>
   );

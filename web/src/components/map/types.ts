@@ -64,6 +64,8 @@ export interface BaseMapProps {
   className?: string;
   /** Whether to enable scroll wheel zoom (default: true) */
   scrollWheelZoom?: boolean;
+  /** Whether to allow user interaction (dragging, zooming, etc.) (default: true) */
+  interactive?: boolean;
 }
 
 /**
