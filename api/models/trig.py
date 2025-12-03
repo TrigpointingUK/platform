@@ -107,9 +107,6 @@ class Trig(Base):
     needs_attention = Column(SmallInteger, nullable=False, default=0)
     attention_comment = Column(Text, nullable=False)
 
-    # External system integration
-    os_net_web_id = Column(Integer, nullable=True)  # OS Net Web ID
-
     # Audit fields - creation
     crt_date = Column(Date, nullable=False)  # Creation date
     crt_time = Column(Time, nullable=False)  # Creation time
