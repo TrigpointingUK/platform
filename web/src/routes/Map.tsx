@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { useMap } from "react-leaflet";
 import { useAuth0 } from "@auth0/auth0-react";
 import type { Map as LeafletMap } from "leaflet";
@@ -32,7 +32,7 @@ import {
   getConditionColor,
   type IconColor
 } from "../lib/mapIcons";
-import { Menu, X } from "lucide-react";
+import { Menu, X, List } from "lucide-react";
 
 // All status levels (IDs)
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
@@ -691,12 +691,21 @@ export default function Map() {
           {/* Map controls overlay */}
           <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
             {mapInstance && (
-              <LocationButton
-                map={mapInstance}
-                onLocationFound={(lat, lon) => {
-                  mapInstance.setView([lat, lon], 13);
-                }}
-              />
+              <>
+                <LocationButton
+                  map={mapInstance}
+                  onLocationFound={(lat, lon) => {
+                    mapInstance.setView([lat, lon], 13);
+                  }}
+                />
+                <Link
+                  to={`/trigs?lat=${mapInstance.getCenter().lat.toFixed(5)}&lon=${mapInstance.getCenter().lng.toFixed(5)}&location=Map%20centre`}
+                  className="bg-white hover:bg-gray-50 p-3 rounded-lg shadow-md flex items-center justify-center"
+                  title="List nearest trigpoints"
+                >
+                  <List size={24} className="text-gray-700" />
+                </Link>
+              </>
             )}
           </div>
           
