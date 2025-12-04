@@ -373,15 +373,13 @@ def get_duplicate_logs_count(db: Session) -> int:
         db.query(TPhoto.tlog_id).filter(TPhoto.deleted_ind != "Y").distinct().subquery()
     )
 
-    # Subquery to find duplicate groups (logs with same key fields, no photos)
+    # Subquery to find duplicate groups (logs with same user, trig, date, no photos)
+    # Duplicates are detected by user_id + trig_id + date only
     duplicate_groups = (
         db.query(
             TLog.user_id,
             TLog.trig_id,
             TLog.date,
-            TLog.time,
-            TLog.condition,
-            TLog.comment,
             func.count(TLog.id).label("cnt"),
         )
         .outerjoin(logs_with_photos, TLog.id == logs_with_photos.c.tlog_id)
@@ -390,9 +388,6 @@ def get_duplicate_logs_count(db: Session) -> int:
             TLog.user_id,
             TLog.trig_id,
             TLog.date,
-            TLog.time,
-            TLog.condition,
-            TLog.comment,
         )
         .having(func.count(TLog.id) > 1)
         .subquery()
@@ -428,8 +423,10 @@ def get_duplicate_logs(
     db: Session, skip: int = 0, limit: int = 100
 ) -> List[Tuple[TLog, Optional[str], Optional[str], Optional[str], int]]:
     """
-    Get duplicate log entries where user_id, trig_id, date, time, condition, comment
-    are identical and no photos have been uploaded.
+    Get duplicate log entries where user_id, trig_id, and date are identical
+    and no photos have been uploaded.
+
+    Duplicates are detected by user_id + trig_id + date only.
 
     Returns only one log from each duplicate group (the one to delete).
     Returns list of tuples (TLog, trig_name, trig_waypoint, user_name, duplicate_count).
@@ -442,14 +439,12 @@ def get_duplicate_logs(
     )
 
     # Find all duplicate groups with their counts
+    # Duplicates are detected by user_id + trig_id + date only
     duplicate_groups = (
         db.query(
             TLog.user_id,
             TLog.trig_id,
             TLog.date,
-            TLog.time,
-            TLog.condition,
-            TLog.comment,
             func.count(TLog.id).label("cnt"),
             func.max(TLog.id).label("max_id"),  # Keep the latest, delete earlier ones
         )
@@ -459,9 +454,6 @@ def get_duplicate_logs(
             TLog.user_id,
             TLog.trig_id,
             TLog.date,
-            TLog.time,
-            TLog.condition,
-            TLog.comment,
         )
         .having(func.count(TLog.id) > 1)
         .subquery()
@@ -476,15 +468,6 @@ def get_duplicate_logs(
             (TLog.user_id == duplicate_groups.c.user_id)
             & (TLog.trig_id == duplicate_groups.c.trig_id)
             & (TLog.date == duplicate_groups.c.date)
-            & (TLog.time == duplicate_groups.c.time)
-            & (
-                (TLog.condition == duplicate_groups.c.condition)
-                | (TLog.condition.is_(None) & duplicate_groups.c.condition.is_(None))
-            )
-            & (
-                (TLog.comment == duplicate_groups.c.comment)
-                | (TLog.comment.is_(None) & duplicate_groups.c.comment.is_(None))
-            )
             & (TLog.id != duplicate_groups.c.max_id),  # Not the one to keep
         )
         .outerjoin(Trig, TLog.trig_id == Trig.id)
@@ -563,26 +546,13 @@ def delete_duplicate_log(db: Session, log_id: int) -> bool:
         return False  # Has photos, shouldn't be deleted
 
     # Build filter for checking duplicates
-    # Must match user_id, trig_id, date, time, condition, comment
+    # Duplicates are detected by user_id + trig_id + date only
     filters = [
         TLog.user_id == log.user_id,
         TLog.trig_id == log.trig_id,
         TLog.date == log.date,
-        TLog.time == log.time,
         TLog.id != log_id,
     ]
-
-    # Handle nullable condition field
-    if log.condition:
-        filters.append(TLog.condition == log.condition)
-    else:
-        filters.append(TLog.condition.is_(None))
-
-    # Handle nullable comment field
-    if log.comment:
-        filters.append(TLog.comment == log.comment)
-    else:
-        filters.append(TLog.comment.is_(None))
 
     # Check that there's at least one other identical log
     duplicate_count = db.query(func.count(TLog.id)).filter(*filters).scalar() or 0
