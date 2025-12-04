@@ -429,26 +429,16 @@ export default function TrigDetail() {
                       📷 View Photo Album
                     </Link>
                   </div>
-                  <div>
-                    <Link
-                      to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
-                      className="text-trig-green-600 hover:underline font-semibold"
-                    >
-                      📍 View Nearby Trigpoints
-                    </Link>
-                  </div>
-                  
-                  {/* Areas dropdown */}
+                  {/* Nearby trigpoints dropdown */}
                   <div className="relative">
                     <button
                       onClick={() => setIsAreasDropdownOpen(!isAreasDropdownOpen)}
                       className="text-trig-green-600 hover:underline font-semibold flex items-center gap-1"
-                      disabled={isAreasLoading || allAreas.length === 0}
                     >
-                      📍 Browse by Area
+                      📍 View Nearby Trigpoints
                       {isAreasLoading ? (
                         <span className="text-gray-400 text-xs">(loading...)</span>
-                      ) : allAreas.length > 0 ? (
+                      ) : (
                         <svg
                           className={`w-4 h-4 transition-transform ${isAreasDropdownOpen ? 'rotate-180' : ''}`}
                           fill="none"
@@ -457,12 +447,10 @@ export default function TrigDetail() {
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
-                      ) : (
-                        <span className="text-gray-400 text-xs">(none)</span>
                       )}
                     </button>
                     
-                    {isAreasDropdownOpen && allAreas.length > 0 && (
+                    {isAreasDropdownOpen && (
                       <>
                         {/* Backdrop to close dropdown */}
                         <div
@@ -472,18 +460,33 @@ export default function TrigDetail() {
                         
                         {/* Dropdown menu */}
                         <div className="absolute left-0 mt-1 w-72 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-[1101]">
-                          {allAreas.map((area) => (
-                            <Link
-                              key={area.id}
-                              to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}&areaId=${area.id}&areaName=${encodeURIComponent(`${area.area_type.name} : ${area.name}`)}`}
-                              className="block px-3 py-2 text-sm text-gray-700 hover:bg-trig-green-50 hover:text-trig-green-700 border-b border-gray-100 last:border-b-0"
-                              onClick={() => setIsAreasDropdownOpen(false)}
-                            >
-                              <span className="font-medium">{area.area_type.name}</span>
-                              <span className="text-gray-400 mx-1">:</span>
-                              <span>{area.name}</span>
-                            </Link>
-                          ))}
+                          {/* All nearby option */}
+                          <Link
+                            to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
+                            className="block px-3 py-2 text-sm text-gray-700 hover:bg-trig-green-50 hover:text-trig-green-700 font-medium"
+                            onClick={() => setIsAreasDropdownOpen(false)}
+                          >
+                            All nearby trigpoints
+                          </Link>
+                          
+                          {/* Divider and area options */}
+                          {allAreas.length > 0 && (
+                            <>
+                              <div className="border-t border-gray-200 my-1" />
+                              {allAreas.map((area) => (
+                                <Link
+                                  key={area.id}
+                                  to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}&areaId=${area.id}&areaName=${encodeURIComponent(`${area.area_type.name} : ${area.name}`)}`}
+                                  className="block px-3 py-2 text-sm text-gray-700 hover:bg-trig-green-50 hover:text-trig-green-700 border-b border-gray-100 last:border-b-0"
+                                  onClick={() => setIsAreasDropdownOpen(false)}
+                                >
+                                  <span className="font-medium">{area.area_type.name}</span>
+                                  <span className="text-gray-400 mx-1">:</span>
+                                  <span>{area.name}</span>
+                                </Link>
+                              ))}
+                            </>
+                          )}
                         </div>
                       </>
                     )}
