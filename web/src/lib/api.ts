@@ -80,6 +80,26 @@ export async function apiPatch<T>(
   return res.json() as Promise<T>;
 }
 
+export async function apiDelete<T>(
+  url: string,
+  token?: string
+): Promise<T> {
+  const res = await fetch(`${API_BASE}${url}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+  }
+  
+  return res.json() as Promise<T>;
+}
+
 export interface RotatePhotoRequest {
   angle: number;
 }
@@ -636,6 +656,107 @@ export async function mergeUsers(
   return apiPost<AdminMergeUsersPreview | AdminMergeUsersResponse>(
     `/v1/admin/merge-users`,
     payload,
+    token
+  );
+}
+
+// Logs Needing Attention Types and Functions
+
+export interface LogNeedsAttentionSummary {
+  orphaned_count: number;
+  duplicate_count: number;
+}
+
+export interface OrphanedLogItem {
+  id: number;
+  trig_id: number | null;
+  user_id: number | null;
+  user_name: string | null;
+  date: string | null;
+  time: string | null;
+  condition: string | null;
+  comment: string | null;
+  score: number | null;
+  issue_type: "orphaned";
+}
+
+export interface DuplicateLogItem {
+  id: number;
+  trig_id: number | null;
+  trig_name: string | null;
+  trig_waypoint: string | null;
+  user_id: number | null;
+  user_name: string | null;
+  date: string | null;
+  time: string | null;
+  condition: string | null;
+  comment: string | null;
+  score: number | null;
+  duplicate_count: number;
+  issue_type: "duplicate";
+}
+
+export type LogNeedsAttentionItem = OrphanedLogItem | DuplicateLogItem;
+
+export interface LogNeedsAttentionListResponse {
+  items: LogNeedsAttentionItem[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
+/**
+ * Get summary of logs needing attention (admin only)
+ */
+export async function fetchLogsNeedsAttentionSummary(
+  token: string
+): Promise<LogNeedsAttentionSummary> {
+  return apiGet<LogNeedsAttentionSummary>(
+    `/v1/admin/logs/needs-attention/summary`,
+    token
+  );
+}
+
+/**
+ * Get paginated list of logs needing attention (admin only)
+ */
+export async function fetchLogsNeedsAttention(
+  params: { skip?: number; limit?: number },
+  token: string
+): Promise<LogNeedsAttentionListResponse> {
+  const skip = params.skip ?? 0;
+  const limit = params.limit ?? 50;
+  return apiGet<LogNeedsAttentionListResponse>(
+    `/v1/admin/logs/needs-attention?skip=${skip}&limit=${limit}`,
+    token
+  );
+}
+
+/**
+ * Delete an orphaned log (admin only)
+ */
+export async function deleteOrphanedLog(
+  logId: number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  return apiDelete<{ success: boolean; message: string }>(
+    `/v1/admin/logs/${logId}/orphaned`,
+    token
+  );
+}
+
+/**
+ * Delete a duplicate log (admin only)
+ */
+export async function deleteDuplicateLog(
+  logId: number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  return apiDelete<{ success: boolean; message: string }>(
+    `/v1/admin/logs/${logId}/duplicate`,
     token
   );
 }

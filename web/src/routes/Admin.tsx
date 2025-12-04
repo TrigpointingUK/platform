@@ -18,6 +18,8 @@ import {
   AdminMergeUsersPreview,
   AdminMergeUsersResponse,
   fetchNeedsAttentionSummary,
+  fetchLogsNeedsAttentionSummary,
+  LogNeedsAttentionSummary,
   mergeUsers,
   migrateLegacyUser,
   searchLegacyUsers,
@@ -621,6 +623,148 @@ function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps)
                   View all trigpoints needing attention →
                 </a>
               </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+interface LogsNeedsAttentionCardProps {
+  getAccessTokenSilently: GetAccessTokenSilently;
+}
+
+function LogsNeedsAttentionCard({ getAccessTokenSilently }: LogsNeedsAttentionCardProps) {
+  const [summary, setSummary] = useState<LogNeedsAttentionSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
+  const panelId = useId();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchSummary = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const token = await getAccessTokenSilently({
+          authorizationParams: { ...ADMIN_AUTH_PARAMS },
+        });
+        const data = await fetchLogsNeedsAttentionSummary(token);
+
+        if (!cancelled) {
+          setSummary(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load summary");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchSummary();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getAccessTokenSilently]);
+
+  const totalIssues = summary ? summary.orphaned_count + summary.duplicate_count : 0;
+
+  return (
+    <Card className="mb-6">
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-[#046935]"
+        >
+          <svg
+            className={`h-4 w-4 text-[#046935] transition-transform duration-200 ${
+              isOpen ? "rotate-90" : ""
+            }`}
+            viewBox="0 0 8 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M1.5 1L6.5 6L1.5 11"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="text-2xl font-semibold">
+            Logs Needing Attention
+          </span>
+        </button>
+      </div>
+
+      {isOpen ? (
+        <div id={panelId} className="mt-3">
+          {isLoading && (
+            <div className="flex items-center gap-2">
+              <Spinner size="sm" />
+              <span className="text-gray-600">Loading summary...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="text-red-600 text-sm">
+              Error: {error}
+            </div>
+          )}
+
+          {summary && !isLoading && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <div className="text-sm text-gray-600">Total orphaned</div>
+                  <div className="text-2xl font-bold text-gray-800">
+                    {summary.orphaned_count}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Logs for deleted trigpoints
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <div className="text-sm text-gray-600">Total duplicates</div>
+                  <div className="text-2xl font-bold text-gray-800">
+                    {summary.duplicate_count}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Identical logs without photos
+                  </div>
+                </div>
+              </div>
+
+              {totalIssues > 0 && (
+                <div className="mt-4">
+                  <a
+                    href="/admin/attention/logs"
+                    className="inline-block bg-[#046935] hover:bg-[#035228] text-white font-medium px-4 py-2 rounded-md transition-colors"
+                  >
+                    View all logs needing attention →
+                  </a>
+                </div>
+              )}
+
+              {totalIssues === 0 && (
+                <div className="text-gray-600 text-sm mt-2">
+                  No logs currently need attention.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1321,6 +1465,8 @@ export default function Admin() {
         </Card>
 
         <NeedsAttentionCard getAccessTokenSilently={getAccessTokenSilently} />
+
+        <LogsNeedsAttentionCard getAccessTokenSilently={getAccessTokenSilently} />
 
         <MergeUsersCard getAccessTokenSilently={getAccessTokenSilently} />
 
