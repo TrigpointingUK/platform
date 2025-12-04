@@ -40,16 +40,21 @@ export interface UserProfile {
 }
 
 export function useUserProfile(userId: string | number) {
-  const { getAccessTokenSilently, isAuthenticated, loginWithRedirect } = useAuth0();
+  const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
+  
+  // Only fetch "me" profile if authenticated and Auth0 has finished loading
+  const isMeQuery = userId === "me";
+  const shouldFetch = !isMeQuery || (isAuthenticated && !isLoading);
   
   return useQuery<UserProfile>({
     queryKey: ["user", "profile", userId],
+    enabled: shouldFetch,
     queryFn: async () => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
       
       // Get token if viewing own profile
       let headers: Record<string, string> = {};
-      if (userId === "me") {
+      if (isMeQuery) {
         if (!isAuthenticated) {
           throw new Error("Not authenticated - please log in");
         }
@@ -61,16 +66,13 @@ export function useUserProfile(userId: string | number) {
           headers = { Authorization: `Bearer ${token}` };
         } catch (error) {
           console.error("Failed to get access token:", error);
-          // If token retrieval fails, trigger re-login
-          await loginWithRedirect({
-            appState: { returnTo: window.location.pathname }
-          });
-          throw new Error("Token expired - redirecting to login");
+          // Don't trigger loginWithRedirect here - let the calling component handle auth state
+          throw new Error("Failed to get access token");
         }
       }
       
       // Include prefs (email) when fetching own profile
-      const includes = userId === "me" 
+      const includes = isMeQuery 
         ? "stats,breakdown,prefs" 
         : "stats,breakdown";
       

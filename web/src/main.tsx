@@ -43,8 +43,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         cacheLocation="localstorage"
         onRedirectCallback={(appState?: AppState) => {
           console.log('Auth0 redirect callback:', appState);
-          // Return to the URL specified in appState, or default to home
-          return appState?.returnTo || window.location.pathname;
+          // Save the return path to sessionStorage so Auth0CallbackHandler can navigate
+          const targetUrl = appState?.returnTo || window.location.pathname;
+          if (targetUrl && targetUrl !== '/' && targetUrl !== baseUrl) {
+            sessionStorage.setItem('auth0_returnTo', targetUrl);
+          }
         }}
       >
         <QueryClientProvider client={queryClient}>

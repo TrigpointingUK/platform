@@ -16,7 +16,7 @@ import { useTrigLogs } from "../hooks/useTrigLogs";
 import { useUserTrigLogs } from "../hooks/useUserTrigLogs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useCreateLog } from "../hooks/useCreateLog";
-import { LogCreateInput, LogUpdateInput } from "../lib/api";
+import { LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
 
 const conditionMap: Record<
   string,
@@ -44,6 +44,7 @@ export default function TrigDetail() {
   const navigate = useNavigate();
   const { isAuthenticated, loginWithRedirect, user } = useAuth0();
   const [showLogForm, setShowLogForm] = useState(false);
+  const [duplicateLogId, setDuplicateLogId] = useState<number | null>(null);
 
   // Check if user has admin role
   const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
@@ -108,9 +109,26 @@ export default function TrigDetail() {
       // Navigate to the new log
       navigate(`/logs/${newLog.id}`);
     } catch (error) {
+      if (error instanceof DuplicateLogError) {
+        // Show the duplicate log modal
+        setDuplicateLogId(error.existingLogId);
+        return;
+      }
       console.error("Failed to create log:", error);
       throw error;
     }
+  };
+
+  const handleDuplicateLogView = () => {
+    if (duplicateLogId) {
+      setShowLogForm(false);
+      setDuplicateLogId(null);
+      navigate(`/logs/${duplicateLogId}`);
+    }
+  };
+
+  const handleDuplicateLogDismiss = () => {
+    setDuplicateLogId(null);
   };
 
   const handleLogCancel = () => {
@@ -553,6 +571,32 @@ export default function TrigDetail() {
               onCancel={handleLogCancel}
               isSubmitting={createLogMutation.isPending}
             />
+          </div>
+        )}
+
+        {/* Duplicate Log Modal */}
+        {duplicateLogId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">Log Already Exists</h3>
+              <p className="text-gray-700 mb-6">
+                You already have a log for this trigpoint on the selected date.
+                Would you like to view or edit your existing log instead?
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={handleDuplicateLogDismiss}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleDuplicateLogView}
+                >
+                  View Existing Log
+                </Button>
+              </div>
+            </Card>
           </div>
         )}
 

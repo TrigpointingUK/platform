@@ -16,6 +16,7 @@ from api.core.config import settings
 from api.core.logging import get_logger
 from api.crud import location as location_crud
 from api.crud import status as status_crud
+from api.crud import tlog as tlog_crud
 from api.crud import trig as trig_crud
 from api.crud import user as user_crud
 from api.crud import user_merge as user_merge_crud
@@ -31,6 +32,12 @@ from api.schemas.admin import (
     MergeRecordCounts,
 )
 from api.schemas.contact import ContactRequest, ContactResponse
+from api.schemas.log_admin import (
+    DuplicateLogItem,
+    LogNeedsAttentionListResponse,
+    LogNeedsAttentionSummary,
+    OrphanedLogItem,
+)
 from api.schemas.trig_admin import (
     StatusResponse,
     TrigAdminDetail,
@@ -997,3 +1004,209 @@ def merge_users_admin(
     )
 
     return response
+
+
+# ============================================================================
+# Logs Needing Attention
+# ============================================================================
+
+
+@router.get(
+    "/logs/needs-attention/summary",
+    response_model=LogNeedsAttentionSummary,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Get summary of logs needing attention (admin only)."
+    ),
+)
+def get_logs_needs_attention_summary(
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> LogNeedsAttentionSummary:
+    """
+    Get summary statistics for logs needing attention.
+
+    Returns counts for:
+    - Orphaned logs: logs referencing deleted trigpoints
+    - Duplicate logs: identical logs (same user, trig, date, time, comment) with no photos
+    """
+    summary = tlog_crud.get_logs_needing_attention_summary(db)
+    return LogNeedsAttentionSummary(**summary)
+
+
+@router.get(
+    "/logs/needs-attention",
+    response_model=LogNeedsAttentionListResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="List logs needing attention (admin only)."
+    ),
+)
+def list_logs_needing_attention(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of records"),
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> LogNeedsAttentionListResponse:
+    """
+    List logs needing attention with pagination.
+
+    Returns two types of logs:
+    - Orphaned: logs referencing deleted trigpoints
+    - Duplicates: identical logs with no photos attached
+
+    Logs are sorted by date (newest first) and interleaved.
+    """
+    # Fetch orphaned logs
+    orphaned_raw = tlog_crud.get_orphaned_logs(db, skip=0, limit=limit * 2)
+    orphaned_items = [
+        OrphanedLogItem(
+            id=int(log.id),
+            trig_id=int(log.trig_id) if log.trig_id else None,
+            user_id=int(log.user_id) if log.user_id else None,
+            user_name=user_name,
+            date=log.date if log.date else None,  # type: ignore[arg-type]
+            time=log.time if log.time else None,  # type: ignore[arg-type]
+            condition=str(log.condition) if log.condition else None,
+            comment=str(log.comment) if log.comment else None,
+            score=int(log.score) if log.score else None,
+            issue_type="orphaned",
+        )
+        for log, user_name in orphaned_raw
+    ]
+
+    # Fetch duplicate logs
+    duplicate_raw = tlog_crud.get_duplicate_logs(db, skip=0, limit=limit * 2)
+    duplicate_items = [
+        DuplicateLogItem(
+            id=int(log.id),
+            trig_id=int(log.trig_id) if log.trig_id else None,
+            trig_name=trig_name,
+            trig_waypoint=trig_waypoint,
+            user_id=int(log.user_id) if log.user_id else None,
+            user_name=user_name,
+            date=log.date if log.date else None,  # type: ignore[arg-type]
+            time=log.time if log.time else None,  # type: ignore[arg-type]
+            condition=str(log.condition) if log.condition else None,
+            comment=str(log.comment) if log.comment else None,
+            score=int(log.score) if log.score else None,
+            duplicate_count=dup_count,
+            issue_type="duplicate",
+        )
+        for log, trig_name, trig_waypoint, user_name, dup_count in duplicate_raw
+    ]
+
+    # Combine and sort by date (newest first)
+    all_items: list[OrphanedLogItem | DuplicateLogItem] = (
+        orphaned_items + duplicate_items
+    )
+    all_items.sort(key=lambda x: (x.date or "", x.time or ""), reverse=True)
+
+    # Apply pagination
+    paginated_items = all_items[skip : skip + limit]
+
+    total = len(all_items)
+    has_more = (skip + len(paginated_items)) < total
+
+    return LogNeedsAttentionListResponse(
+        items=paginated_items,
+        pagination={
+            "total": total,
+            "limit": limit,
+            "offset": skip,
+            "has_more": has_more,
+        },
+    )
+
+
+@router.delete(
+    "/logs/{log_id}/orphaned",
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Delete an orphaned log (admin only)."
+    ),
+)
+def delete_orphaned_log_endpoint(
+    log_id: int,
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete an orphaned log (log referencing a deleted trigpoint).
+
+    Verifies the log is actually orphaned before deletion.
+    """
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_delete_orphaned_log_attempt",
+                "admin_user_id": int(admin_user.id),
+                "log_id": log_id,
+            }
+        )
+    )
+
+    success = tlog_crud.delete_orphaned_log(db, log_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Log not found or is not orphaned",
+        )
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_delete_orphaned_log_success",
+                "admin_user_id": int(admin_user.id),
+                "log_id": log_id,
+            }
+        )
+    )
+
+    return {"success": True, "message": f"Orphaned log {log_id} deleted"}
+
+
+@router.delete(
+    "/logs/{log_id}/duplicate",
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Delete a duplicate log (admin only)."
+    ),
+)
+def delete_duplicate_log_endpoint(
+    log_id: int,
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a duplicate log entry.
+
+    Verifies that this log is part of a duplicate set and has no photos
+    before deletion.
+    """
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_delete_duplicate_log_attempt",
+                "admin_user_id": int(admin_user.id),
+                "log_id": log_id,
+            }
+        )
+    )
+
+    success = tlog_crud.delete_duplicate_log(db, log_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Log not found, has photos, or is not a duplicate",
+        )
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_delete_duplicate_log_success",
+                "admin_user_id": int(admin_user.id),
+                "log_id": log_id,
+            }
+        )
+    )
+
+    return {"success": True, "message": f"Duplicate log {log_id} deleted"}

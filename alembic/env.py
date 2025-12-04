@@ -28,6 +28,7 @@ from api.core.config import settings
 from api.db.database import Base
 
 # Import all models so Alembic can detect them for autogenerate
+from api.models.area import Area, AreaType
 from api.models.user import User, TLog, TPhotoVote, TQuery
 from api.models.trig import Trig
 from api.models.trigstats import TrigStats

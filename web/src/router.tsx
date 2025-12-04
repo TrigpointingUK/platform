@@ -26,6 +26,7 @@ const Contact = lazy(() => import("./routes/Contact"));
 const Attributions = lazy(() => import("./routes/Attributions"));
 const Admin = lazy(() => import("./routes/Admin"));
 const AdminNeedsAttention = lazy(() => import("./routes/admin/NeedsAttention"));
+const AdminLogsNeedsAttention = lazy(() => import("./routes/admin/LogsNeedsAttention"));
 const AdminTrigEdit = lazy(() => import("./routes/admin/TrigEdit"));
 
 // Redirect component for old /trig/ URLs
@@ -247,6 +248,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <AdminNeedsAttention />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/attention/logs",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminLogsNeedsAttention />
         </Suspense>
       ),
     },
