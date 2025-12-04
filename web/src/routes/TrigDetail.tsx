@@ -459,7 +459,7 @@ export default function TrigDetail() {
                         />
                         
                         {/* Dropdown menu */}
-                        <div className="absolute left-0 mt-1 w-72 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-[1101]">
+                        <div className="absolute left-0 mt-1 min-w-72 w-max max-w-[90vw] max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-[1101]">
                           {/* All nearby option */}
                           <Link
                             to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}`}
