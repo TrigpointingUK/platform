@@ -9,6 +9,14 @@ interface AreaFilterProps {
   disabled?: boolean;
 }
 
+// Helper to format area display text: "<area type> : <area name> (code)"
+function formatAreaDisplay(area: Area): string {
+  const typeName = area.area_type.name;
+  const areaName = area.name;
+  const code = area.code ? ` (${area.code})` : "";
+  return `${typeName} : ${areaName}${code}`;
+}
+
 export function AreaFilter({
   areaGroups,
   selectedAreaId,
@@ -17,13 +25,15 @@ export function AreaFilter({
   disabled = false,
 }: AreaFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [expandedTypes, setExpandedTypes] = useState<Set<number>>(new Set());
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Find the selected area name
-  const selectedArea = areaGroups
+  // Flatten all areas into a single list, sorted by area type name
+  const allAreas = areaGroups
     .flatMap((g) => g.areas)
-    .find((a) => a.id === selectedAreaId);
+    .sort((a, b) => a.area_type.name.localeCompare(b.area_type.name));
+
+  // Find the selected area
+  const selectedArea = allAreas.find((a) => a.id === selectedAreaId);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -40,20 +50,8 @@ export function AreaFilter({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const toggleTypeExpanded = (typeId: number) => {
-    setExpandedTypes((prev) => {
-      const next = new Set(prev);
-      if (next.has(typeId)) {
-        next.delete(typeId);
-      } else {
-        next.add(typeId);
-      }
-      return next;
-    });
-  };
-
   const handleSelectArea = (area: Area) => {
-    onSelectArea(area.id, area.name);
+    onSelectArea(area.id, formatAreaDisplay(area));
     setIsOpen(false);
   };
 
@@ -62,7 +60,7 @@ export function AreaFilter({
     setIsOpen(false);
   };
 
-  const hasAreas = areaGroups.length > 0 && areaGroups.some((g) => g.areas.length > 0);
+  const hasAreas = allAreas.length > 0;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -73,7 +71,7 @@ export function AreaFilter({
         disabled={disabled || !hasAreas}
         className={`
           inline-flex items-center justify-between gap-2
-          px-4 py-2 min-w-[200px] max-w-[300px]
+          px-4 py-2 min-w-[200px] max-w-[400px]
           text-left text-sm
           border border-gray-300 rounded-lg
           transition-colors
@@ -92,13 +90,13 @@ export function AreaFilter({
           ) : !hasAreas ? (
             "No areas available"
           ) : selectedArea ? (
-            selectedArea.name
+            formatAreaDisplay(selectedArea)
           ) : (
             "Filter by area..."
           )}
         </span>
         <svg
-          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -123,7 +121,7 @@ export function AreaFilter({
       {/* Dropdown */}
       {isOpen && hasAreas && (
         <div
-          className="absolute z-50 w-80 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+          className="absolute z-50 w-96 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
           role="listbox"
         >
           {/* Clear option */}
@@ -137,62 +135,23 @@ export function AreaFilter({
             </button>
           )}
 
-          {/* Grouped areas */}
-          {areaGroups.map((group) => (
-            <div key={group.area_type.id} className="border-b border-gray-100 last:border-b-0">
-              {/* Area type header */}
-              <button
-                type="button"
-                onClick={() => toggleTypeExpanded(group.area_type.id)}
-                className="w-full px-4 py-2 text-left bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between"
-              >
-                <span className="font-medium text-gray-700 text-sm">
-                  {group.area_type.name}
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">
-                    {group.areas.length}
-                  </span>
-                  <svg
-                    className={`w-4 h-4 text-gray-400 transition-transform ${
-                      expandedTypes.has(group.area_type.id) ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </span>
-              </button>
-
-              {/* Area list (collapsible) */}
-              {expandedTypes.has(group.area_type.id) && (
-                <div className="bg-white">
-                  {group.areas.map((area) => (
-                    <button
-                      key={area.id}
-                      type="button"
-                      onClick={() => handleSelectArea(area)}
-                      className={`
-                        w-full px-6 py-2 text-left text-sm
-                        hover:bg-blue-50 transition-colors
-                        ${selectedAreaId === area.id ? "bg-blue-100 text-blue-700" : "text-gray-700"}
-                      `}
-                      role="option"
-                      aria-selected={selectedAreaId === area.id}
-                    >
-                      {area.name}
-                      {area.code && (
-                        <span className="ml-2 text-xs text-gray-400">
-                          ({area.code})
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+          {/* Flat list of all areas */}
+          {allAreas.map((area) => (
+            <button
+              key={area.id}
+              type="button"
+              onClick={() => handleSelectArea(area)}
+              className={`
+                w-full px-4 py-2 text-left text-sm
+                hover:bg-blue-50 transition-colors
+                border-b border-gray-100 last:border-b-0
+                ${selectedAreaId === area.id ? "bg-blue-100 text-blue-700" : "text-gray-700"}
+              `}
+              role="option"
+              aria-selected={selectedAreaId === area.id}
+            >
+              {formatAreaDisplay(area)}
+            </button>
           ))}
         </div>
       )}
