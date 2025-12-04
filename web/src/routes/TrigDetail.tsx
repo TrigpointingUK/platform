@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -16,6 +16,7 @@ import { useTrigLogs } from "../hooks/useTrigLogs";
 import { useUserTrigLogs } from "../hooks/useUserTrigLogs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useCreateLog } from "../hooks/useCreateLog";
+import { useAreasContaining, type Area } from "../hooks/useAreasContaining";
 import { LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
 
 const conditionMap: Record<
@@ -75,6 +76,30 @@ export default function TrigDetail() {
   } = useUserTrigLogs(trigIdNum!, currentUser?.id);
 
   const createLogMutation = useCreateLog(trigIdNum!);
+
+  // Fetch areas containing this trigpoint
+  const { data: areasData, isLoading: isAreasLoading } = useAreasContaining(
+    trig ? parseFloat(trig.wgs_lat) : undefined,
+    trig ? parseFloat(trig.wgs_long) : undefined
+  );
+
+  // Flatten areas for the dropdown
+  const allAreas = useMemo(() => {
+    if (!areasData?.groups) return [];
+    const areas: Area[] = [];
+    for (const group of areasData.groups) {
+      areas.push(...group.areas);
+    }
+    // Sort by area type name, then area name
+    return areas.sort((a, b) => {
+      const typeCompare = a.area_type.name.localeCompare(b.area_type.name);
+      if (typeCompare !== 0) return typeCompare;
+      return a.name.localeCompare(b.name);
+    });
+  }, [areasData]);
+
+  // State for areas dropdown
+  const [isAreasDropdownOpen, setIsAreasDropdownOpen] = useState(false);
 
   // Intersection observer for infinite scroll
   const { ref: loadMoreRef, inView } = useInView({
@@ -411,6 +436,57 @@ export default function TrigDetail() {
                     >
                       📍 View Nearby Trigpoints
                     </Link>
+                  </div>
+                  
+                  {/* Areas dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsAreasDropdownOpen(!isAreasDropdownOpen)}
+                      className="text-trig-green-600 hover:underline font-semibold flex items-center gap-1"
+                      disabled={isAreasLoading || allAreas.length === 0}
+                    >
+                      📍 Browse by Area
+                      {isAreasLoading ? (
+                        <span className="text-gray-400 text-xs">(loading...)</span>
+                      ) : allAreas.length > 0 ? (
+                        <svg
+                          className={`w-4 h-4 transition-transform ${isAreasDropdownOpen ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      ) : (
+                        <span className="text-gray-400 text-xs">(none)</span>
+                      )}
+                    </button>
+                    
+                    {isAreasDropdownOpen && allAreas.length > 0 && (
+                      <>
+                        {/* Backdrop to close dropdown */}
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setIsAreasDropdownOpen(false)}
+                        />
+                        
+                        {/* Dropdown menu */}
+                        <div className="absolute left-0 mt-1 w-72 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                          {allAreas.map((area) => (
+                            <Link
+                              key={area.id}
+                              to={`/trigs?lat=${trig.wgs_lat}&lon=${trig.wgs_long}&location=${encodeURIComponent(`${trig.waypoint} - ${trig.name}`)}&areaId=${area.id}&areaName=${encodeURIComponent(`${area.area_type.name} : ${area.name}`)}`}
+                              className="block px-3 py-2 text-sm text-gray-700 hover:bg-trig-green-50 hover:text-trig-green-700 border-b border-gray-100 last:border-b-0"
+                              onClick={() => setIsAreasDropdownOpen(false)}
+                            >
+                              <span className="font-medium">{area.area_type.name}</span>
+                              <span className="text-gray-400 mx-1">:</span>
+                              <span>{area.name}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
