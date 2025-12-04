@@ -466,12 +466,12 @@ export default function TrigDetail() {
                       <>
                         {/* Backdrop to close dropdown */}
                         <div
-                          className="fixed inset-0 z-10"
+                          className="fixed inset-0 z-[1000]"
                           onClick={() => setIsAreasDropdownOpen(false)}
                         />
                         
                         {/* Dropdown menu */}
-                        <div className="absolute left-0 mt-1 w-72 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                        <div className="absolute left-0 mt-1 w-72 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-[1001]">
                           {allAreas.map((area) => (
                             <Link
                               key={area.id}
