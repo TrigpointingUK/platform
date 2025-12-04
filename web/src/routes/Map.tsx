@@ -380,9 +380,14 @@ export default function Map() {
     }
   }, [iconColorMode]);
   
-  // Update URL params when filters change
+  // Update URL params when filters change (preserve area_id if present)
   useEffect(() => {
     const params = new URLSearchParams();
+    
+    // Preserve area_id if it was passed in
+    if (areaId !== undefined) {
+      params.set("area_id", areaId.toString());
+    }
     
     if (selectedStatuses.length !== ALL_STATUSES.length) {
       params.set("statuses", selectedStatuses.join(","));
@@ -393,7 +398,7 @@ export default function Map() {
     }
     
     setSearchParams(params, { replace: true });
-  }, [selectedStatuses, excludeFound, setSearchParams]);
+  }, [selectedStatuses, excludeFound, areaId, setSearchParams]);
   
   // Handle bounds change with debouncing
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
