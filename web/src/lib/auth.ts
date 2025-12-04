@@ -5,7 +5,9 @@ export function useAccessToken() {
   
   const getToken = async (): Promise<string> => {
     if (!isAuthenticated) {
-      await loginWithRedirect();
+      await loginWithRedirect({
+        appState: { returnTo: window.location.pathname }
+      });
       return "";
     }
     return await getAccessTokenSilently();

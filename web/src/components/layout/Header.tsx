@@ -123,7 +123,9 @@ export default function Header() {
               </div>
             ) : (
               <button
-                onClick={() => loginWithRedirect()}
+                onClick={() => loginWithRedirect({
+                  appState: { returnTo: window.location.pathname }
+                })}
                 className="bg-white text-trig-green-600 px-4 py-2 rounded-md font-medium hover:bg-trig-green-50 transition-colors"
               >
                 Login
