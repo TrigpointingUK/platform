@@ -13,6 +13,11 @@ INSERT INTO area_type (id, code, name, description, source_url) VALUES
 (1, 'historic_county', 'Historic County', 'Historic county boundaries definition A', 'https://wikishire.co.uk/lookup/'),
 (2, 'admin_county', 'Administrative Boundary', 'Counties and Unitary Authorities (December 2024)', 'https://geoportal.statistics.gov.uk/');
 (3, 'country', 'Country', 'Countries', '{"https://geoportal.statistics.gov.uk/datasets/8295b10303ce46c982f62af3733b9405_0/explore?location=52.116418%2C3.647172%2C5.03", "https://simplemaps.com/gis/country/ie#all"}');
+
+
+INSERT INTO area_type (id, code, name, description, source_url) VALUES
+(4, 'os_explorer', 'OS Explorer', 'Ordnance Survey Explorer maps 1:25k', 'https://shop.ordnancesurvey.co.uk/'),
+(5, 'os_landranger', 'OS Landranger', 'Ordnance Survey Landranger maps 1:50k', 'https://shop.ordnancesurvey.co.uk/');
 ```
 
 
@@ -133,4 +138,51 @@ SELECT
         'source', source
     )::text AS properties
 FROM area_staging_ctryie;
+```
+
+## Sheets
+
+```bash
+ogr2ogr -f "PostgreSQL" \
+  "PG:host=localhost port=5433 dbname=tuk_staging user=$PG_USER password=$PG_PASS" \
+  /home/ianh/Trigpointing/Data/OS_maps_fixed.json \
+  -nln area_staging_os_maps \
+  -nlt PROMOTE_TO_MULTI \
+  -s_srs EPSG:27700 \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=boundary \
+  -overwrite
+
+```
+
+```sql
+INSERT INTO area (area_type_id, code, name, boundary, properties)
+SELECT 
+    4 AS area_type_id,
+    sheet AS code,
+    title AS name,
+    boundary,
+    jsonb_build_object(
+        'number', number,
+        'title', title,
+        'subtitle', sub_title
+    )::text AS properties
+FROM area_staging_os_maps
+WHERE series='Explorer';
+
+
+INSERT INTO area (area_type_id, code, name, boundary, properties)
+SELECT 
+    5 AS area_type_id,
+    sheet AS code,
+    title AS name,
+    boundary,
+    jsonb_build_object(
+        'number', number,
+        'title', title,
+        'subtitle', sub_title
+    )::text AS properties
+FROM area_staging_os_maps
+WHERE series='Landranger';
+
 ```
