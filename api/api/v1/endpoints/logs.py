@@ -329,6 +329,19 @@ def create_log(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Check for duplicate log (same user, trig, date)
+    existing = tlog_crud.get_existing_log_for_user_trig_date(
+        db, user_id=int(current_user.id), trig_id=trig_id, date=payload.date
+    )
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "You already have a log for this trigpoint on this date",
+                "existing_log_id": int(existing.id),
+            },
+        )
+
     # Get client IP address (normalized for varchar(15) storage)
     from api.utils.ip_address import get_client_ip_normalized
 
@@ -380,6 +393,24 @@ def update_log_endpoint(
                     status_code=403, detail="Missing required scope: api:admin"
                 )
         # Legacy tokens not supported - Auth0 only
+
+    # Check for duplicate log if date is being changed
+    if payload.date is not None:
+        duplicate = tlog_crud.get_existing_log_for_user_trig_date(
+            db,
+            user_id=int(existing.user_id),
+            trig_id=int(existing.trig_id),
+            date=payload.date,
+            exclude_log_id=log_id,
+        )
+        if duplicate:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "You already have a log for this trigpoint on this date",
+                    "existing_log_id": int(duplicate.id),
+                },
+            )
 
     updated = tlog_crud.update_log(
         db, log_id=log_id, updates=payload.model_dump(exclude_none=True)

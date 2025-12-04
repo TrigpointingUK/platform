@@ -2,6 +2,7 @@
 CRUD operations for tlog table.
 """
 
+from datetime import date as DateType
 from typing import Iterable, List, Optional, Tuple
 
 from sqlalchemy import asc, desc, func
@@ -18,6 +19,25 @@ from api.services.cache_invalidator import (
 
 def get_log_by_id(db: Session, log_id: int) -> Optional[TLog]:
     return db.query(TLog).filter(TLog.id == log_id).first()
+
+
+def get_existing_log_for_user_trig_date(
+    db: Session,
+    *,
+    user_id: int,
+    trig_id: int,
+    date: DateType,
+    exclude_log_id: Optional[int] = None,
+) -> Optional[TLog]:
+    """Check if user already has a log for this trig on this date."""
+    q = db.query(TLog).filter(
+        TLog.user_id == user_id,
+        TLog.trig_id == trig_id,
+        TLog.date == date,
+    )
+    if exclude_log_id:
+        q = q.filter(TLog.id != exclude_log_id)
+    return q.first()
 
 
 def list_logs_filtered(

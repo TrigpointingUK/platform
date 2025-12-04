@@ -7,6 +7,40 @@ if (!API_BASE) {
   console.log('API_BASE configured as:', API_BASE);
 }
 
+/**
+ * Custom error for duplicate log attempts (409 Conflict)
+ */
+export class DuplicateLogError extends Error {
+  existingLogId: number;
+  constructor(message: string, existingLogId: number) {
+    super(message);
+    this.name = "DuplicateLogError";
+    this.existingLogId = existingLogId;
+  }
+}
+
+/**
+ * Parse error response and throw appropriate error type
+ */
+function parseAndThrowError(status: number, text: string, statusText: string): never {
+  // Check for 409 Conflict with duplicate log info
+  if (status === 409) {
+    try {
+      const errorData = JSON.parse(text);
+      if (errorData.detail?.existing_log_id) {
+        throw new DuplicateLogError(
+          errorData.detail.message || "Duplicate log exists",
+          errorData.detail.existing_log_id
+        );
+      }
+    } catch (e) {
+      if (e instanceof DuplicateLogError) throw e;
+      // Fall through to generic error
+    }
+  }
+  throw new Error(`HTTP ${status}: ${text || statusText}`);
+}
+
 export async function apiGet<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, {
     method: "GET",
@@ -47,9 +81,8 @@ export async function apiPost<T>(
   
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    const errorMsg = `HTTP ${res.status}: ${text || res.statusText}`;
-    console.error('apiPost error:', errorMsg);
-    throw new Error(errorMsg);
+    console.error('apiPost error:', `HTTP ${res.status}: ${text || res.statusText}`);
+    parseAndThrowError(res.status, text, res.statusText);
   }
   
   const jsonResponse = await res.json() as Promise<T>;
@@ -74,7 +107,7 @@ export async function apiPatch<T>(
   
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+    parseAndThrowError(res.status, text, res.statusText);
   }
   
   return res.json() as Promise<T>;

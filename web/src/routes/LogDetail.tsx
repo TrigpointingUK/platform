@@ -12,7 +12,7 @@ import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useUpdateLog } from "../hooks/useUpdateLog";
 import { useDeleteLog } from "../hooks/useDeleteLog";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { LogUpdateInput } from "../lib/api";
+import { LogUpdateInput, DuplicateLogError } from "../lib/api";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
@@ -22,6 +22,7 @@ export default function LogDetail() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [duplicateLogId, setDuplicateLogId] = useState<number | null>(null);
 
   const {
     data: log,
@@ -65,10 +66,27 @@ export default function LogDetail() {
       setIsEditing(false);
       // Optionally show success message
     } catch (error) {
+      if (error instanceof DuplicateLogError) {
+        // Show the duplicate log modal
+        setDuplicateLogId(error.existingLogId);
+        return;
+      }
       console.error("Failed to update log:", error);
       // Error handling - could show toast notification
       throw error;
     }
+  };
+
+  const handleDuplicateLogView = () => {
+    if (duplicateLogId) {
+      setIsEditing(false);
+      setDuplicateLogId(null);
+      navigate(`/logs/${duplicateLogId}`);
+    }
+  };
+
+  const handleDuplicateLogDismiss = () => {
+    setDuplicateLogId(null);
   };
 
   const handleDeleteClick = () => {
@@ -250,6 +268,32 @@ export default function LogDetail() {
               />
             )}
           </>
+        )}
+
+        {/* Duplicate Log Modal */}
+        {duplicateLogId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">Log Already Exists</h3>
+              <p className="text-gray-700 mb-6">
+                You already have a log for this trigpoint on the selected date.
+                Would you like to view your existing log instead?
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={handleDuplicateLogDismiss}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleDuplicateLogView}
+                >
+                  View Existing Log
+                </Button>
+              </div>
+            </Card>
+          </div>
         )}
       </div>
     </Layout>
