@@ -9,12 +9,9 @@ interface AreaFilterProps {
   disabled?: boolean;
 }
 
-// Helper to format area display text: "<area type> : <area name> (code)"
+// Helper to format area display text: "<area type> : <area name>"
 function formatAreaDisplay(area: Area): string {
-  const typeName = area.area_type.name;
-  const areaName = area.name;
-  const code = area.code ? ` (${area.code})` : "";
-  return `${typeName} : ${areaName}${code}`;
+  return `${area.area_type.name} : ${area.name}`;
 }
 
 export function AreaFilter({
