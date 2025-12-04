@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from api.api.v1.endpoints import (
     admin,
+    areas,
     debug,
     legacy,
     locations,
@@ -25,6 +26,7 @@ api_router.include_router(logs.router, prefix="/logs", tags=["log"])
 api_router.include_router(photos.router, prefix="/photos", tags=["photo"])
 api_router.include_router(stats.router, prefix="/stats", tags=["stats"])
 api_router.include_router(locations.router, prefix="/locations", tags=["location"])
+api_router.include_router(areas.router, prefix="/areas", tags=["area"])
 api_router.include_router(tiles.router, prefix="/tiles/os", tags=["tiles"])
 api_router.include_router(legacy.router, prefix="/legacy", tags=["legacy"])
 api_router.include_router(debug.router, prefix="/debug", tags=["debug"])

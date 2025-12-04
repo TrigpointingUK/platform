@@ -2,9 +2,11 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInfiniteTrigs } from "../hooks/useInfiniteTrigs";
 import { useUserLoggedTrigs } from "../hooks/useUserLoggedTrigs";
+import { useAreasContaining } from "../hooks/useAreasContaining";
 import { LocationSearch } from "../components/trigs/LocationSearch";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
+import { AreaFilter } from "../components/trigs/AreaFilter";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUserProfile } from "../hooks/useUserProfile";
@@ -64,6 +66,21 @@ export default function FindTrigs() {
   );
   const [showNotLogged, setShowNotLogged] = useState<boolean>(
     () => searchParams.get("showNotLogged") !== "false"
+  );
+  
+  // Area filter state
+  const [selectedAreaId, setSelectedAreaId] = useState<number | null>(() => {
+    const areaId = searchParams.get("areaId");
+    return areaId ? parseInt(areaId, 10) : null;
+  });
+  const [selectedAreaName, setSelectedAreaName] = useState<string | null>(
+    () => searchParams.get("areaName") || null
+  );
+  
+  // Fetch areas containing the current location
+  const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(
+    centerLat ?? undefined,
+    centerLon ?? undefined
   );
 
   // Attempt to get user's current location on mount
@@ -133,8 +150,16 @@ export default function FindTrigs() {
       params.set("showNotLogged", "false");
     }
     
+    // Add area filter to URL if selected
+    if (selectedAreaId !== null) {
+      params.set("areaId", selectedAreaId.toString());
+      if (selectedAreaName) {
+        params.set("areaName", selectedAreaName);
+      }
+    }
+    
     setSearchParams(params, { replace: true });
-  }, [centerLat, centerLon, locationName, selectedStatuses, showLogged, showNotLogged, setSearchParams]);
+  }, [centerLat, centerLon, locationName, selectedStatuses, showLogged, showNotLogged, selectedAreaId, selectedAreaName, setSearchParams]);
 
   // Fetch trigpoints with current filters (only if location is set)
   const {
@@ -150,6 +175,7 @@ export default function FindTrigs() {
     statusIds: selectedStatuses.length > 0 ? selectedStatuses : undefined,
     showLogged,
     showNotLogged,
+    areaId: selectedAreaId ?? undefined,
   });
 
   const handleSelectLocation = useCallback(
@@ -157,6 +183,17 @@ export default function FindTrigs() {
       setCenterLat(lat);
       setCenterLon(lon);
       setLocationName(name);
+      // Clear area filter when location changes (areas are location-specific)
+      setSelectedAreaId(null);
+      setSelectedAreaName(null);
+    },
+    []
+  );
+  
+  const handleSelectArea = useCallback(
+    (areaId: number | null, areaName: string | null) => {
+      setSelectedAreaId(areaId);
+      setSelectedAreaName(areaName);
     },
     []
   );
@@ -175,6 +212,8 @@ export default function FindTrigs() {
     setSelectedStatuses(ALL_STATUSES);
     setShowLogged(true);
     setShowNotLogged(true);
+    setSelectedAreaId(null);
+    setSelectedAreaName(null);
     setCenterLat(DEFAULT_LAT);
     setCenterLon(DEFAULT_LON);
     setLocationName(DEFAULT_LOCATION_NAME);
@@ -263,7 +302,7 @@ export default function FindTrigs() {
               />
             </div>
 
-            {/* Log filter and clear button */}
+            {/* Log filter, Area filter, and clear button */}
             <div className="flex items-center justify-between flex-wrap gap-4">
               {isAuthenticated && (
                 <div>
@@ -278,6 +317,20 @@ export default function FindTrigs() {
                   />
                 </div>
               )}
+              
+              {/* Area filter - shows available areas for the selected location */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by area
+                </label>
+                <AreaFilter
+                  areaGroups={areasData?.groups || []}
+                  selectedAreaId={selectedAreaId}
+                  onSelectArea={handleSelectArea}
+                  isLoading={isLoadingAreas}
+                  disabled={centerLat === null || centerLon === null}
+                />
+              </div>
               
               <button
                 type="button"
@@ -296,6 +349,7 @@ export default function FindTrigs() {
                 <span>
                   Showing {allTrigs.length} of {totalCount} trigpoints
                   {centerLat && centerLon && locationName && ` near ${locationName}`}
+                  {selectedAreaName && ` in ${selectedAreaName}`}
                 </span>
               )}
             </div>

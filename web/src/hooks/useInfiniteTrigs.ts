@@ -45,14 +45,15 @@ export interface UseInfiniteTrigsOptions {
   showLogged?: boolean; // Show trigpoints logged by user (default: true)
   showNotLogged?: boolean; // Show trigpoints not logged by user (default: true)
   maxKm?: number;
+  areaId?: number; // Filter to trigpoints within a specific area
 }
 
 export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
-  const { lat, lon, statusIds, showLogged = true, showNotLogged = true, maxKm } = options;
+  const { lat, lon, statusIds, showLogged = true, showNotLogged = true, maxKm, areaId } = options;
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigsResponse>({
-    queryKey: ["trigs", "infinite", lat, lon, statusIds, showLogged, showNotLogged, maxKm],
+    queryKey: ["trigs", "infinite", lat, lon, statusIds, showLogged, showNotLogged, maxKm, areaId],
     enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
       const skip = typeof pageParam === "number" ? pageParam : 0;
@@ -82,6 +83,11 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
       }
       if (!showNotLogged) {
         params.append("only_found", "true");
+      }
+      
+      // Area filter
+      if (areaId !== undefined) {
+        params.append("area_id", areaId.toString());
       }
       
       // Get auth token if authenticated (needed for status_max and log filters)
