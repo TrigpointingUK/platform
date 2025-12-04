@@ -6,9 +6,11 @@ import type { Map as LeafletMap } from "leaflet";
 import BaseMap from "../components/map/BaseMap";
 import TrigMarker from "../components/map/TrigMarker";
 import HeatmapLayer from "../components/map/HeatmapLayer";
+import AreaBoundaryLayer from "../components/map/AreaBoundaryLayer";
 import TilesetSelector from "../components/map/TilesetSelector";
 import IconColorModeSelector from "../components/map/IconColorModeSelector";
 import LocationButton from "../components/map/LocationButton";
+import { useAreaBoundary } from "../hooks/useAreaBoundary";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { ColorFilter } from "../components/trigs/ColorFilter";
 import Layout from "../components/layout/Layout";
@@ -157,6 +159,15 @@ export default function Map() {
   
   // Track if we've initialized statuses from user preferences
   const [statusesInitialized, setStatusesInitialized] = useState(false);
+  
+  // Parse area_id from URL params for boundary display
+  const areaId = useMemo(() => {
+    const areaIdParam = searchParams.get("area_id");
+    return areaIdParam ? parseInt(areaIdParam, 10) : undefined;
+  }, [searchParams]);
+  
+  // Fetch area boundary when area_id is provided
+  const { data: areaBoundary, isLoading: isLoadingBoundary } = useAreaBoundary(areaId);
   
   // Get center from URL params or use default
   const initialCenter: [number, number] = useMemo(() => {
@@ -416,6 +427,13 @@ export default function Map() {
     setRenderMode('auto');
     setTileLayerId(DEFAULT_TILE_LAYER);
     
+    // Clear area_id from URL if present
+    if (searchParams.has("area_id")) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("area_id");
+      setSearchParams(newParams, { replace: true });
+    }
+    
     // Reset map to show whole UK
     if (mapInstance) {
       mapInstance.setView(
@@ -423,7 +441,7 @@ export default function Map() {
         MAP_CONFIG.defaultZoom
       );
     }
-  }, [mapInstance, preferredStatuses]);
+  }, [mapInstance, preferredStatuses, searchParams, setSearchParams]);
   
   return (
     <Layout>
@@ -542,6 +560,23 @@ export default function Map() {
               </div>
             </div>
             
+            {/* Area boundary info (when viewing an area from /trigs) */}
+            {areaBoundary && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-xs font-medium text-blue-600 mb-1">
+                  Viewing Area Boundary
+                </div>
+                <div className="text-sm font-semibold text-blue-900">
+                  {areaBoundary.area_type.name}: {areaBoundary.name}
+                </div>
+              </div>
+            )}
+            {isLoadingBoundary && (
+              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="text-sm text-gray-600">Loading area boundary...</div>
+              </div>
+            )}
+            
             {/* Reset map button */}
             <button
               type="button"
@@ -620,6 +655,16 @@ export default function Map() {
               onZoomChange={setCurrentZoom}
             />
             <MapSizeInvalidator sidebarOpen={isSidebarOpen} />
+            
+            {/* Render area boundary if area_id is provided */}
+            {areaBoundary && (
+              <AreaBoundaryLayer
+                boundary={areaBoundary.boundary}
+                name={areaBoundary.name}
+                areaTypeName={areaBoundary.area_type.name}
+                fitBounds={true}
+              />
+            )}
             
             {/* Render trigpoint markers or heatmap */}
             {shouldShowHeatmap ? (

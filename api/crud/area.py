@@ -3,9 +3,9 @@ CRUD operations for area and area_type tables.
 Uses PostGIS spatial functions for containment queries.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
-from geoalchemy2.functions import ST_Covers, ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import ST_AsGeoJSON, ST_Covers, ST_MakePoint, ST_SetSRID
 from sqlalchemy.orm import Session
 
 from api.models.area import Area, AreaType
@@ -151,3 +151,66 @@ def count_areas_by_type(db: Session, area_type_id: int) -> int:
         Count of areas
     """
     return db.query(Area).filter(Area.area_type_id == area_type_id).count()
+
+
+def get_area_boundary_geojson(db: Session, area_id: int) -> Optional[dict[str, Any]]:
+    """
+    Get an area's boundary as GeoJSON.
+
+    Uses PostGIS ST_AsGeoJSON to convert the boundary geometry to GeoJSON format.
+
+    Args:
+        db: Database session
+        area_id: Area ID
+
+    Returns:
+        Dictionary with area info and GeoJSON boundary, or None if not found.
+        Format: {
+            "id": int,
+            "name": str,
+            "code": str | None,
+            "area_type": {"id": int, "code": str, "name": str},
+            "boundary": GeoJSON object (parsed from ST_AsGeoJSON)
+        }
+    """
+    import json
+
+    if _is_sqlite(db):
+        # SQLite doesn't support PostGIS - return None for tests
+        return None
+
+    # Query area with boundary as GeoJSON
+    result = (
+        db.query(
+            Area.id,
+            Area.name,
+            Area.code,
+            Area.area_type_id,
+            ST_AsGeoJSON(Area.boundary).label("boundary_geojson"),
+        )
+        .filter(Area.id == area_id)
+        .first()
+    )
+
+    if result is None:
+        return None
+
+    # Get area type info
+    area_type = get_area_type_by_id(db, result.area_type_id)
+    if area_type is None:
+        return None
+
+    # Parse GeoJSON string to dict
+    boundary_dict = json.loads(result.boundary_geojson)
+
+    return {
+        "id": result.id,
+        "name": result.name,
+        "code": result.code,
+        "area_type": {
+            "id": int(area_type.id),
+            "code": str(area_type.code),
+            "name": str(area_type.name),
+        },
+        "boundary": boundary_dict,
+    }

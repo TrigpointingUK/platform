@@ -2,7 +2,7 @@
 Pydantic schemas for area endpoints.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -46,3 +46,15 @@ class AreasContainingResponse(BaseModel):
         ..., description="Areas grouped by type containing the point"
     )
     total_areas: int = Field(..., description="Total number of areas found")
+
+
+class AreaBoundaryResponse(BaseModel):
+    """Response model for area boundary as GeoJSON."""
+
+    id: int = Field(..., description="Area ID")
+    name: str = Field(..., description="Area name")
+    code: Optional[str] = Field(None, description="External code (ONS, OS, etc.)")
+    area_type: AreaTypeResponse = Field(..., description="Area type information")
+    boundary: dict[str, Any] = Field(
+        ..., description="GeoJSON geometry (MultiPolygon or Polygon)"
+    )

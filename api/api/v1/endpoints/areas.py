@@ -11,6 +11,7 @@ from api.api.deps import get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
 from api.crud import area as area_crud
 from api.schemas.area import (
+    AreaBoundaryResponse,
     AreaGroupResponse,
     AreaResponse,
     AreasContainingResponse,
@@ -143,4 +144,38 @@ def get_area(
             code=str(area.area_type.code),
             name=str(area.area_type.name),
         ),
+    )
+
+
+@router.get(
+    "/{area_id}/boundary",
+    response_model=AreaBoundaryResponse,
+    openapi_extra=openapi_lifecycle("beta", note="Get area boundary as GeoJSON"),
+)
+@cached(resource_type="area_boundary", ttl=86400, resource_id_param="area_id")
+def get_area_boundary(
+    area_id: int,
+    _lc=lifecycle("beta"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get an area's boundary as GeoJSON.
+
+    Returns the area with its boundary geometry as a GeoJSON MultiPolygon or Polygon.
+    Useful for rendering area boundaries on maps.
+    """
+    result = area_crud.get_area_boundary_geojson(db, area_id=area_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Area not found")
+
+    return AreaBoundaryResponse(
+        id=result["id"],
+        name=result["name"],
+        code=result["code"],
+        area_type=AreaTypeResponse(
+            id=result["area_type"]["id"],
+            code=result["area_type"]["code"],
+            name=result["area_type"]["name"],
+        ),
+        boundary=result["boundary"],
     )
