@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { useMap } from "react-leaflet";
 import { useAuth0 } from "@auth0/auth0-react";
 import type { Map as LeafletMap } from "leaflet";
 import BaseMap from "../components/map/BaseMap";
 import TrigMarker from "../components/map/TrigMarker";
 import HeatmapLayer from "../components/map/HeatmapLayer";
+import AreaBoundaryLayer from "../components/map/AreaBoundaryLayer";
 import TilesetSelector from "../components/map/TilesetSelector";
 import IconColorModeSelector from "../components/map/IconColorModeSelector";
 import LocationButton from "../components/map/LocationButton";
+import { useAreaBoundary } from "../hooks/useAreaBoundary";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { ColorFilter } from "../components/trigs/ColorFilter";
 import Layout from "../components/layout/Layout";
@@ -30,7 +32,7 @@ import {
   getConditionColor,
   type IconColor
 } from "../lib/mapIcons";
-import { Menu, X } from "lucide-react";
+import { Menu, X, List } from "lucide-react";
 
 // All status levels (IDs)
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
@@ -157,6 +159,15 @@ export default function Map() {
   
   // Track if we've initialized statuses from user preferences
   const [statusesInitialized, setStatusesInitialized] = useState(false);
+  
+  // Parse area_id from URL params for boundary display
+  const areaId = useMemo(() => {
+    const areaIdParam = searchParams.get("area_id");
+    return areaIdParam ? parseInt(areaIdParam, 10) : undefined;
+  }, [searchParams]);
+  
+  // Fetch area boundary when area_id is provided
+  const { data: areaBoundary, isLoading: isLoadingBoundary } = useAreaBoundary(areaId);
   
   // Get center from URL params or use default
   const initialCenter: [number, number] = useMemo(() => {
@@ -369,9 +380,14 @@ export default function Map() {
     }
   }, [iconColorMode]);
   
-  // Update URL params when filters change
+  // Update URL params when filters change (preserve area_id if present)
   useEffect(() => {
     const params = new URLSearchParams();
+    
+    // Preserve area_id if it was passed in
+    if (areaId !== undefined) {
+      params.set("area_id", areaId.toString());
+    }
     
     if (selectedStatuses.length !== ALL_STATUSES.length) {
       params.set("statuses", selectedStatuses.join(","));
@@ -382,7 +398,7 @@ export default function Map() {
     }
     
     setSearchParams(params, { replace: true });
-  }, [selectedStatuses, excludeFound, setSearchParams]);
+  }, [selectedStatuses, excludeFound, areaId, setSearchParams]);
   
   // Handle bounds change with debouncing
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
@@ -416,6 +432,13 @@ export default function Map() {
     setRenderMode('auto');
     setTileLayerId(DEFAULT_TILE_LAYER);
     
+    // Clear area_id from URL if present
+    if (searchParams.has("area_id")) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("area_id");
+      setSearchParams(newParams, { replace: true });
+    }
+    
     // Reset map to show whole UK
     if (mapInstance) {
       mapInstance.setView(
@@ -423,7 +446,7 @@ export default function Map() {
         MAP_CONFIG.defaultZoom
       );
     }
-  }, [mapInstance, preferredStatuses]);
+  }, [mapInstance, preferredStatuses, searchParams, setSearchParams]);
   
   return (
     <Layout>
@@ -542,6 +565,23 @@ export default function Map() {
               </div>
             </div>
             
+            {/* Area boundary info (when viewing an area from /trigs) */}
+            {areaBoundary && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-xs font-medium text-blue-600 mb-1">
+                  Viewing Area Boundary
+                </div>
+                <div className="text-sm font-semibold text-blue-900">
+                  {areaBoundary.area_type.name}: {areaBoundary.name}
+                </div>
+              </div>
+            )}
+            {isLoadingBoundary && (
+              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="text-sm text-gray-600">Loading area boundary...</div>
+              </div>
+            )}
+            
             {/* Reset map button */}
             <button
               type="button"
@@ -621,6 +661,16 @@ export default function Map() {
             />
             <MapSizeInvalidator sidebarOpen={isSidebarOpen} />
             
+            {/* Render area boundary if area_id is provided */}
+            {areaBoundary && (
+              <AreaBoundaryLayer
+                boundary={areaBoundary.boundary}
+                name={areaBoundary.name}
+                areaTypeName={areaBoundary.area_type.name}
+                fitBounds={true}
+              />
+            )}
+            
             {/* Render trigpoint markers or heatmap */}
             {shouldShowHeatmap ? (
               <HeatmapLayer trigpoints={colorFilteredTrigpoints} />
@@ -641,12 +691,21 @@ export default function Map() {
           {/* Map controls overlay */}
           <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
             {mapInstance && (
-              <LocationButton
-                map={mapInstance}
-                onLocationFound={(lat, lon) => {
-                  mapInstance.setView([lat, lon], 13);
-                }}
-              />
+              <>
+                <LocationButton
+                  map={mapInstance}
+                  onLocationFound={(lat, lon) => {
+                    mapInstance.setView([lat, lon], 13);
+                  }}
+                />
+                <Link
+                  to={`/trigs?lat=${mapInstance.getCenter().lat.toFixed(5)}&lon=${mapInstance.getCenter().lng.toFixed(5)}&location=Map%20centre`}
+                  className="bg-white hover:bg-gray-50 p-3 rounded-lg shadow-md flex items-center justify-center"
+                  title="List nearest trigpoints"
+                >
+                  <List size={24} className="text-gray-700" />
+                </Link>
+              </>
             )}
           </div>
           

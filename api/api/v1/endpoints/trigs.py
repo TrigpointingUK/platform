@@ -792,6 +792,9 @@ def list_trigs(
     only_found: Optional[bool] = Query(
         False, description="Include only trigpoints logged by authenticated user"
     ),
+    area_id: Optional[int] = Query(
+        None, description="Filter to trigpoints within the specified area"
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     _lc=lifecycle("beta"),
@@ -806,6 +809,7 @@ def list_trigs(
     - status_ids: Filter by status IDs (e.g., "10,20,30")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
     - only_found: Include only trigpoints the user has logged (requires authentication)
+    - area_id: Filter to trigpoints within a specific geographic area
 
     If authenticated, applies user's status_max preference to limit visible trigs.
     Always excludes soft-deleted records (status >= 90).
@@ -864,6 +868,7 @@ def list_trigs(
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status >= 90
+        area_id=area_id,
     )
     total = trig_crud.count_trigs_filtered(
         db,
@@ -878,6 +883,7 @@ def list_trigs(
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status >= 90
+        area_id=area_id,
     )
 
     # serialise
@@ -915,6 +921,8 @@ def list_trigs(
         params.append("exclude_found=true")
     if only_found:
         params.append("only_found=true")
+    if area_id is not None:
+        params.append(f"area_id={area_id}")
     params.append(f"limit={limit}")
     # self link
     self_link = base + "?" + "&".join(params + [f"skip={skip}"])

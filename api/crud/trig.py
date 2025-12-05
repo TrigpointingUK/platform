@@ -120,12 +120,23 @@ def list_trigs_filtered(
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
+    area_id: Optional[int] = None,
 ) -> list[Trig]:
     query = db.query(Trig)
 
     # Global filter: exclude soft-deleted records (status >= 90) unless explicitly requested
     if exclude_soft_deleted:
         query = query.filter(Trig.status_id < 90)
+
+    # Filter by area using trig_area_mv materialized view
+    if area_id is not None and not _is_sqlite(db):
+        from sqlalchemy import text
+
+        # Subquery to get trig_ids in the specified area
+        area_subquery = text(
+            "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
+        ).bindparams(area_id=area_id)
+        query = query.filter(Trig.id.in_(area_subquery))
 
     # Filter by status IDs (specific statuses)
     if status_ids:
@@ -221,12 +232,23 @@ def count_trigs_filtered(
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
+    area_id: Optional[int] = None,
 ) -> int:
     query = db.query(func.count(Trig.id))
 
     # Global filter: exclude soft-deleted records (status >= 90) unless explicitly requested
     if exclude_soft_deleted:
         query = query.filter(Trig.status_id < 90)
+
+    # Filter by area using trig_area_mv materialized view
+    if area_id is not None and not _is_sqlite(db):
+        from sqlalchemy import text
+
+        # Subquery to get trig_ids in the specified area
+        area_subquery = text(
+            "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
+        ).bindparams(area_id=area_id)
+        query = query.filter(Trig.id.in_(area_subquery))
 
     # Filter by status IDs (specific statuses)
     if status_ids:
