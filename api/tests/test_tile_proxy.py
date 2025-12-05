@@ -176,6 +176,7 @@ class TestTileProxyEndpoint:
             assert response.headers["x-tile-source"] == "cache"
             assert response.headers["x-tile-type"] == "free"
             assert "max-age=31536000" in response.headers["cache-control"]
+            assert response.headers["vary"] == "Origin"  # Required for CORS caching
 
 
 @pytest.mark.integration
