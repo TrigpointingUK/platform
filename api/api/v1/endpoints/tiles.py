@@ -139,6 +139,7 @@ async def proxy_os_tile(
             media_type="image/png",
             headers={
                 "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
+                "Vary": "Origin",  # Required for Cloudflare to cache CORS correctly
                 "X-Tile-Source": "cache",
                 "X-Tile-Type": "free",  # Cached tiles are always free
             },
@@ -202,6 +203,7 @@ async def proxy_os_tile(
             media_type="image/png",
             headers={
                 "Cache-Control": "public, max-age=31536000",  # 1 year for Cloudflare
+                "Vary": "Origin",  # Required for Cloudflare to cache CORS correctly
                 "X-Tile-Source": "os-api",
                 "X-Tile-Type": "premium" if premium else "free",
             },
