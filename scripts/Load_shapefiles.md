@@ -186,3 +186,48 @@ FROM area_staging_os_maps
 WHERE series='Landranger';
 
 ```
+
+## Ceremonial counties
+
+```sql
+INSERT INTO area_type (id, code, name, description, source_url) VALUES
+(6, 'ceremonial_county', 'Ceremonial County', 'GB Ceremonial Counties', 'https://covid19.esriuk.com/datasets/esriukcontent::ceremonial-counties-1/explore?location=50.104165%2C0.316975%2C5.42');
+```
+
+```bash
+ogr2ogr -f "PostgreSQL" \
+  "PG:host=localhost port=5433 dbname=tuk_staging user=$PG_USER password=$PG_PASS" \
+  ~/Trigpointing/Data/Ceremonial_counties-OS_Boundaryline_7144299620154118672/Ceremonial_counties.shp \
+  -nln area_staging_ceremonial \
+  -nlt PROMOTE_TO_MULTI \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=boundary \
+  -overwrite
+
+```
+
+```sql
+INSERT INTO area (area_type_id, name, boundary)
+SELECT 
+    6 AS area_type_id,
+    name AS name,
+    boundary
+FROM area_staging_ceremonial;
+```
+
+```bash
+# Export from staging (includes id column)
+psql -h localhost -p 5433 -U fastapi_staging -d tuk_staging \
+  -c "\copy (SELECT id, area_type_id, code, name, ST_AsText(boundary) AS boundary, parent_id, properties FROM area WHERE area_type_id = 6) TO '/tmp/area_type_6.csv' WITH CSV HEADER"
+
+# Import to production
+psql -h localhost -p 5433 -U fastapi_production -d tuk_production \
+  -c "\copy area(id, area_type_id, code, name, boundary, parent_id, properties) FROM '/tmp/area_type_6.csv' WITH CSV HEADER"
+
+# Fix the sequence after import
+psql -h localhost -p 5433 -U fastapi_production -d tuk_production \
+  -c "SELECT setval('area_id_seq', (SELECT COALESCE(MAX(id), 1) FROM area));"
+
+```
+
+
