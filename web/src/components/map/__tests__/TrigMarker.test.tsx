@@ -115,8 +115,17 @@ describe('TrigMarker', () => {
       expect(iconUrl).toContain('yellow');
     });
 
-    it('should use red icon for missing condition', () => {
-      const trig = trigsByCondition.missing;
+    it('should use yellow icon for Moved condition', () => {
+      const trig = trigsByCondition.moved;
+      render(<TrigMarker trig={trig} colorMode="condition" />);
+      
+      const marker = screen.getByTestId('marker');
+      const iconUrl = marker.getAttribute('data-icon-url');
+      expect(iconUrl).toContain('yellow');
+    });
+
+    it('should use red icon for Possibly Missing (Q) condition', () => {
+      const trig = trigsByCondition.possiblyMissing;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
@@ -124,13 +133,22 @@ describe('TrigMarker', () => {
       expect(iconUrl).toContain('red');
     });
 
-    it('should use red icon for possibly missing condition', () => {
-      const trig = trigsByCondition.possibly;
+    it('should use red icon for Destroyed (X) condition', () => {
+      const trig = trigsByCondition.destroyed;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
       const iconUrl = marker.getAttribute('data-icon-url');
       expect(iconUrl).toContain('red');
+    });
+
+    it('should use grey icon for Inaccessible (P) condition', () => {
+      const trig = trigsByCondition.inaccessible;
+      render(<TrigMarker trig={trig} colorMode="condition" />);
+      
+      const marker = screen.getByTestId('marker');
+      const iconUrl = marker.getAttribute('data-icon-url');
+      expect(iconUrl).toContain('grey');
     });
 
     it('should use grey icon for unknown condition', () => {
@@ -163,9 +181,19 @@ describe('TrigMarker', () => {
       expect(iconUrl).toContain('green');
     });
 
-    it('should use red icon when logged as missing', () => {
+    it('should use yellow icon when logged as Moved (M)', () => {
       const trig = createMockTrig();
       const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
+      render(<TrigMarker trig={trig} colorMode="userLog" logStatus={logStatus} />);
+      
+      const marker = screen.getByTestId('marker');
+      const iconUrl = marker.getAttribute('data-icon-url');
+      expect(iconUrl).toContain('yellow');
+    });
+
+    it('should use red icon when logged as Possibly Missing (Q)', () => {
+      const trig = createMockTrig();
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'Q' };
       render(<TrigMarker trig={trig} colorMode="userLog" logStatus={logStatus} />);
       
       const marker = screen.getByTestId('marker');
@@ -424,7 +452,7 @@ describe('TrigMarker', () => {
     it('should work with Map page color modes', () => {
       // Map page can switch between modes
       const trig = createMockTrig({ condition: 'G' });
-      const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'Q' }; // Q = Possibly missing = red
       
       const { rerender } = render(
         <TrigMarker trig={trig} colorMode="condition" />

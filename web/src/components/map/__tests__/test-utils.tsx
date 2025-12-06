@@ -183,13 +183,20 @@ export const mockTileLayers = {
 
 /**
  * Trigpoints with different conditions for testing color modes
+ * Based on api/utils/condition_mapping.py:
+ * - GREEN: G (Good), S (Slightly damaged)
+ * - YELLOW: C, D, R, T, M (Moved), V
+ * - RED: Q (Possibly missing), X (Destroyed), N
+ * - GREY: P (Inaccessible), U (Unknown), Z
  */
 export const trigsByCondition = {
   good: createMockTrig({ id: 1, condition: 'G', name: 'Good Trig' }),
   damaged: createMockTrig({ id: 2, condition: 'D', name: 'Damaged Trig' }),
-  missing: createMockTrig({ id: 3, condition: 'M', name: 'Missing Trig' }),
-  possibly: createMockTrig({ id: 4, condition: 'P', name: 'Possibly Missing Trig' }),
-  unknown: createMockTrig({ id: 5, condition: 'U', name: 'Unknown Trig' }),
+  moved: createMockTrig({ id: 3, condition: 'M', name: 'Moved Trig' }),
+  possiblyMissing: createMockTrig({ id: 4, condition: 'Q', name: 'Possibly Missing Trig' }),
+  destroyed: createMockTrig({ id: 5, condition: 'X', name: 'Destroyed Trig' }),
+  inaccessible: createMockTrig({ id: 6, condition: 'P', name: 'Inaccessible Trig' }),
+  unknown: createMockTrig({ id: 7, condition: 'U', name: 'Unknown Trig' }),
 };
 
 /**
