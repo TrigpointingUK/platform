@@ -151,28 +151,28 @@ export function TrigCard({
               </span>
             )}
             
+            {/* Trig condition indicator */}
+            <img 
+              src={`/icons/conditions/${conditionInfo.icon}`}
+              alt={conditionInfo.label}
+              title={`Trig condition: ${conditionInfo.label}`}
+              className="w-4 h-4"
+            />
+            
             {/* Name */}
             <h3 className="font-medium text-gray-900 truncate">
               {trig.name}
             </h3>
             
-            {/* Logged indicator - show checkmark if user has logged this trig */}
-            {logStatus?.hasLogged && (
-              <span 
-                className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-trig-green-600 rounded-full" 
-                title="You have logged this trig"
-              >
-                ✓
-              </span>
+            {/* User's logged condition indicator */}
+            {logStatus?.hasLogged && logStatus.condition && (
+              <img 
+                src={`/icons/conditions/${getConditionInfo(logStatus.condition).icon}`}
+                alt={getConditionInfo(logStatus.condition).label}
+                title={`Your log: ${getConditionInfo(logStatus.condition).label}`}
+                className="w-4 h-4"
+              />
             )}
-            
-            {/* Condition indicator */}
-            <img 
-              src={`/icons/conditions/${conditionInfo.icon}`}
-              alt={conditionInfo.label}
-              title={conditionInfo.label}
-              className="w-4 h-4"
-            />
           </div>
           
           {/* Grid reference, waypoint & physical type */}

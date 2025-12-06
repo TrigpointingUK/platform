@@ -26,10 +26,10 @@ logger = get_logger(__name__)
 # Download limits configuration (all downloads require authentication)
 # Format: {download_type: {per_user_hourly, per_user_daily, per_user_weekly}}
 DOWNLOAD_LIMITS = {
-    "trigs_csv": {"per_user_hourly": 20, "per_user_daily": 100},
-    "trigs_geojson": {"per_user_hourly": 20, "per_user_daily": 100},
-    "trigs_kml": {"per_user_hourly": 10, "per_user_daily": 50},
-    "trigs_gpx": {"per_user_hourly": 10, "per_user_daily": 50},
+    "trigs_csv": {"per_user_hourly": 10, "per_user_daily": 20},
+    "trigs_geojson": {"per_user_hourly": 10, "per_user_daily": 20},
+    "trigs_kml": {"per_user_hourly": 10, "per_user_daily": 20},
+    "trigs_gpx": {"per_user_hourly": 10, "per_user_daily": 20},
     "my_logs": {"per_user_daily": 20},
     "my_photos_metadata": {"per_user_daily": 10},
     "my_photos_zip": {"per_user_weekly": 1},  # Expensive operation
