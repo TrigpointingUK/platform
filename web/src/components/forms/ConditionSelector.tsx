@@ -8,20 +8,26 @@ interface ConditionOption {
   variant: "good" | "damaged" | "missing" | "unknown";
 }
 
+/**
+ * Condition options with colours matching "My Logs" map mode:
+ * - Green (good): G, S
+ * - Yellow (damaged): C, D, R, T, M, V
+ * - Red (missing): Q, X, N, P, U
+ */
 const CONDITIONS: ConditionOption[] = [
   { value: "G", label: "Good", icon: "c_good.png", variant: "good" },
-  { value: "S", label: "Slightly Damaged", icon: "c_slightlydamaged.png", variant: "damaged" },
+  { value: "S", label: "Slightly Damaged", icon: "c_slightlydamaged.png", variant: "good" },
   { value: "D", label: "Damaged", icon: "c_damaged.png", variant: "damaged" },
   { value: "C", label: "Converted", icon: "c_slightlydamaged.png", variant: "damaged" },
   { value: "T", label: "Toppled", icon: "c_toppled.png", variant: "damaged" },
   { value: "R", label: "Remains", icon: "c_toppled.png", variant: "damaged" },
-  { value: "M", label: "Moved", icon: "c_toppled.png", variant: "missing" },
-  { value: "Q", label: "Possibly Missing", icon: "c_possiblymissing.png", variant: "damaged" },
-  { value: "P", label: "Inaccessible", icon: "c_unknown.png", variant: "unknown" },
+  { value: "M", label: "Moved", icon: "c_toppled.png", variant: "damaged" },
+  { value: "V", label: "Unreachable but Visible", icon: "c_unreachablebutvisible.png", variant: "damaged" },
+  { value: "Q", label: "Possibly Missing", icon: "c_possiblymissing.png", variant: "missing" },
   { value: "X", label: "Destroyed", icon: "c_definitelymissing.png", variant: "missing" },
-  { value: "V", label: "Unreachable but Visible", icon: "c_unreachablebutvisible.png", variant: "unknown" },
   { value: "N", label: "Couldn't Find", icon: "c_possiblymissing.png", variant: "missing" },
-  { value: "U", label: "Unknown", icon: "c_unknown.png", variant: "unknown" },
+  { value: "P", label: "Inaccessible", icon: "c_unknown.png", variant: "missing" },
+  { value: "U", label: "Unknown", icon: "c_unknown.png", variant: "missing" },
 ];
 
 interface ConditionSelectorProps {
