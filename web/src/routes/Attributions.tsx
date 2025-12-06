@@ -375,11 +375,13 @@ export default function Attributions() {
             Shapefile Attributions
           </h2>
           <p className="text-gray-700 text-sm leading-relaxed">
-            This website makes use of data provided by the <a href="https://county-borders.co.uk/" target="_blank" rel="noopener noreferrer" className="text-trig-green-600 hover:text-trig-green-700 underline">Historic County Borders Project</a>.<br />
-            May contain Ordnance Survey data © Crown credit and database right 2014–18.<br />
-            May contain public sector information licensed under the Northern Ireland Open Government Licence.<br />
-            May contain public sector information licensed under the Isle of Man Open Government Licence.<br />
-            May contain Ordnance Survey Ireland data licensed under the Creative Commons 4.0 Licence.
+          This website makes use of data provided by the <a href="https://county-borders.co.uk/" target="_blank" rel="noopener noreferrer" className="text-trig-green-600 hover:text-trig-green-700 underline">Historic County Borders Project</a>.<br />
+          This website makes use of data provided by the <a href="https://wikishire.co.uk/" target="_blank" rel="noopener noreferrer" className="text-trig-green-600 hover:text-trig-green-700 underline">WikiShire Project</a>.<br />
+          <br />
+          May contain Ordnance Survey data © Crown credit and database right 2014–18.<br />
+          May contain public sector information licensed under the Northern Ireland Open Government Licence.<br />
+          May contain public sector information licensed under the Isle of Man Open Government Licence.<br />
+          May contain Ordnance Survey Ireland data licensed under the Creative Commons 4.0 Licence.
           </p><br />
         </Card>
 
