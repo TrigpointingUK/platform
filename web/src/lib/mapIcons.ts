@@ -33,21 +33,23 @@ export type IconColor = 'green' | 'yellow' | 'red' | 'grey';
 
 /**
  * Trig condition codes
+ * Based on legacy PHP code condition mappings (see api/utils/condition_mapping.py)
  */
 export type ConditionCode = 
   | 'G'  // Good
-  | 'D'  // Damaged  
-  | 'M'  // Missing
-  | 'P'  // Possibly Missing
-  | 'U'  // Unknown
-  | 'S'  // Slightly Damaged
-  | 'Q'  // Questionable
-  | 'X'  // Possibly Damaged
+  | 'S'  // Slightly damaged
+  | 'C'  // Converted
+  | 'D'  // Damaged
+  | 'R'  // Remains
   | 'T'  // Toppled
-  | 'C'  // Cracked
-  | 'R'  // Restored
-  | 'E'  // Excellent
-  | 'N'; // Not Found
+  | 'M'  // Moved
+  | 'Q'  // Possibly missing
+  | 'X'  // Destroyed
+  | 'V'  // Unreachable but visible
+  | 'P'  // Inaccessible
+  | 'N'  // Couldn't find it
+  | 'U'  // Unknown (fallback)
+  | 'Z'; // Not Logged
 
 /**
  * User log status for a trigpoint
@@ -83,45 +85,47 @@ const PHYSICAL_TYPE_TO_ICON: Record<string, string> = {
 /**
  * Map condition codes to colors
  * 
- * GREEN (Good):
+ * GREEN (Good/Minor damage):
  * - G = Good
- * - E = Excellent
- * - R = Restored
+ * - S = Slightly damaged
  * 
- * YELLOW (Damaged):
+ * YELLOW (Damaged/Compromised):
+ * - C = Converted
  * - D = Damaged
- * - S = Slightly Damaged
- * - C = Cracked
- * - X = Possibly Damaged
+ * - R = Remains
  * - T = Toppled
+ * - M = Moved
+ * - V = Unreachable but visible
  * 
- * RED (Missing):
- * - M = Missing
- * - P = Possibly Missing
- * - N = Not Found
+ * RED (Missing/Destroyed):
+ * - Q = Possibly missing
+ * - X = Destroyed
+ * - N = Couldn't find it
  * 
- * GREY (Unknown):
+ * GREY (Unknown/Inaccessible):
+ * - P = Inaccessible
  * - U = Unknown
- * - Q = Questionable
+ * - Z = Not Logged
  */
 const CONDITION_TO_COLOR: Record<ConditionCode, IconColor> = {
-  // Good condition (green)
+  // Good/minor damage condition (green)
   'G': 'green',
-  'E': 'green',
-  'R': 'green',
-  // Damaged condition (yellow)
-  'D': 'yellow',
-  'S': 'yellow',
+  'S': 'green',
+  // Damaged/compromised condition (yellow)
   'C': 'yellow',
-  'X': 'yellow',
+  'D': 'yellow',
+  'R': 'yellow',
   'T': 'yellow',
-  // Missing condition (red)
-  'M': 'red',
-  'P': 'red',
+  'M': 'yellow',
+  'V': 'yellow',
+  // Missing/destroyed condition (red)
+  'Q': 'red',
+  'X': 'red',
   'N': 'red',
-  // Unknown condition (grey)
+  // Unknown/inaccessible condition (grey)
+  'P': 'grey',
   'U': 'grey',
-  'Q': 'grey',
+  'Z': 'grey',
 };
 
 /**
@@ -143,25 +147,35 @@ export const getConditionColor = (condition: string): IconColor => {
  * Get color for user log mode
  * 
  * For userLog mode, colors are based on the condition reported in the user's log:
- * - Green: Found in good condition (G, E, R)
- * - Yellow: Found but damaged (D, S, C, X, T)
- * - Red: Not found, missing, or unknown condition (M, P, N, U, Q)
+ * - Green: Found in good/minor damage condition (G, S), or not logged/empty (Z, empty/null)
+ * - Yellow: Found but damaged/compromised (C, D, R, T, M, V)
+ * - Red: Missing/destroyed (Q, X, N), plus P, U when logged
  * - Grey: Not logged by the user
  * 
- * Special case: Unknown (U) and Questionable (Q) conditions count as "red" 
+ * Special case: Unknown/inaccessible conditions (P, U) count as "red" 
  * in userLog mode (vs grey in condition mode) because the user made the effort to log it.
+ * 
+ * Special case: Empty/null and Z (Not Logged) count as "green" - the user logged but
+ * didn't specify a condition, which typically means it was fine.
  */
 export const getUserLogColor = (logStatus: UserLogStatus): IconColor => {
   if (!logStatus.hasLogged) {
     return 'grey';
   }
   
-  // Get the condition from the log (default to Unknown if not provided)
-  const condition = logStatus.condition || 'U';
+  // Get the condition from the log
+  const condition = logStatus.condition || '';
+  const upperCondition = condition.toUpperCase();
   
-  // Special case: Unknown/Questionable condition counts as "red" for userLog mode
+  // Special case: Empty/null or Z (Not Logged) counts as "green" for userLog mode
+  // The user logged but didn't specify a condition, which typically means it was fine
+  if (upperCondition === '' || upperCondition === 'Z') {
+    return 'green';
+  }
+  
+  // Special case: Unknown/inaccessible conditions count as "red" for userLog mode
   // because user made the effort to log it, even if they couldn't determine condition
-  if (condition.toUpperCase() === 'U' || condition.toUpperCase() === 'Q') {
+  if (upperCondition === 'P' || upperCondition === 'U') {
     return 'red';
   }
   
@@ -269,15 +283,15 @@ export const setPreferredIconColorMode = (mode: IconColorMode): void => {
  */
 export const ICON_LEGENDS = {
   condition: [
-    { color: 'green', label: 'Good condition' },
-    { color: 'yellow', label: 'Damaged' },
-    { color: 'red', label: 'Missing or possibly missing' },
-    { color: 'grey', label: 'Unknown condition' },
+    { color: 'green', label: 'Good/slightly damaged' },
+    { color: 'yellow', label: 'Damaged/compromised' },
+    { color: 'red', label: 'Missing or destroyed' },
+    { color: 'grey', label: 'Unknown/inaccessible' },
   ],
   userLog: [
-    { color: 'green', label: 'Logged - good condition' },
-    { color: 'yellow', label: 'Logged - damaged' },
-    { color: 'red', label: 'Logged - missing/not found/unknown' },
+    { color: 'green', label: 'Logged' },
+    { color: 'yellow', label: 'Logged - damaged/compromised' },
+    { color: 'red', label: 'Logged - missing/destroyed/inaccessible' },
     { color: 'grey', label: 'Not logged by you' },
   ],
 } as const;

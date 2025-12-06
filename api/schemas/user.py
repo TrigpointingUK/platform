@@ -7,11 +7,13 @@ from datetime import date  # noqa: F401
 from enum import Enum
 from typing import Dict, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserResponse(BaseModel):
     """Dynamic user response that adapts fields based on permissions."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     # Always included
     id: int
@@ -24,9 +26,6 @@ class UserResponse(BaseModel):
     auth0_user_id: Optional[str] = Field(
         None, description="Auth0 user ID (own profile only)"
     )
-
-    class Config:
-        from_attributes = True
 
 
 class UserStats(BaseModel):
@@ -203,9 +202,6 @@ class UserWithIncludes(UserResponse):
         None, description="Auth0 roles (own profile only)"
     )
 
-    class Config:
-        from_attributes = True
-
 
 class Auth0UserInfo(BaseModel):
     """Auth0 user information from token without database lookup."""
@@ -258,13 +254,12 @@ class UserCreate(BaseModel):
 class UserCreateResponse(BaseModel):
     """Response schema for created user."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int = Field(..., description="Database user ID")
     name: str = Field(..., description="Username")
     email: str = Field(..., description="Email address")
     auth0_user_id: str = Field(..., description="Auth0 user ID")
-
-    class Config:
-        from_attributes = True
 
 
 class LegacyLoginRequest(BaseModel):

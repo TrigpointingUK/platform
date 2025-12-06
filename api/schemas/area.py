@@ -4,30 +4,28 @@ Pydantic schemas for area endpoints.
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AreaTypeResponse(BaseModel):
     """Response model for area type."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int = Field(..., description="Area type ID")
     code: str = Field(..., description="Area type code (e.g., historic_county)")
     name: str = Field(..., description="Area type display name")
-
-    class Config:
-        from_attributes = True
 
 
 class AreaResponse(BaseModel):
     """Response model for an area."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int = Field(..., description="Area ID")
     name: str = Field(..., description="Area name")
     code: Optional[str] = Field(None, description="External code (ONS, OS, etc.)")
     area_type: AreaTypeResponse = Field(..., description="Area type information")
-
-    class Config:
-        from_attributes = True
 
 
 class AreaGroupResponse(BaseModel):

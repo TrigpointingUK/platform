@@ -2,7 +2,7 @@
 Tests to verify that deleted photos are properly filtered from all API endpoints.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -75,7 +75,7 @@ def create_test_data(db: Session) -> tuple[User, TLog, TPhoto, TPhoto]:
         public_ind="Y",
         deleted_ind="N",  # Active
         source="W",
-        crt_timestamp=datetime.utcnow(),
+        crt_timestamp=datetime.now(UTC),
     )
     # Create a deleted photo
     deleted_photo = TPhoto(
@@ -96,7 +96,7 @@ def create_test_data(db: Session) -> tuple[User, TLog, TPhoto, TPhoto]:
         public_ind="Y",
         deleted_ind="Y",  # Deleted!
         source="W",
-        crt_timestamp=datetime.utcnow(),
+        crt_timestamp=datetime.now(UTC),
     )
     db.add(active_photo)
     db.add(deleted_photo)

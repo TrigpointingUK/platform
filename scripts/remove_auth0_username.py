@@ -22,7 +22,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 # Add parent directory to path so we can import from api
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -46,7 +46,10 @@ def get_user_details(auth0_service: Auth0Service, user_id: str) -> Optional[Dict
 
 
 def remove_username_field(
-    auth0_service: Auth0Service, user_id: str, dry_run: bool = False, verbose: bool = False
+    auth0_service: Auth0Service,
+    user_id: str,
+    dry_run: bool = False,
+    verbose: bool = False,
 ) -> tuple[bool, Optional[str]]:
     """
     Remove the username field from an Auth0 user.
@@ -79,7 +82,7 @@ def remove_username_field(
         error_response = auth0_service._last_error.get("error_response", {})
         error_code = error_response.get("errorCode")
         error_message = error_response.get("message", "")
-        
+
         if error_code == "operation_not_supported":
             # This connection doesn't support modifying username field
             return False, (
@@ -94,7 +97,7 @@ def remove_username_field(
             )
         else:
             return False, f"API Error: {error_message} (code: {error_code})"
-    
+
     return False, "Unknown error occurred"
 
 
@@ -113,12 +116,12 @@ def display_user_info(user: Dict, title: str = "User Details"):
     print(f"  Email:      {user.get('email', 'N/A')}")
     print(f"  Nickname:   {user.get('nickname', 'N/A')}")
     print(f"  Name:       {user.get('name', 'N/A')}")
-    
+
     identities = user.get("identities", [])
     if identities:
         connection = identities[0].get("connection", "N/A")
         print(f"  Connection: {connection}")
-    
+
     print("  " + "-" * 76)
 
 

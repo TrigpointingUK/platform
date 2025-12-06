@@ -90,7 +90,9 @@ class MigrationStats:
         if self.errors:
             print("\nERRORS:")
             for error in self.errors:
-                print(f"  - User {error['user_id']} ({error['email']}): {error['error']}")
+                print(
+                    f"  - User {error['user_id']} ({error['email']}): {error['error']}"
+                )
 
         print("=" * 80)
 
@@ -128,7 +130,9 @@ def get_database_connection(
         SQLAlchemy Session object
     """
     if fetch_from_secrets:
-        print(f"📡 Fetching database credentials from AWS Secrets Manager: {secret_name}")
+        print(
+            f"📡 Fetching database credentials from AWS Secrets Manager: {secret_name}"
+        )
         secret = get_aws_secret(secret_name, region)
         db_host = secret["host"]
         db_port = secret.get("port", 3306)
@@ -173,14 +177,14 @@ def is_valid_email(email: str) -> bool:
     """
     if not email:
         return False
-    
+
     # Check for common invalid values
-    invalid_values = ['none', 'null', 'n/a', 'na', '-', 'unknown', '']
+    invalid_values = ["none", "null", "n/a", "na", "-", "unknown", ""]
     if email.lower() in invalid_values:
         return False
-    
+
     # Basic email regex validation
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     return re.match(email_pattern, email) is not None
 
 
@@ -202,7 +206,7 @@ def set_auth0_id_to_null(db: Session, user_id: int) -> bool:
         WHERE id = :user_id
         """
     )
-    
+
     try:
         db.execute(query, {"user_id": user_id})
         db.commit()
@@ -244,7 +248,9 @@ def get_error_users(db: Session, limit: int) -> List[Dict]:
     return users
 
 
-def check_for_duplicate_user(db: Session, email: str, current_user_id: int) -> Optional[Dict]:
+def check_for_duplicate_user(
+    db: Session, email: str, current_user_id: int
+) -> Optional[Dict]:
     """
     Check if another user exists with the same email and a valid Auth0 ID.
 
@@ -292,10 +298,9 @@ def generate_duplicate_marker(valid_user_id: int) -> str:
         String like "DUPLICATE-164-98765432" where 164 is the valid user's ID
     """
     import random
+
     random_digits = random.randint(10000000, 99999999)
     return f"DUPLICATE-{valid_user_id}-{random_digits}"
-
-
 
 
 def fix_user(
@@ -320,27 +325,33 @@ def fix_user(
     email = user["email"]
     old_auth0_id = user["auth0_user_id"]
 
-    print(f"\n{'[DRY RUN] ' if dry_run else ''}Processing user {user_id}: {username} ({email})")
+    print(
+        f"\n{'[DRY RUN] ' if dry_run else ''}Processing user {user_id}: {username} ({email})"
+    )
     print(f"  Current auth0_user_id: {old_auth0_id}")
 
     # Check for invalid email
     if not is_valid_email(email):
         print(f"  ⚠️  Invalid or missing email address: {email}")
-        
+
         if not dry_run:
             print(f"    📝 Setting auth0_user_id to NULL...")
             success = set_auth0_id_to_null(db, user_id)
-            
+
             if not success:
-                stats.record_failure(user_id, email, "Failed to set auth0_user_id to NULL")
+                stats.record_failure(
+                    user_id, email, "Failed to set auth0_user_id to NULL"
+                )
                 return
-            
+
             print(f"    ✓ Set auth0_user_id to NULL")
             stats.record_skip(user_id, email or username, "Invalid email - set to NULL")
         else:
             print(f"    [DRY RUN] Would set auth0_user_id to NULL")
-            stats.record_skip(user_id, email or username, "Invalid email - would set to NULL")
-        
+            stats.record_skip(
+                user_id, email or username, "Invalid email - would set to NULL"
+            )
+
         return
 
     # Skip if no email (shouldn't happen after validation above, but keep for safety)
@@ -354,18 +365,22 @@ def fix_user(
 
     if duplicate_user:
         # This is a duplicate - mark it instead of fixing
-        print(f"    ⚠️  Found duplicate user: {duplicate_user['id']} ({duplicate_user['name']})")
+        print(
+            f"    ⚠️  Found duplicate user: {duplicate_user['id']} ({duplicate_user['name']})"
+        )
         print(f"    Valid Auth0 ID: {duplicate_user['auth0_user_id']}")
         print(f"    → This user (ID {user_id}) is a duplicate and should be marked")
 
-        duplicate_marker = generate_duplicate_marker(duplicate_user['id'])
+        duplicate_marker = generate_duplicate_marker(duplicate_user["id"])
 
         if not dry_run:
             print(f"    📝 Marking as duplicate: {duplicate_marker}")
             success = update_user_auth0_id(db, user_id, duplicate_marker)
 
             if not success:
-                stats.record_failure(user_id, email, "Failed to update database with DUPLICATE marker")
+                stats.record_failure(
+                    user_id, email, "Failed to update database with DUPLICATE marker"
+                )
                 return
 
             print(f"    ✓ Marked as duplicate successfully")
@@ -397,7 +412,7 @@ def fix_user(
                 )
                 return
             print(f"    ✓ Deleted Auth0 user")
-            
+
             # Wait for Auth0 deletion to propagate (avoid race condition)
             print(f"    ⏱️  Waiting 3 seconds for Auth0 deletion to propagate...")
             time.sleep(3)
@@ -550,4 +565,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

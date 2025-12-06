@@ -21,7 +21,7 @@ export default function Logs() {
   const MAP_SPACING = 24;
   const MAP_FALLBACK_WIDTH = 200;
   const [centerLogIndex, setCenterLogIndex] = useState<number | null>(null);
-  const [featuredLog, setFeaturedLog] = useState<Log | null>(null);
+  const [selectedFeaturedLog, setSelectedFeaturedLog] = useState<Log | null>(null);
   const logRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const mapOverlayRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -115,8 +115,8 @@ export default function Logs() {
           setCenterLogIndex(targetIndex);
         }
         const candidate = allLogs[targetIndex];
-        if (candidate && candidate.id !== featuredLog?.id) {
-          setFeaturedLog(candidate);
+        if (candidate && candidate.id !== selectedFeaturedLog?.id) {
+          setSelectedFeaturedLog(candidate);
         }
       }
     };
@@ -143,13 +143,10 @@ export default function Logs() {
         window.cancelAnimationFrame(timeoutId);
       }
     };
-  }, [allLogs.length, allLogs, centerLogIndex, featuredLog]);
+  }, [allLogs.length, allLogs, centerLogIndex, selectedFeaturedLog]);
 
-  useEffect(() => {
-    if (!featuredLog && allLogs.length > 0) {
-      setFeaturedLog(allLogs[0]);
-    }
-  }, [allLogs, featuredLog]);
+  // Derive effective featured log: user selection or default to first log
+  const featuredLog = selectedFeaturedLog ?? (allLogs.length > 0 ? allLogs[0] : null);
 
   if (error) {
     return (

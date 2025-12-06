@@ -54,9 +54,20 @@ describe('mapIcons', () => {
   });
 
   describe('getConditionColor', () => {
+    // Based on api/utils/condition_mapping.py
+    // GREEN: G (Good), S (Slightly damaged)
+    // YELLOW: C (Converted), D (Damaged), R (Remains), T (Toppled), M (Moved), V (Unreachable but visible)
+    // RED: Q (Possibly missing), X (Destroyed), N (Couldn't find it)
+    // GREY: P (Inaccessible), U (Unknown), Z (Not Logged)
+
     it('should map G (Good) to green', () => {
       expect(getConditionColor('G')).toBe('green');
       expect(getConditionColor('g')).toBe('green');
+    });
+
+    it('should map S (Slightly damaged) to green', () => {
+      expect(getConditionColor('S')).toBe('green');
+      expect(getConditionColor('s')).toBe('green');
     });
 
     it('should map D (Damaged) to yellow', () => {
@@ -64,14 +75,19 @@ describe('mapIcons', () => {
       expect(getConditionColor('d')).toBe('yellow');
     });
 
-    it('should map M (Missing) to red', () => {
-      expect(getConditionColor('M')).toBe('red');
-      expect(getConditionColor('m')).toBe('red');
+    it('should map M (Moved) to yellow', () => {
+      expect(getConditionColor('M')).toBe('yellow');
+      expect(getConditionColor('m')).toBe('yellow');
     });
 
-    it('should map P (Possibly Missing) to red', () => {
-      expect(getConditionColor('P')).toBe('red');
-      expect(getConditionColor('p')).toBe('red');
+    it('should map V (Unreachable but visible) to yellow', () => {
+      expect(getConditionColor('V')).toBe('yellow');
+      expect(getConditionColor('v')).toBe('yellow');
+    });
+
+    it('should map P (Inaccessible) to grey', () => {
+      expect(getConditionColor('P')).toBe('grey');
+      expect(getConditionColor('p')).toBe('grey');
     });
 
     it('should map U (Unknown) to grey', () => {
@@ -79,33 +95,38 @@ describe('mapIcons', () => {
       expect(getConditionColor('u')).toBe('grey');
     });
 
-    it('should map S (Slightly Damaged) to yellow', () => {
-      expect(getConditionColor('S')).toBe('yellow');
-      expect(getConditionColor('s')).toBe('yellow');
+    it('should map Q (Possibly missing) to red', () => {
+      expect(getConditionColor('Q')).toBe('red');
+      expect(getConditionColor('q')).toBe('red');
     });
 
-    it('should map Q (Questionable) to grey', () => {
-      expect(getConditionColor('Q')).toBe('grey');
-      expect(getConditionColor('q')).toBe('grey');
+    it('should map X (Destroyed) to red', () => {
+      expect(getConditionColor('X')).toBe('red');
+      expect(getConditionColor('x')).toBe('red');
     });
 
-    it('should map X (Possibly Damaged) to yellow', () => {
-      expect(getConditionColor('X')).toBe('yellow');
-      expect(getConditionColor('x')).toBe('yellow');
+    it('should map N (Couldn\'t find it) to red', () => {
+      expect(getConditionColor('N')).toBe('red');
+      expect(getConditionColor('n')).toBe('red');
     });
 
-    it('should map E (Excellent) to green', () => {
-      expect(getConditionColor('E')).toBe('green');
-      expect(getConditionColor('e')).toBe('green');
+    it('should handle Z (Not Logged) with grey', () => {
+      expect(getConditionColor('Z')).toBe('grey');
     });
 
     it('should handle unknown conditions with grey (default)', () => {
-      expect(getConditionColor('Z')).toBe('grey');
       expect(getConditionColor('')).toBe('grey');
+      expect(getConditionColor('?')).toBe('grey');
     });
   });
 
   describe('getUserLogColor', () => {
+    // My Logs mode special cases:
+    // - grey: not logged
+    // - green: G, S, Z, empty/null (logged without condition = fine)
+    // - yellow: C, D, R, T, M, V
+    // - red: Q, X, N, P, U (P and U are special-cased from grey to red)
+
     it('should return grey when not logged', () => {
       const logStatus: UserLogStatus = { hasLogged: false };
       expect(getUserLogColor(logStatus)).toBe('grey');
@@ -116,19 +137,41 @@ describe('mapIcons', () => {
       expect(getUserLogColor(logStatus)).toBe('green');
     });
 
+    it('should return green when logged with empty/null condition', () => {
+      const logStatus1: UserLogStatus = { hasLogged: true, condition: '' };
+      expect(getUserLogColor(logStatus1)).toBe('green');
+      const logStatus2: UserLogStatus = { hasLogged: true };
+      expect(getUserLogColor(logStatus2)).toBe('green');
+    });
+
+    it('should return green when logged as Z (Not Logged)', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'Z' };
+      expect(getUserLogColor(logStatus)).toBe('green');
+    });
+
     it('should return red when logged as Unknown (U)', () => {
       const logStatus: UserLogStatus = { hasLogged: true, condition: 'U' };
       expect(getUserLogColor(logStatus)).toBe('red');
     });
 
-    it('should return red when logged as missing', () => {
-      const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
+    it('should return red when logged as Inaccessible (P)', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'P' };
       expect(getUserLogColor(logStatus)).toBe('red');
+    });
+
+    it('should return yellow when logged as Moved (M)', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
+      expect(getUserLogColor(logStatus)).toBe('yellow');
     });
 
     it('should return yellow when logged as damaged', () => {
       const logStatus: UserLogStatus = { hasLogged: true, condition: 'D' };
       expect(getUserLogColor(logStatus)).toBe('yellow');
+    });
+
+    it('should return red when logged as Possibly missing (Q)', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'Q' };
+      expect(getUserLogColor(logStatus)).toBe('red');
     });
   });
 
@@ -178,8 +221,13 @@ describe('mapIcons', () => {
       expect(url).toBe('/icons/mapicon_fbm_yellow.png');
     });
 
-    it('should handle missing condition', () => {
+    it('should handle Moved condition (M = yellow)', () => {
       const url = getIconUrlForTrig('Passive Station', 'M', 'condition', null);
+      expect(url).toBe('/icons/mapicon_passive_yellow.png');
+    });
+
+    it('should handle Destroyed condition (X = red)', () => {
+      const url = getIconUrlForTrig('Passive Station', 'X', 'condition', null);
       expect(url).toBe('/icons/mapicon_passive_red.png');
     });
 
@@ -194,8 +242,14 @@ describe('mapIcons', () => {
       expect(url).toBe('/icons/mapicon_pillar_green.png');
     });
 
-    it('should use red for missing in userLog mode', () => {
+    it('should use yellow for Moved (M) in userLog mode', () => {
       const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
+      const url = getIconUrlForTrig('Pillar', 'G', 'userLog', logStatus);
+      expect(url).toBe('/icons/mapicon_pillar_yellow.png');
+    });
+
+    it('should use red for Possibly missing (Q) in userLog mode', () => {
+      const logStatus: UserLogStatus = { hasLogged: true, condition: 'Q' };
       const url = getIconUrlForTrig('Pillar', 'G', 'userLog', logStatus);
       expect(url).toBe('/icons/mapicon_pillar_red.png');
     });

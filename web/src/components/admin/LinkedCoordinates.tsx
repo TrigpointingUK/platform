@@ -20,24 +20,13 @@ export default function LinkedCoordinates({
   onWgsChange,
   onOsgbChange,
 }: LinkedCoordinatesProps) {
+  // Use props as initial values; parent should use key prop to reset when loading new data
   const [wgsLatInput, setWgsLatInput] = useState(wgsLat);
   const [wgsLongInput, setWgsLongInput] = useState(wgsLong);
   const [osgbEastingsInput, setOsgbEastingsInput] = useState(osgbEastings.toString());
   const [osgbNorthingsInput, setOsgbNorthingsInput] = useState(osgbNorthings.toString());
   const [osgbGridrefInput, setOsgbGridrefInput] = useState(osgbGridref);
   const [lastEditedField, setLastEditedField] = useState<"wgs" | "osgb" | null>(null);
-
-  // Update local state when props change from parent
-  useEffect(() => {
-    setWgsLatInput(wgsLat);
-    setWgsLongInput(wgsLong);
-  }, [wgsLat, wgsLong]);
-
-  useEffect(() => {
-    setOsgbEastingsInput(osgbEastings.toString());
-    setOsgbNorthingsInput(osgbNorthings.toString());
-    setOsgbGridrefInput(osgbGridref);
-  }, [osgbEastings, osgbNorthings, osgbGridref]);
 
   const handleWgsLatChange = (value: string) => {
     setWgsLatInput(value);
@@ -77,6 +66,10 @@ export default function LinkedCoordinates({
           const osgb = wgs84ToOSGB(lat, long);
           onWgsChange(wgsLatInput, wgsLongInput);
           onOsgbChange(osgb.eastings, osgb.northings, osgb.gridRef);
+          // Update OSGB fields locally after conversion
+          setOsgbEastingsInput(osgb.eastings.toString());
+          setOsgbNorthingsInput(osgb.northings.toString());
+          setOsgbGridrefInput(osgb.gridRef);
         } catch (error) {
           console.error("Error converting WGS to OSGB:", error);
         }
@@ -100,6 +93,10 @@ export default function LinkedCoordinates({
           const osgb = wgs84ToOSGB(wgs.lat, wgs.lon); // Get gridref too
           onOsgbChange(eastings, northings, osgb.gridRef);
           onWgsChange(wgs.lat.toFixed(5), wgs.lon.toFixed(5));
+          // Update WGS and gridref fields locally after conversion
+          setWgsLatInput(wgs.lat.toFixed(5));
+          setWgsLongInput(wgs.lon.toFixed(5));
+          setOsgbGridrefInput(osgb.gridRef);
         } catch (error) {
           console.error("Error converting OSGB to WGS:", error);
         }
@@ -189,4 +186,3 @@ export default function LinkedCoordinates({
     </div>
   );
 }
-

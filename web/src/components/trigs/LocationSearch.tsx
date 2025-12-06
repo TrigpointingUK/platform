@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocationSearch } from "../../hooks/useLocationSearch";
 import { useDeviceLocation } from "../../hooks/useDeviceLocation";
 
@@ -37,7 +37,21 @@ export function LocationSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   
   const { data: results, isLoading } = useLocationSearch(query, isOpen);
-  const { position, isLoading: isGettingLocation, requestLocation } = useDeviceLocation();
+  
+  // Handle device location via callback (avoids useEffect sync)
+  const handleDeviceLocationSuccess = useCallback((position: { lat: number; lon: number }) => {
+    setSelectedLocation({
+      lat: position.lat,
+      lon: position.lon,
+      name: "Current Location",
+    });
+    onSelectLocation(position.lat, position.lon, "Current Location");
+    setIsOpen(false);
+  }, [onSelectLocation]);
+  
+  const { isLoading: isGettingLocation, requestLocation } = useDeviceLocation({
+    onSuccess: handleDeviceLocationSuccess,
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -50,19 +64,6 @@ export function LocationSearch({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // Handle device location result
-  useEffect(() => {
-    if (position) {
-      setSelectedLocation({
-        lat: position.lat,
-        lon: position.lon,
-        name: "Current Location",
-      });
-      onSelectLocation(position.lat, position.lon, "Current Location");
-      setIsOpen(false);
-    }
-  }, [position, onSelectLocation]);
 
   const handleSelectResult = (result: LocationSearchResult) => {
     setSelectedLocation({

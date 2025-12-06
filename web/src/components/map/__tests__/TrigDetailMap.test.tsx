@@ -185,8 +185,14 @@ describe('TrigDetailMap', () => {
       expect(screen.getByTestId('marker')).toBeInTheDocument();
     });
 
-    it('should display red icon for missing trigs', () => {
-      const trig = trigsByCondition.missing;
+    it('should display red icon for Possibly Missing (Q) trigs', () => {
+      const trig = trigsByCondition.possiblyMissing;
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      expect(screen.getByTestId('marker')).toBeInTheDocument();
+    });
+
+    it('should display red icon for Destroyed (X) trigs', () => {
+      const trig = trigsByCondition.destroyed;
       renderWithRouter(<TrigDetailMap trig={trig} />);
       expect(screen.getByTestId('marker')).toBeInTheDocument();
     });

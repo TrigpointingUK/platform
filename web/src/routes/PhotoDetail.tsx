@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import Layout from '../components/layout/Layout';
@@ -23,9 +23,6 @@ export default function PhotoDetail() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const photoIdNum = photo_id ? parseInt(photo_id, 10) : null;
-  const [photoForViewer, setPhotoForViewer] = useState<Photo | null>(null);
-  const [allPhotosForViewer, setAllPhotosForViewer] = useState<Photo[]>([]);
-  const [initialPhotoIndex, setInitialPhotoIndex] = useState(0);
 
   // Check if photo was passed via router state (from log cards)
   const photoFromState = location.state?.photo as Photo | undefined;
@@ -62,32 +59,44 @@ export default function PhotoDetail() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Set the photo to display once we have it (from state, cache, or API)
-  useEffect(() => {
-    if (photoFromState) {
-      setPhotoForViewer(photoFromState);
-      
-      // If we have all photos from a log context, set them up for navigation
-      if (allPhotosFromState && allPhotosFromState.length > 0 && contextFromState === 'log') {
-        setAllPhotosForViewer(allPhotosFromState);
-        // Find the index of the clicked photo
-        const index = allPhotosFromState.findIndex(p => p.id === photoFromState.id);
-        setInitialPhotoIndex(index >= 0 ? index : 0);
-      } else {
-        // Single photo mode (non-log context)
-        setAllPhotosForViewer([photoFromState]);
-        setInitialPhotoIndex(0);
-      }
-    } else if (cachedPhoto) {
-      setPhotoForViewer(cachedPhoto);
-      setAllPhotosForViewer([cachedPhoto]);
-      setInitialPhotoIndex(0);
-    } else if (fetchedPhoto) {
-      setPhotoForViewer(fetchedPhoto);
-      setAllPhotosForViewer([fetchedPhoto]);
-      setInitialPhotoIndex(0);
+  // Track rotated photos state (for when user rotates a photo)
+  const [rotatedPhotos, setRotatedPhotos] = useState<Map<number, Photo>>(new Map());
+
+  // Derive photo for viewer from sources (no effect needed)
+  const { photoForViewer, allPhotosForViewer, initialPhotoIndex } = useMemo(() => {
+    // Priority: photoFromState > cachedPhoto > fetchedPhoto
+    const basePhoto = photoFromState ?? cachedPhoto ?? fetchedPhoto ?? null;
+    
+    // Apply any rotation updates
+    const photo = basePhoto && rotatedPhotos.has(basePhoto.id) 
+      ? rotatedPhotos.get(basePhoto.id)! 
+      : basePhoto;
+    
+    if (!photo) {
+      return { photoForViewer: null, allPhotosForViewer: [], initialPhotoIndex: 0 };
     }
-  }, [photoFromState, cachedPhoto, fetchedPhoto, allPhotosFromState, contextFromState]);
+    
+    // If we have all photos from a log context, use them for navigation
+    if (photoFromState && allPhotosFromState && allPhotosFromState.length > 0 && contextFromState === 'log') {
+      // Apply rotation updates to all photos
+      const updatedPhotos = allPhotosFromState.map(p => 
+        rotatedPhotos.has(p.id) ? rotatedPhotos.get(p.id)! : p
+      );
+      const index = updatedPhotos.findIndex(p => p.id === photo.id);
+      return {
+        photoForViewer: photo,
+        allPhotosForViewer: updatedPhotos,
+        initialPhotoIndex: index >= 0 ? index : 0,
+      };
+    }
+    
+    // Single photo mode
+    return {
+      photoForViewer: photo,
+      allPhotosForViewer: [photo],
+      initialPhotoIndex: 0,
+    };
+  }, [photoFromState, cachedPhoto, fetchedPhoto, allPhotosFromState, contextFromState, rotatedPhotos]);
 
   // Navigate back to previous page on close
   const handleClose = () => {
@@ -96,50 +105,35 @@ export default function PhotoDetail() {
 
   // Handle photo rotation
   const handlePhotoRotated = (updatedPhoto: Photo) => {
-    // Update the photo in the viewer state
-    setPhotoForViewer(updatedPhoto);
-    
-    // Update the photo in the array
-    setAllPhotosForViewer(prev => 
-      prev.map(p => p.id === updatedPhoto.id ? updatedPhoto : p)
-    );
+    // Track rotated photo in local state
+    setRotatedPhotos(prev => new Map(prev).set(updatedPhoto.id, updatedPhoto));
     
     // Update the cache if this photo came from the photo grid
-    const photoData = queryClient.getQueryData<{
-      pages: PhotosResponse[];
-      pageParams: number[];
-    }>(['photos', 'infinite', 'unseen']) || queryClient.getQueryData<{
-      pages: PhotosResponse[];
-      pageParams: number[];
-    }>(['photos', 'infinite', 'all']);
+    queryClient.setQueryData(['photos', 'infinite', 'unseen'], (oldData: { pages: PhotosResponse[]; pageParams: number[] } | undefined) => {
+      if (!oldData?.pages) return oldData;
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page: PhotosResponse) => ({
+          ...page,
+          items: page.items.map((photo: Photo) =>
+            photo.id === updatedPhoto.id ? updatedPhoto : photo
+          ),
+        })),
+      };
+    });
     
-    if (photoData) {
-      queryClient.setQueryData(['photos', 'infinite', 'unseen'], (oldData: { pages: PhotosResponse[]; pageParams: number[] } | undefined) => {
-        if (!oldData?.pages) return oldData;
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: PhotosResponse) => ({
-            ...page,
-            items: page.items.map((photo: Photo) =>
-              photo.id === updatedPhoto.id ? updatedPhoto : photo
-            ),
-          })),
-        };
-      });
-      
-      queryClient.setQueryData(['photos', 'infinite', 'all'], (oldData: { pages: PhotosResponse[]; pageParams: number[] } | undefined) => {
-        if (!oldData?.pages) return oldData;
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: PhotosResponse) => ({
-            ...page,
-            items: page.items.map((photo: Photo) =>
-              photo.id === updatedPhoto.id ? updatedPhoto : photo
-            ),
-          })),
-        };
-      });
-    }
+    queryClient.setQueryData(['photos', 'infinite', 'all'], (oldData: { pages: PhotosResponse[]; pageParams: number[] } | undefined) => {
+      if (!oldData?.pages) return oldData;
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page: PhotosResponse) => ({
+          ...page,
+          items: page.items.map((photo: Photo) =>
+            photo.id === updatedPhoto.id ? updatedPhoto : photo
+          ),
+        })),
+      };
+    });
   };
 
   // Open PhotoSwipe when we have a photo

@@ -2,7 +2,7 @@
 Tests for log photo URLs after rotation.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -72,7 +72,7 @@ def seed_test_data(db: Session) -> tuple[User, TLog, TPhoto]:
         public_ind="Y",
         deleted_ind="N",
         source="R",  # R for revised/rotated
-        crt_timestamp=datetime.utcnow(),
+        crt_timestamp=datetime.now(UTC),
     )
     db.add(photo)
     db.commit()

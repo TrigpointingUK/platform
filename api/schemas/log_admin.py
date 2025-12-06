@@ -6,7 +6,7 @@ from datetime import date as DateType
 from datetime import time as TimeType
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LogNeedsAttentionSummary(BaseModel):
@@ -21,6 +21,8 @@ class LogNeedsAttentionSummary(BaseModel):
 class OrphanedLogItem(BaseModel):
     """List item for orphaned logs (logs referencing deleted trigpoints)."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int = Field(..., description="Log ID")
     trig_id: Optional[int] = Field(None, description="Trigpoint ID (deleted)")
     user_id: Optional[int] = Field(None, description="User ID")
@@ -34,12 +36,11 @@ class OrphanedLogItem(BaseModel):
         default="orphaned", description="Issue type identifier"
     )
 
-    class Config:
-        from_attributes = True
-
 
 class DuplicateLogItem(BaseModel):
     """List item for duplicate logs."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(..., description="Log ID")
     trig_id: Optional[int] = Field(None, description="Trigpoint ID")
@@ -56,9 +57,6 @@ class DuplicateLogItem(BaseModel):
     issue_type: Literal["duplicate"] = Field(
         default="duplicate", description="Issue type identifier"
     )
-
-    class Config:
-        from_attributes = True
 
 
 class LogNeedsAttentionListResponse(BaseModel):

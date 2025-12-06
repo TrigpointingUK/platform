@@ -1087,7 +1087,7 @@ class Auth0Service:
             user_data["family_name"] = surname
 
         safe_user_data = user_data.copy()
-        safe_user_data["password"] = "***REDACTED***"  # nosec B105
+        safe_user_data["password"] = "***REDACTED***"  # nosec B105 - redaction
 
         logger.info(
             json.dumps(

@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 interface GeolocationPosition {
   lat: number;
   lon: number;
+}
+
+interface UseDeviceLocationOptions {
+  onSuccess?: (position: GeolocationPosition) => void;
 }
 
 interface UseDeviceLocationReturn {
@@ -12,12 +16,12 @@ interface UseDeviceLocationReturn {
   requestLocation: () => void;
 }
 
-export function useDeviceLocation(): UseDeviceLocationReturn {
+export function useDeviceLocation(options?: UseDeviceLocationOptions): UseDeviceLocationReturn {
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const requestLocation = () => {
+  const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by your browser");
       return;
@@ -28,11 +32,14 @@ export function useDeviceLocation(): UseDeviceLocationReturn {
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setPosition({
+        const newPosition = {
           lat: pos.coords.latitude,
           lon: pos.coords.longitude,
-        });
+        };
+        setPosition(newPosition);
         setIsLoading(false);
+        // Call the success callback if provided
+        options?.onSuccess?.(newPosition);
       },
       (err) => {
         setError(err.message);
@@ -44,13 +51,7 @@ export function useDeviceLocation(): UseDeviceLocationReturn {
         maximumAge: 5 * 60 * 1000, // 5 minutes
       }
     );
-  };
-
-  // Optionally auto-request on mount (commented out - user should manually request)
-  // useEffect(() => {
-  //   requestLocation();
-  // }, []);
+  }, [options]);
 
   return { position, error, isLoading, requestLocation };
 }
-

@@ -74,7 +74,9 @@ def fix_sequences():
                 # Reset sequence if needed
                 if max_id >= current_seq:
                     new_seq = max_id + 1
-                    db.execute(text(f"SELECT setval('{sequence_name}', {new_seq}, false)"))
+                    db.execute(
+                        text(f"SELECT setval('{sequence_name}', {new_seq}, false)")
+                    )
                     db.commit()
                     print(
                         f"✓ {table_name}: max_id={max_id}, old_seq={current_seq}, new_seq={new_seq}"
@@ -101,4 +103,3 @@ def fix_sequences():
 
 if __name__ == "__main__":
     fix_sequences()
-

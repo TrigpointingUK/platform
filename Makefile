@@ -145,12 +145,12 @@ test-db-start: ## Start local PostgreSQL test database
 	@echo "⏳ Waiting for PostgreSQL to be ready..."
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
 		if docker-compose -f docker-compose.test.yml exec -T test-db pg_isready -U test_user -d test_db > /dev/null 2>&1; then \
-			echo "✅ Test database ready on localhost:5432"; \
+			echo "✅ Test database ready on localhost:$${TEST_DB_PORT:-5433}"; \
 			exit 0; \
 		fi; \
 		sleep 1; \
 	done; \
-	echo "✅ Test database ready on localhost:5432"
+	echo "✅ Test database ready on localhost:$${TEST_DB_PORT:-5433}"
 
 test-db-stop: ## Stop local PostgreSQL test database
 	docker-compose -f docker-compose.test.yml down -v
@@ -191,7 +191,7 @@ type-check: ## Run type checking
 
 security: ## Run security checks
 	bandit -r api --skip B101 --exclude api/tests
-	-safety check
+	pip-audit -r requirements.txt
 
 # Database migrations with Alembic
 migration-create: ## Create a new migration (usage: make migration-create MSG="description")

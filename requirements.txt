@@ -1,4 +1,5 @@
-fastapi==0.123.4
+fastapi==0.123.10
+starlette>=0.49.1  # CVE-2025-62727 fix (DoS via Range header in FileResponse)
 uvicorn[standard]==0.35.0
 sqlalchemy==2.0.44
 psycopg2-binary==2.9.11
@@ -14,8 +15,8 @@ python-dotenv==1.2.1
 alembic==1.17.2
 
 # Testing dependencies
-pytest==8.4.2
-pytest-asyncio==1.2.0
+pytest==9.0.1
+pytest-asyncio==1.3.0
 pytest-xdist==3.8.0
 httpx==0.28.1
 pytest-cov==7.0.0
@@ -31,7 +32,7 @@ redis==7.1.0
 
 # Image processing
 Pillow==12.0.0
-numpy==2.3.4
+numpy==2.3.5
 onnxruntime==1.23.2
 
 # Geodesy - accurate coordinate transformations
@@ -42,11 +43,11 @@ pyinstrument==5.1.1
 pyroscope-io==0.8.11
 
 # OpenTelemetry - Distributed tracing and metrics
-opentelemetry-api==1.38.0
-opentelemetry-sdk==1.38.0
-opentelemetry-instrumentation-fastapi==0.59b0
-opentelemetry-instrumentation-sqlalchemy==0.59b0
-opentelemetry-exporter-otlp-proto-http==1.38.0
+opentelemetry-api==1.39.0
+opentelemetry-sdk==1.39.0
+opentelemetry-instrumentation-fastapi==0.60b0
+opentelemetry-instrumentation-sqlalchemy==0.60b0
+opentelemetry-exporter-otlp-proto-http==1.39.0
 
 # Development dependencies
 black==25.11.0
