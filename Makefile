@@ -191,7 +191,7 @@ type-check: ## Run type checking
 
 security: ## Run security checks
 	bandit -r api --skip B101 --exclude api/tests
-	-safety check
+	pip-audit -r requirements.txt
 
 # Database migrations with Alembic
 migration-create: ## Create a new migration (usage: make migration-create MSG="description")
