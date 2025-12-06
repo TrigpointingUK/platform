@@ -109,7 +109,6 @@ resource "auth0_connection_clients" "database_clients" {
       auth0_client.website.id,
       auth0_client.android.id,
       auth0_client.alb.id,
-      auth0_client.legacy.id,
     ],
     var.enable_forum ? [auth0_client.forum[0].id] : [],
     var.enable_wiki ? [auth0_client.wiki[0].id] : [],
@@ -125,8 +124,9 @@ resource "auth0_resource_server" "api" {
   identifier = var.api_identifier
 
   # Token settings
-  token_lifetime = 86400 # 24 hours
-  signing_alg    = "RS256"
+  token_lifetime       = 3600 # 1 hour - recommended for SPAs
+  signing_alg          = "RS256"
+  allow_offline_access = true # Enable refresh tokens for this API
 
   # RBAC
   enforce_policies                                = true
@@ -195,6 +195,17 @@ resource "auth0_client" "swagger" {
   }
 
   oidc_conformant = true
+
+  # Short-lived sessions for API testing - require re-login after 15 minutes
+  refresh_token {
+    rotation_type                = "rotating"
+    expiration_type              = "expiring"
+    leeway                       = 60
+    token_lifetime               = 900 # 15 minutes absolute max
+    infinite_token_lifetime      = false
+    infinite_idle_token_lifetime = false
+    idle_token_lifetime          = 600 # 10 minutes idle timeout (must be < token_lifetime)
+  }
 }
 
 # Single Page Application (Web App)
@@ -319,6 +330,17 @@ resource "auth0_client" "android" {
   }
 
   oidc_conformant = true
+
+  # Token settings for mobile app - same as web SPA
+  refresh_token {
+    rotation_type                = "rotating"
+    expiration_type              = "expiring"
+    leeway                       = 60
+    token_lifetime               = 2592000 # 30 days
+    infinite_token_lifetime      = false
+    infinite_idle_token_lifetime = false
+    idle_token_lifetime          = 1296000 # 15 days
+  }
 }
 
 # Regular Web Application (AWS ALB OIDC)
@@ -362,57 +384,6 @@ resource "auth0_client" "alb" {
   }
 
   oidc_conformant = true
-}
-
-# Legacy Application (manually created, imported into Terraform)
-# This application was created before Terraform and needs to remain connected to the database
-resource "auth0_client" "legacy" {
-  name        = "Trigpointing UK"
-  description = "Trigpointing UK application (${var.environment})"
-  app_type    = "regular_web"
-
-  callbacks = [
-    "https://trigpointing.uk/auth0/callback.php",
-  ]
-
-  allowed_logout_urls = [
-    "https://trigpointing.uk/",
-    "https://trigpointing.uk/logout.php",
-  ]
-
-  web_origins = [
-    "https://login.trigpointing.uk",
-    "https://trigpointing.uk",
-  ]
-
-  initiate_login_uri = "https://trigpointing.uk/auth0/login.php"
-
-  grant_types = [
-    "authorization_code",
-    "implicit",
-    "refresh_token",
-  ]
-
-  jwt_configuration {
-    alg = "RS256"
-  }
-
-  oidc_conformant = true
-
-  # Lifecycle: This is an imported resource - prevent accidental changes
-  lifecycle {
-    # Prevent accidental destruction
-    prevent_destroy = false # Set to true in production if needed
-
-    # Ignore changes to these fields - they're managed manually or by the legacy app
-    ignore_changes = [
-      callbacks,
-      allowed_logout_urls,
-      web_origins,
-      initiate_login_uri,
-      grant_types,
-    ]
-  }
 }
 
 # ============================================================================
