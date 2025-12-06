@@ -96,8 +96,8 @@ export default function ConditionSelector({
             onClick={() => setIsOpen(false)}
           />
           
-          {/* Options */}
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-64 overflow-y-auto">
+          {/* Options - height accommodates all 13 conditions without scrolling */}
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-[32rem] overflow-y-auto">
             {CONDITIONS.map((condition) => (
               <button
                 key={condition.value}
