@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TrigNeedsAttentionSummary(BaseModel):
@@ -21,6 +21,8 @@ class TrigNeedsAttentionSummary(BaseModel):
 class TrigNeedsAttentionListItem(BaseModel):
     """List item for trigpoints needing attention."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int = Field(..., description="Trigpoint ID")
     waypoint: str = Field(..., description="Waypoint code")
     name: str = Field(..., description="Trigpoint name")
@@ -29,12 +31,11 @@ class TrigNeedsAttentionListItem(BaseModel):
     attention_comment: str = Field(..., description="Attention comment history")
     upd_timestamp: Optional[datetime] = Field(None, description="Last update timestamp")
 
-    class Config:
-        from_attributes = True
-
 
 class TrigAdminDetail(BaseModel):
     """Full trigpoint details for admin editing."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     waypoint: str
@@ -62,9 +63,6 @@ class TrigAdminDetail(BaseModel):
     needs_attention: int
     attention_comment: Optional[str] = ""
     upd_timestamp: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 class TrigAdminUpdate(BaseModel):
@@ -110,10 +108,9 @@ class TrigAdminUpdate(BaseModel):
 class StatusResponse(BaseModel):
     """Status record for dropdowns."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     descr: str
     limit_descr: str
-
-    class Config:
-        from_attributes = True

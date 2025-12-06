@@ -156,8 +156,8 @@ def create_photo(
     file: UploadFile = File(..., description="Image file (JPEG)"),
     caption: str = Form(..., description="Photo caption"),
     text_desc: str = Form("", description="Photo description"),
-    type: str = Form(..., regex="^[TFLPO]$", description="Photo type"),
-    license: str = Form(..., regex="^[YCN]$", description="License"),
+    type: str = Form(..., pattern="^[TFLPO]$", description="Photo type"),
+    license: str = Form(..., pattern="^[YCN]$", description="License"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

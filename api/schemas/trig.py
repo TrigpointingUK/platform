@@ -2,37 +2,37 @@
 Pydantic schemas for trig endpoints.
 """
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 
 class AttrSourceInfo(BaseModel):
     """Information about an attribute source."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int = Field(..., description="Attribute source ID")
     name: str = Field(..., description="Source name")
     url: Optional[str] = Field(None, description="Source URL")
-
-    class Config:
-        from_attributes = True
 
 
 class AttrSetData(BaseModel):
     """Attribute set data - values for one row of attributes."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     values: dict[int, str] = Field(
         ..., description="Dictionary mapping attr_id to value_string"
     )
 
-    class Config:
-        from_attributes = True
-
 
 class TrigAttrsData(BaseModel):
     """Attribute data for a trigpoint from a specific source."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     source: AttrSourceInfo = Field(..., description="Attribute source information")
     attr_names: dict[int, str] = Field(
@@ -41,9 +41,6 @@ class TrigAttrsData(BaseModel):
     attribute_sets: list[AttrSetData] = Field(
         ..., description="List of attribute sets (rows)"
     )
-
-    class Config:
-        from_attributes = True
 
 
 class TrigMinimal(BaseModel):
@@ -67,11 +64,7 @@ class TrigMinimal(BaseModel):
 
     distance_km: Optional[float] = None  # populated only when lat/lon provided
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            Decimal: str,
-        }
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TrigDetails(BaseModel):
@@ -90,16 +83,12 @@ class TrigDetails(BaseModel):
     stn_number_passive: Optional[str] = None
     stn_number_osgb36: Optional[str] = None
 
+    model_config = ConfigDict(from_attributes=True)
+
     @field_serializer("town")
     def serialize_town(self, value: Optional[str]) -> Optional[str]:
         """Convert town name from ALL CAPS to Mixed Case."""
         return value.title() if value else value
-
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            Decimal: str,
-        }
 
 
 class TrigStats(BaseModel):
@@ -122,13 +111,7 @@ class TrigStats(BaseModel):
             return None
         return v
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            Decimal: str,
-            date: lambda v: v.isoformat() if v else None,
-            datetime: lambda v: v.isoformat() if v else None,
-        }
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TrigWithIncludes(TrigMinimal):

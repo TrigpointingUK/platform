@@ -5,10 +5,12 @@ Pydantic schemas for tphoto endpoints.
 from datetime import date
 from typing import List, Optional
 
-from pydantic import AliasChoices, BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class TPhotoBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     log_id: int
     user_id: int
@@ -34,9 +36,6 @@ class TPhotoBase(BaseModel):
     # Derived fields
     photo_url: str
     icon_url: str
-
-    class Config:
-        from_attributes = True
 
 
 class TPhotoResponse(TPhotoBase):
@@ -98,6 +97,8 @@ class TPhotoCreate(BaseModel):
 class TPhotoUpload(BaseModel):
     """Schema for photo upload requests."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     name: str = Field(
         min_length=1,
         max_length=80,
@@ -116,9 +117,6 @@ class TPhotoUpload(BaseModel):
         serialization_alias="license",
         validation_alias=AliasChoices("license", "licence"),
     )
-
-    class Config:
-        from_attributes = True
 
 
 class TPhotoRotateRequest(BaseModel):

@@ -4,11 +4,13 @@ Pydantic schemas for admin-specific operations.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class AdminUserSearchResult(BaseModel):
     """Schema representing a legacy user candidate for migration."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     name: str
@@ -20,9 +22,6 @@ class AdminUserSearchResult(BaseModel):
     has_auth0_account: bool = Field(
         ..., description="Whether the user already has an Auth0 account"
     )
-
-    class Config:
-        from_attributes = True
 
 
 class AdminUserSearchResponse(BaseModel):

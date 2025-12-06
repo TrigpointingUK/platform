@@ -6,11 +6,23 @@ from datetime import date as DateType
 from datetime import time as TimeType
 from typing import Generic, List, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LocationSearchResult(BaseModel):
     """Result from location search endpoint."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "type": "trigpoint",
+                "name": "Kinder Low",
+                "lat": 53.385,
+                "lon": -1.876,
+                "description": "TP0001 - Pillar",
+            }
+        }
+    )
 
     type: str = Field(
         ...,
@@ -26,20 +38,11 @@ class LocationSearchResult(BaseModel):
         None, description="ID for routing (trig ID, user ID, etc.)"
     )
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "type": "trigpoint",
-                "name": "Kinder Low",
-                "lat": 53.385,
-                "lon": -1.876,
-                "description": "TP0001 - Pillar",
-            }
-        }
-
 
 class LogSearchResult(BaseModel):
     """Result from log text search."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(..., description="Log ID")
     trig_id: int = Field(..., description="Trigpoint ID")
@@ -54,9 +57,6 @@ class LogSearchResult(BaseModel):
     comment_excerpt: Optional[str] = Field(
         None, description="Truncated comment for display"
     )
-
-    class Config:
-        from_attributes = True
 
 
 T = TypeVar("T")

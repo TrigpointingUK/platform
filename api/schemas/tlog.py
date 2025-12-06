@@ -6,12 +6,14 @@ from datetime import date as DateType
 from datetime import time as TimeType
 from typing import Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from api.schemas.tphoto import TPhotoResponse
 
 
 class TLogBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     trig_id: Optional[int] = None  # Nullable for PostgreSQL compatibility
     user_id: Optional[int] = None  # Nullable for PostgreSQL compatibility
@@ -31,9 +33,6 @@ class TLogBase(BaseModel):
     source: Optional[str] = Field(
         default=None, min_length=1, max_length=1
     )  # Nullable for PostgreSQL compatibility
-
-    class Config:
-        from_attributes = True
 
 
 class TLogResponse(TLogBase):
