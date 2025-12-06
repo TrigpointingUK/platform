@@ -223,7 +223,7 @@ resource "auth0_client" "web_spa" {
   refresh_token {
     rotation_type                = "rotating"
     expiration_type              = "expiring"
-    leeway                       = 0
+    leeway                       = 60
     token_lifetime               = 2592000 # 30 days
     infinite_token_lifetime      = false
     infinite_idle_token_lifetime = false
