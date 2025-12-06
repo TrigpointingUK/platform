@@ -23,7 +23,7 @@ from api.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-# Download limits configuration
+# Download limits configuration (all downloads require authentication)
 # Format: {download_type: {per_user_hourly, per_user_daily, per_user_weekly}}
 DOWNLOAD_LIMITS = {
     "trigs_csv": {"per_user_hourly": 20, "per_user_daily": 100},
@@ -33,11 +33,6 @@ DOWNLOAD_LIMITS = {
     "my_logs": {"per_user_daily": 20},
     "my_photos_metadata": {"per_user_daily": 10},
     "my_photos_zip": {"per_user_weekly": 1},  # Expensive operation
-    # Anonymous users (identified by IP) have lower limits
-    "anon_csv": {"per_ip_hourly": 5, "per_ip_daily": 20},
-    "anon_geojson": {"per_ip_hourly": 5, "per_ip_daily": 20},
-    "anon_kml": {"per_ip_hourly": 3, "per_ip_daily": 10},
-    "anon_gpx": {"per_ip_hourly": 3, "per_ip_daily": 10},
 }
 
 
@@ -150,7 +145,7 @@ class DownloadRateLimiter:
     def check_limit(
         self,
         download_type: str,
-        user_id: Optional[int] = None,
+        user_id: int,
         client_ip: Optional[str] = None,
     ) -> Tuple[bool, Optional[str]]:
         """
@@ -158,8 +153,8 @@ class DownloadRateLimiter:
 
         Args:
             download_type: Type of download (e.g., 'csv', 'geojson')
-            user_id: Authenticated user ID (None for anonymous)
-            client_ip: Client IP address (used for anonymous rate limiting)
+            user_id: Authenticated user ID (required)
+            client_ip: Client IP address (for logging only)
 
         Returns:
             Tuple of (allowed, error_message)
@@ -169,15 +164,9 @@ class DownloadRateLimiter:
             logger.debug("Redis unavailable, allowing download without limit check")
             return True, None
 
-        # Determine which limits to check
-        if user_id:
-            # Authenticated user limits
-            limit_key = f"trigs_{download_type}"
-            identifier = f"user:{user_id}"
-        else:
-            # Anonymous user limits (by IP)
-            limit_key = f"anon_{download_type}"
-            identifier = f"ip:{client_ip}"
+        # Build limit key for authenticated user
+        limit_key = f"trigs_{download_type}"
+        identifier = f"user:{user_id}"
 
         limits = self.limits.get(limit_key, {})
         if not limits:
@@ -185,8 +174,8 @@ class DownloadRateLimiter:
             return True, None
 
         # Check hourly limit
-        if "per_user_hourly" in limits or "per_ip_hourly" in limits:
-            hourly_limit = limits.get("per_user_hourly") or limits.get("per_ip_hourly")
+        if "per_user_hourly" in limits:
+            hourly_limit = limits["per_user_hourly"]
             hourly_key = self._get_key("hourly", get_hour_key(), identifier, limit_key)
             hourly_count = self._get_counter(hourly_key)
 
@@ -200,8 +189,8 @@ class DownloadRateLimiter:
                 )
 
         # Check daily limit
-        if "per_user_daily" in limits or "per_ip_daily" in limits:
-            daily_limit = limits.get("per_user_daily") or limits.get("per_ip_daily")
+        if "per_user_daily" in limits:
+            daily_limit = limits["per_user_daily"]
             daily_key = self._get_key("daily", get_day_key(), identifier, limit_key)
             daily_count = self._get_counter(daily_key)
 
@@ -234,7 +223,7 @@ class DownloadRateLimiter:
     def record_download(
         self,
         download_type: str,
-        user_id: Optional[int] = None,
+        user_id: int,
         client_ip: Optional[str] = None,
     ) -> None:
         """
@@ -244,31 +233,27 @@ class DownloadRateLimiter:
 
         Args:
             download_type: Type of download (e.g., 'csv', 'geojson')
-            user_id: Authenticated user ID (None for anonymous)
-            client_ip: Client IP address (used for anonymous rate limiting)
+            user_id: Authenticated user ID (required)
+            client_ip: Client IP address (for logging only)
         """
         if not self.redis_client:
             return
 
-        # Determine which limits to track
-        if user_id:
-            limit_key = f"trigs_{download_type}"
-            identifier = f"user:{user_id}"
-        else:
-            limit_key = f"anon_{download_type}"
-            identifier = f"ip:{client_ip}"
+        # Build limit key for authenticated user
+        limit_key = f"trigs_{download_type}"
+        identifier = f"user:{user_id}"
 
         limits = self.limits.get(limit_key, {})
         if not limits:
             return
 
         # Increment hourly counter (TTL: 2 hours)
-        if "per_user_hourly" in limits or "per_ip_hourly" in limits:
+        if "per_user_hourly" in limits:
             hourly_key = self._get_key("hourly", get_hour_key(), identifier, limit_key)
             self._increment_counter(hourly_key, 2 * 60 * 60)
 
         # Increment daily counter (TTL: 2 days)
-        if "per_user_daily" in limits or "per_ip_daily" in limits:
+        if "per_user_daily" in limits:
             daily_key = self._get_key("daily", get_day_key(), identifier, limit_key)
             self._increment_counter(daily_key, 2 * 24 * 60 * 60)
 
@@ -280,16 +265,14 @@ class DownloadRateLimiter:
     def get_usage_stats(
         self,
         download_type: str,
-        user_id: Optional[int] = None,
-        client_ip: Optional[str] = None,
+        user_id: int,
     ) -> dict:
         """
-        Get current usage statistics for a user/IP.
+        Get current usage statistics for a user.
 
         Args:
             download_type: Type of download
-            user_id: User ID (None for anonymous)
-            client_ip: Client IP address
+            user_id: User ID (required)
 
         Returns:
             Dictionary with usage stats and limits
@@ -297,29 +280,25 @@ class DownloadRateLimiter:
         if not self.redis_client:
             return {"error": "Redis not available"}
 
-        if user_id:
-            limit_key = f"trigs_{download_type}"
-            identifier = f"user:{user_id}"
-        else:
-            limit_key = f"anon_{download_type}"
-            identifier = f"ip:{client_ip}"
+        limit_key = f"trigs_{download_type}"
+        identifier = f"user:{user_id}"
 
         limits = self.limits.get(limit_key, {})
         stats: dict = {
             "download_type": download_type,
-            "identifier_type": "user" if user_id else "ip",
+            "user_id": user_id,
         }
 
-        if "per_user_hourly" in limits or "per_ip_hourly" in limits:
-            hourly_limit = limits.get("per_user_hourly") or limits.get("per_ip_hourly")
+        if "per_user_hourly" in limits:
+            hourly_limit = limits["per_user_hourly"]
             hourly_key = self._get_key("hourly", get_hour_key(), identifier, limit_key)
             stats["hourly"] = {
                 "used": self._get_counter(hourly_key),
                 "limit": hourly_limit,
             }
 
-        if "per_user_daily" in limits or "per_ip_daily" in limits:
-            daily_limit = limits.get("per_user_daily") or limits.get("per_ip_daily")
+        if "per_user_daily" in limits:
+            daily_limit = limits["per_user_daily"]
             daily_key = self._get_key("daily", get_day_key(), identifier, limit_key)
             stats["daily"] = {
                 "used": self._get_counter(daily_key),
