@@ -3,7 +3,7 @@ Tests for photo rotation endpoint.
 """
 
 import io
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
@@ -77,7 +77,7 @@ def create_sample_photo(db: Session, tlog_id: int) -> TPhoto:
         public_ind="Y",
         deleted_ind="N",
         source="W",
-        crt_timestamp=datetime.utcnow(),
+        crt_timestamp=datetime.now(UTC),
     )
     db.add(photo)
     db.commit()

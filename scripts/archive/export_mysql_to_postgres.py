@@ -33,20 +33,20 @@ class MySQLExporter:
         """Initialize exporter with output directory."""
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Get MySQL connection details from environment
         self.mysql_host = os.getenv("MYSQL_HOST", "localhost")
         self.mysql_port = os.getenv("MYSQL_PORT", "3306")
         self.mysql_user = os.getenv("MYSQL_USER")
         self.mysql_password = os.getenv("MYSQL_PASSWORD")
         self.mysql_database = os.getenv("MYSQL_NAME")
-        
+
         if not all([self.mysql_user, self.mysql_password, self.mysql_database]):
             raise ValueError(
                 "Missing required environment variables: "
                 "MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_NAME"
             )
-        
+
         # Connect to MySQL
         mysql_url = (
             f"mysql+pymysql://{quote_plus(self.mysql_user)}:{quote_plus(self.mysql_password)}"
@@ -54,7 +54,7 @@ class MySQLExporter:
         )
         self.engine = create_engine(mysql_url)
         self.Session = sessionmaker(bind=self.engine)
-        
+
         print(f"Connected to MySQL: {self.mysql_host}/{self.mysql_database}")
         print(f"Output directory: {self.output_dir}")
 
@@ -78,18 +78,18 @@ class MySQLExporter:
     ):
         """
         Export a single table to CSV.
-        
+
         Args:
             table_name: Name of the table to export
             batch_size: Number of rows to fetch at a time
             progress_interval: How often to print progress updates
         """
         output_file = self.output_dir / f"{table_name}.csv"
-        
+
         # Get total row count
         total_rows = self.get_table_row_count(table_name)
         print(f"\nExporting {table_name} ({total_rows:,} rows)...")
-        
+
         if total_rows == 0:
             # Create empty CSV with headers
             with self.Session() as session:
@@ -98,11 +98,11 @@ class MySQLExporter:
                 df.to_csv(output_file, index=False, encoding="utf-8")
             print(f"  ✓ Created empty CSV (no rows)")
             return
-        
+
         # Export in batches
         rows_exported = 0
         first_batch = True
-        
+
         with self.Session() as session:
             offset = 0
             while offset < total_rows:
@@ -112,10 +112,10 @@ class MySQLExporter:
                 )
                 result = session.execute(query)
                 df = pd.DataFrame(result.fetchall(), columns=result.keys())
-                
+
                 if df.empty:
                     break
-                
+
                 # Write to CSV (append mode after first batch)
                 mode = "w" if first_batch else "a"
                 header = first_batch
@@ -127,25 +127,26 @@ class MySQLExporter:
                     encoding="utf-8",
                     quoting=csv.QUOTE_NONNUMERIC,
                 )
-                
+
                 rows_exported += len(df)
                 offset += batch_size
                 first_batch = False
-                
+
                 # Print progress
-                if rows_exported % progress_interval == 0 or rows_exported == total_rows:
+                if (
+                    rows_exported % progress_interval == 0
+                    or rows_exported == total_rows
+                ):
                     pct = 100 * rows_exported / total_rows
-                    print(
-                        f"  Progress: {rows_exported:,}/{total_rows:,} ({pct:.1f}%)"
-                    )
-        
+                    print(f"  Progress: {rows_exported:,}/{total_rows:,} ({pct:.1f}%)")
+
         print(f"  ✓ Exported {rows_exported:,} rows to {output_file.name}")
 
     def export_all_tables(self):
         """Export all tables to CSV files."""
         tables = self.get_all_tables()
         print(f"\nFound {len(tables)} tables to export")
-        
+
         # Tables to export (in dependency order)
         priority_tables = [
             "status",
@@ -158,19 +159,19 @@ class MySQLExporter:
             "tphoto",
             "trigstats",
         ]
-        
+
         # Export priority tables first
         exported = set()
         for table in priority_tables:
             if table in tables:
                 self.export_table(table)
                 exported.add(table)
-        
+
         # Export remaining tables
         for table in tables:
             if table not in exported:
                 self.export_table(table)
-        
+
         print(f"\n✅ Export complete! {len(tables)} tables exported.")
         print(f"Output directory: {self.output_dir}")
 
@@ -182,12 +183,12 @@ class MySQLExporter:
             "source_database": self.mysql_database,
             "tables_exported": len(self.get_all_tables()),
         }
-        
+
         metadata_file = self.output_dir / "export_metadata.txt"
         with open(metadata_file, "w") as f:
             for key, value in metadata.items():
                 f.write(f"{key}: {value}\n")
-        
+
         print(f"\nMetadata written to {metadata_file}")
 
 
@@ -199,17 +200,17 @@ def main():
         default="./mysql_export",
         help="Output directory for CSV files (default: ./mysql_export)",
     )
-    
+
     args = parser.parse_args()
-    
+
     print("=" * 60)
     print("MySQL to PostgreSQL Migration - Data Export")
     print("=" * 60)
-    
+
     exporter = MySQLExporter(args.output_dir)
     exporter.export_all_tables()
     exporter.export_metadata()
-    
+
     print("\n" + "=" * 60)
     print("Next step: Run transform_coordinates_to_postgis.py")
     print("=" * 60)
@@ -217,4 +218,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

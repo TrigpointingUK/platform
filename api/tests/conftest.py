@@ -41,7 +41,9 @@ def get_test_database_url():
 
     # Default local PostgreSQL for tests - use single database with schema isolation
     # PostgreSQL handles parallel access better than separate databases
-    return "postgresql+psycopg2://test_user:test_password@localhost:5432/test_db"
+    # Use TEST_DB_PORT env var or default to 5433 for local dev (avoids conflict with system PostgreSQL)
+    port = os.environ.get("TEST_DB_PORT", "5433")
+    return f"postgresql+psycopg2://test_user:test_password@localhost:{port}/test_db"
 
 
 def setup_test_database():
@@ -57,7 +59,11 @@ def setup_test_database():
         return
 
     # For local development, ensure test database exists
-    admin_url = "postgresql+psycopg2://test_user:test_password@localhost:5432/postgres"
+    # Use TEST_DB_PORT env var or default to 5433 for local dev
+    port = os.environ.get("TEST_DB_PORT", "5433")
+    admin_url = (
+        f"postgresql+psycopg2://test_user:test_password@localhost:{port}/postgres"
+    )
     try:
         admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
         with admin_engine.connect() as conn:

@@ -23,30 +23,30 @@ from sqlalchemy.orm import sessionmaker
 
 # Type mapping from MySQL to PostgreSQL
 MYSQL_TO_PG_TYPE_MAP = {
-    'TINYINT': 'SMALLINT',
-    'MEDIUMINT': 'INTEGER',
-    'INT': 'INTEGER',
-    'BIGINT': 'BIGINT',
-    'FLOAT': 'REAL',
-    'DOUBLE': 'DOUBLE PRECISION',
-    'DECIMAL': 'DECIMAL',
-    'VARCHAR': 'VARCHAR',
-    'CHAR': 'CHAR',
-    'TEXT': 'TEXT',
-    'TINYTEXT': 'TEXT',
-    'MEDIUMTEXT': 'TEXT',
-    'LONGTEXT': 'TEXT',
-    'BLOB': 'BYTEA',
-    'TINYBLOB': 'BYTEA',
-    'MEDIUMBLOB': 'BYTEA',
-    'LONGBLOB': 'BYTEA',
-    'DATE': 'DATE',
-    'DATETIME': 'TIMESTAMP',
-    'TIMESTAMP': 'TIMESTAMP',
-    'TIME': 'TIME',
-    'YEAR': 'SMALLINT',
-    'ENUM': 'VARCHAR',
-    'SET': 'TEXT',
+    "TINYINT": "SMALLINT",
+    "MEDIUMINT": "INTEGER",
+    "INT": "INTEGER",
+    "BIGINT": "BIGINT",
+    "FLOAT": "REAL",
+    "DOUBLE": "DOUBLE PRECISION",
+    "DECIMAL": "DECIMAL",
+    "VARCHAR": "VARCHAR",
+    "CHAR": "CHAR",
+    "TEXT": "TEXT",
+    "TINYTEXT": "TEXT",
+    "MEDIUMTEXT": "TEXT",
+    "LONGTEXT": "TEXT",
+    "BLOB": "BYTEA",
+    "TINYBLOB": "BYTEA",
+    "MEDIUMBLOB": "BYTEA",
+    "LONGBLOB": "BYTEA",
+    "DATE": "DATE",
+    "DATETIME": "TIMESTAMP",
+    "TIMESTAMP": "TIMESTAMP",
+    "TIME": "TIME",
+    "YEAR": "SMALLINT",
+    "ENUM": "VARCHAR",
+    "SET": "TEXT",
 }
 
 
@@ -99,61 +99,70 @@ class SchemaCreator:
 
     def convert_column_type(self, column) -> str:
         """Convert MySQL column type to PostgreSQL type."""
-        mysql_type = str(column['type']).upper()
-        
+        mysql_type = str(column["type"]).upper()
+
         # Handle NULL type (unknown column type)
-        if mysql_type in ('NULL', 'NULLTYPE'):
+        if mysql_type in ("NULL", "NULLTYPE"):
             # Default to TEXT for unknown types
-            return 'TEXT'
-        
+            return "TEXT"
+
         # Extract base type (e.g., VARCHAR(255) -> VARCHAR)
-        base_type = mysql_type.split('(')[0]
-        
+        base_type = mysql_type.split("(")[0]
+
         # Get PostgreSQL equivalent
         pg_type = MYSQL_TO_PG_TYPE_MAP.get(base_type, mysql_type)
-        
+
         # Handle types with length/precision
-        if '(' in mysql_type:
+        if "(" in mysql_type:
             # Keep the length/precision
-            suffix = mysql_type[mysql_type.index('('):]
+            suffix = mysql_type[mysql_type.index("(") :]
             pg_type = pg_type + suffix
-        
+
         return pg_type
 
     def sanitize_default_value(self, default_val, col_type: str) -> str:
         """Convert MySQL default values to PostgreSQL format."""
         if default_val is None:
             return ""
-        
+
         # Handle MySQL-specific timestamp defaults
         if isinstance(default_val, str):
             upper_default = default_val.upper()
-            
+
             # MySQL's CURRENT_TIMESTAMP with ON UPDATE - PostgreSQL doesn't support ON UPDATE
-            if 'CURRENT_TIMESTAMP' in upper_default:
-                if 'ON UPDATE' in upper_default:
+            if "CURRENT_TIMESTAMP" in upper_default:
+                if "ON UPDATE" in upper_default:
                     # Just use CURRENT_TIMESTAMP, ON UPDATE will need triggers
                     return " DEFAULT CURRENT_TIMESTAMP"
                 return " DEFAULT CURRENT_TIMESTAMP"
-            
+
             # MySQL returns defaults WITH quotes already (e.g. "'0'" not "0")
             # Strip outer quotes first
             clean_val = default_val.strip()
             if clean_val.startswith("'") and clean_val.endswith("'"):
                 clean_val = clean_val[1:-1]
-            
+
             # Invalid date/time defaults (check AFTER stripping quotes)
-            if clean_val in ('0000-00-00', '0000-00-00 00:00:00', '00:00:00'):
+            if clean_val in ("0000-00-00", "0000-00-00 00:00:00", "00:00:00"):
                 # PostgreSQL doesn't allow zero dates - use NULL or omit default
                 return ""
-            
+
             # Now determine if we need to quote it for PostgreSQL
             # Check if it's a numeric type
             col_type_upper = col_type.upper()
-            is_numeric = any(t in col_type_upper for t in [
-                'INT', 'DECIMAL', 'NUMERIC', 'REAL', 'DOUBLE', 'FLOAT', 'SERIAL'
-            ])
-            
+            is_numeric = any(
+                t in col_type_upper
+                for t in [
+                    "INT",
+                    "DECIMAL",
+                    "NUMERIC",
+                    "REAL",
+                    "DOUBLE",
+                    "FLOAT",
+                    "SERIAL",
+                ]
+            )
+
             if is_numeric:
                 # For numeric columns, don't quote the default
                 try:
@@ -166,7 +175,7 @@ class SchemaCreator:
             else:
                 # For string/char types, quote the default
                 return f" DEFAULT '{clean_val}'"
-        
+
         # Numeric defaults (when MySQL returns as number not string)
         return f" DEFAULT {default_val}"
 
@@ -175,7 +184,9 @@ class SchemaCreator:
         try:
             with self.mysql_engine.connect() as conn:
                 result = conn.execute(
-                    text(f"SELECT COUNT(*) FROM {table_name} WHERE `{column_name}` IS NULL")
+                    text(
+                        f"SELECT COUNT(*) FROM {table_name} WHERE `{column_name}` IS NULL"
+                    )
                 )
                 count = result.scalar()
                 return count > 0
@@ -192,55 +203,63 @@ class SchemaCreator:
 
         # Get the EXACT column names from MySQL (SQLAlchemy may lowercase them)
         with self.mysql_engine.connect() as conn:
-            result = conn.execute(text(
-                f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
-                f"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{table_name}' "
-                f"ORDER BY ORDINAL_POSITION"
-            ))
+            result = conn.execute(
+                text(
+                    f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                    f"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{table_name}' "
+                    f"ORDER BY ORDINAL_POSITION"
+                )
+            )
             exact_column_names = [row[0] for row in result]
-        
+
         # Map inspector column names (potentially lowercased) to exact names
         col_name_map = {}
         for exact_name in exact_column_names:
             for col in columns:
-                if col['name'].lower() == exact_name.lower():
-                    col_name_map[col['name']] = exact_name
+                if col["name"].lower() == exact_name.lower():
+                    col_name_map[col["name"]] = exact_name
                     break
 
         # PostgreSQL reserved words that need quoting
-        pg_reserved = {'user', 'order', 'group', 'table', 'index', 'type', 'order'}
-        
+        pg_reserved = {"user", "order", "group", "table", "index", "type", "order"}
+
         # Quote table name if it's a reserved word or has spaces
-        quoted_table_name = f'"{table_name}"' if table_name.lower() in pg_reserved or ' ' in table_name else table_name
+        quoted_table_name = (
+            f'"{table_name}"'
+            if table_name.lower() in pg_reserved or " " in table_name
+            else table_name
+        )
 
         # Build column definitions
         col_defs = []
         for col in columns:
-            col_name = col_name_map.get(col['name'], col['name'])  # Use exact name from MySQL
-            
+            col_name = col_name_map.get(
+                col["name"], col["name"]
+            )  # Use exact name from MySQL
+
             # ALWAYS quote column names to preserve exact case from MySQL
             quoted_col_name = f'"{col_name}"'
-            
+
             col_type = self.convert_column_type(col)
-            
+
             # Strip collation from type (PostgreSQL uses different collations)
-            if ' COLLATE ' in col_type:
-                col_type = col_type.split(' COLLATE ')[0]
-            
+            if " COLLATE " in col_type:
+                col_type = col_type.split(" COLLATE ")[0]
+
             # Handle default values first (needed for nullable check)
             default = ""
-            if col['default'] is not None:
-                default = self.sanitize_default_value(col['default'], col_type)
-            
+            if col["default"] is not None:
+                default = self.sanitize_default_value(col["default"], col_type)
+
             # Handle nullable
             # PostgreSQL is stricter than MySQL about NOT NULL constraints
             # MySQL is very lenient and allows NULLs in many NOT NULL columns
             # For compatibility, we'll make most columns nullable unless they're obviously required
-            if col['nullable']:
+            if col["nullable"]:
                 nullable = ""
-            elif not col['nullable']:
+            elif not col["nullable"]:
                 # Always enforce NOT NULL for auto-increment (primary keys)
-                if col.get('autoincrement'):
+                if col.get("autoincrement"):
                     nullable = " NOT NULL"
                 else:
                     # Make everything else nullable for MySQL compatibility
@@ -248,55 +267,55 @@ class SchemaCreator:
                     nullable = ""
             else:
                 nullable = ""
-            
+
             # Handle auto_increment -> SERIAL/BIGSERIAL
-            if col.get('autoincrement'):
-                if 'INT' in col_type.upper():
-                    if 'BIGINT' in col_type.upper():
-                        col_type = 'BIGSERIAL'
+            if col.get("autoincrement"):
+                if "INT" in col_type.upper():
+                    if "BIGINT" in col_type.upper():
+                        col_type = "BIGSERIAL"
                     else:
-                        col_type = 'SERIAL'
+                        col_type = "SERIAL"
                     default = ""  # SERIAL handles its own default
-            
+
             col_def = f"  {quoted_col_name} {col_type}{nullable}{default}"
             col_defs.append(col_def)
 
         # Add PostGIS location column for spatial tables
-        spatial_tables = ['trig', 'place', 'town', 'postcode6']
+        spatial_tables = ["trig", "place", "town", "postcode6"]
         if table_name in spatial_tables:
             col_defs.append("  location GEOGRAPHY(POINT, 4326)")
 
         # Add primary key constraint
-        if pk_constraint and pk_constraint['constrained_columns']:
+        if pk_constraint and pk_constraint["constrained_columns"]:
             # Map PK column names to exact names
             exact_pk_cols = []
-            for col in pk_constraint['constrained_columns']:
+            for col in pk_constraint["constrained_columns"]:
                 exact_col = col_name_map.get(col, col)
                 exact_pk_cols.append(exact_col)
-            
+
             # Always quote to preserve case
-            pk_cols = ', '.join(f'"{col}"' for col in exact_pk_cols)
+            pk_cols = ", ".join(f'"{col}"' for col in exact_pk_cols)
             col_defs.append(f"  PRIMARY KEY ({pk_cols})")
 
         # Create table SQL
         drop_sql = f"DROP TABLE IF EXISTS {quoted_table_name} CASCADE;"
         create_sql = f"CREATE TABLE {quoted_table_name} (\n"
-        create_sql += ',\n'.join(col_defs)
+        create_sql += ",\n".join(col_defs)
         create_sql += "\n);"
 
         # Create indexes (excluding primary key index)
         index_sqls = []
         for idx in indexes:
-            if not idx['unique']:  # Skip unique indexes for now
-                idx_name = idx['name']
+            if not idx["unique"]:  # Skip unique indexes for now
+                idx_name = idx["name"]
                 # Map index column names to exact names
                 exact_idx_cols = []
-                for col in idx['column_names']:
+                for col in idx["column_names"]:
                     exact_col = col_name_map.get(col, col)
                     exact_idx_cols.append(exact_col)
-                
+
                 # Always quote to preserve case
-                idx_cols = ', '.join(f'"{col}"' for col in exact_idx_cols)
+                idx_cols = ", ".join(f'"{col}"' for col in exact_idx_cols)
                 index_sql = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {quoted_table_name} ({idx_cols});"
                 index_sqls.append(index_sql)
 
@@ -308,7 +327,7 @@ class SchemaCreator:
         tables = inspector.get_table_names()
 
         # Order tables by dependency (put reference tables first)
-        priority_tables = ['status', 'county', 'town', 'server']
+        priority_tables = ["status", "county", "town", "server"]
         ordered_tables = [t for t in priority_tables if t in tables]
         ordered_tables += [t for t in tables if t not in priority_tables]
 
@@ -323,19 +342,19 @@ class SchemaCreator:
             with self.PgSession() as session:
                 try:
                     print(f"\nCreating table: {table_name}")
-                    
+
                     # Get CREATE TABLE SQL (includes DROP)
                     drop_sql, create_sql, index_sqls = self.create_table_sql(table_name)
-                    
+
                     # Execute DROP TABLE
                     session.execute(text(drop_sql))
                     session.commit()
-                    
+
                     # Execute CREATE TABLE
                     session.execute(text(create_sql))
                     session.commit()
                     print(f"  ✓ Table created")
-                    
+
                     # Create indexes
                     for idx_sql in index_sqls:
                         try:
@@ -344,9 +363,9 @@ class SchemaCreator:
                         except Exception as e:
                             print(f"  ⚠ Index creation warning: {e}")
                             session.rollback()
-                    
+
                     created += 1
-                    
+
                 except Exception as e:
                     session.rollback()
                     print(f"  ✗ Error: {e}")
@@ -358,7 +377,9 @@ class SchemaCreator:
         with self.pg_engine.connect() as conn:
             try:
                 # The 'place' table has a composite PK with address fields that can be NULL in MySQL
-                conn.execute(text("""
+                conn.execute(
+                    text(
+                        """
                     ALTER TABLE place 
                         ALTER COLUMN addr1 DROP NOT NULL,
                         ALTER COLUMN addr2 DROP NOT NULL,
@@ -367,7 +388,9 @@ class SchemaCreator:
                         ALTER COLUMN addr5 DROP NOT NULL,
                         ALTER COLUMN addr6 DROP NOT NULL,
                         ALTER COLUMN postcode8 DROP NOT NULL
-                """))
+                """
+                    )
+                )
                 conn.commit()
                 print("  ✓ Fixed place table nullable constraints")
             except Exception as e:
@@ -376,12 +399,12 @@ class SchemaCreator:
 
         print("\n" + "=" * 60)
         print(f"✅ Created {created}/{len(ordered_tables)} tables")
-        
+
         if failed:
             print(f"\n⚠️  Failed to create {len(failed)} tables:")
             for table_name, error in failed:
                 print(f"  - {table_name}: {error}")
-        
+
         return created, failed
 
 
@@ -394,7 +417,7 @@ def main():
     try:
         creator = SchemaCreator()
         created, failed = creator.create_all_tables()
-        
+
         if failed:
             print("\n⚠️  Some tables failed to create. You may need to:")
             print("  1. Review the errors above")
@@ -405,14 +428,14 @@ def main():
             print("\n✅ All tables created successfully!")
             print("\nYou can now run the import script to load data.")
             sys.exit(0)
-            
+
     except Exception as e:
         print(f"\n✗ Fatal error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
-

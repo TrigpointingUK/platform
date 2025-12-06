@@ -38,7 +38,7 @@ class MigrationValidator:
         pg_user = os.getenv("DB_USER")
         pg_password = os.getenv("DB_PASSWORD")
         pg_database = os.getenv("DB_NAME")
-        
+
         if not all([pg_user, pg_password, pg_database]):
             raise ValueError(
                 "Missing required PostgreSQL environment variables: "
@@ -60,7 +60,7 @@ class MigrationValidator:
         mysql_user = os.getenv("MYSQL_USER")
         mysql_password = os.getenv("MYSQL_PASSWORD")
         mysql_database = os.getenv("MYSQL_NAME")
-        
+
         if not all([mysql_user, mysql_password, mysql_database]):
             raise ValueError(
                 "Missing required MySQL environment variables: "
@@ -116,7 +116,11 @@ class MigrationValidator:
                 mysql_count = mysql_result.scalar() or 0
 
                 # Get PostgreSQL count - quote reserved words
-                quoted_table = f'"{table_name}"' if table_name in ('user', 'order', 'group') else table_name
+                quoted_table = (
+                    f'"{table_name}"'
+                    if table_name in ("user", "order", "group")
+                    else table_name
+                )
                 pg_result = pg_session.execute(
                     text(f"SELECT COUNT(*) FROM {quoted_table}")
                 )
@@ -160,7 +164,16 @@ class MigrationValidator:
         # Tables with spatial data and their primary key columns
         spatial_tables = {
             "trig": ["id"],
-            "place": ["name", "addr1", "addr2", "addr3", "addr4", "addr5", "addr6", "postcode8"],  # Composite PK
+            "place": [
+                "name",
+                "addr1",
+                "addr2",
+                "addr3",
+                "addr4",
+                "addr5",
+                "addr6",
+                "postcode8",
+            ],  # Composite PK
             "town": ["name"],
             "postcode6": ["code"],
         }
@@ -175,7 +188,7 @@ class MigrationValidator:
                 try:
                     # Build PK column list for SELECT
                     pk_cols_str = ", ".join(pk_columns)
-                    
+
                     # Sample 100 rows from MySQL
                     mysql_result = mysql_session.execute(
                         text(
@@ -194,11 +207,15 @@ class MigrationValidator:
                     errors = 0
                     for row in mysql_rows:
                         # Extract PK values and coordinates
-                        pk_values = row[:len(pk_columns)]
-                        mysql_lat, mysql_lon = row[len(pk_columns):len(pk_columns) + 2]
+                        pk_values = row[: len(pk_columns)]
+                        mysql_lat, mysql_lon = row[
+                            len(pk_columns) : len(pk_columns) + 2
+                        ]
 
                         # Build WHERE clause for PK
-                        where_clause = " AND ".join([f"{col} = :{col}" for col in pk_columns])
+                        where_clause = " AND ".join(
+                            [f"{col} = :{col}" for col in pk_columns]
+                        )
                         params = {col: val for col, val in zip(pk_columns, pk_values)}
 
                         # Get PostgreSQL data
@@ -218,7 +235,12 @@ class MigrationValidator:
                         if not pg_row:
                             errors += 1
                             if errors <= 3:
-                                pk_str = ", ".join([f"{col}={val}" for col, val in zip(pk_columns, pk_values)])
+                                pk_str = ", ".join(
+                                    [
+                                        f"{col}={val}"
+                                        for col, val in zip(pk_columns, pk_values)
+                                    ]
+                                )
                                 self.errors.append(
                                     f"Row ({pk_str}) missing in PostgreSQL {table_name}"
                                 )
@@ -236,7 +258,12 @@ class MigrationValidator:
                         if location_null:
                             errors += 1
                             if errors <= 3:
-                                pk_str = ", ".join([f"{col}={val}" for col, val in zip(pk_columns, pk_values)])
+                                pk_str = ", ".join(
+                                    [
+                                        f"{col}={val}"
+                                        for col, val in zip(pk_columns, pk_values)
+                                    ]
+                                )
                                 self.errors.append(
                                     f"{table_name} row ({pk_str}): location column is NULL"
                                 )
@@ -249,7 +276,12 @@ class MigrationValidator:
                         if lat_diff > 0.000001 or lon_diff > 0.000001:
                             errors += 1
                             if errors <= 3:
-                                pk_str = ", ".join([f"{col}={val}" for col, val in zip(pk_columns, pk_values)])
+                                pk_str = ", ".join(
+                                    [
+                                        f"{col}={val}"
+                                        for col, val in zip(pk_columns, pk_values)
+                                    ]
+                                )
                                 self.errors.append(
                                     f"{table_name} row ({pk_str}): coordinate mismatch "
                                     f"(lat diff: {lat_diff:.8f}, lon diff: {lon_diff:.8f})"
@@ -258,12 +290,16 @@ class MigrationValidator:
                     if errors == 0:
                         print(f"  ✓ Checked {len(mysql_rows)} rows - all valid")
                     else:
-                        print(f"  ✗ Found {errors} errors in {len(mysql_rows)} rows checked")
+                        print(
+                            f"  ✗ Found {errors} errors in {len(mysql_rows)} rows checked"
+                        )
                         all_valid = False
 
                 except Exception as e:
                     print(f"  ✗ Error checking {table_name}: {e}")
-                    self.errors.append(f"Error validating spatial data in {table_name}: {e}")
+                    self.errors.append(
+                        f"Error validating spatial data in {table_name}: {e}"
+                    )
                     all_valid = False
 
         return all_valid
@@ -315,7 +351,9 @@ class MigrationValidator:
 
                 except Exception as e:
                     print(f"  ✗ Error checking {table_name}: {e}")
-                    self.errors.append(f"Error checking NULL locations in {table_name}: {e}")
+                    self.errors.append(
+                        f"Error checking NULL locations in {table_name}: {e}"
+                    )
                     all_ok = False
 
         return all_ok
@@ -352,9 +390,7 @@ class MigrationValidator:
                     if index_count > 0:
                         print(f"  ✓ {table_name}.{column_name}: Spatial index exists")
                     else:
-                        print(
-                            f"  ✗ {table_name}.{column_name}: No spatial index found"
-                        )
+                        print(f"  ✗ {table_name}.{column_name}: No spatial index found")
                         self.warnings.append(
                             f"Missing spatial index on {table_name}.{column_name}"
                         )

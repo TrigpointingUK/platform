@@ -42,7 +42,8 @@ def get_duplicate_log_ids_to_delete(db: Session) -> list[int]:
     """
     # Use raw SQL for clarity and efficiency
     result = db.execute(
-        text("""
+        text(
+            """
         WITH logs_without_photos AS (
             SELECT t.id, t.user_id, t.trig_id, t.date, t.time, t.condition, t.comment
             FROM tlog t
@@ -70,7 +71,8 @@ def get_duplicate_log_ids_to_delete(db: Session) -> list[int]:
             AND lwp.comment IS NOT DISTINCT FROM dg.comment
         WHERE lwp.id != dg.keep_id
         ORDER BY lwp.id
-        """)
+        """
+        )
     )
     return [row[0] for row in result.fetchall()]
 
@@ -78,7 +80,8 @@ def get_duplicate_log_ids_to_delete(db: Session) -> list[int]:
 def get_sample_duplicates(db: Session, limit: int = 10) -> list[dict]:
     """Get a sample of duplicate groups for review."""
     result = db.execute(
-        text("""
+        text(
+            """
         WITH logs_without_photos AS (
             SELECT t.*, u.name as user_name, tr.name as trig_name
             FROM tlog t
@@ -99,7 +102,8 @@ def get_sample_duplicates(db: Session, limit: int = 10) -> list[dict]:
         HAVING COUNT(*) > 1
         ORDER BY COUNT(*) DESC, user_id
         LIMIT :limit
-        """),
+        """
+        ),
         {"limit": limit},
     )
     columns = result.keys()
@@ -132,6 +136,7 @@ def main():
         engine = create_engine(args.db_url)
     else:
         from api.db.database import get_engine
+
         engine = get_engine()
 
     with Session(engine) as db:
@@ -144,7 +149,9 @@ def main():
             print(f"Date: {sample['date']}, Time: {sample['time']}")
             print(f"Condition: {sample['condition']}")
             print(f"Comment: {sample['comment_preview']}...")
-            print(f"Duplicates: {sample['duplicate_count']} logs, IDs: {sample['log_ids']}")
+            print(
+                f"Duplicates: {sample['duplicate_count']} logs, IDs: {sample['log_ids']}"
+            )
             print("-" * 60)
 
         # Get all IDs to delete
@@ -174,8 +181,10 @@ def main():
 
         for i in range(0, len(ids_to_delete), batch_size):
             batch = ids_to_delete[i : i + batch_size]
-            deleted = db.query(TLog).filter(TLog.id.in_(batch)).delete(
-                synchronize_session=False
+            deleted = (
+                db.query(TLog)
+                .filter(TLog.id.in_(batch))
+                .delete(synchronize_session=False)
             )
             total_deleted += deleted
             print(f"  Deleted batch {i // batch_size + 1}: {deleted} logs")

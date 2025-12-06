@@ -11,12 +11,11 @@ Usage:
     python scripts/update_trig_postcodes.py
 """
 
+import math  # For bounding box calculations
 import sys
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Optional
-
-import math  # For bounding box calculations
 
 # Add api directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))

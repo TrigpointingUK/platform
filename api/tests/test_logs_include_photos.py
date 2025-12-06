@@ -2,7 +2,7 @@
 Tests for include=photos on logs endpoints.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -76,7 +76,7 @@ def create_sample_photo(db: Session, tlog_id: int) -> TPhoto:
         public_ind="Y",
         deleted_ind="N",
         source="W",
-        crt_timestamp=datetime.utcnow(),
+        crt_timestamp=datetime.now(UTC),
     )
     db.add(photo)
     db.commit()

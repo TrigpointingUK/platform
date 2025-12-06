@@ -22,7 +22,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 # Add parent directory to path so we can import from api
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -57,9 +57,11 @@ def get_all_users_with_username(
     while True:
         # Fetch page of users
         endpoint = f"users?per_page={per_page}&page={page}&include_totals=true"
-        
+
         if verbose:
-            print(f"   Fetching page {page} (users {page * per_page}-{(page + 1) * per_page})...")
+            print(
+                f"   Fetching page {page} (users {page * per_page}-{(page + 1) * per_page})..."
+            )
 
         response = auth0_service._make_auth0_request("GET", endpoint)
 
