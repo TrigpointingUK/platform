@@ -36,7 +36,7 @@ numpy==2.3.5
 onnxruntime==1.23.2
 
 # Geodesy - accurate coordinate transformations
-pyproj==3.7.0
+pyproj==3.7.2
 
 # Profiling
 pyinstrument==5.1.1
