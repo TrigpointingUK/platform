@@ -7,6 +7,7 @@ import { LocationSearch } from "../components/trigs/LocationSearch";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
 import { AreaFilter } from "../components/trigs/AreaFilter";
+import { DownloadButton } from "../components/trigs/DownloadButton";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUserProfile } from "../hooks/useUserProfile";
@@ -281,36 +282,60 @@ export default function FindTrigs() {
         {/* Fixed filter header */}
         <div className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40">
           <div className="space-y-4">
-          <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Location
-              </label>
-              <LocationSearch
-                onSelectLocation={handleSelectLocation}
-                defaultLocation={
-                  centerLat !== null && centerLon !== null
-                    ? {
-                        lat: centerLat,
-                        lon: centerLon,
-                        name: locationName,
-                      }
-                    : undefined
-                }
-              />
+            {/* Location and map preview row */}
+            <div className="flex items-end gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Location
+                </label>
+                <LocationSearch
+                  onSelectLocation={handleSelectLocation}
+                  defaultLocation={
+                    centerLat !== null && centerLon !== null
+                      ? {
+                          lat: centerLat,
+                          lon: centerLon,
+                          name: locationName,
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+              {/* First trigpoint map preview */}
+              {allTrigs.length > 0 && (
+                <img
+                  src={`${import.meta.env.VITE_API_BASE}/v1/trigs/${allTrigs[0].id}/map`}
+                  alt={`Map for ${allTrigs[0].name}`}
+                  title="The dot represents the first trigpoint in the list, not the searched location"
+                  className="w-[80px] h-[80px] rounded border-2 border-gray-300 shadow-sm cursor-help flex-shrink-0"
+                />
+              )}
             </div>
 
-            {/* Status filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Trigpoint types
-              </label>
-              <StatusFilter
-                selectedStatuses={selectedStatuses}
-                onToggleStatus={handleToggleStatus}
-              />
+            {/* Status filter with clear button */}
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Trigpoint types
+                </label>
+                <StatusFilter
+                  selectedStatuses={selectedStatuses}
+                  onToggleStatus={handleToggleStatus}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-600 hover:border-blue-800 rounded-lg bg-white hover:bg-blue-50 transition-colors mb-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear filters
+              </button>
             </div>
 
-            {/* Log filter, Area filter, and clear button */}
+            {/* Log filter, Area filter, and download button */}
             <div className="flex items-center justify-between flex-wrap gap-4">
               {isAuthenticated && (
                 <div>
@@ -354,13 +379,16 @@ export default function FindTrigs() {
                 </div>
               </div>
               
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium self-end"
-              >
-                Clear filters
-              </button>
+              <div className="self-end">
+                <DownloadButton
+                  statusIds={selectedStatuses}
+                  areaId={selectedAreaId}
+                  lat={centerLat}
+                  lon={centerLon}
+                  onlyFound={isAuthenticated && !showNotLogged && showLogged}
+                  excludeFound={isAuthenticated && showNotLogged && !showLogged}
+                />
+              </div>
             </div>
 
             {/* Results count */}
@@ -400,16 +428,6 @@ export default function FindTrigs() {
 
         {allTrigs.length > 0 && (
           <>
-            {/* First trigpoint map preview */}
-            <div className="mx-4 mt-4 mb-2 flex justify-center">
-              <img
-                src={`${import.meta.env.VITE_API_BASE}/v1/trigs/${allTrigs[0].id}/map`}
-                alt={`Map for ${allTrigs[0].name}`}
-                title="The dot represents the first trigpoint in the list, not the searched location"
-                className="w-[110px] h-[110px] rounded border-2 border-gray-300 shadow-md cursor-help"
-              />
-            </div>
-            
             {/* Trigpoint cards */}
             <div className="bg-white mx-4 mt-4 rounded-lg shadow overflow-hidden">
               {allTrigs.map((trig) => (
