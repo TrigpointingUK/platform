@@ -301,6 +301,7 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_credentials=False,  # Bearer tokens only, no cookies
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["Content-Disposition", "X-Trigpoint-Count", "X-Log-Count"],
     )
 
 # Set up profiling middleware (development and staging only)

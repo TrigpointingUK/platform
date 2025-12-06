@@ -8,6 +8,7 @@ from api.api.v1.endpoints import (
     admin,
     areas,
     debug,
+    downloads,
     legacy,
     locations,
     logs,
@@ -31,3 +32,4 @@ api_router.include_router(tiles.router, prefix="/tiles/os", tags=["tiles"])
 api_router.include_router(legacy.router, prefix="/legacy", tags=["legacy"])
 api_router.include_router(debug.router, prefix="/debug", tags=["debug"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(downloads.router, prefix="/downloads", tags=["download"])

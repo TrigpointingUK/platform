@@ -24,7 +24,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.32.5
-boto3==1.40.74
+boto3==1.42.4
 types-requests==2.32.4.20250809
 
 # Redis/ElastiCache for token caching
@@ -36,7 +36,7 @@ numpy==2.3.5
 onnxruntime==1.23.2
 
 # Geodesy - accurate coordinate transformations
-pyproj==3.7.0
+pyproj==3.7.2
 
 # Profiling
 pyinstrument==5.1.1
