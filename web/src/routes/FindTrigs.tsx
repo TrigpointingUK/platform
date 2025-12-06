@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useInfiniteTrigs } from "../hooks/useInfiniteTrigs";
 import { useUserLoggedTrigs } from "../hooks/useUserLoggedTrigs";
@@ -31,8 +31,11 @@ export default function FindTrigs() {
   // Fetch user's logged trigpoints for badge indicator
   const { data: loggedTrigsMap } = useUserLoggedTrigs();
 
-  // Track if we've attempted to get user location
-  const [locationAttempted, setLocationAttempted] = useState<boolean>(false);
+  // Track if we've attempted to get user location (use ref to avoid triggering re-renders)
+  const locationAttemptedRef = useRef(false);
+  
+  // Track if statuses have been initialized from user profile
+  const statusesInitializedRef = useRef(false);
 
   // Parse URL params or use null initially (will attempt geolocation)
   const [centerLat, setCenterLat] = useState<number | null>(() => {
@@ -47,16 +50,19 @@ export default function FindTrigs() {
     () => searchParams.get("location") || ""
   );
   
+  // Compute preferred statuses from user profile
+  const preferredStatuses = useMemo(() => {
+    const userStatusMax = userProfile?.prefs?.status_max || 30;
+    return ALL_STATUSES.filter(s => s <= userStatusMax);
+  }, [userProfile?.prefs?.status_max]);
+  
   const [selectedStatuses, setSelectedStatuses] = useState<number[]>(
     () => {
       const statuses = searchParams.get("statuses");
       if (statuses) return statuses.split(",").map(Number);
       
-      // Default based on user preference or fallback to 30 (Minor mark)
-      const userStatusMax = userProfile?.prefs?.status_max || 30;
-      
-      // Select all statuses up to and including user's max
-      return ALL_STATUSES.filter(s => s <= userStatusMax);
+      // Default based on fallback (user profile may not be loaded yet)
+      return ALL_STATUSES.filter(s => s <= 30);
     }
   );
   
@@ -85,15 +91,16 @@ export default function FindTrigs() {
 
   // Attempt to get user's current location on mount
   useEffect(() => {
-    // Only attempt if no location is set from URL params
-    if (centerLat !== null || locationAttempted) {
+    // Only attempt if no location is set from URL params and not already attempted
+    if (centerLat !== null || locationAttemptedRef.current) {
       return;
     }
 
-    setLocationAttempted(true);
+    locationAttemptedRef.current = true;
 
     if (!navigator.geolocation) {
       // Geolocation not supported, fall back to default
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Responding to external geolocation API check
       setCenterLat(DEFAULT_LAT);
       setCenterLon(DEFAULT_LON);
       setLocationName(DEFAULT_LOCATION_NAME);
@@ -115,17 +122,18 @@ export default function FindTrigs() {
         setLocationName(DEFAULT_LOCATION_NAME);
       }
     );
-  }, [centerLat, locationAttempted]);
+  }, [centerLat]);
 
-  // Initialize selected statuses from user preference when profile loads
+  // Initialize selected statuses from user preference when profile loads (once)
+  // This is responding to async user profile data, not derived state
   useEffect(() => {
-    // Only apply user preference if no URL params are set
-    if (!searchParams.get("statuses") && userProfile?.prefs?.status_max) {
-      const userStatusMax = userProfile.prefs.status_max;
-      const defaultStatuses = ALL_STATUSES.filter(s => s <= userStatusMax);
-      setSelectedStatuses(defaultStatuses);
+    // Only apply user preference if no URL params are set and not already initialized
+    if (!searchParams.get("statuses") && preferredStatuses.length > 0 && !statusesInitializedRef.current) {
+      statusesInitializedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+      setSelectedStatuses(preferredStatuses);
     }
-  }, [userProfile, searchParams]);
+  }, [preferredStatuses, searchParams]);
 
   // Update URL when filters change (only if location is set)
   useEffect(() => {

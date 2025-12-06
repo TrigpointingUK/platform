@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useMap } from "react-leaflet";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -146,6 +146,7 @@ export default function Map() {
     
     return preferredStatuses;
   });
+  // Derive initial color selection based on icon mode
   const [selectedColors, setSelectedColors] = useState<IconColor[]>(() => [...ALL_ICON_COLORS]);
   const [excludeFound, setExcludeFound] = useState<boolean>(
     () => searchParams.get("excludeFound") === "true"
@@ -157,8 +158,8 @@ export default function Map() {
   const [currentZoom, setCurrentZoom] = useState<number>(MAP_CONFIG.defaultZoom);
   const maxTrigpoints = 50000; // Always load all trigpoints
   
-  // Track if we've initialized statuses from user preferences
-  const [statusesInitialized, setStatusesInitialized] = useState(false);
+  // Track if we've initialized statuses from user preferences (use ref to avoid triggering re-renders)
+  const statusesInitializedRef = useRef(false);
   
   // Parse area_id from URL params for boundary display
   const areaId = useMemo(() => {
@@ -359,25 +360,35 @@ export default function Map() {
     return tooManyVisibleMarkers;
   }, [renderMode, visibleTrigpoints.length]);
   
-  // Initialize selected statuses from user preference when profile loads
+  // Initialize selected statuses from user preference when profile loads (once)
+  // This is responding to async user profile data, not derived state
   useEffect(() => {
     // Only apply user preference if:
     // 1. No URL params are set
     // 2. We haven't already initialized from preferences
     // 3. We have a preferred status list computed
-    if (!searchParams.get("statuses") && !statusesInitialized && preferredStatuses.length > 0) {
+    if (!searchParams.get("statuses") && !statusesInitializedRef.current && preferredStatuses.length > 0) {
+      statusesInitializedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
       setSelectedStatuses([...preferredStatuses]);
-      setStatusesInitialized(true);
     }
-  }, [preferredStatuses, searchParams, statusesInitialized]);
+  }, [preferredStatuses, searchParams]);
+  
+  // Track previous icon color mode to detect changes and avoid cascading renders
+  const prevIconColorModeRef = useRef(iconColorMode);
   
   // Handle color selection when switching between Condition and My Logs modes
+  // This responds to user interaction (mode toggle), not derived state
   useEffect(() => {
-    if (iconColorMode === 'condition') {
-      setSelectedColors(() => [...ALL_ICON_COLORS]);
-    } else {
-      setSelectedColors(() => [...USER_LOG_ICON_COLORS]);
+    // Only update if mode actually changed (prevents initial render trigger)
+    if (prevIconColorModeRef.current === iconColorMode) {
+      return;
     }
+    prevIconColorModeRef.current = iconColorMode;
+    
+    const newColors = iconColorMode === 'condition' ? [...ALL_ICON_COLORS] : [...USER_LOG_ICON_COLORS];
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Responding to user mode toggle
+    setSelectedColors(newColors);
   }, [iconColorMode]);
   
   // Update URL params when filters change (preserve area_id if present)

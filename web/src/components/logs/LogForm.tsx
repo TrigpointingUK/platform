@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Log, LogCreateInput, LogUpdateInput } from "../../lib/api";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
@@ -60,7 +60,10 @@ export default function LogForm({
     existingLog ? existingLog.time !== "12:00:00" : true // Default to true for new logs
   );
   const [locationSet, setLocationSet] = useState(!!existingLog);
-  const [locationInput, setLocationInput] = useState("");
+  // Initialize locationInput from existingLog if present, avoiding useEffect sync
+  const [locationInput, setLocationInput] = useState(() => 
+    existingLog?.osgb_gridref || ""
+  );
   const [locationError, setLocationError] = useState("");
   const [distanceFromTrig, setDistanceFromTrig] = useState<number | null>(null);
   const [showDistanceWarning, setShowDistanceWarning] = useState(false);
@@ -68,13 +71,6 @@ export default function LogForm({
 
   // Fetch photos for existing logs
   const { data: photos = [] } = useLogPhotos(existingLog?.id);
-
-  // Initialize location input from existing log
-  useEffect(() => {
-    if (existingLog) {
-      setLocationInput(formData.osgb_gridref);
-    }
-  }, [existingLog, formData.osgb_gridref, formData.osgb_eastings, formData.osgb_northings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

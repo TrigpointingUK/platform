@@ -28,18 +28,24 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
     caption: "",
     text_desc: "",
     type: "T",
-    license: "N", // Will be updated when user profile loads
+    license: defaultLicense, // Initialize with current default
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [showUploadForm, setShowUploadForm] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Update upload form default license when user profile loads
+  
+  // Track previous defaultLicense to update form when it changes
+  const prevDefaultLicenseRef = useRef(defaultLicense);
+  
+  // Update form when defaultLicense changes from async user profile load
+  // This is responding to external data (user profile query), not derived state
   useEffect(() => {
-    if (defaultLicense) {
+    if (prevDefaultLicenseRef.current !== defaultLicense) {
+      prevDefaultLicenseRef.current = defaultLicense;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Responding to async user profile load
       setUploadForm((prev) => ({ ...prev, license: defaultLicense }));
     }
   }, [defaultLicense]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = useUploadPhoto(logId!);
   const updateMutation = useUpdatePhoto();

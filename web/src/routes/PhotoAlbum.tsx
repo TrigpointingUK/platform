@@ -21,7 +21,6 @@ interface PhotosResponse {
 export default function PhotoAlbum() {
   const [viewMode, setViewMode] = useState<PhotoViewMode>('unseen');
   const [historyStats, setHistoryStats] = useState(getHistoryStats());
-  const [isSearching, setIsSearching] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -53,12 +52,12 @@ export default function PhotoAlbum() {
   // This handles the case where all photos in current pages are filtered out
   useEffect(() => {
     if (!isLoading && !isFetchingNextPage && hasNextPage && allPhotos.length === 0 && viewMode === 'unseen') {
-      setIsSearching(true);
       fetchNextPage();
-    } else if (allPhotos.length > 0 || !hasNextPage) {
-      setIsSearching(false);
     }
   }, [isLoading, isFetchingNextPage, hasNextPage, allPhotos.length, viewMode, fetchNextPage]);
+  
+  // Derive isSearching from conditions (no state needed)
+  const isSearching = !isLoading && isFetchingNextPage && allPhotos.length === 0 && viewMode === 'unseen';
 
   // Update history stats periodically
   useEffect(() => {

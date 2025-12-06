@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 interface UseAdminAuthResult {
   hasAdminRole: boolean;
@@ -17,23 +17,37 @@ interface UseAdminAuthResult {
 export function useAdminAuth(): UseAdminAuthResult {
   const { user, getAccessTokenSilently, loginWithRedirect, isLoading: isAuth0Loading, isAuthenticated } = useAuth0();
   const [hasAdminScope, setHasAdminScope] = useState<boolean | null>(null);
-  const [isCheckingScope, setIsCheckingScope] = useState(true);
-  const navigate = useNavigate();
+  const [isActivelyChecking, setIsActivelyChecking] = useState(false);
   const location = useLocation();
 
   // Check if user has api-admin role (from ID token)
   const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
   const hasAdminRole = userRoles.includes("api-admin");
 
+  // Track if we should be checking scope
+  const shouldCheckScope = isAuthenticated && !isAuth0Loading && hasAdminRole;
+  
+  // Use ref to track if check has been initiated
+  const checkInitiatedRef = useRef(false);
+
   useEffect(() => {
-    if (!isAuthenticated || isAuth0Loading || !hasAdminRole) {
-      setIsCheckingScope(false);
+    // Reset check state when conditions change
+    if (!shouldCheckScope) {
+      checkInitiatedRef.current = false;
       return;
     }
 
+    // Don't re-initiate if already initiated
+    if (checkInitiatedRef.current) {
+      return;
+    }
+    
+    checkInitiatedRef.current = true;
     let cancelled = false;
 
     const checkAdminAuth = async () => {
+      setIsActivelyChecking(true);
+      
       try {
         // First, try to get the current token to check if we already have admin scope
         const currentToken = await getAccessTokenSilently();
@@ -50,7 +64,7 @@ export function useAdminAuth(): UseAdminAuthResult {
         
         if (hasScope) {
           setHasAdminScope(true);
-          setIsCheckingScope(false);
+          setIsActivelyChecking(false);
           return;
         }
 
@@ -78,7 +92,7 @@ export function useAdminAuth(): UseAdminAuthResult {
                 appState: { returnTo: location.pathname },
               }).catch((error) => {
                 console.error("Failed to redirect for admin authentication:", error);
-                setIsCheckingScope(false);
+                setIsActivelyChecking(false);
               });
             }
           }, 1500);
@@ -89,7 +103,7 @@ export function useAdminAuth(): UseAdminAuthResult {
             ? `${location.pathname}?${urlParams.toString()}` 
             : location.pathname;
           window.history.replaceState({}, '', newUrl);
-          setIsCheckingScope(false);
+          setIsActivelyChecking(false);
         }
       } catch (err: unknown) {
         console.error("Admin auth check failed:", err);
@@ -117,17 +131,17 @@ export function useAdminAuth(): UseAdminAuthResult {
                   appState: { returnTo: location.pathname },
                 }).catch((redirectError) => {
                   console.error("Failed to redirect:", redirectError);
-                  setIsCheckingScope(false);
+                  setIsActivelyChecking(false);
                 });
               }
             }, 1500);
           } else {
-            setIsCheckingScope(false);
+            setIsActivelyChecking(false);
           }
         } else {
           if (!cancelled) {
             setHasAdminScope(false);
-            setIsCheckingScope(false);
+            setIsActivelyChecking(false);
           }
         }
       }
@@ -138,7 +152,10 @@ export function useAdminAuth(): UseAdminAuthResult {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, isAuth0Loading, hasAdminRole, getAccessTokenSilently, loginWithRedirect, location, navigate]);
+  }, [shouldCheckScope, getAccessTokenSilently, loginWithRedirect, location]);
+
+  // Derive isCheckingScope from conditions - no effect needed for this
+  const isCheckingScope = shouldCheckScope && (hasAdminScope === null || isActivelyChecking);
 
   return {
     hasAdminRole,

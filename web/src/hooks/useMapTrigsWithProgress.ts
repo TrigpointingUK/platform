@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 
 interface Trig {
@@ -61,24 +61,173 @@ export function useMapTrigsWithProgress({
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<Error | null>(null);
   
+  // Compute cache key
+  const isZoomedOut = zoom < 9;
+  const cacheKey = useMemo(() => {
+    if (!enabled || !bounds) return null;
+    return isZoomedOut 
+      ? `map-trigs-all-${excludeFound}-${maxTrigpoints}` 
+      : `map-trigs-viewport-${bounds.north.toFixed(2)}-${bounds.south.toFixed(2)}-${bounds.east.toFixed(2)}-${bounds.west.toFixed(2)}-${excludeFound}-${maxTrigpoints}`;
+  }, [enabled, bounds, isZoomedOut, excludeFound, maxTrigpoints]);
+  
+  const maxAge = isZoomedOut ? 60 * 60 * 1000 : 2 * 60 * 1000;
+  
+  // Track previous cache key to detect changes
+  const prevCacheKeyRef = useRef<string | null>(null);
+  
+  // Memoized fetch function
+  const fetchData = useCallback(async () => {
+    if (!bounds || !cacheKey) return;
+    
+    setIsLoading(true);
+    setLoadingProgress(0);
+    setError(null);
+    
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE as string;
+      
+      // Get auth token if needed
+      const headers: Record<string, string> = {};
+      if (excludeFound && isAuthenticated) {
+        try {
+          const token = await getAccessTokenSilently({ cacheMode: "on" });
+          headers["Authorization"] = `Bearer ${token}`;
+        } catch (error) {
+          console.error("Failed to get access token:", error);
+        }
+      }
+      
+      if (isZoomedOut) {
+        // Fetch trigpoints using parallel batches
+        const batchSize = Math.min(3000, maxTrigpoints);
+        const numBatches = Math.ceil(maxTrigpoints / batchSize);
+        
+        const fetchBatch = async (batchIndex: number): Promise<TrigsResponse | null> => {
+          const skip = batchIndex * batchSize;
+          const params = new URLSearchParams();
+          params.append("limit", batchSize.toString());
+          params.append("skip", skip.toString());
+          
+          if (excludeFound) {
+            params.append("exclude_found", "true");
+          }
+          
+          const res = await fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers });
+          if (!res.ok) return null;
+          
+          const data = await res.json();
+          setLoadingProgress((batchIndex + 1) / numBatches * 100);
+          return data;
+        };
+        
+        // Fetch batches in parallel
+        const results = await Promise.all(
+          Array.from({ length: numBatches }, (_, i) => fetchBatch(i))
+        );
+        
+        // Combine results
+        const allTrigpoints: Trig[] = [];
+        let total = 0;
+        
+        for (const result of results) {
+          if (result) {
+            allTrigpoints.push(...result.items);
+            if (result.pagination.total > total) {
+              total = result.pagination.total;
+            }
+          }
+        }
+        
+        setData(allTrigpoints);
+        setTotalCount(total);
+        
+        // Cache the result in memory
+        trigsCache.set(cacheKey, {
+          data: allTrigpoints,
+          total,
+          timestamp: Date.now(),
+        });
+      } else {
+        // Fetch viewport trigpoints with parallel batches
+        const { lat, lon, maxKm } = boundsToCenter(bounds);
+        const batchSize = Math.min(500, Math.ceil(maxTrigpoints / 2));
+        const numBatches = Math.min(2, Math.ceil(maxTrigpoints / batchSize));
+        
+        const fetchBatch = async (batchIndex: number): Promise<TrigsResponse | null> => {
+          const skip = batchIndex * batchSize;
+          const params = new URLSearchParams();
+          params.append("limit", batchSize.toString());
+          params.append("skip", skip.toString());
+          params.append("lat", lat.toString());
+          params.append("lon", lon.toString());
+          params.append("max_km", maxKm.toString());
+          params.append("order", "distance");
+          
+          if (excludeFound) {
+            params.append("exclude_found", "true");
+          }
+          
+          const res = await fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers });
+          if (!res.ok) return null;
+          
+          const data = await res.json();
+          setLoadingProgress((batchIndex + 1) / numBatches * 100);
+          return data;
+        };
+        
+        // Fetch batches in parallel
+        const results = await Promise.all(
+          Array.from({ length: numBatches }, (_, i) => fetchBatch(i))
+        );
+        
+        // Combine results
+        const allTrigpoints: Trig[] = [];
+        let total = 0;
+        
+        for (const result of results) {
+          if (result) {
+            allTrigpoints.push(...result.items);
+            if (result.pagination.total > total) {
+              total = result.pagination.total;
+            }
+          }
+        }
+        
+        setData(allTrigpoints);
+        setTotalCount(total);
+        
+        // Cache the result in memory
+        trigsCache.set(cacheKey, {
+          data: allTrigpoints,
+          total,
+          timestamp: Date.now(),
+        });
+      }
+      
+      setIsLoading(false);
+      setLoadingProgress(100);
+    } catch (err) {
+      setError(err as Error);
+      setIsLoading(false);
+    }
+  }, [bounds, cacheKey, excludeFound, isAuthenticated, isZoomedOut, maxTrigpoints, getAccessTokenSilently]);
+  
   useEffect(() => {
-    if (!enabled || !bounds) {
+    if (!enabled || !bounds || !cacheKey) {
       return;
     }
     
-    const isZoomedOut = zoom < 9;
+    // Check if cache key changed
+    if (prevCacheKeyRef.current === cacheKey) {
+      return;
+    }
+    prevCacheKeyRef.current = cacheKey;
     
-    // Create cache key based on filters
-    const cacheKey = isZoomedOut 
-      ? `map-trigs-all-${excludeFound}-${maxTrigpoints}` 
-      : `map-trigs-viewport-${bounds.north.toFixed(2)}-${bounds.south.toFixed(2)}-${bounds.east.toFixed(2)}-${bounds.west.toFixed(2)}-${excludeFound}-${maxTrigpoints}`;
-    
-    // Check if we already have this data cached in memory
+    // Check cache (Date.now() is fine inside effect)
     const cached = trigsCache.get(cacheKey);
-    const maxAge = isZoomedOut ? 60 * 60 * 1000 : 2 * 60 * 1000; // 1 hour for all, 2 min for viewport
-    
     if (cached && (Date.now() - cached.timestamp) < maxAge) {
-      // Use cached data
+      // Use cached data - this is reading from an external cache, not derived state
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reading from external memory cache
       setData(cached.data);
       setTotalCount(cached.total);
       setIsLoading(false);
@@ -86,143 +235,8 @@ export function useMapTrigsWithProgress({
     }
     
     // Fetch new data
-    const fetchData = async () => {
-      setIsLoading(true);
-      setLoadingProgress(0);
-      setError(null);
-      
-      try {
-        const apiBase = import.meta.env.VITE_API_BASE as string;
-        
-        // Get auth token if needed
-        const headers: Record<string, string> = {};
-        if (excludeFound && isAuthenticated) {
-          try {
-            const token = await getAccessTokenSilently({ cacheMode: "on" });
-            headers["Authorization"] = `Bearer ${token}`;
-          } catch (error) {
-            console.error("Failed to get access token:", error);
-          }
-        }
-        
-        if (isZoomedOut) {
-          // Fetch trigpoints using parallel batches
-          // Calculate batch configuration based on maxTrigpoints
-          const batchSize = Math.min(3000, maxTrigpoints);
-          const numBatches = Math.ceil(maxTrigpoints / batchSize);
-          
-          const fetchBatch = async (batchIndex: number): Promise<TrigsResponse | null> => {
-            const skip = batchIndex * batchSize;
-            const params = new URLSearchParams();
-            params.append("limit", batchSize.toString());
-            params.append("skip", skip.toString());
-            
-            if (excludeFound) {
-              params.append("exclude_found", "true");
-            }
-            
-            const res = await fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers });
-            if (!res.ok) return null;
-            
-            const data = await res.json();
-            setLoadingProgress((batchIndex + 1) / numBatches * 100);
-            return data;
-          };
-          
-          // Fetch batches in parallel
-          const results = await Promise.all(
-            Array.from({ length: numBatches }, (_, i) => fetchBatch(i))
-          );
-          
-          // Combine results
-          const allTrigpoints: Trig[] = [];
-          let total = 0;
-          
-          for (const result of results) {
-            if (result) {
-              allTrigpoints.push(...result.items);
-              if (result.pagination.total > total) {
-                total = result.pagination.total;
-              }
-            }
-          }
-          
-          setData(allTrigpoints);
-          setTotalCount(total);
-          
-          // Cache the result in memory
-          trigsCache.set(cacheKey, {
-            data: allTrigpoints,
-            total,
-            timestamp: Date.now(),
-          });
-        } else {
-          // Fetch viewport trigpoints with parallel batches
-          const { lat, lon, maxKm } = boundsToCenter(bounds);
-          const batchSize = Math.min(500, Math.ceil(maxTrigpoints / 2));
-          const numBatches = Math.min(2, Math.ceil(maxTrigpoints / batchSize));
-          
-          const fetchBatch = async (batchIndex: number): Promise<TrigsResponse | null> => {
-            const skip = batchIndex * batchSize;
-            const params = new URLSearchParams();
-            params.append("limit", batchSize.toString());
-            params.append("skip", skip.toString());
-            params.append("lat", lat.toString());
-            params.append("lon", lon.toString());
-            params.append("max_km", maxKm.toString());
-            params.append("order", "distance");
-            
-            if (excludeFound) {
-              params.append("exclude_found", "true");
-            }
-            
-            const res = await fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers });
-            if (!res.ok) return null;
-            
-            const data = await res.json();
-            setLoadingProgress((batchIndex + 1) / numBatches * 100);
-            return data;
-          };
-          
-          // Fetch batches in parallel
-          const results = await Promise.all(
-            Array.from({ length: numBatches }, (_, i) => fetchBatch(i))
-          );
-          
-          // Combine results
-          const allTrigpoints: Trig[] = [];
-          let total = 0;
-          
-          for (const result of results) {
-            if (result) {
-              allTrigpoints.push(...result.items);
-              if (result.pagination.total > total) {
-                total = result.pagination.total;
-              }
-            }
-          }
-          
-          setData(allTrigpoints);
-          setTotalCount(total);
-          
-          // Cache the result in memory
-          trigsCache.set(cacheKey, {
-            data: allTrigpoints,
-            total,
-            timestamp: Date.now(),
-          });
-        }
-        
-        setIsLoading(false);
-        setLoadingProgress(100);
-      } catch (err) {
-        setError(err as Error);
-        setIsLoading(false);
-      }
-    };
-    
     fetchData();
-  }, [bounds, excludeFound, enabled, zoom, maxTrigpoints, getAccessTokenSilently, isAuthenticated]);
+  }, [enabled, bounds, cacheKey, maxAge, fetchData]);
   
   return {
     data,
@@ -253,4 +267,3 @@ function boundsToCenter(bounds: MapBounds): { lat: number; lon: number; maxKm: n
   
   return { lat, lon, maxKm };
 }
-
