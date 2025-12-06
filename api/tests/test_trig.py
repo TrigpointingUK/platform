@@ -551,3 +551,170 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
     assert len(source_data["attribute_sets"]) == 1
     assert source_data["attribute_sets"][0]["values"][str(attr1.id)] == "Value 1"
     assert source_data["attribute_sets"][0]["values"][str(attr2.id)] == "Value 2"
+
+
+def test_get_trig_stats_never_found_returns_null_for_found_last(
+    client: TestClient, db: Session
+):
+    """
+    Test that when a trig has never been found (found_count=0),
+    the found_last field should be null in the API response.
+
+    This covers the bug where the frontend displays "1 Jan 1970"
+    instead of "Never" for trigs that have never been found.
+    """
+    import uuid
+
+    waypoint = f"TP{uuid.uuid4().hex[:6]}"[:8]
+
+    trig = Trig(
+        waypoint=waypoint,
+        name="Never Found Trig",
+        status_id=10,
+        user_added=0,
+        current_use="Passive station",
+        historic_use="Primary",
+        physical_type="Pillar",
+        wgs_lat=Decimal("51.50000"),
+        wgs_long=Decimal("-0.12500"),
+        wgs_height=100,
+        osgb_eastings=530000,
+        osgb_northings=180000,
+        osgb_gridref="TQ 30000 80000",
+        osgb_height=95,
+        fb_number="S9001",
+        stn_number="NFND01",
+        permission_ind="Y",
+        condition="G",
+        postcode="SW1A 1",
+        county="London",
+        town="Westminster",
+        needs_attention=0,
+        attention_comment="",
+        crt_date=date(2023, 1, 1),
+        crt_time=time(12, 0, 0),
+        crt_user_id=1,
+        crt_ip_addr="127.0.0.1",
+    )
+    db.add(trig)
+    db.commit()
+    db.refresh(trig)
+
+    # Create stats with found_count=0 (never found)
+    # Using date(1970, 1, 1) as the sentinel value for "never"
+    # In production MySQL database, this would be '0000-00-00'
+    stats = TrigStats(
+        id=trig.id,
+        logged_first=date(2020, 1, 1),
+        logged_last=date(2025, 1, 1),
+        logged_count=5,  # Has been logged
+        found_last=date(1970, 1, 1),  # Sentinel for "never found"
+        found_count=0,  # Never successfully found
+        photo_count=0,
+        score_mean=Decimal("0.00"),
+        score_baysian=Decimal("0.00"),
+        area_osgb_height=0,
+    )
+    db.add(stats)
+    db.commit()
+    db.refresh(stats)
+
+    response = client.get(f"{settings.API_V1_STR}/trigs/{trig.id}?include=stats")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert "stats" in data
+    assert data["stats"]["found_count"] == 0
+    # When found_count is 0, found_last should be null (not a date like "1970-01-01")
+    assert data["stats"]["found_last"] is None, (
+        "found_last should be null when found_count is 0, "
+        f"but got: {data['stats']['found_last']}"
+    )
+
+
+def test_get_trig_stats_never_logged_returns_null_for_logged_dates(
+    client: TestClient, db: Session
+):
+    """
+    Test that when a trig has never been logged (logged_count=0),
+    the logged_first and logged_last fields should be null in the API response.
+
+    This covers a similar bug to the "Last Found" issue where dates would
+    display as "1 Jan 1970" instead of "Never" for never-logged trigs.
+    """
+    import uuid
+
+    waypoint = f"TP{uuid.uuid4().hex[:6]}"[:8]
+
+    trig = Trig(
+        waypoint=waypoint,
+        name="Never Logged Trig",
+        status_id=10,
+        user_added=0,
+        current_use="Passive station",
+        historic_use="Primary",
+        physical_type="Pillar",
+        wgs_lat=Decimal("51.50000"),
+        wgs_long=Decimal("-0.12500"),
+        wgs_height=100,
+        osgb_eastings=530000,
+        osgb_northings=180000,
+        osgb_gridref="TQ 30000 80000",
+        osgb_height=95,
+        fb_number="S9002",
+        stn_number="NLOG01",
+        permission_ind="Y",
+        condition="G",
+        postcode="SW1A 1",
+        county="London",
+        town="Westminster",
+        needs_attention=0,
+        attention_comment="",
+        crt_date=date(2023, 1, 1),
+        crt_time=time(12, 0, 0),
+        crt_user_id=1,
+        crt_ip_addr="127.0.0.1",
+    )
+    db.add(trig)
+    db.commit()
+    db.refresh(trig)
+
+    # Create stats with logged_count=0 (never logged)
+    # Using date(1970, 1, 1) as the sentinel value for "never"
+    # In production MySQL database, this would be '0000-00-00'
+    stats = TrigStats(
+        id=trig.id,
+        logged_first=date(1970, 1, 1),  # Sentinel for "never logged"
+        logged_last=date(1970, 1, 1),  # Sentinel for "never logged"
+        logged_count=0,  # Never logged
+        found_last=date(1970, 1, 1),  # Also never found
+        found_count=0,  # Never found
+        photo_count=0,
+        score_mean=Decimal("0.00"),
+        score_baysian=Decimal("0.00"),
+        area_osgb_height=0,
+    )
+    db.add(stats)
+    db.commit()
+    db.refresh(stats)
+
+    response = client.get(f"{settings.API_V1_STR}/trigs/{trig.id}?include=stats")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert "stats" in data
+    assert data["stats"]["logged_count"] == 0
+    # When logged_count is 0, logged_first and logged_last should be null
+    assert data["stats"]["logged_first"] is None, (
+        "logged_first should be null when logged_count is 0, "
+        f"but got: {data['stats']['logged_first']}"
+    )
+    assert data["stats"]["logged_last"] is None, (
+        "logged_last should be null when logged_count is 0, "
+        f"but got: {data['stats']['logged_last']}"
+    )
+    # found_last should also be null since found_count is 0
+    assert data["stats"]["found_last"] is None, (
+        "found_last should be null when found_count is 0, "
+        f"but got: {data['stats']['found_last']}"
+    )
