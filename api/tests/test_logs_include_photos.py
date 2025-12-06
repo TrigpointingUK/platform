@@ -96,16 +96,18 @@ def test_list_logs_include_photos(client: TestClient, db: Session):
     body = resp.json()
     assert "items" in body
     assert len(body["items"]) >= 1
-    first = body["items"][0]
-    assert "photos" in first
-    assert isinstance(first["photos"], list)
-    assert len(first["photos"]) >= 2
-    assert "trig_lat" in first
-    assert "trig_lon" in first
-    assert isinstance(first["trig_lat"], float)
-    assert isinstance(first["trig_lon"], float)
+    # Find our specific log by ID (don't assume ordering in parallel tests)
+    our_log = next((item for item in body["items"] if item["id"] == tlog.id), None)
+    assert our_log is not None, f"Log {tlog.id} not found in response"
+    assert "photos" in our_log
+    assert isinstance(our_log["photos"], list)
+    assert len(our_log["photos"]) >= 2
+    assert "trig_lat" in our_log
+    assert "trig_lon" in our_log
+    assert isinstance(our_log["trig_lat"], float)
+    assert isinstance(our_log["trig_lon"], float)
     # Check for our specific photo IDs (use dynamic IDs)
-    photo_ids = {p["id"] for p in first["photos"]}
+    photo_ids = {p["id"] for p in our_log["photos"]}
     assert photo1.id in photo_ids
     assert photo2.id in photo_ids
 
