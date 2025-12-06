@@ -50,7 +50,7 @@ export function DownloadButton({
   const [error, setError] = useState<string | null>(null);
   const [includeMyLogs, setIncludeMyLogs] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently } = useAuth0();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -90,7 +90,7 @@ export function DownloadButton({
     if (excludeFound) {
       params.set("exclude_found", "true");
     }
-    if (includeMyLogs && isAuthenticated) {
+    if (includeMyLogs) {
       params.set("include_my_logs", "true");
     }
 
@@ -104,46 +104,41 @@ export function DownloadButton({
     try {
       const url = buildDownloadUrl(format);
 
-      // If authenticated and using user-specific options, add auth header
-      if (isAuthenticated && (includeMyLogs || onlyFound || excludeFound)) {
-        const token = await getAccessTokenSilently();
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      // Always use authenticated request (downloads require login)
+      const token = await getAccessTokenSilently();
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail || `Download failed: ${response.status}`);
-        }
-
-        // Get filename from Content-Disposition header or generate one with timestamp
-        const contentDisposition = response.headers.get("Content-Disposition");
-        const now = new Date();
-        const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
-        let filename = `trigpoints_${timestamp}.${format}`;
-        if (contentDisposition) {
-          const match = contentDisposition.match(/filename="(.+)"/);
-          if (match) {
-            filename = match[1];
-          }
-        }
-
-        // Create download
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(downloadUrl);
-      } else {
-        // For anonymous downloads, just open the URL directly
-        window.open(url, "_blank");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Download failed: ${response.status}`);
       }
+
+      // Get filename from Content-Disposition header or generate one with timestamp
+      const contentDisposition = response.headers.get("Content-Disposition");
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+      let filename = `trigpoints_${timestamp}.${format}`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+      // Create download
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
 
       setIsOpen(false);
     } catch (err) {
@@ -191,20 +186,18 @@ export function DownloadButton({
             </p>
           </div>
 
-          {/* Include my logs checkbox (authenticated users only) */}
-          {isAuthenticated && (
-            <div className="px-3 py-2 border-b border-gray-100">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeMyLogs}
-                  onChange={(e) => setIncludeMyLogs(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Include my log data</span>
-              </label>
-            </div>
-          )}
+          {/* Include my logs checkbox */}
+          <div className="px-3 py-2 border-b border-gray-100">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeMyLogs}
+                onChange={(e) => setIncludeMyLogs(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Include my log data</span>
+            </label>
+          </div>
 
           {/* Format options */}
           <div className="py-1">

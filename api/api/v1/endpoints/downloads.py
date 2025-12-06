@@ -11,7 +11,7 @@ from typing import Any, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
-from api.api.deps import get_current_user, get_current_user_optional, get_db
+from api.api.deps import get_current_user, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
 from api.core.logging import get_logger
 from api.crud import status as status_crud
@@ -132,14 +132,13 @@ def download_trigs(
     ),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Download trigpoints in the specified format.
+    Download trigpoints in the specified format (requires authentication).
 
     Supports filtering by status, area, location/distance, county, and name.
-    Authenticated users can include their personal log data and filter by
-    logged/not-logged status.
+    You can also include your personal log data and filter by logged/not-logged status.
 
     **Formats:**
     - `csv`: Comma-separated values (spreadsheet compatible)
@@ -151,11 +150,7 @@ def download_trigs(
     """
     # Get client IP for rate limiting
     client_ip = _get_client_ip(request)
-
-    # User-specific filters require authentication
-    user_id: Optional[int] = None
-    if current_user:
-        user_id = int(current_user.id)
+    user_id = int(current_user.id)
 
     # Check rate limits
     limiter = get_download_rate_limiter()
@@ -165,7 +160,7 @@ def download_trigs(
     if not allowed:
         logger.warning(
             f"Download request blocked: {error_message} "
-            f"(format={format}, user={user_id or 'anonymous'}, ip={client_ip})"
+            f"(format={format}, user={user_id}, ip={client_ip})"
         )
         raise HTTPException(status_code=429, detail=error_message)
 
@@ -181,12 +176,6 @@ def download_trigs(
                 status_code=400,
                 detail="Invalid status_ids format. Use comma-separated integers.",
             )
-
-    if (include_my_logs or only_found or exclude_found) and not current_user:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required for user-specific options (include_my_logs, only_found, exclude_found)",
-        )
 
     # Mutually exclusive filters
     if only_found and exclude_found:
@@ -298,10 +287,10 @@ def download_trigs_count(
     ),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Get a count of trigpoints that would be included in a download.
+    Get a count of trigpoints that would be included in a download (requires authentication).
 
     Use this endpoint to preview the size of a download before requesting it.
     """
@@ -318,16 +307,7 @@ def download_trigs_count(
                 detail="Invalid status_ids format. Use comma-separated integers.",
             )
 
-    # User-specific filters require authentication
-    user_id: Optional[int] = None
-    if current_user:
-        user_id = int(current_user.id)
-
-    if (only_found or exclude_found) and not current_user:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required for user-specific options (only_found, exclude_found)",
-        )
+    user_id = int(current_user.id)
 
     if only_found and exclude_found:
         raise HTTPException(

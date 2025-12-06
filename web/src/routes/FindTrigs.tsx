@@ -379,16 +379,18 @@ export default function FindTrigs() {
                 </div>
               </div>
               
-              <div className="self-end">
-                <DownloadButton
-                  statusIds={selectedStatuses}
-                  areaId={selectedAreaId}
-                  lat={centerLat}
-                  lon={centerLon}
-                  onlyFound={isAuthenticated && !showNotLogged && showLogged}
-                  excludeFound={isAuthenticated && showNotLogged && !showLogged}
-                />
-              </div>
+              {isAuthenticated && (
+                <div className="self-end">
+                  <DownloadButton
+                    statusIds={selectedStatuses}
+                    areaId={selectedAreaId}
+                    lat={centerLat}
+                    lon={centerLon}
+                    onlyFound={!showNotLogged && showLogged}
+                    excludeFound={showNotLogged && !showLogged}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Results count */}
