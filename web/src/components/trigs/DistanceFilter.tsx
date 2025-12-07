@@ -43,12 +43,12 @@ function findNearestDetent(pos: number): { distance: number; position: number } 
   return null;
 }
 
-// Format distance for display
+// Format distance for display (compact)
 function formatDistance(km: number): string {
   if (km >= 1000) {
-    return `${(km / 1000).toLocaleString()}k km`;
+    return `${(km / 1000).toLocaleString()}k`;
   }
-  return `${km.toLocaleString()} km`;
+  return km.toLocaleString();
 }
 
 // Convert position to value (with detent snapping)
@@ -166,108 +166,122 @@ export function DistanceFilter({
 
   // Use pending value for display (shows what will be applied)
   const displayValue =
-    pendingValue === null ? "No limit" : formatDistance(pendingValue);
+    pendingValue === null ? "∞" : formatDistance(pendingValue);
 
   const isNoLimit = pendingValue === null;
 
   return (
     <div className={`${disabled ? "opacity-50" : ""}`}>
-      <div className="flex items-center gap-4">
-        {/* Slider container */}
-        <div className="flex-1 min-w-[200px]">
-          <div className="flex items-center gap-3">
-            {/* Min label */}
-            <span className="text-xs text-gray-500 w-8 text-right">1 km</span>
+      <div className="flex items-center gap-3">
+        {/* Min label */}
+        <span className="text-xs text-gray-500 w-6 text-right">1</span>
 
-            {/* Slider */}
-            <div className="flex-1 relative">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="0.5"
-                value={sliderPosition}
-                onChange={handleSliderChange}
-                disabled={disabled}
-                className={`
-                  w-full h-2 rounded-lg appearance-none cursor-pointer
-                  bg-gray-200
-                  [&::-webkit-slider-thumb]:appearance-none
-                  [&::-webkit-slider-thumb]:w-4
-                  [&::-webkit-slider-thumb]:h-4
-                  [&::-webkit-slider-thumb]:rounded-full
-                  [&::-webkit-slider-thumb]:bg-blue-600
-                  [&::-webkit-slider-thumb]:cursor-pointer
-                  [&::-webkit-slider-thumb]:shadow-md
-                  [&::-webkit-slider-thumb]:transition-transform
-                  [&::-webkit-slider-thumb]:hover:scale-110
-                  [&::-moz-range-thumb]:w-4
-                  [&::-moz-range-thumb]:h-4
-                  [&::-moz-range-thumb]:rounded-full
-                  [&::-moz-range-thumb]:bg-blue-600
-                  [&::-moz-range-thumb]:border-0
-                  [&::-moz-range-thumb]:cursor-pointer
-                  [&::-moz-range-thumb]:shadow-md
-                  disabled:cursor-not-allowed
-                  disabled:[&::-webkit-slider-thumb]:bg-gray-400
-                  disabled:[&::-moz-range-thumb]:bg-gray-400
-                `}
-                aria-label="Maximum distance filter"
-                aria-valuetext={displayValue}
-              />
+        {/* Slider with floating label */}
+        <div className="flex-1 min-w-[200px] relative pt-7 pb-1">
+          {/* Floating value label above thumb */}
+          <div
+            className="absolute top-0 pointer-events-none"
+            style={{
+              left: `${sliderPosition}%`,
+              transform: "translateX(-50%)",
+            }}
+          >
+            <span
+              className={`
+                inline-block px-2 py-0.5 text-xs font-semibold rounded-md
+                whitespace-nowrap shadow-sm
+                transition-colors
+                ${isNoLimit ? "bg-gray-600 text-white" : "bg-blue-600 text-white"}
+                ${isPending ? "animate-pulse" : ""}
+              `}
+            >
+              {displayValue}
+            </span>
+            {/* Triangle pointer */}
+            <div
+              className={`
+                absolute left-1/2 -translate-x-1/2 top-full
+                w-0 h-0
+                border-l-[5px] border-l-transparent
+                border-r-[5px] border-r-transparent
+                border-t-[5px]
+                ${isNoLimit ? "border-t-gray-600" : "border-t-blue-600"}
+              `}
+            />
+          </div>
 
-              {/* Detent markers */}
-              <div className="absolute top-3 left-0 right-0 flex justify-between pointer-events-none">
-                {DETENTS.filter((d) => d >= 10 && d <= 1000).map((detent) => {
-                  const pos = distanceToPosition(detent);
-                  return (
-                    <div
-                      key={detent}
-                      className="absolute w-0.5 h-1.5 bg-gray-400 rounded-full"
-                      style={{ left: `${pos}%`, transform: "translateX(-50%)" }}
-                      title={formatDistance(detent)}
-                    />
-                  );
-                })}
-              </div>
-            </div>
+          {/* Slider input */}
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="0.5"
+            value={sliderPosition}
+            onChange={handleSliderChange}
+            disabled={disabled}
+            className={`
+              w-full h-2 rounded-lg appearance-none cursor-pointer
+              bg-gray-200
+              [&::-webkit-slider-thumb]:appearance-none
+              [&::-webkit-slider-thumb]:w-4
+              [&::-webkit-slider-thumb]:h-4
+              [&::-webkit-slider-thumb]:rounded-full
+              [&::-webkit-slider-thumb]:bg-blue-600
+              [&::-webkit-slider-thumb]:cursor-pointer
+              [&::-webkit-slider-thumb]:shadow-md
+              [&::-webkit-slider-thumb]:transition-transform
+              [&::-webkit-slider-thumb]:hover:scale-110
+              [&::-moz-range-thumb]:w-4
+              [&::-moz-range-thumb]:h-4
+              [&::-moz-range-thumb]:rounded-full
+              [&::-moz-range-thumb]:bg-blue-600
+              [&::-moz-range-thumb]:border-0
+              [&::-moz-range-thumb]:cursor-pointer
+              [&::-moz-range-thumb]:shadow-md
+              disabled:cursor-not-allowed
+              disabled:[&::-webkit-slider-thumb]:bg-gray-400
+              disabled:[&::-moz-range-thumb]:bg-gray-400
+            `}
+            aria-label="Maximum distance filter"
+            aria-valuetext={pendingValue === null ? "No limit" : `${pendingValue} km`}
+          />
 
-            {/* Max/No limit label */}
-            <span className="text-xs text-gray-500 w-14">2k km</span>
+          {/* Detent markers */}
+          <div className="absolute top-10 left-0 right-0 pointer-events-none">
+            {DETENTS.filter((d) => d >= 10 && d <= 1000).map((detent) => {
+              const pos = distanceToPosition(detent);
+              return (
+                <div
+                  key={detent}
+                  className="absolute w-0.5 h-1.5 bg-gray-400 rounded-full"
+                  style={{ left: `${pos}%`, transform: "translateX(-50%)" }}
+                  title={`${detent} km`}
+                />
+              );
+            })}
           </div>
         </div>
 
-        {/* Current value display */}
-        <div className="flex items-center gap-2">
-          <span
-            className={`
-              text-sm font-medium px-3 py-1 rounded-md min-w-[80px] text-center
-              transition-colors
-              ${isNoLimit ? "bg-gray-100 text-gray-600" : "bg-blue-100 text-blue-700"}
-              ${isPending ? "animate-pulse" : ""}
-            `}
-          >
-            {displayValue}
-          </span>
+        {/* Max label */}
+        <span className="text-xs text-gray-500 w-6">2k</span>
 
-          {/* No limit toggle button */}
-          <button
-            type="button"
-            onClick={handleNoLimitToggle}
-            disabled={disabled}
-            className={`
-              px-2 py-1 text-xs font-medium rounded transition-colors
-              ${isNoLimit
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-              }
-              disabled:opacity-50 disabled:cursor-not-allowed
-            `}
-            title={isNoLimit ? "Set a distance limit" : "Remove distance limit"}
-          >
-            {isNoLimit ? "∞" : "×"}
-          </button>
-        </div>
+        {/* No limit toggle button */}
+        <button
+          type="button"
+          onClick={handleNoLimitToggle}
+          disabled={disabled}
+          className={`
+            px-2 py-1 text-xs font-medium rounded transition-colors
+            ${isNoLimit
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+            }
+            disabled:opacity-50 disabled:cursor-not-allowed
+          `}
+          title={isNoLimit ? "Set a distance limit" : "Remove distance limit"}
+        >
+          {isNoLimit ? "∞" : "×"}
+        </button>
       </div>
     </div>
   );
