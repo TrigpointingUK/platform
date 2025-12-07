@@ -150,6 +150,7 @@ export default function Attributions() {
   if (error) {
     return (
       <Layout>
+        <title>Attributions | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">
             Open Source Attributions
@@ -174,6 +175,7 @@ export default function Attributions() {
   if (!data) {
     return (
       <Layout>
+        <title>Attributions | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">
             Open Source Attributions
@@ -188,6 +190,7 @@ export default function Attributions() {
 
   return (
     <Layout>
+      <title>Attributions | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
           Open Source Attributions

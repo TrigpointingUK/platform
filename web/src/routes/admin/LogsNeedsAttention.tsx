@@ -289,6 +289,7 @@ export default function LogsNeedsAttention() {
   if (!hasAdminRole) {
     return (
       <Layout>
+        <title>Logs Needs Attention | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="text-center py-12">
@@ -315,6 +316,7 @@ export default function LogsNeedsAttention() {
 
   return (
     <Layout>
+      <title>Logs Needs Attention | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6">
           <div className="flex items-center justify-between">

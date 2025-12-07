@@ -10,6 +10,7 @@ import EditableField from "../components/ui/EditableField";
 import LogList from "../components/logs/LogList";
 import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
 import { useUserLogs } from "../hooks/useUserLogs";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 // Helper function to decode JWT payload
 interface JWTPayload {
@@ -44,6 +45,9 @@ export default function UserProfile() {
   // If no userId in URL, fetch "me", otherwise fetch the specified user
   const targetUserId = userId || "me";
   const { data: user, isLoading, error } = useUserProfile(targetUserId);
+
+  // Update document title when user data loads
+  useDocumentTitle(user ? `${user.name}'s Profile` : null);
 
   // Own profile if: no userId param, or userId matches the logged-in user's ID
   const isOwnProfile = !userId || (authUser && userId === authUser.sub);

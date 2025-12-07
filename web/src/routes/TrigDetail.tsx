@@ -17,6 +17,7 @@ import { useUserTrigLogs } from "../hooks/useUserTrigLogs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useCreateLog } from "../hooks/useCreateLog";
 import { useAreasContaining, type Area } from "../hooks/useAreasContaining";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
 
 const conditionMap: Record<
@@ -56,6 +57,9 @@ export default function TrigDetail() {
     isLoading: isTrigLoading,
     error: trigError,
   } = useTrigDetail(trigIdNum!);
+
+  // Update document title when trig data loads
+  useDocumentTitle(trig ? `${trig.waypoint} - ${trig.name}` : null);
 
   const {
     data: logsData,

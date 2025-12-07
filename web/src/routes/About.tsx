@@ -59,6 +59,7 @@ export default function About() {
   if (error) {
     return (
       <Layout>
+        <title>About | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">About</h1>
           <Card>
@@ -74,6 +75,7 @@ export default function About() {
   if (!buildInfo) {
     return (
       <Layout>
+        <title>About | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">About</h1>
           <Card>
@@ -86,6 +88,7 @@ export default function About() {
 
   return (
     <Layout>
+      <title>About | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">About Trigpointing UK</h1>
 

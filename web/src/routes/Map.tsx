@@ -461,6 +461,7 @@ export default function Map() {
   
   return (
     <Layout>
+      <title>Map | TrigpointingUK</title>
       <div className="flex h-[calc(100vh-4rem-7rem)] relative -mx-4 -mb-6">
         {/* Sidebar */}
         <div

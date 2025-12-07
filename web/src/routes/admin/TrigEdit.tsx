@@ -6,6 +6,7 @@ import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
 import LinkedCoordinates from "../../components/admin/LinkedCoordinates";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import {
   fetchTrigForEdit,
   fetchStatuses,
@@ -76,6 +77,9 @@ export default function TrigEdit() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Update document title when trig data loads
+  useDocumentTitle(trig ? `Edit: ${trig.name}` : null);
 
   // Form fields
   const [name, setName] = useState("");

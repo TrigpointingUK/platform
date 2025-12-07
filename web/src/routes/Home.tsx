@@ -227,6 +227,7 @@ function RecentLogsSection() {
 export default function Home() {
   return (
     <Layout>
+      <title>TrigpointingUK</title>
       <div className="flex flex-col-reverse lg:flex-row gap-6">
         {/* Sidebar - bottom on mobile, left on desktop */}
         <Sidebar />

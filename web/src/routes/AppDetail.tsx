@@ -7,6 +7,7 @@ export default function AppDetail() {
 
   return (
     <Layout>
+      <title>Trig #{id} | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto">
         <Card>
           <h1 className="text-3xl font-bold text-trig-green-600 mb-4">

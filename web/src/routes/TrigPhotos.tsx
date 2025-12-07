@@ -8,6 +8,7 @@ import Spinner from "../components/ui/Spinner";
 import PhotoGrid from "../components/photos/PhotoGrid";
 import { useTrigPhotos } from "../hooks/useTrigPhotos";
 import { useTrigDetail } from "../hooks/useTrigDetail";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { Photo } from "../lib/api";
 
 interface PhotosResponse {
@@ -36,6 +37,9 @@ export default function TrigPhotos() {
   } = useTrigPhotos(trigIdNum!);
 
   const { data: trig } = useTrigDetail(trigIdNum!);
+
+  // Update document title when trig data loads
+  useDocumentTitle(trig ? `Photos: ${trig.name}` : null);
 
   // Intersection observer for infinite scroll
   const { ref: loadMoreRef, inView } = useInView({

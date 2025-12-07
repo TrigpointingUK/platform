@@ -232,6 +232,7 @@ export default function Search() {
   if (!query || query.length < 2) {
     return (
       <>
+        <title>Search | TrigpointingUK</title>
         <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto text-center">
@@ -264,6 +265,7 @@ export default function Search() {
 
   return (
     <>
+      <title>Search | TrigpointingUK</title>
       <Header />
       <div className="container mx-auto px-4 py-6">
         {/* Search Header */}

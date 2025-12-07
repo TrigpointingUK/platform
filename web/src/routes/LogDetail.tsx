@@ -12,6 +12,7 @@ import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useUpdateLog } from "../hooks/useUpdateLog";
 import { useDeleteLog } from "../hooks/useDeleteLog";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { LogUpdateInput, DuplicateLogError } from "../lib/api";
 
 export default function LogDetail() {
@@ -29,6 +30,9 @@ export default function LogDetail() {
     isLoading,
     error,
   } = useLogDetail(logIdNum!);
+
+  // Update document title when log data loads
+  useDocumentTitle(log ? `Log #${log.id} - ${log.trig_name}` : null);
 
   // Get current user's database profile
   const { data: currentUser } = useCurrentUser();

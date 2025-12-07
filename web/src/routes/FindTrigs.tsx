@@ -283,6 +283,7 @@ export default function FindTrigs() {
 
   return (
     <Layout>
+      <title>Find Trigpoints | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="mb-6">

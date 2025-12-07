@@ -107,6 +107,7 @@ export default function PhotoAlbum() {
   if (error) {
     return (
       <Layout>
+        <title>Photo Album | TrigpointingUK</title>
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">Photo Gallery</h1>
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -122,6 +123,7 @@ export default function PhotoAlbum() {
 
   return (
     <Layout>
+      <title>Photo Album | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">

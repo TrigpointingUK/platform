@@ -148,6 +148,7 @@ export default function UsersPage() {
 
   return (
     <Layout>
+      <title>Users | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
         <div className="space-y-2">
           <p className="text-sm uppercase tracking-wide text-trig-green-600 font-semibold">

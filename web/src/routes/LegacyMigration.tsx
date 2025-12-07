@@ -37,6 +37,7 @@ export default function LegacyMigration() {
     const username = user?.name || user?.nickname || user?.email || "there";
     return (
       <Layout>
+        <title>Account Migration | TrigpointingUK</title>
         <div className="max-w-2xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">
             Legacy Account Migration
@@ -161,6 +162,7 @@ export default function LegacyMigration() {
 
   return (
     <Layout>
+      <title>Account Migration | TrigpointingUK</title>
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">
           Legacy Account Migration
