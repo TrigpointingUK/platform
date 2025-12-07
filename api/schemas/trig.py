@@ -11,8 +11,6 @@ from pydantic import (
     ConfigDict,
     Field,
     field_serializer,
-    field_validator,
-    model_validator,
 )
 
 
@@ -109,35 +107,6 @@ class TrigStats(BaseModel):
     photo_count: int
     score_mean: Decimal
     score_baysian: Decimal
-
-    @field_validator("logged_first", "logged_last", "found_last", mode="before")
-    @classmethod
-    def handle_invalid_dates(cls, v):
-        """Convert invalid MySQL dates (0000-00-00) and epoch dates to None.
-
-        MySQL uses '0000-00-00' for invalid/never dates, which SQLAlchemy may
-        convert to epoch date (1970-01-01). Both represent "never" semantically.
-        """
-        if v in ("0000-00-00", "", None):
-            return None
-        # Handle epoch date as sentinel for "never"
-        if isinstance(v, date) and v == date(1970, 1, 1):
-            return None
-        return v
-
-    @model_validator(mode="after")
-    def nullify_dates_when_count_is_zero(self):
-        """Set date fields to None when corresponding count is zero.
-
-        When found_count is 0, the trig has never been found, so found_last
-        has no meaningful value. Similarly for logged_count and log dates.
-        """
-        if self.found_count == 0:
-            self.found_last = None
-        if self.logged_count == 0:
-            self.logged_first = None
-            self.logged_last = None
-        return self
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -368,6 +368,83 @@ def cache_delete_pattern(pattern: str) -> int:
         return -1
 
 
+def cache_delete_patterns_batched(patterns: list[str]) -> int:
+    """
+    Delete cache keys matching multiple patterns in a single scan.
+
+    More efficient than calling cache_delete_pattern multiple times,
+    especially over high-latency connections (e.g., SSM tunnels).
+
+    Args:
+        patterns: List of Redis key patterns (e.g., ['trig:123:*', 'user:1:*'])
+
+    Returns:
+        Total number of keys deleted, or -1 on error
+    """
+    import fnmatch
+
+    client = get_redis_client()
+    if not client:
+        return -1
+
+    if not patterns:
+        return 0
+
+    try:
+        # Find the common prefix to narrow the scan
+        # All our patterns start with 'fastapi:{env}:' so use that
+        common_prefix = "fastapi:*"
+
+        deleted_count = 0
+        cursor = 0
+        keys_to_delete: list[str] = []
+
+        while True:
+            cursor, keys = client.scan(cursor, match=common_prefix, count=500)  # type: ignore[misc]
+
+            # Check each key against all patterns
+            for key in keys:
+                for pattern in patterns:
+                    if fnmatch.fnmatch(key, pattern):
+                        keys_to_delete.append(key)
+                        break  # Don't match same key multiple times
+
+            # Delete in batches to avoid huge commands
+            if len(keys_to_delete) >= 100:
+                deleted_count += client.delete(*keys_to_delete)  # type: ignore[operator]
+                keys_to_delete = []
+
+            if cursor == 0:  # type: ignore[comparison-overlap]
+                break
+
+        # Delete any remaining keys
+        if keys_to_delete:
+            deleted_count += client.delete(*keys_to_delete)  # type: ignore[operator]
+
+        logger.info(
+            json.dumps(
+                {
+                    "event": "cache_delete_patterns_batched",
+                    "patterns_count": len(patterns),
+                    "deleted_count": deleted_count,
+                }
+            )
+        )
+        return deleted_count
+
+    except RedisError as e:
+        logger.warning(
+            json.dumps(
+                {
+                    "event": "cache_delete_patterns_batched_error",
+                    "patterns_count": len(patterns),
+                    "error": str(e),
+                }
+            )
+        )
+        return -1
+
+
 def cache_flush_all() -> bool:
     """
     Flush all cache keys from the current database.

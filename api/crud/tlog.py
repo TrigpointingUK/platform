@@ -16,6 +16,70 @@ from api.services.cache_invalidator import (
     invalidate_photo_caches,
 )
 
+# Import update_trigstats lazily to avoid circular imports
+_trigstats_crud = None
+
+
+def _get_trigstats_crud():
+    """Lazy import of trigstats crud to avoid circular imports."""
+    global _trigstats_crud
+    if _trigstats_crud is None:
+        from api.crud import trigstats as trigstats_crud
+
+        _trigstats_crud = trigstats_crud
+    return _trigstats_crud
+
+
+# Condition values that indicate the trig condition is "unknown" or "pending"
+# and should be updated from user log data
+TRIG_CONDITIONS_TO_UPDATE = {"P", "U", "N", "Z", "", None}
+
+# Condition values from tlog that should NOT update the trig
+# (i.e., these are also "unknown" or "pending" log conditions)
+TLOG_CONDITIONS_TO_SKIP = {"P", "Q", "U", "N", "Z", "", None}
+
+
+def maybe_update_trig_condition(
+    db: Session, *, trig_id: int, tlog_condition: Optional[str]
+) -> bool:
+    """
+    Update trig.condition based on a tlog's condition value.
+
+    Logic:
+    - If trig.condition is in ['P', 'U', 'N', 'Z', '', null] (unknown/pending)
+    - AND tlog.condition is NOT in ['P', 'Q', 'U', 'N', 'Z', '', null] (known condition)
+    - Then update trig.condition with tlog.condition
+
+    Args:
+        db: Database session
+        trig_id: ID of the trig to potentially update
+        tlog_condition: The condition value from the tlog
+
+    Returns:
+        True if the trig condition was updated, False otherwise
+    """
+    # Check if tlog condition should trigger an update
+    if tlog_condition in TLOG_CONDITIONS_TO_SKIP:
+        return False
+
+    # Get the trig and check its current condition
+    trig = db.query(Trig).filter(Trig.id == trig_id).first()
+    if not trig:
+        return False
+
+    # Check if trig condition should be updated
+    current_condition = str(trig.condition) if trig.condition else None
+    if current_condition not in TRIG_CONDITIONS_TO_UPDATE:
+        return False
+
+    # Update the trig condition
+    # Type ignore needed as SQLAlchemy Column assignment works at runtime
+    trig.condition = tlog_condition  # type: ignore[assignment]
+    db.add(trig)
+    # Note: We don't commit here - let the caller handle the transaction
+
+    return True
+
 
 def get_log_by_id(db: Session, log_id: int) -> Optional[TLog]:
     return db.query(TLog).filter(TLog.id == log_id).first()
@@ -101,11 +165,19 @@ def create_log(
     log_values = {k: v for k, v in values.items() if k not in ("trig_id", "user_id")}
     log = TLog(trig_id=trig_id, user_id=user_id, **log_values)
     db.add(log)
+
+    # Check if trig condition should be updated based on log condition
+    tlog_condition = log_values.get("condition")
+    maybe_update_trig_condition(db, trig_id=trig_id, tlog_condition=tlog_condition)
+
     db.commit()
     db.refresh(log)
 
     # Invalidate related caches
     invalidate_log_caches(trig_id=trig_id, user_id=user_id, log_id=int(log.id))
+
+    # Update trigstats for this trig
+    _get_trigstats_crud().update_trigstats(db, trig_id)
 
     return log
 
@@ -118,6 +190,13 @@ def update_log(db: Session, *, log_id: int, updates: dict) -> Optional[TLog]:
         if hasattr(log, key):
             setattr(log, key, value)
     db.add(log)
+
+    # Check if trig condition should be updated based on the updated log condition
+    if "condition" in updates:
+        maybe_update_trig_condition(
+            db, trig_id=int(log.trig_id), tlog_condition=updates["condition"]
+        )
+
     db.commit()
     db.refresh(log)
 
@@ -125,6 +204,9 @@ def update_log(db: Session, *, log_id: int, updates: dict) -> Optional[TLog]:
     invalidate_log_caches(
         trig_id=int(log.trig_id), user_id=int(log.user_id), log_id=log_id
     )
+
+    # Update trigstats for this trig
+    _get_trigstats_crud().update_trigstats(db, int(log.trig_id))
 
     return log
 
@@ -143,6 +225,9 @@ def delete_log_hard(db: Session, *, log_id: int) -> bool:
 
     # Invalidate related caches
     invalidate_log_caches(trig_id=trig_id, user_id=user_id, log_id=log_id)
+
+    # Update trigstats for this trig
+    _get_trigstats_crud().update_trigstats(db, trig_id)
 
     return True
 
@@ -172,6 +257,8 @@ def soft_delete_photos_for_log(db: Session, *, log_id: int) -> int:
         invalidate_photo_caches(
             trig_id=int(log.trig_id), user_id=int(log.user_id), log_id=log_id
         )
+        # Update trigstats for this trig (photo_count changed)
+        _get_trigstats_crud().update_trigstats(db, int(log.trig_id))
 
     return count
 

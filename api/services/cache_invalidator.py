@@ -13,7 +13,7 @@ from typing import List, Optional
 
 from api.core.config import settings
 from api.core.logging import get_logger
-from api.services.cache_service import cache_delete_pattern
+from api.services.cache_service import cache_delete_patterns_batched
 
 logger = get_logger(__name__)
 
@@ -39,21 +39,19 @@ def invalidate_patterns(patterns: List[str]) -> int:
     Automatically prefixes patterns with 'fastapi:{environment}:' to ensure
     we only invalidate this application's cache keys in this environment.
 
+    Uses batched deletion for efficiency over high-latency connections.
+
     Args:
         patterns: List of Redis key patterns (e.g., ['trig:123:*', 'stats:site:*'])
 
     Returns:
         Total number of keys deleted
     """
-    total_deleted = 0
-
     # Prefix all patterns with app name and environment
     prefixed_patterns = [_prefix_pattern(p) for p in patterns]
 
-    for pattern in prefixed_patterns:
-        deleted = cache_delete_pattern(pattern)
-        if deleted >= 0:
-            total_deleted += deleted
+    # Use batched deletion - single scan for all patterns
+    total_deleted = cache_delete_patterns_batched(prefixed_patterns)
 
     if total_deleted > 0:
         logger.info(
@@ -66,7 +64,7 @@ def invalidate_patterns(patterns: List[str]) -> int:
             )
         )
 
-    return total_deleted
+    return max(0, total_deleted)  # Return 0 instead of -1 on error
 
 
 def invalidate_log_caches(trig_id: int, user_id: int, log_id: Optional[int] = None):

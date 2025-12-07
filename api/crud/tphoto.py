@@ -10,6 +10,19 @@ from api.models.tphoto import TPhoto
 from api.models.user import TLog
 from api.services.cache_invalidator import invalidate_photo_caches
 
+# Import update_trigstats lazily to avoid circular imports
+_trigstats_crud = None
+
+
+def _get_trigstats_crud():
+    """Lazy import of trigstats crud to avoid circular imports."""
+    global _trigstats_crud
+    if _trigstats_crud is None:
+        from api.crud import trigstats as trigstats_crud
+
+        _trigstats_crud = trigstats_crud
+    return _trigstats_crud
+
 
 def get_photo_by_id(db: Session, photo_id: int) -> Optional[TPhoto]:
     """Fetch a photo by primary key, excluding soft-deleted rows by default."""
@@ -77,6 +90,8 @@ def delete_photo(db: Session, photo_id: int, soft: bool = True) -> bool:
             log_id=log_id,
             photo_id=photo_id,
         )
+        # Update trigstats for this trig (photo_count changed)
+        _get_trigstats_crud().update_trigstats(db, int(tlog.trig_id))
 
     return True
 
@@ -133,5 +148,7 @@ def create_photo(
             log_id=log_id,
             photo_id=int(photo.id),
         )
+        # Update trigstats for this trig (photo_count changed)
+        _get_trigstats_crud().update_trigstats(db, int(tlog.trig_id))
 
     return photo
