@@ -245,7 +245,7 @@ export function DistanceFilter({
 
           {/* Detent markers */}
           <div className="absolute top-10 left-0 right-0 pointer-events-none">
-            {DETENTS.filter((d) => d >= 10 && d <= 1000).map((detent) => {
+            {DETENTS.filter((d) => d >= 2 && d <= 1000).map((detent) => {
               const pos = distanceToPosition(detent);
               return (
                 <div
