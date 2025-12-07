@@ -149,18 +149,6 @@ export function DistanceFilter({
     [scheduleChange]
   );
 
-  const handleNoLimitToggle = useCallback(() => {
-    const currentDisplayValue = pendingValue;
-    if (currentDisplayValue === null) {
-      // Switch to a sensible default (100km)
-      setSliderPosition(distanceToPosition(100));
-      scheduleChange(100);
-    } else {
-      setSliderPosition(100);
-      scheduleChange(null);
-    }
-  }, [pendingValue, scheduleChange]);
-
   // Use pending value for display (shows what will be applied)
   const displayValue =
     pendingValue === null ? "∞" : formatDistance(pendingValue);
@@ -261,24 +249,6 @@ export function DistanceFilter({
 
         {/* Max label */}
         <span className="text-xs text-gray-500 w-6">2k</span>
-
-        {/* No limit toggle button */}
-        <button
-          type="button"
-          onClick={handleNoLimitToggle}
-          disabled={disabled}
-          className={`
-            px-2 py-1 text-xs font-medium rounded transition-colors
-            ${isNoLimit
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-            }
-            disabled:opacity-50 disabled:cursor-not-allowed
-          `}
-          title={isNoLimit ? "Set a distance limit" : "Remove distance limit"}
-        >
-          {isNoLimit ? "∞" : "×"}
-        </button>
       </div>
     </div>
   );
