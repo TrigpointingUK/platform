@@ -297,7 +297,7 @@ export default function FindTrigs() {
         {/* Fixed filter header */}
         <div className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40">
           {/* Toggle button and results summary when collapsed */}
-          <div className="flex items-center gap-3 mb-2">
+          <div className={`flex items-center gap-3 ${isFilterCollapsed ? "" : "mb-2"}`}>
             <button
               type="button"
               onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
@@ -314,14 +314,15 @@ export default function FindTrigs() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
-            <span className="text-sm font-medium text-gray-700">
-              {isFilterCollapsed ? "Filters" : "Search & Filter"}
-            </span>
-            {isFilterCollapsed && (
-              <span className="text-sm text-gray-500">
-                {isLoading || centerLat === null || centerLon === null
-                  ? "Loading..."
-                  : `${allTrigs.length} of ${totalCount} trigpoints`}
+            {isFilterCollapsed ? (
+              <span className="text-sm text-gray-600">
+                {centerLat && centerLon && locationName && `Near ${locationName}`}
+                {selectedAreaName && ` in ${selectedAreaName}`}
+                {!locationName && !selectedAreaName && "Expand to search"}
+              </span>
+            ) : (
+              <span className="text-sm font-medium text-gray-700">
+                Search & Filter
               </span>
             )}
           </div>
