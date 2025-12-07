@@ -162,7 +162,7 @@ export function DistanceFilter({
         <span className="text-xs text-gray-500 w-6 text-right">1</span>
 
         {/* Slider with floating label */}
-        <div className="flex-1 min-w-[200px] relative pt-7 pb-1">
+        <div className="flex-1 relative pt-7 pb-1">
           {/* Floating value label above thumb */}
           <div
             className="absolute top-0 pointer-events-none"

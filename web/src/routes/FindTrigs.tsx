@@ -326,7 +326,7 @@ export default function FindTrigs() {
               )}
             </div>
 
-            {/* Status filter with clear button */}
+            {/* Status filter and distance filter */}
             <div className="flex items-end justify-between gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -337,16 +337,18 @@ export default function FindTrigs() {
                   onToggleStatus={handleToggleStatus}
                 />
               </div>
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-600 hover:border-blue-800 rounded-lg bg-white hover:bg-blue-50 transition-colors mb-1"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Clear filters
-              </button>
+              
+              {/* Distance filter */}
+              <div className="w-[500px] flex-shrink-0">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by distance
+                </label>
+                <DistanceFilter
+                  value={maxKm}
+                  onChange={setMaxKm}
+                  disabled={centerLat === null || centerLon === null}
+                />
+              </div>
             </div>
 
             {/* Log filter, Area filter, and download button */}
@@ -408,29 +410,29 @@ export default function FindTrigs() {
               )}
             </div>
             
-            {/* Distance filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by distance
-              </label>
-              <DistanceFilter
-                value={maxKm}
-                onChange={setMaxKm}
-                disabled={centerLat === null || centerLon === null}
-              />
-            </div>
-
-            {/* Results count */}
-            <div className="text-sm text-gray-600">
-              {isLoading || centerLat === null || centerLon === null ? (
-                <span>Loading...</span>
-              ) : (
-                <span>
-                  Showing {allTrigs.length} of {totalCount} trigpoints
-                  {centerLat && centerLon && locationName && ` near ${locationName}`}
-                  {selectedAreaName && ` in ${selectedAreaName}`}
-                </span>
-              )}
+            {/* Results count and clear filters */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                {isLoading || centerLat === null || centerLon === null ? (
+                  <span>Loading...</span>
+                ) : (
+                  <span>
+                    Showing {allTrigs.length} of {totalCount} trigpoints
+                    {centerLat && centerLon && locationName && ` near ${locationName}`}
+                    {selectedAreaName && ` in ${selectedAreaName}`}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear filters
+              </button>
             </div>
           </div>
         </div>
