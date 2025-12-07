@@ -265,7 +265,7 @@ export function DistanceFilter({
                 inline-block px-2 py-0.5 text-xs font-semibold rounded-md
                 whitespace-nowrap shadow-sm select-none
                 transition-colors
-                ${isNoLimit ? "bg-gray-600 text-white" : "bg-blue-600 text-white"}
+                ${isNoLimit ? "bg-gray-600 text-white" : "bg-green-600 text-white"}
                 ${isPending ? "animate-pulse" : ""}
               `}
             >
@@ -279,7 +279,7 @@ export function DistanceFilter({
                 border-l-[5px] border-l-transparent
                 border-r-[5px] border-r-transparent
                 border-t-[5px]
-                ${isNoLimit ? "border-t-gray-600" : "border-t-blue-600"}
+                ${isNoLimit ? "border-t-gray-600" : "border-t-green-600"}
               `}
             />
           </div>
@@ -300,7 +300,7 @@ export function DistanceFilter({
               [&::-webkit-slider-thumb]:w-4
               [&::-webkit-slider-thumb]:h-4
               [&::-webkit-slider-thumb]:rounded-full
-              [&::-webkit-slider-thumb]:bg-blue-600
+              [&::-webkit-slider-thumb]:bg-green-600
               [&::-webkit-slider-thumb]:cursor-pointer
               [&::-webkit-slider-thumb]:shadow-md
               [&::-webkit-slider-thumb]:transition-transform
@@ -308,7 +308,7 @@ export function DistanceFilter({
               [&::-moz-range-thumb]:w-4
               [&::-moz-range-thumb]:h-4
               [&::-moz-range-thumb]:rounded-full
-              [&::-moz-range-thumb]:bg-blue-600
+              [&::-moz-range-thumb]:bg-green-600
               [&::-moz-range-thumb]:border-0
               [&::-moz-range-thumb]:cursor-pointer
               [&::-moz-range-thumb]:shadow-md
