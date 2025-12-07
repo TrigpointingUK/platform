@@ -156,9 +156,9 @@ export function DistanceFilter({
   const isNoLimit = pendingValue === null;
 
   return (
-    <div className={`${disabled ? "opacity-50" : ""}`}>
+    <div className={`${disabled ? "opacity-50" : ""} flex justify-end`}>
       {/* Slider with floating label */}
-      <div className="relative pt-7 pb-1">
+      <div className="relative pt-7 pb-1 w-full max-w-[400px]">
           {/* Floating value label above thumb */}
           <div
             className="absolute top-0 pointer-events-none"
