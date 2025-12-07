@@ -154,11 +154,6 @@ module "auth0" {
     "https://trigpointing.uk",
   ]
 
-  # Website Callbacks
-  website_callback_urls = [
-    "https://www.trigpointing.uk/auth/callback",
-  ]
-
   # Forum Callbacks
   forum_callback_urls = [
     "https://forum.trigpointing.uk/ucp.php?mode=login&login=external&oauth_service=auth.provider.oauth.service.auth0",
@@ -237,12 +232,6 @@ output "auth0_swagger_client_id" {
 output "auth0_web_spa_client_id" {
   description = "Web SPA client ID (for React application)"
   value       = module.auth0.web_spa_client_id
-}
-
-output "auth0_website_client_id" {
-  description = "Website client ID"
-  value       = module.auth0.website_client_id
-  sensitive   = true
 }
 
 output "auth0_forum_client_id" {

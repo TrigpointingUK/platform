@@ -33,11 +33,6 @@ moved {
   to   = auth0_client.swagger
 }
 
-moved {
-  from = auth0_client.web_app
-  to   = auth0_client.website
-}
-
 # ============================================================================
 # DATABASE CONNECTION
 # ============================================================================
@@ -106,7 +101,6 @@ resource "auth0_connection_clients" "database_clients" {
       auth0_client.m2m_api.id,
       auth0_client.swagger.id,
       auth0_client.web_spa.id,
-      auth0_client.website.id,
       auth0_client.android.id,
       auth0_client.alb.id,
     ],
@@ -240,28 +234,6 @@ resource "auth0_client" "web_spa" {
     infinite_idle_token_lifetime = false
     idle_token_lifetime          = 1296000 # 15 days
   }
-}
-
-# Regular Web Application (Website)
-resource "auth0_client" "website" {
-  name        = "${var.name_prefix}-website"
-  description = "Main website for ${var.environment}"
-  app_type    = "regular_web"
-
-  callbacks           = var.website_callback_urls
-  allowed_logout_urls = [] # Empty - forum and wiki have their own clients now
-  web_origins         = [] # Empty - website doesn't need CORS
-
-  grant_types = [
-    "authorization_code",
-    "refresh_token",
-  ]
-
-  jwt_configuration {
-    alg = "RS256"
-  }
-
-  oidc_conformant = true
 }
 
 # Regular Web Application (Forum) - Optional

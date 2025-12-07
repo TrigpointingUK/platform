@@ -87,12 +87,6 @@ variable "web_spa_allowed_origins" {
   default     = []
 }
 
-variable "website_callback_urls" {
-  description = "List of website callback URLs"
-  type        = list(string)
-  default     = []
-}
-
 variable "forum_callback_urls" {
   description = "List of forum callback URLs"
   type        = list(string)

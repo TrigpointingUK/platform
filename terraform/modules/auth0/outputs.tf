@@ -36,12 +36,6 @@ output "web_spa_client_id" {
   value       = auth0_client.web_spa.id
 }
 
-output "website_client_id" {
-  description = "Website client ID"
-  value       = auth0_client.website.id
-  sensitive   = true
-}
-
 output "forum_client_id" {
   description = "Forum client ID"
   value       = var.enable_forum ? auth0_client.forum[0].id : null
