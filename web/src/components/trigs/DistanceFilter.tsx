@@ -158,13 +158,14 @@ export function DistanceFilter({
   return (
     <div className={`${disabled ? "opacity-50" : ""} flex justify-end`}>
       {/* Slider with floating label */}
-      <div className="relative pt-7 pb-1 w-full max-w-[400px]">
-          {/* Floating value label above thumb */}
+      <div className="relative pt-1 pb-1 w-full max-w-[400px]">
+          {/* Floating value label above thumb - positioned above with z-index */}
           <div
-            className="absolute top-0 pointer-events-none"
+            className="absolute z-10 pointer-events-none"
             style={{
               left: `${sliderPosition}%`,
               transform: "translateX(-50%)",
+              bottom: "calc(100% + 2px)",
             }}
           >
             <span
@@ -228,7 +229,7 @@ export function DistanceFilter({
           />
 
           {/* Detent markers */}
-          <div className="absolute top-10 left-0 right-0 pointer-events-none">
+          <div className="absolute top-4 left-0 right-0 pointer-events-none">
             {DETENTS.filter((d) => d >= 2 && d <= 1000).map((detent) => {
               const pos = distanceToPosition(detent);
               return (
