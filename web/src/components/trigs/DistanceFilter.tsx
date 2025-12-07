@@ -83,6 +83,12 @@ export function DistanceFilter({
   // Track the committed value to detect external changes
   const committedValueRef = useRef<number | null>(value);
 
+  // Ref for the slider track to calculate drag positions
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  // Track if we're currently dragging
+  const isDraggingRef = useRef(false);
+
   // Sync slider position when value changes externally (e.g., URL params on page load or clear filters)
   useEffect(() => {
     // Only sync if this is an external change (not from our own onChange)
@@ -149,6 +155,83 @@ export function DistanceFilter({
     [scheduleChange]
   );
 
+  // Calculate position from mouse/touch event
+  const calculatePositionFromEvent = useCallback(
+    (clientX: number): number => {
+      if (!trackRef.current) return sliderPosition;
+      const rect = trackRef.current.getBoundingClientRect();
+      const relativeX = clientX - rect.left;
+      const percentage = Math.max(0, Math.min(100, (relativeX / rect.width) * 100));
+      return percentage;
+    },
+    [sliderPosition]
+  );
+
+  // Handle drag on the label
+  const handleLabelDrag = useCallback(
+    (clientX: number) => {
+      if (disabled) return;
+      const pos = calculatePositionFromEvent(clientX);
+      setSliderPosition(pos);
+      const newValue = positionToValue(pos);
+      scheduleChange(newValue);
+    },
+    [calculatePositionFromEvent, scheduleChange, disabled]
+  );
+
+  // Mouse event handlers for label drag
+  const handleLabelMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (disabled) return;
+      e.preventDefault();
+      isDraggingRef.current = true;
+      handleLabelDrag(e.clientX);
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (isDraggingRef.current) {
+          handleLabelDrag(moveEvent.clientX);
+        }
+      };
+
+      const handleMouseUp = () => {
+        isDraggingRef.current = false;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [handleLabelDrag, disabled]
+  );
+
+  // Touch event handlers for label drag
+  const handleLabelTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (disabled) return;
+      isDraggingRef.current = true;
+      if (e.touches.length > 0) {
+        handleLabelDrag(e.touches[0].clientX);
+      }
+
+      const handleTouchMove = (moveEvent: TouchEvent) => {
+        if (isDraggingRef.current && moveEvent.touches.length > 0) {
+          handleLabelDrag(moveEvent.touches[0].clientX);
+        }
+      };
+
+      const handleTouchEnd = () => {
+        isDraggingRef.current = false;
+        document.removeEventListener("touchmove", handleTouchMove);
+        document.removeEventListener("touchend", handleTouchEnd);
+      };
+
+      document.addEventListener("touchmove", handleTouchMove);
+      document.addEventListener("touchend", handleTouchEnd);
+    },
+    [handleLabelDrag, disabled]
+  );
+
   // Use pending value for display (shows what will be applied)
   const displayValue =
     pendingValue === null ? "∞" : formatDistance(pendingValue);
@@ -165,20 +248,22 @@ export function DistanceFilter({
         </label>
         
         {/* Slider track container */}
-        <div className="relative pt-1 pb-1">
-          {/* Floating value label above thumb - positioned above with z-index */}
+        <div className="relative pt-1 pb-1" ref={trackRef}>
+          {/* Floating value label above thumb - draggable */}
           <div
-            className="absolute z-10 pointer-events-none"
+            className={`absolute z-10 ${disabled ? "pointer-events-none" : "cursor-grab active:cursor-grabbing"}`}
             style={{
               left: `${sliderPosition}%`,
               transform: "translateX(-50%)",
               bottom: "calc(100% + 2px)",
             }}
+            onMouseDown={handleLabelMouseDown}
+            onTouchStart={handleLabelTouchStart}
           >
             <span
               className={`
                 inline-block px-2 py-0.5 text-xs font-semibold rounded-md
-                whitespace-nowrap shadow-sm
+                whitespace-nowrap shadow-sm select-none
                 transition-colors
                 ${isNoLimit ? "bg-gray-600 text-white" : "bg-blue-600 text-white"}
                 ${isPending ? "animate-pulse" : ""}
