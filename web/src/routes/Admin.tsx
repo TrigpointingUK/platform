@@ -1396,6 +1396,7 @@ export default function Admin() {
   if (!hasAdminRole) {
     return (
       <Layout>
+        <title>Admin | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
             <div className="text-center py-12">
@@ -1416,6 +1417,7 @@ export default function Admin() {
   if (isAuth0Loading || isCheckingScope || hasAdminScope === null) {
     return (
       <Layout>
+        <title>Admin | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
             <div className="text-center py-12">
@@ -1434,6 +1436,7 @@ export default function Admin() {
   if (!hasAdminScope) {
     return (
       <Layout>
+        <title>Admin | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
             <div className="text-center py-12">
@@ -1454,6 +1457,7 @@ export default function Admin() {
   // Has both role and scope - show admin page
   return (
     <Layout>
+      <title>Admin | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">

@@ -7,6 +7,7 @@ import Spinner from "../components/ui/Spinner";
 import LogList from "../components/logs/LogList";
 import { useUserLogs } from "../hooks/useUserLogs";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export default function UserLogs() {
   const { userId } = useParams<{ userId: string }>();
@@ -22,6 +23,9 @@ export default function UserLogs() {
   } = useUserLogs(userId!);
 
   const { data: user } = useUserProfile(userId!);
+
+  // Update document title when user data loads
+  useDocumentTitle(user?.name ? `${user.name}'s Logs` : null);
 
   // Intersection observer for infinite scroll
   const { ref: loadMoreRef, inView } = useInView({

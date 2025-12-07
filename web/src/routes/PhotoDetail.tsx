@@ -4,6 +4,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import Layout from '../components/layout/Layout';
 import Spinner from '../components/ui/Spinner';
 import { usePhotoSwipe } from '../hooks/usePhotoSwipe';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { Photo } from '../lib/api';
 import 'photoswipe/style.css';
 import '../components/photos/photoswipe-custom.css';
@@ -135,6 +136,13 @@ export default function PhotoDetail() {
       };
     });
   };
+
+  // Update document title when photo data is available
+  useDocumentTitle(
+    photoForViewer && photoForViewer.trig_name && photoForViewer.user_name
+      ? `${photoForViewer.trig_name} by ${photoForViewer.user_name}`
+      : null
+  );
 
   // Open PhotoSwipe when we have a photo
   usePhotoSwipe({

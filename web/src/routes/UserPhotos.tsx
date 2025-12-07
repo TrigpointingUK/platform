@@ -8,6 +8,7 @@ import Spinner from "../components/ui/Spinner";
 import PhotoGrid from "../components/photos/PhotoGrid";
 import { useUserPhotos } from "../hooks/useUserPhotos";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { Photo } from "../lib/api";
 
 interface PhotosResponse {
@@ -34,6 +35,9 @@ export default function UserPhotos() {
   } = useUserPhotos(userId!);
 
   const { data: user } = useUserProfile(userId!);
+
+  // Update document title when user data loads
+  useDocumentTitle(user?.name ? `${user.name}'s Photos` : null);
 
   // Intersection observer for infinite scroll
   const { ref: loadMoreRef, inView } = useInView({

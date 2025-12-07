@@ -151,6 +151,7 @@ export default function Logs() {
   if (error) {
     return (
       <Layout>
+        <title>Recent Logs | TrigpointingUK</title>
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">Visit Logs</h1>
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -166,6 +167,7 @@ export default function Logs() {
 
   return (
     <Layout>
+      <title>Recent Logs | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto relative" ref={containerRef}>
         {/* Header */}
         <div className="mb-6">

@@ -38,6 +38,7 @@ export default function Preferences() {
   if (isLoading) {
     return (
       <Layout>
+        <title>Preferences | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <div className="py-12 text-center">
             <Spinner size="lg" />
@@ -51,6 +52,7 @@ export default function Preferences() {
   if (error || !user || !user.prefs) {
     return (
       <Layout>
+        <title>Preferences | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
             <div className="text-center py-12">
@@ -66,6 +68,7 @@ export default function Preferences() {
 
   return (
     <Layout>
+      <title>Preferences | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
