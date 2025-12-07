@@ -43,12 +43,9 @@ function findNearestDetent(pos: number): { distance: number; position: number } 
   return null;
 }
 
-// Format distance for display (compact)
+// Format distance for display
 function formatDistance(km: number): string {
-  if (km >= 1000) {
-    return `${(km / 1000).toLocaleString()}k`;
-  }
-  return km.toLocaleString();
+  return `${km.toLocaleString()} km`;
 }
 
 // Convert position to value (with detent snapping)
