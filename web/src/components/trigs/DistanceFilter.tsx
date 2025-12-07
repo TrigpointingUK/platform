@@ -157,12 +157,8 @@ export function DistanceFilter({
 
   return (
     <div className={`${disabled ? "opacity-50" : ""}`}>
-      <div className="flex items-center gap-3">
-        {/* Min label */}
-        <span className="text-xs text-gray-500 w-6 text-right">1</span>
-
-        {/* Slider with floating label */}
-        <div className="flex-1 relative pt-7 pb-1">
+      {/* Slider with floating label */}
+      <div className="relative pt-7 pb-1">
           {/* Floating value label above thumb */}
           <div
             className="absolute top-0 pointer-events-none"
@@ -246,11 +242,7 @@ export function DistanceFilter({
             })}
           </div>
         </div>
-
-        {/* Max label */}
-        <span className="text-xs text-gray-500 w-6">2k</span>
       </div>
-    </div>
   );
 }
 
