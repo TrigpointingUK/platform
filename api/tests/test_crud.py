@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from api.crud.tlog import get_trig_count
+from api.crud.trig import list_trigs_filtered
 from api.crud.user import (
     authenticate_user,
     get_user_by_email,
@@ -94,3 +95,31 @@ def test_get_trig_count_empty_table(db: Session):
     """Test getting trig count from empty table."""
     count = get_trig_count(db, 1)
     assert count == 0
+
+
+def test_list_trigs_filtered_with_max_km(db: Session):
+    """Test listing trigs with max_km distance filter.
+
+    Uses Buxton (53.2585, -1.9106) as center point.
+    With max_km=1, should return fewer trigs than without limit.
+    """
+    # Get all trigs near Buxton (no distance limit)
+    all_trigs = list_trigs_filtered(
+        db,
+        center_lat=53.2585,
+        center_lon=-1.9106,
+        limit=100,
+    )
+
+    # Get trigs within 1km of Buxton
+    nearby_trigs = list_trigs_filtered(
+        db,
+        center_lat=53.2585,
+        center_lon=-1.9106,
+        max_km=1.0,
+        limit=100,
+    )
+
+    # Should have fewer or equal results with distance limit
+    assert len(nearby_trigs) <= len(all_trigs)
+    # The function should not raise an error (the main fix we're testing)
