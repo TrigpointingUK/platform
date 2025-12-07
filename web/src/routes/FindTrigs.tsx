@@ -327,8 +327,8 @@ export default function FindTrigs() {
             </div>
 
             {/* Status filter and distance filter */}
-            <div className="flex items-end justify-between gap-4">
-              <div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-shrink-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Trigpoint types
                 </label>
@@ -338,8 +338,8 @@ export default function FindTrigs() {
                 />
               </div>
               
-              {/* Distance filter */}
-              <div className="w-[500px] flex-shrink-0">
+              {/* Distance filter - grows to fill remaining space, wraps to new row on small screens */}
+              <div className="flex-1 min-w-[300px] max-w-[500px]">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Filter by distance
                 </label>
