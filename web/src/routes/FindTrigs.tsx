@@ -339,8 +339,8 @@ export default function FindTrigs() {
               </div>
               
               {/* Distance filter - grows to fill remaining space, wraps to new row on small screens */}
-              <div className="flex-1 min-w-[300px] max-w-[500px]">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="flex-1 min-w-[300px] max-w-[500px] ml-auto">
+                <label className="block text-sm font-medium text-gray-700 mb-2 text-right">
                   Filter by distance
                 </label>
                 <DistanceFilter
