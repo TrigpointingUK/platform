@@ -7,6 +7,7 @@ import { LocationSearch } from "../components/trigs/LocationSearch";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
 import { AreaFilter } from "../components/trigs/AreaFilter";
+import { DistanceFilter } from "../components/trigs/DistanceFilter";
 import { DownloadButton } from "../components/trigs/DownloadButton";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -25,6 +26,7 @@ const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 export default function FindTrigs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
   
   // Fetch user profile to get status_max preference
   const { data: userProfile } = useUserProfile("me");
@@ -83,6 +85,12 @@ export default function FindTrigs() {
   const [selectedAreaName, setSelectedAreaName] = useState<string | null>(
     () => searchParams.get("areaName") || null
   );
+  
+  // Distance filter state (null means no limit)
+  const [maxKm, setMaxKm] = useState<number | null>(() => {
+    const km = searchParams.get("maxKm");
+    return km ? parseInt(km, 10) : null;
+  });
   
   // Fetch areas containing the current location
   const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(
@@ -167,8 +175,13 @@ export default function FindTrigs() {
       }
     }
     
+    // Add distance filter to URL if set
+    if (maxKm !== null) {
+      params.set("maxKm", maxKm.toString());
+    }
+    
     setSearchParams(params, { replace: true });
-  }, [centerLat, centerLon, locationName, selectedStatuses, showLogged, showNotLogged, selectedAreaId, selectedAreaName, setSearchParams]);
+  }, [centerLat, centerLon, locationName, selectedStatuses, showLogged, showNotLogged, selectedAreaId, selectedAreaName, maxKm, setSearchParams]);
 
   // Fetch trigpoints with current filters (only if location is set)
   const {
@@ -185,6 +198,7 @@ export default function FindTrigs() {
     showLogged,
     showNotLogged,
     areaId: selectedAreaId ?? undefined,
+    maxKm: maxKm ?? undefined,
   });
 
   const handleSelectLocation = useCallback(
@@ -223,6 +237,7 @@ export default function FindTrigs() {
     setShowNotLogged(true);
     setSelectedAreaId(null);
     setSelectedAreaName(null);
+    setMaxKm(null);
     setCenterLat(DEFAULT_LAT);
     setCenterLon(DEFAULT_LON);
     setLocationName(DEFAULT_LOCATION_NAME);
@@ -281,7 +296,39 @@ export default function FindTrigs() {
 
         {/* Fixed filter header */}
         <div className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40">
-          <div className="space-y-4">
+          {/* Toggle button and results summary when collapsed */}
+          <div className={`flex items-center gap-3 ${isFilterCollapsed ? "" : "mb-2"}`}>
+            <button
+              type="button"
+              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
+              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+              aria-label={isFilterCollapsed ? "Expand filters" : "Collapse filters"}
+              title={isFilterCollapsed ? "Expand filters" : "Collapse filters"}
+            >
+              <svg
+                className={`w-5 h-5 transition-transform ${isFilterCollapsed ? "" : "rotate-90"}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            {isFilterCollapsed ? (
+              <span className="text-sm text-gray-600">
+                {centerLat && centerLon && locationName && `Near ${locationName}`}
+                {selectedAreaName && ` in ${selectedAreaName}`}
+                {!locationName && !selectedAreaName && "Expand to search"}
+              </span>
+            ) : (
+              <span className="text-sm font-medium text-gray-700">
+                Search & Filter
+              </span>
+            )}
+          </div>
+
+          {/* Collapsible filter content */}
+          <div className={`space-y-4 ${isFilterCollapsed ? "hidden" : ""}`}>
             {/* Location and map preview row */}
             <div className="flex items-end gap-4">
               <div className="flex-1">
@@ -312,9 +359,9 @@ export default function FindTrigs() {
               )}
             </div>
 
-            {/* Status filter with clear button */}
-            <div className="flex items-end justify-between gap-4">
-              <div>
+            {/* Status filter and distance filter */}
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-shrink-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Trigpoint types
                 </label>
@@ -323,16 +370,15 @@ export default function FindTrigs() {
                   onToggleStatus={handleToggleStatus}
                 />
               </div>
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-600 hover:border-blue-800 rounded-lg bg-white hover:bg-blue-50 transition-colors mb-1"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Clear filters
-              </button>
+              
+              {/* Distance filter - grows to fill remaining space, wraps to new row on small screens */}
+              <div className="flex-1 min-w-[300px] max-w-[500px] ml-auto">
+                <DistanceFilter
+                  value={maxKm}
+                  onChange={setMaxKm}
+                  disabled={centerLat === null || centerLon === null}
+                />
+              </div>
             </div>
 
             {/* Log filter, Area filter, and download button */}
@@ -386,24 +432,37 @@ export default function FindTrigs() {
                     areaId={selectedAreaId}
                     lat={centerLat}
                     lon={centerLon}
+                    maxKm={maxKm ?? undefined}
                     onlyFound={!showNotLogged && showLogged}
                     excludeFound={showNotLogged && !showLogged}
                   />
                 </div>
               )}
             </div>
-
-            {/* Results count */}
-            <div className="text-sm text-gray-600">
-              {isLoading || centerLat === null || centerLon === null ? (
-                <span>Loading...</span>
-              ) : (
-                <span>
-                  Showing {allTrigs.length} of {totalCount} trigpoints
-                  {centerLat && centerLon && locationName && ` near ${locationName}`}
-                  {selectedAreaName && ` in ${selectedAreaName}`}
-                </span>
-              )}
+            
+            {/* Results count and clear filters */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                {isLoading || centerLat === null || centerLon === null ? (
+                  <span>Loading...</span>
+                ) : (
+                  <span>
+                    Showing {allTrigs.length} of {totalCount} trigpoints
+                    {centerLat && centerLon && locationName && ` near ${locationName}`}
+                    {selectedAreaName && ` in ${selectedAreaName}`}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear filters
+              </button>
             </div>
           </div>
         </div>

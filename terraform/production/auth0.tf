@@ -87,15 +87,15 @@ resource "cloudflare_dns_record" "root_spf" {
 
 # DMARC policy record for email authentication and reporting
 # Configures quarantine policy to prevent email spoofing
-# Reports sent to: DMARCian, Cloudflare Analytics, and domain email
+# Reports sent to: DMARCian and Cloudflare Analytics
 resource "cloudflare_dns_record" "dmarc" {
   zone_id = data.cloudflare_zones.production.result[0].id
   name    = "_dmarc"
-  content = "\"v=DMARC1; p=quarantine; rua=mailto:ekbkqzlx@ag.eu.dmarcian.com, mailto:44c7afe8e66f4541914dbfadf6916197@dmarc-reports.cloudflare.net,mailto:dmarc-reports@trigpointing.uk; ruf=mailto:dmarc-forensics@trigpointing.uk; pct=100; adkim=r; aspf=r;\""
+  content = "\"v=DMARC1; p=quarantine; rua=mailto:ekbkqzlx@ag.eu.dmarcian.com,mailto:44c7afe8e66f4541914dbfadf6916197@dmarc-reports.cloudflare.net; ruf=mailto:dmarc-forensics@trigpointing.uk; pct=100; adkim=r; aspf=r;\""
   type    = "TXT"
   ttl     = 600
 
-  comment = "DMARC policy - quarantine suspicious emails and send reports to DMARCian, Cloudflare + email"
+  comment = "DMARC policy - quarantine suspicious emails and send reports to DMARCian and Cloudflare"
 }
 
 # Get Cloudflare zone info
@@ -152,11 +152,6 @@ module "auth0" {
   web_spa_allowed_origins = [
     "https://preview.trigpointing.uk",
     "https://trigpointing.uk",
-  ]
-
-  # Website Callbacks
-  website_callback_urls = [
-    "https://www.trigpointing.uk/auth/callback",
   ]
 
   # Forum Callbacks
@@ -237,12 +232,6 @@ output "auth0_swagger_client_id" {
 output "auth0_web_spa_client_id" {
   description = "Web SPA client ID (for React application)"
   value       = module.auth0.web_spa_client_id
-}
-
-output "auth0_website_client_id" {
-  description = "Website client ID"
-  value       = module.auth0.website_client_id
-  sensitive   = true
 }
 
 output "auth0_forum_client_id" {

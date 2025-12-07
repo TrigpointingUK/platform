@@ -155,12 +155,6 @@ module "auth0" {
     "http://localhost:5173",
   ]
 
-  # Website Callbacks
-  website_callback_urls = [
-    "https://www.trigpointing.me/auth/callback",
-    "http://localhost:3000/auth/callback", # Local development
-  ]
-
   # Android Callbacks
   android_callback_urls = [
     "uk.trigpointing.android.debug://auth.trigpointing.me/android/uk.trigpointing.android.debug/callback",
@@ -219,12 +213,6 @@ output "auth0_swagger_client_id" {
 output "auth0_web_spa_client_id" {
   description = "Web SPA client ID (for React application)"
   value       = module.auth0.web_spa_client_id
-}
-
-output "auth0_website_client_id" {
-  description = "Website client ID"
-  value       = module.auth0.website_client_id
-  sensitive   = true
 }
 
 output "auth0_m2m_client_id" {

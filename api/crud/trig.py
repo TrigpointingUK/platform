@@ -199,7 +199,9 @@ def list_trigs_filtered(
         query = query.add_columns(distance_m)
 
         if max_km is not None:
-            query = query.having(distance_m < max_km * 1000)
+            # Use filter with the distance expression (not the label) for WHERE clause
+            distance_expr = cast(6371000 * c, Float)
+            query = query.filter(distance_expr < max_km * 1000)
 
         if order in (None, "", "distance"):
             query = query.order_by(distance_m)
