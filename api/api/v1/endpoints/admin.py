@@ -3,7 +3,6 @@ Admin endpoints for cache management and contact form.
 """
 
 import json
-import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -19,7 +18,6 @@ from api.crud import location as location_crud
 from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
 from api.crud import trig as trig_crud
-from api.crud import trigstats as trigstats_crud
 from api.crud import user as user_crud
 from api.crud import user_merge as user_merge_crud
 from api.models.user import User
@@ -100,74 +98,6 @@ def refresh_user_stats_view(
     return {
         "message": "User activity summary refresh started.",
         "concurrent": True,
-        "refreshed_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-@router.post(
-    "/trigstats/refresh",
-    status_code=status.HTTP_200_OK,
-    openapi_extra=openapi_lifecycle(
-        "beta",
-        note="Rebuild trigstats table for all trigs with logs. Long-running operation.",
-    ),
-)
-def refresh_trigstats(
-    admin_user: User = Depends(ADMIN_SCOPE_DEPENDENCY),
-    db: Session = Depends(get_db),
-):
-    """
-    Rebuild the trigstats table for all trigpoints that have logs.
-
-    This is a long-running operation that recalculates statistics for every
-    trigpoint with at least one log entry. Use sparingly - typically only
-    needed after database maintenance or to fix data inconsistencies.
-
-    Requires `api:admin` scope.
-    """
-    logger.info(
-        json.dumps(
-            {
-                "event": "admin_trigstats_refresh_started",
-                "admin_user_id": int(admin_user.id),
-            }
-        )
-    )
-
-    start_time = time.time()
-
-    try:
-        updated_count, error_count = trigstats_crud.update_all_trigstats(db)
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.error(
-            "Failed to refresh trigstats",
-            extra={"admin_user_id": int(admin_user.id), "error": str(exc)},
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to refresh trigstats. Please try again later.",
-        ) from exc
-
-    elapsed_seconds = round(time.time() - start_time, 2)
-
-    logger.info(
-        json.dumps(
-            {
-                "event": "admin_trigstats_refresh_completed",
-                "admin_user_id": int(admin_user.id),
-                "updated_count": updated_count,
-                "error_count": error_count,
-                "elapsed_seconds": elapsed_seconds,
-            }
-        )
-    )
-
-    return {
-        "message": f"Trigstats refresh completed. Updated {updated_count} trigs.",
-        "updated_count": updated_count,
-        "error_count": error_count,
-        "elapsed_seconds": elapsed_seconds,
         "refreshed_at": datetime.now(timezone.utc).isoformat(),
     }
 

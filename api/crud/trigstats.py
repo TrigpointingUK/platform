@@ -3,7 +3,7 @@ CRUD operations for trigstats table.
 """
 
 from decimal import Decimal
-from typing import Optional, Tuple
+from typing import Optional
 
 from sqlalchemy import case, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -285,42 +285,3 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
     )
 
     return get_trigstats_by_id(db, trig_id)
-
-
-def update_all_trigstats(db: Session) -> Tuple[int, int]:
-    """
-    Update trigstats for all trigs that have logs.
-
-    This is intended for admin use to rebuild the entire trigstats table.
-
-    Args:
-        db: Database session
-
-    Returns:
-        Tuple of (updated_count, error_count)
-    """
-    # Get all distinct trig_ids that have logs - must fetch all upfront
-    # because update_trigstats commits, which would invalidate a server-side cursor
-    trig_ids = db.query(TLog.trig_id).distinct().filter(TLog.trig_id.isnot(None)).all()
-
-    updated_count = 0
-    error_count = 0
-
-    for (trig_id,) in trig_ids:
-        try:
-            update_trigstats(db, int(trig_id))
-            updated_count += 1
-        except Exception as e:
-            logger.error(
-                "Failed to update trigstats",
-                extra={"trig_id": trig_id, "error": str(e)},
-                exc_info=True,
-            )
-            error_count += 1
-
-    logger.info(
-        "Completed trigstats bulk update",
-        extra={"updated_count": updated_count, "error_count": error_count},
-    )
-
-    return updated_count, error_count
