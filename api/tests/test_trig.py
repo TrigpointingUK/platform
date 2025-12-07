@@ -401,7 +401,6 @@ def test_get_trig_stats_endpoint_and_include(client: TestClient, db: Session):
         photo_count=3,
         score_mean=Decimal("6.50"),
         score_baysian=Decimal("6.40"),
-        area_osgb_height=0,
     )
     db.add(stats)
     db.commit()
@@ -601,19 +600,16 @@ def test_get_trig_stats_never_found_returns_null_for_found_last(
     db.refresh(trig)
 
     # Create stats with found_count=0 (never found)
-    # Using date(1970, 1, 1) as the sentinel value for "never"
-    # In production MySQL database, this would be '0000-00-00'
     stats = TrigStats(
         id=trig.id,
         logged_first=date(2020, 1, 1),
         logged_last=date(2025, 1, 1),
         logged_count=5,  # Has been logged
-        found_last=date(1970, 1, 1),  # Sentinel for "never found"
+        found_last=None,  # NULL for "never found"
         found_count=0,  # Never successfully found
         photo_count=0,
         score_mean=Decimal("0.00"),
         score_baysian=Decimal("0.00"),
-        area_osgb_height=0,
     )
     db.add(stats)
     db.commit()
@@ -680,19 +676,16 @@ def test_get_trig_stats_never_logged_returns_null_for_logged_dates(
     db.refresh(trig)
 
     # Create stats with logged_count=0 (never logged)
-    # Using date(1970, 1, 1) as the sentinel value for "never"
-    # In production MySQL database, this would be '0000-00-00'
     stats = TrigStats(
         id=trig.id,
-        logged_first=date(1970, 1, 1),  # Sentinel for "never logged"
-        logged_last=date(1970, 1, 1),  # Sentinel for "never logged"
+        logged_first=None,  # NULL for "never logged"
+        logged_last=None,  # NULL for "never logged"
         logged_count=0,  # Never logged
-        found_last=date(1970, 1, 1),  # Also never found
+        found_last=None,  # NULL for "never found"
         found_count=0,  # Never found
         photo_count=0,
         score_mean=Decimal("0.00"),
         score_baysian=Decimal("0.00"),
-        area_osgb_height=0,
     )
     db.add(stats)
     db.commit()

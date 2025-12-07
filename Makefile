@@ -141,10 +141,10 @@ install-dev: ## Install development dependencies
 
 # Testing
 test-db-start: ## Start local PostgreSQL test database
-	@docker-compose -f docker-compose.test.yml up -d
+	@docker compose -f docker-compose.test.yml up -d
 	@echo "⏳ Waiting for PostgreSQL to be ready..."
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
-		if docker-compose -f docker-compose.test.yml exec -T test-db pg_isready -U test_user -d test_db > /dev/null 2>&1; then \
+		if docker compose -f docker-compose.test.yml exec -T test-db pg_isready -U test_user -d test_db > /dev/null 2>&1; then \
 			echo "✅ Test database ready on localhost:$${TEST_DB_PORT:-5433}"; \
 			exit 0; \
 		fi; \
@@ -153,10 +153,10 @@ test-db-start: ## Start local PostgreSQL test database
 	echo "✅ Test database ready on localhost:$${TEST_DB_PORT:-5433}"
 
 test-db-stop: ## Stop local PostgreSQL test database
-	docker-compose -f docker-compose.test.yml down -v
+	docker compose -f docker-compose.test.yml down -v
 
 test: ## Run tests (requires test-db-start)
-	@docker-compose -f docker-compose.test.yml ps test-db | grep -q "Up" || { echo "❌ Test database not running. Run 'make test-db-start' first."; exit 1; }
+	@docker compose -f docker-compose.test.yml ps test-db | grep -qE "(Up|running)" || { echo "❌ Test database not running. Run 'make test-db-start' first."; exit 1; }
 	CACHE_ENABLED=false pytest -n auto
 
 test-cov: ## Run tests with coverage

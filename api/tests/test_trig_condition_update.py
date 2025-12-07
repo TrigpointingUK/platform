@@ -89,9 +89,7 @@ class TestMaybeUpdateTrigCondition:
         assert trig.condition == "G"
 
     @pytest.mark.parametrize("trig_condition", ["P", "U", "N", "Z"])
-    def test_updates_from_pending_conditions(
-        self, db: Session, trig_condition: str
-    ):
+    def test_updates_from_pending_conditions(self, db: Session, trig_condition: str):
         """Test that trig condition is updated from all pending conditions.
 
         Note: Empty string is not tested because CHAR(1) in PostgreSQL
@@ -119,9 +117,7 @@ class TestMaybeUpdateTrigCondition:
         assert None in TRIG_CONDITIONS_TO_UPDATE
 
     @pytest.mark.parametrize("trig_condition", ["G", "D", "S", "R", "T", "C", "V", "X"])
-    def test_does_not_update_known_conditions(
-        self, db: Session, trig_condition: str
-    ):
+    def test_does_not_update_known_conditions(self, db: Session, trig_condition: str):
         """Test that trig condition is NOT updated when already a known condition."""
         trig = create_test_trig(db, trig_condition)
 
@@ -168,9 +164,7 @@ class TestMaybeUpdateTrigCondition:
 
     def test_does_not_update_nonexistent_trig(self, db: Session):
         """Test that function handles nonexistent trig gracefully."""
-        result = maybe_update_trig_condition(
-            db, trig_id=999999, tlog_condition="G"
-        )
+        result = maybe_update_trig_condition(db, trig_id=999999, tlog_condition="G")
 
         assert result is False
 
@@ -265,9 +259,7 @@ class TestUpdateLogWithConditionUpdate:
         db.refresh(log)
 
         # Now update the log with a known condition
-        updated_log = update_log(
-            db, log_id=int(log.id), updates={"condition": "G"}
-        )
+        updated_log = update_log(db, log_id=int(log.id), updates={"condition": "G"})
 
         # Verify log was updated
         assert updated_log is not None
@@ -302,9 +294,7 @@ class TestUpdateLogWithConditionUpdate:
         db.refresh(log)
 
         # Update the log with a different condition
-        updated_log = update_log(
-            db, log_id=int(log.id), updates={"condition": "D"}
-        )
+        updated_log = update_log(db, log_id=int(log.id), updates={"condition": "D"})
 
         # Verify log was updated
         assert updated_log is not None

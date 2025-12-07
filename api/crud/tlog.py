@@ -16,6 +16,19 @@ from api.services.cache_invalidator import (
     invalidate_photo_caches,
 )
 
+# Import update_trigstats lazily to avoid circular imports
+_trigstats_crud = None
+
+
+def _get_trigstats_crud():
+    """Lazy import of trigstats crud to avoid circular imports."""
+    global _trigstats_crud
+    if _trigstats_crud is None:
+        from api.crud import trigstats as trigstats_crud
+
+        _trigstats_crud = trigstats_crud
+    return _trigstats_crud
+
 
 # Condition values that indicate the trig condition is "unknown" or "pending"
 # and should be updated from user log data
@@ -163,6 +176,9 @@ def create_log(
     # Invalidate related caches
     invalidate_log_caches(trig_id=trig_id, user_id=user_id, log_id=int(log.id))
 
+    # Update trigstats for this trig
+    _get_trigstats_crud().update_trigstats(db, trig_id)
+
     return log
 
 
@@ -189,6 +205,9 @@ def update_log(db: Session, *, log_id: int, updates: dict) -> Optional[TLog]:
         trig_id=int(log.trig_id), user_id=int(log.user_id), log_id=log_id
     )
 
+    # Update trigstats for this trig
+    _get_trigstats_crud().update_trigstats(db, int(log.trig_id))
+
     return log
 
 
@@ -206,6 +225,9 @@ def delete_log_hard(db: Session, *, log_id: int) -> bool:
 
     # Invalidate related caches
     invalidate_log_caches(trig_id=trig_id, user_id=user_id, log_id=log_id)
+
+    # Update trigstats for this trig
+    _get_trigstats_crud().update_trigstats(db, trig_id)
 
     return True
 
@@ -235,6 +257,8 @@ def soft_delete_photos_for_log(db: Session, *, log_id: int) -> int:
         invalidate_photo_caches(
             trig_id=int(log.trig_id), user_id=int(log.user_id), log_id=log_id
         )
+        # Update trigstats for this trig (photo_count changed)
+        _get_trigstats_crud().update_trigstats(db, int(log.trig_id))
 
     return count
 
