@@ -10,7 +10,7 @@ interface DistanceFilterProps {
 }
 
 // Detent values in km for snapping
-const DETENTS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+const DETENTS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000];
 
 // Snap threshold as percentage of slider range
 const SNAP_THRESHOLD = 3;
@@ -18,15 +18,18 @@ const SNAP_THRESHOLD = 3;
 // Debounce delay in milliseconds
 const DEBOUNCE_MS = 1000;
 
-// Convert slider position (0-100) to distance in km (logarithmic: 1-10000)
+// Logarithmic scale factor: 100 / log10(2000) ≈ 30.29
+const LOG_SCALE_FACTOR = 100 / Math.log10(2000);
+
+// Convert slider position (0-100) to distance in km (logarithmic: 1-2000)
 function positionToDistance(pos: number): number {
-  // pos 0 -> 1km, pos 25 -> 10km, pos 50 -> 100km, pos 75 -> 1000km, pos 100 -> 10000km
-  return Math.round(Math.pow(10, pos / 25));
+  // pos 0 -> 1km, pos ~30 -> 10km, pos ~61 -> 100km, pos ~91 -> 1000km, pos 100 -> 2000km
+  return Math.round(Math.pow(10, pos / LOG_SCALE_FACTOR));
 }
 
 // Convert distance in km to slider position (0-100)
 function distanceToPosition(km: number): number {
-  return Math.log10(km) * 25;
+  return Math.log10(km) * LOG_SCALE_FACTOR;
 }
 
 // Find the nearest detent value and its position
@@ -230,7 +233,7 @@ export function DistanceFilter({
             </div>
 
             {/* Max/No limit label */}
-            <span className="text-xs text-gray-500 w-14">10k km</span>
+            <span className="text-xs text-gray-500 w-14">2k km</span>
           </div>
         </div>
 
