@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 interface DistanceFilterProps {
   /** Current max distance in km, or null for no limit */
   value: number | null;
-  /** Called when the distance changes */
+  /** Called when the distance changes (debounced) */
   onChange: (maxKm: number | null) => void;
   /** Whether the filter is disabled (e.g., no location selected) */
   disabled?: boolean;
@@ -14,6 +14,9 @@ const DETENTS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
 
 // Snap threshold as percentage of slider range
 const SNAP_THRESHOLD = 3;
+
+// Debounce delay in milliseconds
+const DEBOUNCE_MS = 1000;
 
 // Convert slider position (0-100) to distance in km (logarithmic: 1-10000)
 function positionToDistance(pos: number): number {
@@ -45,6 +48,18 @@ function formatDistance(km: number): string {
   return `${km.toLocaleString()} km`;
 }
 
+// Convert position to value (with detent snapping)
+function positionToValue(pos: number): number | null {
+  if (pos >= 99.5) {
+    return null; // No limit
+  }
+  const nearestDetent = findNearestDetent(pos);
+  if (nearestDetent) {
+    return nearestDetent.distance;
+  }
+  return positionToDistance(pos);
+}
+
 export function DistanceFilter({
   value,
   onChange,
@@ -56,54 +71,101 @@ export function DistanceFilter({
     return distanceToPosition(value);
   });
 
-  // Track if we're in "no limit" mode
-  const isNoLimit = value === null;
+  // Pending value waiting to be committed after debounce
+  const [pendingValue, setPendingValue] = useState<number | null>(value);
+
+  // Whether we have a pending change (for visual feedback)
+  const [isPending, setIsPending] = useState(false);
+
+  // Debounce timer ref
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Track the committed value to detect external changes
+  const committedValueRef = useRef<number | null>(value);
 
   // Sync slider position when value changes externally (e.g., URL params on page load or clear filters)
   useEffect(() => {
-    if (value === null) {
-      /* eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing internal slider state with external controlled value */
-      setSliderPosition(100);
-    } else {
-      setSliderPosition(distanceToPosition(value));
+    // Only sync if this is an external change (not from our own onChange)
+    if (value !== committedValueRef.current) {
+      committedValueRef.current = value;
+      /* eslint-disable react-hooks/set-state-in-effect -- Syncing internal state with external controlled value */
+      setPendingValue(value);
+      setIsPending(false);
+
+      // Cancel any pending debounce
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+
+      if (value === null) {
+        setSliderPosition(100);
+      } else {
+        setSliderPosition(distanceToPosition(value));
+      }
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [value]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  const scheduleChange = useCallback(
+    (newValue: number | null) => {
+      // Update pending value immediately (for display)
+      setPendingValue(newValue);
+      setIsPending(true);
+
+      // Cancel any existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Schedule the actual onChange call
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null;
+        setIsPending(false);
+        committedValueRef.current = newValue;
+        onChange(newValue);
+      }, DEBOUNCE_MS);
+    },
+    [onChange]
+  );
 
   const handleSliderChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const pos = parseFloat(e.target.value);
       setSliderPosition(pos);
 
-      // At max position (100), set no limit
-      if (pos >= 99.5) {
-        onChange(null);
-        return;
-      }
-
-      // Check for snap to detent
-      const nearestDetent = findNearestDetent(pos);
-      if (nearestDetent) {
-        onChange(nearestDetent.distance);
-      } else {
-        onChange(positionToDistance(pos));
-      }
+      const newValue = positionToValue(pos);
+      scheduleChange(newValue);
     },
-    [onChange]
+    [scheduleChange]
   );
 
   const handleNoLimitToggle = useCallback(() => {
-    if (isNoLimit) {
+    const currentDisplayValue = pendingValue;
+    if (currentDisplayValue === null) {
       // Switch to a sensible default (100km)
-      onChange(100);
+      setSliderPosition(distanceToPosition(100));
+      scheduleChange(100);
     } else {
-      onChange(null);
+      setSliderPosition(100);
+      scheduleChange(null);
     }
-  }, [isNoLimit, onChange]);
+  }, [pendingValue, scheduleChange]);
 
-  // Calculate display value
-  const displayValue = isNoLimit
-    ? "No limit"
-    : formatDistance(value!);
+  // Use pending value for display (shows what will be applied)
+  const displayValue =
+    pendingValue === null ? "No limit" : formatDistance(pendingValue);
+
+  const isNoLimit = pendingValue === null;
 
   return (
     <div className={`${disabled ? "opacity-50" : ""}`}>
@@ -177,7 +239,9 @@ export function DistanceFilter({
           <span
             className={`
               text-sm font-medium px-3 py-1 rounded-md min-w-[80px] text-center
+              transition-colors
               ${isNoLimit ? "bg-gray-100 text-gray-600" : "bg-blue-100 text-blue-700"}
+              ${isPending ? "animate-pulse" : ""}
             `}
           >
             {displayValue}
@@ -207,4 +271,3 @@ export function DistanceFilter({
 }
 
 export default DistanceFilter;
-
