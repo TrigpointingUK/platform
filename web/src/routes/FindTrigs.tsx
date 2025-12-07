@@ -7,6 +7,7 @@ import { LocationSearch } from "../components/trigs/LocationSearch";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
 import { AreaFilter } from "../components/trigs/AreaFilter";
+import { DistanceFilter } from "../components/trigs/DistanceFilter";
 import { DownloadButton } from "../components/trigs/DownloadButton";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -83,6 +84,12 @@ export default function FindTrigs() {
   const [selectedAreaName, setSelectedAreaName] = useState<string | null>(
     () => searchParams.get("areaName") || null
   );
+  
+  // Distance filter state (null means no limit)
+  const [maxKm, setMaxKm] = useState<number | null>(() => {
+    const km = searchParams.get("maxKm");
+    return km ? parseInt(km, 10) : null;
+  });
   
   // Fetch areas containing the current location
   const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(
@@ -167,8 +174,13 @@ export default function FindTrigs() {
       }
     }
     
+    // Add distance filter to URL if set
+    if (maxKm !== null) {
+      params.set("maxKm", maxKm.toString());
+    }
+    
     setSearchParams(params, { replace: true });
-  }, [centerLat, centerLon, locationName, selectedStatuses, showLogged, showNotLogged, selectedAreaId, selectedAreaName, setSearchParams]);
+  }, [centerLat, centerLon, locationName, selectedStatuses, showLogged, showNotLogged, selectedAreaId, selectedAreaName, maxKm, setSearchParams]);
 
   // Fetch trigpoints with current filters (only if location is set)
   const {
@@ -185,6 +197,7 @@ export default function FindTrigs() {
     showLogged,
     showNotLogged,
     areaId: selectedAreaId ?? undefined,
+    maxKm: maxKm ?? undefined,
   });
 
   const handleSelectLocation = useCallback(
@@ -223,6 +236,7 @@ export default function FindTrigs() {
     setShowNotLogged(true);
     setSelectedAreaId(null);
     setSelectedAreaName(null);
+    setMaxKm(null);
     setCenterLat(DEFAULT_LAT);
     setCenterLon(DEFAULT_LON);
     setLocationName(DEFAULT_LOCATION_NAME);
@@ -386,11 +400,24 @@ export default function FindTrigs() {
                     areaId={selectedAreaId}
                     lat={centerLat}
                     lon={centerLon}
+                    maxKm={maxKm ?? undefined}
                     onlyFound={!showNotLogged && showLogged}
                     excludeFound={showNotLogged && !showLogged}
                   />
                 </div>
               )}
+            </div>
+            
+            {/* Distance filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by distance
+              </label>
+              <DistanceFilter
+                value={maxKm}
+                onChange={setMaxKm}
+                disabled={centerLat === null || centerLon === null}
+              />
             </div>
 
             {/* Results count */}
