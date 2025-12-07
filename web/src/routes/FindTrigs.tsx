@@ -26,6 +26,7 @@ const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 export default function FindTrigs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
   
   // Fetch user profile to get status_max preference
   const { data: userProfile } = useUserProfile("me");
@@ -295,7 +296,38 @@ export default function FindTrigs() {
 
         {/* Fixed filter header */}
         <div className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40">
-          <div className="space-y-4">
+          {/* Toggle button and results summary when collapsed */}
+          <div className="flex items-center gap-3 mb-2">
+            <button
+              type="button"
+              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
+              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+              aria-label={isFilterCollapsed ? "Expand filters" : "Collapse filters"}
+              title={isFilterCollapsed ? "Expand filters" : "Collapse filters"}
+            >
+              <svg
+                className={`w-5 h-5 transition-transform ${isFilterCollapsed ? "" : "rotate-90"}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <span className="text-sm font-medium text-gray-700">
+              {isFilterCollapsed ? "Filters" : "Search & Filter"}
+            </span>
+            {isFilterCollapsed && (
+              <span className="text-sm text-gray-500">
+                {isLoading || centerLat === null || centerLon === null
+                  ? "Loading..."
+                  : `${allTrigs.length} of ${totalCount} trigpoints`}
+              </span>
+            )}
+          </div>
+
+          {/* Collapsible filter content */}
+          <div className={`space-y-4 ${isFilterCollapsed ? "hidden" : ""}`}>
             {/* Location and map preview row */}
             <div className="flex items-end gap-4">
               <div className="flex-1">
