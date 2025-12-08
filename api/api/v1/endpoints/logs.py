@@ -52,10 +52,21 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "127.0.0.1"
 
 
-def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
+def enrich_logs_with_names(
+    db: Session,
+    logs: List[TLogModel],
+    center_lat: Optional[float] = None,
+    center_lon: Optional[float] = None,
+) -> List[Dict]:
     """
-    Add trig_name, user_name, and location_distance_m to logs using bulk queries to avoid N+1.
+    Add trig_name, user_name, location_distance_m, and distance_km to logs using bulk queries.
     Returns list of dictionaries.
+
+    Args:
+        db: Database session
+        logs: List of TLog model objects
+        center_lat: Optional center latitude for distance calculation
+        center_lon: Optional center longitude for distance calculation
     """
     if not logs:
         return []
@@ -116,6 +127,20 @@ def enrich_logs_with_names(db: Session, logs: List[TLogModel]) -> List[Dict]:
         else:
             log_dict["location_distance_m"] = None
 
+        # Calculate distance from center point to trig (for filtering display)
+        if center_lat is not None and center_lon is not None:
+            trig_lat = trig_info.get("lat")
+            trig_lon = trig_info.get("lon")
+            if trig_lat is not None and trig_lon is not None:
+                distance_m = haversine_distance(
+                    center_lat, center_lon, trig_lat, trig_lon
+                )
+                log_dict["distance_km"] = round(distance_m / 1000, 2)
+            else:
+                log_dict["distance_km"] = None
+        else:
+            log_dict["distance_km"] = None
+
         result.append(log_dict)
 
     return result
@@ -132,15 +157,62 @@ def list_logs(
     include: Optional[str] = Query(
         None, description="Comma-separated list of includes: photos"
     ),
+    lat: Optional[float] = Query(
+        None, description="Centre latitude for distance filtering"
+    ),
+    lon: Optional[float] = Query(
+        None, description="Centre longitude for distance filtering"
+    ),
+    max_km: Optional[float] = Query(
+        None, description="Maximum distance from centre in kilometres"
+    ),
+    status_ids: Optional[str] = Query(
+        None, description="Comma-separated list of trigpoint status IDs to filter by"
+    ),
+    area_id: Optional[int] = Query(
+        None, description="Filter to logs for trigpoints within a specific area"
+    ),
     db: Session = Depends(get_db),
 ):
+    # Parse status_ids from comma-separated string
+    parsed_status_ids: Optional[List[int]] = None
+    if status_ids:
+        try:
+            parsed_status_ids = [
+                int(s.strip()) for s in status_ids.split(",") if s.strip()
+            ]
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid status_ids format. Must be comma-separated integers.",
+            )
+
     items = tlog_crud.list_logs_filtered(
-        db, trig_id=trig_id, user_id=user_id, order=order, skip=skip, limit=limit
+        db,
+        trig_id=trig_id,
+        user_id=user_id,
+        order=order,
+        skip=skip,
+        limit=limit,
+        center_lat=lat,
+        center_lon=lon,
+        max_km=max_km,
+        status_ids=parsed_status_ids,
+        area_id=area_id,
     )
-    total = tlog_crud.count_logs_filtered(db, trig_id=trig_id, user_id=user_id)
+    total = tlog_crud.count_logs_filtered(
+        db,
+        trig_id=trig_id,
+        user_id=user_id,
+        center_lat=lat,
+        center_lon=lon,
+        max_km=max_km,
+        status_ids=parsed_status_ids,
+        area_id=area_id,
+    )
 
     # Add denormalized trig_name and user_name fields
-    items_serialized = enrich_logs_with_names(db, items)
+    items_serialized = enrich_logs_with_names(db, items, center_lat=lat, center_lon=lon)
 
     # Handle includes
     if include:
@@ -213,6 +285,16 @@ def list_logs(
         params.append(f"user_id={user_id}")
     if order:
         params.append(f"order={order}")
+    if lat is not None:
+        params.append(f"lat={lat}")
+    if lon is not None:
+        params.append(f"lon={lon}")
+    if max_km is not None:
+        params.append(f"max_km={max_km}")
+    if status_ids:
+        params.append(f"status_ids={status_ids}")
+    if area_id is not None:
+        params.append(f"area_id={area_id}")
     self_link = base + "?" + "&".join(params + [f"skip={skip}"])
     next_link = (
         base + "?" + "&".join(params + [f"skip={skip + limit}"]) if has_more else None

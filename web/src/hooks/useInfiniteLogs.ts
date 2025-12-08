@@ -15,6 +15,7 @@ export interface Log {
   comment: string;
   score: number;
   photos?: Photo[];
+  distance_km?: number | null;
 }
 
 interface LogsResponse {
@@ -33,15 +34,52 @@ interface LogsResponse {
   };
 }
 
-export function useInfiniteLogs() {
+export interface UseInfiniteLogsOptions {
+  lat?: number;
+  lon?: number;
+  maxKm?: number;
+  statusIds?: number[];
+  areaId?: number;
+}
+
+export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
+  const { lat, lon, maxKm, statusIds, areaId } = options;
+
+  // Check if any filters are active (for query key and enabled logic)
+  const hasFilters =
+    lat !== undefined ||
+    lon !== undefined ||
+    maxKm !== undefined ||
+    (statusIds !== undefined && statusIds.length > 0) ||
+    areaId !== undefined;
+
   return useInfiniteQuery<LogsResponse>({
-    queryKey: ["logs", "infinite"],
+    queryKey: ["logs", "infinite", lat, lon, maxKm, statusIds, areaId],
     queryFn: async ({ pageParam = 0 }) => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
-      const response = await fetch(
-        // `${apiBase}/v1/logs?limit=20&skip=${pageParam}&order=-upd_timestamp&include=photos`
-        `${apiBase}/v1/logs?limit=20&skip=${pageParam}&include=photos`
-      );
+      const params = new URLSearchParams();
+
+      params.append("limit", "20");
+      params.append("skip", String(pageParam));
+      params.append("include", "photos");
+
+      if (lat !== undefined) {
+        params.append("lat", lat.toString());
+      }
+      if (lon !== undefined) {
+        params.append("lon", lon.toString());
+      }
+      if (maxKm !== undefined) {
+        params.append("max_km", maxKm.toString());
+      }
+      if (statusIds && statusIds.length > 0) {
+        params.append("status_ids", statusIds.join(","));
+      }
+      if (areaId !== undefined) {
+        params.append("area_id", areaId.toString());
+      }
+
+      const response = await fetch(`${apiBase}/v1/logs?${params.toString()}`);
       if (!response.ok) {
         throw new Error("Failed to fetch logs");
       }
@@ -53,7 +91,6 @@ export function useInfiniteLogs() {
         ? lastPage.pagination.offset + lastPage.pagination.limit
         : null;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: hasFilters ? 10 * 60 * 1000 : 5 * 60 * 1000, // 10 min with filters, 5 min without
   });
 }
-

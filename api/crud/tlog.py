@@ -5,7 +5,7 @@ CRUD operations for tlog table.
 from datetime import date as DateType
 from typing import Iterable, List, Optional, Tuple
 
-from sqlalchemy import asc, desc, func
+from sqlalchemy import Float, asc, cast, desc, func, text
 from sqlalchemy.orm import Session
 
 from api.models.tphoto import TPhoto
@@ -18,6 +18,11 @@ from api.services.cache_invalidator import (
 
 # Import update_trigstats lazily to avoid circular imports
 _trigstats_crud = None
+
+
+def _is_sqlite(db: Session) -> bool:
+    """Check if the database engine is SQLite (used for tests)."""
+    return "sqlite" in str(db.get_bind().dialect.name).lower()
 
 
 def _get_trigstats_crud():
@@ -112,12 +117,61 @@ def list_logs_filtered(
     order: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
+    center_lat: Optional[float] = None,
+    center_lon: Optional[float] = None,
+    max_km: Optional[float] = None,
+    status_ids: Optional[List[int]] = None,
+    area_id: Optional[int] = None,
 ) -> List[TLog]:
     q = db.query(TLog)
+
+    # Join to trig table if we need to filter by trig properties
+    needs_trig_join = (
+        center_lat is not None
+        or center_lon is not None
+        or max_km is not None
+        or status_ids is not None
+        or area_id is not None
+    )
+
+    if needs_trig_join:
+        q = q.join(Trig, TLog.trig_id == Trig.id)
+
     if trig_id is not None:
         q = q.filter(TLog.trig_id == trig_id)
     if user_id is not None:
         q = q.filter(TLog.user_id == user_id)
+
+    # Filter by status IDs (trigpoint types)
+    if status_ids:
+        q = q.filter(Trig.status_id.in_(status_ids))
+
+    # Filter by area using trig_area_mv materialized view
+    if area_id is not None and not _is_sqlite(db):
+        area_subquery = text(
+            "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
+        ).bindparams(area_id=area_id)
+        q = q.filter(Trig.id.in_(area_subquery))
+
+    # Filter by distance from center point
+    if center_lat is not None and center_lon is not None and max_km is not None:
+        # Use haversine formula for distance calculation
+        lat1_rad = func.radians(center_lat)
+        lat2_rad = func.radians(Trig.wgs_lat)
+        lon1_rad = func.radians(center_lon)
+        lon2_rad = func.radians(Trig.wgs_long)
+
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+
+        a = func.sin(dlat / 2) * func.sin(dlat / 2) + func.cos(lat1_rad) * func.cos(
+            lat2_rad
+        ) * func.sin(dlon / 2) * func.sin(dlon / 2)
+        c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
+        distance_expr = cast(6371000 * c, Float)  # Earth radius in metres
+
+        # Apply distance filter
+        q = q.filter(distance_expr < max_km * 1000)
 
     # Default ordering newest first by (date, time, id)
     if order:
@@ -143,13 +197,66 @@ def list_logs_filtered(
 
 
 def count_logs_filtered(
-    db: Session, *, trig_id: Optional[int] = None, user_id: Optional[int] = None
+    db: Session,
+    *,
+    trig_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+    center_lat: Optional[float] = None,
+    center_lon: Optional[float] = None,
+    max_km: Optional[float] = None,
+    status_ids: Optional[List[int]] = None,
+    area_id: Optional[int] = None,
 ) -> int:
     q = db.query(func.count(TLog.id))
+
+    # Join to trig table if we need to filter by trig properties
+    needs_trig_join = (
+        center_lat is not None
+        or center_lon is not None
+        or max_km is not None
+        or status_ids is not None
+        or area_id is not None
+    )
+
+    if needs_trig_join:
+        q = q.join(Trig, TLog.trig_id == Trig.id)
+
     if trig_id is not None:
         q = q.filter(TLog.trig_id == trig_id)
     if user_id is not None:
         q = q.filter(TLog.user_id == user_id)
+
+    # Filter by status IDs (trigpoint types)
+    if status_ids:
+        q = q.filter(Trig.status_id.in_(status_ids))
+
+    # Filter by area using trig_area_mv materialized view
+    if area_id is not None and not _is_sqlite(db):
+        area_subquery = text(
+            "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
+        ).bindparams(area_id=area_id)
+        q = q.filter(Trig.id.in_(area_subquery))
+
+    # Filter by distance from center point
+    if center_lat is not None and center_lon is not None and max_km is not None:
+        # Use haversine formula for distance calculation
+        lat1_rad = func.radians(center_lat)
+        lat2_rad = func.radians(Trig.wgs_lat)
+        lon1_rad = func.radians(center_lon)
+        lon2_rad = func.radians(Trig.wgs_long)
+
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+
+        a = func.sin(dlat / 2) * func.sin(dlat / 2) + func.cos(lat1_rad) * func.cos(
+            lat2_rad
+        ) * func.sin(dlon / 2) * func.sin(dlon / 2)
+        c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
+        distance_expr = cast(6371000 * c, Float)  # Earth radius in metres
+
+        # Apply distance filter
+        q = q.filter(distance_expr < max_km * 1000)
+
     return int(q.scalar() or 0)
 
 
