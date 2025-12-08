@@ -45,6 +45,10 @@ export default function UserProfile() {
   // If no userId in URL, fetch "me", otherwise fetch the specified user
   const targetUserId = userId || "me";
   const { data: user, isLoading, error } = useUserProfile(targetUserId);
+  
+  // Get current user's UI preferences (always fetch "me" for the viewer's prefs)
+  const { data: currentUserProfile } = useUserProfile("me");
+  const showTrigCondition = currentUserProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
 
   // Update document title when user data loads
   useDocumentTitle(user ? `${user.name}'s Profile` : null);
@@ -412,6 +416,7 @@ export default function UserProfile() {
               logs={recentLogs}
               isLoading={isLoadingLogs}
               emptyMessage="No logs found"
+              showTrigCondition={showTrigCondition}
             />
           </Card>
         </div>

@@ -23,6 +23,10 @@ export default function UserLogs() {
   } = useUserLogs(userId!);
 
   const { data: user } = useUserProfile(userId!);
+  
+  // Get current user's preference for showing trig condition
+  const { data: currentUserProfile } = useUserProfile("me");
+  const showTrigCondition = currentUserProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
 
   // Update document title when user data loads
   useDocumentTitle(user?.name ? `${user.name}'s Logs` : null);
@@ -88,6 +92,7 @@ export default function UserLogs() {
                 logs={allLogs}
                 isLoading={isLoading}
                 emptyMessage="No logs found"
+                showTrigCondition={showTrigCondition}
               />
 
               {/* Load More Trigger */}

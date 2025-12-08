@@ -21,6 +21,7 @@ interface LogListProps {
   isLoading?: boolean;
   emptyMessage?: string;
   currentUserId?: number;
+  showTrigCondition?: boolean;
 }
 
 export default function LogList({
@@ -28,6 +29,7 @@ export default function LogList({
   isLoading = false,
   emptyMessage = "No logs found",
   currentUserId,
+  showTrigCondition = false,
 }: LogListProps) {
   if (isLoading) {
     return (
@@ -53,6 +55,7 @@ export default function LogList({
           key={log.id}
           log={log}
           isCurrentUserLog={currentUserId !== undefined && log.user_id === currentUserId}
+          showTrigCondition={showTrigCondition}
         />
       ))}
     </div>
