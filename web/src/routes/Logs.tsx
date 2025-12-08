@@ -20,7 +20,7 @@ const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
 export default function Logs() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
   // Fetch user profile to get status_max preference
   const { data: userProfile } = useUserProfile("me");
