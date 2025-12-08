@@ -324,6 +324,7 @@ export interface Log {
   user_name?: string;
   trig_lat?: number;
   trig_lon?: number;
+  trig_condition?: string;
   date: string;
   time: string;
   osgb_eastings: number;
