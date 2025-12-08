@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
+import { useAuth0 } from "@auth0/auth0-react";
 import Layout from "../components/layout/Layout";
 import LogCard from "../components/logs/LogCard";
 import MiniTrigMap from "../components/map/MiniTrigMap";
@@ -13,6 +14,7 @@ import { LocationSearch } from "../components/trigs/LocationSearch";
 import { DistanceFilter } from "../components/trigs/DistanceFilter";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { AreaFilter } from "../components/trigs/AreaFilter";
+import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
 import type { Log } from "../hooks/useInfiniteLogs";
 
 // All status levels (default: all enabled)
@@ -20,6 +22,7 @@ const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
 export default function Logs() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isAuthenticated } = useAuth0();
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
   // Fetch user profile to get status_max preference
@@ -78,6 +81,14 @@ export default function Logs() {
     return km ? parseInt(km, 10) : null;
   });
 
+  // Log filter state: show logged and not-logged trigpoints (both default to true)
+  const [showLogged, setShowLogged] = useState<boolean>(
+    () => searchParams.get("showLogged") !== "false"
+  );
+  const [showNotLogged, setShowNotLogged] = useState<boolean>(
+    () => searchParams.get("showNotLogged") !== "false"
+  );
+
   // Fetch areas containing the current location
   const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(
     centerLat ?? undefined,
@@ -90,7 +101,9 @@ export default function Logs() {
     centerLon !== null ||
     maxKm !== null ||
     selectedStatuses.length !== ALL_STATUSES.length ||
-    selectedAreaId !== null;
+    selectedAreaId !== null ||
+    !showLogged ||
+    !showNotLogged;
 
   // Update URL when filters change
   useEffect(() => {
@@ -119,6 +132,14 @@ export default function Logs() {
       params.set("maxKm", maxKm.toString());
     }
 
+    // Only add to URL if not showing (default is to show both)
+    if (!showLogged) {
+      params.set("showLogged", "false");
+    }
+    if (!showNotLogged) {
+      params.set("showNotLogged", "false");
+    }
+
     setSearchParams(params, { replace: true });
   }, [
     centerLat,
@@ -128,6 +149,8 @@ export default function Logs() {
     selectedAreaId,
     selectedAreaName,
     maxKm,
+    showLogged,
+    showNotLogged,
     setSearchParams,
   ]);
 
@@ -143,8 +166,13 @@ export default function Logs() {
     lat: centerLat ?? undefined,
     lon: centerLon ?? undefined,
     maxKm: maxKm ?? undefined,
-    statusIds: selectedStatuses.length !== ALL_STATUSES.length ? selectedStatuses : undefined,
+    statusIds:
+      selectedStatuses.length !== ALL_STATUSES.length
+        ? selectedStatuses
+        : undefined,
     areaId: selectedAreaId ?? undefined,
+    showLogged,
+    showNotLogged,
   });
 
   const handleSelectLocation = useCallback(
@@ -185,6 +213,8 @@ export default function Logs() {
     setSelectedAreaId(null);
     setSelectedAreaName(null);
     setMaxKm(null);
+    setShowLogged(true);
+    setShowNotLogged(true);
   }, []);
 
   // Map positioning logic
@@ -413,7 +443,7 @@ export default function Logs() {
               />
             </div>
 
-            {/* Status filter and distance filter */}
+            {/* Status filter, logged filter and distance filter */}
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex-shrink-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -424,6 +454,21 @@ export default function Logs() {
                   onToggleStatus={handleToggleStatus}
                 />
               </div>
+
+              {/* Logged condition filter - only for authenticated users */}
+              {isAuthenticated && (
+                <div className="flex-shrink-0">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    My logged condition
+                  </label>
+                  <LoggedConditionFilter
+                    showLogged={showLogged}
+                    showNotLogged={showNotLogged}
+                    onToggleLogged={() => setShowLogged((prev) => !prev)}
+                    onToggleNotLogged={() => setShowNotLogged((prev) => !prev)}
+                  />
+                </div>
+              )}
 
               {/* Distance filter - grows to fill remaining space */}
               <div className="flex-1 min-w-[300px] max-w-[500px] ml-auto">

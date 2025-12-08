@@ -40,10 +40,20 @@ export interface UseInfiniteLogsOptions {
   maxKm?: number;
   statusIds?: number[];
   areaId?: number;
+  showLogged?: boolean; // Show logs for trigpoints logged by user (default: true)
+  showNotLogged?: boolean; // Show logs for trigpoints not logged by user (default: true)
 }
 
 export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
-  const { lat, lon, maxKm, statusIds, areaId } = options;
+  const {
+    lat,
+    lon,
+    maxKm,
+    statusIds,
+    areaId,
+    showLogged = true,
+    showNotLogged = true,
+  } = options;
 
   // Check if any filters are active (for query key and enabled logic)
   const hasFilters =
@@ -51,10 +61,22 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
     lon !== undefined ||
     maxKm !== undefined ||
     (statusIds !== undefined && statusIds.length > 0) ||
-    areaId !== undefined;
+    areaId !== undefined ||
+    !showLogged ||
+    !showNotLogged;
 
   return useInfiniteQuery<LogsResponse>({
-    queryKey: ["logs", "infinite", lat, lon, maxKm, statusIds, areaId],
+    queryKey: [
+      "logs",
+      "infinite",
+      lat,
+      lon,
+      maxKm,
+      statusIds,
+      areaId,
+      showLogged,
+      showNotLogged,
+    ],
     queryFn: async ({ pageParam = 0 }) => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
       const params = new URLSearchParams();
@@ -77,6 +99,13 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       }
       if (areaId !== undefined) {
         params.append("area_id", areaId.toString());
+      }
+      // Log filter: showLogged=false means exclude found, showNotLogged=false means only found
+      if (!showLogged) {
+        params.append("exclude_found", "true");
+      }
+      if (!showNotLogged) {
+        params.append("only_found", "true");
       }
 
       const response = await fetch(`${apiBase}/v1/logs?${params.toString()}`);

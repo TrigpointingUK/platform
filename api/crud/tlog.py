@@ -122,6 +122,8 @@ def list_logs_filtered(
     max_km: Optional[float] = None,
     status_ids: Optional[List[int]] = None,
     area_id: Optional[int] = None,
+    exclude_found_by_user_id: Optional[int] = None,
+    only_found_by_user_id: Optional[int] = None,
 ) -> List[TLog]:
     q = db.query(TLog)
 
@@ -152,6 +154,26 @@ def list_logs_filtered(
             "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         q = q.filter(Trig.id.in_(area_subquery))
+
+    # Exclude logs for trigpoints already found by user (show only unlogged trigs)
+    if exclude_found_by_user_id is not None:
+        found_trigs_subquery = (
+            db.query(TLog.trig_id)
+            .filter(TLog.user_id == exclude_found_by_user_id)
+            .distinct()
+            .subquery()
+        )
+        q = q.filter(~TLog.trig_id.in_(found_trigs_subquery))  # type: ignore[arg-type]
+
+    # Include ONLY logs for trigpoints found by user (show only logged trigs)
+    if only_found_by_user_id is not None:
+        found_trigs_subquery = (
+            db.query(TLog.trig_id)
+            .filter(TLog.user_id == only_found_by_user_id)
+            .distinct()
+            .subquery()
+        )
+        q = q.filter(TLog.trig_id.in_(found_trigs_subquery))  # type: ignore[arg-type]
 
     # Filter by distance from center point
     if center_lat is not None and center_lon is not None and max_km is not None:
@@ -206,6 +228,8 @@ def count_logs_filtered(
     max_km: Optional[float] = None,
     status_ids: Optional[List[int]] = None,
     area_id: Optional[int] = None,
+    exclude_found_by_user_id: Optional[int] = None,
+    only_found_by_user_id: Optional[int] = None,
 ) -> int:
     q = db.query(func.count(TLog.id))
 
@@ -236,6 +260,26 @@ def count_logs_filtered(
             "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         q = q.filter(Trig.id.in_(area_subquery))
+
+    # Exclude logs for trigpoints already found by user (show only unlogged trigs)
+    if exclude_found_by_user_id is not None:
+        found_trigs_subquery = (
+            db.query(TLog.trig_id)
+            .filter(TLog.user_id == exclude_found_by_user_id)
+            .distinct()
+            .subquery()
+        )
+        q = q.filter(~TLog.trig_id.in_(found_trigs_subquery))  # type: ignore[arg-type]
+
+    # Include ONLY logs for trigpoints found by user (show only logged trigs)
+    if only_found_by_user_id is not None:
+        found_trigs_subquery = (
+            db.query(TLog.trig_id)
+            .filter(TLog.user_id == only_found_by_user_id)
+            .distinct()
+            .subquery()
+        )
+        q = q.filter(TLog.trig_id.in_(found_trigs_subquery))  # type: ignore[arg-type]
 
     # Filter by distance from center point
     if center_lat is not None and center_lon is not None and max_km is not None:

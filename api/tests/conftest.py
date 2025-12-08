@@ -41,8 +41,8 @@ def get_test_database_url():
 
     # Default local PostgreSQL for tests - use single database with schema isolation
     # PostgreSQL handles parallel access better than separate databases
-    # Use TEST_DB_PORT env var or default to 5433 for local dev (avoids conflict with system PostgreSQL)
-    port = os.environ.get("TEST_DB_PORT", "5433")
+    # Use TEST_DB_PORT env var or default to 5434 for local dev (avoids conflict with system PostgreSQL on 5432 and staging tunnel on 5433)
+    port = os.environ.get("TEST_DB_PORT", "5434")
     return f"postgresql+psycopg2://test_user:test_password@localhost:{port}/test_db"
 
 
@@ -59,8 +59,8 @@ def setup_test_database():
         return
 
     # For local development, ensure test database exists
-    # Use TEST_DB_PORT env var or default to 5433 for local dev
-    port = os.environ.get("TEST_DB_PORT", "5433")
+    # Use TEST_DB_PORT env var or default to 5434 for local dev
+    port = os.environ.get("TEST_DB_PORT", "5434")
     admin_url = (
         f"postgresql+psycopg2://test_user:test_password@localhost:{port}/postgres"
     )

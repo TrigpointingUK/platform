@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from api.api.deps import get_current_user, get_db
+from api.api.deps import get_current_user, get_current_user_optional, get_db
 from api.api.lifecycle import openapi_lifecycle
 from api.crud import tlog as tlog_crud
 from api.crud import tphoto as tphoto_crud
@@ -172,7 +172,16 @@ def list_logs(
     area_id: Optional[int] = Query(
         None, description="Filter to logs for trigpoints within a specific area"
     ),
+    only_found: Optional[bool] = Query(
+        False,
+        description="Include only logs for trigpoints logged by authenticated user",
+    ),
+    exclude_found: Optional[bool] = Query(
+        False,
+        description="Exclude logs for trigpoints already logged by authenticated user",
+    ),
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     # Parse status_ids from comma-separated string
     parsed_status_ids: Optional[List[int]] = None
@@ -187,6 +196,22 @@ def list_logs(
                 detail="Invalid status_ids format. Must be comma-separated integers.",
             )
 
+    # Mutually exclusive filters
+    if only_found and exclude_found:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot use both only_found and exclude_found simultaneously",
+        )
+
+    # Get user ID for logged/not-logged filter
+    exclude_found_by_user_id = None
+    if exclude_found and current_user:
+        exclude_found_by_user_id = int(current_user.id)
+
+    only_found_by_user_id = None
+    if only_found and current_user:
+        only_found_by_user_id = int(current_user.id)
+
     items = tlog_crud.list_logs_filtered(
         db,
         trig_id=trig_id,
@@ -199,6 +224,8 @@ def list_logs(
         max_km=max_km,
         status_ids=parsed_status_ids,
         area_id=area_id,
+        exclude_found_by_user_id=exclude_found_by_user_id,
+        only_found_by_user_id=only_found_by_user_id,
     )
     total = tlog_crud.count_logs_filtered(
         db,
@@ -209,6 +236,8 @@ def list_logs(
         max_km=max_km,
         status_ids=parsed_status_ids,
         area_id=area_id,
+        exclude_found_by_user_id=exclude_found_by_user_id,
+        only_found_by_user_id=only_found_by_user_id,
     )
 
     # Add denormalized trig_name and user_name fields
@@ -295,6 +324,10 @@ def list_logs(
         params.append(f"status_ids={status_ids}")
     if area_id is not None:
         params.append(f"area_id={area_id}")
+    if only_found:
+        params.append("only_found=true")
+    if exclude_found:
+        params.append("exclude_found=true")
     self_link = base + "?" + "&".join(params + [f"skip={skip}"])
     next_link = (
         base + "?" + "&".join(params + [f"skip={skip + limit}"]) if has_more else None
