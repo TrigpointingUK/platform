@@ -8,6 +8,7 @@ import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useAreasContaining } from "../hooks/useAreasContaining";
+import { useUserProfile } from "../hooks/useUserProfile";
 import { LocationSearch } from "../components/trigs/LocationSearch";
 import { DistanceFilter } from "../components/trigs/DistanceFilter";
 import { StatusFilter } from "../components/trigs/StatusFilter";
@@ -20,6 +21,18 @@ const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 export default function Logs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+
+  // Fetch user profile to get status_max preference
+  const { data: userProfile } = useUserProfile("me");
+
+  // Track if statuses have been initialized from user profile
+  const statusesInitializedRef = useRef(false);
+
+  // Compute preferred statuses from user profile
+  const preferredStatuses = useMemo(() => {
+    const userStatusMax = userProfile?.prefs?.status_max || 30;
+    return ALL_STATUSES.filter((s) => s <= userStatusMax);
+  }, [userProfile?.prefs?.status_max]);
 
   // Filter state - parse from URL or use defaults
   const [centerLat, setCenterLat] = useState<number | null>(() => {
@@ -36,8 +49,23 @@ export default function Logs() {
   const [selectedStatuses, setSelectedStatuses] = useState<number[]>(() => {
     const statuses = searchParams.get("statuses");
     if (statuses) return statuses.split(",").map(Number);
-    return ALL_STATUSES; // Default: all statuses
+    // Default based on fallback (user profile may not be loaded yet)
+    return ALL_STATUSES.filter((s) => s <= 30);
   });
+
+  // Initialize selected statuses from user preference when profile loads (once)
+  useEffect(() => {
+    // Only apply user preference if no URL params are set and not already initialized
+    if (
+      !searchParams.get("statuses") &&
+      preferredStatuses.length > 0 &&
+      !statusesInitializedRef.current
+    ) {
+      statusesInitializedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+      setSelectedStatuses(preferredStatuses);
+    }
+  }, [preferredStatuses, searchParams]);
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(() => {
     const areaId = searchParams.get("areaId");
     return areaId ? parseInt(areaId, 10) : null;
