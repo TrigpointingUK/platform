@@ -5,6 +5,7 @@ Database models for the existing legacy database schema.
 from datetime import date, datetime, time
 
 from sqlalchemy import Column, Date, DateTime, Integer, SmallInteger, String, Text, Time
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import CHAR
 
 from api.db.database import Base
@@ -51,6 +52,11 @@ class User(Base):
     # License preferences
     public_ind = Column(
         CHAR(1), nullable=True, default="N"
+    )  # Nullable for PostgreSQL compatibility
+
+    # UI preferences (JSONB) - for frontend display settings
+    ui_prefs = Column(
+        JSONB, nullable=True, default=dict
     )  # Nullable for PostgreSQL compatibility
 
     # Legacy authentication - increased size for modern password hashes

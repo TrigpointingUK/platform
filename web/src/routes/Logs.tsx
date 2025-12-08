@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useQueryClient } from "@tanstack/react-query";
 import Layout from "../components/layout/Layout";
 import LogCard from "../components/logs/LogCard";
 import MiniTrigMap from "../components/map/MiniTrigMap";
@@ -9,7 +10,7 @@ import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useAreasContaining } from "../hooks/useAreasContaining";
-import { useUserProfile } from "../hooks/useUserProfile";
+import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
 import { LocationSearch } from "../components/trigs/LocationSearch";
 import { DistanceFilter } from "../components/trigs/DistanceFilter";
 import { StatusFilter } from "../components/trigs/StatusFilter";
@@ -22,7 +23,8 @@ const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
 export default function Logs() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const queryClient = useQueryClient();
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
   // Fetch user profile to get status_max preference
@@ -30,6 +32,9 @@ export default function Logs() {
 
   // Track if statuses have been initialized from user profile
   const statusesInitializedRef = useRef(false);
+
+  // Track if showTrigCondition has been initialized from user profile
+  const showTrigConditionInitializedRef = useRef(false);
 
   // Compute preferred statuses from user profile
   const preferredStatuses = useMemo(() => {
@@ -89,10 +94,20 @@ export default function Logs() {
     () => searchParams.get("showNotLogged") !== "false"
   );
 
-  // Display option: show curated trig condition icon (defaults to off)
-  const [showTrigCondition, setShowTrigCondition] = useState<boolean>(
-    () => searchParams.get("showTrigCondition") === "true"
-  );
+  // Display option: show curated trig condition icon (from user prefs, defaults to off)
+  const [showTrigCondition, setShowTrigCondition] = useState<boolean>(false);
+
+  // Initialize showTrigCondition from user preference when profile loads (once)
+  useEffect(() => {
+    if (
+      userProfile?.prefs?.ui_prefs?.show_trig_condition !== undefined &&
+      !showTrigConditionInitializedRef.current
+    ) {
+      showTrigConditionInitializedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+      setShowTrigCondition(userProfile.prefs.ui_prefs.show_trig_condition);
+    }
+  }, [userProfile?.prefs?.ui_prefs?.show_trig_condition]);
 
   // Fetch areas containing the current location
   const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(
@@ -145,10 +160,7 @@ export default function Logs() {
       params.set("showNotLogged", "false");
     }
 
-    // Only add to URL if enabled (default is off)
-    if (showTrigCondition) {
-      params.set("showTrigCondition", "true");
-    }
+    // Note: showTrigCondition is stored in user prefs, not URL
 
     setSearchParams(params, { replace: true });
   }, [
@@ -161,7 +173,6 @@ export default function Logs() {
     maxKm,
     showLogged,
     showNotLogged,
-    showTrigCondition,
     setSearchParams,
   ]);
 
@@ -226,8 +237,34 @@ export default function Logs() {
     setMaxKm(null);
     setShowLogged(true);
     setShowNotLogged(true);
-    setShowTrigCondition(false);
+    // Note: showTrigCondition is a user pref, not a filter - don't reset it
   }, []);
+
+  // Handle toggling showTrigCondition - updates local state and saves to user prefs
+  const handleToggleShowTrigCondition = useCallback(
+    async (checked: boolean) => {
+      // Update local state immediately for responsiveness
+      setShowTrigCondition(checked);
+
+      // Save to user prefs if authenticated
+      if (isAuthenticated) {
+        try {
+          await updateUserProfile(
+            { ui_prefs: { show_trig_condition: checked } } as Parameters<
+              typeof updateUserProfile
+            >[0],
+            getAccessTokenSilently
+          );
+          // Invalidate user profile cache
+          queryClient.invalidateQueries({ queryKey: ["user", "profile"] });
+        } catch (error) {
+          console.error("Failed to save show_trig_condition preference:", error);
+          // Don't revert local state - let user continue with their choice
+        }
+      }
+    },
+    [isAuthenticated, getAccessTokenSilently, queryClient]
+  );
 
   // Map positioning logic
   const MAP_SPACING = 24;
@@ -512,7 +549,7 @@ export default function Logs() {
                 type="checkbox"
                 id="showTrigCondition"
                 checked={showTrigCondition}
-                onChange={(e) => setShowTrigCondition(e.target.checked)}
+                onChange={(e) => handleToggleShowTrigCondition(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
               />
               <label

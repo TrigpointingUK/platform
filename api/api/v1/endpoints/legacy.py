@@ -219,6 +219,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                     public_ind=str(user.public_ind),
                     email=str(user.email),
                     email_valid=str(user.email_valid),
+                    ui_prefs=dict(user.ui_prefs) if user.ui_prefs else {},
                 )
 
         return result
@@ -439,6 +440,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 public_ind=str(user.public_ind),
                 email=str(user.email),
                 email_valid=str(user.email_valid),
+                ui_prefs=dict(user.ui_prefs) if user.ui_prefs else {},
             )
 
     return result
