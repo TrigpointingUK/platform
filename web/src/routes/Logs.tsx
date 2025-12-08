@@ -382,8 +382,8 @@ export default function Logs() {
             {isFilterCollapsed ? (
               <span className="text-sm text-gray-600">
                 {hasActiveFilters
-                  ? `Filtered${locationName ? ` near ${locationName}` : ""}${selectedAreaName ? ` in ${selectedAreaName}` : ""}`
-                  : "Expand to filter"}
+                  ? `Filtered${locationName ? ` near ${locationName}` : ""}${selectedAreaName ? ` in ${selectedAreaName}` : ""}${!locationName && !selectedAreaName && selectedStatuses.length !== ALL_STATUSES.length ? " by type" : ""}`
+                  : "Expand to filter recent logs by area"}
               </span>
             ) : (
               <span className="text-sm font-medium text-gray-700">
