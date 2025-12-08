@@ -13,6 +13,7 @@ interface Log {
   user_name?: string;
   trig_lat?: number | null;
   trig_lon?: number | null;
+  trig_condition?: string | null;
   date: string;
   time: string;
   condition: string;
@@ -152,9 +153,18 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
           <div className="flex-1 min-w-0">
             <Link
               to={`/trigs/${log.trig_id}`}
-              className="text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
+              className="inline-flex items-center gap-1.5 text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Trig condition icon (square) */}
+              {log.trig_condition && (
+                <img
+                  src={`/icons/conditions/${getConditionInfo(log.trig_condition).icon}`}
+                  alt={getConditionInfo(log.trig_condition).label}
+                  title={`Trig condition: ${getConditionInfo(log.trig_condition).label}`}
+                  className="w-5 h-5"
+                />
+              )}
               {formattedTrigId}
               {displayTrigName && (
                 <>

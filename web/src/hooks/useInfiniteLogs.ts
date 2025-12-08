@@ -9,6 +9,7 @@ export interface Log {
   user_name?: string;
   trig_lat?: number | null;
   trig_lon?: number | null;
+  trig_condition?: string | null;
   date: string;
   time: string;
   condition: string;

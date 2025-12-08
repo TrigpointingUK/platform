@@ -76,7 +76,7 @@ def enrich_logs_with_names(
     user_ids = list(set(log.user_id for log in logs))
 
     trigs = (
-        db.query(Trig.id, Trig.name, Trig.wgs_lat, Trig.wgs_long)
+        db.query(Trig.id, Trig.name, Trig.wgs_lat, Trig.wgs_long, Trig.condition)
         .filter(Trig.id.in_(trig_ids))
         .all()
         if trig_ids
@@ -93,6 +93,7 @@ def enrich_logs_with_names(
             "name": t.name,
             "lat": float(t.wgs_lat) if t.wgs_lat is not None else None,
             "lon": float(t.wgs_long) if t.wgs_long is not None else None,
+            "condition": str(t.condition) if t.condition else None,
         }
         for t in trigs
     }
@@ -106,6 +107,7 @@ def enrich_logs_with_names(
         log_dict["trig_name"] = trig_info.get("name")
         log_dict["trig_lat"] = trig_info.get("lat")
         log_dict["trig_lon"] = trig_info.get("lon")
+        log_dict["trig_condition"] = trig_info.get("condition")
         log_dict["user_name"] = user_names.get(log.user_id)
 
         # Calculate distance if log has custom location
