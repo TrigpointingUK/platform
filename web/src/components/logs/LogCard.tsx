@@ -36,6 +36,8 @@ interface LogCardProps {
   isCurrentUserLog?: boolean;
   /** Show distance from filter center point (uses log.distance_km) */
   showDistance?: boolean;
+  /** Show the curated trig condition icon before the TP number */
+  showTrigCondition?: boolean;
 }
 
 // Helper function to get condition icon and label
@@ -60,7 +62,7 @@ function getConditionInfo(code: string): { icon: string; label: string } {
   return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
-export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false }: LogCardProps) {
+export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false }: LogCardProps) {
   const navigate = useNavigate();
   const conditionInfo = getConditionInfo(log.condition);
   const formattedDate = new Date(log.date).toLocaleDateString("en-GB", {
@@ -156,8 +158,8 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
               className="inline-flex items-center gap-1.5 text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Trig condition icon (square) */}
-              {log.trig_condition && (
+              {/* Trig condition icon (square) - only shown when enabled */}
+              {showTrigCondition && log.trig_condition && (
                 <img
                   src={`/icons/conditions/${getConditionInfo(log.trig_condition).icon}`}
                   alt={getConditionInfo(log.trig_condition).label}

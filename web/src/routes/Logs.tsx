@@ -89,6 +89,11 @@ export default function Logs() {
     () => searchParams.get("showNotLogged") !== "false"
   );
 
+  // Display option: show curated trig condition icon (defaults to off)
+  const [showTrigCondition, setShowTrigCondition] = useState<boolean>(
+    () => searchParams.get("showTrigCondition") === "true"
+  );
+
   // Fetch areas containing the current location
   const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(
     centerLat ?? undefined,
@@ -140,6 +145,11 @@ export default function Logs() {
       params.set("showNotLogged", "false");
     }
 
+    // Only add to URL if enabled (default is off)
+    if (showTrigCondition) {
+      params.set("showTrigCondition", "true");
+    }
+
     setSearchParams(params, { replace: true });
   }, [
     centerLat,
@@ -151,6 +161,7 @@ export default function Logs() {
     maxKm,
     showLogged,
     showNotLogged,
+    showTrigCondition,
     setSearchParams,
   ]);
 
@@ -215,6 +226,7 @@ export default function Logs() {
     setMaxKm(null);
     setShowLogged(true);
     setShowNotLogged(true);
+    setShowTrigCondition(false);
   }, []);
 
   // Map positioning logic
@@ -494,6 +506,23 @@ export default function Logs() {
               />
             </div>
 
+            {/* Display options */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showTrigCondition"
+                checked={showTrigCondition}
+                onChange={(e) => setShowTrigCondition(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+              />
+              <label
+                htmlFor="showTrigCondition"
+                className="text-sm text-gray-700 select-none cursor-pointer"
+              >
+                Show curated trigpoint condition
+              </label>
+            </div>
+
             {/* Results count and clear filters */}
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
@@ -572,7 +601,11 @@ export default function Logs() {
                         : "opacity-100 blur-0"
                     }`}
                   >
-                    <LogCard log={log} showDistance={centerLat !== null && centerLon !== null} />
+                    <LogCard
+                      log={log}
+                      showDistance={centerLat !== null && centerLon !== null}
+                      showTrigCondition={showTrigCondition}
+                    />
                   </div>
                 );
               })}
