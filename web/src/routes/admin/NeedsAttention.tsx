@@ -5,6 +5,7 @@ import Layout from "../../components/layout/Layout";
 import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
+import { useAdminAuth } from "../../hooks/useAdminAuth";
 import {
   fetchNeedsAttentionTrigs,
   TrigNeedsAttentionListItem,
@@ -16,7 +17,8 @@ const ADMIN_AUTH_PARAMS = {
 };
 
 export default function NeedsAttention() {
-  const { getAccessTokenSilently, user } = useAuth0();
+  const { getAccessTokenSilently } = useAuth0();
+  const { hasAdminRole, hasAdminScope, isLoading: isAuthLoading } = useAdminAuth();
   const [trigs, setTrigs] = useState<TrigNeedsAttentionListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,12 +27,8 @@ export default function NeedsAttention() {
   const [hasMore, setHasMore] = useState(false);
   const limit = 20;
 
-  // Check if user has admin role
-  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
-  const hasAdminRole = userRoles.includes("api-admin");
-
   useEffect(() => {
-    if (!hasAdminRole) {
+    if (!hasAdminRole || !hasAdminScope) {
       return;
     }
 
@@ -67,7 +65,7 @@ export default function NeedsAttention() {
     return () => {
       cancelled = true;
     };
-  }, [getAccessTokenSilently, hasAdminRole, skip]);
+  }, [getAccessTokenSilently, hasAdminRole, hasAdminScope, skip]);
 
   if (!hasAdminRole) {
     return (
@@ -82,6 +80,25 @@ export default function NeedsAttention() {
               <p className="text-gray-600">
                 You do not have permission to access this page.
               </p>
+            </div>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show loading state while checking admin scope
+  if (isAuthLoading || !hasAdminScope) {
+    return (
+      <Layout>
+        <title>Needs Attention | TrigpointingUK</title>
+        <div className="max-w-6xl mx-auto">
+          <Card>
+            <div className="flex flex-col items-center justify-center py-12">
+              <Spinner size="lg" />
+              <span className="mt-3 text-gray-600">
+                {isAuthLoading ? "Verifying admin permissions..." : "Requesting elevated permissions..."}
+              </span>
             </div>
           </Card>
         </div>

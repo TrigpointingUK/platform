@@ -7,6 +7,7 @@ import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
 import LinkedCoordinates from "../../components/admin/LinkedCoordinates";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useAdminAuth } from "../../hooks/useAdminAuth";
 import {
   fetchTrigForEdit,
   fetchStatuses,
@@ -67,8 +68,9 @@ const HISTORIC_USE_OPTIONS = [
 
 export default function TrigEdit() {
   const { trigId } = useParams<{ trigId: string }>();
-  const { getAccessTokenSilently, user } = useAuth0();
+  const { getAccessTokenSilently } = useAuth0();
   const navigate = useNavigate();
+  const { hasAdminRole, hasAdminScope, isLoading: isAuthLoading } = useAdminAuth();
 
   const [trig, setTrig] = useState<TrigAdminDetail | null>(null);
   const [statuses, setStatuses] = useState<StatusRecord[]>([]);
@@ -103,12 +105,8 @@ export default function TrigEdit() {
   const [action, setAction] = useState<"solved" | "revisit" | "cant_fix">("revisit");
   const [adminComment, setAdminComment] = useState("");
 
-  // Check if user has admin role
-  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
-  const hasAdminRole = userRoles.includes("api-admin");
-
   useEffect(() => {
-    if (!hasAdminRole || !trigId) {
+    if (!hasAdminRole || !hasAdminScope || !trigId) {
       return;
     }
 
@@ -168,7 +166,7 @@ export default function TrigEdit() {
     return () => {
       cancelled = true;
     };
-  }, [getAccessTokenSilently, hasAdminRole, trigId]);
+  }, [getAccessTokenSilently, hasAdminRole, hasAdminScope, trigId]);
 
   const handleWgsChange = (lat: string, long: string) => {
     setWgsLat(lat);
@@ -249,6 +247,24 @@ export default function TrigEdit() {
               <p className="text-gray-600">
                 You do not have permission to access this page.
               </p>
+            </div>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show loading state while checking admin scope
+  if (isAuthLoading || !hasAdminScope) {
+    return (
+      <Layout>
+        <div className="max-w-6xl mx-auto">
+          <Card>
+            <div className="flex flex-col items-center justify-center py-12">
+              <Spinner size="lg" />
+              <span className="mt-3 text-gray-600">
+                {isAuthLoading ? "Verifying admin permissions..." : "Requesting elevated permissions..."}
+              </span>
             </div>
           </Card>
         </div>
