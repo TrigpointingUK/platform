@@ -119,24 +119,6 @@ export default function Preferences() {
               </p>
             </div>
 
-            {/* Distance Units Preference */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Distance Units
-              </label>
-              <select
-                value={user.prefs?.distance_ind || "K"}
-                onChange={(e) => handleFieldUpdate("distance_ind", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="K">Kilometres (km)</option>
-                <option value="M">Miles (mi)</option>
-              </select>
-              <p className="mt-2 text-xs text-gray-500">
-                Choose your preferred unit for displaying distances
-              </p>
-            </div>
-
             {/* Default Photo Licence Preference */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -162,7 +144,25 @@ export default function Preferences() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Display Options
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Distance Units Preference */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Distance Units
+              </label>
+              <select
+                value={user.prefs?.distance_ind || "K"}
+                onChange={(e) => handleFieldUpdate("distance_ind", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="K">Kilometres (km)</option>
+                <option value="M">Miles (mi)</option>
+              </select>
+              <p className="mt-2 text-xs text-gray-500">
+                Choose your preferred unit for displaying distances
+              </p>
+            </div>
+
             {/* Show Trig Condition */}
             <div className="flex items-start gap-3">
               <input
