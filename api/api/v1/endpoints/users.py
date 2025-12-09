@@ -1182,10 +1182,25 @@ def list_logs_for_user(
     include: Optional[str] = Query(
         None, description="Comma-separated list of includes: photos"
     ),
+    from_date: Optional[date_type] = Query(
+        None, description="Filter logs from this date (inclusive, YYYY-MM-DD)"
+    ),
+    to_date: Optional[date_type] = Query(
+        None, description="Filter logs to this date (inclusive, YYYY-MM-DD)"
+    ),
     db: Session = Depends(get_db),
 ):
-    items = tlog_crud.list_logs_filtered(db, user_id=user_id, skip=skip, limit=limit)
-    total = tlog_crud.count_logs_filtered(db, user_id=user_id)
+    items = tlog_crud.list_logs_filtered(
+        db,
+        user_id=user_id,
+        skip=skip,
+        limit=limit,
+        from_date=from_date,
+        to_date=to_date,
+    )
+    total = tlog_crud.count_logs_filtered(
+        db, user_id=user_id, from_date=from_date, to_date=to_date
+    )
 
     # Import helper from logs endpoint
     from api.api.v1.endpoints.logs import enrich_logs_with_names
@@ -1239,10 +1254,19 @@ def list_logs_for_user(
 
     has_more = (skip + len(items)) < total
     base = f"/v1/users/{user_id}/logs"
-    self_link = base + f"?limit={limit}&skip={skip}"
-    next_link = base + f"?limit={limit}&skip={skip + limit}" if has_more else None
+    params = [f"limit={limit}"]
+    if from_date is not None:
+        params.append(f"from_date={from_date.isoformat()}")
+    if to_date is not None:
+        params.append(f"to_date={to_date.isoformat()}")
+    self_link = base + "?" + "&".join(params + [f"skip={skip}"])
+    next_link = (
+        base + "?" + "&".join(params + [f"skip={skip + limit}"]) if has_more else None
+    )
     prev_offset = max(skip - limit, 0)
-    prev_link = base + f"?limit={limit}&skip={prev_offset}" if skip > 0 else None
+    prev_link = (
+        base + "?" + "&".join(params + [f"skip={prev_offset}"]) if skip > 0 else None
+    )
     return {
         "items": items_serialized,
         "pagination": {

@@ -24,15 +24,33 @@ interface LogsResponse {
   };
 }
 
-export function useUserLogs(userId: string) {
+export interface UseUserLogsOptions {
+  fromDate?: Date;
+  toDate?: Date;
+}
+
+export function useUserLogs(userId: string, options: UseUserLogsOptions = {}) {
   const LIMIT = 20;
+  const { fromDate, toDate } = options;
 
   return useInfiniteQuery<LogsResponse>({
-    queryKey: ["user", userId, "logs"],
+    queryKey: ["user", userId, "logs", fromDate?.toISOString(), toDate?.toISOString()],
     queryFn: async ({ pageParam = 0 }) => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
+      const params = new URLSearchParams();
+      params.append("include", "photos");
+      params.append("skip", String(pageParam));
+      params.append("limit", String(LIMIT));
+
+      if (fromDate !== undefined) {
+        params.append("from_date", fromDate.toISOString().split("T")[0]);
+      }
+      if (toDate !== undefined) {
+        params.append("to_date", toDate.toISOString().split("T")[0]);
+      }
+
       const response = await fetch(
-        `${apiBase}/v1/users/${userId}/logs?include=photos&skip=${pageParam}&limit=${LIMIT}`
+        `${apiBase}/v1/users/${userId}/logs?${params.toString()}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch user logs");
