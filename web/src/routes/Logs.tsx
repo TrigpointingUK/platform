@@ -16,6 +16,7 @@ import { DistanceFilter } from "../components/trigs/DistanceFilter";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { AreaFilter } from "../components/trigs/AreaFilter";
 import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
+import { DateRangePicker, type DateRange } from "../components/ui/DateRangePicker";
 import type { Log } from "../hooks/useInfiniteLogs";
 
 // All status levels (default: all enabled)
@@ -86,6 +87,19 @@ export default function Logs() {
     return km ? parseInt(km, 10) : null;
   });
 
+  // Date range filter state
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const fromDate = searchParams.get("fromDate");
+    const toDate = searchParams.get("toDate");
+    if (fromDate || toDate) {
+      return {
+        from: fromDate ? new Date(fromDate) : undefined,
+        to: toDate ? new Date(toDate) : undefined,
+      };
+    }
+    return undefined;
+  });
+
   // Log filter state: show logged and not-logged trigpoints (both default to true)
   const [showLogged, setShowLogged] = useState<boolean>(
     () => searchParams.get("showLogged") !== "false"
@@ -123,7 +137,8 @@ export default function Logs() {
     selectedStatuses.length !== ALL_STATUSES.length ||
     selectedAreaId !== null ||
     !showLogged ||
-    !showNotLogged;
+    !showNotLogged ||
+    dateRange !== undefined;
 
   // Update URL when filters change
   useEffect(() => {
@@ -160,6 +175,14 @@ export default function Logs() {
       params.set("showNotLogged", "false");
     }
 
+    // Date range filters
+    if (dateRange?.from) {
+      params.set("fromDate", dateRange.from.toISOString().split("T")[0]);
+    }
+    if (dateRange?.to) {
+      params.set("toDate", dateRange.to.toISOString().split("T")[0]);
+    }
+
     // Note: showTrigCondition is stored in user prefs, not URL
 
     setSearchParams(params, { replace: true });
@@ -173,6 +196,7 @@ export default function Logs() {
     maxKm,
     showLogged,
     showNotLogged,
+    dateRange,
     setSearchParams,
   ]);
 
@@ -195,6 +219,8 @@ export default function Logs() {
     areaId: selectedAreaId ?? undefined,
     showLogged,
     showNotLogged,
+    fromDate: dateRange?.from,
+    toDate: dateRange?.to,
   });
 
   const handleSelectLocation = useCallback(
@@ -237,6 +263,7 @@ export default function Logs() {
     setMaxKm(null);
     setShowLogged(true);
     setShowNotLogged(true);
+    setDateRange(undefined);
     // Note: showTrigCondition is a user pref, not a filter - don't reset it
   }, []);
 
@@ -529,18 +556,83 @@ export default function Logs() {
               </div>
             </div>
 
-            {/* Area filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by area
-              </label>
-              <AreaFilter
-                areaGroups={areasData?.groups || []}
-                selectedAreaId={selectedAreaId}
-                onSelectArea={handleSelectArea}
-                isLoading={isLoadingAreas}
-                disabled={centerLat === null || centerLon === null}
-              />
+            {/* Area filter and Date range filter */}
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[300px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by area
+                </label>
+                <AreaFilter
+                  areaGroups={areasData?.groups || []}
+                  selectedAreaId={selectedAreaId}
+                  onSelectArea={handleSelectArea}
+                  isLoading={isLoadingAreas}
+                  disabled={centerLat === null || centerLon === null}
+                />
+              </div>
+
+              <div className="flex-1 min-w-[300px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by date range
+                </label>
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={setDateRange}
+                  placeholder="Select date range"
+                  maxValue={new Date()}
+                  presets={[
+                    {
+                      label: "Today",
+                      dateRange: {
+                        from: new Date(),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 7 days",
+                      dateRange: {
+                        from: new Date(new Date().setDate(new Date().getDate() - 7)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 30 days",
+                      dateRange: {
+                        from: new Date(new Date().setDate(new Date().getDate() - 30)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 3 months",
+                      dateRange: {
+                        from: new Date(new Date().setMonth(new Date().getMonth() - 3)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 6 months",
+                      dateRange: {
+                        from: new Date(new Date().setMonth(new Date().getMonth() - 6)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "This year",
+                      dateRange: {
+                        from: new Date(new Date().getFullYear(), 0, 1),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last year",
+                      dateRange: {
+                        from: new Date(new Date().getFullYear() - 1, 0, 1),
+                        to: new Date(new Date().getFullYear() - 1, 11, 31),
+                      },
+                    },
+                  ]}
+                />
+              </div>
             </div>
 
             {/* Display options */}
