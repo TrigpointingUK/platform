@@ -15,6 +15,7 @@ import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useTrigLogs } from "../hooks/useTrigLogs";
 import { useUserTrigLogs } from "../hooks/useUserTrigLogs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useUserProfile } from "../hooks/useUserProfile";
 import { useCreateLog } from "../hooks/useCreateLog";
 import { useAreasContaining, type Area } from "../hooks/useAreasContaining";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
@@ -72,6 +73,10 @@ export default function TrigDetail() {
 
   // Get current user for highlighting their logs
   const { data: currentUser } = useCurrentUser();
+  
+  // Get current user's UI preferences
+  const { data: userProfile } = useUserProfile("me");
+  const showTrigCondition = userProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
 
   // Fetch current user's logs for this trig
   const {
@@ -697,6 +702,7 @@ export default function TrigDetail() {
               isLoading={isUserLogsLoading}
               emptyMessage="You haven't logged this trig yet"
               currentUserId={currentUser?.id}
+              showTrigCondition={showTrigCondition}
             />
           </Card>
         )}
@@ -718,6 +724,7 @@ export default function TrigDetail() {
                 isLoading={isLogsLoading}
                 emptyMessage="No logged visits yet"
                 currentUserId={currentUser?.id}
+                showTrigCondition={showTrigCondition}
               />
 
               {/* Load More Trigger */}

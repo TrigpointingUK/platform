@@ -5,7 +5,7 @@ Pydantic schemas for user endpoints with permission-based field filtering.
 import re
 from datetime import date  # noqa: F401
 from enum import Enum
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -105,6 +105,10 @@ class UserPrefs(BaseModel):
     email_valid: str = Field(
         ..., description="Email validation status (Y/N) - read-only"
     )
+    ui_prefs: Optional[Dict[str, Any]] = Field(
+        None,
+        description="UI preferences (distance_ind, show_trig_condition, etc.)",
+    )
 
 
 class UserUpdate(BaseModel):
@@ -143,6 +147,10 @@ class UserUpdate(BaseModel):
     )
     public_ind: Optional[str] = Field(
         None, pattern="^[YN]$", description="Public visibility (Y/N)"
+    )
+    ui_prefs: Optional[Dict[str, Any]] = Field(
+        None,
+        description="UI preferences (distance_ind, show_trig_condition, etc.)",
     )
 
     @field_validator("status_max")

@@ -12,6 +12,7 @@ import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useUpdateLog } from "../hooks/useUpdateLog";
 import { useDeleteLog } from "../hooks/useDeleteLog";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useUserProfile } from "../hooks/useUserProfile";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { LogUpdateInput, DuplicateLogError } from "../lib/api";
 
@@ -36,6 +37,10 @@ export default function LogDetail() {
 
   // Get current user's database profile
   const { data: currentUser } = useCurrentUser();
+  
+  // Get current user's UI preferences
+  const { data: userProfile } = useUserProfile("me");
+  const showTrigCondition = userProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
 
   // Fetch trig details to get latitude/longitude for location picker
   // Only fetch if we have a log and are in editing mode
@@ -209,7 +214,7 @@ export default function LogDetail() {
         {!isEditing ? (
           <>
             {/* Read-only view */}
-            <LogCard log={log} />
+            <LogCard log={log} showTrigCondition={showTrigCondition} />
             
             {/* Edit and Delete buttons - only show if user owns this log */}
             {isOwner && (

@@ -14,6 +14,11 @@ interface UserStats {
   total_photos: number;
 }
 
+interface UIPrefs {
+  distance_ind?: string;
+  show_trig_condition?: boolean;
+}
+
 interface UserPrefs {
   status_max: number;
   distance_ind: string;
@@ -22,6 +27,7 @@ interface UserPrefs {
   online_map_type2: string;
   email: string;
   email_valid: string;
+  ui_prefs?: UIPrefs;
 }
 
 export interface UserProfile {

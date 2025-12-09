@@ -13,6 +13,7 @@ interface Log {
   user_name?: string;
   trig_lat?: number | null;
   trig_lon?: number | null;
+  trig_condition?: string | null;
   date: string;
   time: string;
   condition: string;
@@ -22,6 +23,7 @@ interface Log {
   osgb_eastings?: number;
   osgb_northings?: number;
   location_distance_m?: number;
+  distance_km?: number | null;
   photos?: Photo[];
 }
 
@@ -32,6 +34,10 @@ interface LogCardProps {
   trigName?: string;
   onPhotoUpdate?: () => void;
   isCurrentUserLog?: boolean;
+  /** Show distance from filter center point (uses log.distance_km) */
+  showDistance?: boolean;
+  /** Show the curated trig condition icon before the TP number */
+  showTrigCondition?: boolean;
 }
 
 // Helper function to get condition icon and label
@@ -56,7 +62,7 @@ function getConditionInfo(code: string): { icon: string; label: string } {
   return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
-export default function LogCard({ log, userName, trigName, isCurrentUserLog = false }: LogCardProps) {
+export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false }: LogCardProps) {
   const navigate = useNavigate();
   const conditionInfo = getConditionInfo(log.condition);
   const formattedDate = new Date(log.date).toLocaleDateString("en-GB", {
@@ -149,9 +155,18 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
           <div className="flex-1 min-w-0">
             <Link
               to={`/trigs/${log.trig_id}`}
-              className="text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
+              className="inline-flex items-center gap-1.5 text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Trig condition icon (square) - only shown when enabled */}
+              {showTrigCondition && log.trig_condition && (
+                <img
+                  src={`/icons/conditions/${getConditionInfo(log.trig_condition).icon}`}
+                  alt={getConditionInfo(log.trig_condition).label}
+                  title={`Trig condition: ${getConditionInfo(log.trig_condition).label}`}
+                  className="w-5 h-5"
+                />
+              )}
               {formattedTrigId}
               {displayTrigName && (
                 <>
@@ -200,7 +215,19 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                 <span className="text-gray-500">{log.time}</span>
               )}
               
-              {/* Location and Distance */}
+              {/* Distance from filter center point */}
+              {showDistance && log.distance_km != null && (
+                <>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-sm text-blue-600 font-medium">
+                    {log.distance_km < 1 
+                      ? `${Math.round(log.distance_km * 1000)}m away`
+                      : `${log.distance_km.toFixed(1)}km away`}
+                  </span>
+                </>
+              )}
+              
+              {/* Location and Distance from log point */}
               {log.osgb_gridref && log.location_distance_m !== undefined && (
                 <>
                   <span className="text-gray-400">·</span>

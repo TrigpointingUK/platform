@@ -384,6 +384,7 @@ def get_current_user_profile(
                 public_ind=str(current_user.public_ind),
                 email=str(current_user.email),
                 email_valid=str(current_user.email_valid),
+                ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
             )
 
     return result
@@ -451,6 +452,7 @@ def update_current_user_profile(
             public_ind=str(current_user.public_ind),
             email=str(current_user.email),
             email_valid=str(current_user.email_valid),
+            ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
         )
         return result
 
@@ -478,6 +480,14 @@ def update_current_user_profile(
                 status_code=409,
                 detail=f"Email '{new_email}' is already in use",
             )
+
+    # Handle ui_prefs merge (merge with existing rather than replace)
+    if "ui_prefs" in update_data:
+        existing_ui_prefs: dict = current_user.ui_prefs or {}  # type: ignore[assignment]
+        new_ui_prefs: dict = update_data.pop("ui_prefs") or {}
+        # Merge: new values override existing
+        merged_ui_prefs = {**existing_ui_prefs, **new_ui_prefs}
+        current_user.ui_prefs = merged_ui_prefs  # type: ignore[assignment]
 
     # Update database fields
     for field, value in update_data.items():
@@ -608,6 +618,7 @@ def update_current_user_profile(
         public_ind=str(current_user.public_ind),
         email=str(current_user.email),
         email_valid=str(current_user.email_valid),
+        ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
     )
 
     return result

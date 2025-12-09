@@ -8,6 +8,7 @@ import LogList from "../components/logs/LogList";
 import { useSiteStats } from "../hooks/useSiteStats";
 import { useRecentLogs } from "../hooks/useRecentLogs";
 import { useNews } from "../hooks/useNews";
+import { useUserProfile } from "../hooks/useUserProfile";
 
 function WelcomeSection() {
   return (
@@ -199,6 +200,8 @@ function NewsSection() {
 
 function RecentLogsSection() {
   const { data: logsData, isLoading, error } = useRecentLogs(10);
+  const { data: userProfile } = useUserProfile("me");
+  const showTrigCondition = userProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
 
   return (
     <Card>
@@ -218,6 +221,7 @@ function RecentLogsSection() {
           logs={logsData?.items || []}
           isLoading={isLoading}
           emptyMessage="No recent activity"
+          showTrigCondition={showTrigCondition}
         />
       )}
     </Card>

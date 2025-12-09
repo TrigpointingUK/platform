@@ -35,6 +35,21 @@ export default function Preferences() {
     }
   };
 
+  const handleUIPrefsUpdate = async (key: string, value: boolean | string) => {
+    try {
+      await updateUserProfile(
+        { ui_prefs: { [key]: value } } as unknown as Partial<UserProfile>,
+        getAccessTokenSilently
+      );
+      // Invalidate to refetch
+      queryClient.invalidateQueries({ queryKey: ["user", "profile"] });
+      toast.success("Preference updated successfully");
+    } catch (error) {
+      console.error(`Failed to update ui_prefs.${key}:`, error);
+      toast.error("Failed to update preference");
+    }
+  };
+
   if (isLoading) {
     return (
       <Layout>
@@ -104,6 +119,32 @@ export default function Preferences() {
               </p>
             </div>
 
+            {/* Default Photo Licence Preference */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Default Photo Licence
+              </label>
+              <select
+                value={user.prefs?.public_ind || "N"}
+                onChange={(e) => handleFieldUpdate("public_ind", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="N">Copyright me</option>
+                <option value="Y">Public domain</option>
+              </select>
+              <p className="mt-2 text-xs text-gray-500">
+                Choose the default licence for photos you upload
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Display Options */}
+        <Card className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Display Options
+          </h2>
+          <div className="space-y-6">
             {/* Distance Units Preference */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -122,22 +163,29 @@ export default function Preferences() {
               </p>
             </div>
 
-            {/* Default Photo Licence Preference */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default Photo Licence
-              </label>
-              <select
-                value={user.prefs?.public_ind || "N"}
-                onChange={(e) => handleFieldUpdate("public_ind", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="N">Copyright me</option>
-                <option value="Y">Public domain</option>
-              </select>
-              <p className="mt-2 text-xs text-gray-500">
-                Choose the default licence for photos you upload
-              </p>
+            {/* Show Trig Condition */}
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="showTrigCondition"
+                checked={user.prefs?.ui_prefs?.show_trig_condition ?? false}
+                onChange={(e) =>
+                  handleUIPrefsUpdate("show_trig_condition", e.target.checked)
+                }
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+              />
+              <div>
+                <label
+                  htmlFor="showTrigCondition"
+                  className="text-sm font-medium text-gray-700 cursor-pointer"
+                >
+                  Show curated trigpoint condition on log cards
+                </label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Display a condition icon before the trigpoint ID on log cards, showing the
+                  current overall condition of the trigpoint.
+                </p>
+              </div>
             </div>
           </div>
         </Card>
