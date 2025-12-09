@@ -1,22 +1,26 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Photo } from "../lib/api";
 
-interface Log {
+export interface UserLog {
   id: number;
   trig_id: number;
   user_id: number;
   trig_name?: string;
   user_name?: string;
+  trig_lat?: number | null;
+  trig_lon?: number | null;
+  trig_condition?: string | null;
   date: string;
   time: string;
   condition: string;
   comment: string;
   score: number;
   photos?: Photo[];
+  distance_km?: number | null;
 }
 
 interface LogsResponse {
-  items: Log[];
+  items: UserLog[];
   total: number;
   pagination: {
     has_more: boolean;
@@ -25,16 +29,32 @@ interface LogsResponse {
 }
 
 export interface UseUserLogsOptions {
+  lat?: number;
+  lon?: number;
+  maxKm?: number;
+  statusIds?: number[];
+  areaId?: number;
   fromDate?: Date;
   toDate?: Date;
 }
 
 export function useUserLogs(userId: string, options: UseUserLogsOptions = {}) {
   const LIMIT = 20;
-  const { fromDate, toDate } = options;
+  const { lat, lon, maxKm, statusIds, areaId, fromDate, toDate } = options;
 
   return useInfiniteQuery<LogsResponse>({
-    queryKey: ["user", userId, "logs", fromDate?.toISOString(), toDate?.toISOString()],
+    queryKey: [
+      "user",
+      userId,
+      "logs",
+      lat,
+      lon,
+      maxKm,
+      statusIds,
+      areaId,
+      fromDate?.toISOString(),
+      toDate?.toISOString(),
+    ],
     queryFn: async ({ pageParam = 0 }) => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
       const params = new URLSearchParams();
@@ -42,6 +62,21 @@ export function useUserLogs(userId: string, options: UseUserLogsOptions = {}) {
       params.append("skip", String(pageParam));
       params.append("limit", String(LIMIT));
 
+      if (lat !== undefined) {
+        params.append("lat", lat.toString());
+      }
+      if (lon !== undefined) {
+        params.append("lon", lon.toString());
+      }
+      if (maxKm !== undefined) {
+        params.append("max_km", maxKm.toString());
+      }
+      if (statusIds && statusIds.length > 0) {
+        params.append("status_ids", statusIds.join(","));
+      }
+      if (areaId !== undefined) {
+        params.append("area_id", areaId.toString());
+      }
       if (fromDate !== undefined) {
         params.append("from_date", fromDate.toISOString().split("T")[0]);
       }

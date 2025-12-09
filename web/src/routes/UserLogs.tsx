@@ -1,22 +1,94 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
+import { useAuth0 } from "@auth0/auth0-react";
+import { useQueryClient } from "@tanstack/react-query";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import LogList from "../components/logs/LogList";
 import { useUserLogs } from "../hooks/useUserLogs";
-import { useUserProfile } from "../hooks/useUserProfile";
+import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
+import { useAreasContaining } from "../hooks/useAreasContaining";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { DateRangePicker, type DateRange } from "../components/ui/DateRangePicker";
+import { LocationSearch } from "../components/trigs/LocationSearch";
+import { DistanceFilter } from "../components/trigs/DistanceFilter";
+import { StatusFilter } from "../components/trigs/StatusFilter";
+import { AreaFilter } from "../components/trigs/AreaFilter";
+
+// All status levels (default: all enabled)
+const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
 export default function UserLogs() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const queryClient = useQueryClient();
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
-  // Date range filter state - parse from URL
+  // Fetch current user profile to get status_max preference
+  const { data: currentUserProfile } = useUserProfile("me");
+
+  // Track if statuses have been initialized from user profile
+  const statusesInitializedRef = useRef(false);
+
+  // Track if showTrigCondition has been initialized from user profile
+  const showTrigConditionInitializedRef = useRef(false);
+
+  // Compute preferred statuses from user profile
+  const preferredStatuses = useMemo(() => {
+    const userStatusMax = currentUserProfile?.prefs?.status_max || 30;
+    return ALL_STATUSES.filter((s) => s <= userStatusMax);
+  }, [currentUserProfile?.prefs?.status_max]);
+
+  // Filter state - parse from URL or use defaults
+  const [centerLat, setCenterLat] = useState<number | null>(() => {
+    const lat = parseFloat(searchParams.get("lat") || "");
+    return isNaN(lat) ? null : lat;
+  });
+  const [centerLon, setCenterLon] = useState<number | null>(() => {
+    const lon = parseFloat(searchParams.get("lon") || "");
+    return isNaN(lon) ? null : lon;
+  });
+  const [locationName, setLocationName] = useState<string>(
+    () => searchParams.get("location") || ""
+  );
+  const [selectedStatuses, setSelectedStatuses] = useState<number[]>(() => {
+    const statuses = searchParams.get("statuses");
+    if (statuses) return statuses.split(",").map(Number);
+    // Default based on fallback (user profile may not be loaded yet)
+    return ALL_STATUSES.filter((s) => s <= 30);
+  });
+
+  // Initialize selected statuses from user preference when profile loads (once)
+  useEffect(() => {
+    // Only apply user preference if no URL params are set and not already initialized
+    if (
+      !searchParams.get("statuses") &&
+      preferredStatuses.length > 0 &&
+      !statusesInitializedRef.current
+    ) {
+      statusesInitializedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+      setSelectedStatuses(preferredStatuses);
+    }
+  }, [preferredStatuses, searchParams]);
+
+  const [selectedAreaId, setSelectedAreaId] = useState<number | null>(() => {
+    const areaId = searchParams.get("areaId");
+    return areaId ? parseInt(areaId, 10) : null;
+  });
+  const [selectedAreaName, setSelectedAreaName] = useState<string | null>(
+    () => searchParams.get("areaName") || null
+  );
+  const [maxKm, setMaxKm] = useState<number | null>(() => {
+    const km = searchParams.get("maxKm");
+    return km ? parseInt(km, 10) : null;
+  });
+
+  // Date range filter state
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const fromDate = searchParams.get("fromDate");
     const toDate = searchParams.get("toDate");
@@ -29,13 +101,64 @@ export default function UserLogs() {
     return undefined;
   });
 
+  // Display option: show curated trig condition icon (from user prefs, defaults to off)
+  const [showTrigCondition, setShowTrigCondition] = useState<boolean>(false);
+
+  // Initialize showTrigCondition from user preference when profile loads (once)
+  useEffect(() => {
+    if (
+      currentUserProfile?.prefs?.ui_prefs?.show_trig_condition !== undefined &&
+      !showTrigConditionInitializedRef.current
+    ) {
+      showTrigConditionInitializedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+      setShowTrigCondition(currentUserProfile.prefs.ui_prefs.show_trig_condition);
+    }
+  }, [currentUserProfile?.prefs?.ui_prefs?.show_trig_condition]);
+
+  // Fetch areas containing the current location
+  const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(
+    centerLat ?? undefined,
+    centerLon ?? undefined
+  );
+
   // Check if any filters are active
-  const hasActiveFilters = dateRange !== undefined;
+  const hasActiveFilters =
+    centerLat !== null ||
+    centerLon !== null ||
+    maxKm !== null ||
+    selectedStatuses.length !== ALL_STATUSES.length ||
+    selectedAreaId !== null ||
+    dateRange !== undefined;
 
   // Update URL when filters change
   useEffect(() => {
     const params = new URLSearchParams();
 
+    if (centerLat !== null && centerLon !== null) {
+      params.set("lat", centerLat.toString());
+      params.set("lon", centerLon.toString());
+      if (locationName) {
+        params.set("location", locationName);
+      }
+    }
+
+    if (selectedStatuses.length !== ALL_STATUSES.length) {
+      params.set("statuses", selectedStatuses.join(","));
+    }
+
+    if (selectedAreaId !== null) {
+      params.set("areaId", selectedAreaId.toString());
+      if (selectedAreaName) {
+        params.set("areaName", selectedAreaName);
+      }
+    }
+
+    if (maxKm !== null) {
+      params.set("maxKm", maxKm.toString());
+    }
+
+    // Date range filters
     if (dateRange?.from) {
       params.set("fromDate", dateRange.from.toISOString().split("T")[0]);
     }
@@ -44,11 +167,85 @@ export default function UserLogs() {
     }
 
     setSearchParams(params, { replace: true });
-  }, [dateRange, setSearchParams]);
+  }, [
+    centerLat,
+    centerLon,
+    locationName,
+    selectedStatuses,
+    selectedAreaId,
+    selectedAreaName,
+    maxKm,
+    dateRange,
+    setSearchParams,
+  ]);
+
+  const handleSelectLocation = useCallback(
+    (lat: number, lon: number, name: string) => {
+      setCenterLat(lat);
+      setCenterLon(lon);
+      setLocationName(name);
+      // Clear area filter when location changes (areas are location-specific)
+      setSelectedAreaId(null);
+      setSelectedAreaName(null);
+    },
+    []
+  );
+
+  const handleSelectArea = useCallback(
+    (areaId: number | null, areaName: string | null) => {
+      setSelectedAreaId(areaId);
+      setSelectedAreaName(areaName);
+    },
+    []
+  );
+
+  const handleToggleStatus = useCallback((statusId: number) => {
+    setSelectedStatuses((prev) => {
+      if (prev.includes(statusId)) {
+        return prev.filter((s) => s !== statusId);
+      } else {
+        return [...prev, statusId];
+      }
+    });
+  }, []);
 
   const handleClearFilters = useCallback(() => {
+    setCenterLat(null);
+    setCenterLon(null);
+    setLocationName("");
+    setSelectedStatuses(ALL_STATUSES);
+    setSelectedAreaId(null);
+    setSelectedAreaName(null);
+    setMaxKm(null);
     setDateRange(undefined);
+    // Note: showTrigCondition is a user pref, not a filter - don't reset it
   }, []);
+
+  // Handle toggling showTrigCondition - updates local state and saves to user prefs
+  const handleToggleShowTrigCondition = useCallback(
+    async (checked: boolean) => {
+      // Update local state immediately for responsiveness
+      setShowTrigCondition(checked);
+
+      // Save to user prefs if authenticated
+      if (isAuthenticated) {
+        try {
+          await updateUserProfile(
+            { ui_prefs: { show_trig_condition: checked } } as Parameters<
+              typeof updateUserProfile
+            >[0],
+            getAccessTokenSilently
+          );
+          // Invalidate user profile cache
+          queryClient.invalidateQueries({ queryKey: ["user", "profile"] });
+        } catch (error) {
+          console.error("Failed to save show_trig_condition preference:", error);
+          // Don't revert local state - let user continue with their choice
+        }
+      }
+    },
+    [isAuthenticated, getAccessTokenSilently, queryClient]
+  );
 
   const {
     data: logsData,
@@ -58,15 +255,19 @@ export default function UserLogs() {
     isLoading,
     error,
   } = useUserLogs(userId!, {
+    lat: centerLat ?? undefined,
+    lon: centerLon ?? undefined,
+    maxKm: maxKm ?? undefined,
+    statusIds:
+      selectedStatuses.length !== ALL_STATUSES.length
+        ? selectedStatuses
+        : undefined,
+    areaId: selectedAreaId ?? undefined,
     fromDate: dateRange?.from,
     toDate: dateRange?.to,
   });
 
   const { data: user } = useUserProfile(userId!);
-  
-  // Get current user's preference for showing trig condition
-  const { data: currentUserProfile } = useUserProfile("me");
-  const showTrigCondition = currentUserProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
 
   // Update document title when user data loads
   useDocumentTitle(user?.name ? `${user.name}'s Logs` : null);
@@ -148,8 +349,8 @@ export default function UserLogs() {
             {isFilterCollapsed ? (
               <span className="text-sm text-gray-600">
                 {hasActiveFilters
-                  ? `Filtered by date range`
-                  : "Expand to filter logs by date"}
+                  ? `Filtered${locationName ? ` near ${locationName}` : ""}${selectedAreaName ? ` in ${selectedAreaName}` : ""}${!locationName && !selectedAreaName && selectedStatuses.length !== ALL_STATUSES.length ? " by type" : ""}`
+                  : "Expand to filter logs by location, type, or date"}
               </span>
             ) : (
               <span className="text-sm font-medium text-gray-700">
@@ -160,68 +361,141 @@ export default function UserLogs() {
 
           {/* Collapsible filter content */}
           <div className={`space-y-4 ${isFilterCollapsed ? "hidden" : ""}`}>
-            {/* Date range filter */}
-            <div className="max-w-md">
+            {/* Location search */}
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by date range
+                Location
               </label>
-              <DateRangePicker
-                value={dateRange}
-                onChange={setDateRange}
-                placeholder="Select date range"
-                maxValue={new Date()}
-                presets={[
-                  {
-                    label: "Today",
-                    dateRange: {
-                      from: new Date(),
-                      to: new Date(),
-                    },
-                  },
-                  {
-                    label: "Last 7 days",
-                    dateRange: {
-                      from: new Date(new Date().setDate(new Date().getDate() - 7)),
-                      to: new Date(),
-                    },
-                  },
-                  {
-                    label: "Last 30 days",
-                    dateRange: {
-                      from: new Date(new Date().setDate(new Date().getDate() - 30)),
-                      to: new Date(),
-                    },
-                  },
-                  {
-                    label: "Last 3 months",
-                    dateRange: {
-                      from: new Date(new Date().setMonth(new Date().getMonth() - 3)),
-                      to: new Date(),
-                    },
-                  },
-                  {
-                    label: "Last 6 months",
-                    dateRange: {
-                      from: new Date(new Date().setMonth(new Date().getMonth() - 6)),
-                      to: new Date(),
-                    },
-                  },
-                  {
-                    label: "This year",
-                    dateRange: {
-                      from: new Date(new Date().getFullYear(), 0, 1),
-                      to: new Date(),
-                    },
-                  },
-                  {
-                    label: "Last year",
-                    dateRange: {
-                      from: new Date(new Date().getFullYear() - 1, 0, 1),
-                      to: new Date(new Date().getFullYear() - 1, 11, 31),
-                    },
-                  },
-                ]}
+              <LocationSearch
+                onSelectLocation={handleSelectLocation}
+                defaultLocation={
+                  centerLat !== null && centerLon !== null
+                    ? {
+                        lat: centerLat,
+                        lon: centerLon,
+                        name: locationName,
+                      }
+                    : undefined
+                }
               />
+            </div>
+
+            {/* Status filter and distance filter */}
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-shrink-0">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Trigpoint types
+                </label>
+                <StatusFilter
+                  selectedStatuses={selectedStatuses}
+                  onToggleStatus={handleToggleStatus}
+                />
+              </div>
+
+              {/* Distance filter - grows to fill remaining space */}
+              <div className="flex-1 min-w-[300px] max-w-[500px] ml-auto">
+                <DistanceFilter
+                  value={maxKm}
+                  onChange={setMaxKm}
+                  disabled={centerLat === null || centerLon === null}
+                />
+              </div>
+            </div>
+
+            {/* Area filter and Date range filter */}
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[300px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by area
+                </label>
+                <AreaFilter
+                  areaGroups={areasData?.groups || []}
+                  selectedAreaId={selectedAreaId}
+                  onSelectArea={handleSelectArea}
+                  isLoading={isLoadingAreas}
+                  disabled={centerLat === null || centerLon === null}
+                />
+              </div>
+
+              <div className="flex-1 min-w-[300px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by date range
+                </label>
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={setDateRange}
+                  placeholder="Select date range"
+                  maxValue={new Date()}
+                  presets={[
+                    {
+                      label: "Today",
+                      dateRange: {
+                        from: new Date(),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 7 days",
+                      dateRange: {
+                        from: new Date(new Date().setDate(new Date().getDate() - 7)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 30 days",
+                      dateRange: {
+                        from: new Date(new Date().setDate(new Date().getDate() - 30)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 3 months",
+                      dateRange: {
+                        from: new Date(new Date().setMonth(new Date().getMonth() - 3)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 6 months",
+                      dateRange: {
+                        from: new Date(new Date().setMonth(new Date().getMonth() - 6)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "This year",
+                      dateRange: {
+                        from: new Date(new Date().getFullYear(), 0, 1),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last year",
+                      dateRange: {
+                        from: new Date(new Date().getFullYear() - 1, 0, 1),
+                        to: new Date(new Date().getFullYear() - 1, 11, 31),
+                      },
+                    },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* Display options */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showTrigCondition"
+                checked={showTrigCondition}
+                onChange={(e) => handleToggleShowTrigCondition(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+              />
+              <label
+                htmlFor="showTrigCondition"
+                className="text-sm text-gray-700 select-none cursor-pointer"
+              >
+                Show curated trigpoint condition
+              </label>
             </div>
 
             {/* Results count and clear filters */}
@@ -234,6 +508,8 @@ export default function UserLogs() {
                     Showing {allLogs.length} of {totalLogs.toLocaleString()}{" "}
                     log
                     {totalLogs !== 1 ? "s" : ""}
+                    {locationName && ` near ${locationName}`}
+                    {selectedAreaName && ` in ${selectedAreaName}`}
                   </span>
                 )}
               </div>
