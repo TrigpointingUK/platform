@@ -85,7 +85,7 @@ export function AreaFilter({
           {isLoading ? (
             "Loading areas..."
           ) : !hasAreas ? (
-            "No areas available"
+            "First enter a location"
           ) : selectedArea ? (
             formatAreaDisplay(selectedArea)
           ) : (
