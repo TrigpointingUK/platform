@@ -174,6 +174,12 @@ def list_logs(
     area_id: Optional[int] = Query(
         None, description="Filter to logs for trigpoints within a specific area"
     ),
+    from_date: Optional[date_type] = Query(
+        None, description="Filter logs from this date (inclusive, YYYY-MM-DD)"
+    ),
+    to_date: Optional[date_type] = Query(
+        None, description="Filter logs to this date (inclusive, YYYY-MM-DD)"
+    ),
     only_found: Optional[bool] = Query(
         False,
         description="Include only logs for trigpoints logged by authenticated user",
@@ -226,6 +232,8 @@ def list_logs(
         max_km=max_km,
         status_ids=parsed_status_ids,
         area_id=area_id,
+        from_date=from_date,
+        to_date=to_date,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
     )
@@ -238,6 +246,8 @@ def list_logs(
         max_km=max_km,
         status_ids=parsed_status_ids,
         area_id=area_id,
+        from_date=from_date,
+        to_date=to_date,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
     )
@@ -326,6 +336,10 @@ def list_logs(
         params.append(f"status_ids={status_ids}")
     if area_id is not None:
         params.append(f"area_id={area_id}")
+    if from_date is not None:
+        params.append(f"from_date={from_date.isoformat()}")
+    if to_date is not None:
+        params.append(f"to_date={to_date.isoformat()}")
     if only_found:
         params.append("only_found=true")
     if exclude_found:

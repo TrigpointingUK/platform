@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-12-08T14:01:44.673Z",
+  "generatedAt": "2025-12-09T12:58:47.134Z",
   "npm": [
     {
       "name": "@acemir/cssom",
@@ -57,7 +57,7 @@
     },
     {
       "name": "@auth0/auth0-react",
-      "version": "2.9.0",
+      "version": "2.10.0",
       "license": "MIT",
       "repository": "https://github.com/auth0/auth0-react",
       "author": "Auth0",
@@ -407,6 +407,87 @@
       "type": "npm"
     },
     {
+      "name": "@floating-ui/core",
+      "version": "1.7.3",
+      "license": "MIT",
+      "repository": "https://github.com/floating-ui/floating-ui",
+      "author": "atomiks",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@floating-ui/dom",
+      "version": "1.7.4",
+      "license": "MIT",
+      "repository": "https://github.com/floating-ui/floating-ui",
+      "author": "atomiks",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@floating-ui/react-dom",
+      "version": "2.1.6",
+      "license": "MIT",
+      "repository": "https://github.com/floating-ui/floating-ui",
+      "author": "atomiks",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@floating-ui/utils",
+      "version": "0.2.10",
+      "license": "MIT",
+      "repository": "https://github.com/floating-ui/floating-ui",
+      "author": "atomiks",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@formatjs/ecma402-abstract",
+      "version": "2.3.6",
+      "license": "MIT",
+      "repository": "https://github.com/formatjs/formatjs",
+      "author": "Long Ho",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@formatjs/fast-memoize",
+      "version": "2.2.7",
+      "license": "MIT",
+      "repository": "https://github.com/formatjs/formatjs",
+      "author": "Long Ho",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@formatjs/icu-messageformat-parser",
+      "version": "2.11.4",
+      "license": "MIT",
+      "repository": "https://github.com/formatjs/formatjs",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@formatjs/icu-skeleton-parser",
+      "version": "1.8.16",
+      "license": "MIT",
+      "repository": "https://github.com/formatjs/formatjs",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@formatjs/intl-localematcher",
+      "version": "0.6.2",
+      "license": "MIT",
+      "repository": "https://github.com/formatjs/formatjs",
+      "author": "Long Ho",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "@humanfs/core",
       "version": "0.19.1",
       "license": "Apache-2.0",
@@ -439,6 +520,42 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/humanwhocodes/retry",
       "author": "Nicholas C. Zaks",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@internationalized/date",
+      "version": "3.10.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum/tree/main/packages/@internationalized/date",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@internationalized/message",
+      "version": "3.1.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@internationalized/number",
+      "version": "3.6.5",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@internationalized/string",
+      "version": "3.2.7",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
       "description": "",
       "type": "npm"
     },
@@ -488,6 +605,645 @@
       "type": "npm"
     },
     {
+      "name": "@radix-ui/primitive",
+      "version": "1.1.3",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-arrow",
+      "version": "1.1.7",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-compose-refs",
+      "version": "1.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-context",
+      "version": "1.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-dismissable-layer",
+      "version": "1.1.11",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-focus-guards",
+      "version": "1.1.3",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-focus-scope",
+      "version": "1.1.7",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-id",
+      "version": "1.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-popover",
+      "version": "1.1.15",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-popper",
+      "version": "1.2.8",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-portal",
+      "version": "1.1.9",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-presence",
+      "version": "1.1.5",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-primitive",
+      "version": "2.1.3",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-slot",
+      "version": "1.2.3",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-use-callback-ref",
+      "version": "1.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-use-controllable-state",
+      "version": "1.2.2",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-use-effect-event",
+      "version": "0.0.2",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-use-escape-keydown",
+      "version": "1.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-use-layout-effect",
+      "version": "1.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-use-rect",
+      "version": "1.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/react-use-size",
+      "version": "1.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@radix-ui/rect",
+      "version": "1.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/radix-ui/primitives",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/autocomplete",
+      "version": "3.0.0-rc.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/breadcrumbs",
+      "version": "3.5.29",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/button",
+      "version": "3.14.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/calendar",
+      "version": "3.9.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/checkbox",
+      "version": "3.16.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/collections",
+      "version": "3.0.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/color",
+      "version": "3.1.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/combobox",
+      "version": "3.14.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/datepicker",
+      "version": "3.15.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/dialog",
+      "version": "3.5.31",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/disclosure",
+      "version": "3.1.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/dnd",
+      "version": "3.11.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/focus",
+      "version": "3.21.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/form",
+      "version": "3.1.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/grid",
+      "version": "3.14.5",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/gridlist",
+      "version": "3.14.1",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/i18n",
+      "version": "3.12.13",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/interactions",
+      "version": "3.25.6",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/label",
+      "version": "3.7.22",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/landmark",
+      "version": "3.0.7",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/link",
+      "version": "3.8.6",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/listbox",
+      "version": "3.15.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/live-announcer",
+      "version": "3.4.4",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/menu",
+      "version": "3.19.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/meter",
+      "version": "3.4.27",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/numberfield",
+      "version": "3.12.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/overlays",
+      "version": "3.30.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/progress",
+      "version": "3.4.27",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/radio",
+      "version": "3.12.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/searchfield",
+      "version": "3.8.9",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/select",
+      "version": "3.17.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/selection",
+      "version": "3.26.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/separator",
+      "version": "3.4.13",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/slider",
+      "version": "3.8.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/spinbutton",
+      "version": "3.6.19",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/ssr",
+      "version": "3.9.10",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/switch",
+      "version": "3.7.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/table",
+      "version": "3.17.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/tabs",
+      "version": "3.10.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/tag",
+      "version": "3.7.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/textfield",
+      "version": "3.18.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/toast",
+      "version": "3.0.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/toggle",
+      "version": "3.12.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/toolbar",
+      "version": "3.0.0-beta.21",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/tooltip",
+      "version": "3.8.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/tree",
+      "version": "3.1.4",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/utils",
+      "version": "3.31.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/virtualizer",
+      "version": "4.1.10",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-aria/visually-hidden",
+      "version": "3.8.28",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "@react-leaflet/core",
       "version": "3.0.0",
       "license": "Hippocratic-2.1",
@@ -497,8 +1253,548 @@
       "type": "npm"
     },
     {
+      "name": "@react-stately/autocomplete",
+      "version": "3.0.0-beta.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/calendar",
+      "version": "3.9.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/checkbox",
+      "version": "3.7.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/collections",
+      "version": "3.12.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/color",
+      "version": "3.9.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/combobox",
+      "version": "3.12.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/data",
+      "version": "3.14.1",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/datepicker",
+      "version": "3.15.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/disclosure",
+      "version": "3.0.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/dnd",
+      "version": "3.7.1",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/flags",
+      "version": "3.1.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/form",
+      "version": "3.2.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/grid",
+      "version": "3.11.6",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/layout",
+      "version": "4.5.1",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/list",
+      "version": "3.13.1",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/menu",
+      "version": "3.9.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/numberfield",
+      "version": "3.10.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/overlays",
+      "version": "3.6.20",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/radio",
+      "version": "3.11.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/searchfield",
+      "version": "3.5.16",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/select",
+      "version": "3.8.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/selection",
+      "version": "3.20.6",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/slider",
+      "version": "3.7.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/table",
+      "version": "3.15.1",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/tabs",
+      "version": "3.8.6",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/toast",
+      "version": "3.1.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/toggle",
+      "version": "3.9.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/tooltip",
+      "version": "3.5.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/tree",
+      "version": "3.9.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/utils",
+      "version": "3.10.8",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-stately/virtualizer",
+      "version": "4.4.4",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/autocomplete",
+      "version": "3.0.0-alpha.35",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/breadcrumbs",
+      "version": "3.7.17",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/button",
+      "version": "3.14.1",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/calendar",
+      "version": "3.8.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/checkbox",
+      "version": "3.10.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/color",
+      "version": "3.1.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/combobox",
+      "version": "3.13.9",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/datepicker",
+      "version": "3.13.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/dialog",
+      "version": "3.5.22",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/form",
+      "version": "3.7.16",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/grid",
+      "version": "3.3.6",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/link",
+      "version": "3.6.5",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/listbox",
+      "version": "3.7.4",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/menu",
+      "version": "3.10.5",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/meter",
+      "version": "3.4.13",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/numberfield",
+      "version": "3.8.15",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/overlays",
+      "version": "3.9.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/progress",
+      "version": "3.5.16",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/radio",
+      "version": "3.9.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/searchfield",
+      "version": "3.6.6",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/select",
+      "version": "3.11.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/shared",
+      "version": "3.32.1",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/slider",
+      "version": "3.8.2",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/switch",
+      "version": "3.5.15",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/table",
+      "version": "3.13.4",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/tabs",
+      "version": "3.3.19",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/textfield",
+      "version": "3.12.6",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@react-types/tooltip",
+      "version": "3.4.21",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@remixicon/react",
+      "version": "4.7.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/Remix-Design/remixicon",
+      "author": "Wendy Gao",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "@rolldown/pluginutils",
-      "version": "1.0.0-beta.47",
+      "version": "1.0.0-beta.53",
       "license": "MIT",
       "repository": "https://github.com/rolldown/rolldown",
       "author": "Unknown",
@@ -529,6 +1825,15 @@
       "license": "MIT",
       "repository": "https://github.com/standard-schema/standard-schema",
       "author": "Colin McDonnell",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@swc/helpers",
+      "version": "0.5.17",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/swc-project/swc",
+      "author": "강동윤",
       "description": "",
       "type": "npm"
     },
@@ -588,7 +1893,7 @@
     },
     {
       "name": "@tanstack/query-core",
-      "version": "5.90.11",
+      "version": "5.90.12",
       "license": "MIT",
       "repository": "https://github.com/TanStack/query",
       "author": "tannerlinsley",
@@ -597,19 +1902,10 @@
     },
     {
       "name": "@tanstack/react-query",
-      "version": "5.90.11",
+      "version": "5.90.12",
       "license": "MIT",
       "repository": "https://github.com/TanStack/query",
       "author": "tannerlinsley",
-      "description": "",
-      "type": "npm"
-    },
-    {
-      "name": "@testing-library/dom",
-      "version": "10.4.1",
-      "license": "MIT",
-      "repository": "https://github.com/testing-library/dom-testing-library",
-      "author": "Kent C. Dodds",
       "description": "",
       "type": "npm"
     },
@@ -637,15 +1933,6 @@
       "license": "MIT",
       "repository": "https://github.com/testing-library/user-event",
       "author": "Giorgio Polvara",
-      "description": "",
-      "type": "npm"
-    },
-    {
-      "name": "@types/aria-query",
-      "version": "5.0.4",
-      "license": "MIT",
-      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped",
-      "author": "Unknown",
       "description": "",
       "type": "npm"
     },
@@ -867,7 +2154,7 @@
     },
     {
       "name": "@vitejs/plugin-react",
-      "version": "5.1.1",
+      "version": "5.1.2",
       "license": "MIT",
       "repository": "https://github.com/vitejs/vite-plugin-react",
       "author": "Evan You",
@@ -992,26 +2279,8 @@
       "type": "npm"
     },
     {
-      "name": "ansi-regex",
-      "version": "5.0.1",
-      "license": "MIT",
-      "repository": "https://github.com/chalk/ansi-regex",
-      "author": "Sindre Sorhus",
-      "description": "",
-      "type": "npm"
-    },
-    {
       "name": "ansi-styles",
       "version": "4.3.0",
-      "license": "MIT",
-      "repository": "https://github.com/chalk/ansi-styles",
-      "author": "Sindre Sorhus",
-      "description": "",
-      "type": "npm"
-    },
-    {
-      "name": "ansi-styles",
-      "version": "5.2.0",
       "license": "MIT",
       "repository": "https://github.com/chalk/ansi-styles",
       "author": "Sindre Sorhus",
@@ -1024,6 +2293,15 @@
       "license": "Python-2.0",
       "repository": "https://github.com/nodeca/argparse",
       "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "aria-hidden",
+      "version": "1.2.6",
+      "license": "MIT",
+      "repository": "https://github.com/theKashey/aria-hidden",
+      "author": "Anton Korzunov",
       "description": "",
       "type": "npm"
     },
@@ -1208,6 +2486,24 @@
       "type": "npm"
     },
     {
+      "name": "client-only",
+      "version": "0.0.1",
+      "license": "MIT",
+      "repository": "https://www.npmjs.com/package/client-only",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "clsx",
+      "version": "2.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/lukeed/clsx",
+      "author": "Luke Edwards",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "color-convert",
       "version": "2.0.1",
       "license": "MIT",
@@ -1307,6 +2603,15 @@
       "type": "npm"
     },
     {
+      "name": "date-fns",
+      "version": "4.1.0",
+      "license": "MIT",
+      "repository": "https://github.com/date-fns/date-fns",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "debug",
       "version": "4.4.3",
       "license": "MIT",
@@ -1361,11 +2666,11 @@
       "type": "npm"
     },
     {
-      "name": "dom-accessibility-api",
-      "version": "0.5.16",
+      "name": "detect-node-es",
+      "version": "1.1.0",
       "license": "MIT",
-      "repository": "https://github.com/eps1lon/dom-accessibility-api",
-      "author": "Unknown",
+      "repository": "https://github.com/thekashey/detect-node",
+      "author": "Ilya Kantor",
       "description": "",
       "type": "npm"
     },
@@ -1748,6 +3053,15 @@
       "type": "npm"
     },
     {
+      "name": "get-nonce",
+      "version": "1.0.1",
+      "license": "MIT",
+      "repository": "https://github.com/theKashey/get-nonce",
+      "author": "Anton Korzunov",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "get-proto",
       "version": "1.0.1",
       "license": "MIT",
@@ -1960,6 +3274,15 @@
       "license": "MIT",
       "repository": "https://github.com/sindresorhus/indent-string",
       "author": "Sindre Sorhus",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "intl-messageformat",
+      "version": "10.7.18",
+      "license": "BSD-3-Clause",
+      "repository": "https://github.com/formatjs/formatjs",
+      "author": "Eric Ferraiuolo",
       "description": "",
       "type": "npm"
     },
@@ -2307,19 +3630,10 @@
     },
     {
       "name": "lucide-react",
-      "version": "0.555.0",
+      "version": "0.556.0",
       "license": "ISC",
       "repository": "https://github.com/lucide-icons/lucide",
       "author": "Eric Fennis",
-      "description": "",
-      "type": "npm"
-    },
-    {
-      "name": "lz-string",
-      "version": "1.5.0",
-      "license": "MIT",
-      "repository": "https://github.com/pieroxy/lz-string",
-      "author": "pieroxy",
       "description": "",
       "type": "npm"
     },
@@ -2639,15 +3953,6 @@
       "type": "npm"
     },
     {
-      "name": "pretty-format",
-      "version": "27.5.1",
-      "license": "MIT",
-      "repository": "https://github.com/facebook/jest",
-      "author": "James Kyle",
-      "description": "",
-      "type": "npm"
-    },
-    {
       "name": "proj4",
       "version": "2.20.2",
       "license": "MIT",
@@ -2684,6 +3989,33 @@
       "type": "npm"
     },
     {
+      "name": "react-aria",
+      "version": "3.44.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "react-aria-components",
+      "version": "1.13.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "react-day-picker",
+      "version": "8.10.1",
+      "license": "MIT",
+      "repository": "https://github.com/gpbl/react-day-picker",
+      "author": "Giampaolo Bellavite",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "react-dom",
       "version": "19.2.1",
       "license": "MIT",
@@ -2711,15 +4043,6 @@
       "type": "npm"
     },
     {
-      "name": "react-is",
-      "version": "17.0.2",
-      "license": "MIT",
-      "repository": "https://github.com/facebook/react",
-      "author": "Unknown",
-      "description": "",
-      "type": "npm"
-    },
-    {
       "name": "react-leaflet",
       "version": "5.0.0",
       "license": "Hippocratic-2.1",
@@ -2738,8 +4061,26 @@
       "type": "npm"
     },
     {
+      "name": "react-remove-scroll",
+      "version": "2.7.2",
+      "license": "MIT",
+      "repository": "https://github.com/theKashey/react-remove-scroll",
+      "author": "Anton Korzunov",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "react-remove-scroll-bar",
+      "version": "2.3.8",
+      "license": "MIT",
+      "repository": "https://github.com/theKashey/react-remove-scroll-bar",
+      "author": "Anton Korzunov",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "react-router",
-      "version": "7.10.0",
+      "version": "7.10.1",
       "license": "MIT",
       "repository": "https://github.com/remix-run/react-router",
       "author": "Remix Software",
@@ -2748,10 +4089,28 @@
     },
     {
       "name": "react-router-dom",
-      "version": "7.10.0",
+      "version": "7.10.1",
       "license": "MIT",
       "repository": "https://github.com/remix-run/react-router",
       "author": "Remix Software",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "react-stately",
+      "version": "3.42.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/adobe/react-spectrum",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "react-style-singleton",
+      "version": "2.2.3",
+      "license": "MIT",
+      "repository": "https://github.com/theKashey/react-style-singleton",
+      "author": "Anton Korzunov",
       "description": "",
       "type": "npm"
     },
@@ -2954,6 +4313,24 @@
       "type": "npm"
     },
     {
+      "name": "tailwind-merge",
+      "version": "3.4.0",
+      "license": "MIT",
+      "repository": "https://github.com/dcastil/tailwind-merge",
+      "author": "Dany Castillo",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "tailwind-variants",
+      "version": "3.2.2",
+      "license": "MIT",
+      "repository": "https://github.com/heroui-inc/tailwind-variants",
+      "author": "Junior Garcia",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "tailwindcss",
       "version": "4.1.17",
       "license": "MIT",
@@ -3080,6 +4457,15 @@
       "type": "npm"
     },
     {
+      "name": "tslib",
+      "version": "2.8.1",
+      "license": "0BSD",
+      "repository": "https://github.com/Microsoft/tslib",
+      "author": "Microsoft Corp.",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "type-check",
       "version": "0.4.0",
       "license": "MIT",
@@ -3134,8 +4520,35 @@
       "type": "npm"
     },
     {
+      "name": "use-callback-ref",
+      "version": "1.3.3",
+      "license": "MIT",
+      "repository": "https://github.com/theKashey/use-callback-ref",
+      "author": "theKashey",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "use-sidecar",
+      "version": "1.1.3",
+      "license": "MIT",
+      "repository": "https://github.com/theKashey/use-sidecar",
+      "author": "theKashey",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "use-sync-external-store",
+      "version": "1.6.0",
+      "license": "MIT",
+      "repository": "https://github.com/facebook/react",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "vite",
-      "version": "7.2.6",
+      "version": "7.2.7",
       "license": "MIT",
       "repository": "https://github.com/vitejs/vite",
       "author": "Evan You",
@@ -3308,56 +4721,56 @@
   "python": [
     {
       "name": "alembic",
-      "version": "1.17.1",
-      "license": "MIT",
-      "repository": "https://alembic.sqlalchemy.org",
-      "author": "Mike Bayer <mike_mp@zzzcomputing.com>",
-      "description": "A database migration tool for SQLAlchemy.",
+      "version": "1.17.2",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/alembic/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "bandit",
-      "version": "1.7.7",
-      "license": "Apache Software License",
-      "repository": "https://bandit.readthedocs.io/",
-      "author": "PyCQA",
-      "description": "Security oriented static analyser for python code.",
+      "version": "1.9.2",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/bandit/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "bcrypt",
       "version": "4.3.0",
-      "license": "Apache Software License",
-      "repository": "https://github.com/pyca/bcrypt/",
-      "author": "The Python Cryptographic Authority developers <cryptography-dev@python.org>",
-      "description": "Modern password hashing for your software and your servers",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/bcrypt/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "black",
-      "version": "25.11.0",
-      "license": "MIT",
-      "repository": "https://github.com/psf/black",
-      "author": "Łukasz Langa <lukasz@langa.pl>",
-      "description": "The uncompromising code formatter.",
+      "version": "25.12.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/black/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "boto3",
-      "version": "1.40.71",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/boto/boto3",
-      "author": "Amazon Web Services",
-      "description": "The AWS SDK for Python",
+      "version": "1.42.4",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/boto3/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "cryptography",
       "version": "46.0.3",
-      "license": "Apache-2.0 OR BSD-3-Clause",
-      "repository": "https://github.com/pyca/cryptography",
-      "author": "The Python Cryptographic Authority and individual contributors <cryptography-dev@python.org>",
-      "description": "cryptography is a package which provides cryptographic recipes and primitives to Python developers.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/cryptography/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
@@ -3380,92 +4793,92 @@
     },
     {
       "name": "fastapi",
-      "version": "0.123.4",
-      "license": "MIT",
-      "repository": "https://github.com/fastapi/fastapi",
-      "author": "=?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>",
-      "description": "FastAPI framework, high performance, easy to learn, fast to code, ready for production",
+      "version": "0.124.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/fastapi/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "flake8",
       "version": "7.3.0",
-      "license": "MIT License",
-      "repository": "https://github.com/pycqa/flake8",
-      "author": "Tarek Ziade",
-      "description": "the modular source code checker: pep8 pyflakes and co",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/flake8/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "geoalchemy2",
-      "version": "0.16.0",
-      "license": "MIT License",
-      "repository": "https://geoalchemy-2.readthedocs.io/en/stable/",
-      "author": "Eric Lemoine",
-      "description": "Using SQLAlchemy with Spatial Databases",
+      "version": "0.18.1",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/geoalchemy2/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "httpx",
       "version": "0.28.1",
-      "license": "BSD License",
-      "repository": "https://github.com/encode/httpx",
-      "author": "Tom Christie <tom@tomchristie.com>",
-      "description": "The next generation HTTP client.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/httpx/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "isort",
       "version": "7.0.0",
-      "license": "MIT",
-      "repository": "https://pycqa.github.io/isort/index.html",
-      "author": "Timothy Crosley <timothy.crosley@gmail.com>, staticdev <staticdev-support@proton.me>",
-      "description": "A Python utility / library to sort Python imports.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/isort/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "mypy",
-      "version": "1.18.2",
-      "license": "MIT License",
-      "repository": "https://www.mypy-lang.org/",
-      "author": "Jukka Lehtosalo <jukka.lehtosalo@iki.fi>",
-      "description": "Optional static typing for Python",
+      "version": "1.19.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/mypy/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "numpy",
-      "version": "2.3.4",
-      "license": "BSD License",
-      "repository": "https://numpy.org",
-      "author": "Travis E. Oliphant et al.",
-      "description": "Fundamental package for array computing in Python",
+      "version": "2.3.5",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/numpy/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "onnxruntime",
       "version": "1.23.2",
-      "license": "MIT License",
-      "repository": "https://onnxruntime.ai",
-      "author": "Microsoft Corporation",
-      "description": "ONNX Runtime is a runtime accelerator for Machine Learning models",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/onnxruntime/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "opentelemetry-api",
-      "version": "1.28.2",
-      "license": "Apache Software License",
-      "repository": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api",
-      "author": "OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>",
-      "description": "OpenTelemetry Python API",
+      "version": "1.39.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/opentelemetry-api/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "opentelemetry-exporter-otlp-proto-http",
-      "version": "1.28.2",
-      "license": "Apache Software License",
-      "repository": "https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-otlp-proto-http",
-      "author": "OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>",
-      "description": "OpenTelemetry Collector Protobuf over HTTP Exporter",
+      "version": "1.39.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/opentelemetry-exporter-otlp-proto-http/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
@@ -3488,29 +4901,29 @@
     },
     {
       "name": "opentelemetry-sdk",
-      "version": "1.28.2",
-      "license": "Apache Software License",
-      "repository": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-sdk",
-      "author": "OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>",
-      "description": "OpenTelemetry Python SDK",
+      "version": "1.39.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/opentelemetry-sdk/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "passlib",
       "version": "1.7.4",
-      "license": "BSD",
-      "repository": "https://passlib.readthedocs.io",
-      "author": "Eli Collins",
-      "description": "comprehensive password hashing framework supporting over 30 schemes",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/passlib/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "Pillow",
       "version": "12.0.0",
-      "license": "MIT-CMU",
-      "repository": "https://python-pillow.github.io",
-      "author": "\"Jeffrey A. Clark\" <aclark@aclark.net>",
-      "description": "Python Imaging Library (fork)",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/Pillow/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
@@ -3533,56 +4946,56 @@
     },
     {
       "name": "pre-commit",
-      "version": "3.6.0",
-      "license": "MIT License",
-      "repository": "https://github.com/pre-commit/pre-commit",
-      "author": "Anthony Sottile",
-      "description": "A framework for managing and maintaining multi-language pre-commit hooks.",
+      "version": "4.5.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pre-commit/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "psycopg2-binary",
-      "version": "2.9.10",
-      "license": "GNU Library or Lesser General Public License (LGPL)",
-      "repository": "https://psycopg.org/",
-      "author": "Federico Di Gregorio",
-      "description": "psycopg2 - Python-PostgreSQL Database Adapter",
+      "version": "2.9.11",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/psycopg2-binary/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pydantic",
-      "version": "2.12.4",
-      "license": "MIT",
-      "repository": "https://github.com/pydantic/pydantic",
-      "author": "Samuel Colvin <s@muelcolvin.com>, Eric Jolibois <em.jolibois@gmail.com>, Hasan Ramezani <hasan.r67@gmail.com>, Adrian Garcia Badaracco <1755071+adriangb@users.noreply.github.com>, Terrence Dorsey <terry@pydantic.dev>, David Montague <david@pydantic.dev>, Serge Matveenko <lig@countzero.co>, Marcelo Trylesinski <marcelotryle@gmail.com>, Sydney Runkle <sydneymarierunkle@gmail.com>, David Hewitt <mail@davidhewitt.io>, Alex Hall <alex.mojaki@gmail.com>, Victorien Plot <contact@vctrn.dev>, Douwe Maan <hi@douwe.me>",
-      "description": "Data validation using Python type hints",
+      "version": "2.12.5",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pydantic/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pydantic-settings",
       "version": "2.12.0",
-      "license": "MIT",
-      "repository": "https://github.com/pydantic/pydantic-settings",
-      "author": "Samuel Colvin <s@muelcolvin.com>, Eric Jolibois <em.jolibois@gmail.com>, Hasan Ramezani <hasan.r67@gmail.com>",
-      "description": "Settings management using Pydantic",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pydantic-settings/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pyinstrument",
       "version": "5.1.1",
-      "license": "BSD License",
-      "repository": "https://github.com/joerick/pyinstrument",
-      "author": "Joe Rickerby",
-      "description": "Call stack profiler for Python. Shows you why your code is slow!",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pyinstrument/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "PyJWT",
       "version": "2.10.1",
-      "license": "MIT License",
-      "repository": "https://github.com/jpadilla/pyjwt",
-      "author": "Jose Padilla <hello@jpadilla.com>",
-      "description": "JSON Web Token implementation in Python",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/PyJWT/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
@@ -3605,116 +5018,116 @@
     },
     {
       "name": "pytest",
-      "version": "9.0.1",
-      "license": "MIT",
-      "repository": "https://docs.pytest.org/en/latest/",
-      "author": "Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin, Others (See AUTHORS)",
-      "description": "pytest: simple powerful testing with Python",
+      "version": "9.0.2",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pytest/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pytest-asyncio",
       "version": "1.3.0",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/pytest-dev/pytest-asyncio",
-      "author": "Tin Tvrtković <tinchester@gmail.com>",
-      "description": "Pytest support for asyncio",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pytest-asyncio/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pytest-cov",
       "version": "7.0.0",
-      "license": "MIT",
-      "repository": "https://pytest-cov.readthedocs.io/en/latest/changelog.html",
-      "author": "Marc Schlaich <marc.schlaich@gmail.com>",
-      "description": "Pytest plugin for measuring coverage.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pytest-cov/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pytest-xdist",
       "version": "3.8.0",
-      "license": "MIT",
-      "repository": "https://github.com/pytest-dev/pytest-xdist",
-      "author": "holger krekel and contributors <pytest-dev@python.org>, holger@merlinux.eu",
-      "description": "pytest xdist plugin for distributed testing, most importantly across multiple CPUs",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pytest-xdist/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "python-dotenv",
       "version": "1.2.1",
-      "license": "BSD-3-Clause",
-      "repository": "https://github.com/theskumar/python-dotenv",
-      "author": "Saurabh Kumar <me+github@saurabh-kumar.com>",
-      "description": "Read key-value pairs from a .env file and set them as environment variables",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/python-dotenv/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "python-multipart",
       "version": "0.0.20",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/Kludex/python-multipart",
-      "author": "Andrew Dunham <andrew@du.nham.ca>, Marcelo Trylesinski <marcelotryle@gmail.com>",
-      "description": "A streaming multipart parser for Python",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/python-multipart/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "redis",
-      "version": "7.0.1",
-      "license": "MIT",
-      "repository": "https://github.com/redis/redis-py",
-      "author": "\"Redis Inc.\" <oss@redis.com>",
-      "description": "Python client for Redis database and key-value store",
+      "version": "7.1.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/redis/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "requests",
       "version": "2.32.5",
-      "license": "Apache Software License",
-      "repository": "https://requests.readthedocs.io",
-      "author": "Kenneth Reitz",
-      "description": "Python HTTP for Humans.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/requests/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "sqlalchemy",
       "version": "2.0.44",
-      "license": "MIT",
-      "repository": "https://www.sqlalchemy.org",
-      "author": "Mike Bayer",
-      "description": "Database Abstraction Library",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/sqlalchemy/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "starlette",
-      "version": "0.50.0",
-      "license": "BSD-3-Clause",
-      "repository": "https://github.com/Kludex/starlette",
-      "author": "Tom Christie <tom@tomchristie.com>",
-      "description": "The little ASGI library that shines.",
+      "version": "0.49.1  # CVE-2025-62727 fix (DoS via Range header in FileResponse)",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/starlette/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "types-requests",
       "version": "2.32.4.20250809",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/python/typeshed",
-      "author": "UNKNOWN",
-      "description": "Typing stubs for requests",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/types-requests/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "uvicorn",
       "version": "0.35.0",
-      "license": "BSD-3-Clause",
-      "repository": "https://www.uvicorn.org/",
-      "author": "Tom Christie <tom@tomchristie.com>, Marcelo Trylesinski <marcelotryle@gmail.com>",
-      "description": "The lightning-fast ASGI server.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/uvicorn/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     }
   ],
   "summary": {
-    "total": 412,
-    "npm": 367,
+    "total": 569,
+    "npm": 524,
     "python": 45
   }
 }

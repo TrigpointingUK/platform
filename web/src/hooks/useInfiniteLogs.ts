@@ -41,8 +41,11 @@ export interface UseInfiniteLogsOptions {
   maxKm?: number;
   statusIds?: number[];
   areaId?: number;
+  userId?: number;
   showLogged?: boolean; // Show logs for trigpoints logged by user (default: true)
   showNotLogged?: boolean; // Show logs for trigpoints not logged by user (default: true)
+  fromDate?: Date; // Filter logs from this date
+  toDate?: Date; // Filter logs to this date
 }
 
 export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
@@ -52,8 +55,11 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
     maxKm,
     statusIds,
     areaId,
+    userId,
     showLogged = true,
     showNotLogged = true,
+    fromDate,
+    toDate,
   } = options;
 
   // Check if any filters are active (for query key and enabled logic)
@@ -63,8 +69,11 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
     maxKm !== undefined ||
     (statusIds !== undefined && statusIds.length > 0) ||
     areaId !== undefined ||
+    userId !== undefined ||
     !showLogged ||
-    !showNotLogged;
+    !showNotLogged ||
+    fromDate !== undefined ||
+    toDate !== undefined;
 
   return useInfiniteQuery<LogsResponse>({
     queryKey: [
@@ -75,8 +84,11 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       maxKm,
       statusIds,
       areaId,
+      userId,
       showLogged,
       showNotLogged,
+      fromDate?.toISOString(),
+      toDate?.toISOString(),
     ],
     queryFn: async ({ pageParam = 0 }) => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
@@ -101,12 +113,22 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       if (areaId !== undefined) {
         params.append("area_id", areaId.toString());
       }
+      if (userId !== undefined) {
+        params.append("user_id", userId.toString());
+      }
       // Log filter: showLogged=false means exclude found, showNotLogged=false means only found
       if (!showLogged) {
         params.append("exclude_found", "true");
       }
       if (!showNotLogged) {
         params.append("only_found", "true");
+      }
+      // Date range filters
+      if (fromDate !== undefined) {
+        params.append("from_date", fromDate.toISOString().split("T")[0]);
+      }
+      if (toDate !== undefined) {
+        params.append("to_date", toDate.toISOString().split("T")[0]);
       }
 
       const response = await fetch(`${apiBase}/v1/logs?${params.toString()}`);

@@ -122,6 +122,8 @@ def list_logs_filtered(
     max_km: Optional[float] = None,
     status_ids: Optional[List[int]] = None,
     area_id: Optional[int] = None,
+    from_date: Optional[DateType] = None,
+    to_date: Optional[DateType] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
 ) -> List[TLog]:
@@ -154,6 +156,12 @@ def list_logs_filtered(
             "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         q = q.filter(Trig.id.in_(area_subquery))
+
+    # Filter by date range
+    if from_date is not None:
+        q = q.filter(TLog.date >= from_date)
+    if to_date is not None:
+        q = q.filter(TLog.date <= to_date)
 
     # Exclude logs for trigpoints already found by user (show only unlogged trigs)
     if exclude_found_by_user_id is not None:
@@ -228,6 +236,8 @@ def count_logs_filtered(
     max_km: Optional[float] = None,
     status_ids: Optional[List[int]] = None,
     area_id: Optional[int] = None,
+    from_date: Optional[DateType] = None,
+    to_date: Optional[DateType] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
 ) -> int:
@@ -260,6 +270,12 @@ def count_logs_filtered(
             "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         q = q.filter(Trig.id.in_(area_subquery))
+
+    # Filter by date range
+    if from_date is not None:
+        q = q.filter(TLog.date >= from_date)
+    if to_date is not None:
+        q = q.filter(TLog.date <= to_date)
 
     # Exclude logs for trigpoints already found by user (show only unlogged trigs)
     if exclude_found_by_user_id is not None:

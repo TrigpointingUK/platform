@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { DistanceFilter } from "../components/trigs/DistanceFilter";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { AreaFilter } from "../components/trigs/AreaFilter";
 import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
+import { DateRangePicker, type DateRange } from "../components/ui/DateRangePicker";
 import type { Log } from "../hooks/useInfiniteLogs";
 
 // All status levels (default: all enabled)
@@ -29,6 +30,13 @@ export default function Logs() {
 
   // Fetch user profile to get status_max preference
   const { data: userProfile } = useUserProfile("me");
+
+  // Parse userId from URL if present
+  const userIdParam = searchParams.get("user");
+  const userId = userIdParam ? parseInt(userIdParam, 10) : undefined;
+
+  // Fetch filtered user profile if filtering by user (for the header name)
+  const { data: filteredUserProfile } = useUserProfile(userId ? userId.toString() : "");
 
   // Track if statuses have been initialized from user profile
   const statusesInitializedRef = useRef(false);
@@ -86,6 +94,19 @@ export default function Logs() {
     return km ? parseInt(km, 10) : null;
   });
 
+  // Date range filter state
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const fromDate = searchParams.get("fromDate");
+    const toDate = searchParams.get("toDate");
+    if (fromDate || toDate) {
+      return {
+        from: fromDate ? new Date(fromDate) : undefined,
+        to: toDate ? new Date(toDate) : undefined,
+      };
+    }
+    return undefined;
+  });
+
   // Log filter state: show logged and not-logged trigpoints (both default to true)
   const [showLogged, setShowLogged] = useState<boolean>(
     () => searchParams.get("showLogged") !== "false"
@@ -123,11 +144,17 @@ export default function Logs() {
     selectedStatuses.length !== ALL_STATUSES.length ||
     selectedAreaId !== null ||
     !showLogged ||
-    !showNotLogged;
+    !showNotLogged ||
+    dateRange !== undefined;
 
   // Update URL when filters change
   useEffect(() => {
     const params = new URLSearchParams();
+
+    // Preserve user param if present
+    if (userId !== undefined) {
+      params.set("user", userId.toString());
+    }
 
     if (centerLat !== null && centerLon !== null) {
       params.set("lat", centerLat.toString());
@@ -160,10 +187,19 @@ export default function Logs() {
       params.set("showNotLogged", "false");
     }
 
+    // Date range filters
+    if (dateRange?.from) {
+      params.set("fromDate", dateRange.from.toISOString().split("T")[0]);
+    }
+    if (dateRange?.to) {
+      params.set("toDate", dateRange.to.toISOString().split("T")[0]);
+    }
+
     // Note: showTrigCondition is stored in user prefs, not URL
 
     setSearchParams(params, { replace: true });
   }, [
+    userId,
     centerLat,
     centerLon,
     locationName,
@@ -173,6 +209,7 @@ export default function Logs() {
     maxKm,
     showLogged,
     showNotLogged,
+    dateRange,
     setSearchParams,
   ]);
 
@@ -193,8 +230,11 @@ export default function Logs() {
         ? selectedStatuses
         : undefined,
     areaId: selectedAreaId ?? undefined,
+    userId,
     showLogged,
     showNotLogged,
+    fromDate: dateRange?.from,
+    toDate: dateRange?.to,
   });
 
   const handleSelectLocation = useCallback(
@@ -205,9 +245,22 @@ export default function Logs() {
       // Clear area filter when location changes (areas are location-specific)
       setSelectedAreaId(null);
       setSelectedAreaName(null);
+      // Default to 20km when location is selected
+      setMaxKm(20);
     },
     []
   );
+
+  const handleClearLocation = useCallback(() => {
+    setCenterLat(null);
+    setCenterLon(null);
+    setLocationName("");
+    // Clear area filter when location is cleared (areas are location-specific)
+    setSelectedAreaId(null);
+    setSelectedAreaName(null);
+    // Clear distance filter when location is cleared
+    setMaxKm(null);
+  }, []);
 
   const handleSelectArea = useCallback(
     (areaId: number | null, areaName: string | null) => {
@@ -237,7 +290,9 @@ export default function Logs() {
     setMaxKm(null);
     setShowLogged(true);
     setShowNotLogged(true);
+    setDateRange(undefined);
     // Note: showTrigCondition is a user pref, not a filter - don't reset it
+    // Note: We intentionally do NOT clear userId, as that's a context rather than a filter
   }, []);
 
   // Handle toggling showTrigCondition - updates local state and saves to user prefs
@@ -400,12 +455,20 @@ export default function Logs() {
   const featuredLog =
     selectedFeaturedLog ?? (allLogs.length > 0 ? allLogs[0] : null);
 
+  const pageTitle = filteredUserProfile?.name 
+    ? `${filteredUserProfile.name}'s Logs | TrigpointingUK`
+    : "Recent Logs | TrigpointingUK";
+
+  const headerTitle = filteredUserProfile?.name
+    ? `${filteredUserProfile.name}'s Logs`
+    : "Visit Logs";
+
   if (error) {
     return (
       <Layout>
-        <title>Recent Logs | TrigpointingUK</title>
+        <title>{pageTitle}</title>
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">Visit Logs</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-6">{headerTitle}</h1>
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
             <p className="text-red-600 mb-4">
               Failed to load logs. Please try again later.
@@ -419,13 +482,23 @@ export default function Logs() {
 
   return (
     <Layout>
-      <title>Recent Logs | TrigpointingUK</title>
+      <title>{pageTitle}</title>
       <div className="max-w-4xl mx-auto relative" ref={containerRef}>
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Visit Logs</h1>
+          {userId && (
+            <Link
+              to={`/profile/${userId}`}
+              className="text-trig-green-600 hover:underline mb-2 inline-block"
+            >
+              ← Back to profile
+            </Link>
+          )}
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{headerTitle}</h1>
           <p className="text-gray-600">
-            Browse recent visit logs from trigpointers across the UK
+            {userId && filteredUserProfile
+              ? `Browse visit logs by ${filteredUserProfile.name}`
+              : "Browse recent visit logs from trigpointers across the UK"}
           </p>
         </div>
 
@@ -462,7 +535,7 @@ export default function Logs() {
               <span className="text-sm text-gray-600">
                 {hasActiveFilters
                   ? `Filtered${locationName ? ` near ${locationName}` : ""}${selectedAreaName ? ` in ${selectedAreaName}` : ""}${!locationName && !selectedAreaName && selectedStatuses.length !== ALL_STATUSES.length ? " by type" : ""}`
-                  : "Expand to filter recent logs by area"}
+                  : "Expand to filter logs by area"}
               </span>
             ) : (
               <span className="text-sm font-medium text-gray-700">
@@ -480,6 +553,7 @@ export default function Logs() {
               </label>
               <LocationSearch
                 onSelectLocation={handleSelectLocation}
+                onClear={handleClearLocation}
                 defaultLocation={
                   centerLat !== null && centerLon !== null
                     ? {
@@ -504,8 +578,8 @@ export default function Logs() {
                 />
               </div>
 
-              {/* Logged condition filter - only for authenticated users */}
-              {isAuthenticated && (
+              {/* Logged condition filter - only for authenticated users AND when not viewing a specific user's logs */}
+              {isAuthenticated && !userId && (
                 <div className="flex-shrink-0">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     My logged condition
@@ -529,18 +603,83 @@ export default function Logs() {
               </div>
             </div>
 
-            {/* Area filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by area
-              </label>
-              <AreaFilter
-                areaGroups={areasData?.groups || []}
-                selectedAreaId={selectedAreaId}
-                onSelectArea={handleSelectArea}
-                isLoading={isLoadingAreas}
-                disabled={centerLat === null || centerLon === null}
-              />
+            {/* Area filter and Date range filter */}
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[300px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by area
+                </label>
+                <AreaFilter
+                  areaGroups={areasData?.groups || []}
+                  selectedAreaId={selectedAreaId}
+                  onSelectArea={handleSelectArea}
+                  isLoading={isLoadingAreas}
+                  disabled={centerLat === null || centerLon === null}
+                />
+              </div>
+
+              <div className="flex-1 min-w-[300px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by date range
+                </label>
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={setDateRange}
+                  placeholder="Select date range"
+                  maxValue={new Date()}
+                  presets={[
+                    {
+                      label: "Today",
+                      dateRange: {
+                        from: new Date(),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 7 days",
+                      dateRange: {
+                        from: new Date(new Date().setDate(new Date().getDate() - 7)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 30 days",
+                      dateRange: {
+                        from: new Date(new Date().setDate(new Date().getDate() - 30)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 3 months",
+                      dateRange: {
+                        from: new Date(new Date().setMonth(new Date().getMonth() - 3)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last 6 months",
+                      dateRange: {
+                        from: new Date(new Date().setMonth(new Date().getMonth() - 6)),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "This year",
+                      dateRange: {
+                        from: new Date(new Date().getFullYear(), 0, 1),
+                        to: new Date(),
+                      },
+                    },
+                    {
+                      label: "Last year",
+                      dateRange: {
+                        from: new Date(new Date().getFullYear() - 1, 0, 1),
+                        to: new Date(new Date().getFullYear() - 1, 11, 31),
+                      },
+                    },
+                  ]}
+                />
+              </div>
             </div>
 
             {/* Display options */}

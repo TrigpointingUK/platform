@@ -1182,15 +1182,71 @@ def list_logs_for_user(
     include: Optional[str] = Query(
         None, description="Comma-separated list of includes: photos"
     ),
+    lat: Optional[float] = Query(
+        None, description="Centre latitude for distance filtering"
+    ),
+    lon: Optional[float] = Query(
+        None, description="Centre longitude for distance filtering"
+    ),
+    max_km: Optional[float] = Query(
+        None, description="Maximum distance from centre in kilometres"
+    ),
+    status_ids: Optional[str] = Query(
+        None, description="Comma-separated list of trigpoint status IDs to filter by"
+    ),
+    area_id: Optional[int] = Query(
+        None, description="Filter to logs for trigpoints within a specific area"
+    ),
+    from_date: Optional[date_type] = Query(
+        None, description="Filter logs from this date (inclusive, YYYY-MM-DD)"
+    ),
+    to_date: Optional[date_type] = Query(
+        None, description="Filter logs to this date (inclusive, YYYY-MM-DD)"
+    ),
     db: Session = Depends(get_db),
 ):
-    items = tlog_crud.list_logs_filtered(db, user_id=user_id, skip=skip, limit=limit)
-    total = tlog_crud.count_logs_filtered(db, user_id=user_id)
+    # Parse status_ids from comma-separated string
+    parsed_status_ids: Optional[list[int]] = None
+    if status_ids:
+        try:
+            parsed_status_ids = [
+                int(s.strip()) for s in status_ids.split(",") if s.strip()
+            ]
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid status_ids format. Must be comma-separated integers.",
+            )
+
+    items = tlog_crud.list_logs_filtered(
+        db,
+        user_id=user_id,
+        skip=skip,
+        limit=limit,
+        center_lat=lat,
+        center_lon=lon,
+        max_km=max_km,
+        status_ids=parsed_status_ids,
+        area_id=area_id,
+        from_date=from_date,
+        to_date=to_date,
+    )
+    total = tlog_crud.count_logs_filtered(
+        db,
+        user_id=user_id,
+        center_lat=lat,
+        center_lon=lon,
+        max_km=max_km,
+        status_ids=parsed_status_ids,
+        area_id=area_id,
+        from_date=from_date,
+        to_date=to_date,
+    )
 
     # Import helper from logs endpoint
     from api.api.v1.endpoints.logs import enrich_logs_with_names
 
-    items_serialized = enrich_logs_with_names(db, items)
+    items_serialized = enrich_logs_with_names(db, items, center_lat=lat, center_lon=lon)
 
     # Handle includes
     if include:
@@ -1239,10 +1295,29 @@ def list_logs_for_user(
 
     has_more = (skip + len(items)) < total
     base = f"/v1/users/{user_id}/logs"
-    self_link = base + f"?limit={limit}&skip={skip}"
-    next_link = base + f"?limit={limit}&skip={skip + limit}" if has_more else None
+    params = [f"limit={limit}"]
+    if lat is not None:
+        params.append(f"lat={lat}")
+    if lon is not None:
+        params.append(f"lon={lon}")
+    if max_km is not None:
+        params.append(f"max_km={max_km}")
+    if status_ids is not None:
+        params.append(f"status_ids={status_ids}")
+    if area_id is not None:
+        params.append(f"area_id={area_id}")
+    if from_date is not None:
+        params.append(f"from_date={from_date.isoformat()}")
+    if to_date is not None:
+        params.append(f"to_date={to_date.isoformat()}")
+    self_link = base + "?" + "&".join(params + [f"skip={skip}"])
+    next_link = (
+        base + "?" + "&".join(params + [f"skip={skip + limit}"]) if has_more else None
+    )
     prev_offset = max(skip - limit, 0)
-    prev_link = base + f"?limit={limit}&skip={prev_offset}" if skip > 0 else None
+    prev_link = (
+        base + "?" + "&".join(params + [f"skip={prev_offset}"]) if skip > 0 else None
+    )
     return {
         "items": items_serialized,
         "pagination": {

@@ -253,7 +253,7 @@ export function DistanceFilter({
           <div
             className={`absolute z-10 ${disabled ? "pointer-events-none" : "cursor-grab active:cursor-grabbing"}`}
             style={{
-              left: `${sliderPosition}%`,
+              left: `calc(${sliderPosition}% + ${8 - sliderPosition * 0.16}px)`,
               transform: "translateX(-50%)",
               bottom: "calc(100% + 2px)",
             }}
@@ -328,7 +328,10 @@ export function DistanceFilter({
                 <div
                   key={detent}
                   className="absolute w-0.5 h-1.5 bg-gray-400 rounded-full"
-                  style={{ left: `${pos}%`, transform: "translateX(-50%)" }}
+                  style={{
+                    left: `calc(${pos}% + ${8 - pos * 0.16}px)`,
+                    transform: "translateX(-50%)",
+                  }}
                   title={`${detent} km`}
                 />
               );

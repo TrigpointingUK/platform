@@ -13,7 +13,6 @@ const TrigPhotos = lazy(() => import("./routes/TrigPhotos"));
 const LogDetail = lazy(() => import("./routes/LogDetail"));
 const UsersPage = lazy(() => import("./routes/UsersPage"));
 const UserProfile = lazy(() => import("./routes/UserProfile"));
-const UserLogs = lazy(() => import("./routes/UserLogs"));
 const UserPhotos = lazy(() => import("./routes/UserPhotos"));
 const Preferences = lazy(() => import("./routes/Preferences"));
 const About = lazy(() => import("./routes/About"));
@@ -38,6 +37,11 @@ function TrigRedirect() {
 function TrigPhotosRedirect() {
   const { trigId } = useParams();
   return <Navigate to={`/trigs/${trigId}/photos`} replace />;
+}
+
+function UserLogsRedirect() {
+  const { userId } = useParams();
+  return <Navigate to={`/logs?user=${userId}`} replace />;
 }
 
 function LoadingFallback() {
@@ -161,11 +165,7 @@ const router = createBrowserRouter(
     },
     {
       path: "/profile/:userId/logs",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <UserLogs />
-        </Suspense>
-      ),
+      element: <UserLogsRedirect />,
     },
     {
       path: "/profile/:userId/photos",

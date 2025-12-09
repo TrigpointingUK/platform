@@ -9,6 +9,7 @@ import hashlib
 import json
 import ssl
 import time
+from datetime import date, datetime
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -19,6 +20,18 @@ from api.core.config import settings
 from api.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class CacheKeyEncoder(json.JSONEncoder):
+    """Custom JSON encoder for cache key generation that handles date/datetime objects."""
+
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, date):
+            return obj.isoformat()
+        return super().default(obj)
+
 
 # Global Redis client singleton
 _redis_client: Optional[redis.Redis] = None
@@ -153,8 +166,8 @@ def generate_cache_key(
 
     # Hash parameters for consistent key generation
     if params:
-        # Sort keys for consistent hashing
-        params_str = json.dumps(params, sort_keys=True)
+        # Sort keys for consistent hashing, use custom encoder for date objects
+        params_str = json.dumps(params, sort_keys=True, cls=CacheKeyEncoder)
         params_hash = (
             hashlib.md5(  # nosec B303, B324 - used for cache keys, not security
                 params_str.encode(), usedforsecurity=False
