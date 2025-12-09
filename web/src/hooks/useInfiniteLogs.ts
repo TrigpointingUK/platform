@@ -1,6 +1,14 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Photo } from "../lib/api";
 
+// Format date as YYYY-MM-DD in local timezone (not UTC)
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export interface Log {
   id: number;
   trig_id: number;
@@ -87,8 +95,8 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       userId,
       showLogged,
       showNotLogged,
-      fromDate?.toISOString(),
-      toDate?.toISOString(),
+      fromDate ? formatLocalDate(fromDate) : undefined,
+      toDate ? formatLocalDate(toDate) : undefined,
     ],
     queryFn: async ({ pageParam = 0 }) => {
       const apiBase = import.meta.env.VITE_API_BASE as string;
@@ -125,10 +133,10 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       }
       // Date range filters
       if (fromDate !== undefined) {
-        params.append("from_date", fromDate.toISOString().split("T")[0]);
+        params.append("from_date", formatLocalDate(fromDate));
       }
       if (toDate !== undefined) {
-        params.append("to_date", toDate.toISOString().split("T")[0]);
+        params.append("to_date", formatLocalDate(toDate));
       }
 
       const response = await fetch(`${apiBase}/v1/logs?${params.toString()}`);

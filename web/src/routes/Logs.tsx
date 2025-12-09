@@ -22,6 +22,20 @@ import type { Log } from "../hooks/useInfiniteLogs";
 // All status levels (default: all enabled)
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
+// Format date as YYYY-MM-DD in local timezone (not UTC)
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Parse YYYY-MM-DD string as local date (not UTC)
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export default function Logs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
@@ -100,8 +114,8 @@ export default function Logs() {
     const toDate = searchParams.get("toDate");
     if (fromDate || toDate) {
       return {
-        from: fromDate ? new Date(fromDate) : undefined,
-        to: toDate ? new Date(toDate) : undefined,
+        from: fromDate ? parseLocalDate(fromDate) : undefined,
+        to: toDate ? parseLocalDate(toDate) : undefined,
       };
     }
     return undefined;
@@ -189,10 +203,10 @@ export default function Logs() {
 
     // Date range filters
     if (dateRange?.from) {
-      params.set("fromDate", dateRange.from.toISOString().split("T")[0]);
+      params.set("fromDate", formatLocalDate(dateRange.from));
     }
     if (dateRange?.to) {
-      params.set("toDate", dateRange.to.toISOString().split("T")[0]);
+      params.set("toDate", formatLocalDate(dateRange.to));
     }
 
     // Note: showTrigCondition is stored in user prefs, not URL
