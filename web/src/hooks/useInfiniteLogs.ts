@@ -41,6 +41,7 @@ export interface UseInfiniteLogsOptions {
   maxKm?: number;
   statusIds?: number[];
   areaId?: number;
+  userId?: number;
   showLogged?: boolean; // Show logs for trigpoints logged by user (default: true)
   showNotLogged?: boolean; // Show logs for trigpoints not logged by user (default: true)
   fromDate?: Date; // Filter logs from this date
@@ -54,6 +55,7 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
     maxKm,
     statusIds,
     areaId,
+    userId,
     showLogged = true,
     showNotLogged = true,
     fromDate,
@@ -67,6 +69,7 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
     maxKm !== undefined ||
     (statusIds !== undefined && statusIds.length > 0) ||
     areaId !== undefined ||
+    userId !== undefined ||
     !showLogged ||
     !showNotLogged ||
     fromDate !== undefined ||
@@ -81,6 +84,7 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       maxKm,
       statusIds,
       areaId,
+      userId,
       showLogged,
       showNotLogged,
       fromDate?.toISOString(),
@@ -108,6 +112,9 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       }
       if (areaId !== undefined) {
         params.append("area_id", areaId.toString());
+      }
+      if (userId !== undefined) {
+        params.append("user_id", userId.toString());
       }
       // Log filter: showLogged=false means exclude found, showNotLogged=false means only found
       if (!showLogged) {

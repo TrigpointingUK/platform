@@ -9,7 +9,7 @@ import Spinner from "../components/ui/Spinner";
 import EditableField from "../components/ui/EditableField";
 import LogList from "../components/logs/LogList";
 import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
-import { useUserLogs } from "../hooks/useUserLogs";
+import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 // Helper function to decode JWT payload
@@ -90,11 +90,11 @@ export default function UserProfile() {
 
   // Fetch user logs for recent activity section (limit to 5)
   // Use userId from URL, or if viewing own profile (/profile), use the loaded user's ID
-  const logsUserId = userId || user?.id.toString() || "";
+  const logsUserId = userId ? parseInt(userId, 10) : user?.id;
   const {
     data: logsData,
     isLoading: isLoadingLogs,
-  } = useUserLogs(logsUserId);
+  } = useInfiniteLogs({ userId: logsUserId });
 
   // Get first 5 logs for the preview
   const recentLogs = logsData?.pages[0]?.items.slice(0, 5) || [];
@@ -192,7 +192,7 @@ export default function UserProfile() {
                 {user.stats && (
                   <div className="flex gap-8 text-center flex-1 min-w-0 justify-center">
                     <Link
-                      to={`/profile/${displayUserId}/logs`}
+                      to={`/logs?user=${displayUserId}`}
                       className="hover:opacity-80 transition-opacity"
                     >
                       <div className="text-2xl font-bold text-trig-green-600">
@@ -201,7 +201,7 @@ export default function UserProfile() {
                       <div className="text-sm text-gray-600">Trigs Logged</div>
                     </Link>
                     <Link
-                      to={`/profile/${displayUserId}/logs`}
+                      to={`/logs?user=${displayUserId}`}
                       className="hover:opacity-80 transition-opacity"
                     >
                       <div className="text-2xl font-bold text-trig-green-600">
@@ -406,7 +406,7 @@ export default function UserProfile() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-gray-800">Recent Logs</h2>
               <Link
-                to={`/profile/${displayUserId}/logs`}
+                to={`/logs?user=${displayUserId}`}
                 className="text-sm text-trig-green-600 hover:text-trig-green-700 hover:underline"
               >
                 View all logs →

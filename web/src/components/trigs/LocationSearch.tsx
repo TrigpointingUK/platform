@@ -12,6 +12,7 @@ interface LocationSearchResult {
 
 interface LocationSearchProps {
   onSelectLocation: (lat: number, lon: number, name: string) => void;
+  onClear?: () => void;
   defaultLocation?: { lat: number; lon: number; name: string };
 }
 
@@ -28,6 +29,7 @@ function getLocationTypeIcon(type: string): string {
 
 export function LocationSearch({
   onSelectLocation,
+  onClear,
   defaultLocation,
 }: LocationSearchProps) {
   const [query, setQuery] = useState("");
@@ -84,6 +86,9 @@ export function LocationSearch({
     setSelectedLocation(undefined);
     setQuery("");
     setIsOpen(false);
+    if (onClear) {
+      onClear();
+    }
   };
 
   return (
