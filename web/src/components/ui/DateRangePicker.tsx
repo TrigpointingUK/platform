@@ -135,7 +135,7 @@ function DateRangePicker({
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute top-full right-0 z-50 mt-2 rounded-lg border border-gray-200 bg-white p-4 shadow-lg"
+          className="absolute top-full right-0 z-50 mt-2 w-max rounded-lg border border-gray-200 bg-white p-4 shadow-lg"
         >
           <div className="flex gap-4">
             {presets && presets.length > 0 && (
@@ -205,32 +205,34 @@ function DateRangePicker({
                 numberOfMonths={1}
                 disabled={maxValue ? { after: maxValue } : undefined}
                 showOutsideDays={false}
-                disableNavigation
+                hideNavigation
                 classNames={{
+                  // v9 class names
                   months: "flex gap-4",
                   month: "space-y-4",
-                  caption: "hidden",
+                  month_caption: "hidden",
                   caption_label: "hidden",
-                  table: "w-full border-collapse",
-                  head_row: "flex",
-                  head_cell: "text-gray-500 w-10 font-medium text-xs text-center",
-                  row: "flex w-full mt-1",
-                  cell: cx(
+                  month_grid: "w-full border-collapse",
+                  weekdays: "flex",
+                  weekday: "text-gray-500 w-10 font-medium text-xs text-center",
+                  weeks: "flex flex-col",
+                  week: "flex w-full mt-1",
+                  day: cx(
                     "relative p-0 text-center text-sm",
                     "focus-within:relative focus-within:z-20"
                   ),
-                  day: cx(
-                    "h-10 w-10 p-0 font-normal rounded-md transition-colors",
+                  day_button: cx(
+                    "h-10 w-10 p-0 font-normal rounded-md transition-colors cursor-pointer",
                     "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
                   ),
-                  day_selected: "bg-trig-green-600 text-white hover:bg-trig-green-500 focus:bg-trig-green-600",
-                  day_today: "bg-gray-100 font-semibold",
-                  day_outside: "text-gray-300 opacity-50",
-                  day_disabled: "text-gray-300 opacity-50 cursor-not-allowed hover:bg-transparent",
-                  day_range_middle: "bg-trig-green-50 text-gray-900 rounded-none",
-                  day_range_start: "bg-trig-green-600 text-white rounded-l-full",
-                  day_range_end: "bg-trig-green-600 text-white rounded-r-full",
-                  day_hidden: "invisible",
+                  selected: "bg-trig-green-600 text-white hover:bg-trig-green-500 focus:bg-trig-green-600",
+                  today: "bg-gray-100 font-semibold",
+                  outside: "text-gray-300 opacity-50",
+                  disabled: "text-gray-300 opacity-50 cursor-not-allowed hover:bg-transparent",
+                  range_middle: "bg-trig-green-50 text-gray-900 rounded-none",
+                  range_start: "bg-trig-green-600 text-white rounded-l-full",
+                  range_end: "bg-trig-green-600 text-white rounded-r-full",
+                  hidden: "invisible",
                 }}
               />
 
