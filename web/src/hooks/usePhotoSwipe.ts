@@ -211,8 +211,8 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
                     console.error('Failed to get fresh token:', tokenError);
                     // Fall back to cached token
                     console.log('Trying cached token...');
-                    token = await getAccessTokenSilently({ cacheMode: "on" });
-                    console.log('Cached token retrieved');
+                    token = await getAccessTokenSilently();
+                    console.log('Fallback token retrieved');
                   }
                   
                   console.log('Access token received, calling rotatePhoto API...');
@@ -298,8 +298,8 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
                     console.error('Failed to get fresh token:', tokenError);
                     // Fall back to cached token
                     console.log('Trying cached token...');
-                    token = await getAccessTokenSilently({ cacheMode: "on" });
-                    console.log('Cached token retrieved');
+                    token = await getAccessTokenSilently();
+                    console.log('Fallback token retrieved');
                   }
                   
                   console.log('Access token received, calling rotatePhoto API...');

@@ -103,7 +103,7 @@ export function useMapTrigs({
       const headers: Record<string, string> = {};
       if (isAuthenticated) {
         try {
-          const token = await getAccessTokenSilently({ cacheMode: "on" });
+          const token = await getAccessTokenSilently();
           headers["Authorization"] = `Bearer ${token}`;
         } catch (error) {
           console.error("Failed to get access token for map trigs:", error);

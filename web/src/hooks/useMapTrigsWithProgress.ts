@@ -90,7 +90,7 @@ export function useMapTrigsWithProgress({
       const headers: Record<string, string> = {};
       if (excludeFound && isAuthenticated) {
         try {
-          const token = await getAccessTokenSilently({ cacheMode: "on" });
+          const token = await getAccessTokenSilently();
           headers["Authorization"] = `Bearer ${token}`;
         } catch (error) {
           console.error("Failed to get access token:", error);

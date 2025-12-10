@@ -66,9 +66,7 @@ export function useUserProfile(userId: string | number) {
         }
         
         try {
-          const token = await getAccessTokenSilently({
-            cacheMode: 'on', // Try to use cached token first
-          });
+          const token = await getAccessTokenSilently();
           headers = { Authorization: `Bearer ${token}` };
         } catch (error) {
           console.error("Failed to get access token:", error);

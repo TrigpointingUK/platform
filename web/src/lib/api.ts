@@ -1,3 +1,34 @@
+/**
+ * API client utilities for making requests to the backend.
+ *
+ * For authenticated requests, there are two approaches:
+ *
+ * 1. **New approach (recommended)**: Use authenticatedFetch utilities with automatic 401 retry
+ *    ```typescript
+ *    import { authenticatedGet, authenticatedPost } from './authenticatedFetch';
+ *    const data = await authenticatedGet('/v1/endpoint', getAccessTokenSilently);
+ *    ```
+ *
+ * 2. **Legacy approach**: Pass a pre-fetched token
+ *    ```typescript
+ *    const token = await getAccessTokenSilently();
+ *    const data = await apiGet('/v1/endpoint', token);
+ *    ```
+ *
+ * The new approach handles 401 errors by automatically refreshing the token and retrying.
+ */
+
+// Re-export authenticated fetch utilities for convenience
+export {
+  authenticatedFetch,
+  authenticatedGet,
+  authenticatedPost,
+  authenticatedPatch,
+  authenticatedDelete,
+  AuthenticationError,
+  type GetAccessTokenSilently,
+} from './authenticatedFetch';
+
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 // Debug logging for API_BASE
