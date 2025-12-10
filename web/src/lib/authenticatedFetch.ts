@@ -237,7 +237,7 @@ export async function authenticatedPatch<T>(
 /**
  * Convenience function for authenticated DELETE requests
  */
-export async function authenticatedDelete<T>(
+export async function authenticatedDelete<T = void>(
   url: string,
   getAccessTokenSilently: GetAccessTokenSilently,
   options?: Omit<AuthenticatedFetchOptions, "method">
@@ -258,6 +258,11 @@ export async function authenticatedDelete<T>(
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+
+  // Handle 204 No Content or empty responses (common for DELETE)
+  if (response.status === 204 || response.headers.get("content-length") === "0") {
+    return undefined as T;
   }
 
   return response.json() as Promise<T>;
