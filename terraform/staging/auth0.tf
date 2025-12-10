@@ -123,8 +123,9 @@ module "auth0" {
   disable_signup           = false # Allow public signup in staging for testing
 
   # API Configuration
-  api_name       = "tme-api"
-  api_identifier = "https://api.trigpointing.me/"
+  api_name           = "tme-api"
+  api_identifier     = "https://api.trigpointing.me/"
+  api_token_lifetime = 120 # 2 minutes - short for testing token refresh
 
   # FastAPI Configuration
   fastapi_url           = "https://api.trigpointing.me"

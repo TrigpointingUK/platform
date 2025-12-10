@@ -51,6 +51,16 @@ variable "api_identifier" {
   type        = string
 }
 
+variable "api_token_lifetime" {
+  description = "Access token lifetime in seconds (min: 60, max: 2592000). Use short values for staging to test token refresh."
+  type        = number
+  default     = 3600 # 1 hour - recommended for production SPAs
+  validation {
+    condition     = var.api_token_lifetime >= 60 && var.api_token_lifetime <= 2592000
+    error_message = "API token lifetime must be between 60 seconds (1 minute) and 2592000 seconds (30 days)."
+  }
+}
+
 variable "fastapi_url" {
   description = "FastAPI base URL for webhook"
   type        = string

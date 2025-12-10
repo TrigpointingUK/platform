@@ -117,8 +117,8 @@ resource "auth0_resource_server" "api" {
   name       = var.api_name
   identifier = var.api_identifier
 
-  # Token settings
-  token_lifetime       = 3600 # 1 hour - recommended for SPAs
+  # Token settings - shorter for staging to test refresh, longer for production
+  token_lifetime       = var.api_token_lifetime
   signing_alg          = "RS256"
   allow_offline_access = true # Enable refresh tokens for this API
 
