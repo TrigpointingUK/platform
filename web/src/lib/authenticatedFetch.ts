@@ -60,7 +60,24 @@ export async function authenticatedFetch(
   retried = false
 ): Promise<Response> {
   // Get access token (use default behaviour which auto-refreshes if needed)
-  const token = await getAccessTokenSilently();
+  let token: string;
+  try {
+    token = await getAccessTokenSilently();
+  } catch (error) {
+    // Handle Auth0 errors from token retrieval (e.g., tokens deleted from localStorage)
+    if (isAuth0Error(error)) {
+      throw new AuthenticationError(
+        error.error,
+        error.error_description || "Authentication failed - please log in again",
+        401
+      );
+    }
+    throw new AuthenticationError(
+      "token_retrieval_failed",
+      "Failed to get authentication token - please log in again",
+      401
+    );
+  }
 
   // Perform the request with the token
   const response = await fetch(url, {
