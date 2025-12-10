@@ -2,12 +2,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
 import { 
   getLogPhotos, 
-  uploadPhoto, 
-  updatePhoto, 
-  deletePhoto,
-  rotatePhoto,
+  authenticatedFetch,
+  authenticatedPatch,
+  authenticatedPost,
+  authenticatedDelete,
   Photo 
 } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 /**
  * Hook to fetch photos for a log
@@ -42,8 +44,28 @@ export function useUploadPhoto(logId: number) {
       type: string;
       license: string;
     }) => {
-      const token = await getAccessTokenSilently();
-      return uploadPhoto(logId, file, caption, text_desc, type, license, token);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("caption", caption);
+      formData.append("text_desc", text_desc);
+      formData.append("type", type);
+      formData.append("license", license);
+
+      const response = await authenticatedFetch(
+        `${API_BASE}/v1/photos?log_id=${logId}`,
+        {
+          method: "POST",
+          body: formData,
+        },
+        getAccessTokenSilently
+      );
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+      }
+
+      return response.json() as Promise<Photo>;
     },
     onSuccess: () => {
       // Invalidate and refetch log photos
@@ -74,8 +96,11 @@ export function useUpdatePhoto() {
         license?: string;
       };
     }) => {
-      const token = await getAccessTokenSilently();
-      return updatePhoto(photoId, updates, token);
+      return authenticatedPatch<Photo>(
+        `${API_BASE}/v1/photos/${photoId}`,
+        updates,
+        getAccessTokenSilently
+      );
     },
     onSuccess: (_, { photoId }) => {
       // Invalidate photo queries
@@ -94,8 +119,10 @@ export function useDeletePhoto() {
 
   return useMutation({
     mutationFn: async (photoId: number) => {
-      const token = await getAccessTokenSilently();
-      return deletePhoto(photoId, token);
+      await authenticatedDelete<void>(
+        `${API_BASE}/v1/photos/${photoId}`,
+        getAccessTokenSilently
+      );
     },
     onSuccess: () => {
       // Invalidate all photo queries
@@ -120,8 +147,11 @@ export function useRotatePhoto() {
       photoId: number;
       angle: number;
     }) => {
-      const token = await getAccessTokenSilently();
-      return rotatePhoto(photoId, angle, token);
+      return authenticatedPost<Photo>(
+        `${API_BASE}/v1/photos/${photoId}/rotate`,
+        { angle },
+        getAccessTokenSilently
+      );
     },
     onSuccess: () => {
       // Invalidate photo queries

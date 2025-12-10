@@ -3,6 +3,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQueryClient } from "@tanstack/react-query";
+
 import Layout from "../components/layout/Layout";
 import LogCard from "../components/logs/LogCard";
 import MiniTrigMap from "../components/map/MiniTrigMap";

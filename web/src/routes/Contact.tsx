@@ -6,7 +6,9 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
 import { useUserProfile } from "../hooks/useUserProfile";
-import { submitContact } from "../lib/api";
+import { authenticatedPost, type ContactRequest, type ContactResponse } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 interface ContactFormData {
   name: string;
@@ -97,26 +99,33 @@ export default function Contact() {
     setIsSubmitting(true);
 
     try {
-      // Get token if authenticated (optional - endpoint works without auth)
-      let token: string | undefined;
+      const contactData: ContactRequest = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        subject: formData.subject.trim(),
+        message: formData.message.trim(),
+      };
+      
+      // Use authenticated request if logged in, otherwise plain POST
       if (isAuthenticated) {
-        try {
-          token = await getAccessTokenSilently();
-        } catch (error) {
-          // If token retrieval fails, continue without token
-          console.warn("Failed to get access token for contact form:", error);
+        await authenticatedPost<ContactResponse>(
+          `${API_BASE}/v1/admin/contact`,
+          contactData,
+          getAccessTokenSilently
+        );
+      } else {
+        const response = await fetch(`${API_BASE}/v1/admin/contact`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(contactData),
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
       }
-
-      await submitContact(
-        {
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          subject: formData.subject.trim(),
-          message: formData.message.trim(),
-        },
-        token
-      );
 
       toast.success("Your message has been sent successfully!");
       

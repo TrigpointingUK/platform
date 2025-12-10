@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
-import { deleteLog } from "../lib/api";
+import { authenticatedDelete } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 export function useDeleteLog(logId: number, trigId: number) {
   const { getAccessTokenSilently } = useAuth0();
@@ -8,8 +10,10 @@ export function useDeleteLog(logId: number, trigId: number) {
 
   return useMutation<void, Error, void>({
     mutationFn: async () => {
-      const token = await getAccessTokenSilently();
-      return deleteLog(logId, token);
+      await authenticatedDelete<void>(
+        `${API_BASE}/v1/logs/${logId}`,
+        getAccessTokenSilently
+      );
     },
     onSuccess: () => {
       // Invalidate relevant queries after deletion

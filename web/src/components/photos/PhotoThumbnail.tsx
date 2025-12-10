@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import toast from "react-hot-toast";
-import { rotatePhoto, Photo } from "../../lib/api";
+import { authenticatedPost, Photo } from "../../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 interface PhotoThumbnailProps {
   photo: Photo;
@@ -57,27 +59,14 @@ export default function PhotoThumbnail({
     setOptimisticRotation(newRotation);
 
     try {
-      console.log('Requesting access token...');
+      console.log('Rotating photo:', photo.id, 'angle:', angle);
       
-      // Try to get a fresh token (bypassing cache)
-      // This helps when the cached token is invalid or expired
-      let token: string;
-      try {
-        token = await getAccessTokenSilently({ 
-          cacheMode: "off",
-          timeoutInSeconds: 5  // Add timeout
-        });
-        console.log('Fresh token received');
-      } catch (tokenError) {
-        console.error('Failed to get fresh token:', tokenError);
-        // Fall back to cached token
-        console.log('Trying cached token...');
-        token = await getAccessTokenSilently();
-        console.log('Fallback token retrieved');
-      }
-      
-      console.log('Access token received, calling rotatePhoto API...');
-      const response = await rotatePhoto(photo.id, angle, token);
+      // Use authenticatedPost which handles 401 retry automatically
+      const response = await authenticatedPost<Photo>(
+        `${API_BASE}/v1/photos/${photo.id}/rotate`,
+        { angle },
+        getAccessTokenSilently
+      );
       console.log('Photo rotated successfully:', response);
       
       toast.success("Photo rotated successfully");

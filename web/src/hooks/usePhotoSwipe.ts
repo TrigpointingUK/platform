@@ -3,7 +3,9 @@ import { useAuth0 } from '@auth0/auth0-react';
 import toast from 'react-hot-toast';
 import PhotoSwipe from 'photoswipe';
 import type { Photo } from '../lib/api';
-import { rotatePhoto } from '../lib/api';
+import { authenticatedPost } from '../lib/api';
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 export interface PhotoSwipeOptions {
   photos: Photo[];
@@ -196,27 +198,14 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
                 const photo = currSlideData.photo as Photo;
                 console.log('Rotate left clicked for photo:', photo.id);
                 try {
-                  console.log('Requesting access token...');
+                  console.log('Rotating photo left (270 degrees)...');
                   
-                  // Try to get a fresh token (bypassing cache)
-                  // This helps when the cached token is invalid or expired
-                  let token: string;
-                  try {
-                    token = await getAccessTokenSilently({ 
-                      cacheMode: "off",
-                      timeoutInSeconds: 5  // Add timeout
-                    });
-                    console.log('Fresh token received');
-                  } catch (tokenError) {
-                    console.error('Failed to get fresh token:', tokenError);
-                    // Fall back to cached token
-                    console.log('Trying cached token...');
-                    token = await getAccessTokenSilently();
-                    console.log('Fallback token retrieved');
-                  }
-                  
-                  console.log('Access token received, calling rotatePhoto API...');
-                  const updatedPhoto = await rotatePhoto(photo.id, 270, token);
+                  // Use authenticatedPost which handles 401 retry automatically
+                  const updatedPhoto = await authenticatedPost<Photo>(
+                    `${API_BASE}/v1/photos/${photo.id}/rotate`,
+                    { angle: 270 },
+                    getAccessTokenSilently
+                  );
                   console.log('Photo rotated successfully:', updatedPhoto);
                   
                   toast.success('Photo rotated successfully');
@@ -283,27 +272,14 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
                 const photo = currSlideData.photo as Photo;
                 console.log('Rotate right clicked for photo:', photo.id);
                 try {
-                  console.log('Requesting access token...');
+                  console.log('Rotating photo right (90 degrees)...');
                   
-                  // Try to get a fresh token (bypassing cache)
-                  // This helps when the cached token is invalid or expired
-                  let token: string;
-                  try {
-                    token = await getAccessTokenSilently({ 
-                      cacheMode: "off",
-                      timeoutInSeconds: 5  // Add timeout
-                    });
-                    console.log('Fresh token received');
-                  } catch (tokenError) {
-                    console.error('Failed to get fresh token:', tokenError);
-                    // Fall back to cached token
-                    console.log('Trying cached token...');
-                    token = await getAccessTokenSilently();
-                    console.log('Fallback token retrieved');
-                  }
-                  
-                  console.log('Access token received, calling rotatePhoto API...');
-                  const updatedPhoto = await rotatePhoto(photo.id, 90, token);
+                  // Use authenticatedPost which handles 401 retry automatically
+                  const updatedPhoto = await authenticatedPost<Photo>(
+                    `${API_BASE}/v1/photos/${photo.id}/rotate`,
+                    { angle: 90 },
+                    getAccessTokenSilently
+                  );
                   console.log('Photo rotated successfully:', updatedPhoto);
                   
                   toast.success('Photo rotated successfully');

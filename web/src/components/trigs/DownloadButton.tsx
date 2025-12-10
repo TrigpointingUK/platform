@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
+import { authenticatedFetch } from "../../lib/api";
 
 interface DownloadButtonProps {
   /** Status IDs to filter by */
@@ -105,12 +106,12 @@ export function DownloadButton({
       const url = buildDownloadUrl(format);
 
       // Always use authenticated request (downloads require login)
-      const token = await getAccessTokenSilently();
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // authenticatedFetch handles 401 retry automatically
+      const response = await authenticatedFetch(
+        url,
+        {},
+        getAccessTokenSilently
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
+import { authenticatedGet, authenticatedPatch, type GetAccessTokenSilently } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 interface UserBreakdown {
   by_current_use: Record<string, number>;
@@ -56,34 +59,24 @@ export function useUserProfile(userId: string | number) {
     queryKey: ["user", "profile", userId],
     enabled: shouldFetch,
     queryFn: async () => {
-      const apiBase = import.meta.env.VITE_API_BASE as string;
-      
-      // Get token if viewing own profile
-      let headers: Record<string, string> = {};
-      if (isMeQuery) {
-        if (!isAuthenticated) {
-          throw new Error("Not authenticated - please log in");
-        }
-        
-        try {
-          const token = await getAccessTokenSilently();
-          headers = { Authorization: `Bearer ${token}` };
-        } catch (error) {
-          console.error("Failed to get access token:", error);
-          // Don't trigger loginWithRedirect here - let the calling component handle auth state
-          throw new Error("Failed to get access token");
-        }
-      }
-      
       // Include prefs (email) when fetching own profile
       const includes = isMeQuery 
         ? "stats,breakdown,prefs" 
         : "stats,breakdown";
       
-      const response = await fetch(
-        `${apiBase}/v1/users/${userId}?include=${includes}`,
-        { headers }
-      );
+      const url = `${API_BASE}/v1/users/${userId}?include=${includes}`;
+      
+      // Use authenticated fetch for own profile, regular fetch for others
+      if (isMeQuery) {
+        if (!isAuthenticated) {
+          throw new Error("Not authenticated - please log in");
+        }
+        
+        return authenticatedGet<UserProfile>(url, getAccessTokenSilently);
+      }
+      
+      // Public profile - no auth needed
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch user profile");
       }
@@ -95,25 +88,13 @@ export function useUserProfile(userId: string | number) {
 
 export async function updateUserProfile(
   fields: Partial<UserProfile>,
-  getAccessToken: () => Promise<string>
+  getAccessTokenSilently: GetAccessTokenSilently
 ): Promise<void> {
-  const apiBase = import.meta.env.VITE_API_BASE as string;
-  
-  // Get the access token
-  const token = await getAccessToken();
-  
-  const response = await fetch(`${apiBase}/v1/users/me`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(fields),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || "Failed to update profile");
-  }
+  // Use authenticatedPatch which handles 401 retry automatically
+  await authenticatedPatch<void>(
+    `${API_BASE}/v1/users/me`,
+    fields,
+    getAccessTokenSilently
+  );
 }
 

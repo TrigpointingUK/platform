@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
+import { authenticatedFetch } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 interface Trig {
   id: number;
@@ -84,18 +87,13 @@ export function useMapTrigsWithProgress({
     setError(null);
     
     try {
-      const apiBase = import.meta.env.VITE_API_BASE as string;
-      
-      // Get auth token if needed
-      const headers: Record<string, string> = {};
-      if (excludeFound && isAuthenticated) {
-        try {
-          const token = await getAccessTokenSilently();
-          headers["Authorization"] = `Bearer ${token}`;
-        } catch (error) {
-          console.error("Failed to get access token:", error);
+      // Helper to make fetch request with optional auth
+      const fetchWithAuth = async (url: string): Promise<Response> => {
+        if (excludeFound && isAuthenticated) {
+          return authenticatedFetch(url, {}, getAccessTokenSilently);
         }
-      }
+        return fetch(url);
+      };
       
       if (isZoomedOut) {
         // Fetch trigpoints using parallel batches
@@ -112,7 +110,7 @@ export function useMapTrigsWithProgress({
             params.append("exclude_found", "true");
           }
           
-          const res = await fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers });
+          const res = await fetchWithAuth(`${API_BASE}/v1/trigs?${params.toString()}`);
           if (!res.ok) return null;
           
           const data = await res.json();
@@ -167,7 +165,7 @@ export function useMapTrigsWithProgress({
             params.append("exclude_found", "true");
           }
           
-          const res = await fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers });
+          const res = await fetchWithAuth(`${API_BASE}/v1/trigs?${params.toString()}`);
           if (!res.ok) return null;
           
           const data = await res.json();

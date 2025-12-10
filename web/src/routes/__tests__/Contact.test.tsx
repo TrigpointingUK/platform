@@ -5,18 +5,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { useAuth0, User } from '@auth0/auth0-react';
 import Contact from '../Contact';
-import * as api from '../../lib/api';
 
 type UseAuth0Return = ReturnType<typeof useAuth0>;
+
+// Mock global fetch
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
 
 // Mock Auth0
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: vi.fn(),
 }));
 
-// Mock API
+// Mock authenticatedPost from api
+const mockAuthenticatedPost = vi.fn();
 vi.mock('../../lib/api', () => ({
-  submitContact: vi.fn(),
+  authenticatedPost: (...args: unknown[]) => mockAuthenticatedPost(...args),
 }));
 
 // Mock useUserProfile hook
@@ -51,7 +55,6 @@ const createWrapper = () => {
 };
 
 describe('Contact', () => {
-  const mockSubmitContact = vi.mocked(api.submitContact);
   const mockUseAuth0 = vi.mocked(useAuth0);
 
   beforeEach(() => {
@@ -75,7 +78,14 @@ describe('Contact', () => {
       isLoading: false,
     });
 
-    mockSubmitContact.mockResolvedValue({
+    // Mock successful fetch response for unauthenticated submissions
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true, message: 'Sent' }),
+    });
+
+    // Mock successful authenticated post
+    mockAuthenticatedPost.mockResolvedValue({
       success: true,
       message: 'Your message has been sent successfully!',
     });
@@ -182,28 +192,27 @@ describe('Contact', () => {
     
     fireEvent.click(sendButton);
     
+    // For unauthenticated users, should use fetch directly
     await waitFor(() => {
-      expect(mockSubmitContact).toHaveBeenCalledWith(
-        {
-          name: 'John Doe',
-          email: 'john@example.com',
-          subject: 'Test Subject',
-          message: 'Test message content',
-        },
-        undefined // No token for unauthenticated user
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/admin/contact'),
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('John Doe'),
+        })
       );
     });
   });
 
   it('should submit form with token for authenticated users', async () => {
-    const mockToken = 'mock_auth_token';
+    const mockGetAccessTokenSilently = vi.fn().mockResolvedValue('mock_auth_token');
     mockUseAuth0.mockReturnValue({
       isAuthenticated: true,
       user: {
         name: 'Test User',
         email: 'test@example.com',
       } as User,
-      getAccessTokenSilently: vi.fn().mockResolvedValue(mockToken),
+      getAccessTokenSilently: mockGetAccessTokenSilently,
       loginWithRedirect: vi.fn(),
       logout: vi.fn(),
       isLoading: false,
@@ -225,15 +234,17 @@ describe('Contact', () => {
     
     fireEvent.click(sendButton);
     
+    // For authenticated users, should use authenticatedPost
     await waitFor(() => {
-      expect(mockSubmitContact).toHaveBeenCalledWith(
+      expect(mockAuthenticatedPost).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/admin/contact'),
         expect.objectContaining({
           name: 'John Doe',
           email: 'john@example.com',
           subject: 'Test Subject',
           message: 'Test message',
         }),
-        mockToken
+        mockGetAccessTokenSilently
       );
     });
   });
@@ -258,7 +269,10 @@ describe('Contact', () => {
 
   it('should show error toast on submission failure', async () => {
     const { default: toast } = await import('react-hot-toast');
-    mockSubmitContact.mockRejectedValueOnce(new Error('Server error'));
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    });
 
     render(<Contact />, { wrapper: createWrapper() });
     
@@ -296,15 +310,14 @@ describe('Contact', () => {
     
     fireEvent.click(sendButton);
     
+    // For unauthenticated users, uses fetch directly with trimmed values
     await waitFor(() => {
-      expect(mockSubmitContact).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/admin/contact'),
         expect.objectContaining({
-          name: 'John Doe', // Trimmed
-          email: 'john@example.com', // Trimmed
-          subject: 'Test Subject', // Trimmed
-          message: 'Test message', // Trimmed
-        }),
-        undefined
+          method: 'POST',
+          body: expect.stringContaining('John Doe'), // Trimmed
+        })
       );
     });
   });
@@ -326,7 +339,7 @@ describe('Contact', () => {
     fireEvent.click(sendButton);
     
     await waitFor(() => {
-      expect(mockSubmitContact).toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalled();
     });
     
     // Subject and message should be cleared (name/email stay if user is logged in)

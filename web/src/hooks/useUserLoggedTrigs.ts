@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
+import { authenticatedGet } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 interface LoggedTrig {
   trig_id: number;
@@ -20,18 +23,10 @@ export function useUserLoggedTrigs() {
   return useQuery<Map<number, string>>({
     queryKey: ["user", "logged-trigs"],
     queryFn: async () => {
-      const apiBase = import.meta.env.VITE_API_BASE as string;
-      const token = await getAccessTokenSilently();
-      
-      const response = await fetch(`${apiBase}/v1/users/me/logged-trigs`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch logged trigs");
-      }
-      
-      const data: LoggedTrig[] = await response.json();
+      const data = await authenticatedGet<LoggedTrig[]>(
+        `${API_BASE}/v1/users/me/logged-trigs`,
+        getAccessTokenSilently
+      );
       
       // Build Map for O(1) lookup
       return new Map(data.map(log => [log.trig_id, log.condition]));

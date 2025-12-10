@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
+import { authenticatedGet } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 interface CurrentUser {
   id: number;
@@ -14,17 +17,10 @@ export function useCurrentUser() {
   return useQuery<CurrentUser>({
     queryKey: ["currentUser"],
     queryFn: async () => {
-      const token = await getAccessTokenSilently();
-      const apiBase = import.meta.env.VITE_API_BASE as string;
-      const response = await fetch(`${apiBase}/v1/users/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch current user");
-      }
-      return response.json();
+      return authenticatedGet<CurrentUser>(
+        `${API_BASE}/v1/users/me`,
+        getAccessTokenSilently
+      );
     },
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
