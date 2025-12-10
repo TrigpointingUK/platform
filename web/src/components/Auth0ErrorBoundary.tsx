@@ -115,8 +115,11 @@ class Auth0ErrorBoundaryInner extends Component<InnerProps, State> {
               Authentication Required
             </h1>
             <p className="text-gray-600 mb-6">{errorMessage}</p>
-            <div className="flex gap-4 justify-center">
-              <Button onClick={this.handleLogin} variant="primary">
+            <div className="flex gap-4 justify-center flex-wrap">
+              <Button onClick={this.handleRetry} variant="primary">
+                Try Again
+              </Button>
+              <Button onClick={this.handleLogin} variant="secondary">
                 Log In
               </Button>
               <Button onClick={this.handleLogout} variant="secondary">
