@@ -6,6 +6,7 @@ import {
   authenticatedPatch,
   authenticatedPost,
   authenticatedDelete,
+  AuthenticationError,
   Photo 
 } from "../lib/api";
 
@@ -27,7 +28,7 @@ export function useLogPhotos(logId: number | undefined) {
  * Hook to upload a photo
  */
 export function useUploadPhoto(logId: number) {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -73,6 +74,14 @@ export function useUploadPhoto(logId: number) {
       // Also invalidate the log detail to update photo count
       queryClient.invalidateQueries({ queryKey: ["log", logId] });
     },
+    onError: (error) => {
+      // Handle authentication errors by redirecting to login
+      if (error instanceof AuthenticationError) {
+        loginWithRedirect({
+          appState: { returnTo: window.location.pathname },
+        });
+      }
+    },
   });
 }
 
@@ -80,7 +89,7 @@ export function useUploadPhoto(logId: number) {
  * Hook to update photo metadata
  */
 export function useUpdatePhoto() {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -107,6 +116,14 @@ export function useUpdatePhoto() {
       queryClient.invalidateQueries({ queryKey: ["photo", photoId] });
       queryClient.invalidateQueries({ queryKey: ["logPhotos"] });
     },
+    onError: (error) => {
+      // Handle authentication errors by redirecting to login
+      if (error instanceof AuthenticationError) {
+        loginWithRedirect({
+          appState: { returnTo: window.location.pathname },
+        });
+      }
+    },
   });
 }
 
@@ -114,7 +131,7 @@ export function useUpdatePhoto() {
  * Hook to delete a photo
  */
 export function useDeletePhoto() {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -129,6 +146,14 @@ export function useDeletePhoto() {
       queryClient.invalidateQueries({ queryKey: ["logPhotos"] });
       queryClient.invalidateQueries({ queryKey: ["photo"] });
     },
+    onError: (error) => {
+      // Handle authentication errors by redirecting to login
+      if (error instanceof AuthenticationError) {
+        loginWithRedirect({
+          appState: { returnTo: window.location.pathname },
+        });
+      }
+    },
   });
 }
 
@@ -136,7 +161,7 @@ export function useDeletePhoto() {
  * Hook to rotate a photo
  */
 export function useRotatePhoto() {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -157,6 +182,14 @@ export function useRotatePhoto() {
       // Invalidate photo queries
       queryClient.invalidateQueries({ queryKey: ["logPhotos"] });
       queryClient.invalidateQueries({ queryKey: ["photo"] });
+    },
+    onError: (error) => {
+      // Handle authentication errors by redirecting to login
+      if (error instanceof AuthenticationError) {
+        loginWithRedirect({
+          appState: { returnTo: window.location.pathname },
+        });
+      }
     },
   });
 }

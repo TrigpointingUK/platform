@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
-import { authenticatedDelete } from "../lib/api";
+import { authenticatedDelete, AuthenticationError } from "../lib/api";
 
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 export function useDeleteLog(logId: number, trigId: number) {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, void>({
@@ -22,6 +22,14 @@ export function useDeleteLog(logId: number, trigId: number) {
       queryClient.invalidateQueries({ queryKey: ["trig", trigId] });
       queryClient.invalidateQueries({ queryKey: ["recentLogs"] });
       queryClient.invalidateQueries({ queryKey: ["userLogs"] });
+    },
+    onError: (error) => {
+      // Handle authentication errors by redirecting to login
+      if (error instanceof AuthenticationError) {
+        loginWithRedirect({
+          appState: { returnTo: window.location.pathname },
+        });
+      }
     },
   });
 }
