@@ -582,39 +582,48 @@ export default function TrigDetail() {
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-sm text-gray-600 mb-1">First Logged</div>
                 <div className="text-lg font-semibold text-gray-700">
-                  {new Date(trig.stats.logged_first).toLocaleDateString(
-                    "en-GB",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    }
-                  )}
+                  {trig.stats.logged_first
+                    ? new Date(trig.stats.logged_first).toLocaleDateString(
+                        "en-GB",
+                        {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        }
+                      )
+                    : "Never"}
                 </div>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-sm text-gray-600 mb-1">Last Logged</div>
                 <div className="text-lg font-semibold text-gray-700">
-                  {new Date(trig.stats.logged_last).toLocaleDateString(
-                    "en-GB",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    }
-                  )}
+                  {trig.stats.logged_last
+                    ? new Date(trig.stats.logged_last).toLocaleDateString(
+                        "en-GB",
+                        {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        }
+                      )
+                    : "Never"}
                 </div>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-sm text-gray-600 mb-1">Last Found</div>
                 <div className="text-lg font-semibold text-gray-700">
-                  {new Date(trig.stats.found_last).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {trig.stats.found_last
+                    ? new Date(trig.stats.found_last).toLocaleDateString(
+                        "en-GB",
+                        {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        }
+                      )
+                    : "Never"}
                 </div>
               </div>
 

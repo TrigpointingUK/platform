@@ -322,10 +322,10 @@ export interface TrigDetails {
 }
 
 export interface TrigStats {
-  logged_first: string;
-  logged_last: string;
+  logged_first: string | null;
+  logged_last: string | null;
   logged_count: number;
-  found_last: string;
+  found_last: string | null;
   found_count: number;
   photo_count: number;
   score_mean: string;
