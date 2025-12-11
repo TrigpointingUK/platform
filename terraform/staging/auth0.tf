@@ -159,10 +159,12 @@ module "auth0" {
   # Android Callbacks
   android_callback_urls = [
     "uk.trigpointing.android.debug://auth.trigpointing.me/android/uk.trigpointing.android.debug/callback",
+    "https://trigpointing.me/android/uk.trigpointing.android.debug/callback",
   ]
 
   android_logout_urls = [
     "uk.trigpointing.android.debug://auth.trigpointing.me/android/uk.trigpointing.android.debug/callback",
+    "https://trigpointing.me/android/uk.trigpointing.android.debug/callback",
   ]
 
   # Optional Apps (disabled for staging)

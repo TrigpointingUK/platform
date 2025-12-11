@@ -176,11 +176,13 @@ module "auth0" {
   android_callback_urls = [
     "uk.trigpointing.android://callback",
     "uk.trigpointing.android://auth.trigpointing.uk/android/uk.trigpointing.android/callback",
+    "https://trigpointing.uk/android/uk.trigpointing.android/callback",
   ]
   android_logout_urls = [
     "uk.trigpointing.android://auth.trigpointing.uk/android/uk.trigpointing.android/callback",
     "uk.trigpointing.android://trigpointing.eu.auth0.com/android/uk.trigpointing.android/callback",
     "uk.trigpointing.android.debug://trigpointing.eu.auth0.com/android/uk.trigpointing.android.debug/callback",
+    "https://trigpointing.uk/android/uk.trigpointing.android/callback",
   ]
   android_web_origins = [
     "https://api.trigpointing.uk",
