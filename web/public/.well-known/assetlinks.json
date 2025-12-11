@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "uk.trigpointing.android",
+      "sha256_cert_fingerprints": [
+        "0A:4D:73:C0:46:1B:14:8D:40:31:34:AD:C8:88:64:67:5B:E4:04:FE:E4:48:8F:C9:3E:D9:39:76:AB:30:8B:07"
+      ]
+    }
+  }
+]
+
