@@ -7,7 +7,7 @@ Only PATCH (no PUT). DELETE is hard-delete for logs and soft-deletes their photo
 from datetime import date as date_type
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user, get_current_user_optional, get_db
@@ -455,23 +455,22 @@ def get_log(
 )
 def create_log(
     request: Request,
+    response: Response,
     trig_id: int = Query(..., description="Parent trig ID"),
     payload: TLogCreate = Body(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     # Check for duplicate log (same user, trig, date)
+    # If a duplicate exists, return it with 200 OK for idempotent behaviour.
+    # This handles retries from mobile apps in poor connectivity where the
+    # first request succeeded but the client didn't receive the response.
     existing = tlog_crud.get_existing_log_for_user_trig_date(
         db, user_id=int(current_user.id), trig_id=trig_id, date=payload.date
     )
     if existing:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "message": "You already have a log for this trigpoint on this date",
-                "existing_log_id": int(existing.id),
-            },
-        )
+        response.status_code = 200
+        return TLogResponse.model_validate(existing)
 
     # Get client IP address (normalized for varchar(15) storage)
     from api.utils.ip_address import get_client_ip_normalized
