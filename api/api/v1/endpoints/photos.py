@@ -154,7 +154,7 @@ def create_photo(
     request: Request,
     log_id: int = Query(..., description="Parent log ID"),
     file: UploadFile = File(..., description="Image file (JPEG)"),
-    caption: str = Form(..., description="Photo caption"),
+    caption: str = Form("", description="Photo caption (optional)"),
     text_desc: str = Form("", description="Photo description"),
     type: str = Form(..., pattern="^[TFLPO]$", description="Photo type"),
     license: str = Form(..., pattern="^[YCN]$", description="License"),
@@ -165,7 +165,7 @@ def create_photo(
     Upload a photo with metadata.
 
     - **file**: JPEG image file
-    - **caption**: Photo caption (required)
+    - **caption**: Photo caption (optional, defaults to empty)
     - **text_desc**: Photo description (optional)
     - **type**: Photo type (T=trigpoint, F=flush bracket, L=landscape, P=people, O=other)
     - **license**: License (Y=public domain, C=creative commons, N=private)
