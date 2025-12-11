@@ -170,14 +170,28 @@ def create_photo(
     - **type**: Photo type (T=trigpoint, F=flush bracket, L=landscape, P=people, O=other)
     - **license**: License (Y=public domain, C=creative commons, N=private)
     """
+    # Log photo upload attempt
+    logger.info(
+        f"Photo upload started: log_id={log_id}, user_id={current_user.id}, "
+        f"user_name={current_user.name}, filename={file.filename}"
+    )
+
     # Authorise based on log ownership or admin
     tlog: TLog | None = db.query(TLog).filter(TLog.id == log_id).first()
     if not tlog:
+        logger.warning(
+            f"Photo upload failed - log not found: log_id={log_id}, "
+            f"user_id={current_user.id}, user_name={current_user.name}"
+        )
         raise HTTPException(status_code=404, detail="Log not found")
     if int(current_user.id) != int(tlog.user_id):
         # Check admin privileges using token payload from current_user
         token_payload = getattr(current_user, "_token_payload", None)
         if not token_payload:
+            logger.warning(
+                f"Photo upload failed - access denied (no token): log_id={log_id}, "
+                f"user_id={current_user.id}, log_owner_id={tlog.user_id}"
+            )
             raise HTTPException(status_code=403, detail="Access denied")
 
         from api.core.security import extract_scopes
@@ -187,6 +201,10 @@ def create_photo(
         if token_payload.get("token_type") == "auth0":
             scopes = extract_scopes(token_payload)
             if "api:admin" not in scopes:
+                logger.warning(
+                    f"Photo upload failed - access denied (not admin): log_id={log_id}, "
+                    f"user_id={current_user.id}, log_owner_id={tlog.user_id}"
+                )
                 raise HTTPException(
                     status_code=403, detail="Missing required scope: api:admin"
                 )
@@ -202,14 +220,32 @@ def create_photo(
     try:
         file_contents = file.file.read()
         if not file_contents:
+            logger.warning(
+                f"Photo upload failed - empty file: log_id={log_id}, "
+                f"user_id={current_user.id}"
+            )
             raise HTTPException(status_code=400, detail="Empty file")
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.warning(
+            f"Photo upload failed - read error: log_id={log_id}, "
+            f"user_id={current_user.id}, error={e}"
+        )
         raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+
+    logger.info(
+        f"Photo upload - file read: log_id={log_id}, size={len(file_contents)} bytes"
+    )
 
     # Validate image
     image_processor = ImageProcessor()
     is_valid, validation_message = image_processor.validate_image(file_contents)
     if not is_valid:
+        logger.warning(
+            f"Photo upload failed - validation: log_id={log_id}, "
+            f"user_id={current_user.id}, reason={validation_message}"
+        )
         raise HTTPException(status_code=400, detail=validation_message)
 
     # Process image
@@ -230,6 +266,10 @@ def create_photo(
         or not image_dims
         or not thumbnail_dims
     ):
+        logger.error(
+            f"Photo upload failed - processing: log_id={log_id}, "
+            f"user_id={current_user.id}"
+        )
         raise HTTPException(status_code=500, detail="Failed to process image")
 
     # Create optimistic database record
@@ -313,6 +353,13 @@ def create_photo(
         # Still record success since upload succeeded
         if metrics:
             metrics.record_photo_upload("success", trig_id=int(tlog.trig_id))
+
+    # Log successful upload
+    logger.info(
+        f"Photo upload successful: photo_id={created.id}, log_id={log_id}, "
+        f"trig_id={tlog.trig_id}, user_id={current_user.id}, "
+        f"size={created.filesize}x{created.height}, type={type}"
+    )
 
     # Return response
     server: Server | None = (

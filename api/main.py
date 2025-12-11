@@ -283,8 +283,78 @@ class HealthCheckLoggingFilter(BaseHTTPMiddleware):
             return await call_next(request)
 
 
+class AccessLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware to log all HTTP requests with method, path, status, and duration."""
+
+    async def dispatch(self, request: Request, call_next):
+        import time
+
+        # Skip health check logging
+        if request.url.path == "/health":
+            return await call_next(request)
+
+        start_time = time.time()
+
+        # Extract request info
+        method = request.method
+        path = request.url.path
+        query = str(request.url.query) if request.url.query else None
+        client_ip = request.client.host if request.client else "unknown"
+
+        # Get CF-Connecting-IP if behind Cloudflare
+        cf_ip = request.headers.get("CF-Connecting-IP")
+        if cf_ip:
+            client_ip = cf_ip
+
+        try:
+            response = await call_next(request)
+            duration_ms = (time.time() - start_time) * 1000
+            status_code = response.status_code
+
+            # Log level based on status code
+            if status_code >= 500:
+                log_level = logging.ERROR
+            elif status_code >= 400:
+                log_level = logging.WARNING
+            else:
+                log_level = logging.INFO
+
+            logger.log(
+                log_level,
+                f"{method} {path} -> {status_code} ({duration_ms:.1f}ms)",
+                extra={
+                    "http_method": method,
+                    "http_path": path,
+                    "http_query": query,
+                    "http_status": status_code,
+                    "duration_ms": round(duration_ms, 1),
+                    "client_ip": client_ip,
+                },
+            )
+            return response
+
+        except Exception as exc:
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"{method} {path} -> EXCEPTION ({duration_ms:.1f}ms): {exc}",
+                extra={
+                    "http_method": method,
+                    "http_path": path,
+                    "http_query": query,
+                    "http_status": 500,
+                    "duration_ms": round(duration_ms, 1),
+                    "client_ip": client_ip,
+                    "exception": str(exc),
+                },
+            )
+            raise
+
+
 # Add health check logging filter first
 app.add_middleware(HealthCheckLoggingFilter)
+
+# Add HTTP access logging middleware
+app.add_middleware(AccessLoggingMiddleware)
 
 # Set up CORS
 if settings.BACKEND_CORS_ORIGINS:
