@@ -61,7 +61,7 @@ export default function UserProfile() {
     const extractScopes = async () => {
       if (isOwnProfile) {
         try {
-          const token = await getAccessTokenSilently({ cacheMode: "on" });
+          const token = await getAccessTokenSilently();
           const decoded = decodeJWT(token);
 
           if (decoded) {

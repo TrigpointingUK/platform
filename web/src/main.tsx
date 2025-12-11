@@ -5,9 +5,48 @@ import { Auth0Provider, AppState } from "@auth0/auth0-react";
 import { Toaster } from "react-hot-toast";
 import AppRouter from "./router";
 import ErrorBoundary from "./components/ErrorBoundary";
+import Auth0ErrorBoundary from "./components/Auth0ErrorBoundary";
+import { AuthenticationError } from "./lib/authenticatedFetch";
+import { isAuth0Error } from "./lib/auth0ErrorHandler";
 import "./app.css";
 
-const queryClient = new QueryClient();
+/**
+ * Check if an error is an authentication error that shouldn't be retried
+ */
+function isAuthError(error: unknown): boolean {
+  return error instanceof AuthenticationError || isAuth0Error(error);
+}
+
+/**
+ * Configure QueryClient with smart retry logic:
+ * - Don't retry authentication errors (user needs to re-auth)
+ * - Retry other errors up to 3 times with exponential backoff
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Don't retry auth errors - user needs to re-authenticate
+        if (isAuthError(error)) {
+          return false;
+        }
+        // For other errors, retry up to 3 times
+        return failureCount < 3;
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes default stale time
+    },
+    mutations: {
+      retry: (failureCount, error) => {
+        // Don't retry auth errors
+        if (isAuthError(error)) {
+          return false;
+        }
+        // For mutations, only retry once
+        return failureCount < 1;
+      },
+    },
+  },
+});
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
 const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID as string;
@@ -40,6 +79,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           scope: "openid profile email api:write api:read-pii offline_access",
         }}
         useRefreshTokens
+        useRefreshTokensFallback
         cacheLocation="localstorage"
         onRedirectCallback={(appState?: AppState) => {
           console.log('Auth0 redirect callback:', appState);
@@ -50,30 +90,32 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           }
         }}
       >
-        <QueryClientProvider client={queryClient}>
-          <AppRouter />
-          <Toaster
-            position="top-right"
-            containerStyle={{
-              top: '5rem', // Position below the 4rem (h-16) header with a small gap
-            }}
-            toastOptions={{
-              duration: 5000,
-              error: {
-                style: {
-                  background: '#dc2626',
-                  color: '#fff',
+        <Auth0ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <AppRouter />
+            <Toaster
+              position="top-right"
+              containerStyle={{
+                top: '5rem', // Position below the 4rem (h-16) header with a small gap
+              }}
+              toastOptions={{
+                duration: 5000,
+                error: {
+                  style: {
+                    background: '#dc2626',
+                    color: '#fff',
+                  },
                 },
-              },
-              success: {
-                style: {
-                  background: '#16a34a',
-                  color: '#fff',
+                success: {
+                  style: {
+                    background: '#16a34a',
+                    color: '#fff',
+                  },
                 },
-              },
-            }}
-          />
-        </QueryClientProvider>
+              }}
+            />
+          </QueryClientProvider>
+        </Auth0ErrorBoundary>
       </Auth0Provider>
     </ErrorBoundary>
   </React.StrictMode>

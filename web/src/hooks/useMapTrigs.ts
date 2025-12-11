@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
+import { authenticatedFetch, authenticatedGet } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 interface Trig {
   id: number;
@@ -93,23 +96,18 @@ export function useMapTrigs({
       }
       
       const { lat, lon, maxKm } = boundsToCenter(bounds);
-      const apiBase = import.meta.env.VITE_API_BASE as string;
       
       // For zoomed out views (zoom < 9), get ALL trigpoints for proper heatmap
       // For zoomed in views, get trigpoints within viewport
       const isZoomedOut = zoom < 9;
       
-      // Get auth token if authenticated (needed for status_max and exclude_found)
-      const headers: Record<string, string> = {};
-      if (isAuthenticated) {
-        try {
-          const token = await getAccessTokenSilently({ cacheMode: "on" });
-          headers["Authorization"] = `Bearer ${token}`;
-        } catch (error) {
-          console.error("Failed to get access token for map trigs:", error);
-          // Continue without auth - backend will use default status_max
+      // Helper to make fetch request with optional auth
+      const fetchWithAuth = async (url: string): Promise<Response> => {
+        if (isAuthenticated) {
+          return authenticatedFetch(url, {}, getAccessTokenSilently);
         }
-      }
+        return fetch(url);
+      };
       
       if (isZoomedOut) {
         // Fetch ALL trigpoints for heatmap using parallel batch requests
@@ -133,7 +131,7 @@ export function useMapTrigs({
             params.append("status_ids", statusIds.join(","));
           }
           
-          return fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers })
+          return fetchWithAuth(`${API_BASE}/v1/trigs?${params.toString()}`)
             .then(res => {
               if (!res.ok) throw new Error("Failed to fetch batch");
               return res.json() as Promise<TrigsResponse>;
@@ -195,7 +193,7 @@ export function useMapTrigs({
             params.append("status_ids", statusIds.join(","));
           }
           
-          return fetch(`${apiBase}/v1/trigs?${params.toString()}`, { headers })
+          return fetchWithAuth(`${API_BASE}/v1/trigs?${params.toString()}`)
             .then(res => {
               if (!res.ok) throw new Error("Failed to fetch batch");
               return res.json() as Promise<TrigsResponse>;
@@ -255,21 +253,12 @@ export function useUserLogStatus(trigIds: number[]) {
         return {};
       }
       
-      const apiBase = import.meta.env.VITE_API_BASE as string;
-      
       try {
-        const token = await getAccessTokenSilently({ cacheMode: "on" });
-        
-        // Fetch user's profile which includes log stats
-        const response = await fetch(`${apiBase}/v1/users/me?include=stats`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch user log status");
-        }
+        // Use authenticatedGet for automatic 401 retry
+        await authenticatedGet<unknown>(
+          `${API_BASE}/v1/users/me?include=stats`,
+          getAccessTokenSilently
+        );
         
         // For now, return empty object - this would need backend support
         // to efficiently check log status for multiple trigs

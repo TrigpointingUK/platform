@@ -1,5 +1,8 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
+import { authenticatedFetch } from "../lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 interface Trig {
   id: number;
@@ -57,7 +60,6 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
     enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
       const skip = typeof pageParam === "number" ? pageParam : 0;
-      const apiBase = import.meta.env.VITE_API_BASE as string;
       const params = new URLSearchParams();
       
       params.append("limit", "50");
@@ -90,21 +92,11 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         params.append("area_id", areaId.toString());
       }
       
-      // Get auth token if authenticated (needed for status_max and log filters)
-      const headers: Record<string, string> = {};
-      if (isAuthenticated) {
-        try {
-          const token = await getAccessTokenSilently({ cacheMode: "on" });
-          headers["Authorization"] = `Bearer ${token}`;
-        } catch (error) {
-          console.error("Failed to get access token for trigs query:", error);
-          // Continue without auth - backend will use default status_max
-        }
-      }
-      
-      const response = await fetch(`${apiBase}/v1/trigs?${params.toString()}`, {
-        headers,
-      });
+      // Use authenticated fetch if logged in for status_max and log filters
+      const url = `${API_BASE}/v1/trigs?${params.toString()}`;
+      const response = isAuthenticated
+        ? await authenticatedFetch(url, {}, getAccessTokenSilently)
+        : await fetch(url);
       
       if (!response.ok) {
         throw new Error("Failed to fetch trigpoints");

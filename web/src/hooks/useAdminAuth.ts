@@ -50,6 +50,7 @@ export function useAdminAuth(): UseAdminAuthResult {
       
       try {
         // First, try to get the current token to check if we already have admin scope
+        // Using default behaviour allows automatic token refresh if needed
         const currentToken = await getAccessTokenSilently();
         
         if (cancelled) return;
