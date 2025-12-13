@@ -45,7 +45,7 @@ describe("useAdminAuth", () => {
       isLoading: false,
       getAccessTokenSilently: vi.fn().mockResolvedValue(token),
       loginWithRedirect: vi.fn(),
-    });
+    } as unknown as ReturnType<typeof useAuth0>);
 
     const { result } = renderHook(() => useAdminAuth());
 
@@ -72,7 +72,7 @@ describe("useAdminAuth", () => {
       isLoading: false,
       getAccessTokenSilently,
       loginWithRedirect: vi.fn(),
-    });
+    } as unknown as ReturnType<typeof useAuth0>);
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <React.StrictMode>{children}</React.StrictMode>
