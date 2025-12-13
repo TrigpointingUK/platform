@@ -59,10 +59,42 @@ class DuplicateLogItem(BaseModel):
     )
 
 
+class DuplicateLogGroupEntry(BaseModel):
+    """A single log entry within a duplicate log group."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="Log ID")
+    time: Optional[TimeType] = Field(None, description="Log time")
+    condition: Optional[str] = Field(None, description="Condition code")
+    comment: Optional[str] = Field(None, description="Log comment")
+    score: Optional[int] = Field(None, description="Score")
+
+
+class DuplicateLogGroupItem(BaseModel):
+    """List item for duplicate log groups (all logs shown)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    trig_id: Optional[int] = Field(None, description="Trigpoint ID")
+    trig_name: Optional[str] = Field(None, description="Trigpoint name")
+    trig_waypoint: Optional[str] = Field(None, description="Trigpoint waypoint")
+    user_id: Optional[int] = Field(None, description="User ID")
+    user_name: Optional[str] = Field(None, description="Username")
+    date: Optional[DateType] = Field(None, description="Log date")
+    duplicate_count: int = Field(..., description="Number of duplicates in this group")
+    logs: list[DuplicateLogGroupEntry] = Field(
+        ..., description="All duplicate logs in this group"
+    )
+    issue_type: Literal["duplicate"] = Field(
+        default="duplicate", description="Issue type identifier"
+    )
+
+
 class LogNeedsAttentionListResponse(BaseModel):
     """Response for logs needing attention list endpoint."""
 
-    items: list[OrphanedLogItem | DuplicateLogItem] = Field(
+    items: list[OrphanedLogItem | DuplicateLogGroupItem] = Field(
         ..., description="List of logs needing attention"
     )
     pagination: dict = Field(..., description="Pagination information")

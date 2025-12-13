@@ -13,6 +13,7 @@ import {
   LogNeedsAttentionItem,
   OrphanedLogItem,
   DuplicateLogItem,
+  DuplicateLogGroupEntry,
 } from "../../lib/api";
 
 const ADMIN_AUTH_PARAMS = {
@@ -59,9 +60,6 @@ interface LogCardProps {
 }
 
 function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
-  const [showConfirm, setShowConfirm] = useState(false);
-  const conditionInfo = getConditionInfo(log.condition);
-  
   const formattedDate = log.date
     ? new Date(log.date).toLocaleDateString("en-GB", {
         day: "numeric",
@@ -70,13 +68,120 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
       })
     : "Unknown date";
 
-  const handleDelete = async () => {
-    await onDelete(log.id, log.issue_type);
-    setShowConfirm(false);
-  };
-
   const isOrphaned = isOrphanedLog(log);
   const isDuplicate = isDuplicateLog(log);
+
+  // Duplicate cards render multiple logs, each with their own confirm state.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [showConfirmOrphaned, setShowConfirmOrphaned] = useState(false);
+
+  const duplicateGroup = isDuplicate ? (log as DuplicateLogItem) : null;
+  const tpCode = duplicateGroup?.trig_id
+    ? `TP${String(duplicateGroup.trig_id).padStart(4, "0")}`
+    : null;
+
+  const formattedGroupDate = duplicateGroup?.date
+    ? new Date(duplicateGroup.date).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Unknown date";
+
+  const renderDuplicateLogRow = (entry: DuplicateLogGroupEntry) => {
+    const entryConditionInfo = getConditionInfo(entry.condition);
+    const entryTime =
+      entry.time && entry.time !== "12:00:00" ? entry.time : null;
+
+    return (
+      <div key={entry.id} className="rounded-md border border-gray-200">
+        <div className="flex items-start justify-between gap-4 p-3">
+          <div className="flex-1 min-w-0">
+            <Link to={`/logs/${entry.id}`} className="block">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+                <span className="font-semibold">Log #{entry.id}</span>
+                <span className="text-gray-400">·</span>
+                <img
+                  src={`/icons/conditions/${entryConditionInfo.icon}`}
+                  alt={entryConditionInfo.label}
+                  title={entryConditionInfo.label}
+                  className="w-4 h-4"
+                />
+                <span>{entryConditionInfo.label}</span>
+                {entryTime && (
+                  <>
+                    <span className="text-gray-400">·</span>
+                    <span>{entryTime}</span>
+                  </>
+                )}
+              </div>
+            </Link>
+
+            {entry.comment && (
+              <Link to={`/logs/${entry.id}`} className="block mt-2">
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-4">
+                    {entry.comment}
+                  </p>
+                </div>
+              </Link>
+            )}
+          </div>
+
+          <div className="shrink-0">
+            {confirmDeleteId !== entry.id ? (
+              <Button
+                onClick={(e) => {
+                  e?.preventDefault();
+                  e?.stopPropagation();
+                  setConfirmDeleteId(entry.id);
+                }}
+                variant="danger"
+                disabled={isDeleting}
+              >
+                Delete
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Are you sure?</span>
+                <Button
+                  onClick={(e) => {
+                    e?.preventDefault();
+                    e?.stopPropagation();
+                    onDelete(entry.id, "duplicate").finally(() => {
+                      setConfirmDeleteId(null);
+                    });
+                  }}
+                  variant="danger"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner size="sm" />
+                      <span>Deleting...</span>
+                    </span>
+                  ) : (
+                    "Yes, delete"
+                  )}
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    e?.preventDefault();
+                    e?.stopPropagation();
+                    setConfirmDeleteId(null);
+                  }}
+                  variant="secondary"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
@@ -85,137 +190,177 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
         isOrphaned ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
       }`}>
         <span className="font-medium text-sm">
-          {isOrphaned ? "Log for deleted trigpoint" : `Duplicate log (${(log as DuplicateLogItem).duplicate_count} copies)`}
+          {isOrphaned
+            ? "Log for deleted trigpoint"
+            : `Duplicate logs (${(log as DuplicateLogItem).duplicate_count} copies)`}
         </span>
       </div>
 
-      <Link
-        to={`/logs/${log.id}`}
-        className="block"
-      >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
+      {isOrphaned ? (
+        <>
+          <Link to={`/logs/${log.id}`} className="block">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-gray-800 mb-1">
+                  Log #{log.id}
+                  {log.trig_id && (
+                    <>
+                      <span className="text-gray-400 mx-2">·</span>
+                      <span className="font-normal text-red-600">
+                        Trig ID: {log.trig_id} (deleted)
+                      </span>
+                    </>
+                  )}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                  {log.user_name ? (
+                    <span>
+                      by{" "}
+                      <Link
+                        to={`/profile/${log.user_id}`}
+                        className="text-trig-green-600 hover:underline font-semibold"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {log.user_name}
+                      </Link>
+                    </span>
+                  ) : log.user_id ? (
+                    <span>
+                      by{" "}
+                      <Link
+                        to={`/profile/${log.user_id}`}
+                        className="text-trig-green-600 hover:underline font-semibold"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        User #{log.user_id}
+                      </Link>
+                    </span>
+                  ) : null}
+                  <span className="text-gray-400">·</span>
+                  {(() => {
+                    const conditionInfo = getConditionInfo(log.condition);
+                    return (
+                      <>
+                        <img
+                          src={`/icons/conditions/${conditionInfo.icon}`}
+                          alt={conditionInfo.label}
+                          title={conditionInfo.label}
+                          className="w-4 h-4"
+                        />
+                        <span>{conditionInfo.label}</span>
+                      </>
+                    );
+                  })()}
+                  <span className="text-gray-400">·</span>
+                  <span>{formattedDate}</span>
+                  {log.time && log.time !== "12:00:00" && (
+                    <span className="text-gray-500">{log.time}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {log.comment && (
+              <div className="bg-gray-50 p-3 rounded-md mb-3">
+                <p className="text-sm text-gray-700 line-clamp-3">{log.comment}</p>
+              </div>
+            )}
+
+            <div className="text-[#046935] hover:text-[#035228] text-sm font-medium">
+              View log details →
+            </div>
+          </Link>
+
+          {/* Orphaned delete button */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            {!showConfirmOrphaned ? (
+              <Button
+                onClick={(e) => {
+                  e?.preventDefault();
+                  e?.stopPropagation();
+                  setShowConfirmOrphaned(true);
+                }}
+                variant="danger"
+                disabled={isDeleting}
+              >
+                Delete log
+              </Button>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600">Are you sure?</span>
+                <Button
+                  onClick={(e) => {
+                    e?.preventDefault();
+                    e?.stopPropagation();
+                    onDelete(log.id, "orphaned").finally(() => {
+                      setShowConfirmOrphaned(false);
+                    });
+                  }}
+                  variant="danger"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner size="sm" />
+                      <span>Deleting...</span>
+                    </span>
+                  ) : (
+                    "Yes, delete"
+                  )}
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    e?.preventDefault();
+                    e?.stopPropagation();
+                    setShowConfirmOrphaned(false);
+                  }}
+                  variant="secondary"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Duplicate group header */}
+          <div className="mb-3">
             <h2 className="text-xl font-semibold text-gray-800 mb-1">
-              Log #{log.id}
-              {isDuplicate && (log as DuplicateLogItem).trig_name && (
-                <>
-                  <span className="text-gray-400 mx-2">·</span>
-                  <span className="font-normal text-gray-700">
-                    {(log as DuplicateLogItem).trig_waypoint && `${(log as DuplicateLogItem).trig_waypoint} - `}
-                    {(log as DuplicateLogItem).trig_name}
-                  </span>
-                </>
-              )}
-              {isOrphaned && log.trig_id && (
-                <>
-                  <span className="text-gray-400 mx-2">·</span>
-                  <span className="font-normal text-red-600">
-                    Trig ID: {log.trig_id} (deleted)
-                  </span>
-                </>
+              {duplicateGroup?.trig_id ? (
+                <Link
+                  to={`/trigs/${duplicateGroup.trig_id}`}
+                  className="hover:underline"
+                >
+                  {tpCode}
+                  {duplicateGroup.trig_name ? ` - ${duplicateGroup.trig_name}` : ""}
+                </Link>
+              ) : (
+                <span>Unknown trig</span>
               )}
             </h2>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-              {log.user_name ? (
-                <span>
-                  by{" "}
-                  <Link
-                    to={`/profile/${log.user_id}`}
-                    className="text-trig-green-600 hover:underline font-semibold"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {log.user_name}
-                  </Link>
-                </span>
-              ) : log.user_id ? (
-                <span>
-                  by{" "}
-                  <Link
-                    to={`/profile/${log.user_id}`}
-                    className="text-trig-green-600 hover:underline font-semibold"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    User #{log.user_id}
-                  </Link>
-                </span>
-              ) : null}
-              <span className="text-gray-400">·</span>
-              <img 
-                src={`/icons/conditions/${conditionInfo.icon}`}
-                alt={conditionInfo.label}
-                title={conditionInfo.label}
-                className="w-4 h-4"
-              />
-              <span>{conditionInfo.label}</span>
-              <span className="text-gray-400">·</span>
-              <span>{formattedDate}</span>
-              {log.time && log.time !== "12:00:00" && (
-                <span className="text-gray-500">{log.time}</span>
-              )}
+            <div className="text-sm text-gray-600">
+              by{" "}
+              {duplicateGroup?.user_id ? (
+                <Link
+                  to={`/profile/${duplicateGroup.user_id}`}
+                  className="text-trig-green-600 hover:underline font-semibold"
+                >
+                  {duplicateGroup.user_name ?? `User #${duplicateGroup.user_id}`}
+                </Link>
+              ) : (
+                <span>{duplicateGroup?.user_name ?? "Unknown user"}</span>
+              )}{" "}
+              <span className="text-gray-400">·</span> {formattedGroupDate}
             </div>
           </div>
-        </div>
 
-        {log.comment && (
-          <div className="bg-gray-50 p-3 rounded-md mb-3">
-            <p className="text-sm text-gray-700 line-clamp-3">{log.comment}</p>
+          <div className="grid grid-cols-1 gap-3">
+            {duplicateGroup?.logs?.map(renderDuplicateLogRow)}
           </div>
-        )}
-
-        <div className="text-[#046935] hover:text-[#035228] text-sm font-medium">
-          View log details →
-        </div>
-      </Link>
-
-      {/* Delete Button */}
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        {!showConfirm ? (
-          <Button
-            onClick={(e) => {
-              e?.preventDefault();
-              e?.stopPropagation();
-              setShowConfirm(true);
-            }}
-            variant="danger"
-            disabled={isDeleting}
-          >
-            {isOrphaned ? "Delete log" : "Delete duplicate"}
-          </Button>
-        ) : (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600">Are you sure?</span>
-            <Button
-              onClick={(e) => {
-                e?.preventDefault();
-                e?.stopPropagation();
-                handleDelete();
-              }}
-              variant="danger"
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <span className="flex items-center gap-2">
-                  <Spinner size="sm" />
-                  <span>Deleting...</span>
-                </span>
-              ) : (
-                "Yes, delete"
-              )}
-            </Button>
-            <Button
-              onClick={(e) => {
-                e?.preventDefault();
-                e?.stopPropagation();
-                setShowConfirm(false);
-              }}
-              variant="secondary"
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </Card>
   );
 }
@@ -274,9 +419,45 @@ export default function LogsNeedsAttention() {
         await deleteDuplicateLog(logId, token);
       }
 
-      // Remove the deleted log from the list
-      setLogs((prev) => prev.filter((log) => log.id !== logId));
-      setTotal((prev) => prev - 1);
+      // Remove the deleted log from the list:
+      // - orphaned: remove the card
+      // - duplicate: remove the log from its group; if group drops below 2 logs, remove the card
+      setLogs((prev) => {
+        if (type === "orphaned") {
+          const next = prev.filter(
+            (item) => !(item.issue_type === "orphaned" && item.id === logId)
+          );
+          if (next.length !== prev.length) setTotal((t) => Math.max(0, t - 1));
+          return next;
+        }
+
+        let removedCard = false;
+        const next: LogNeedsAttentionItem[] = [];
+
+        for (const item of prev) {
+          if (item.issue_type !== "duplicate") {
+            next.push(item);
+            continue;
+          }
+
+          const dup = item as DuplicateLogItem;
+          const nextLogs = dup.logs.filter((l) => l.id !== logId);
+          if (nextLogs.length === dup.logs.length) {
+            next.push(item);
+            continue;
+          }
+
+          if (nextLogs.length < 2) {
+            removedCard = true;
+            continue;
+          }
+
+          next.push({ ...dup, logs: nextLogs, duplicate_count: nextLogs.length });
+        }
+
+        if (removedCard) setTotal((t) => Math.max(0, t - 1));
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete log");
     } finally {
@@ -388,12 +569,27 @@ export default function LogsNeedsAttention() {
           <>
             <div className="grid grid-cols-1 gap-4 mb-6">
               {logs.map((log) => (
+                (() => {
+                  const isDeletingCard =
+                    log.issue_type === "orphaned"
+                      ? deletingLogId === log.id
+                      : (log as DuplicateLogItem).logs.some(
+                          (l) => l.id === deletingLogId
+                        );
+
+                  return (
                 <LogAttentionCard
-                  key={log.id}
+                  key={
+                    log.issue_type === "orphaned"
+                      ? `orphaned-${log.id}`
+                      : `duplicate-${(log as DuplicateLogItem).trig_id ?? "x"}-${(log as DuplicateLogItem).user_id ?? "x"}-${(log as DuplicateLogItem).date ?? "x"}`
+                  }
                   log={log}
                   onDelete={handleDelete}
-                  isDeleting={deletingLogId === log.id}
+                  isDeleting={isDeletingCard}
                 />
+                  );
+                })()
               ))}
             </div>
 
