@@ -122,15 +122,61 @@ exports.onExecutePostUserRegistration = async (event, api) => {
         attempt++;
         console.log(`[${environment}] Username collision on attempt $${attempt}, trying: $${nickname}`);
       } else {
-        // Other error - log but don't fail registration
+        // Other error - hard fail and delete the Auth0 user to prevent orphaned accounts
         console.error('[${environment}] User provisioning failed:', error.response?.data || error.message);
-        console.error('[${environment}] User registered in Auth0 but not in database. Manual sync may be required.');
-        return;
+        await deleteAuth0User(event, 'Database provisioning failed');
+        throw new Error('Registration failed: Unable to provision user in database. Please try again or contact support.');
       }
     }
   }
   
+  // Exhausted all username attempts - hard fail and delete Auth0 user
   console.error('[${environment}] Failed to find unique username after', maxAttempts, 'attempts for user:', event.user.user_id);
-  console.error('[${environment}] User registered in Auth0 but not in database. Manual provisioning required.');
+  await deleteAuth0User(event, 'Username collision exhausted');
+  throw new Error('Registration failed: Unable to find a unique username. Please try again or contact support.');
 };
+
+/**
+ * Delete an Auth0 user when database provisioning fails.
+ * This ensures we don't have orphaned Auth0 accounts without corresponding database records.
+ */
+async function deleteAuth0User(event, reason) {
+  const axios = require('axios');
+  
+  console.log('[${environment}] Attempting to delete Auth0 user:', event.user.user_id, 'Reason:', reason);
+  
+  try {
+    // Get M2M token for Management API
+    const mgmtTokenResponse = await axios.post(
+      `https://$${event.secrets.AUTH0_DOMAIN}/oauth/token`,
+      {
+        grant_type: 'client_credentials',
+        client_id: event.secrets.M2M_CLIENT_ID,
+        client_secret: event.secrets.M2M_CLIENT_SECRET,
+        audience: `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/`
+      },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
+    );
+    
+    // Delete the user
+    await axios.delete(
+      `https://$${event.secrets.AUTH0_DOMAIN}/api/v2/users/$${encodeURIComponent(event.user.user_id)}`,
+      {
+        headers: {
+          'Authorization': `Bearer $${mgmtTokenResponse.data.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      }
+    );
+    
+    console.log('[${environment}] Successfully deleted Auth0 user:', event.user.user_id);
+  } catch (deleteError) {
+    // Log but continue - we still want to throw the registration error
+    // The orphaned Auth0 account will need manual cleanup
+    console.error('[${environment}] CRITICAL: Failed to delete Auth0 user after provisioning failure:', event.user.user_id);
+    console.error('[${environment}] Delete error:', deleteError.response?.data || deleteError.message);
+    console.error('[${environment}] Manual cleanup required for orphaned Auth0 user:', event.user.user_id);
+  }
+}
 
