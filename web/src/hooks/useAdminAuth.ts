@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useLocation } from "react-router-dom";
 
@@ -20,6 +20,26 @@ export function useAdminAuth(): UseAdminAuthResult {
   const [isActivelyChecking, setIsActivelyChecking] = useState(false);
   const location = useLocation();
 
+  const adminAuthParams = useMemo(
+    () => ({
+      audience: import.meta.env.VITE_AUTH0_AUDIENCE as string | undefined,
+      scope: "openid profile email api:write api:read-pii api:admin",
+    }),
+    []
+  );
+
+  const decodeJwtPayload = (token: string): Record<string, unknown> => {
+    const payload = token.split(".")[1];
+    if (!payload) {
+      throw new Error("Invalid JWT: missing payload");
+    }
+
+    // JWT payload is base64url (not base64)
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  };
+
   // Check if user has api-admin role (from ID token)
   const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
   const hasAdminRole = userRoles.includes("api-admin");
@@ -34,6 +54,8 @@ export function useAdminAuth(): UseAdminAuthResult {
     // Reset check state when conditions change
     if (!shouldCheckScope) {
       checkInitiatedRef.current = false;
+      setIsActivelyChecking(false);
+      setHasAdminScope(null);
       return;
     }
 
@@ -51,17 +73,23 @@ export function useAdminAuth(): UseAdminAuthResult {
       try {
         // First, try to get the current token to check if we already have admin scope
         // Using default behaviour allows automatic token refresh if needed
-        const currentToken = await getAccessTokenSilently();
+        // IMPORTANT: request using the admin audience/scope cache key, otherwise Auth0 may
+        // hand back a "basic" cached token even if we've previously acquired api:admin.
+        const currentToken = await getAccessTokenSilently({
+          authorizationParams: { ...adminAuthParams },
+        });
         
         if (cancelled) return;
 
         // Decode the token to check scopes
-        const payload = JSON.parse(atob(currentToken.split('.')[1]));
-        const scopes = payload.scope?.split(' ') || [];
-        const permissions = payload.permissions || [];
+        const payload = decodeJwtPayload(currentToken);
+        const scopes = typeof payload.scope === "string" ? payload.scope.split(" ") : [];
+        const permissions = Array.isArray(payload.permissions)
+          ? payload.permissions.filter((permission): permission is string => typeof permission === "string")
+          : [];
         
         // Check if we have api:admin in either scope or permissions
-        const hasScope = scopes.includes('api:admin') || permissions.includes('api:admin');
+        const hasScope = scopes.includes("api:admin") || permissions.includes("api:admin");
         
         if (hasScope) {
           setHasAdminScope(true);
@@ -71,6 +99,8 @@ export function useAdminAuth(): UseAdminAuthResult {
 
         // We don't have the admin scope, need to re-authenticate
         setHasAdminScope(false);
+        // We're no longer "checking"; we're about to request elevation.
+        setIsActivelyChecking(false);
         
         // Check if we just came back from auth to avoid loops
         const urlParams = new URLSearchParams(window.location.search);
@@ -85,8 +115,7 @@ export function useAdminAuth(): UseAdminAuthResult {
             if (!cancelled) {
               loginWithRedirect({
                 authorizationParams: {
-                  audience: import.meta.env.VITE_AUTH0_AUDIENCE as string,
-                  scope: "openid profile email api:write api:read-pii api:admin",
+                  ...adminAuthParams,
                   prompt: "login", // Force re-authentication for security
                   redirect_uri: `${window.location.origin}${location.pathname}?admin_auth_attempted=true`,
                 },
@@ -120,12 +149,14 @@ export function useAdminAuth(): UseAdminAuthResult {
           const attemptedAuth = urlParams.get('admin_auth_attempted') === 'true';
           
           if (!attemptedAuth && !cancelled) {
+            // Switch UI to "requesting" while we schedule the redirect.
+            setHasAdminScope(false);
+            setIsActivelyChecking(false);
             setTimeout(() => {
               if (!cancelled) {
                 loginWithRedirect({
                   authorizationParams: {
-                    audience: import.meta.env.VITE_AUTH0_AUDIENCE as string,
-                    scope: "openid profile email api:write api:read-pii api:admin",
+                    ...adminAuthParams,
                     prompt: "login",
                     redirect_uri: `${window.location.origin}${location.pathname}?admin_auth_attempted=true`,
                   },
@@ -152,8 +183,19 @@ export function useAdminAuth(): UseAdminAuthResult {
 
     return () => {
       cancelled = true;
+      // React.StrictMode runs effects twice in dev (setup → cleanup → setup). If we keep the
+      // "initiated" flag set across the simulated cleanup, the second run will be skipped,
+      // leaving the hook stuck in a loading state.
+      checkInitiatedRef.current = false;
+      setIsActivelyChecking(false);
     };
-  }, [shouldCheckScope, getAccessTokenSilently, loginWithRedirect, location]);
+  }, [
+    shouldCheckScope,
+    getAccessTokenSilently,
+    loginWithRedirect,
+    location.pathname,
+    adminAuthParams,
+  ]);
 
   // Derive isCheckingScope from conditions - no effect needed for this
   const isCheckingScope = shouldCheckScope && (hasAdminScope === null || isActivelyChecking);

@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useFloating, flip, shift, offset, autoUpdate, FloatingPortal } from "@floating-ui/react";
 import { authenticatedFetch } from "../../lib/api";
 
 interface DownloadButtonProps {
@@ -50,21 +51,41 @@ export function DownloadButton({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [includeMyLogs, setIncludeMyLogs] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const { getAccessTokenSilently } = useAuth0();
 
-  // Close dropdown when clicking outside
+  // Floating UI for smart dropdown positioning with automatic flip
+  const { refs, floatingStyles } = useFloating({
+    open: isOpen,
+    placement: "bottom-end",
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  // Close dropdown when clicking outside (check both reference and floating elements)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const referenceEl = refs.reference.current;
+      const floatingEl = refs.floating.current;
+      
+      // Check if click is outside both the button and the dropdown
+      // referenceEl could be a VirtualElement, so check it's an Element first
+      const isOutsideReference = referenceEl && 
+        referenceEl instanceof Element && 
+        !referenceEl.contains(target);
+      const isOutsideFloating = !floatingEl || !floatingEl.contains(target);
+      
+      if (isOutsideReference && isOutsideFloating) {
         setIsOpen(false);
         setError(null);
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isOpen, refs.reference, refs.floating]);
 
   const buildDownloadUrl = (format: DownloadFormat): string => {
     const params = new URLSearchParams();
@@ -150,8 +171,9 @@ export function DownloadButton({
   };
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={className}>
       <button
+        ref={refs.setReference}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
@@ -179,65 +201,71 @@ export function DownloadButton({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-          <div className="p-3 border-b border-gray-100">
-            <h3 className="font-medium text-gray-900 mb-1">Download Trigpoints</h3>
-            <p className="text-xs text-gray-500">
-              Downloads current filtered results
-            </p>
-          </div>
-
-          {/* Include my logs checkbox */}
-          <div className="px-3 py-2 border-b border-gray-100">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includeMyLogs}
-                onChange={(e) => setIncludeMyLogs(e.target.checked)}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
-              <span className="text-sm text-gray-700">Include my log data</span>
-            </label>
-          </div>
-
-          {/* Format options */}
-          <div className="py-1">
-            {FORMAT_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleDownload(option.value)}
-                disabled={isLoading}
-                className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between group disabled:opacity-50"
-              >
-                <div>
-                  <div className="font-medium text-gray-900 group-hover:text-green-600">
-                    {option.label}
-                  </div>
-                  <div className="text-xs text-gray-500">{option.description}</div>
-                </div>
-                <svg
-                  className="w-5 h-5 text-gray-400 group-hover:text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
-                </svg>
-              </button>
-            ))}
-          </div>
-
-          {error && (
-            <div className="px-3 py-2 bg-red-50 border-t border-red-100">
-              <p className="text-sm text-red-600">{error}</p>
+        <FloatingPortal>
+          <div
+            ref={refs.setFloating}
+            style={floatingStyles}
+            className="w-72 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+          >
+            <div className="p-3 border-b border-gray-100">
+              <h3 className="font-medium text-gray-900 mb-1">Download Trigpoints</h3>
+              <p className="text-xs text-gray-500">
+                Downloads current filtered results
+              </p>
             </div>
-          )}
-        </div>
+
+            {/* Include my logs checkbox */}
+            <div className="px-3 py-2 border-b border-gray-100">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeMyLogs}
+                  onChange={(e) => setIncludeMyLogs(e.target.checked)}
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span className="text-sm text-gray-700">Include my log data</span>
+              </label>
+            </div>
+
+            {/* Format options */}
+            <div className="py-1">
+              {FORMAT_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => handleDownload(option.value)}
+                  disabled={isLoading}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between group disabled:opacity-50"
+                >
+                  <div>
+                    <div className="font-medium text-gray-900 group-hover:text-green-600">
+                      {option.label}
+                    </div>
+                    <div className="text-xs text-gray-500">{option.description}</div>
+                  </div>
+                  <svg
+                    className="w-5 h-5 text-gray-400 group-hover:text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                </button>
+              ))}
+            </div>
+
+            {error && (
+              <div className="px-3 py-2 bg-red-50 border-t border-red-100">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+          </div>
+        </FloatingPortal>
       )}
     </div>
   );

@@ -738,6 +738,95 @@ def get_duplicate_logs(
     ]
 
 
+def get_duplicate_log_groups(
+    db: Session, skip: int = 0, limit: int = 100
+) -> list[dict]:
+    """
+    Get duplicate log groups where user_id, trig_id, and date are identical and
+    *all returned logs have no photos*.
+
+    Duplicates are detected by user_id + trig_id + date only.
+
+    Returns a list of dicts:
+      {
+        "user_id": int | None,
+        "user_name": str | None,
+        "trig_id": int | None,
+        "trig_name": str | None,
+        "trig_waypoint": str | None,
+        "date": date | None,
+        "duplicate_count": int,
+        "logs": list[TLog],
+      }
+    """
+    from api.models.tphoto import TPhoto
+
+    # Subquery to find logs with photos
+    logs_with_photos = (
+        db.query(TPhoto.tlog_id).filter(TPhoto.deleted_ind != "Y").distinct().subquery()
+    )
+
+    # Find duplicate groups (no-photos only)
+    duplicate_groups = (
+        db.query(
+            TLog.user_id.label("user_id"),
+            TLog.trig_id.label("trig_id"),
+            TLog.date.label("date"),
+            func.count(TLog.id).label("cnt"),
+        )
+        .outerjoin(logs_with_photos, TLog.id == logs_with_photos.c.tlog_id)
+        .filter(logs_with_photos.c.tlog_id.is_(None))  # No photos
+        .group_by(TLog.user_id, TLog.trig_id, TLog.date)
+        .having(func.count(TLog.id) > 1)
+        .subquery()
+    )
+
+    # Fetch all logs belonging to those groups (again: no-photos only)
+    rows = (
+        db.query(
+            TLog,
+            Trig.name,
+            Trig.waypoint,
+            User.name,
+            duplicate_groups.c.cnt,
+        )
+        .join(
+            duplicate_groups,
+            (TLog.user_id == duplicate_groups.c.user_id)
+            & (TLog.trig_id == duplicate_groups.c.trig_id)
+            & (TLog.date == duplicate_groups.c.date),
+        )
+        .outerjoin(logs_with_photos, TLog.id == logs_with_photos.c.tlog_id)
+        .filter(logs_with_photos.c.tlog_id.is_(None))  # No photos
+        .outerjoin(Trig, TLog.trig_id == Trig.id)
+        .outerjoin(User, TLog.user_id == User.id)
+        .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    # Group in Python
+    grouped: dict[tuple, dict] = {}
+    for log, trig_name, trig_waypoint, user_name, cnt in rows:
+        key = (log.user_id, log.trig_id, log.date)
+        if key not in grouped:
+            grouped[key] = {
+                "user_id": int(log.user_id) if log.user_id is not None else None,
+                "user_name": user_name,
+                "trig_id": int(log.trig_id) if log.trig_id is not None else None,
+                "trig_name": trig_name,
+                "trig_waypoint": trig_waypoint,
+                "date": log.date,
+                "duplicate_count": int(cnt),
+                "logs": [],
+            }
+        grouped[key]["logs"].append(log)
+
+    # Preserve query ordering: already sorted newest-first. Convert to list.
+    return list(grouped.values())
+
+
 def get_logs_needing_attention_summary(db: Session) -> dict:
     """
     Get summary statistics for logs needing attention.
@@ -784,16 +873,21 @@ def delete_duplicate_log(db: Session, log_id: int) -> bool:
     Verifies that this log is actually part of a duplicate set before deleting.
     Returns True if deleted, False if not found or not a duplicate.
     """
-    from api.models.tphoto import TPhoto
-
     log = db.query(TLog).filter(TLog.id == log_id).first()
     if not log:
         return False
 
+    from api.models.tphoto import TPhoto
+
+    # Subquery to find logs with photos
+    logs_with_photos = (
+        db.query(TPhoto.tlog_id).filter(TPhoto.deleted_ind != "Y").distinct().subquery()
+    )
+
     # Check that this log has no photos
     has_photos = (
-        db.query(TPhoto)
-        .filter(TPhoto.tlog_id == log_id, TPhoto.deleted_ind != "Y")
+        db.query(logs_with_photos.c.tlog_id)
+        .filter(logs_with_photos.c.tlog_id == log_id)
         .first()
     )
     if has_photos:
@@ -808,8 +902,16 @@ def delete_duplicate_log(db: Session, log_id: int) -> bool:
         TLog.id != log_id,
     ]
 
-    # Check that there's at least one other identical log
-    duplicate_count = db.query(func.count(TLog.id)).filter(*filters).scalar() or 0
+    # Check that there's at least one other identical log *without photos*.
+    # This also prevents deleting the last remaining log in a duplicate set.
+    duplicate_count = (
+        db.query(func.count(TLog.id))
+        .outerjoin(logs_with_photos, TLog.id == logs_with_photos.c.tlog_id)
+        .filter(logs_with_photos.c.tlog_id.is_(None))  # No photos
+        .filter(*filters)
+        .scalar()
+        or 0
+    )
 
     if duplicate_count == 0:
         return False  # Not a duplicate

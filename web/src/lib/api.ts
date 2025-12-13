@@ -746,19 +746,23 @@ export interface OrphanedLogItem {
 }
 
 export interface DuplicateLogItem {
-  id: number;
   trig_id: number | null;
   trig_name: string | null;
   trig_waypoint: string | null;
   user_id: number | null;
   user_name: string | null;
   date: string | null;
+  duplicate_count: number;
+  logs: DuplicateLogGroupEntry[];
+  issue_type: "duplicate";
+}
+
+export interface DuplicateLogGroupEntry {
+  id: number;
   time: string | null;
   condition: string | null;
   comment: string | null;
   score: number | null;
-  duplicate_count: number;
-  issue_type: "duplicate";
 }
 
 export type LogNeedsAttentionItem = OrphanedLogItem | DuplicateLogItem;

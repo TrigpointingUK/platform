@@ -33,7 +33,8 @@ from api.schemas.admin import (
 )
 from api.schemas.contact import ContactRequest, ContactResponse
 from api.schemas.log_admin import (
-    DuplicateLogItem,
+    DuplicateLogGroupEntry,
+    DuplicateLogGroupItem,
     LogNeedsAttentionListResponse,
     LogNeedsAttentionSummary,
     OrphanedLogItem,
@@ -1055,8 +1056,11 @@ def list_logs_needing_attention(
 
     Logs are sorted by date (newest first) and interleaved.
     """
+    # Fetch enough rows from each category to cover the requested page after interleaving.
+    fetch_limit = max(limit * 2, (skip + limit) * 2)
+
     # Fetch orphaned logs
-    orphaned_raw = tlog_crud.get_orphaned_logs(db, skip=0, limit=limit * 2)
+    orphaned_raw = tlog_crud.get_orphaned_logs(db, skip=0, limit=fetch_limit)
     orphaned_items = [
         OrphanedLogItem(
             id=int(log.id),
@@ -1074,31 +1078,62 @@ def list_logs_needing_attention(
     ]
 
     # Fetch duplicate logs
-    duplicate_raw = tlog_crud.get_duplicate_logs(db, skip=0, limit=limit * 2)
-    duplicate_items = [
-        DuplicateLogItem(
-            id=int(log.id),
-            trig_id=int(log.trig_id) if log.trig_id else None,
-            trig_name=trig_name,
-            trig_waypoint=trig_waypoint,
-            user_id=int(log.user_id) if log.user_id else None,
-            user_name=user_name,
-            date=log.date if log.date else None,  # type: ignore[arg-type]
-            time=log.time if log.time else None,  # type: ignore[arg-type]
-            condition=str(log.condition) if log.condition else None,
-            comment=str(log.comment) if log.comment else None,
-            score=int(log.score) if log.score else None,
-            duplicate_count=dup_count,
-            issue_type="duplicate",
+    duplicate_groups_raw = tlog_crud.get_duplicate_log_groups(
+        db, skip=0, limit=fetch_limit * 10
+    )
+    duplicate_items: list[DuplicateLogGroupItem] = []
+    for group in duplicate_groups_raw:
+        logs = [
+            DuplicateLogGroupEntry(
+                id=int(log.id),
+                time=log.time if log.time else None,  # type: ignore[arg-type]
+                condition=str(log.condition) if log.condition else None,
+                comment=str(log.comment) if log.comment else None,
+                score=int(log.score) if log.score else None,
+            )
+            for log in group["logs"]
+        ]
+        # Only include groups that still have 2+ logs (defensive; should already be true)
+        if len(logs) < 2:
+            continue
+        duplicate_items.append(
+            DuplicateLogGroupItem(
+                trig_id=group["trig_id"],
+                trig_name=group["trig_name"],
+                trig_waypoint=group["trig_waypoint"],
+                user_id=group["user_id"],
+                user_name=group["user_name"],
+                date=group["date"] if group["date"] else None,
+                duplicate_count=int(group["duplicate_count"]),
+                logs=logs,
+                issue_type="duplicate",
+            )
         )
-        for log, trig_name, trig_waypoint, user_name, dup_count in duplicate_raw
-    ]
 
     # Combine and sort by date (newest first)
-    all_items: list[OrphanedLogItem | DuplicateLogItem] = (
+    all_items: list[OrphanedLogItem | DuplicateLogGroupItem] = (
         orphaned_items + duplicate_items
     )
-    all_items.sort(key=lambda x: (x.date or "", x.time or ""), reverse=True)
+
+    def sort_key(item: OrphanedLogItem | DuplicateLogGroupItem):
+        def date_key(value):
+            return value.isoformat() if value else ""
+
+        def time_key(value):
+            return value.isoformat() if value else ""
+
+        if isinstance(item, OrphanedLogItem):
+            return (date_key(item.date), time_key(item.time), item.id)
+
+        # Duplicate groups: use date + latest time/id in the group for ordering
+        latest_time = ""
+        latest_id = 0
+        if item.logs:
+            latest_time = time_key(item.logs[0].time)
+            latest_id = int(item.logs[0].id)
+        return (date_key(item.date), latest_time, latest_id)
+
+    all_items.sort(key=sort_key, reverse=True)
 
     # Apply pagination
     paginated_items = all_items[skip : skip + limit]
