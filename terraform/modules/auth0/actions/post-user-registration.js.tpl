@@ -2,7 +2,7 @@
  * Auth0 Post User Registration Action for ${environment}
  * 
  * This Action is triggered after a user successfully registers via Auth0.
- * It provisions the user in the FastAPI/MySQL database via webhook.
+ * It provisions the user in the FastAPI/PostgreSQL database via webhook.
  * 
  * Flow:
  * 1. Generate nickname from email prefix
@@ -11,12 +11,18 @@
  * 4. Up to 10 retries with different random suffixes
  * 5. Set final nickname in Auth0 user metadata
  * 
+ * On failure:
+ * - Send Slack notification (if configured)
+ * - Delete the Auth0 user to prevent orphaned accounts
+ * - Throw error so user sees registration failed
+ * 
  * Environment Variables (from Secrets):
  * - FASTAPI_URL: Base URL of FastAPI (e.g., https://api.trigpointing.uk)
  * - WEBHOOK_SHARED_SECRET: Shared secret for webhook authentication
  * - AUTH0_DOMAIN: Auth0 tenant domain (e.g., trigpointing.eu.auth0.com)
  * - M2M_CLIENT_ID: Auth0 M2M client ID (for Management API only)
  * - M2M_CLIENT_SECRET: Auth0 M2M client secret (for Management API only)
+ * - SLACK_WEBHOOK_URL: Slack incoming webhook URL for failure notifications (optional)
  */
 
 exports.onExecutePostUserRegistration = async (event, api) => {
@@ -123,7 +129,9 @@ exports.onExecutePostUserRegistration = async (event, api) => {
         console.log(`[${environment}] Username collision on attempt $${attempt}, trying: $${nickname}`);
       } else {
         // Other error - hard fail and delete the Auth0 user to prevent orphaned accounts
-        console.error('[${environment}] User provisioning failed:', error.response?.data || error.message);
+        const errorDetails = JSON.stringify(error.response?.data || error.message);
+        console.error('[${environment}] User provisioning failed:', errorDetails);
+        await notifySlackRegistrationFailure(event, 'Database provisioning failed', errorDetails);
         await deleteAuth0User(event, 'Database provisioning failed');
         throw new Error('Registration failed: Unable to provision user in database. Please try again or contact support.');
       }
@@ -132,6 +140,7 @@ exports.onExecutePostUserRegistration = async (event, api) => {
   
   // Exhausted all username attempts - hard fail and delete Auth0 user
   console.error('[${environment}] Failed to find unique username after', maxAttempts, 'attempts for user:', event.user.user_id);
+  await notifySlackRegistrationFailure(event, 'Username collision exhausted after ' + maxAttempts + ' attempts', 'All random suffixes collided with existing usernames');
   await deleteAuth0User(event, 'Username collision exhausted');
   throw new Error('Registration failed: Unable to find a unique username. Please try again or contact support.');
 };
@@ -177,6 +186,81 @@ async function deleteAuth0User(event, reason) {
     console.error('[${environment}] CRITICAL: Failed to delete Auth0 user after provisioning failure:', event.user.user_id);
     console.error('[${environment}] Delete error:', deleteError.response?.data || deleteError.message);
     console.error('[${environment}] Manual cleanup required for orphaned Auth0 user:', event.user.user_id);
+  }
+}
+
+/**
+ * Send a Slack notification when registration fails.
+ * This is independent of FastAPI, so will work even if FastAPI is unavailable.
+ */
+async function notifySlackRegistrationFailure(event, reason, errorDetails) {
+  const axios = require('axios');
+  
+  if (!event.secrets.SLACK_WEBHOOK_URL) {
+    console.log('[${environment}] SLACK_WEBHOOK_URL not configured - skipping notification');
+    return;
+  }
+  
+  const message = {
+    text: `:warning: *Registration Failed* (${environment})`,
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: ":warning: User Registration Failed",
+          emoji: true
+        }
+      },
+      {
+        type: "section",
+        fields: [
+          {
+            type: "mrkdwn",
+            text: `*Environment:*\n${environment}`
+          },
+          {
+            type: "mrkdwn",
+            text: `*Email:*\n$${event.user.email}`
+          },
+          {
+            type: "mrkdwn",
+            text: `*Auth0 User ID:*\n$${event.user.user_id}`
+          },
+          {
+            type: "mrkdwn",
+            text: `*Reason:*\n$${reason}`
+          }
+        ]
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Error Details:*\n\`\`\`$${errorDetails || 'No details available'}\`\`\``
+        }
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: `Timestamp: $${new Date().toISOString()}`
+          }
+        ]
+      }
+    ]
+  };
+  
+  try {
+    await axios.post(event.secrets.SLACK_WEBHOOK_URL, message, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 5000
+    });
+    console.log('[${environment}] Slack notification sent for failed registration');
+  } catch (slackError) {
+    // Don't let Slack failure affect the main flow
+    console.error('[${environment}] Failed to send Slack notification:', slackError.message);
   }
 }
 

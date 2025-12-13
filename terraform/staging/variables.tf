@@ -132,6 +132,13 @@ variable "webhook_shared_secret" {
   sensitive   = true
 }
 
+variable "slack_webhook_url" {
+  description = "Slack incoming webhook URL for registration failure notifications"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "disable_signup" {
   description = "Whether to disable public signup on the Auth0 database connection"
   type        = bool

@@ -73,6 +73,13 @@ variable "webhook_shared_secret" {
   sensitive   = true
 }
 
+variable "slack_webhook_url" {
+  description = "Slack incoming webhook URL for registration failure notifications (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "swagger_callback_urls" {
   description = "List of Swagger OAuth2 callback URLs"
   type        = list(string)
