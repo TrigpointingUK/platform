@@ -213,17 +213,12 @@ def trigs_to_gpx(
     ]
 
     for trig in trigs:
-        status_name = status_names.get(int(trig.status_id), "") if status_names else ""
-
         # Build description
         desc_parts = [
             f"Type: {trig.physical_type}",
-            f"Status: {status_name}",
             f"Grid Ref: {trig.osgb_gridref}",
             f"Condition: {trig.condition}",
         ]
-        if trig.county:
-            desc_parts.append(f"County: {trig.county}")
         if trig.fb_number:
             desc_parts.append(f"FB: {trig.fb_number}")
 
@@ -244,9 +239,13 @@ def trigs_to_gpx(
         )
         lines.append(f"    <ele>{trig.wgs_height}</ele>")
         lines.append(f"    <name>{escape_xml(str(trig.waypoint))}</name>")
-        lines.append(f"    <desc>{escape_xml(description)}</desc>")
         lines.append(f"    <cmt>{escape_xml(str(trig.name))}</cmt>")
+        lines.append(f"    <desc>{escape_xml(description)}</desc>")
+        lines.append(f'    <link href="https://trigpointing.uk/trigs/{trig.id}">')
+        lines.append("      <text>View on TrigpointingUK</text>")
+        lines.append("    </link>")
         lines.append("    <sym>Triangle</sym>")
+        lines.append(f"    <type>{escape_xml(str(trig.physical_type))}</type>")
         lines.append("  </wpt>")
 
     lines.append("</gpx>")
