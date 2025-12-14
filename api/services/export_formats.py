@@ -222,15 +222,14 @@ def trigs_to_gpx(
         if trig.fb_number:
             desc_parts.append(f"FB: {trig.fb_number}")
 
-        # Add log info if available
+        # Add log details if logged (basic logged/not logged is in cmt field)
         if user_logs is not None:
             log_data = user_logs.get(int(trig.id))
             if log_data:
-                desc_parts.append(f"Logged: {log_data.get('date', 'Yes')}")
+                if log_data.get("date"):
+                    desc_parts.append(f"Log Date: {log_data.get('date')}")
                 if log_data.get("condition"):
                     desc_parts.append(f"My Condition: {log_data.get('condition')}")
-            else:
-                desc_parts.append("Logged: No")
 
         description = " | ".join(desc_parts)
 
@@ -238,8 +237,14 @@ def trigs_to_gpx(
             f'  <wpt lat="{float(trig.wgs_lat)}" lon="{float(trig.wgs_long)}">'
         )
         lines.append(f"    <ele>{trig.wgs_height}</ele>")
-        lines.append(f"    <name>{escape_xml(str(trig.waypoint))}</name>")
-        lines.append(f"    <cmt>{escape_xml(str(trig.name))}</cmt>")
+        lines.append(
+            f"    <name>{escape_xml(str(trig.waypoint))} - {escape_xml(str(trig.name))}</name>"
+        )
+        # Only include cmt if user_logs was provided (log info available)
+        if user_logs is not None:
+            log_data = user_logs.get(int(trig.id))
+            cmt_text = "Logged" if log_data else "Not Logged"
+            lines.append(f"    <cmt>{cmt_text}</cmt>")
         lines.append(f"    <desc>{escape_xml(description)}</desc>")
         lines.append(f'    <link href="https://trigpointing.uk/trigs/{trig.id}">')
         lines.append("      <text>View on TrigpointingUK</text>")

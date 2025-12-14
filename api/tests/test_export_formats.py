@@ -57,10 +57,11 @@ class TestTrigsToGpx:
 
         assert "<type>Pillar</type>" in result
 
-    def test_gpx_element_order(self):
-        """Test that GPX elements are in correct schema order: cmt before desc."""
-        trig = _make_mock_trig()
-        result = trigs_to_gpx([trig])
+    def test_gpx_element_order_with_user_logs(self):
+        """Test that GPX elements are in correct schema order when user_logs provided."""
+        trig = _make_mock_trig(id=1)
+        user_logs = {1: {"date": "2024-01-01", "condition": "G"}}
+        result = trigs_to_gpx([trig], user_logs=user_logs)
 
         # Find positions of key elements
         cmt_pos = result.find("<cmt>")
@@ -94,22 +95,61 @@ class TestTrigsToGpx:
         assert 'lat="52.1234"' in result
         assert 'lon="-1.5678"' in result
 
+    def test_gpx_name_includes_trig_name(self):
+        """Test that name element includes both waypoint and trig name."""
+        trig = _make_mock_trig(waypoint="TP0001", name="Fetlar")
+        result = trigs_to_gpx([trig])
+
+        assert "<name>TP0001 - Fetlar</name>" in result
+
     def test_gpx_xml_escaping(self):
         """Test that special characters are properly escaped."""
         trig = _make_mock_trig(name="Test & <Trig>")
         result = trigs_to_gpx([trig])
 
-        assert "Test &amp; &lt;Trig&gt;" in result
+        assert "TP0001 - Test &amp; &lt;Trig&gt;" in result
 
     def test_gpx_multiple_trigs(self):
         """Test GPX output with multiple trigpoints."""
         trigs = [
-            _make_mock_trig(id=1, waypoint="TP0001"),
-            _make_mock_trig(id=2, waypoint="TP0002"),
+            _make_mock_trig(id=1, waypoint="TP0001", name="First"),
+            _make_mock_trig(id=2, waypoint="TP0002", name="Second"),
         ]
         result = trigs_to_gpx(trigs)
 
-        assert "<name>TP0001</name>" in result
-        assert "<name>TP0002</name>" in result
+        assert "<name>TP0001 - First</name>" in result
+        assert "<name>TP0002 - Second</name>" in result
         assert '<link href="https://trigpointing.uk/trigs/1">' in result
         assert '<link href="https://trigpointing.uk/trigs/2">' in result
+
+    def test_gpx_cmt_omitted_when_no_user_logs(self):
+        """Test that cmt element is omitted when user_logs is not provided."""
+        trig = _make_mock_trig()
+        result = trigs_to_gpx([trig])
+
+        assert "<cmt>" not in result
+
+    def test_gpx_cmt_logged_when_user_has_log(self):
+        """Test that cmt shows 'Logged' when user has logged this trig."""
+        trig = _make_mock_trig(id=1)
+        user_logs = {1: {"date": "2024-01-01", "condition": "G"}}
+        result = trigs_to_gpx([trig], user_logs=user_logs)
+
+        assert "<cmt>Logged</cmt>" in result
+
+    def test_gpx_cmt_not_logged_when_user_has_no_log(self):
+        """Test that cmt shows 'Not Logged' when user hasn't logged this trig."""
+        trig = _make_mock_trig(id=1)
+        user_logs = {}  # Empty dict - user_logs provided but no log for this trig
+        result = trigs_to_gpx([trig], user_logs=user_logs)
+
+        assert "<cmt>Not Logged</cmt>" in result
+
+    def test_gpx_desc_includes_log_date_when_logged(self):
+        """Test that desc includes log date when user has logged this trig."""
+        trig = _make_mock_trig(id=1)
+        user_logs = {1: {"date": "2024-01-15", "condition": "G"}}
+        result = trigs_to_gpx([trig], user_logs=user_logs)
+
+        assert "Log Date: 2024-01-15" in result
+        assert "My Condition: G" in result
