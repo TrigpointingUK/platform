@@ -21,7 +21,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@auth0/auth0-react": "^2.10.0",
+    "@auth0/auth0-react": "^2.11.0",
     "@floating-ui/react": "^0.27.16",
     "@tanstack/react-query": "^5.90.12",
     "@types/leaflet": "^1.9.21",
