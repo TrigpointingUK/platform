@@ -2,9 +2,11 @@
 Tests for export format generators.
 """
 
+import io
+import zipfile
 from unittest.mock import MagicMock
 
-from api.services.export_formats import trigs_to_gpx
+from api.services.export_formats import trigs_to_gpx, trigs_to_kmz
 
 
 def _make_mock_trig(
@@ -153,3 +155,64 @@ class TestTrigsToGpx:
 
         assert "Log Date: 2024-01-15" in result
         assert "My Condition: G" in result
+
+
+class TestTrigsToKmz:
+    def test_kmz_is_zip_with_doc_kml(self):
+        trig = _make_mock_trig(id=7177, waypoint="TP7177", name="Cat and Fiddle")
+        kmz = trigs_to_kmz([trig], status_names={1: "Pillar"})
+
+        with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
+            assert "doc.kml" in zf.namelist()
+            kml = zf.read("doc.kml").decode("utf-8")
+            assert "<name>Trigpoints of the UK</name>" in kml
+
+    def test_kmz_embeds_icons_and_references_stylemap(self):
+        trig = _make_mock_trig(id=1, physical_type="Pillar", condition="G")
+        kmz = trigs_to_kmz([trig], status_names={1: "Pillar"})
+
+        with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
+            names = set(zf.namelist())
+            assert "icons/mapicon_pillar_green.png" in names
+            assert "icons/mapicon_pillar_green_h.png" in names
+            kml = zf.read("doc.kml").decode("utf-8")
+            assert "#sm_pillar_green" in kml
+            assert "icons/mapicon_pillar_green.png" in kml
+            assert "icons/mapicon_pillar_green_h.png" in kml
+
+    def test_kmz_colour_mapping_mylog_vs_condition(self):
+        trig = _make_mock_trig(id=1, physical_type="Pillar", condition="P")
+
+        # Condition mode: P => grey
+        kmz = trigs_to_kmz([trig], status_names={1: "Pillar"}, user_logs=None)
+        with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
+            kml = zf.read("doc.kml").decode("utf-8")
+            assert "#sm_pillar_grey" in kml
+
+        # My log mode: logged P => red
+        kmz2 = trigs_to_kmz(
+            [trig],
+            status_names={1: "Pillar"},
+            user_logs={1: {"date": "2024-01-01", "condition": "P"}},
+        )
+        with zipfile.ZipFile(io.BytesIO(kmz2)) as zf:
+            kml2 = zf.read("doc.kml").decode("utf-8")
+            assert "#sm_pillar_red" in kml2
+
+    def test_kmz_blank_logged_condition_is_green(self):
+        trig = _make_mock_trig(id=1, physical_type="Pillar", condition="U")
+        kmz = trigs_to_kmz(
+            [trig],
+            status_names={1: "Pillar"},
+            user_logs={1: {"date": "2024-01-01", "condition": ""}},
+        )
+        with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
+            kml = zf.read("doc.kml").decode("utf-8")
+            assert "#sm_pillar_green" in kml
+
+    def test_kmz_bolt_is_passive_icon_family(self):
+        trig = _make_mock_trig(id=1, physical_type="Bolt", condition="G")
+        kmz = trigs_to_kmz([trig], status_names={1: "Minor mark"})
+        with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
+            names = set(zf.namelist())
+            assert "icons/mapicon_passive_green.png" in names

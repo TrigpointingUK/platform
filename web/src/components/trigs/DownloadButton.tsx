@@ -22,7 +22,7 @@ interface DownloadButtonProps {
   className?: string;
 }
 
-type DownloadFormat = "csv" | "geojson" | "kml" | "gpx";
+type DownloadFormat = "csv" | "geojson" | "kml" | "kmz" | "gpx";
 
 interface FormatOption {
   value: DownloadFormat;
@@ -34,6 +34,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
   { value: "csv", label: "CSV", description: "Spreadsheet format" },
   { value: "geojson", label: "GeoJSON", description: "For mapping applications" },
   { value: "kml", label: "KML", description: "Google Earth format" },
+  { value: "kmz", label: "KMZ", description: "Google Earth / My Maps (recommended)" },
   { value: "gpx", label: "GPX", description: "GPS device format" },
 ];
 
