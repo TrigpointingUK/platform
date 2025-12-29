@@ -5,14 +5,11 @@ This endpoint authenticates users against the legacy database and synchronises
 their credentials and email with Auth0.
 """
 
-try:
-    import crypt
-except ModuleNotFoundError:
-    import crypt_r as crypt  # Python 3.13+ replacement
 import uuid
 from datetime import date, time
 from unittest.mock import MagicMock, patch
 
+import crypt_r as crypt  # Drop-in replacement for removed crypt module
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
