@@ -2,7 +2,10 @@
 CRUD operations for users with Unix crypt authentication.
 """
 
-import crypt as unix_crypt
+try:
+    import crypt as unix_crypt
+except ModuleNotFoundError:
+    import crypt_r as unix_crypt  # Python 3.13+ replacement
 import secrets
 from datetime import datetime
 from typing import Any, Dict, List, Optional

@@ -5,7 +5,10 @@ This endpoint authenticates users against the legacy database and synchronises
 their credentials and email with Auth0.
 """
 
-import crypt
+try:
+    import crypt
+except ModuleNotFoundError:
+    import crypt_r as crypt  # Python 3.13+ replacement
 import uuid
 from datetime import date, time
 from unittest.mock import MagicMock, patch

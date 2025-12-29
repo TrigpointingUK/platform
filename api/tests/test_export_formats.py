@@ -165,7 +165,7 @@ class TestTrigsToKmz:
         with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
             assert "doc.kml" in zf.namelist()
             kml = zf.read("doc.kml").decode("utf-8")
-            assert "<name>Trigpoints of the UK</name>" in kml
+            assert "<name>TrigpointingUK</name>" in kml
 
     def test_kmz_embeds_icons_and_references_stylemap(self):
         trig = _make_mock_trig(id=1, physical_type="Pillar", condition="G")
