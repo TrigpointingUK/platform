@@ -4,5 +4,5 @@
 pre-commit==4.5.1
 bandit==1.9.2
 pip-audit==2.10.0
-diff-cover==10.0.0
+diff-cover==10.1.0
 pip-licenses==5.5.0
