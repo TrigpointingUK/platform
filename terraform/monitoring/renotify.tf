@@ -45,7 +45,7 @@ resource "aws_lambda_function" "renotify" {
   function_name = "${var.project_name}-${var.environment}-renotify"
   role          = aws_iam_role.renotify_role[0].arn
   handler       = "renotify.handler"
-  runtime       = "nodejs20.x"
+  runtime       = "nodejs22.x"
   filename      = data.archive_file.renotify_zip[0].output_path
   environment {
     variables = {
