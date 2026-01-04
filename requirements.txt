@@ -40,7 +40,7 @@ onnxruntime==1.23.2
 pyproj==3.7.2
 
 # Profiling
-pyinstrument==5.1.1
+pyinstrument==5.1.2
 pyroscope-io==0.8.14
 
 # OpenTelemetry - Distributed tracing and metrics
