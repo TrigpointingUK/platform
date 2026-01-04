@@ -37,7 +37,7 @@
     "proj4leaflet": "^1.0.2",
     "react": "^19.2.1",
     "react-day-picker": "^9.13.0",
-    "react-dom": "^19.2.1",
+    "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",
     "react-intersection-observer": "^10.0.0",
     "react-leaflet": "^5.0.0",
