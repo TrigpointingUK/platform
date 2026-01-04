@@ -345,6 +345,7 @@ export default function Logs() {
   const logRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const mapOverlayRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const [mapRightOffset, setMapRightOffset] = useState<number>(8);
   const [mapLeftOffset, setMapLeftOffset] = useState<number | null>(null);
 
@@ -407,8 +408,13 @@ export default function Logs() {
     const handleScroll = () => {
       if (allLogs.length === 0) return;
 
-      const mapBottom =
-        mapOverlayRef.current?.getBoundingClientRect().bottom ?? 0;
+      // Calculate visibility threshold as the maximum of map midpoint and filter panel bottom
+      // Using map midpoint (not bottom) allows a little overlap with the map
+      const mapRect = mapOverlayRef.current?.getBoundingClientRect();
+      const mapMidpoint = mapRect ? mapRect.top + mapRect.height / 2 : 0;
+      const filterPanelBottom =
+        filterPanelRef.current?.getBoundingClientRect().bottom ?? 0;
+      const visibilityThreshold = Math.max(mapMidpoint, filterPanelBottom);
 
       let firstBelowIndex: number | null = null;
       for (let i = 0; i < allLogs.length; i += 1) {
@@ -417,7 +423,7 @@ export default function Logs() {
           continue;
         }
         const rect = element.getBoundingClientRect();
-        if (rect.top >= mapBottom) {
+        if (rect.top >= visibilityThreshold) {
           firstBelowIndex = i;
           break;
         }
@@ -425,7 +431,7 @@ export default function Logs() {
 
       const targetIndex =
         firstBelowIndex !== null
-          ? Math.max(0, firstBelowIndex - 1)
+          ? firstBelowIndex
           : allLogs.length > 0
             ? allLogs.length - 1
             : null;
@@ -463,7 +469,7 @@ export default function Logs() {
         window.cancelAnimationFrame(timeoutId);
       }
     };
-  }, [allLogs.length, allLogs, centerLogIndex, selectedFeaturedLog]);
+  }, [allLogs.length, allLogs, centerLogIndex, selectedFeaturedLog, isFilterCollapsed]);
 
   // Derive effective featured log: user selection or default to first log
   const featuredLog =
@@ -517,7 +523,10 @@ export default function Logs() {
         </div>
 
         {/* Filter Panel */}
-        <div className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40">
+        <div
+          ref={filterPanelRef}
+          className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40"
+        >
           {/* Toggle button and results summary when collapsed */}
           <div
             className={`flex items-center gap-3 ${isFilterCollapsed ? "" : "mb-2"}`}
