@@ -200,6 +200,10 @@ wfLoadSkin( 'Timeless' );
 wfLoadSkin( 'Vector' );
 $wgDefaultSkin = "Vector";
 
+# -- Mobile Frontend --
+wfLoadExtension( 'MobileFrontend' );
+$wgMFDefaultSkinClass = 'SkinMinerva';  // Use MinervaNeue for mobile devices
+
 
 # Custom Namespace for Book
 define("NS_BOOK", 3036);

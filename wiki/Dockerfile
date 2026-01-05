@@ -17,6 +17,7 @@ RUN set -eux; \
   git clone -b REL1_43 https://gerrit.wikimedia.org/r/mediawiki/extensions/PluggableAuth; \
   git clone -b REL1_43 https://gerrit.wikimedia.org/r/mediawiki/extensions/OpenIDConnect; \
   git clone -b REL1_43 https://gerrit.wikimedia.org/r/mediawiki/extensions/ChangeAuthor; \
+  git clone -b REL1_43 https://gerrit.wikimedia.org/r/mediawiki/extensions/MobileFrontend; \
   git clone https://github.com/edwardspec/mediawiki-aws-s3 AWS
 
 # Install composer and update dependencies for OIDC/AWS extensions
