@@ -14,6 +14,8 @@ interface Log {
   trig_lat?: number | null;
   trig_lon?: number | null;
   trig_condition?: string | null;
+  trig_status_name?: string | null;
+  trig_physical_type?: string | null;
   date: string;
   time: string;
   condition: string;
@@ -60,6 +62,35 @@ function getConditionInfo(code: string): { icon: string; label: string } {
     "-": { icon: "c_nolog.png", label: "Not Visited" },
   };
   return conditions[code] || { icon: "c_unknown.png", label: code };
+}
+
+// Helper to get status icon info
+function getStatusInfo(statusName?: string | null): { icon?: string; abbrev: string } {
+  const statusMap: Record<string, { icon: string; abbrev: string }> = {
+    Pillar: { icon: "/icons/t_pillar.png", abbrev: "P" },
+    "Major mark": { icon: "/icons/t_fbm.png", abbrev: "MM" },
+    "Minor mark": { icon: "/icons/t_passive.png", abbrev: "m" },
+    Intersected: { icon: "/icons/t_intersected.png", abbrev: "I" },
+    "User Added": { icon: "/icons/t_user_added.svg", abbrev: "UA" },
+    Controversial: { icon: "/icons/t_controversial.svg", abbrev: "C" },
+  };
+  
+  const normalizedStatusName = statusName?.trim();
+  
+  if (normalizedStatusName && statusMap[normalizedStatusName]) {
+    return statusMap[normalizedStatusName];
+  }
+  
+  // Fallback check for case-insensitive match
+  if (normalizedStatusName) {
+    const lowerName = normalizedStatusName.toLowerCase();
+    const match = Object.keys(statusMap).find(key => key.toLowerCase() === lowerName);
+    if (match) {
+      return statusMap[match];
+    }
+  }
+  
+  return { abbrev: "?" };
 }
 
 export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false }: LogCardProps) {
@@ -158,6 +189,15 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
               className="inline-flex items-center gap-1.5 text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Status icon (type) - always shown */}
+              {log.trig_status_name && getStatusInfo(log.trig_status_name).icon && (
+                <img
+                  src={getStatusInfo(log.trig_status_name).icon}
+                  alt={getStatusInfo(log.trig_status_name).abbrev}
+                  title={log.trig_status_name}
+                  className="w-6 h-6 object-contain"
+                />
+              )}
               {/* Trig condition icon (square) - only shown when enabled */}
               {showTrigCondition && log.trig_condition && (
                 <img
@@ -172,6 +212,12 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                 <>
                   <span className="text-gray-400 mx-2">·</span>
                   <span className="font-normal text-gray-700">{displayTrigName}</span>
+                </>
+              )}
+              {log.trig_physical_type && (
+                <>
+                  <span className="text-gray-400 mx-1">·</span>
+                  <span className="font-normal text-gray-500 text-sm">{log.trig_physical_type}</span>
                 </>
               )}
             </Link>
