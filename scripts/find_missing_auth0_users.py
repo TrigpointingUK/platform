@@ -117,7 +117,7 @@ def get_all_users_with_auth0_id(db: Session) -> List[Dict]:
     return users
 
 
-def load_auth0_export(file_path: Path) -> Tuple[Set[str], Dict[str, str]]:
+def load_auth0_export(file_path: Path) -> Tuple[Set[str], Dict[str, Dict]]:
     """
     Load Auth0 users from a gzip-compressed JSON lines file.
 
@@ -125,10 +125,10 @@ def load_auth0_export(file_path: Path) -> Tuple[Set[str], Dict[str, str]]:
     and a "Name" field containing the user's name.
 
     Returns:
-        Tuple of (set of auth0 user IDs, dict mapping auth0_id to name)
+        Tuple of (set of auth0 user IDs, dict mapping auth0_id to user info dict)
     """
     auth0_ids: Set[str] = set()
-    auth0_users: Dict[str, str] = {}  # id -> name
+    auth0_users: Dict[str, Dict] = {}  # id -> {name, legacy_user_id}
     line_count = 0
     error_count = 0
 
@@ -149,7 +149,11 @@ def load_auth0_export(file_path: Path) -> Tuple[Set[str], Dict[str, str]]:
                 auth0_id = record.get("Id")
                 if auth0_id:
                     auth0_ids.add(auth0_id)
-                    auth0_users[auth0_id] = record.get("Name", "(unknown)")
+                    app_metadata = record.get("AppMetadata", {}) or {}
+                    auth0_users[auth0_id] = {
+                        "name": record.get("Name", "(unknown)"),
+                        "legacy_user_id": app_metadata.get("legacy_user_id"),
+                    }
             except json.JSONDecodeError as e:
                 error_count += 1
                 if error_count <= 5:
@@ -182,7 +186,7 @@ def find_missing_from_auth0(db_users: List[Dict], auth0_ids: Set[str]) -> List[D
 
 def find_missing_from_database(
     auth0_ids: Set[str],
-    auth0_users: Dict[str, str],
+    auth0_users: Dict[str, Dict],
     db_auth0_ids: Set[str],
 ) -> List[Dict]:
     """
@@ -190,7 +194,7 @@ def find_missing_from_database(
 
     Args:
         auth0_ids: Set of auth0 user IDs from the export file
-        auth0_users: Dict mapping auth0_id to name
+        auth0_users: Dict mapping auth0_id to user info dict
         db_auth0_ids: Set of auth0 user IDs from the database
 
     Returns:
@@ -199,9 +203,11 @@ def find_missing_from_database(
     missing = []
     for auth0_id in auth0_ids:
         if auth0_id not in db_auth0_ids:
+            user_info = auth0_users.get(auth0_id, {})
             missing.append({
-                "name": auth0_users.get(auth0_id, "(unknown)"),
+                "name": user_info.get("name", "(unknown)") if isinstance(user_info, dict) else "(unknown)",
                 "auth0_user_id": auth0_id,
+                "legacy_user_id": user_info.get("legacy_user_id") if isinstance(user_info, dict) else None,
             })
     # Sort by auth0_user_id for consistent output
     missing.sort(key=lambda x: x["auth0_user_id"])
@@ -319,7 +325,9 @@ def main():
             print("Users in AUTH0 but MISSING from database:")
             print("-" * 40)
             for user in missing_from_db:
-                print(f"  - {user['name']}: {user['auth0_user_id']}")
+                legacy_id = user.get('legacy_user_id')
+                legacy_str = f" (legacy_user_id: {legacy_id})" if legacy_id else ""
+                print(f"  - {user['name']}: {user['auth0_user_id']}{legacy_str}")
 
         if not missing_from_auth0 and not missing_from_db:
             print("\n✓ All users match between database and Auth0 export")
