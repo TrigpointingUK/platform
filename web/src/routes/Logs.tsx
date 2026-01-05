@@ -36,6 +36,62 @@ function parseLocalDate(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
+/**
+ * Check if a logged condition significantly disagrees with a curated condition.
+ * Matching rules (non-transitive):
+ * - G and S match (but G and D do not)
+ * - D and S match (but D and G do not)
+ * - Q and N match
+ * - Logged conditions of N, P, U, Z are always ignored
+ * - Logged condition V is ignored unless curated is Q, N, X, or U
+ * - Returns true if conditions disagree significantly
+ */
+function conditionsDisagree(
+  loggedCondition: string,
+  curatedCondition: string | null | undefined
+): boolean {
+  // Skip logs with N, P, U, Z logged conditions (no definite condition to compare)
+  const alwaysIgnoredConditions = ["N", "P", "U", "Z"];
+  if (alwaysIgnoredConditions.includes(loggedCondition)) {
+    return false;
+  }
+
+  // Logged V is only shown if curated is Q, N, X, or U
+  if (loggedCondition === "V") {
+    const showVForCurated = ["Q", "N", "X", "U"];
+    if (!curatedCondition || !showVForCurated.includes(curatedCondition)) {
+      return false;
+    }
+  }
+
+  // If there's no curated condition, we can't compare
+  if (!curatedCondition) {
+    return false;
+  }
+
+  // Check if conditions match (non-transitive relationships)
+  const conditionsMatch = (cond1: string, cond2: string): boolean => {
+    // Same condition always matches
+    if (cond1 === cond2) return true;
+
+    // G and S match
+    if ((cond1 === "G" && cond2 === "S") || (cond1 === "S" && cond2 === "G"))
+      return true;
+
+    // D and S match (but D and G do not)
+    if ((cond1 === "D" && cond2 === "S") || (cond1 === "S" && cond2 === "D"))
+      return true;
+
+    // Q and N match
+    if ((cond1 === "Q" && cond2 === "N") || (cond1 === "N" && cond2 === "Q"))
+      return true;
+
+    return false;
+  };
+
+  return !conditionsMatch(loggedCondition, curatedCondition);
+}
+
 export default function Logs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
@@ -132,17 +188,32 @@ export default function Logs() {
   // Display option: show curated trig condition icon (from user prefs, defaults to off)
   const [showTrigCondition, setShowTrigCondition] = useState<boolean>(false);
 
+  // Filter option: show only logs where logged condition disagrees with curated condition
+  const [showOnlyDisagreements, setShowOnlyDisagreements] = useState<boolean>(
+    () => searchParams.get("disagreements") === "true"
+  );
+
   // Initialize showTrigCondition from user preference when profile loads (once)
+  // But if showOnlyDisagreements is already enabled (from URL), keep showTrigCondition on
   useEffect(() => {
     if (
       userProfile?.prefs?.ui_prefs?.show_trig_condition !== undefined &&
       !showTrigConditionInitializedRef.current
     ) {
       showTrigConditionInitializedRef.current = true;
+      // If disagreements filter is active, always show curated condition
+      const shouldShow = showOnlyDisagreements || userProfile.prefs.ui_prefs.show_trig_condition;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
-      setShowTrigCondition(userProfile.prefs.ui_prefs.show_trig_condition);
+      setShowTrigCondition(shouldShow);
     }
-  }, [userProfile?.prefs?.ui_prefs?.show_trig_condition]);
+  }, [userProfile?.prefs?.ui_prefs?.show_trig_condition, showOnlyDisagreements]);
+
+  // Ensure showTrigCondition is enabled when showOnlyDisagreements is loaded from URL
+  useEffect(() => {
+    if (showOnlyDisagreements && !showTrigCondition) {
+      setShowTrigCondition(true);
+    }
+  }, []); // Only run once on mount
 
   // Fetch areas containing the current location
   const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(
@@ -159,7 +230,8 @@ export default function Logs() {
     selectedAreaId !== null ||
     !showLogged ||
     !showNotLogged ||
-    dateRange !== undefined;
+    dateRange !== undefined ||
+    showOnlyDisagreements;
 
   // Update URL when filters change
   useEffect(() => {
@@ -209,6 +281,11 @@ export default function Logs() {
       params.set("toDate", formatLocalDate(dateRange.to));
     }
 
+    // Condition disagreements filter
+    if (showOnlyDisagreements) {
+      params.set("disagreements", "true");
+    }
+
     // Note: showTrigCondition is stored in user prefs, not URL
 
     setSearchParams(params, { replace: true });
@@ -224,6 +301,7 @@ export default function Logs() {
     showLogged,
     showNotLogged,
     dateRange,
+    showOnlyDisagreements,
     setSearchParams,
   ]);
 
@@ -305,6 +383,7 @@ export default function Logs() {
     setShowLogged(true);
     setShowNotLogged(true);
     setDateRange(undefined);
+    setShowOnlyDisagreements(false);
     // Note: showTrigCondition is a user pref, not a filter - don't reset it
     // Note: We intentionally do NOT clear userId, as that's a context rather than a filter
   }, []);
@@ -314,6 +393,11 @@ export default function Logs() {
     async (checked: boolean) => {
       // Update local state immediately for responsiveness
       setShowTrigCondition(checked);
+
+      // If turning off curated condition display, also turn off disagreements filter
+      if (!checked) {
+        setShowOnlyDisagreements(false);
+      }
 
       // Save to user prefs if authenticated
       if (isAuthenticated) {
@@ -385,10 +469,16 @@ export default function Logs() {
   });
 
   // Flatten all pages into a single array (memoized to prevent re-creation on every render)
-  const allLogs = useMemo<Log[]>(
-    () => data?.pages.flatMap((page) => page.items) || [],
-    [data?.pages]
-  );
+  // Also apply client-side filtering for condition disagreements
+  const allLogs = useMemo<Log[]>(() => {
+    const logs = data?.pages.flatMap((page) => page.items) || [];
+    if (!showOnlyDisagreements) {
+      return logs;
+    }
+    return logs.filter((log) =>
+      conditionsDisagree(log.condition, log.trig_condition)
+    );
+  }, [data?.pages, showOnlyDisagreements]);
 
   const totalCount = data?.pages[0]?.pagination.total || 0;
 
@@ -706,20 +796,45 @@ export default function Logs() {
             </div>
 
             {/* Display options */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="showTrigCondition"
-                checked={showTrigCondition}
-                onChange={(e) => handleToggleShowTrigCondition(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
-              />
-              <label
-                htmlFor="showTrigCondition"
-                className="text-sm text-gray-700 select-none cursor-pointer"
-              >
-                Show curated trigpoint condition
-              </label>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="showTrigCondition"
+                  checked={showTrigCondition}
+                  onChange={(e) => handleToggleShowTrigCondition(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+                />
+                <label
+                  htmlFor="showTrigCondition"
+                  className="text-sm text-gray-700 select-none cursor-pointer"
+                >
+                  Show curated trigpoint condition
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="showOnlyDisagreements"
+                  checked={showOnlyDisagreements}
+                  onChange={(e) => {
+                    setShowOnlyDisagreements(e.target.checked);
+                    // Also enable showing curated condition when filtering by disagreements
+                    if (e.target.checked && !showTrigCondition) {
+                      handleToggleShowTrigCondition(true);
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+                />
+                <label
+                  htmlFor="showOnlyDisagreements"
+                  className="text-sm text-gray-700 select-none cursor-pointer"
+                  title="Compare logged condition with curated condition. Treats G/S as matching, Q/N as matching. Ignores logs with P, U, or Z conditions."
+                >
+                  Show only condition disagreements
+                </label>
+              </div>
             </div>
 
             {/* Results count and clear filters */}

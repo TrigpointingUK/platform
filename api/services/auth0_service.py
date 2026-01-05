@@ -922,6 +922,10 @@ class Auth0Service:
                 "database_user_id": user_id,
                 "original_username": username,
                 "legacy_sync": datetime.now(timezone.utc).isoformat() + "Z",
+                "manual_migration": {
+                    "trigger": "admin",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                },
             },
         }
 
@@ -1359,6 +1363,10 @@ class Auth0Service:
                 "legacy_user_id": legacy_user_id,
                 "original_username": original_username,
                 "migration_timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                "manual_migration": {
+                    "trigger": "admin",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                },
             },
         }
 
