@@ -24,6 +24,8 @@ import {
   getPreferredTileLayer,
   MAP_CONFIG,
   DEFAULT_TILE_LAYER,
+  getTileLayer,
+  calculateProjectionZoom,
 } from "../lib/mapConfig";
 import {
   getPreferredIconColorMode,
@@ -197,6 +199,9 @@ export default function Map() {
     // Fall back to trig-specific zoom or default
     return searchParams.get("trig") ? 14 : MAP_CONFIG.defaultZoom;
   }, [searchParams]);
+  
+  // Active zoom for BaseMap - starts with initial zoom, updated when projection changes
+  const [activeZoom, setActiveZoom] = useState<number>(initialZoom);
   
   // Fetch trigpoints for current viewport
   // Note: physical_types filter NOT applied in API - we filter client-side
@@ -462,12 +467,35 @@ export default function Map() {
     });
   }, []);
   
+  // Handle tileset changes with zoom adjustment for projection switches
+  const handleTilesetChange = useCallback((newTileLayerId: string) => {
+    const currentLayer = getTileLayer(tileLayerId);
+    const newLayer = getTileLayer(newTileLayerId);
+    
+    const currentCrs = currentLayer.crs || 'EPSG:3857';
+    const newCrs = newLayer.crs || 'EPSG:3857';
+    
+    // Calculate adjusted zoom if projection is changing
+    if (currentCrs !== newCrs) {
+      const adjustedZoom = calculateProjectionZoom(
+        currentZoom,
+        currentCrs,
+        newCrs,
+        newLayer
+      );
+      setActiveZoom(adjustedZoom);
+    }
+    
+    setTileLayerId(newTileLayerId);
+  }, [tileLayerId, currentZoom]);
+  
   const handleClearFilters = useCallback(() => {
     setSelectedStatuses([...preferredStatuses]);
     setSelectedColors(() => [...ALL_ICON_COLORS]);
     setExcludeFound(false);
     setRenderMode('auto');
     setTileLayerId(DEFAULT_TILE_LAYER);
+    setActiveZoom(MAP_CONFIG.defaultZoom);
     
     // Clear area_id from URL if present
     if (searchParams.has("area_id")) {
@@ -542,7 +570,7 @@ export default function Map() {
             <div className="mb-4">
               <TilesetSelector
                 value={tileLayerId}
-                onChange={setTileLayerId}
+                onChange={handleTilesetChange}
               />
             </div>
             
@@ -688,7 +716,7 @@ export default function Map() {
         <div className="flex-1 relative">
           <BaseMap
             center={initialCenter}
-            zoom={initialZoom}
+            zoom={activeZoom}
             height="100%"
             tileLayerId={tileLayerId}
             onMapReady={setMapInstance}
