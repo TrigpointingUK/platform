@@ -194,9 +194,9 @@ wfLoadExtension( 'WikiEditor' );
 
 
 # -- Styles --
-// wfLoadSkin( 'MinervaNeue' );
 // wfLoadSkin( 'MonoBook' );
-// wfLoadSkin( 'Timeless' );
+wfLoadSkin( 'MinervaNeue' );
+wfLoadSkin( 'Timeless' );
 wfLoadSkin( 'Vector' );
 $wgDefaultSkin = "Vector";
 
