@@ -487,7 +487,9 @@ class RekognitionService:
                 for y in range(height):
                     for x in range(width):
                         pixel = pixels[x, y]
-                        r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
+                        # RGB image always returns tuple; assert for type checker
+                        assert isinstance(pixel, tuple)
+                        r, g, b = pixel[0], pixel[1], pixel[2]
                         # Sky heuristic: strong blue channel and not too dark
                         if b > 130 and b > r + 25 and b > g + 25:
                             if y < height // 2:
