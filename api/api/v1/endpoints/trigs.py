@@ -811,7 +811,6 @@ def list_trigs(
     - only_found: Include only trigpoints the user has logged (requires authentication)
     - area_id: Filter to trigpoints within a specific geographic area
 
-    If authenticated, applies user's status_max preference to limit visible trigs.
     Always excludes soft-deleted records (status >= 90).
     """
     # Record trig search metric
@@ -833,14 +832,6 @@ def list_trigs(
         status_ids_list = [
             int(sid.strip()) for sid in status_ids.split(",") if sid.strip()
         ]
-
-    # Apply user's status_max preference if authenticated
-    max_status = None
-    if current_user and hasattr(current_user, "status_max") and current_user.status_max:
-        max_status = int(current_user.status_max)
-    else:
-        # Default for unauthenticated users
-        max_status = 30
 
     # Get user ID for exclude_found filter
     exclude_found_by_user_id = None
@@ -864,7 +855,6 @@ def list_trigs(
         order=order,
         physical_types=physical_types_list,
         status_ids=status_ids_list,
-        max_status=max_status,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status >= 90
@@ -879,7 +869,6 @@ def list_trigs(
         max_km=max_km,
         physical_types=physical_types_list,
         status_ids=status_ids_list,
-        max_status=max_status,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status >= 90
