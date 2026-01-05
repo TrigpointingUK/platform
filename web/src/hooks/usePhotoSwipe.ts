@@ -82,6 +82,10 @@ function createMetadataOverlay(photo: Photo): string {
 
 export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotated }: PhotoSwipeOptions) {
   const pswpRef = useRef<PhotoSwipe | null>(null);
+  // Track if close was user-initiated to prevent double navigation
+  // When user closes PhotoSwipe, we navigate(-1) which unmounts the component.
+  // The cleanup would then call pswp.close() again, triggering another navigate(-1).
+  const isClosingRef = useRef(false);
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   useEffect(() => {
@@ -338,9 +342,17 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
       document.addEventListener('keydown', handleKeyDown);
     });
 
-    // Handle close event
+    // Handle close event (fires when close animation STARTS)
+    // We just mark that we're closing and clean up keyboard listener
     pswp.on('close', () => {
       document.removeEventListener('keydown', handleKeyDown);
+      // Mark that we're closing to prevent double navigation in cleanup
+      isClosingRef.current = true;
+    });
+
+    // Handle destroy event (fires when close animation COMPLETES and DOM is removed)
+    // This is when we navigate, ensuring PhotoSwipe is fully gone first
+    pswp.on('destroy', () => {
       if (onClose) {
         onClose();
       }
@@ -349,11 +361,16 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
     // Open PhotoSwipe
     pswp.init();
 
-    // Cleanup on unmount
+    // Cleanup on unmount (e.g., browser back button pressed before PhotoSwipe closes)
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       if (pswpRef.current) {
-        pswpRef.current.close();
+        // If we're not already in the process of closing (user clicked X),
+        // we need to destroy PhotoSwipe immediately (e.g., browser back button).
+        // Use destroy() instead of close() to immediately remove DOM without animation.
+        if (!isClosingRef.current) {
+          pswpRef.current.destroy();
+        }
         pswpRef.current = null;
       }
     };

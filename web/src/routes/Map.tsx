@@ -65,15 +65,17 @@ const USER_LOG_ICON_COLORS: IconColor[] = ["green", "yellow", "red"];
  */
 function MapViewportTracker({ 
   onBoundsChange,
-  onZoomChange 
+  onZoomChange,
+  onCenterChange,
 }: { 
   onBoundsChange: (bounds: MapBounds) => void;
   onZoomChange: (zoom: number) => void;
+  onCenterChange: (lat: number, lon: number) => void;
 }) {
   const map = useMap();
   
   useEffect(() => {
-    const updateBounds = () => {
+    const updateViewport = () => {
       const bounds = map.getBounds();
       onBoundsChange({
         north: bounds.getNorth(),
@@ -82,20 +84,22 @@ function MapViewportTracker({
         west: bounds.getWest(),
       });
       onZoomChange(map.getZoom());
+      const center = map.getCenter();
+      onCenterChange(center.lat, center.lng);
     };
     
-    // Initial bounds
-    updateBounds();
+    // Initial viewport
+    updateViewport();
     
     // Listen to map movements
-    map.on('moveend', updateBounds);
-    map.on('zoomend', updateBounds);
+    map.on('moveend', updateViewport);
+    map.on('zoomend', updateViewport);
     
     return () => {
-      map.off('moveend', updateBounds);
-      map.off('zoomend', updateBounds);
+      map.off('moveend', updateViewport);
+      map.off('zoomend', updateViewport);
     };
-  }, [map, onBoundsChange, onZoomChange]);
+  }, [map, onBoundsChange, onZoomChange, onCenterChange]);
   
   return null;
 }
@@ -156,6 +160,8 @@ export default function Map() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [renderMode, setRenderMode] = useState<'auto' | 'markers' | 'heatmap'>('auto');
   const [currentZoom, setCurrentZoom] = useState<number>(MAP_CONFIG.defaultZoom);
+  // Track current center for URL persistence
+  const [currentCenter, setCurrentCenter] = useState<{ lat: number; lon: number } | null>(null);
   const maxTrigpoints = 50000; // Always load all trigpoints
   
   // Track if we've initialized statuses from user preferences (use ref to avoid triggering re-renders)
@@ -183,6 +189,12 @@ export default function Map() {
   }, [searchParams]);
   
   const initialZoom = useMemo(() => {
+    // Check for zoom in URL params first
+    const zoomParam = parseFloat(searchParams.get("zoom") || "");
+    if (!isNaN(zoomParam) && zoomParam > 0) {
+      return zoomParam;
+    }
+    // Fall back to trig-specific zoom or default
     return searchParams.get("trig") ? 14 : MAP_CONFIG.defaultZoom;
   }, [searchParams]);
   
@@ -391,7 +403,8 @@ export default function Map() {
     setSelectedColors(newColors);
   }, [iconColorMode]);
   
-  // Update URL params when filters change (preserve area_id if present)
+  // Update URL params when filters or viewport change (preserve area_id if present)
+  // Using replace: true to avoid polluting browser history with every pan/zoom
   useEffect(() => {
     const params = new URLSearchParams();
     
@@ -408,12 +421,25 @@ export default function Map() {
       params.set("excludeFound", "true");
     }
     
+    // Persist viewport state (lat, lon, zoom) for back navigation
+    // Only update if we have actual viewport data (not initial render)
+    if (currentCenter && currentZoom) {
+      params.set("lat", currentCenter.lat.toFixed(5));
+      params.set("lon", currentCenter.lon.toFixed(5));
+      params.set("zoom", currentZoom.toFixed(1));
+    }
+    
     setSearchParams(params, { replace: true });
-  }, [selectedStatuses, excludeFound, areaId, setSearchParams]);
+  }, [selectedStatuses, excludeFound, areaId, currentCenter, currentZoom, setSearchParams]);
   
   // Handle bounds change with debouncing
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
     setMapBounds(bounds);
+  }, []);
+  
+  // Handle center change for URL persistence
+  const handleCenterChange = useCallback((lat: number, lon: number) => {
+    setCurrentCenter({ lat, lon });
   }, []);
   
   const handleToggleStatus = useCallback((statusId: number) => {
@@ -670,6 +696,7 @@ export default function Map() {
             <MapViewportTracker 
               onBoundsChange={handleBoundsChange}
               onZoomChange={setCurrentZoom}
+              onCenterChange={handleCenterChange}
             />
             <MapSizeInvalidator sidebarOpen={isSidebarOpen} />
             
