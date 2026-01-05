@@ -473,18 +473,21 @@ class RekognitionService:
         """
         try:
             with Image.open(io.BytesIO(image_bytes)) as img:
-                img = img.convert("RGB")
+                rgb_img = img.convert("RGB")
                 # Downscale to reduce cost
-                img.thumbnail((64, 64))
-                width, height = img.size
+                rgb_img.thumbnail((64, 64))
+                width, height = rgb_img.size
                 if width == 0 or height == 0:
                     return None
-                pixels = img.load()
+                pixels = rgb_img.load()
+                if pixels is None:
+                    return None
                 top = bottom = left = right = 0
 
                 for y in range(height):
                     for x in range(width):
-                        r, g, b = pixels[x, y]
+                        pixel = pixels[x, y]
+                        r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
                         # Sky heuristic: strong blue channel and not too dark
                         if b > 130 and b > r + 25 and b > g + 25:
                             if y < height // 2:

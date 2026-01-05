@@ -39,12 +39,12 @@ class ImageProcessor:
             # Open image and apply EXIF orientation
             with Image.open(io.BytesIO(image_bytes)) as img:
                 # Apply EXIF orientation
-                img = ImageOps.exif_transpose(img)
-                if img is None:
+                transposed = ImageOps.exif_transpose(img)
+                if transposed is None:
                     return None, None, None, None
 
                 # Get original dimensions
-                original_width, original_height = img.size
+                original_width, original_height = transposed.size
 
                 # Calculate new dimensions for main image (max 4000x4000, preserve aspect ratio)
                 image_dimensions = self._calculate_dimensions(
@@ -53,15 +53,19 @@ class ImageProcessor:
 
                 # Resize main image
                 if image_dimensions != (original_width, original_height):
-                    img = img.resize(image_dimensions, Image.Resampling.LANCZOS)
+                    processed = transposed.resize(
+                        image_dimensions, Image.Resampling.LANCZOS
+                    )
+                else:
+                    processed = transposed
 
                 # Convert to RGB if necessary (strip EXIF and ensure compatibility)
-                if img.mode != "RGB":
-                    img = img.convert("RGB")
+                if processed.mode != "RGB":
+                    processed = processed.convert("RGB")
 
                 # Save processed image
                 output = io.BytesIO()
-                img.save(output, format="JPEG", quality=95, optimize=True)
+                processed.save(output, format="JPEG", quality=95, optimize=True)
                 processed_image_bytes = output.getvalue()
 
                 # Calculate thumbnail dimensions (max 120x120, preserve aspect ratio)
@@ -71,11 +75,11 @@ class ImageProcessor:
 
                 # Create thumbnail
                 if thumbnail_dimensions != (original_width, original_height):
-                    thumbnail = img.resize(
+                    thumbnail = processed.resize(
                         thumbnail_dimensions, Image.Resampling.LANCZOS
                     )
                 else:
-                    thumbnail = img.copy()
+                    thumbnail = processed.copy()
 
                 # Save thumbnail
                 thumbnail_output = io.BytesIO()
