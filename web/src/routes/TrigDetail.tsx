@@ -15,11 +15,12 @@ import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useTrigLogs } from "../hooks/useTrigLogs";
 import { useUserTrigLogs } from "../hooks/useUserTrigLogs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { useUserProfile } from "../hooks/useUserProfile";
+import { useUserProfile, type MapLinkOption } from "../hooks/useUserProfile";
 import { useCreateLog } from "../hooks/useCreateLog";
 import { useAreasContaining, type Area } from "../hooks/useAreasContaining";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
+import { generateMapUrl, getTrigpointingUKMapPath, isInternalMapLink, MAP_LINK_DEFAULTS } from "../lib/mapLinks";
 
 const conditionMap: Record<
   string,
@@ -77,6 +78,11 @@ export default function TrigDetail() {
   // Get current user's UI preferences
   const { data: userProfile } = useUserProfile("me");
   const showTrigCondition = userProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
+  
+  // Map link preferences (with defaults for non-authenticated users)
+  const mapLinkGridref: MapLinkOption = userProfile?.prefs?.ui_prefs?.map_link_gridref ?? MAP_LINK_DEFAULTS.gridref;
+  const mapLinkWgs: MapLinkOption = userProfile?.prefs?.ui_prefs?.map_link_wgs ?? MAP_LINK_DEFAULTS.wgs;
+  const mapLinkThumbnail: MapLinkOption = userProfile?.prefs?.ui_prefs?.map_link_thumbnail ?? MAP_LINK_DEFAULTS.thumbnail;
 
   // Fetch current user's logs for this trig
   const {
@@ -251,28 +257,62 @@ export default function TrigDetail() {
                   <span className="font-semibold text-gray-700">
                     OS Grid reference:
                   </span>{" "}
-                  <a
-                    href={`https://openstreetmap.org/?mlat=${trig.wgs_lat}&mlon=${trig.wgs_long}#map=16/${trig.wgs_lat}/${trig.wgs_long}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-trig-green-600 hover:underline"
-                  >
-                    {trig.osgb_gridref}
-                  </a>
+                  {isInternalMapLink(mapLinkGridref) ? (
+                    <Link
+                      to={getTrigpointingUKMapPath({
+                        trigId: trigIdNum,
+                        wgsLat: parseFloat(trig.wgs_lat),
+                        wgsLong: parseFloat(trig.wgs_long),
+                      })}
+                      className="text-trig-green-600 hover:underline"
+                    >
+                      {trig.osgb_gridref}
+                    </Link>
+                  ) : (
+                    <a
+                      href={generateMapUrl(mapLinkGridref, {
+                        trigId: trigIdNum,
+                        wgsLat: parseFloat(trig.wgs_lat),
+                        wgsLong: parseFloat(trig.wgs_long),
+                      }) || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-trig-green-600 hover:underline"
+                    >
+                      {trig.osgb_gridref}
+                    </a>
+                  )}
                 </div>
 
                 <div>
                   <span className="font-semibold text-gray-700">
                     WGS coordinates:
                   </span>{" "}
-                  <a
-                    href={`https://www.google.com/maps?q=${trig.wgs_lat},${trig.wgs_long}&t=k&z=18`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-trig-green-600 hover:underline"
-                  >
-                    {trig.wgs_lat}, {trig.wgs_long}
-                  </a>
+                  {isInternalMapLink(mapLinkWgs) ? (
+                    <Link
+                      to={getTrigpointingUKMapPath({
+                        trigId: trigIdNum,
+                        wgsLat: parseFloat(trig.wgs_lat),
+                        wgsLong: parseFloat(trig.wgs_long),
+                      })}
+                      className="text-trig-green-600 hover:underline"
+                    >
+                      {trig.wgs_lat}, {trig.wgs_long}
+                    </Link>
+                  ) : (
+                    <a
+                      href={generateMapUrl(mapLinkWgs, {
+                        trigId: trigIdNum,
+                        wgsLat: parseFloat(trig.wgs_lat),
+                        wgsLong: parseFloat(trig.wgs_long),
+                      }) || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-trig-green-600 hover:underline"
+                    >
+                      {trig.wgs_lat}, {trig.wgs_long}
+                    </a>
+                  )}
                 </div>
 
                 <div className="hidden">
@@ -506,11 +546,39 @@ export default function TrigDetail() {
 
             {/* Right: Map Thumbnail */}
             <div className="flex-shrink-0">
-              <img
-                src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
-                alt={`Map thumbnail for ${trig.name}`}
-                className="w-[110px] h-[110px] border border-gray-300 rounded"
-              />
+              {isInternalMapLink(mapLinkThumbnail) ? (
+                <Link
+                  to={getTrigpointingUKMapPath({
+                    trigId: trigIdNum,
+                    wgsLat: parseFloat(trig.wgs_lat),
+                    wgsLong: parseFloat(trig.wgs_long),
+                  })}
+                  title="View on map"
+                >
+                  <img
+                    src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
+                    alt={`Map thumbnail for ${trig.name}`}
+                    className="w-[110px] h-[110px] border border-gray-300 rounded hover:border-trig-green-500 hover:shadow-md transition-all cursor-pointer"
+                  />
+                </Link>
+              ) : (
+                <a
+                  href={generateMapUrl(mapLinkThumbnail, {
+                    trigId: trigIdNum,
+                    wgsLat: parseFloat(trig.wgs_lat),
+                    wgsLong: parseFloat(trig.wgs_long),
+                  }) || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="View on map"
+                >
+                  <img
+                    src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
+                    alt={`Map thumbnail for ${trig.name}`}
+                    className="w-[110px] h-[110px] border border-gray-300 rounded hover:border-trig-green-500 hover:shadow-md transition-all cursor-pointer"
+                  />
+                </a>
+              )}
             </div>
           </div>
         </Card>
