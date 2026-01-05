@@ -20,6 +20,13 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "develop"
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
     
   - package-ecosystem: "terraform"
     directory: "/terraform/staging"

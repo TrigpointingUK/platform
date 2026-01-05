@@ -1,14 +1,15 @@
-fastapi==0.124.0
+fastapi==0.128.0
 starlette>=0.49.1  # CVE-2025-62727 fix (DoS via Range header in FileResponse)
-uvicorn[standard]==0.35.0
-sqlalchemy==2.0.44
+uvicorn[standard]==0.40.0
+sqlalchemy==2.0.45
 psycopg2-binary==2.9.11
 geoalchemy2==0.18.1
 cryptography==46.0.3
 PyJWT==2.10.1
 passlib[bcrypt]==1.7.4
 bcrypt==4.3.0
-python-multipart==0.0.20
+crypt-r>=1.0  # Replacement for removed crypt module (Python 3.13+)
+python-multipart==0.0.21
 pydantic[email]==2.12.5
 pydantic-settings==2.12.0
 python-dotenv==1.2.1
@@ -24,33 +25,33 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.32.5
-boto3==1.42.4
+boto3==1.42.21
 types-requests==2.32.4.20250809
 
 # Redis/ElastiCache for token caching
 redis==7.1.0
 
 # Image processing
-Pillow==12.0.0
-numpy==2.3.5
+Pillow==12.1.0
+numpy==2.4.0
 onnxruntime==1.23.2
 
 # Geodesy - accurate coordinate transformations
 pyproj==3.7.2
 
 # Profiling
-pyinstrument==5.1.1
-pyroscope-io==0.8.11
+pyinstrument==5.1.2
+pyroscope-io==0.8.14
 
 # OpenTelemetry - Distributed tracing and metrics
-opentelemetry-api==1.39.0
-opentelemetry-sdk==1.39.0
-opentelemetry-instrumentation-fastapi==0.60b0
-opentelemetry-instrumentation-sqlalchemy==0.60b0
-opentelemetry-exporter-otlp-proto-http==1.39.0
+opentelemetry-api==1.39.1
+opentelemetry-sdk==1.39.1
+opentelemetry-instrumentation-fastapi==0.60b1
+opentelemetry-instrumentation-sqlalchemy==0.60b1
+opentelemetry-exporter-otlp-proto-http==1.39.1
 
 # Development dependencies
 black==25.12.0
 isort==7.0.0
 flake8==7.3.0
-mypy==1.19.0
+mypy==1.19.1

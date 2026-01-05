@@ -26,6 +26,7 @@ from api.services.export_formats import (
     trigs_to_geojson,
     trigs_to_gpx,
     trigs_to_kml,
+    trigs_to_kmz,
 )
 
 router = APIRouter()
@@ -97,8 +98,8 @@ def _get_user_logs_map(db: Session, user_id: int) -> dict[int, dict]:
 )
 def download_trigs(
     request: Request,
-    format: Literal["csv", "geojson", "kml", "gpx"] = Query(
-        "csv", description="Output format"
+    format: Literal["csv", "geojson", "kml", "gpx", "kmz"] = Query(
+        "csv", description="Output format (csv, geojson, kml, kmz, gpx)"
     ),
     # Filters (reusing existing list_trigs patterns)
     status_ids: Optional[str] = Query(
@@ -145,6 +146,7 @@ def download_trigs(
     - `geojson`: GeoJSON FeatureCollection
     - `kml`: Keyhole Markup Language (Google Earth)
     - `gpx`: GPS Exchange Format (GPS devices)
+    - `kmz`: Zipped KML with embedded icons (Google Earth / My Maps)
 
     **Rate limits:** This endpoint is rate-limited to prevent abuse.
     """
@@ -217,6 +219,7 @@ def download_trigs(
 
     # Generate output in requested format
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    content: str | bytes
 
     if format == "csv":
         content = trigs_to_csv(trigs, status_names, user_logs)
@@ -239,6 +242,11 @@ def download_trigs(
         content = trigs_to_gpx(trigs, status_names, user_logs)
         filename = f"trigpoints_{timestamp}.gpx"
         media_type = "application/gpx+xml"
+
+    elif format == "kmz":
+        content = trigs_to_kmz(trigs, status_names, user_logs)
+        filename = f"trigpoints_{timestamp}.kmz"
+        media_type = "application/vnd.google-earth.kmz"
 
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")

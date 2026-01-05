@@ -2,11 +2,11 @@
 CRUD operations for users with Unix crypt authentication.
 """
 
-import crypt as unix_crypt
 import secrets
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import crypt_r as unix_crypt  # Drop-in replacement for removed crypt module
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 

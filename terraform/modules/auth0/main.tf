@@ -396,6 +396,7 @@ resource "auth0_client_grant" "m2m_to_mgmt_api" {
     "read:users",
     "update:users",
     "create:users",
+    "delete:users", # Required for cleaning up Auth0 accounts when DB provisioning fails
   ]
 }
 
@@ -491,6 +492,11 @@ resource "auth0_action" "post_user_registration" {
   secrets {
     name  = "WEBHOOK_SHARED_SECRET"
     value = var.webhook_shared_secret
+  }
+
+  secrets {
+    name  = "SLACK_WEBHOOK_URL"
+    value = var.slack_webhook_url
   }
 }
 

@@ -4,7 +4,8 @@ import toast from "react-hot-toast";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
-import { useUserProfile, updateUserProfile, type UserProfile } from "../hooks/useUserProfile";
+import { useUserProfile, updateUserProfile, type UserProfile, type MapLinkOption } from "../hooks/useUserProfile";
+import { MAP_LINK_OPTIONS, MAP_LINK_DEFAULTS } from "../lib/mapLinks";
 
 export default function Preferences() {
   const queryClient = useQueryClient();
@@ -186,6 +187,80 @@ export default function Preferences() {
                   current overall condition of the trigpoint.
                 </p>
               </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Trigpoint Page Map Links */}
+        <Card className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Trigpoint Page Map Links
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Choose which mapping service to open when clicking on coordinate links on trigpoint pages.
+          </p>
+          <div className="space-y-6">
+            {/* OS Grid Reference Link */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                OS Grid Reference
+              </label>
+              <select
+                value={user.prefs?.ui_prefs?.map_link_gridref ?? MAP_LINK_DEFAULTS.gridref}
+                onChange={(e) => handleUIPrefsUpdate("map_link_gridref", e.target.value as MapLinkOption)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                {MAP_LINK_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-gray-500">
+                Opens when you click on the OS grid reference (e.g. TQ 30800 79930)
+              </p>
+            </div>
+
+            {/* WGS Coordinates Link */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                WGS Coordinates
+              </label>
+              <select
+                value={user.prefs?.ui_prefs?.map_link_wgs ?? MAP_LINK_DEFAULTS.wgs}
+                onChange={(e) => handleUIPrefsUpdate("map_link_wgs", e.target.value as MapLinkOption)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                {MAP_LINK_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-gray-500">
+                Opens when you click on the WGS84 coordinates (e.g. 51.50000, -0.12345)
+              </p>
+            </div>
+
+            {/* Thumbnail Map Link */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Thumbnail Map
+              </label>
+              <select
+                value={user.prefs?.ui_prefs?.map_link_thumbnail ?? MAP_LINK_DEFAULTS.thumbnail}
+                onChange={(e) => handleUIPrefsUpdate("map_link_thumbnail", e.target.value as MapLinkOption)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                {MAP_LINK_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-gray-500">
+                Opens when you click on the small thumbnail map image on the trigpoint page
+              </p>
             </div>
           </div>
         </Card>

@@ -38,7 +38,7 @@ export default function TrigDetailMap({
   }, [currentTileLayer.crs]);
   
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative z-0 ${className}`}>
       <BaseMap
         center={center}
         zoom={zoomLevel}

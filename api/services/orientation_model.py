@@ -48,8 +48,8 @@ class OrientationClassifier:
         try:
             # Basic preprocessing: resize to 224x224, normalise to [0,1], CHW float32
             with Image.open(io.BytesIO(image_bytes)) as img:
-                img = img.convert("RGB").resize((224, 224))
-                arr = np.asarray(img, dtype=np.float32) / 255.0
+                rgb_img = img.convert("RGB").resize((224, 224))
+                arr = np.asarray(rgb_img, dtype=np.float32) / 255.0
                 arr = np.transpose(arr, (2, 0, 1))  # CHW
                 arr = np.expand_dims(arr, 0)  # NCHW
 

@@ -17,9 +17,19 @@ interface UserStats {
   total_photos: number;
 }
 
+// Map link preference options
+export type MapLinkOption = 
+  | 'trigpointinguk'
+  | 'streetmap'
+  | 'google_satellite'
+  | 'openstreetmap';
+
 interface UIPrefs {
   distance_ind?: string;
   show_trig_condition?: boolean;
+  map_link_gridref?: MapLinkOption;
+  map_link_wgs?: MapLinkOption;
+  map_link_thumbnail?: MapLinkOption;
 }
 
 interface UserPrefs {

@@ -113,13 +113,23 @@ export default function EditableField({
           />
         )
       ) : (
-        <div className="group flex items-start gap-2">
+        <div
+          className="group flex items-start gap-2 cursor-pointer hover:bg-gray-50 rounded-md -mx-2 px-2 py-1 transition-colors"
+          onClick={() => setIsEditing(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsEditing(true);
+            }
+          }}
+        >
           <p className="flex-1 text-gray-900 min-h-[2.5rem] flex items-center">
             {value || <span className="text-gray-400 italic">Not set</span>}
           </p>
-          <button
-            onClick={() => setIsEditing(true)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
+          <div
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1"
             title={`Edit ${label.toLowerCase()}`}
           >
             <svg
@@ -135,7 +145,7 @@ export default function EditableField({
                 d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
               />
             </svg>
-          </button>
+          </div>
         </div>
       )}
       

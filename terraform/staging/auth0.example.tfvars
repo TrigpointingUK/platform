@@ -32,3 +32,5 @@ auth0_terraform_client_secret = "YOUR_TERRAFORM_PROVIDER_CLIENT_SECRET"
 #   3. Scroll to "Application Credentials" and click "Rotate"
 #   4. Copy the new secret and paste it here
 auth0_m2m_client_secret = "YOUR_M2M_API_CLIENT_SECRET"
+
+slack_webhook_url = "https://hooks.slack.com/services/blah/blah/blah"

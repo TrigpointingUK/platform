@@ -130,6 +130,7 @@ module "auth0" {
   # FastAPI Configuration
   fastapi_url           = "https://api.trigpointing.me"
   webhook_shared_secret = var.webhook_shared_secret
+  slack_webhook_url     = var.slack_webhook_url
 
   # Swagger UI Callbacks
   swagger_callback_urls = [
