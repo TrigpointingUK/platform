@@ -82,6 +82,10 @@ function createMetadataOverlay(photo: Photo): string {
 
 export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotated }: PhotoSwipeOptions) {
   const pswpRef = useRef<PhotoSwipe | null>(null);
+  // Track if close was user-initiated to prevent double navigation
+  // When user closes PhotoSwipe, we navigate(-1) which unmounts the component.
+  // The cleanup would then call pswp.close() again, triggering another navigate(-1).
+  const isClosingRef = useRef(false);
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   useEffect(() => {
@@ -338,22 +342,44 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
       document.addEventListener('keydown', handleKeyDown);
     });
 
-    // Handle close event
+    // Handle close event (fires when close animation STARTS)
+    // We mark that this is a user-initiated close (X button, ESC, tap, etc.)
     pswp.on('close', () => {
       document.removeEventListener('keydown', handleKeyDown);
-      if (onClose) {
-        onClose();
+      // Mark that user initiated the close (not browser back button)
+      isClosingRef.current = true;
+    });
+
+    // Handle destroy event (fires when close animation COMPLETES and DOM is removed)
+    pswp.on('destroy', () => {
+      // Only navigate if this was a user-initiated close (X button, ESC, etc.)
+      // If destroy was triggered by our cleanup (browser back), navigation already happened
+      if (isClosingRef.current && onClose) {
+        // Use requestAnimationFrame to ensure PhotoSwipe has fully cleaned up its DOM
+        // before we navigate away
+        requestAnimationFrame(() => {
+          onClose();
+        });
       }
     });
 
     // Open PhotoSwipe
     pswp.init();
 
-    // Cleanup on unmount
+    // Cleanup on unmount (e.g., browser back button pressed)
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       if (pswpRef.current) {
-        pswpRef.current.close();
+        // If browser back was pressed (not user closing via X/ESC), we need to
+        // clean up PhotoSwipe's DOM. Navigation already happened, so don't trigger
+        // the destroy event's onClose callback.
+        if (!isClosingRef.current) {
+          // Directly remove PhotoSwipe's DOM element to avoid triggering events
+          const pswpElement = document.querySelector('.pswp');
+          if (pswpElement) {
+            pswpElement.remove();
+          }
+        }
         pswpRef.current = null;
       }
     };

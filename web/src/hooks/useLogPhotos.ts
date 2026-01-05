@@ -2,9 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
 import { 
   getLogPhotos, 
-  authenticatedFetch,
   authenticatedPatch,
-  authenticatedPost,
   authenticatedDelete,
   AuthenticationError,
   Photo 
@@ -26,6 +24,11 @@ export function useLogPhotos(logId: number | undefined) {
 
 /**
  * Hook to upload a photo
+ *
+ * Note: Photo uploads force a fresh token to avoid race conditions where a
+ * cached token is close to expiration and expires between retrieval and
+ * server-side validation. This is especially important for file uploads
+ * which cannot be efficiently retried on 401.
  */
 export function useUploadPhoto(logId: number) {
   const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
@@ -45,6 +48,11 @@ export function useUploadPhoto(logId: number) {
       type: string;
       license: string;
     }) => {
+      // Force a fresh token for uploads to avoid near-expiry race conditions.
+      // File uploads are expensive to retry, so we proactively ensure we have
+      // a token with maximum remaining lifetime.
+      const freshToken = await getAccessTokenSilently({ cacheMode: "off" });
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("caption", caption);
@@ -52,14 +60,13 @@ export function useUploadPhoto(logId: number) {
       formData.append("type", type);
       formData.append("license", license);
 
-      const response = await authenticatedFetch(
-        `${API_BASE}/v1/photos?log_id=${logId}`,
-        {
-          method: "POST",
-          body: formData,
+      const response = await fetch(`${API_BASE}/v1/photos?log_id=${logId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${freshToken}`,
         },
-        getAccessTokenSilently
-      );
+        body: formData,
+      });
 
       if (!response.ok) {
         const text = await response.text().catch(() => "");
@@ -159,6 +166,10 @@ export function useDeletePhoto() {
 
 /**
  * Hook to rotate a photo
+ *
+ * Note: Like uploads, rotation operations force a fresh token because the
+ * server-side operation (download, rotate, re-upload to S3) takes significant
+ * time and we want to avoid token expiry mid-operation.
  */
 export function useRotatePhoto() {
   const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
@@ -172,11 +183,25 @@ export function useRotatePhoto() {
       photoId: number;
       angle: number;
     }) => {
-      return authenticatedPost<Photo>(
-        `${API_BASE}/v1/photos/${photoId}/rotate`,
-        { angle },
-        getAccessTokenSilently
-      );
+      // Force a fresh token for rotate operations which involve server-side
+      // file processing (download, rotate, re-upload to S3).
+      const freshToken = await getAccessTokenSilently({ cacheMode: "off" });
+
+      const response = await fetch(`${API_BASE}/v1/photos/${photoId}/rotate`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${freshToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ angle }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+      }
+
+      return response.json() as Promise<Photo>;
     },
     onSuccess: () => {
       // Invalidate photo queries

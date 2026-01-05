@@ -188,6 +188,58 @@ export const setPreferredTileLayer = (layerId: string): void => {
 };
 
 /**
+ * Zoom offset between EPSG:27700 and EPSG:3857 projections.
+ * 
+ * OS Paper tiles (EPSG:27700) are at a much larger scale for the same zoom number.
+ * To maintain a similar subjective view when switching projections:
+ * - EPSG:3857 -> EPSG:27700: subtract this offset from zoom
+ * - EPSG:27700 -> EPSG:3857: add this offset to zoom
+ */
+export const PROJECTION_ZOOM_OFFSET = 7;
+
+/**
+ * Calculate adjusted zoom level when switching between projections.
+ * 
+ * @param currentZoom - Current zoom level
+ * @param fromCrs - CRS of the current tileset (e.g., 'EPSG:3857', 'EPSG:27700')
+ * @param toCrs - CRS of the target tileset
+ * @param targetLayer - The target tile layer (used for zoom limits)
+ * @returns Adjusted zoom level clamped to the target layer's valid range
+ */
+export const calculateProjectionZoom = (
+  currentZoom: number,
+  fromCrs: string,
+  toCrs: string,
+  targetLayer: TileLayer
+): number => {
+  // Default CRS values
+  const normalizedFromCrs = fromCrs || 'EPSG:3857';
+  const normalizedToCrs = toCrs || 'EPSG:3857';
+  
+  // If same projection, no adjustment needed
+  if (normalizedFromCrs === normalizedToCrs) {
+    return currentZoom;
+  }
+  
+  let adjustedZoom = currentZoom;
+  
+  // Switching from Web Mercator to British National Grid - zoom out
+  if (normalizedFromCrs === 'EPSG:3857' && normalizedToCrs === 'EPSG:27700') {
+    adjustedZoom = currentZoom - PROJECTION_ZOOM_OFFSET;
+  }
+  // Switching from British National Grid to Web Mercator - zoom in
+  else if (normalizedFromCrs === 'EPSG:27700' && normalizedToCrs === 'EPSG:3857') {
+    adjustedZoom = currentZoom + PROJECTION_ZOOM_OFFSET;
+  }
+  
+  // Clamp to target layer's valid zoom range
+  const minZoom = targetLayer.minZoom ?? 0;
+  const maxZoom = targetLayer.maxZoom ?? 20;
+  
+  return Math.max(minZoom, Math.min(maxZoom, adjustedZoom));
+};
+
+/**
  * Map view configuration
  */
 export const MAP_CONFIG = {
