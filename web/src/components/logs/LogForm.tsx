@@ -47,7 +47,7 @@ export default function LogForm({
     date: existingLog?.date || new Date().toISOString().split("T")[0],
     time: existingLog?.time || getCurrentTime(), // Use current time for new logs
     condition: existingLog?.condition || defaultCondition,
-    score: existingLog?.score || 5,
+    score: existingLog?.score ?? 5,
     comment: existingLog?.comment || "",
     osgb_gridref: existingLog?.osgb_gridref || trigGridRef,
     osgb_eastings: existingLog?.osgb_eastings || trigEastings,
