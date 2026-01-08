@@ -29,6 +29,11 @@ def _constraint_exists(conn, name: str) -> bool:
     )
 
 
+def _qi(identifier: str) -> str:
+    """Quote a SQL identifier for PostgreSQL."""
+    return '"' + identifier.replace('"', '""') + '"'
+
+
 def _add_fk_not_valid(
     *,
     conn,
@@ -48,13 +53,13 @@ def _add_fk_not_valid(
     if _constraint_exists(conn, constraint):
         return
 
-    cols_sql = ", ".join(sa.sql.elements.quoted_name(c, True) for c in columns)
-    ref_cols_sql = ", ".join(sa.sql.elements.quoted_name(c, True) for c in ref_columns)
+    cols_sql = ", ".join(_qi(c) for c in columns)
+    ref_cols_sql = ", ".join(_qi(c) for c in ref_columns)
 
     # Quote table names defensively (e.g. "user" is a keyword).
-    table_sql = sa.sql.elements.quoted_name(table, True)
-    ref_table_sql = sa.sql.elements.quoted_name(ref_table, True)
-    constraint_sql = sa.sql.elements.quoted_name(constraint, True)
+    table_sql = _qi(table)
+    ref_table_sql = _qi(ref_table)
+    constraint_sql = _qi(constraint)
 
     op.execute(
         sa.text(
