@@ -408,7 +408,6 @@ def update_trig_admin(
     trig.admin_user_id = admin_user_id  # type: ignore
     trig.admin_timestamp = datetime.utcnow()  # type: ignore
     trig.admin_ip_addr = admin_ip_addr  # type: ignore
-    trig.upd_timestamp = datetime.utcnow()  # type: ignore
 
     db.commit()
     db.refresh(trig)

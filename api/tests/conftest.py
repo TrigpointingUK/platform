@@ -105,6 +105,85 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
+def _install_upd_timestamp_triggers(connection) -> None:
+    """
+    Install `upd_timestamp` triggers + defaults in the test database.
+
+    Tests build the schema via Base.metadata.create_all(), so Alembic migrations
+    (which create these triggers in real environments) are not applied here.
+    """
+    connection.execute(
+        text(
+            """
+            CREATE OR REPLACE FUNCTION public.set_upd_timestamp_utc()
+            RETURNS trigger
+            LANGUAGE plpgsql
+            AS $$
+            BEGIN
+                IF TG_OP = 'INSERT' THEN
+                    IF NEW.upd_timestamp IS NULL THEN
+                        NEW.upd_timestamp := timezone('utc', clock_timestamp());
+                    END IF;
+                    RETURN NEW;
+                END IF;
+
+                -- TG_OP = 'UPDATE'
+                IF NEW.upd_timestamp IS DISTINCT FROM OLD.upd_timestamp THEN
+                    RETURN NEW;
+                END IF;
+
+                NEW.upd_timestamp := timezone('utc', clock_timestamp());
+                RETURN NEW;
+            END;
+            $$;
+            """
+        )
+    )
+
+    connection.execute(
+        text(
+            """
+            DO $$
+            DECLARE
+                r RECORD;
+            BEGIN
+                FOR r IN
+                    SELECT c.table_schema, c.table_name
+                    FROM information_schema.columns c
+                    JOIN information_schema.tables t
+                      ON t.table_schema = c.table_schema
+                     AND t.table_name = c.table_name
+                    WHERE c.column_name = 'upd_timestamp'
+                      AND c.table_schema = 'public'
+                      AND t.table_type = 'BASE TABLE'
+                LOOP
+                    EXECUTE format(
+                        'ALTER TABLE %I.%I ALTER COLUMN upd_timestamp SET DEFAULT (timezone(''utc'', clock_timestamp()))',
+                        r.table_schema,
+                        r.table_name
+                    );
+
+                    EXECUTE format(
+                        'DROP TRIGGER IF EXISTS set_upd_timestamp_utc ON %I.%I',
+                        r.table_schema,
+                        r.table_name
+                    );
+
+                    EXECUTE format(
+                        'CREATE TRIGGER set_upd_timestamp_utc '
+                        'BEFORE INSERT OR UPDATE ON %I.%I '
+                        'FOR EACH ROW EXECUTE FUNCTION public.set_upd_timestamp_utc()',
+                        r.table_schema,
+                        r.table_name
+                    );
+                END LOOP;
+            END
+            $$;
+            """
+        )
+    )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_tables(request):
     """Create all tables once at the session start for each worker."""
@@ -112,6 +191,7 @@ def setup_test_tables(request):
     try:
         Base.metadata.create_all(bind=engine)
         with engine.begin() as connection:
+            _install_upd_timestamp_triggers(connection)
             for statement in DROP_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS:
                 connection.execute(text(statement))
             for statement in CREATE_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS:
@@ -178,17 +258,31 @@ def client(monkeypatch):
 
     # Also mock get_user_by_auth0_id to directly map auth0_user_id to database user_id
     def mock_get_user_by_auth0_id(db, auth0_user_id: str):
+        # Prefer an explicit auth0_user_id mapping if present in the database
+        from api.models.user import User as UserModel
+
+        user = (
+            db.query(UserModel).filter(UserModel.auth0_user_id == auth0_user_id).first()
+        )
+        if user:
+            return user
+
+        # Convenience mapping used by many tests: auth0|{user_id} -> user.id
         if auth0_user_id.startswith("auth0|"):
             try:
                 user_id = int(auth0_user_id.split("|")[1])
-                from api.crud.user import get_user_by_id
-
-                return get_user_by_id(db, user_id=user_id)
             except ValueError:
-                pass
+                return None
+
+            from api.crud.user import get_user_by_id
+
+            return get_user_by_id(db, user_id=user_id)
+
         return None
 
     monkeypatch.setattr("api.crud.user.get_user_by_auth0_id", mock_get_user_by_auth0_id)
+    # api.api.deps imports get_user_by_auth0_id at module import time, so patch it too.
+    monkeypatch.setattr("api.api.deps.get_user_by_auth0_id", mock_get_user_by_auth0_id)
 
     with TestClient(app) as c:
         yield c

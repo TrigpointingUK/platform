@@ -517,7 +517,6 @@ def create_user(db: Session, username: str, email: str, auth0_user_id: str) -> U
         status_max=0,
         crt_date=current_date,
         crt_time=current_time,
-        upd_timestamp=now,
     )
 
     db.add(new_user)

@@ -2,7 +2,7 @@
 Database models for the existing legacy database schema.
 """
 
-from datetime import date, datetime, time
+from datetime import date, time
 
 from sqlalchemy import Column, Date, DateTime, Integer, SmallInteger, String, Text, Time
 from sqlalchemy.dialects.postgresql import JSONB
@@ -75,7 +75,7 @@ class User(Base):
         Time, nullable=True, default=time(0, 0, 0)
     )  # Nullable for PostgreSQL compatibility
     upd_timestamp = Column(
-        DateTime, nullable=True, default=datetime.now
+        DateTime, nullable=True
     )  # Nullable for PostgreSQL compatibility
 
 
@@ -105,7 +105,7 @@ class TLog(Base):
     ip_addr = Column(String(15), nullable=True)  # Nullable for PostgreSQL compatibility
     source = Column(CHAR(1), nullable=True)  # Nullable for PostgreSQL compatibility
     upd_timestamp = Column(
-        DateTime, nullable=True, default=datetime.now
+        DateTime, nullable=True
     )  # Nullable for PostgreSQL compatibility
 
 
