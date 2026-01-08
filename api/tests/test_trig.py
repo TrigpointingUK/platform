@@ -43,7 +43,7 @@ def test_get_trig_success_minimal(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(test_trig)
@@ -107,7 +107,7 @@ def test_get_trig_with_details_include(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(test_trig)
@@ -161,7 +161,7 @@ def test_get_trig_by_waypoint_success_minimal(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 2),
         crt_time=time(14, 30, 0),
-        crt_user_id=2,
+        crt_user_id=None,
         crt_ip_addr="192.168.1.1",
     )
     db.add(test_trig)
@@ -215,7 +215,7 @@ def test_search_trigs_by_name(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 3),
         crt_time=time(9, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="10.0.0.1",
     )
 
@@ -245,7 +245,7 @@ def test_search_trigs_by_name(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 4),
         crt_time=time(11, 45, 0),
-        crt_user_id=2,
+        crt_user_id=None,
         crt_ip_addr="172.16.0.1",
     )
 
@@ -292,7 +292,7 @@ def test_get_trig_count(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 5),
         crt_time=time(16, 20, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="203.0.113.1",
     )
     db.add(test_trig)
@@ -338,7 +338,7 @@ def test_get_trig_details_endpoint(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(trig)
@@ -384,7 +384,7 @@ def test_get_trig_stats_endpoint_and_include(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(trig)
@@ -445,7 +445,7 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(trig)
@@ -592,7 +592,7 @@ def test_get_trig_stats_never_found_returns_null_for_found_last(
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(trig)
@@ -668,7 +668,7 @@ def test_get_trig_stats_never_logged_returns_null_for_logged_dates(
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(trig)

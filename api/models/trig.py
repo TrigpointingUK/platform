@@ -13,6 +13,7 @@ from sqlalchemy import (
     TIMESTAMP,
     Column,
     Date,
+    ForeignKey,
     Integer,
     SmallInteger,
     String,
@@ -49,7 +50,9 @@ class Trig(Base):
     stn_number_osgb36 = Column(String(20), nullable=True)
 
     # Status and classification
-    status_id = Column(Integer, nullable=False, index=True)
+    status_id = Column(
+        Integer, ForeignKey("status.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     user_added = Column(SmallInteger, nullable=False, default=0)
     current_use = Column(String(25), nullable=False)  # e.g., "Passive station"
     historic_use = Column(String(30), nullable=False)  # e.g., "Primary"
@@ -110,11 +113,15 @@ class Trig(Base):
     # Audit fields - creation
     crt_date = Column(Date, nullable=False)  # Creation date
     crt_time = Column(Time, nullable=False)  # Creation time
-    crt_user_id = Column(Integer, nullable=False)  # Creating user ID
+    crt_user_id = Column(
+        Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )  # Creating user ID
     crt_ip_addr = Column(String(15), nullable=False)  # Creating IP address
 
     # Audit fields - admin updates
-    admin_user_id = Column(Integer, nullable=True)  # Admin user ID
+    admin_user_id = Column(
+        Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )  # Admin user ID
     admin_timestamp = Column(TIMESTAMP, nullable=True)  # Admin update time
     admin_ip_addr = Column(String(15), nullable=True)  # Admin IP address
 

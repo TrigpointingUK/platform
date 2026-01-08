@@ -48,7 +48,7 @@ def _create_test_trig(db: Session) -> Trig:
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(trig)

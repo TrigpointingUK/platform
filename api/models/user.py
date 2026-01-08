@@ -4,7 +4,17 @@ Database models for the existing legacy database schema.
 
 from datetime import date, time
 
-from sqlalchemy import Column, Date, DateTime, Integer, SmallInteger, String, Text, Time
+from sqlalchemy import (
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    Time,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import CHAR
 
@@ -86,10 +96,10 @@ class TLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     trig_id = Column(
-        Integer, index=True, nullable=True
+        Integer, ForeignKey("trig.id", ondelete="SET NULL"), index=True, nullable=True
     )  # Nullable for PostgreSQL compatibility
     user_id = Column(
-        Integer, index=True, nullable=True
+        Integer, ForeignKey("user.id", ondelete="SET NULL"), index=True, nullable=True
     )  # Nullable for PostgreSQL compatibility
     date = Column(Date, nullable=True)  # Nullable for PostgreSQL compatibility
     time = Column(Time, nullable=True)  # Nullable for PostgreSQL compatibility
@@ -115,8 +125,12 @@ class TPhotoVote(Base):
     __tablename__ = "tphotovote"
 
     id = Column(Integer, primary_key=True, index=True)
-    tphoto_id = Column(Integer, index=True, nullable=False)
-    user_id = Column(Integer, index=True, nullable=False)
+    tphoto_id = Column(
+        Integer, ForeignKey("tphoto.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    user_id = Column(
+        Integer, ForeignKey("user.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     score = Column(SmallInteger, nullable=False)
     upd_timestamp = Column(DateTime, nullable=True)
 

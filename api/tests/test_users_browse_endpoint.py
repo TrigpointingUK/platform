@@ -4,12 +4,14 @@ Tests for the /v1/users/browse endpoint providing cursor-based listings.
 
 import uuid
 from datetime import date, time
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from api.core.config import settings
 from api.models.tphoto import TPhoto
+from api.models.trig import Trig
 from api.models.user import TLog, User
 from api.services.user_stats import refresh_user_activity_summary
 
@@ -28,6 +30,45 @@ def _create_user(db: Session, name: str, joined: date) -> User:
     return user
 
 
+def _ensure_trig(db: Session, trig_id: int) -> None:
+    if db.query(Trig).filter(Trig.id == trig_id).first() is not None:
+        return
+
+    db.add(
+        Trig(
+            id=trig_id,
+            waypoint=f"TP{trig_id:06d}"[:8],
+            name=f"Users Browse Trig {trig_id}",
+            status_id=1,
+            user_added=0,
+            current_use="Passive station",
+            historic_use="Primary",
+            physical_type="Pillar",
+            condition="G",
+            wgs_lat=Decimal("51.50000"),
+            wgs_long=Decimal("-0.12500"),
+            wgs_height=100,
+            osgb_eastings=530000,
+            osgb_northings=180000,
+            osgb_gridref="TQ 30000 80000",
+            osgb_height=95,
+            fb_number="S1234",
+            stn_number="TEST123",
+            permission_ind="Y",
+            postcode="SW1A 1",
+            county="London",
+            town="Westminster",
+            needs_attention=0,
+            attention_comment="",
+            crt_date=date(2023, 1, 1),
+            crt_time=time(12, 0, 0),
+            crt_user_id=None,
+            crt_ip_addr="127.0.0.1",
+        )
+    )
+    db.commit()
+
+
 def _add_log(
     db: Session,
     user: User,
@@ -35,6 +76,7 @@ def _add_log(
     *,
     log_date: date = date(2024, 1, 1),
 ) -> TLog:
+    _ensure_trig(db, trig_id)
     log = TLog(
         trig_id=trig_id,
         user_id=user.id,

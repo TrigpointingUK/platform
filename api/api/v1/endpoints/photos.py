@@ -82,8 +82,16 @@ def list_photos(
     for p in items:
         # Resolve user via TLog
         tlog = db.query(TLog).filter(TLog.id == p.tlog_id).first()
-        user = db.query(User).filter(User.id == tlog.user_id).first() if tlog else None
-        trig = db.query(Trig).filter(Trig.id == tlog.trig_id).first() if tlog else None
+        user = (
+            db.query(User).filter(User.id == tlog.user_id).first()
+            if tlog and tlog.user_id is not None
+            else None
+        )
+        trig = (
+            db.query(Trig).filter(Trig.id == tlog.trig_id).first()
+            if tlog and tlog.trig_id is not None
+            else None
+        )
         server: Server | None = (
             db.query(Server).filter(Server.id == p.server_id).first()
         )
@@ -92,7 +100,9 @@ def list_photos(
             {
                 "id": int(p.id),
                 "log_id": int(p.tlog_id),
-                "user_id": int(tlog.user_id) if tlog else 0,
+                "user_id": (
+                    int(tlog.user_id) if tlog and tlog.user_id is not None else 0
+                ),
                 "type": str(p.type),
                 "filesize": int(p.filesize),
                 "height": int(p.height),
@@ -184,7 +194,7 @@ def create_photo(
             f"user_id={current_user.id}, user_name={current_user.name}"
         )
         raise HTTPException(status_code=404, detail="Log not found")
-    if int(current_user.id) != int(tlog.user_id):
+    if tlog.user_id is None or int(current_user.id) != int(tlog.user_id):
         # Check admin privileges using token payload from current_user
         token_payload = getattr(current_user, "_token_payload", None)
         if not token_payload:
@@ -344,14 +354,14 @@ def create_photo(
         moderate_photo_async(int(created.id))
 
         # Record successful photo upload
-        if metrics:
+        if metrics and tlog.trig_id is not None:
             metrics.record_photo_upload("success", trig_id=int(tlog.trig_id))
     except Exception as e:
         logger.warning(f"Failed to trigger content moderation: {e}")
         # Don't fail the upload, just log the warning
 
         # Still record success since upload succeeded
-        if metrics:
+        if metrics and tlog.trig_id is not None:
             metrics.record_photo_upload("success", trig_id=int(tlog.trig_id))
 
     # Log successful upload
@@ -377,7 +387,7 @@ def create_photo(
     return {
         "id": created.id,
         "log_id": created.tlog_id,
-        "user_id": int(tlog.user_id),
+        "user_id": int(tlog.user_id) if tlog.user_id is not None else 0,
         "type": str(created.type),
         "filesize": int(created.filesize),
         "height": int(created.height),
@@ -391,10 +401,10 @@ def create_photo(
         "photo_url": join_url(base_url, str(created.filename)),
         "icon_url": join_url(base_url, str(created.icon_filename)),
         "user_name": str(current_user.name) if hasattr(current_user, "name") else None,
-        "trig_id": int(tlog.trig_id) if tlog else None,
+        "trig_id": int(tlog.trig_id) if tlog and tlog.trig_id is not None else None,
         "trig_name": (
             db.query(Trig.name).filter(Trig.id == tlog.trig_id).scalar()
-            if tlog
+            if tlog and tlog.trig_id is not None
             else None
         ),
         "log_date": tlog.date if tlog else None,
@@ -428,12 +438,20 @@ def get_photo(photo_id: int, db: Session = Depends(get_db)):
 
     # Lookup user_id from tlog
     tlog: TLog | None = db.query(TLog).filter(TLog.id == photo.tlog_id).first()
-    user = db.query(User).filter(User.id == tlog.user_id).first() if tlog else None
-    trig = db.query(Trig).filter(Trig.id == tlog.trig_id).first() if tlog else None
+    user = (
+        db.query(User).filter(User.id == tlog.user_id).first()
+        if tlog and tlog.user_id is not None
+        else None
+    )
+    trig = (
+        db.query(Trig).filter(Trig.id == tlog.trig_id).first()
+        if tlog and tlog.trig_id is not None
+        else None
+    )
     response = {
         "id": photo.id,
         "log_id": photo.tlog_id,
-        "user_id": int(tlog.user_id) if tlog else 0,
+        "user_id": int(tlog.user_id) if tlog and tlog.user_id is not None else 0,
         "type": str(photo.type),
         "filesize": int(photo.filesize),
         "height": int(photo.height),
@@ -479,7 +497,7 @@ def update_photo(
         raise HTTPException(status_code=404, detail="TLog not found for photo")
 
     # If not owner, require admin scope
-    if int(current_user.id) != int(tlog.user_id):
+    if tlog.user_id is None or int(current_user.id) != int(tlog.user_id):
         # Check admin privileges using token payload from current_user
         token_payload = getattr(current_user, "_token_payload", None)
         if not token_payload:
@@ -519,7 +537,7 @@ def update_photo(
     response = {
         "id": updated.id,
         "log_id": updated.tlog_id,
-        "user_id": int(tlog.user_id),
+        "user_id": int(tlog.user_id) if tlog.user_id is not None else 0,
         "type": str(updated.type),
         "filesize": int(updated.filesize),
         "height": int(updated.height),
@@ -533,10 +551,10 @@ def update_photo(
         "photo_url": join_url(base_url, str(updated.filename)),
         "icon_url": join_url(base_url, str(updated.icon_filename)),
         "user_name": str(current_user.name) if hasattr(current_user, "name") else None,
-        "trig_id": int(tlog.trig_id) if tlog else None,
+        "trig_id": int(tlog.trig_id) if tlog and tlog.trig_id is not None else None,
         "trig_name": (
             db.query(Trig.name).filter(Trig.id == tlog.trig_id).scalar()
-            if tlog
+            if tlog and tlog.trig_id is not None
             else None
         ),
         "log_date": tlog.date if tlog else None,
@@ -566,7 +584,7 @@ def delete_photo(
     if not tlog:
         raise HTTPException(status_code=404, detail="TLog not found for photo")
 
-    if int(current_user.id) != int(tlog.user_id):
+    if tlog.user_id is None or int(current_user.id) != int(tlog.user_id):
         # Check admin privileges using token payload from current_user
         token_payload = getattr(current_user, "_token_payload", None)
         if not token_payload:
@@ -891,7 +909,7 @@ def rotate_photo(
     return {
         "id": updated_photo.id,
         "log_id": updated_photo.tlog_id,
-        "user_id": int(tlog.user_id),
+        "user_id": int(tlog.user_id) if tlog.user_id is not None else 0,
         "type": str(updated_photo.type),
         "filesize": int(updated_photo.filesize),
         "height": int(updated_photo.height),
@@ -906,13 +924,13 @@ def rotate_photo(
         "icon_url": join_url(base_url, str(updated_photo.icon_filename)),
         "user_name": (
             db.query(User.name).filter(User.id == tlog.user_id).scalar()
-            if tlog
+            if tlog and tlog.user_id is not None
             else None
         ),
-        "trig_id": int(tlog.trig_id) if tlog else None,
+        "trig_id": int(tlog.trig_id) if tlog and tlog.trig_id is not None else None,
         "trig_name": (
             db.query(Trig.name).filter(Trig.id == tlog.trig_id).scalar()
-            if tlog
+            if tlog and tlog.trig_id is not None
             else None
         ),
         "log_date": tlog.date if tlog else None,

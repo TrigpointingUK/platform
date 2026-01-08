@@ -2,14 +2,71 @@
 Tests for include=photos on /v1/trigs/{trig_id}/logs endpoint.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from api.core.config import settings
 from api.models.tphoto import TPhoto
-from api.models.user import TLog
+from api.models.trig import Trig
+from api.models.user import TLog, User
+
+
+def _ensure_trig(db: Session, trig_id: int) -> None:
+    if db.query(Trig).filter(Trig.id == trig_id).first() is not None:
+        return
+
+    waypoint = f"TP{trig_id:06d}"[:8]
+    db.add(
+        Trig(
+            id=trig_id,
+            waypoint=waypoint,
+            name=f"Test Trig {trig_id}",
+            status_id=10,
+            user_added=0,
+            current_use="Passive station",
+            historic_use="Primary",
+            physical_type="Pillar",
+            condition="G",
+            wgs_lat=Decimal("51.50000"),
+            wgs_long=Decimal("-0.12500"),
+            wgs_height=100,
+            osgb_eastings=530000,
+            osgb_northings=180000,
+            osgb_gridref="TQ 30000 80000",
+            osgb_height=95,
+            fb_number="S1234",
+            stn_number="TEST123",
+            permission_ind="Y",
+            postcode="SW1A 1",
+            county="London",
+            town="Westminster",
+            needs_attention=0,
+            attention_comment="",
+            crt_date=date(2023, 1, 1),
+            crt_time=time(12, 0, 0),
+            crt_user_id=None,
+            crt_ip_addr="127.0.0.1",
+        )
+    )
+    db.commit()
+
+
+def _create_user(db: Session, suffix: str) -> User:
+    user = User(
+        name=f"photo_logs_user_{suffix}",
+        email=f"photo_logs_user_{suffix}@example.invalid",
+        public_ind="Y",
+        cryptpw="x",
+        crt_date=datetime(2024, 1, 1).date(),
+        crt_time=datetime(2024, 1, 1).time(),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 def seed_tlog(db: Session, trig_id: int, user_id: int) -> TLog:
@@ -68,8 +125,12 @@ def create_photo(db: Session, tlog_id: int) -> TPhoto:
 
 
 def test_trig_logs_include_photos(client: TestClient, db: Session):
-    trig_id = 555
-    tlog = seed_tlog(db, trig_id=trig_id, user_id=1010)
+    import uuid
+
+    trig_id = 3_000_000 + int(uuid.uuid4().hex[:6], 16) % 100_000
+    _ensure_trig(db, trig_id=trig_id)
+    user = _create_user(db, suffix=str(trig_id))
+    tlog = seed_tlog(db, trig_id=trig_id, user_id=int(user.id))
     photo1 = create_photo(db, tlog_id=int(tlog.id))
     photo2 = create_photo(db, tlog_id=int(tlog.id))
 
@@ -92,8 +153,12 @@ def test_trig_logs_include_photos(client: TestClient, db: Session):
 
 
 def test_trig_logs_unknown_include(client: TestClient, db: Session):
-    trig_id = 556
-    seed_tlog(db, trig_id=trig_id, user_id=1011)
+    import uuid
+
+    trig_id = 3_100_000 + int(uuid.uuid4().hex[:6], 16) % 100_000
+    _ensure_trig(db, trig_id=trig_id)
+    user = _create_user(db, suffix=str(trig_id))
+    seed_tlog(db, trig_id=trig_id, user_id=int(user.id))
 
     resp = client.get(f"{settings.API_V1_STR}/trigs/{trig_id}/logs?include=bogus")
     assert resp.status_code == 400

@@ -17,6 +17,8 @@ from api.db.user_activity_summary_view import (
     DROP_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS,
 )
 from api.main import app
+from api.models.status import Status
+from api.models.trig import Trig
 from api.models.user import TLog, User
 
 # Legacy JWT tokens removed - Auth0 only
@@ -200,6 +202,153 @@ def setup_test_tables(request):
         # Tables likely already exist from another worker
         pass
 
+    # Seed minimal reference rows used by many tests (FK constraints are now enforced).
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO status (id, name, descr, limit_descr)
+                    VALUES (1, 'ACTIVE', 'Active', 'Active')
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO status (id, name, descr, limit_descr)
+                    VALUES (0, 'UNKNOWN', 'Unknown', 'Unknown')
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO status (id, name, descr, limit_descr)
+                    VALUES (10, 'TEST', 'Test', 'Test')
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                )
+            )
+
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO server (id, url, path, name)
+                    VALUES
+                        (1, 'https://example.invalid/1/', '/', 'Test Server 1'),
+                        (3, 'https://example.invalid/3/', '/', 'Test Server 3'),
+                        (999, 'https://example.invalid/999/', '/', 'Test Server 999')
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                )
+            )
+
+            # Seed a couple of users with well-known IDs for tests that still use user_id=1/2.
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO "user" (id, name, email, cryptpw, email_valid, public_ind)
+                    VALUES
+                        (1, 'seed_user_1', 'seed1@example.invalid', '', 'Y', 'Y'),
+                        (2, 'seed_user_2', 'seed2@example.invalid', '', 'Y', 'Y')
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                )
+            )
+            # Ensure the sequence is at least MAX(id) so future inserts don't collide.
+            connection.execute(
+                text(
+                    """
+                    SELECT setval(
+                        pg_get_serial_sequence('"user"', 'id'),
+                        GREATEST((SELECT COALESCE(MAX(id), 1) FROM "user"), 1)
+                    )
+                    """
+                )
+            )
+
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO trig (
+                        id, waypoint, name, fb_number, stn_number,
+                        status_id, user_added, current_use, historic_use,
+                        physical_type, condition,
+                        location, wgs_lat, wgs_long, wgs_height,
+                        osgb_eastings, osgb_northings, osgb_gridref, osgb_height,
+                        postcode, county, town,
+                        permission_ind, needs_attention, attention_comment,
+                        crt_date, crt_time, crt_user_id, crt_ip_addr
+                    )
+                    VALUES (
+                        1, 'TP0001', 'Test Trig 1', 'FB1', 'STN1',
+                        1, 0, 'Passive station', 'Primary',
+                        'Pillar', 'G',
+                        NULL, 0.0, 0.0, 0,
+                        100000, 200000, 'TQ 00000 00000', 0,
+                        'AA0 0AA', 'Testshire', 'Testtown',
+                        'Y', 0, '',
+                        '2023-01-01', '00:00:00', NULL, '127.0.0.1'
+                    )
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                )
+            )
+
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO trig (
+                        id, waypoint, name, fb_number, stn_number,
+                        status_id, user_added, current_use, historic_use,
+                        physical_type, condition,
+                        location, wgs_lat, wgs_long, wgs_height,
+                        osgb_eastings, osgb_northings, osgb_gridref, osgb_height,
+                        postcode, county, town,
+                        permission_ind, needs_attention, attention_comment,
+                        crt_date, crt_time, crt_user_id, crt_ip_addr
+                    )
+                    VALUES (
+                        2, 'TP0002', 'Test Trig 2', 'FB2', 'STN2',
+                        1, 0, 'Passive station', 'Primary',
+                        'Pillar', 'G',
+                        NULL, 0.0, 0.0, 0,
+                        150000, 250000, 'TQ 50000 50000', 0,
+                        'AA0 0AA', 'Testshire', 'Testtown',
+                        'Y', 0, '',
+                        '2023-01-01', '00:00:00', NULL, '127.0.0.1'
+                    )
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                )
+            )
+
+            # Ensure trig.id sequence is at least MAX(id) so inserts without explicit IDs
+            # don't collide with the seeded rows (id=1, id=2).
+            connection.execute(
+                text(
+                    """
+                    DO $$
+                    DECLARE
+                        seq_name text;
+                        next_val bigint;
+                    BEGIN
+                        seq_name := pg_get_serial_sequence('trig', 'id');
+                        IF seq_name IS NOT NULL THEN
+                            SELECT GREATEST(COALESCE(MAX(id), 1), 1) INTO next_val FROM trig;
+                            EXECUTE format('SELECT setval(%L, %s)', seq_name, next_val);
+                        END IF;
+                    END $$;
+                    """
+                )
+            )
+    except Exception:
+        # Best-effort seeding; tests can still create their own reference data.
+        pass
+
     yield
 
     # Don't drop tables - let the test database cleanup handle it
@@ -321,6 +470,60 @@ def test_tlog_entries(db, test_user):
     """Create test tlog entries."""
     from datetime import date, datetime, time
 
+    # Ensure referenced rows exist (FK constraints are now enforced in tests).
+    if db.query(Status).filter(Status.id == 1).first() is None:
+        db.add(Status(id=1, name="ACTIVE", descr="Active", limit_descr="Active"))
+        db.flush()
+
+    def _ensure_trig(trig_id: int, waypoint: str, name: str, e: int, n: int, grid: str):
+        if db.query(Trig).filter(Trig.id == trig_id).first() is not None:
+            return
+
+        db.add(
+            Trig(
+                id=trig_id,
+                waypoint=waypoint,
+                name=name,
+                fb_number=f"FB{trig_id}",
+                stn_number=f"STN{trig_id}",
+                stn_number_active=None,
+                stn_number_passive=None,
+                stn_number_osgb36=None,
+                status_id=1,
+                user_added=0,
+                current_use="Passive station",
+                historic_use="Primary",
+                physical_type="Pillar",
+                condition="G",
+                location=None,
+                wgs_lat=0.0,
+                wgs_long=0.0,
+                wgs_height=0,
+                osgb_eastings=e,
+                osgb_northings=n,
+                osgb_gridref=grid,
+                osgb_height=0,
+                postcode="AA0 0AA",
+                county="Testshire",
+                town="Testtown",
+                permission_ind="Y",
+                needs_attention=0,
+                attention_comment="",
+                crt_date=date(2023, 1, 1),
+                crt_time=time(0, 0, 0),
+                crt_user_id=test_user.id,
+                crt_ip_addr="127.0.0.1",
+                admin_user_id=None,
+                admin_timestamp=None,
+                admin_ip_addr=None,
+                upd_timestamp=None,
+            )
+        )
+        db.flush()
+
+    _ensure_trig(1, "TP0001", "Test Trig 1", 100000, 200000, "TQ 00000 00000")
+    _ensure_trig(2, "TP0002", "Test Trig 2", 150000, 250000, "TQ 50000 50000")
+
     entries = [
         TLog(
             trig_id=1,
@@ -372,7 +575,7 @@ def test_tlog_entries(db, test_user):
         ),
         TLog(
             trig_id=2,
-            user_id=1001,
+            user_id=None,
             date=date(2023, 11, 20),
             time=time(9, 15, 0),
             osgb_eastings=150000,
@@ -388,7 +591,7 @@ def test_tlog_entries(db, test_user):
         ),
         TLog(
             trig_id=2,
-            user_id=1001,
+            user_id=None,
             date=date(2023, 11, 15),
             time=time(11, 30, 0),
             osgb_eastings=150000,

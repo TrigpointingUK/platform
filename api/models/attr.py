@@ -2,7 +2,7 @@
 SQLAlchemy models for the attr tables - attribute data from various sources.
 """
 
-from sqlalchemy import TIMESTAMP, Column, Integer, String, Text
+from sqlalchemy import TIMESTAMP, Column, ForeignKey, Integer, String, Text
 
 from api.db.database import Base
 
@@ -31,7 +31,9 @@ class Attr(Base):
     __tablename__ = "attr"
 
     id = Column(Integer, primary_key=True, index=True)
-    attrsource_id = Column(Integer, nullable=False)
+    attrsource_id = Column(
+        Integer, ForeignKey("attrsource.id", ondelete="RESTRICT"), nullable=False
+    )
     name = Column(String(45), nullable=False)
     description = Column(String(255), nullable=False)
     mandatory = Column(Integer, nullable=False)
@@ -53,8 +55,12 @@ class AttrSet(Base):
     __tablename__ = "attrset"
 
     id = Column(Integer, primary_key=True, index=True)
-    trig_id = Column(Integer, nullable=False, index=True)
-    attrsource_id = Column(Integer, nullable=False)
+    trig_id = Column(
+        Integer, ForeignKey("trig.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    attrsource_id = Column(
+        Integer, ForeignKey("attrsource.id", ondelete="RESTRICT"), nullable=False
+    )
     sort_order = Column(Integer, nullable=False)
     upd_timestamp = Column(TIMESTAMP, nullable=True)
 
@@ -68,7 +74,9 @@ class AttrVal(Base):
     __tablename__ = "attrval"
 
     id = Column(Integer, primary_key=True, index=True)
-    attr_id = Column(Integer, nullable=False)
+    attr_id = Column(
+        Integer, ForeignKey("attr.id", ondelete="RESTRICT"), nullable=False
+    )
     value_string = Column(String(255), nullable=True)
     value_double = Column(String(255), nullable=True)  # Using String for compatibility
     value_bool = Column(Integer, nullable=True)
@@ -85,8 +93,16 @@ class AttrSetAttrVal(Base):
 
     __tablename__ = "attrset_attrval"
 
-    attrset_id = Column(Integer, primary_key=True)
-    attrval_id = Column(Integer, primary_key=True)
+    attrset_id = Column(
+        Integer,
+        ForeignKey("attrset.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    attrval_id = Column(
+        Integer,
+        ForeignKey("attrval.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
     upd_timestamp = Column(TIMESTAMP, nullable=True)
 
     def __repr__(self):
