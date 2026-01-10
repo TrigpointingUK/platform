@@ -55,6 +55,25 @@ def upgrade() -> None:
     )
 
     # Delete rows in attrset with invalid trig_id
+    # attrset is referenced by attrset_attrval (RESTRICT), so delete join rows first.
+    op.execute(
+        sa.text(
+            """
+            WITH invalid_attrset AS (
+                SELECT aset.id
+                FROM attrset aset
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM trig t
+                    WHERE t.id = aset.trig_id
+                )
+            )
+            DELETE FROM attrset_attrval j
+            USING invalid_attrset ia
+            WHERE j.attrset_id = ia.id
+            """
+        )
+    )
     op.execute(
         sa.text(
             """
