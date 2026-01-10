@@ -289,7 +289,7 @@ def setup_test_tables(request):
                         'Pillar', 'G',
                         NULL, 0.0, 0.0, 0,
                         100000, 200000, 'TQ 00000 00000', 0,
-                        'AA0 0AA', 'Testshire', 'Testtown',
+                        NULL, 'Testshire', 'Testtown',
                         'Y', 0, '',
                         '2023-01-01', '00:00:00', NULL, '127.0.0.1'
                     )
@@ -317,7 +317,7 @@ def setup_test_tables(request):
                         'Pillar', 'G',
                         NULL, 0.0, 0.0, 0,
                         150000, 250000, 'TQ 50000 50000', 0,
-                        'AA0 0AA', 'Testshire', 'Testtown',
+                        NULL, 'Testshire', 'Testtown',
                         'Y', 0, '',
                         '2023-01-01', '00:00:00', NULL, '127.0.0.1'
                     )
