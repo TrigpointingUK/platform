@@ -1707,7 +1707,7 @@ tables:
       osgb_northings: 1193521
       permission_ind: Y
       physical_type: Pillar
-      postcode6: ZE2 9
+      postcode: ZE2 9JJ
       status_id: 10
       stn_number: B1HU6293
       stn_number_active: null
@@ -1749,7 +1749,7 @@ tables:
       osgb_northings: 889127
       permission_ind: Y
       physical_type: Pillar
-      postcode6: IV21 2
+      postcode: IV21 2PB
       status_id: 10
       stn_number: B1NG7689
       stn_number_active: null
@@ -1790,7 +1790,7 @@ tables:
       osgb_northings: 798813
       permission_ind: Y
       physical_type: Bolt
-      postcode6: PA80 5
+      postcode: null
       status_id: 30
       stn_number: B1NL7098
       stn_number_active: null
@@ -1831,7 +1831,7 @@ tables:
       osgb_northings: 509255
       permission_ind: Y
       physical_type: Pillar
-      postcode6: YO21 2
+      postcode: YO21 2NJ
       status_id: 10
       stn_number: B1NZ7309
       stn_number_active: null
@@ -1888,7 +1888,7 @@ tables:
       osgb_northings: 362653
       permission_ind: Y
       physical_type: Pillar
-      postcode6: CH7 5
+      postcode: CH7 5LH
       status_id: 10
       stn_number: B1SJ1662
       stn_number_active: null
@@ -1929,7 +1929,7 @@ tables:
       osgb_northings: 372215
       permission_ind: N
       physical_type: Pillar
-      postcode6: NG22 0
+      postcode: NG22 0NB
       status_id: 10
       stn_number: B1SK7572
       stn_number_active: null
@@ -1982,7 +1982,7 @@ tables:
       osgb_northings: 224593
       permission_ind: Y
       physical_type: Pillar
-      postcode6: GL52 3
+      postcode: GL52 3NH
       status_id: 10
       stn_number: B1SO9924
       stn_number_active: null
@@ -2023,7 +2023,7 @@ tables:
       osgb_northings: 197645
       permission_ind: Y
       physical_type: Pillar
-      postcode6: SA34 0
+      postcode: SA34 0YB
       status_id: 10
       stn_number: B1SR9397
       stn_number_active: null
@@ -2064,7 +2064,7 @@ tables:
       osgb_northings: 29328
       permission_ind: Y
       physical_type: Pillar
-      postcode6: TR19 7
+      postcode: TR19 7NN
       status_id: 10
       stn_number: B1SW3929
       stn_number_active: null
@@ -2105,7 +2105,7 @@ tables:
       osgb_northings: 159952
       permission_ind: N
       physical_type: Pillar
-      postcode6: TN15 6
+      postcode: TN15 6XL
       status_id: 10
       stn_number: B1TQ5459
       stn_number_active: null
@@ -2238,10 +2238,11 @@ tables:
         primary_key: false
         type: CHAR(1) COLLATE "latin1_swedish_ci"
       - default: null
-        name: postcode6
-        nullable: false
+        name: postcode
+        nullable: true
         primary_key: false
-        type: VARCHAR(6) COLLATE "latin1_swedish_ci"
+        type: VARCHAR(10)
+        foreign_key: postcodes.code
       - default: null
         name: county
         nullable: false

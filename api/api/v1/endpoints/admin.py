@@ -682,7 +682,7 @@ def update_trig_admin(
     - 'revisit': Keep needs_attention as-is (leave for later)
     - 'cant_fix': Increment needs_attention (escalate issue)
 
-    Automatically sets postcode based on WGS84 coordinates.
+    Automatically sets postcode based on WGS84 coordinates (NULL if >5km away).
     Appends admin comment to attention_comment history.
     """
     trig = trig_crud.get_trig_by_id(db, trig_id)
@@ -696,9 +696,16 @@ def update_trig_admin(
     client_ip = get_client_ip_normalized(raw_ip)
 
     # Auto-set postcode based on WGS coordinates
-    nearest_postcode = location_crud.find_nearest_postcode(
+    # Set to nearest postcode if within 5km, otherwise NULL
+    postcode_result = location_crud.find_nearest_postcode(
         db, float(update_data.wgs_lat), float(update_data.wgs_long)
     )
+    if postcode_result:
+        postcode_code, distance_m = postcode_result
+        # Only assign postcode if within 5km (5000 metres)
+        nearest_postcode = postcode_code if distance_m <= 5000 else None
+    else:
+        nearest_postcode = None
 
     # Determine needs_attention value based on action
     if update_data.action == "solved":
@@ -739,7 +746,7 @@ def update_trig_admin(
         "osgb_northings": update_data.osgb_northings,
         "osgb_gridref": update_data.osgb_gridref or "",
         "osgb_height": update_data.osgb_height,
-        "postcode": nearest_postcode or trig.postcode,  # Use existing if lookup fails
+        "postcode": nearest_postcode,  # NULL if no postcode within 5km
         "needs_attention": needs_attention_value,
         "attention_comment": updated_attention_comment,
     }

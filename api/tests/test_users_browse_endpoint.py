@@ -55,7 +55,7 @@ def _ensure_trig(db: Session, trig_id: int) -> None:
             fb_number="S1234",
             stn_number="TEST123",
             permission_ind="Y",
-            postcode="SW1A 1",
+            postcode=None,
             county="London",
             town="Westminster",
             needs_attention=0,

@@ -2,7 +2,7 @@
 CRUD operations for location-related tables (postcodes, towns).
 """
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from api.models.location import Postcode
 
 
-def find_nearest_postcode(db: Session, lat: float, lon: float) -> Optional[str]:
+def find_nearest_postcode(
+    db: Session, lat: float, lon: float
+) -> Optional[Tuple[str, float]]:
     """
     Find the nearest postcode to a given WGS84 coordinate using distance calculation.
 
@@ -20,7 +22,7 @@ def find_nearest_postcode(db: Session, lat: float, lon: float) -> Optional[str]:
         lon: Longitude (WGS84)
 
     Returns:
-        Postcode code string or None if no postcodes found
+        Tuple of (postcode_code, distance_metres) or None if no postcodes found
     """
     # Use Haversine formula for distance calculation
     # More accurate would be PostGIS ST_Distance, but this works for all DB backends
@@ -37,9 +39,16 @@ def find_nearest_postcode(db: Session, lat: float, lon: float) -> Optional[str]:
         postcode_lat_rad
     ) * func.sin(dlon / 2) * func.sin(dlon / 2)
     c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
-    distance = 6371000 * c  # Earth radius in meters
+    distance = 6371000 * c  # Earth radius in metres
 
-    # Find the nearest postcode
-    result = db.query(Postcode.code).order_by(distance).limit(1).scalar()
+    # Find the nearest postcode with its distance
+    result = (
+        db.query(Postcode.code, distance.label("distance_m"))
+        .order_by(distance)
+        .limit(1)
+        .first()
+    )
 
-    return str(result) if result else None
+    if result:
+        return (str(result.code), float(result.distance_m))
+    return None

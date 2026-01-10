@@ -634,7 +634,7 @@
 | os_net_web_id | INTEGER | Yes |  |  |
 | permission_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
 | condition | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| postcode6 | VARCHAR(6) COLLATE "latin1_swedish_ci" | No |  |  |
+| postcode | VARCHAR(10) | Yes |  |  |
 | county | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
 | town | VARCHAR(50) COLLATE "latin1_swedish_ci" | No |  |  |
 | needs_attention | TINYINT | No |  |  |
@@ -675,7 +675,7 @@
     "os_net_web_id": 836,
     "permission_ind": "Y",
     "condition": "G",
-    "postcode6": "ZE2 9",
+    "postcode": "ZE2 9JJ",
     "county": "Shetland",
     "town": "",
     "needs_attention": 0,
@@ -713,7 +713,7 @@
     "os_net_web_id": 339,
     "permission_ind": "Y",
     "condition": "G",
-    "postcode6": "IV21 2",
+    "postcode": "IV21 2PB",
     "county": "Highland Region",
     "town": "",
     "needs_attention": 0,
@@ -751,7 +751,7 @@
     "os_net_web_id": 342,
     "permission_ind": "Y",
     "condition": "Q",
-    "postcode6": "PA80 5",
+    "postcode": null,
     "county": "Western Isles",
     "town": "",
     "needs_attention": 0,

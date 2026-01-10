@@ -53,7 +53,7 @@ def create_test_trig(db: Session, condition: str) -> Trig:
         stn_number=f"COND{waypoint}",
         permission_ind="Y",
         condition=condition,
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,

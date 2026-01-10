@@ -101,7 +101,11 @@ class Trig(Base):
     osgb_height = Column(Integer, nullable=False)  # Height in meters
 
     # Location information
-    postcode = Column(String(10), nullable=False)  # Postcode
+    postcode = Column(
+        String(10),
+        ForeignKey("postcodes.code", ondelete="SET NULL"),
+        nullable=True,
+    )  # Nearest postcode (FK to postcodes table, NULL if >5km away)
     county = Column(String(20), nullable=False)  # County
     town = Column(String(50), nullable=False)  # Town/area
 

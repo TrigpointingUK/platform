@@ -36,7 +36,7 @@ def test_get_trig_success_minimal(client: TestClient, db: Session):
         stn_number="TEST123",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,
@@ -100,7 +100,7 @@ def test_get_trig_with_details_include(client: TestClient, db: Session):
         stn_number="TEST124",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,
@@ -118,7 +118,7 @@ def test_get_trig_with_details_include(client: TestClient, db: Session):
     assert response.status_code == 200
     data = response.json()
     assert "details" in data and isinstance(data["details"], dict)
-    assert data["details"]["postcode"] == "SW1A 1"
+    assert data["details"]["postcode"] is None
     assert data["details"]["county"] == "London"
 
 
@@ -154,7 +154,7 @@ def test_get_trig_by_waypoint_success_minimal(client: TestClient, db: Session):
         stn_number="TEST456",
         permission_ind="Y",
         condition="G",
-        postcode="B1 1AA",
+        postcode=None,
         county="West Midlands",
         town="Birmingham",
         needs_attention=0,
@@ -208,7 +208,7 @@ def test_search_trigs_by_name(client: TestClient, db: Session):
         stn_number="BENNEVIS",
         permission_ind="Y",
         condition="G",
-        postcode="PH15 4",
+        postcode=None,
         county="Highland",
         town="Fort William",
         needs_attention=0,
@@ -238,7 +238,7 @@ def test_search_trigs_by_name(client: TestClient, db: Session):
         stn_number="BENMORE",
         permission_ind="Y",
         condition="G",
-        postcode="PA75 6",
+        postcode=None,
         county="Argyll and Bute",
         town="Craignure",
         needs_attention=0,
@@ -285,7 +285,7 @@ def test_get_trig_count(client: TestClient, db: Session):
         stn_number="COUNT",
         permission_ind="Y",
         condition="G",
-        postcode="TR1 1",
+        postcode=None,
         county="Cornwall",
         town="Truro",
         needs_attention=0,
@@ -331,7 +331,7 @@ def test_get_trig_details_endpoint(client: TestClient, db: Session):
         stn_number="DET123",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,
@@ -348,7 +348,7 @@ def test_get_trig_details_endpoint(client: TestClient, db: Session):
     response = client.get(f"{settings.API_V1_STR}/trigs/{trig.id}?include=details")
     assert response.status_code == 200
     data = response.json()
-    assert data["details"]["postcode"] == "SW1A 1"
+    assert data["details"]["postcode"] is None
     assert data["details"]["county"] == "London"
     assert data["details"]["stn_number"] == "DET123"
 
@@ -377,7 +377,7 @@ def test_get_trig_stats_endpoint_and_include(client: TestClient, db: Session):
         stn_number="STATS1",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,
@@ -438,7 +438,7 @@ def test_get_trig_attrs_include(client: TestClient, db: Session):
         stn_number="ATTR1",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,
@@ -585,7 +585,7 @@ def test_get_trig_stats_never_found_returns_null_for_found_last(
         stn_number="NFND01",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,
@@ -661,7 +661,7 @@ def test_get_trig_stats_never_logged_returns_null_for_logged_dates(
         stn_number="NLOG01",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,

@@ -503,7 +503,7 @@ def test_tlog_entries(db, test_user):
                 osgb_northings=n,
                 osgb_gridref=grid,
                 osgb_height=0,
-                postcode="AA0 0AA",
+                postcode=None,
                 county="Testshire",
                 town="Testtown",
                 permission_ind="Y",

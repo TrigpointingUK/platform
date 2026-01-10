@@ -40,7 +40,7 @@ def create_test_trig(
         stn_number="TEST123",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,
