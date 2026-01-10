@@ -60,7 +60,7 @@ The `/v1/locations/search?q=<query>` endpoint now returns up to 10 results (conf
 2. **OSGB grid references** - if query matches grid ref format
 3. **Trigpoints** - by name or waypoint (limit 5)
 4. **Towns** - by name (limit 5)
-5. **Postcodes** - from both postcode6 and postcodes tables (limit 5 each)
+5. **Postcodes** - from the postcodes table (limit 5)
 6. **Users** - by username (limit 5)
 
 All results include:

@@ -114,8 +114,6 @@ Merges secondary users into the primary user (most recent activity). By default 
     "tlog": 2,
     "tphoto": 0,
     "tphotovote": 0,
-    "tquery": 5,
-    "tquizscores": 0
   },
   "profile_updates": {
     "firstname": "John",
@@ -140,8 +138,6 @@ Merges secondary users into the primary user (most recent activity). By default 
     "tlog": 2,
     "tphoto": 0,
     "tphotovote": 0,
-    "tquery": 5,
-    "tquizscores": 0
   },
   "profile_updated": true
 }
@@ -206,7 +202,7 @@ curl -X POST \
 ### How Primary User is Selected
 
 The user with the **most recent activity** becomes the primary user:
-1. Check last activity across all tables: tlog, tphoto, tphotovote, tquery, tquizscores
+1. Check last activity across all tables: tlog, tphoto, tphotovote
 2. User with most recent timestamp is selected
 3. If no activity, use account creation date
 
@@ -215,8 +211,6 @@ The user with the **most recent activity** becomes the primary user:
 1. **Activity Records** - All records reassigned to primary user:
    - `tlog` entries
    - `tphotovote` entries
-   - `tquery` entries
-   - `tquizscores` entries
    - `tphoto` entries (via tlog relationship)
 
 2. **Profile Data** - Best values selected:
@@ -388,7 +382,7 @@ mysqldump -u user -p database_name user > user_backup.sql
 
 # Backup activity tables
 mysqldump -u user -p database_name \
-  tlog tphoto tphotovote tquery tquizscores > activity_backup.sql
+  tlog tphoto tphotovote > activity_backup.sql
 ```
 
 ## Next Steps

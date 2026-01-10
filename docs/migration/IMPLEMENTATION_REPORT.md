@@ -116,7 +116,7 @@ query.filter(ST_DWithin(Trig.location, center_point, max_km * 1000))
 2. `scripts/transform_coordinates_to_postgis.py` (266 lines)
    - Transforms lat/lon to PostGIS WKT format
    - Validates coordinate ranges (WGS84 bounds)
-   - Processes trig, place, town, postcode6 tables
+   - Processes spatial tables that require a PostGIS `location` column
    - Creates `location` column with `POINT(lon lat)`
    - Validation summary with statistics
 
@@ -291,7 +291,7 @@ query.filter(ST_DWithin(Trig.location, center_point, max_km * 1000))
 ### Data Migration
 - **Tables**: 38 tables
 - **Rows**: ~4+ million rows total
-- **Largest Table**: tquery (2.4M rows)
+- **Largest Table**: postcodes (2.7M rows)
 - **Spatial Data**: trig table (~26K points)
 
 ## Testing Strategy

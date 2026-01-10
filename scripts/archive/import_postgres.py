@@ -134,21 +134,17 @@ class PostgreSQLImporter:
         # Tables in dependency order (reference tables first)
         priority_order = [
             "status",
-            "county",
             "town",
             "server",
             "user",
             "trig",
             "tlog",
             "tphoto",
-            "place",
-            "postcode6",
         ]
 
         # Defer massive tables to the end so smaller tables import first
         defer_to_end = [
             "postcodes",  # 2.7M rows - import last
-            "postcode8",  # Also large
         ]
 
         csv_files = []
@@ -446,21 +442,6 @@ class PostgreSQLImporter:
                         else:
                             cleaned_row[normalized_key] = value
 
-                    # Special handling for 'place' table: Convert NULL to empty string for address fields
-                    # These columns are part of the PRIMARY KEY and must match MySQL's NOT NULL DEFAULT '' behavior
-                    if table_name == "place":
-                        for addr_field in [
-                            "addr1",
-                            "addr2",
-                            "addr3",
-                            "addr4",
-                            "addr5",
-                            "addr6",
-                            "postcode8",
-                        ]:
-                            if cleaned_row.get(addr_field) is None:
-                                cleaned_row[addr_field] = ""
-
                     batch.append(cleaned_row)
 
                     # Execute batch when full
@@ -602,9 +583,7 @@ class PostgreSQLImporter:
 
         spatial_indexes = [
             ("trig", "location"),
-            ("place", "location"),
             ("town", "location"),
-            ("postcode6", "location"),
         ]
 
         with self.Session() as session:

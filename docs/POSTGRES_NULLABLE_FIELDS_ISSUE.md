@@ -26,7 +26,7 @@ The following models also have `nullable=False` declarations and may encounter s
 - **User** (`api/models/user.py`): Core identity fields, timestamps
 - **Trig** (`api/models/trig.py`): Identifiers, coordinates, location info
 - **TPhoto** (`api/models/tphoto.py`): Photo metadata
-- **TPhotoVote**, **TQuery**, **TQuizScores**: Less critical but may fail
+- **TPhotoVote**, **TQuizScores**: Less critical but may fail
 
 ### Lower Priority (Reference Data)
 - **Status**, **Server**, **TrigStats**, **Location** models: Likely pre-populated with valid data

@@ -130,7 +130,7 @@ python scripts/export_mysql_to_postgres.py --output-dir ./mysql_export
 #### 2. `scripts/transform_coordinates_to_postgis.py` ✅
 - Transforms lat/lon coordinates to PostGIS WKT format
 - Validates coordinate ranges (WGS84 bounds)
-- Processes trig, place, town, postcode6 tables
+- Processes spatial tables that require a PostGIS `location` column
 - Creates `location` column with POINT(lon lat) WKT
 - Handles invalid coordinates gracefully
 - Validation summary with statistics

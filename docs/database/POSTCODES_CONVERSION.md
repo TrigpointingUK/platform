@@ -66,7 +66,7 @@ The script expects a CSV file with the following columns:
 ## Output
 
 The script generates:
-1. SQL to drop the legacy `postcode8` table
+1. SQL to drop the legacy postcode dataset table
 2. SQL to create the new `postcodes` table with indexes
 3. Batched INSERT statements (1,000 rows per statement) for all postcodes
 
@@ -77,9 +77,9 @@ For the current NSPL dataset:
 - **Output file size**: ~94 MB
 - **INSERT statements**: 2,718 batches
 
-## Migration from postcode8
+## Migration from legacy postcode dataset table
 
-This table replaces the legacy `postcode8` table which was a cache of an external API. The new `postcodes` table:
+This table replaces a legacy postcode dataset table which was a cache of an external API. The new `postcodes` table:
 - Contains all UK postcodes from the NSPL dataset
 - Has proper indexes for efficient querying
 - Stores WGS84 coordinates directly without external API dependency
@@ -88,9 +88,7 @@ This table replaces the legacy `postcode8` table which was a cache of an externa
 ### API Changes
 
 The Find Trigs API (`/api/v1/locations/search`) has been updated to:
-- Use the new `postcodes` table instead of `postcode8`
-- Continue supporting legacy `postcode6` table for backward compatibility
-- Use OSGB eastings/northings for `postcode6` conversions (as wgs_lat column is corrupted)
+- Use the `postcodes` table as the source of postcode coordinates
 
 ## Database Import
 

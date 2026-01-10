@@ -226,7 +226,7 @@ class CSVSanitizer:
                     row_had_issues = False
 
                     # Check for rows with NULL primary key (first column)
-                    # For tables like postcode8 where code is the PK and must not be NULL
+                    # For tables where the first column is the PK and must not be NULL
                     first_col = list(row.keys())[0] if row else None
                     if first_col and not row.get(first_col):
                         # Skip rows where the first column (likely PK) is empty

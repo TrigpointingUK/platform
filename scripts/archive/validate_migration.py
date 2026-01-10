@@ -164,18 +164,7 @@ class MigrationValidator:
         # Tables with spatial data and their primary key columns
         spatial_tables = {
             "trig": ["id"],
-            "place": [
-                "name",
-                "addr1",
-                "addr2",
-                "addr3",
-                "addr4",
-                "addr5",
-                "addr6",
-                "postcode8",
-            ],  # Composite PK
             "town": ["name"],
-            "postcode6": ["code"],
         }
 
         all_valid = True
@@ -310,7 +299,7 @@ class MigrationValidator:
         print("NULL Location Check")
         print("=" * 60)
 
-        spatial_tables = ["trig", "place", "town", "postcode6"]
+        spatial_tables = ["trig", "town"]
 
         all_ok = True
 
@@ -366,9 +355,7 @@ class MigrationValidator:
 
         expected_indexes = [
             ("trig", "location"),
-            ("place", "location"),
             ("town", "location"),
-            ("postcode6", "location"),
         ]
 
         all_exist = True
