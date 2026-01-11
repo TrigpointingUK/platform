@@ -727,7 +727,7 @@ def update_trig_admin(
     )
 
     # Prepare updates dictionary - convert None to empty string for text fields
-    updates = {
+    updates: dict = {
         "name": update_data.name,
         "fb_number": update_data.fb_number or "",
         "stn_number": update_data.stn_number or "",
@@ -750,6 +750,15 @@ def update_trig_admin(
         "needs_attention": needs_attention_value,
         "attention_comment": updated_attention_comment,
     }
+
+    # Update PostGIS location from WGS84 coordinates (PostgreSQL only)
+    # Note: ST_MakePoint takes (x, y) = (lon, lat)
+    if db.bind and db.bind.dialect.name != "sqlite":  # type: ignore[union-attr]
+        from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
+
+        updates["location"] = ST_SetSRID(
+            ST_MakePoint(float(update_data.wgs_long), float(update_data.wgs_lat)), 4326
+        )
 
     # Update with admin tracking (stores admin_* fields on trig table)
     updated_trig = trig_crud.update_trig_admin(
