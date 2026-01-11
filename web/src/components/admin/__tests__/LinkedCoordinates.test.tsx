@@ -45,7 +45,7 @@ describe("LinkedCoordinates", () => {
 
       const eastingsInput = screen.getByPlaceholderText("e.g., 512345") as HTMLInputElement;
       const northingsInput = screen.getByPlaceholderText("e.g., 212345") as HTMLInputElement;
-      const gridrefInput = screen.getByPlaceholderText("e.g., SO 12345 67890") as HTMLInputElement;
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433") as HTMLInputElement;
 
       expect(eastingsInput.value).toBe("530034");
       expect(northingsInput.value).toBe("179382");
@@ -62,11 +62,11 @@ describe("LinkedCoordinates", () => {
       expect(osgbHeightInput.value).toBe("55");
     });
 
-    it("renders grid reference field as readonly", () => {
+    it("renders grid reference field as editable", () => {
       render(<LinkedCoordinates {...defaultProps} />);
 
-      const gridrefInput = screen.getByPlaceholderText("e.g., SO 12345 67890");
-      expect(gridrefInput).toHaveAttribute("readonly");
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+      expect(gridrefInput).not.toHaveAttribute("readonly");
     });
 
     it("renders section headers", () => {
@@ -196,6 +196,146 @@ describe("LinkedCoordinates", () => {
       });
 
       expect(onWgsChange).toHaveBeenCalledWith("52.12345", "-1.54321", 105);
+    });
+  });
+
+  describe("Grid Reference Editing", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("updates eastings and northings when valid grid reference is entered", async () => {
+      mockConvertCoordinates.mockResolvedValue({
+        from_crs: "osgb",
+        to_crs: "wgs84",
+        input: { e: 530005, n: 180433, height: 55, gridref: "TQ 30005 80433" },
+        output: { lat: 51.508, lon: -0.128, height: 100 },
+      });
+
+      render(<LinkedCoordinates {...defaultProps} />);
+
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+      const eastingsInput = screen.getByPlaceholderText("e.g., 512345") as HTMLInputElement;
+      const northingsInput = screen.getByPlaceholderText("e.g., 212345") as HTMLInputElement;
+
+      await act(async () => {
+        fireEvent.focus(gridrefInput);
+        fireEvent.change(gridrefInput, { target: { value: "TQ 30005 80433" } });
+      });
+
+      // Eastings and northings should update immediately (not waiting for debounce)
+      expect(eastingsInput.value).toBe("530005");
+      expect(northingsInput.value).toBe("180433");
+    });
+
+    it("triggers API call to update WGS84 after valid grid reference is entered", async () => {
+      mockConvertCoordinates.mockResolvedValue({
+        from_crs: "osgb",
+        to_crs: "wgs84",
+        input: { e: 530005, n: 180433, height: 55, gridref: "TQ 30005 80433" },
+        output: { lat: 51.508, lon: -0.128, height: 100 },
+      });
+
+      render(<LinkedCoordinates {...defaultProps} />);
+
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+
+      await act(async () => {
+        fireEvent.focus(gridrefInput);
+        fireEvent.change(gridrefInput, { target: { value: "TQ 30005 80433" } });
+      });
+
+      // Wait for debounce
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+
+      expect(mockConvertCoordinates).toHaveBeenCalledWith({
+        from: "osgb",
+        to: "wgs84",
+        e: 530005,
+        n: 180433,
+        height: 55,
+      });
+    });
+
+    it("shows validation error for invalid grid reference format", () => {
+      render(<LinkedCoordinates {...defaultProps} />);
+
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+      fireEvent.focus(gridrefInput);
+      fireEvent.change(gridrefInput, { target: { value: "INVALID" } });
+
+      // Should show error message
+      expect(screen.getByText(/Invalid format/i)).toBeInTheDocument();
+    });
+
+    it("does not show validation error for empty grid reference", () => {
+      render(<LinkedCoordinates {...defaultProps} />);
+
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+      fireEvent.focus(gridrefInput);
+      fireEvent.change(gridrefInput, { target: { value: "" } });
+
+      // Should not show error for empty input
+      expect(screen.queryByText(/Invalid format/i)).not.toBeInTheDocument();
+    });
+
+    it("validates various grid reference formats correctly", () => {
+      render(<LinkedCoordinates {...defaultProps} />);
+
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+
+      // Valid formats
+      const validRefs = ["TQ 30005 80433", "NL 12345 67890", "HU 00000 00000"];
+      for (const ref of validRefs) {
+        fireEvent.focus(gridrefInput);
+        fireEvent.change(gridrefInput, { target: { value: ref } });
+        expect(screen.queryByText(/Invalid format/i)).not.toBeInTheDocument();
+      }
+
+      // Invalid formats
+      const invalidRefs = [
+        "TQ30005 80433", // Missing first space
+        "TQ 3000580433", // Missing second space
+        "TQ  30005 80433", // Double space
+        "T 30005 80433", // Only one letter
+        "TQQ 30005 80433", // Three letters
+        "TQ 3005 80433", // 4-digit eastings
+        "TQ 30005 8043", // 4-digit northings
+        "TI 30005 80433", // Contains I
+      ];
+      for (const ref of invalidRefs) {
+        fireEvent.focus(gridrefInput);
+        fireEvent.change(gridrefInput, { target: { value: ref } });
+        expect(screen.getByText(/Invalid format/i)).toBeInTheDocument();
+      }
+    });
+
+    it("handles lowercase grid references", async () => {
+      mockConvertCoordinates.mockResolvedValue({
+        from_crs: "osgb",
+        to_crs: "wgs84",
+        input: { e: 530005, n: 180433, height: 55, gridref: "TQ 30005 80433" },
+        output: { lat: 51.508, lon: -0.128, height: 100 },
+      });
+
+      render(<LinkedCoordinates {...defaultProps} />);
+
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+      const eastingsInput = screen.getByPlaceholderText("e.g., 512345") as HTMLInputElement;
+
+      await act(async () => {
+        fireEvent.focus(gridrefInput);
+        fireEvent.change(gridrefInput, { target: { value: "tq 30005 80433" } });
+      });
+
+      // Should still parse correctly
+      expect(eastingsInput.value).toBe("530005");
     });
   });
 

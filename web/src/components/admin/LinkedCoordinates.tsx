@@ -15,6 +15,82 @@ interface LinkedCoordinatesProps {
 }
 
 /**
+ * Validate a 10-figure OS Grid Reference.
+ * Format: "XX 00000 00000" - 2 letters, space, 5 digits, space, 5 digits
+ *
+ * @returns true if the format is valid (doesn't check if location exists in GB)
+ */
+function isValidGridRef(gridref: string): boolean {
+  // Pattern: 2 letters, single space, 5 digits, single space, 5 digits
+  const pattern = /^[A-HJ-Z]{2} \d{5} \d{5}$/i;
+  return pattern.test(gridref);
+}
+
+/**
+ * Parse a valid 10-figure grid reference into eastings and northings.
+ *
+ * The OS National Grid uses a two-letter system:
+ * - First letter: 500km square (S, T, N, O, H, J for mainland GB)
+ * - Second letter: 100km square within the 500km square
+ *
+ * The letters follow a specific pattern where:
+ * - First letter encodes 500km grid position: 19 - l1 = e500 + 5*n500
+ * - Second letter encodes 100km position within that square
+ *
+ * Both use a 5x5 grid (excluding I) but with y-axis inverted:
+ *   A B C D E  (y=4)
+ *   F G H J K  (y=3)
+ *   L M N O P  (y=2)
+ *   Q R S T U  (y=1)
+ *   V W X Y Z  (y=0)
+ *
+ * @returns { eastings, northings } or null if invalid
+ */
+function parseGridRef(gridref: string): { eastings: number; northings: number } | null {
+  if (!isValidGridRef(gridref)) {
+    return null;
+  }
+
+  const parts = gridref.toUpperCase().split(" ");
+  const letters = parts[0];
+  const eastingStr = parts[1];
+  const northingStr = parts[2];
+
+  // Letter to index mapping (excluding I)
+  const letterToIndex = (letter: string): number => {
+    const code = letter.charCodeAt(0) - 65; // A=0, B=1, etc.
+    // Skip I (which would be index 8 in standard alphabet)
+    return code > 8 ? code - 1 : code;
+  };
+
+  // First letter - determines 500km square
+  // Formula: 19 - l1 = e500 + 5*n500
+  // Where e500 is the 500km easting index (0, 1, ...) and n500 is the 500km northing index
+  const l1 = letterToIndex(letters[0]);
+  const tmp = 19 - l1;
+  const e500 = tmp % 5;
+  const n500 = Math.floor(tmp / 5);
+
+  // Second letter - determines 100km square within the 500km square
+  // The grid is arranged with y increasing downward in the letter sequence,
+  // but northings increase upward, so we need to invert
+  const l2 = letterToIndex(letters[1]);
+  const e100 = l2 % 5;
+  const n100 = 4 - Math.floor(l2 / 5); // Invert y-axis
+
+  // Calculate full eastings and northings
+  const eastings = e500 * 500000 + e100 * 100000 + parseInt(eastingStr, 10);
+  const northings = n500 * 500000 + n100 * 100000 + parseInt(northingStr, 10);
+
+  // Basic range check for GB
+  if (eastings < 0 || eastings > 700000 || northings < 0 || northings > 1300000) {
+    return null;
+  }
+
+  return { eastings, northings };
+}
+
+/**
  * LinkedCoordinates component for editing coordinates in both WGS84 and OSGB36 systems.
  *
  * Edits in one coordinate system are automatically converted to the other using the
@@ -28,6 +104,11 @@ interface LinkedCoordinatesProps {
  * - The field being edited never loses focus during conversion
  * - Only the "other side" of the conversion is updated
  * - Conversions are debounced at 500ms
+ *
+ * Grid reference can be edited directly:
+ * - Must be 10-figure format: "XX 00000 00000"
+ * - Valid input immediately updates eastings/northings
+ * - Invalid input is highlighted with a red border
  */
 export default function LinkedCoordinates({
   wgsLat,
@@ -54,6 +135,9 @@ export default function LinkedCoordinates({
 
   // Track the currently focused field to avoid updating it during conversion
   const focusedFieldRef = useRef<string | null>(null);
+
+  // Grid reference validation state
+  const [gridrefValid, setGridrefValid] = useState(true);
 
   // Loading and error states
   const [isConverting, setIsConverting] = useState(false);
@@ -95,7 +179,10 @@ export default function LinkedCoordinates({
       if (focusedFieldRef.current !== "osgbNorthings") {
         setOsgbNorthingsInput(newNorthings.toString());
       }
-      setOsgbGridrefInput(newGridref);
+      if (focusedFieldRef.current !== "osgbGridref") {
+        setOsgbGridrefInput(newGridref);
+        setGridrefValid(true);
+      }
       if (focusedFieldRef.current !== "osgbHeight") {
         setOsgbHeightInput(Math.round(newOsgbHeight).toString());
       }
@@ -129,9 +216,12 @@ export default function LinkedCoordinates({
         height: isNaN(height) ? undefined : height,
       });
 
-      // Update gridref from API response
+      // Update gridref from API response (only if not editing gridref directly)
       const gridref = result.input.gridref ?? osgbGridrefInput;
-      setOsgbGridrefInput(gridref);
+      if (focusedFieldRef.current !== "osgbGridref") {
+        setOsgbGridrefInput(gridref);
+        setGridrefValid(true);
+      }
 
       // Update parent OSGB values
       onOsgbChange(eastings, northings, gridref, isNaN(height) ? 0 : height);
@@ -172,7 +262,7 @@ export default function LinkedCoordinates({
     return () => clearTimeout(timer);
   }, [wgsLatInput, wgsLongInput, wgsHeightInput, editingSide, convertWgsToOsgb]);
 
-  // Debounced conversion when OSGB values change
+  // Debounced conversion when OSGB values change (including from grid ref edits)
   useEffect(() => {
     if (editingSide !== "osgb") return;
 
@@ -194,7 +284,27 @@ export default function LinkedCoordinates({
     // Don't clear editingSide on blur - let the debounce complete
   };
 
+  // Handle grid reference input changes
+  const handleGridrefChange = (value: string) => {
+    setOsgbGridrefInput(value);
+
+    // Check if it's a valid 10-figure grid reference
+    const valid = isValidGridRef(value);
+    setGridrefValid(valid || value === ""); // Empty is OK (neutral state)
+
+    if (valid) {
+      // Parse and update eastings/northings immediately
+      const parsed = parseGridRef(value);
+      if (parsed) {
+        setOsgbEastingsInput(parsed.eastings.toString());
+        setOsgbNorthingsInput(parsed.northings.toString());
+        // The debounced effect will trigger the API call to update lat/long
+      }
+    }
+  };
+
   const inputClassName = "w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400";
+  const invalidInputClassName = "w-full rounded-md border-2 border-red-400 px-3 py-2 text-gray-800 shadow-sm focus:border-red-500 focus:ring-2 focus:ring-red-300 bg-red-50";
 
   return (
     <div className="space-y-6">
@@ -326,12 +436,16 @@ export default function LinkedCoordinates({
           <input
             type="text"
             value={osgbGridrefInput}
-            className={`${inputClassName} bg-gray-100`}
-            placeholder="e.g., SO 12345 67890"
-            readOnly
+            onChange={(e) => handleGridrefChange(e.target.value)}
+            onFocus={() => handleFocus("osgbGridref", "osgb")}
+            onBlur={handleBlur}
+            className={gridrefValid ? inputClassName : invalidInputClassName}
+            placeholder="e.g., TQ 30005 80433"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Grid reference is auto-calculated from eastings/northings using OSTN15
+            {gridrefValid
+              ? "Enter a 10-figure grid reference (e.g., TQ 30005 80433) or edit eastings/northings directly"
+              : "Invalid format. Use: XX 00000 00000 (2 letters, space, 5 digits, space, 5 digits)"}
           </p>
         </div>
       </div>
