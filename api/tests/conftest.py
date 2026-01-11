@@ -17,9 +17,28 @@ from api.db.user_activity_summary_view import (
     DROP_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS,
 )
 from api.main import app
-from api.models.status import Status
-from api.models.trig import Trig
-from api.models.user import TLog, User
+
+# Import all models to ensure they're registered with Base.metadata for create_all()
+from api.models import (  # noqa: F401
+    Area,
+    AreaType,
+    Attr,
+    AttrSet,
+    AttrSetAttrVal,
+    AttrSource,
+    AttrVal,
+    Postcode,
+    Server,
+    Status,
+    TLog,
+    Town,
+    TPhoto,
+    TPhotoVote,
+    Trig,
+    TrigType,
+    TrigTypeGroup,
+    User,
+)
 
 # Legacy JWT tokens removed - Auth0 only
 
@@ -191,6 +210,10 @@ def setup_test_tables(request):
     """Create all tables once at the session start for each worker."""
     # Create tables (will only succeed for the first worker due to PostgreSQL's transactional DDL)
     try:
+        # Ensure PostGIS extension is available
+        with engine.begin() as connection:
+            connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+
         # Drop and recreate postcodes table to ensure schema is up to date
         # (create_all doesn't add new columns to existing tables)
         with engine.begin() as connection:
@@ -203,8 +226,13 @@ def setup_test_tables(request):
                 connection.execute(text(statement))
             for statement in CREATE_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS:
                 connection.execute(text(statement))
-    except Exception:
+    except Exception as e:
         # Tables likely already exist from another worker
+        # Log the error for debugging if it's not a duplicate table error
+        import sys
+
+        if "already exists" not in str(e):
+            print(f"Warning: setup_test_tables failed: {e}", file=sys.stderr)
         pass
 
     # Seed minimal reference rows used by many tests (FK constraints are now enforced).

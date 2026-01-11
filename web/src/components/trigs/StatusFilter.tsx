@@ -4,14 +4,52 @@ interface StatusFilterProps {
   visibleStatuses?: number[]; // Only show these statuses
 }
 
-// Trigpoint types with icons and colors
+// Trigpoint type groups with icons
+// Maps legacy status IDs to the new type group system
+// sort_order values: PILLAR=10, FBM=20, MINOR_MARK=30, INTERSECTED=40, ACTIVE=50, OTHER=60
 const STATUS_LEVELS = [
-  { id: 10, name: "Pillar", icon: "/icons/t_pillar.png", color: "bg-blue-600" },
-  { id: 20, name: "Major mark", icon: "/icons/t_fbm.png", color: "bg-green-600" },
-  { id: 30, name: "Minor mark", icon: "/icons/t_passive.png", color: "bg-yellow-600" },
-  { id: 40, name: "Intersected", icon: "/icons/t_intersected.png", color: "bg-orange-600" },
-  { id: 50, name: "User Added", icon: "/icons/t_user_added.svg", color: "bg-red-600" },
-  { id: 60, name: "Controversial", icon: "/icons/t_controversial.svg", color: "bg-gray-600" },
+  {
+    id: 10,
+    code: "PILLAR",
+    name: "Pillar",
+    icon: "/icons/t_pillar.png",
+    color: "bg-blue-600",
+  },
+  {
+    id: 20,
+    code: "FBM",
+    name: "FBM",
+    icon: "/icons/t_fbm.png",
+    color: "bg-green-600",
+  },
+  {
+    id: 30,
+    code: "MINOR_MARK",
+    name: "Minor mark",
+    icon: "/icons/t_passive.png",
+    color: "bg-yellow-600",
+  },
+  {
+    id: 40,
+    code: "INTERSECTED",
+    name: "Intersected",
+    icon: "/icons/t_intersected.png",
+    color: "bg-orange-600",
+  },
+  {
+    id: 50,
+    code: "ACTIVE",
+    name: "Active station",
+    icon: "/icons/t_pillar.png",
+    color: "bg-purple-600",
+  },
+  {
+    id: 60,
+    code: "OTHER",
+    name: "Other",
+    icon: "/icons/t_other.png",
+    color: "bg-gray-600",
+  },
 ];
 
 export function StatusFilter({
@@ -47,10 +85,10 @@ export function StatusFilter({
             aria-label={`${isSelected ? "Deselect" : "Select"} ${status.name}`}
             aria-pressed={isSelected}
           >
-            <img 
-              src={status.icon} 
+            <img
+              src={status.icon}
               alt={status.name}
-              className={`w-full h-full object-contain ${isSelected ? '' : 'opacity-60'}`}
+              className={`w-full h-full object-contain ${isSelected ? "" : "opacity-60"}`}
             />
           </button>
         );
@@ -58,4 +96,3 @@ export function StatusFilter({
     </div>
   );
 }
-

@@ -9,7 +9,7 @@ orientation-model:
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
 	migration-create migration-history \
-	migrate-staging migrate-production migrate-status
+	migrate-staging migrate-production migrate-status downgrade-staging
 
 # Default target
 help: ## Show this help message
@@ -222,6 +222,21 @@ migrate-staging: ## Apply migrations to staging via SSM tunnel (requires postgre
 	DB_NAME=$$(echo "$$SECRET_JSON" | jq -r '.dbname') \
 	ENV_NAME=STAGING \
 	alembic upgrade head
+
+downgrade-staging: ## Downgrade staging by one migration (requires postgres-tunnel)
+	@echo "⏪ Downgrading STAGING by one migration"
+	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
+	@command -v jq >/dev/null 2>&1 || { echo "❌ jq not found."; exit 1; }
+	@SECRET_JSON=$$(aws secretsmanager get-secret-value \
+	  --region $(AWS_REGION) \
+	  --secret-id fastapi-staging-postgres-credentials \
+	  --query SecretString --output text); \
+	DB_HOST=localhost DB_PORT=5433 \
+	DB_USER=$$(echo "$$SECRET_JSON" | jq -r '.username') \
+	DB_PASSWORD=$$(echo "$$SECRET_JSON" | jq -r '.password') \
+	DB_NAME=$$(echo "$$SECRET_JSON" | jq -r '.dbname') \
+	ENV_NAME=STAGING \
+	alembic downgrade -1
 
 migrate-production: ## Apply migrations to production via SSM tunnel (requires postgres-tunnel, with confirmation)
 	@echo "⚠️  PRODUCTION MIGRATION ⚠️"

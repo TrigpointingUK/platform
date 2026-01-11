@@ -781,7 +781,14 @@ def list_trigs(
     ),
     order: Optional[str] = Query(None, description="id | name | distance"),
     physical_types: Optional[str] = Query(
-        None, description="Comma-separated physical types to include"
+        None, description="Comma-separated physical types to include (legacy)"
+    ),
+    types: Optional[str] = Query(
+        None, description="Comma-separated type codes to include (e.g., 'HOTINE,FBM')"
+    ),
+    groups: Optional[str] = Query(
+        None,
+        description="Comma-separated group codes to include (e.g., 'PILLAR,MINOR_MARK')",
     ),
     status_ids: Optional[str] = Query(
         None, description="Comma-separated status IDs to include (e.g., '10,20,30')"
@@ -805,7 +812,9 @@ def list_trigs(
     Filtered collection endpoint for trigs returning envelope with items, pagination, links.
 
     Filters:
-    - physical_types: Filter by physical type (e.g., "Pillar,Bolt,FBM")
+    - physical_types: Filter by physical type (legacy, e.g., "Pillar,Bolt,FBM")
+    - types: Filter by type code (e.g., "HOTINE,FBM,BOLT")
+    - groups: Filter by group code (e.g., "PILLAR,MINOR_MARK")
     - status_ids: Filter by status IDs (e.g., "10,20,30")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
     - only_found: Include only trigpoints the user has logged (requires authentication)
@@ -819,12 +828,22 @@ def list_trigs(
         search_type = "nearby" if (lat and lon and max_km) else "general"
         metrics.record_trig_search(search_type)
 
-    # Parse physical types
+    # Parse physical types (legacy)
     physical_types_list = None
     if physical_types:
         physical_types_list = [
             pt.strip() for pt in physical_types.split(",") if pt.strip()
         ]
+
+    # Parse type codes (new system)
+    type_codes_list = None
+    if types:
+        type_codes_list = [t.strip() for t in types.split(",") if t.strip()]
+
+    # Parse group codes (new system)
+    group_codes_list = None
+    if groups:
+        group_codes_list = [g.strip() for g in groups.split(",") if g.strip()]
 
     # Parse status IDs
     status_ids_list = None
@@ -854,6 +873,8 @@ def list_trigs(
         max_km=max_km,
         order=order,
         physical_types=physical_types_list,
+        type_codes=type_codes_list,
+        group_codes=group_codes_list,
         status_ids=status_ids_list,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
@@ -868,6 +889,8 @@ def list_trigs(
         center_lon=lon,
         max_km=max_km,
         physical_types=physical_types_list,
+        type_codes=type_codes_list,
+        group_codes=group_codes_list,
         status_ids=status_ids_list,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
@@ -875,8 +898,18 @@ def list_trigs(
         area_id=area_id,
     )
 
-    # serialise
-    items_serialized = [TrigMinimal.model_validate(i).model_dump() for i in items]
+    # serialise with type information
+    items_serialized = []
+    for trig in items:
+        data = TrigMinimal.model_validate(trig).model_dump()
+        # Add type information from relationship
+        if trig.trig_type:
+            data["type_code"] = trig.trig_type.code
+            data["type_name"] = trig.trig_type.name
+            if trig.trig_type.group:
+                data["group_code"] = trig.trig_type.group.code
+                data["group_name"] = trig.trig_type.group.name
+        items_serialized.append(data)
 
     # Compute distance_km for returned page only (cheap), matching SQL formula
     if lat is not None and lon is not None:

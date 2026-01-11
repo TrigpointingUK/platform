@@ -115,6 +115,8 @@ def list_trigs_filtered(
     max_km: Optional[float] = None,
     order: Optional[str] = None,
     physical_types: Optional[List[str]] = None,
+    type_codes: Optional[List[str]] = None,
+    group_codes: Optional[List[str]] = None,
     status_ids: Optional[List[int]] = None,
     max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
@@ -149,6 +151,28 @@ def list_trigs_filtered(
     # Filter by physical types (kept for backward compatibility)
     if physical_types:
         query = query.filter(Trig.physical_type.in_(physical_types))
+
+    # Filter by type codes (new type system)
+    if type_codes:
+        from api.models.trig_type import TrigType
+
+        upper_codes = [c.upper() for c in type_codes]
+        type_subquery = db.query(TrigType.id).filter(
+            func.upper(TrigType.code).in_(upper_codes)
+        )
+        query = query.filter(Trig.type_id.in_(type_subquery))
+
+    # Filter by group codes (new type system)
+    if group_codes:
+        from api.models.trig_type import TrigType, TrigTypeGroup
+
+        upper_codes = [c.upper() for c in group_codes]
+        type_subquery = (
+            db.query(TrigType.id)
+            .join(TrigTypeGroup)
+            .filter(func.upper(TrigTypeGroup.code).in_(upper_codes))
+        )
+        query = query.filter(Trig.type_id.in_(type_subquery))
 
     # Exclude trigpoints already found by user
     if exclude_found_by_user_id is not None:
@@ -229,6 +253,8 @@ def count_trigs_filtered(
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
     physical_types: Optional[List[str]] = None,
+    type_codes: Optional[List[str]] = None,
+    group_codes: Optional[List[str]] = None,
     status_ids: Optional[List[int]] = None,
     max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
@@ -263,6 +289,28 @@ def count_trigs_filtered(
     # Filter by physical types (kept for backward compatibility)
     if physical_types:
         query = query.filter(Trig.physical_type.in_(physical_types))
+
+    # Filter by type codes (new type system)
+    if type_codes:
+        from api.models.trig_type import TrigType
+
+        upper_codes = [c.upper() for c in type_codes]
+        type_subquery = db.query(TrigType.id).filter(
+            func.upper(TrigType.code).in_(upper_codes)
+        )
+        query = query.filter(Trig.type_id.in_(type_subquery))
+
+    # Filter by group codes (new type system)
+    if group_codes:
+        from api.models.trig_type import TrigType, TrigTypeGroup
+
+        upper_codes = [c.upper() for c in group_codes]
+        type_subquery = (
+            db.query(TrigType.id)
+            .join(TrigTypeGroup)
+            .filter(func.upper(TrigTypeGroup.code).in_(upper_codes))
+        )
+        query = query.filter(Trig.type_id.in_(type_subquery))
 
     # Exclude trigpoints already found by user
     if exclude_found_by_user_id is not None:
