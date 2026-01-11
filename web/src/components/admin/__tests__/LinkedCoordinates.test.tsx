@@ -271,7 +271,7 @@ describe("LinkedCoordinates", () => {
       fireEvent.change(gridrefInput, { target: { value: "INVALID" } });
 
       // Should show error message
-      expect(screen.getByText(/Invalid format/i)).toBeInTheDocument();
+      expect(screen.getByText(/Invalid grid reference/i)).toBeInTheDocument();
     });
 
     it("does not show validation error for empty grid reference", () => {
@@ -282,7 +282,7 @@ describe("LinkedCoordinates", () => {
       fireEvent.change(gridrefInput, { target: { value: "" } });
 
       // Should not show error for empty input
-      expect(screen.queryByText(/Invalid format/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Invalid grid reference/i)).not.toBeInTheDocument();
     });
 
     it("validates various grid reference formats correctly", () => {
@@ -295,10 +295,10 @@ describe("LinkedCoordinates", () => {
       for (const ref of validRefs) {
         fireEvent.focus(gridrefInput);
         fireEvent.change(gridrefInput, { target: { value: ref } });
-        expect(screen.queryByText(/Invalid format/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Invalid grid reference/i)).not.toBeInTheDocument();
       }
 
-      // Invalid formats
+      // Invalid grid references
       const invalidRefs = [
         "TQ30005 80433", // Missing first space
         "TQ 3000580433", // Missing second space
@@ -312,7 +312,24 @@ describe("LinkedCoordinates", () => {
       for (const ref of invalidRefs) {
         fireEvent.focus(gridrefInput);
         fireEvent.change(gridrefInput, { target: { value: ref } });
-        expect(screen.getByText(/Invalid format/i)).toBeInTheDocument();
+        expect(screen.getByText(/Invalid grid reference/i)).toBeInTheDocument();
+      }
+    });
+
+    it("marks grid references with invalid first letter as invalid", () => {
+      render(<LinkedCoordinates {...defaultProps} />);
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+
+      // These have correct format but first letter is not valid for GB (S/T/N/O/H/J)
+      const invalidFirstLetterRefs = [
+        "XX 12345 67890", // X is not valid
+        "AB 30005 80433", // A is not valid
+        "WX 30005 80433", // W is not valid
+      ];
+      for (const ref of invalidFirstLetterRefs) {
+        fireEvent.focus(gridrefInput);
+        fireEvent.change(gridrefInput, { target: { value: ref } });
+        expect(screen.getByText(/Invalid grid reference/i)).toBeInTheDocument();
       }
     });
 

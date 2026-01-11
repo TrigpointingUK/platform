@@ -296,18 +296,29 @@ export default function LinkedCoordinates({
   const handleGridrefChange = (value: string) => {
     setOsgbGridrefInput(value);
 
-    // Check if it's a valid 10-figure grid reference
-    const valid = isValidGridRef(value);
-    setGridrefValid(valid || value === ""); // Empty is OK (neutral state)
+    // Empty is OK (neutral state)
+    if (value === "") {
+      setGridrefValid(true);
+      return;
+    }
 
-    if (valid) {
-      // Parse and update eastings/northings immediately
-      const parsed = parseGridRef(value);
-      if (parsed) {
-        setOsgbEastingsInput(parsed.eastings.toString());
-        setOsgbNorthingsInput(parsed.northings.toString());
-        // The debounced effect will trigger the API call to update lat/long
-      }
+    // Check if format is valid (2 letters, space, 5 digits, space, 5 digits)
+    const formatValid = isValidGridRef(value);
+    if (!formatValid) {
+      setGridrefValid(false);
+      return;
+    }
+
+    // Parse and validate the grid reference (checks first letter is valid for GB)
+    const parsed = parseGridRef(value);
+    if (parsed) {
+      setOsgbEastingsInput(parsed.eastings.toString());
+      setOsgbNorthingsInput(parsed.northings.toString());
+      setGridrefValid(true);
+      // The debounced effect will trigger the API call to update lat/long
+    } else {
+      // Format is correct but grid reference is invalid (e.g., first letter not S/T/N/O/H/J)
+      setGridrefValid(false);
     }
   };
 
@@ -453,7 +464,7 @@ export default function LinkedCoordinates({
           <p className="text-xs text-gray-500 mt-1">
             {gridrefValid
               ? "Enter a 10-figure grid reference (e.g., TQ 30005 80433) or edit eastings/northings directly"
-              : "Invalid format. Use: XX 00000 00000 (2 letters, space, 5 digits, space, 5 digits)"}
+              : "Invalid grid reference. Format: XX 00000 00000. First letter must be S, T, N, O, H, or J for GB."}
           </p>
         </div>
       </div>
