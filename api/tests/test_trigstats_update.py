@@ -41,14 +41,14 @@ def _create_test_trig(db: Session) -> Trig:
         stn_number="TEST123",
         permission_ind="Y",
         condition="G",
-        postcode="SW1A 1",
+        postcode=None,
         county="London",
         town="Westminster",
         needs_attention=0,
         attention_comment="",
         crt_date=date(2023, 1, 1),
         crt_time=time(12, 0, 0),
-        crt_user_id=1,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(trig)

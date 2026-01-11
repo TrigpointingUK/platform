@@ -2,9 +2,19 @@
 Database models for the existing legacy database schema.
 """
 
-from datetime import date, datetime, time
+from datetime import date, time
 
-from sqlalchemy import Column, Date, DateTime, Integer, SmallInteger, String, Text, Time
+from sqlalchemy import (
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    Time,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import CHAR
 
@@ -75,7 +85,7 @@ class User(Base):
         Time, nullable=True, default=time(0, 0, 0)
     )  # Nullable for PostgreSQL compatibility
     upd_timestamp = Column(
-        DateTime, nullable=True, default=datetime.now
+        DateTime, nullable=True
     )  # Nullable for PostgreSQL compatibility
 
 
@@ -86,10 +96,10 @@ class TLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     trig_id = Column(
-        Integer, index=True, nullable=True
+        Integer, ForeignKey("trig.id", ondelete="SET NULL"), index=True, nullable=True
     )  # Nullable for PostgreSQL compatibility
     user_id = Column(
-        Integer, index=True, nullable=True
+        Integer, ForeignKey("user.id", ondelete="SET NULL"), index=True, nullable=True
     )  # Nullable for PostgreSQL compatibility
     date = Column(Date, nullable=True)  # Nullable for PostgreSQL compatibility
     time = Column(Time, nullable=True)  # Nullable for PostgreSQL compatibility
@@ -105,7 +115,7 @@ class TLog(Base):
     ip_addr = Column(String(15), nullable=True)  # Nullable for PostgreSQL compatibility
     source = Column(CHAR(1), nullable=True)  # Nullable for PostgreSQL compatibility
     upd_timestamp = Column(
-        DateTime, nullable=True, default=datetime.now
+        DateTime, nullable=True
     )  # Nullable for PostgreSQL compatibility
 
 
@@ -115,27 +125,11 @@ class TPhotoVote(Base):
     __tablename__ = "tphotovote"
 
     id = Column(Integer, primary_key=True, index=True)
-    tphoto_id = Column(Integer, index=True, nullable=False)
-    user_id = Column(Integer, index=True, nullable=False)
+    tphoto_id = Column(
+        Integer, ForeignKey("tphoto.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    user_id = Column(
+        Integer, ForeignKey("user.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     score = Column(SmallInteger, nullable=False)
     upd_timestamp = Column(DateTime, nullable=True)
-
-
-class TQuery(Base):
-    """TQuery model for the tquery table."""
-
-    __tablename__ = "tquery"
-
-    id = Column(Integer, primary_key=True, index=True)
-    type = Column(CHAR(1), nullable=False)
-    text = Column(Text, nullable=False)
-    sql_from = Column(Text, nullable=False)
-    sql_where = Column(Text, nullable=False)
-    sql_having = Column(Text, nullable=False)
-    sql_order = Column(Text, nullable=False)
-    osgb_eastings = Column(Integer, nullable=False)
-    osgb_northings = Column(Integer, nullable=False)
-    user_id = Column(Integer, index=True, nullable=True)
-    system_ind = Column(CHAR(1), nullable=False)
-    upd_timestamp = Column(DateTime, nullable=True)
-    crt_timestamp = Column(DateTime, nullable=True)

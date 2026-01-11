@@ -318,7 +318,6 @@ def merge_users_admin(
             logger.info(f"Updated target user {field}")
 
     if profile_updated:
-        target_user.upd_timestamp = datetime.now()  # type: ignore[assignment]
         db.add(target_user)
 
     # Delete source user

@@ -148,7 +148,7 @@ class TestUserEndpointStats:
             stn_number="TEST001",
             status_id=1,
             user_added=0,
-            postcode="RG1 1A",
+            postcode=None,
             county="Berkshire",
             town="Reading",
             permission_ind="Y",
@@ -156,7 +156,7 @@ class TestUserEndpointStats:
             attention_comment="",
             crt_date=date(2020, 1, 1),
             crt_time=time(12, 0, 0),
-            crt_user_id=1,
+            crt_user_id=None,
             crt_ip_addr="127.0.0.1",
         )
 
@@ -179,7 +179,7 @@ class TestUserEndpointStats:
             stn_number="TEST002",
             status_id=1,
             user_added=0,
-            postcode="RG1 1B",
+            postcode=None,
             county="Berkshire",
             town="Reading",
             permission_ind="Y",
@@ -187,7 +187,7 @@ class TestUserEndpointStats:
             attention_comment="",
             crt_date=date(2020, 1, 1),
             crt_time=time(12, 0, 0),
-            crt_user_id=1,
+            crt_user_id=None,
             crt_ip_addr="127.0.0.1",
         )
 

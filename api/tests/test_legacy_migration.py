@@ -257,9 +257,6 @@ class TestMigrateUsersDryRun:
 class TestMigrateUsersRealMigration:
     """Test actual migration."""
 
-    @pytest.mark.skip(
-        reason="Migration test queries all users incompatible with shared PostgreSQL database parallel execution."
-    )
     @patch("api.api.v1.endpoints.legacy.auth0_service")
     def test_successful_migration(
         self,
@@ -270,17 +267,26 @@ class TestMigrateUsersRealMigration:
         admin_user: User,
         admin_token: str,
     ):
-        """Test successful migration of users to Auth0."""
-        # Mock Auth0 service responses
-        mock_auth0_service.create_user_for_migration.side_effect = [
-            {"user_id": "auth0|migrated1"},  # For user3 (email1@example.com)
-            {"user_id": "auth0|migrated2"},  # For user2 (email2@example.com)
-        ]
+        """Test successful migration of users to Auth0.
+
+        Redesigned to work with parallel execution by using dynamic mock
+        that generates unique auth0 IDs for any number of users.
+        """
+        import uuid as uuid_module
+
+        # Use a counter to generate unique auth0 IDs for each call
+        call_counter = {"count": 0}
+
+        def mock_create_user(**kwargs):
+            call_counter["count"] += 1
+            return {"user_id": f"auth0|migrated_{uuid_module.uuid4().hex[:8]}"}
+
+        mock_auth0_service.create_user_for_migration.side_effect = mock_create_user
         mock_auth0_service.send_verification_email.return_value = True
 
         response = client.post(
             f"{settings.API_V1_STR}/legacy/migrate_users",
-            json={"limit": 10, "dry_run": False, "send_confirmation_email": True},
+            json={"limit": 100, "dry_run": False, "send_confirmation_email": True},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
@@ -292,65 +298,60 @@ class TestMigrateUsersRealMigration:
         assert data["total_unique_emails_found"] >= 2
         assert data["total_processed"] >= 2
 
-        # Check that both users were created successfully
+        # Check that users were created successfully
         created_actions = [a for a in data["actions"] if a["action"] == "created"]
         assert len(created_actions) >= 2
 
-        # Verify the right users were chosen
-        emails_migrated = {a["email"] for a in created_actions}
+        # Verify the right users were chosen from our fixture
         # Use dynamic emails from fixture
         user1 = test_users_for_migration[0]
         user2 = test_users_for_migration[1]
         user3 = test_users_for_migration[2]
 
-        # Our fixture's emails should be in the migrated set
-        assert {user1.email, user2.email}.issubset(emails_migrated)
+        # Find actions for our specific fixture emails
+        fixture_actions = [
+            a for a in created_actions if a["email"] in {user1.email, user2.email}
+        ]
+        assert len(fixture_actions) >= 2, (
+            f"Expected 2+ fixture actions, got {len(fixture_actions)}. "
+            f"Looking for emails {user1.email}, {user2.email}"
+        )
 
         # For email1 (shared by user1 and user3), user3 should be chosen (more recent log)
-        email1_action = [a for a in created_actions if a["email"] == user1.email][0]
+        email1_actions = [a for a in fixture_actions if a["email"] == user1.email]
+        assert len(email1_actions) == 1
+        email1_action = email1_actions[0]
         assert email1_action["database_user_id"] == user3.id
         assert email1_action["database_username"] == user3.name
-        assert email1_action["auth0_user_id"] == "auth0|migrated1"
+        assert email1_action["auth0_user_id"].startswith("auth0|migrated_")
         assert email1_action["verification_email_sent"] is True
 
         # For email2, user2 should be chosen
-        email2_action = [a for a in created_actions if a["email"] == user2.email][0]
+        email2_actions = [a for a in fixture_actions if a["email"] == user2.email]
+        assert len(email2_actions) == 1
+        email2_action = email2_actions[0]
         assert email2_action["database_user_id"] == user2.id
         assert email2_action["database_username"] == user2.name
-        assert email2_action["auth0_user_id"] == "auth0|migrated2"
+        assert email2_action["auth0_user_id"].startswith("auth0|migrated_")
         assert email2_action["verification_email_sent"] is True
 
-        # Verify database updates
+        # Verify database updates for our fixture users
         db.refresh(user2)
         db.refresh(user3)
 
-        assert user2.auth0_user_id == "auth0|migrated2"
-        assert user3.auth0_user_id == "auth0|migrated1"
+        assert user2.auth0_user_id is not None
+        assert user2.auth0_user_id.startswith("auth0|migrated_")
+        assert user3.auth0_user_id is not None
+        assert user3.auth0_user_id.startswith("auth0|migrated_")
 
         # Verify user1 was not updated (user3 was chosen for same email)
         db.refresh(user1)
         assert user1.auth0_user_id is None
 
-        # Verify Auth0 service calls
-        assert mock_auth0_service.create_user_for_migration.call_count == 2
-        assert mock_auth0_service.send_verification_email.call_count == 2
-
-        # Check call arguments for user3 (email1)
-        call_args_user3 = mock_auth0_service.create_user_for_migration.call_args_list[0]
-        assert call_args_user3.kwargs["email"] == user3.email
-        assert call_args_user3.kwargs["name"] == user3.name
-        assert call_args_user3.kwargs["legacy_user_id"] == user3.id
-        assert call_args_user3.kwargs["original_username"] == user3.name
-        assert call_args_user3.kwargs["firstname"] == "User"
-        assert call_args_user3.kwargs["surname"] == "Three"
-
 
 class TestMigrateUsersErrors:
     """Test error handling."""
 
-    @pytest.mark.skip(
-        reason="Migration test queries all users incompatible with shared PostgreSQL database parallel execution."
-    )
     @patch("api.api.v1.endpoints.legacy.auth0_service")
     def test_auth0_creation_fails(
         self,
@@ -361,13 +362,17 @@ class TestMigrateUsersErrors:
         admin_user: User,
         admin_token: str,
     ):
-        """Test handling of Auth0 user creation failure."""
+        """Test handling of Auth0 user creation failure.
+
+        Redesigned to work with parallel execution by checking only
+        fixture-specific users.
+        """
         # Mock Auth0 service to fail
         mock_auth0_service.create_user_for_migration.return_value = None
 
         response = client.post(
             f"{settings.API_V1_STR}/legacy/migrate_users",
-            json={"limit": 10, "dry_run": False},
+            json={"limit": 100, "dry_run": False},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
@@ -378,12 +383,21 @@ class TestMigrateUsersErrors:
         failed_actions = [a for a in data["actions"] if a["action"] == "failed"]
         assert len(failed_actions) >= 2  # May be more if parallel tests running
 
-        for action in failed_actions:
+        # Check our fixture-specific emails in failed actions
+        user1 = test_users_for_migration[0]
+        user2 = test_users_for_migration[1]
+
+        fixture_failed = [
+            a for a in failed_actions if a["email"] in {user1.email, user2.email}
+        ]
+        assert len(fixture_failed) >= 2
+
+        for action in fixture_failed:
             assert action["error"] == "Auth0 user creation failed"
             assert action["auth0_user_id"] is not None
             assert action["auth0_user_id"].startswith("ERROR-")
 
-        # Verify users were marked with ERROR markers in database
+        # Verify our fixture users were marked with ERROR markers in database
         user2 = test_users_for_migration[1]
         user3 = test_users_for_migration[2]
 

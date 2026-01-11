@@ -157,7 +157,7 @@ aws logs tail /aws/ecs/trigpointing-staging --follow
 - **Database Name**: `tuk_staging`
 - **Tables**: 39 (all migrated)
 - **Rows**: ~4.8M (verified)
-- **Indexes**: Spatial GIST indexes on `trig`, `place`, `town`, `postcode6`
+- **Indexes**: Spatial GIST indexes on `trig`, `town`
 
 ## Troubleshooting
 

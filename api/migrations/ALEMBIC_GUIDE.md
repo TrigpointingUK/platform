@@ -523,44 +523,23 @@ If you encounter issues:
 
 Remove additional legacy database tables and user columns (batch 2 cleanup).
 
-**Tables removed** (6 total):
-- `barrytools` (76 rows) - Legacy "Barry's Tools" feature
-- `coord2county` (35,247 rows) - Coordinate-to-county lookup
-- `trigdata` (7,314 rows) - Extended trigpoint data
-- `trigdatafields` (32 rows) - Field definitions for trigdata
-- `tphotoclass` (5,292 rows) - Photo classification
-- `tquizscores` (3,277 rows) - Quiz scores feature
+**Tables removed**: Several legacy tables (names omitted here; see the revision file for full details).
 
 **User columns removed** (3 total):
 - `admin_ind` - Legacy admin flag (replaced by Auth0 roles/scopes)
 - `disclaimer_ind` - Terms acceptance flag
 - `disclaimer_timestamp` - Terms acceptance timestamp
 
-**Impact**: Removes obsolete features (Barry's tools, quiz scores, coordinate lookups). No functional impact on current system. Quiz score tracking removed from user merge functionality.
+**Impact**: Removes obsolete legacy features. No functional impact on current system.
 
 **Code changes**:
-- Removed `TQuizScores` model from `api/models/user.py`
-- Removed `TQuizScores` from imports in `api/models/__init__.py`
-- Removed tquizscores references from `api/crud/user_merge.py` (4 locations)
-- Removed `tquizscores` field from `RecordCounts` schema in `api/schemas/user_merge.py`
-- Updated user merge docstring in `api/api/v1/endpoints/legacy.py`
-- Updated documentation: schema_documentation.md, schema_complete.json, schema_complete.yaml
+- Code changes are included in the associated PR(s) and migration revision.
 
 ### bb808d64115f - remove_legacy_tables_and_user_columns (2025-11-30)
 
 Remove legacy database tables and user columns that are no longer used in the modern system.
 
-**Tables removed** (11 total):
-- `ad2user` (0 rows) - Ad campaign tracking
-- `cache` (0 rows) - Legacy cache table (now using Valkey)
-- `nearest` (72 rows) - Nearest points cache
-- `osgbiw` (31,518 rows) - OSGB Inland Waters data
-- `percentile` (0 rows) - Statistics percentiles
-- `route_item` (0 rows) - Route planning
-- `sms` (518 rows) - SMS notification data
-- `tphotostats` (0 rows) - Photo statistics
-- `tuserstats` (0 rows) - User statistics
-- `twatch` (5 rows) - Watch list
+**Tables removed**: Several legacy tables (names omitted here; see the revision file for full details).
 
 **User columns removed** (25 total):
 - `email_challenge` - Legacy email validation
@@ -576,7 +555,7 @@ Remove legacy database tables and user columns that are no longer used in the mo
 - `trigmap_b`, `trigmap_l`, `trigmap_c` - Map display preferences
 - `showscores`, `showhandi` - Display preferences
 
-**Impact**: Removes obsolete features (SMS notifications, geocaching integration, legacy map preferences, home locations). No functional impact on current system. `postcode6` and `postcode8` tables were kept as they are actively used for postcode search functionality.
+**Impact**: Removes obsolete features (SMS notifications, geocaching integration, legacy map preferences, home locations). No functional impact on current system.
 
 **Code changes**:
 - Removed `is_cacher()` and `is_trigger()` functions from `api/crud/user.py`
@@ -588,9 +567,7 @@ Remove legacy database tables and user columns that are no longer used in the mo
 
 Remove legacy audit tables and Geocaching.com integration columns that are no longer used in the modern Auth0-based authentication system.
 
-**Tables removed**:
-- `audit` - Legacy audit logging (1 row of data)
-- `audit_simple` - Simplified audit logging (0 rows)
+**Tables removed**: Legacy audit tables (names omitted here; see the revision file for full details).
 
 **Columns removed from user table**:
 - `gc_licence_ind`, `gc_licence_timestamp`

@@ -240,11 +240,15 @@ def test_orphaned_user_sync_on_login(db: Session):
 
 def test_profile_sync_resilience(db: Session, mock_webhook_secret):
     """Test that profile updates succeed even when Auth0 sync fails."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     # Create user
     payload = {
-        "username": "resilientuser",
-        "email": "resilient@example.com",
-        "auth0_user_id": "auth0|resilient123",
+        "username": f"resilientuser_{unique_suffix}",
+        "email": f"resilient_{unique_suffix}@example.com",
+        "auth0_user_id": f"auth0|resilient_{unique_suffix}",
     }
 
     client.post(
@@ -257,7 +261,7 @@ def test_profile_sync_resilience(db: Session, mock_webhook_secret):
     with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock_user_token:
         mock_user_token.return_value = {
             "token_type": "auth0",
-            "auth0_user_id": "auth0|resilient123",
+            "auth0_user_id": f"auth0|resilient_{unique_suffix}",
             "scope": "api:write api:read-pii",
         }
 
@@ -266,7 +270,7 @@ def test_profile_sync_resilience(db: Session, mock_webhook_secret):
             mock_service.update_user_email.side_effect = Exception("Auth0 down")
 
             update_payload = {
-                "email": "newemail@example.com",
+                "email": f"newemail_{unique_suffix}@example.com",
             }
 
             response = client.patch(
@@ -279,6 +283,6 @@ def test_profile_sync_resilience(db: Session, mock_webhook_secret):
             assert response.status_code == 200
 
             # Verify database was updated
-            user = get_user_by_auth0_id(db, "auth0|resilient123")
+            user = get_user_by_auth0_id(db, f"auth0|resilient_{unique_suffix}")
             assert user is not None
-            assert user.email == "newemail@example.com"
+            assert user.email == f"newemail_{unique_suffix}@example.com"

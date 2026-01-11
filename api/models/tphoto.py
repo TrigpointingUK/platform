@@ -4,7 +4,7 @@ SQLAlchemy model for the tphoto table - trigpoint photos and thumbnails.
 
 from datetime import datetime
 
-from sqlalchemy import CHAR, TIMESTAMP, Column, Integer, String, Text
+from sqlalchemy import CHAR, TIMESTAMP, Column, ForeignKey, Integer, String, Text
 
 from api.db.database import Base
 
@@ -18,8 +18,15 @@ class TPhoto(Base):
     __tablename__ = "tphoto"
 
     id = Column(Integer, primary_key=True, index=True)
-    tlog_id = Column(Integer, nullable=False, index=True)
-    server_id = Column(Integer, nullable=False, index=True)
+    tlog_id = Column(
+        Integer, ForeignKey("tlog.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    server_id = Column(
+        Integer,
+        ForeignKey("server.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Photo type: e.g., 'T' (trig), 'F' (FB), 'L' (landscape), etc.
     type = Column(CHAR(1), nullable=False)

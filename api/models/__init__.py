@@ -4,7 +4,7 @@ from .location import Postcode, Town
 from .server import Server
 from .tphoto import TPhoto
 from .trig import Trig
-from .user import TLog, TPhotoVote, TQuery, User
+from .user import TLog, TPhotoVote, User
 
 __all__ = [
     "Area",
@@ -12,7 +12,6 @@ __all__ = [
     "User",
     "TLog",
     "TPhotoVote",
-    "TQuery",
     "Trig",
     "TPhoto",
     "Server",

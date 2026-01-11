@@ -308,8 +308,10 @@ def list_logs(
                     out["photos"].append(
                         TPhotoResponse(
                             id=int(p.id),
-                            log_id=int(p.tlog_id),
-                            user_id=int(orig.user_id),
+                            log_id=int(p.tlog_id) if p.tlog_id is not None else 0,
+                            user_id=(
+                                int(orig.user_id) if orig.user_id is not None else 0
+                            ),
                             type=photo_type,
                             filesize=int(p.filesize),
                             height=int(p.height),

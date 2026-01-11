@@ -16,13 +16,8 @@
 
 
 
-- **county**: 72 rows, 8 columns
 
-- **os_net_web**: 844 rows, 2 columns
 
-- **place**: 39,134 rows, 15 columns
-- **postcode6**: 8,481 rows, 10 columns
-- **postcode8**: 54,552 rows, 5 columns
 
 - **server**: 3 rows, 4 columns
 
@@ -33,7 +28,6 @@
 
 
 - **tphotovote**: 94,832 rows, 5 columns
-- **tquery**: 2,456,719 rows, 13 columns
 
 - **trig**: 25,810 rows, 36 columns
 
@@ -274,269 +268,6 @@
 ]
 ```
 
-
-
-### county
-
-**Rows:** 72
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | TINYINT | No |  | ✅ |
-| name | CHAR(50) COLLATE "latin1_swedish_ci" | No |  |  |
-| country | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| type | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| pop | INTEGER | No |  |  |
-| hectares | INTEGER | No |  |  |
-| coast_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| grey | TINYINT | No |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "name": "Avon",
-    "country": "E",
-    "type": "C",
-    "pop": 963000,
-    "hectares": 129307,
-    "coast_ind": "Y",
-    "grey": 2
-  },
-  {
-    "id": 2,
-    "name": "Bedfordshire",
-    "country": "E",
-    "type": "C",
-    "pop": 535400,
-    "hectares": 123443,
-    "coast_ind": "N",
-    "grey": 4
-  },
-  {
-    "id": 3,
-    "name": "Berkshire",
-    "country": "E",
-    "type": "C",
-    "pop": 759500,
-    "hectares": 125888,
-    "coast_ind": "N",
-    "grey": 6
-  }
-]
-```
-
-
-### os_net_web
-
-**Rows:** 844
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| stn_number | VARCHAR(14) COLLATE "utf8mb3_general_ci" | Yes |  |  |
-| os_net_web_id | INTEGER | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "stn_number": "H2NJ9409",
-    "os_net_web_id": 609
-  },
-  {
-    "stn_number": "H1NJ9605",
-    "os_net_web_id": 354
-  },
-  {
-    "stn_number": "H2SO3214",
-    "os_net_web_id": 620
-  }
-]
-```
-
-
-### place
-
-**Rows:** 39,134
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| type | CHAR(6) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| name | CHAR(50) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| addr1 | CHAR(50) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| addr2 | CHAR(50) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| addr3 | CHAR(50) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| addr4 | CHAR(50) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| addr5 | CHAR(50) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| addr6 | CHAR(50) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| postcode8 | CHAR(8) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| phone | CHAR(15) COLLATE "latin1_swedish_ci" | No |  |  |
-| wgs_lat | DECIMAL(6, 5) | No |  |  |
-| wgs_long | DECIMAL(6, 5) | No |  |  |
-| osgb_eastings | MEDIUMINT | No |  |  |
-| osgb_northings | MEDIUMINT | No |  |  |
-| osgb_gridref | CHAR(14) COLLATE "latin1_swedish_ci" | No |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "type": "MWAY",
-    "name": "M1 Junction 1",
-    "addr1": "",
-    "addr2": "",
-    "addr3": "",
-    "addr4": "",
-    "addr5": "",
-    "addr6": "",
-    "postcode8": "",
-    "phone": "",
-    "wgs_lat": "0.00000",
-    "wgs_long": "0.00000",
-    "osgb_eastings": 522780,
-    "osgb_northings": 187560,
-    "osgb_gridref": "TQ 22780 87560"
-  },
-  {
-    "type": "MWAY",
-    "name": "M1 Junction 10",
-    "addr1": "",
-    "addr2": "",
-    "addr3": "",
-    "addr4": "",
-    "addr5": "",
-    "addr6": "",
-    "postcode8": "",
-    "phone": "",
-    "wgs_lat": "0.00000",
-    "wgs_long": "0.00000",
-    "osgb_eastings": 508668,
-    "osgb_northings": 218409,
-    "osgb_gridref": "TL 08668 18409"
-  },
-  {
-    "type": "MWAY",
-    "name": "M1 Junction 11",
-    "addr1": "",
-    "addr2": "",
-    "addr3": "",
-    "addr4": "",
-    "addr5": "",
-    "addr6": "",
-    "postcode8": "",
-    "phone": "",
-    "wgs_lat": "0.00000",
-    "wgs_long": "0.00000",
-    "osgb_eastings": 505393,
-    "osgb_northings": 222814,
-    "osgb_gridref": "TL 05393 22814"
-  }
-]
-```
-
-### postcode6
-
-**Rows:** 8,481
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| code | CHAR(6) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| code4 | CHAR(4) COLLATE "latin1_swedish_ci" | No |  |  |
-| wgs_lat | DECIMAL(6, 5) | No |  |  |
-| wgs_long | DECIMAL(6, 5) | No |  |  |
-| osgb_eastings | MEDIUMINT | No |  |  |
-| osgb_northings | MEDIUMINT | No |  |  |
-| osgb_gridref | CHAR(14) COLLATE "latin1_swedish_ci" | No |  |  |
-| county | CHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
-| town | CHAR(50) COLLATE "latin1_swedish_ci" | No |  |  |
-| postal_town | CHAR(50) COLLATE "latin1_swedish_ci" | No |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "code": "AB1 0",
-    "code4": "AB1",
-    "wgs_lat": "9.99999",
-    "wgs_long": "-2.26172",
-    "osgb_eastings": 384240,
-    "osgb_northings": 800680,
-    "osgb_gridref": "NJ 84240 00680",
-    "county": "Grampian Region",
-    "town": "ABERDEEN",
-    "postal_town": "ABERDEEN"
-  },
-  {
-    "code": "AB1 1",
-    "code4": "AB1",
-    "wgs_lat": "9.99999",
-    "wgs_long": "-2.11531",
-    "osgb_eastings": 393120,
-    "osgb_northings": 805640,
-    "osgb_gridref": "NJ 93120 05640",
-    "county": "Grampian Region",
-    "town": "ABERDEEN",
-    "postal_town": "ABERDEEN"
-  },
-  {
-    "code": "AB1 2",
-    "code4": "AB1",
-    "wgs_lat": "9.99999",
-    "wgs_long": "-2.10340",
-    "osgb_eastings": 393840,
-    "osgb_northings": 805640,
-    "osgb_gridref": "NJ 93840 05640",
-    "county": "Grampian Region",
-    "town": "ABERDEEN",
-    "postal_town": "ABERDEEN"
-  }
-]
-```
-
-### postcode8
-
-**Rows:** 54,552
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| code | CHAR(8) COLLATE "latin1_swedish_ci" | No |  | ✅ |
-| osgb_eastings | MEDIUMINT | No |  |  |
-| osgb_northings | MEDIUMINT | No |  |  |
-| source | CHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "code": " \t NG884",
-    "osgb_eastings": 280465,
-    "osgb_northings": 871775,
-    "source": "Multimap",
-    "upd_timestamp": "2010-04-28 15:33:30"
-  },
-  {
-    "code": "",
-    "osgb_eastings": 530142,
-    "osgb_northings": 180561,
-    "source": "Multimap",
-    "upd_timestamp": "2009-09-19 18:53:00"
-  },
-  {
-    "code": "    SK13",
-    "osgb_eastings": 402440,
-    "osgb_northings": 394654,
-    "source": "Streetmap",
-    "upd_timestamp": "2006-07-24 11:36:28"
-  }
-]
-```
 
 
 ### server
@@ -873,79 +604,6 @@
 ]
 ```
 
-### tquery
-
-**Rows:** 2,456,719
-
-#### Columns
-| Column | Type | Nullable | Default | Primary Key |
-|--------|------|----------|---------|-------------|
-| id | MEDIUMINT | No |  | ✅ |
-| type | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| text | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| sql_from | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| sql_where | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| sql_having | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| sql_order | TEXT COLLATE "latin1_swedish_ci" | No |  |  |
-| osgb_eastings | MEDIUMINT | No |  |  |
-| osgb_northings | MEDIUMINT | No |  |  |
-| user_id | MEDIUMINT | Yes |  |  |
-| system_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| upd_timestamp | TIMESTAMP | Yes |  |  |
-| crt_timestamp | TIMESTAMP | Yes |  |  |
-
-#### Sample Data
-```json
-[
-  {
-    "id": 1,
-    "type": "T",
-    "text": "trigpoints, near to BUXTON",
-    "sql_from": "",
-    "sql_where": "",
-    "sql_having": "",
-    "sql_order": " pow(trig.osgb_eastings - 405000,2) + pow(trig.osgb_northings - 372998,2) ",
-    "osgb_eastings": 405000,
-    "osgb_northings": 372998,
-    "user_id": 1,
-    "system_ind": "N",
-    "upd_timestamp": "2025-03-10 13:30:58",
-    "crt_timestamp": "0000-00-00 00:00:00"
-  },
-  {
-    "id": 2,
-    "type": "T",
-    "text": "highest scored trigpoints",
-    "sql_from": " inner join trigstats on trig.id = trigstats.id ",
-    "sql_where": "",
-    "sql_having": "",
-    "sql_order": " trigstats.score_baysian desc",
-    "osgb_eastings": 0,
-    "osgb_northings": 0,
-    "user_id": 1,
-    "system_ind": "Y",
-    "upd_timestamp": "2025-08-20 02:46:56",
-    "crt_timestamp": "0000-00-00 00:00:00"
-  },
-  {
-    "id": 3,
-    "type": "T",
-    "text": "trigpoint records needing attention from an admin",
-    "sql_from": "",
-    "sql_where": "trig.needs_attention <> 0",
-    "sql_having": "",
-    "sql_order": "trig.needs_attention desc, trig.id desc",
-    "osgb_eastings": 0,
-    "osgb_northings": 0,
-    "user_id": 1,
-    "system_ind": "Y",
-    "upd_timestamp": "2025-08-19 21:36:01",
-    "crt_timestamp": "2011-10-10 12:11:54"
-  }
-]
-```
-
-
 ### trig
 
 **Rows:** 25,810
@@ -976,7 +634,7 @@
 | os_net_web_id | INTEGER | Yes |  |  |
 | permission_ind | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
 | condition | CHAR(1) COLLATE "latin1_swedish_ci" | No |  |  |
-| postcode6 | VARCHAR(6) COLLATE "latin1_swedish_ci" | No |  |  |
+| postcode | VARCHAR(10) | Yes |  |  |
 | county | VARCHAR(20) COLLATE "latin1_swedish_ci" | No |  |  |
 | town | VARCHAR(50) COLLATE "latin1_swedish_ci" | No |  |  |
 | needs_attention | TINYINT | No |  |  |
@@ -1017,7 +675,7 @@
     "os_net_web_id": 836,
     "permission_ind": "Y",
     "condition": "G",
-    "postcode6": "ZE2 9",
+    "postcode": "ZE2 9JJ",
     "county": "Shetland",
     "town": "",
     "needs_attention": 0,
@@ -1055,7 +713,7 @@
     "os_net_web_id": 339,
     "permission_ind": "Y",
     "condition": "G",
-    "postcode6": "IV21 2",
+    "postcode": "IV21 2PB",
     "county": "Highland Region",
     "town": "",
     "needs_attention": 0,
@@ -1093,7 +751,7 @@
     "os_net_web_id": 342,
     "permission_ind": "Y",
     "condition": "Q",
-    "postcode6": "PA80 5",
+    "postcode": null,
     "county": "Western Isles",
     "town": "",
     "needs_attention": 0,

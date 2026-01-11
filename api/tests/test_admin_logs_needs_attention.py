@@ -48,7 +48,7 @@ def _create_trig(db) -> Trig:
         osgb_northings=0,
         osgb_gridref="AA 00000 00000",
         osgb_height=0,
-        postcode="AA0 0AA",
+        postcode=None,
         county="Testshire",
         town="Testville",
         permission_ind="Y",
@@ -56,7 +56,7 @@ def _create_trig(db) -> Trig:
         attention_comment="",
         crt_date=date.today(),
         crt_time=time(0, 0, 0),
-        crt_user_id=0,
+        crt_user_id=None,
         crt_ip_addr="127.0.0.1",
     )
     db.add(trig)

@@ -124,8 +124,8 @@ class CoordinateTransformer:
         print(f"  ✓ No transformation needed (OSGB coordinates only)")
 
     def transform_location_tables(self):
-        """Transform other location tables (place, town, etc.)."""
-        location_tables = ["place", "town", "postcode6"]
+        """Transform other location tables (e.g., town)."""
+        location_tables = ["town"]
 
         for table_name in location_tables:
             input_file = self.input_dir / f"{table_name}.csv"

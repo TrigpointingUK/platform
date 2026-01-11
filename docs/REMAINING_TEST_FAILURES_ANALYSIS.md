@@ -116,10 +116,10 @@ Similar to Issue #3 - tests assume empty database or specific data only. The reg
 ### Solution:
 1. Create test-specific log entries with unique comment prefixes
 2. Search only within those comments
-3. Fix regex syntax for PostgreSQL if needed (MySQL `REGEXP` vs PostgreSQL `~`)
+3. Regex syntax has been fixed for PostgreSQL (`~*` for case-insensitive matching)
 
 ### Estimated Effort:
-**Low-Medium** - 4-5 tests, may need to adjust regex syntax for PostgreSQL.
+**Low-Medium** - 4-5 tests, regex syntax has been fixed for PostgreSQL.
 
 ---
 

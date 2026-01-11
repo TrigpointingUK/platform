@@ -4,7 +4,7 @@ SQLAlchemy model for the trigstats table.
 
 from typing import Any
 
-from sqlalchemy import DATE, DECIMAL, INTEGER, TIMESTAMP, Column
+from sqlalchemy import DATE, DECIMAL, INTEGER, TIMESTAMP, Column, ForeignKey
 
 from api.db.database import Base
 
@@ -15,7 +15,9 @@ class TrigStats(Base):
     __tablename__ = "trigstats"
 
     # Primary key and FK to trig.id (not declared as FK due to legacy DB constraints)
-    id = Column(INTEGER, primary_key=True, index=True)
+    id = Column(
+        INTEGER, ForeignKey("trig.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
 
     # Log related stats
     logged_first = Column(DATE, nullable=True)  # NULL if never logged

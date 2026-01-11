@@ -400,7 +400,15 @@ def delete_log_hard(db: Session, *, log_id: int) -> bool:
 
 
 def soft_delete_photos_for_log(db: Session, *, log_id: int) -> int:
-    """Soft delete all photos for a given tlog by setting deleted_ind='Y'. Returns count."""
+    """Soft delete all photos for a given tlog.
+
+    Sets deleted_ind='Y' and nullifies tlog_id to explicitly break the FK
+    reference before the parent tlog is deleted. This ensures referential
+    integrity is maintained by the application, with FK constraints serving
+    as a safety net rather than the primary mechanism.
+
+    Returns count of photos soft-deleted.
+    """
     photos: Iterable[TPhoto] = (
         db.query(TPhoto)
         .filter(TPhoto.tlog_id == log_id, TPhoto.deleted_ind != "Y")
@@ -415,6 +423,7 @@ def soft_delete_photos_for_log(db: Session, *, log_id: int) -> int:
 
     for p in photos:
         setattr(p, "deleted_ind", "Y")
+        setattr(p, "tlog_id", None)  # Explicitly break FK before parent deletion
         db.add(p)
         count += 1
     db.commit()
@@ -487,17 +496,17 @@ def search_logs_by_regex(
 
     Args:
         db: Database session
-        regex_pattern: Regex pattern to search for (MySQL REGEXP)
+        regex_pattern: Regex pattern to search for (PostgreSQL ~* case-insensitive)
         skip: Number of records to skip
         limit: Maximum number of records to return
 
     Returns:
         List of TLog objects
     """
-    # MySQL REGEXP operator
+    # PostgreSQL case-insensitive regex operator
     return (
         db.query(TLog)
-        .filter(TLog.comment.op("REGEXP")(regex_pattern))
+        .filter(TLog.comment.op("~*")(regex_pattern))
         .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
         .offset(skip)
         .limit(limit)
@@ -511,15 +520,15 @@ def count_logs_by_regex(db: Session, regex_pattern: str) -> int:
 
     Args:
         db: Database session
-        regex_pattern: Regex pattern to search for (MySQL REGEXP)
+        regex_pattern: Regex pattern to search for (PostgreSQL ~* case-insensitive)
 
     Returns:
         Count of matching logs
     """
-    # MySQL REGEXP operator
+    # PostgreSQL case-insensitive regex operator
     return (
         db.query(func.count(TLog.id))
-        .filter(TLog.comment.op("REGEXP")(regex_pattern))
+        .filter(TLog.comment.op("~*")(regex_pattern))
         .scalar()
         or 0
     )
@@ -568,7 +577,7 @@ def search_logs_by_regex_with_names(
 
     Args:
         db: Database session
-        regex_pattern: Regex pattern to search for (MySQL REGEXP)
+        regex_pattern: Regex pattern to search for (PostgreSQL ~* case-insensitive)
         skip: Number of results to skip
         limit: Maximum number of results to return
 
@@ -579,7 +588,7 @@ def search_logs_by_regex_with_names(
         db.query(TLog, Trig.name, User.name)
         .outerjoin(Trig, TLog.trig_id == Trig.id)
         .outerjoin(User, TLog.user_id == User.id)
-        .filter(TLog.comment.op("REGEXP")(regex_pattern))
+        .filter(TLog.comment.op("~*")(regex_pattern))
         .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
         .offset(skip)
         .limit(limit)

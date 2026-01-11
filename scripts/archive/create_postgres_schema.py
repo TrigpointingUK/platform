@@ -281,7 +281,7 @@ class SchemaCreator:
             col_defs.append(col_def)
 
         # Add PostGIS location column for spatial tables
-        spatial_tables = ["trig", "place", "town", "postcode6"]
+        spatial_tables = ["trig", "town"]
         if table_name in spatial_tables:
             col_defs.append("  location GEOGRAPHY(POINT, 4326)")
 
@@ -327,7 +327,7 @@ class SchemaCreator:
         tables = inspector.get_table_names()
 
         # Order tables by dependency (put reference tables first)
-        priority_tables = ["status", "county", "town", "server"]
+        priority_tables = ["status", "town", "server"]
         ordered_tables = [t for t in priority_tables if t in tables]
         ordered_tables += [t for t in tables if t not in priority_tables]
 
@@ -371,31 +371,10 @@ class SchemaCreator:
                     print(f"  ✗ Error: {e}")
                     failed.append((table_name, str(e)))
 
-        # Fix nullable constraints for tables with composite PRIMARY KEY that includes nullable fields
-        # PostgreSQL forces PRIMARY KEY columns to be NOT NULL, but MySQL allows NULLs despite the constraint
-        print("\nFixing nullable constraints for MySQL compatibility...")
-        with self.pg_engine.connect() as conn:
-            try:
-                # The 'place' table has a composite PK with address fields that can be NULL in MySQL
-                conn.execute(
-                    text(
-                        """
-                    ALTER TABLE place 
-                        ALTER COLUMN addr1 DROP NOT NULL,
-                        ALTER COLUMN addr2 DROP NOT NULL,
-                        ALTER COLUMN addr3 DROP NOT NULL,
-                        ALTER COLUMN addr4 DROP NOT NULL,
-                        ALTER COLUMN addr5 DROP NOT NULL,
-                        ALTER COLUMN addr6 DROP NOT NULL,
-                        ALTER COLUMN postcode8 DROP NOT NULL
-                """
-                    )
-                )
-                conn.commit()
-                print("  ✓ Fixed place table nullable constraints")
-            except Exception as e:
-                print(f"  ⚠️  Could not fix place nullable constraints: {e}")
-                conn.rollback()
+        # Note: Some legacy MySQL tables used composite primary keys that included
+        # fields which could be NULL in practice. Those legacy tables are no longer
+        # part of the current schema, so no post-create constraint adjustments are
+        # applied here.
 
         print("\n" + "=" * 60)
         print(f"✅ Created {created}/{len(ordered_tables)} tables")

@@ -76,7 +76,7 @@ def other_users_photo(db: Session, other_user, other_users_log):
     """Create a photo owned by other_user."""
     photo = TPhoto(
         tlog_id=other_users_log.id,
-        server_id=0,
+        server_id=1,
         type="T",
         filename="000/P00001.jpg",
         filesize=100,

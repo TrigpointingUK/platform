@@ -15,6 +15,7 @@
 - Use British English spelling throughout the codebase
 - Apply black and isort formatting before pushing
 - Add unit tests for any new or modified code
+- **Alembic migrations (DML logging)**: Any migration that runs data-changing SQL (`UPDATE`/`DELETE`/`INSERT`) MUST log how many rows were affected for each statement (e.g. via `conn = op.get_bind(); result = conn.execute(sa.text(...)); logger.info("...", result.rowcount)`). This helps auditing and makes `make migrate-staging` output actionable.
 
 ## Git Workflow
 - Push changes to develop branch (never directly to main)

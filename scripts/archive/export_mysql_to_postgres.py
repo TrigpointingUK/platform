@@ -150,7 +150,6 @@ class MySQLExporter:
         # Tables to export (in dependency order)
         priority_tables = [
             "status",
-            "county",
             "town",
             "server",
             "user",

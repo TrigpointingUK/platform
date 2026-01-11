@@ -497,8 +497,6 @@ def update_current_user_profile(
     if email_changed:
         current_user.email_valid = "N"  # type: ignore
 
-    current_user.upd_timestamp = datetime.now()  # type: ignore
-
     try:
         db.commit()
         db.refresh(current_user)

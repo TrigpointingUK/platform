@@ -7,7 +7,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from api.models.tphoto import TPhoto
-from api.models.user import TLog
+from api.models.user import TLog, TPhotoVote
 from api.services.cache_invalidator import invalidate_photo_caches
 
 # Import update_trigstats lazily to avoid circular imports
@@ -64,26 +64,38 @@ def update_photo(db: Session, photo_id: int, updates: dict) -> Optional[TPhoto]:
 
 
 def delete_photo(db: Session, photo_id: int, soft: bool = True) -> bool:
-    """Delete a photo. Soft delete sets deleted_ind='Y' by default."""
+    """Delete a photo.
+
+    Soft delete (default) sets deleted_ind='Y'.
+    Hard delete removes the row and explicitly deletes associated tphotovote
+    rows first to maintain referential integrity (the FK CASCADE constraint
+    serves as a safety net, not the primary mechanism).
+    """
     photo = db.query(TPhoto).filter(TPhoto.id == photo_id).first()
     if not photo:
         return False
 
     # Get related IDs for cache invalidation before delete
-    log_id = int(photo.tlog_id)
-    tlog = db.query(TLog).filter(TLog.id == log_id).first()
+    log_id = int(photo.tlog_id) if photo.tlog_id else None
+    tlog = db.query(TLog).filter(TLog.id == log_id).first() if log_id else None
 
     if soft:
         # Use setattr to avoid mypy Column type inference issues
         setattr(photo, "deleted_ind", "Y")
         db.add(photo)
     else:
+        # Explicitly delete associated votes before deleting the photo
+        # This maintains referential integrity at the application level;
+        # the FK CASCADE constraint is a safety net, not the primary mechanism.
+        db.query(TPhotoVote).filter(TPhotoVote.tphoto_id == photo_id).delete(
+            synchronize_session=False
+        )
         db.delete(photo)
 
     db.commit()
 
     # Invalidate related caches
-    if tlog:
+    if tlog and log_id is not None:
         invalidate_photo_caches(
             trig_id=int(tlog.trig_id),
             user_id=int(tlog.user_id),
