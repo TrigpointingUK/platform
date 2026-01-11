@@ -63,21 +63,22 @@ jobs:
     - name: Cache PROJ grid files
       uses: actions/cache@v3
       with:
-        path: ~/proj-data
+        path: ~/.local/share/proj
         key: proj-ostn15-osgm15-v1
 
     - name: Download OSTN15/OSGM15 grid files
       run: |
-        mkdir -p ~/proj-data
-        if [ ! -f ~/proj-data/uk_os_OSTN15_NTv2_OSGBtoETRS.tif ]; then
-          curl -fsSL -o ~/proj-data/uk_os_OSTN15_NTv2_OSGBtoETRS.tif \
+        # Put files in pyproj's user data directory so they're found automatically
+        mkdir -p ~/.local/share/proj
+        if [ ! -f ~/.local/share/proj/uk_os_OSTN15_NTv2_OSGBtoETRS.tif ]; then
+          curl -fsSL -o ~/.local/share/proj/uk_os_OSTN15_NTv2_OSGBtoETRS.tif \
             https://cdn.proj.org/uk_os_OSTN15_NTv2_OSGBtoETRS.tif
         fi
-        if [ ! -f ~/proj-data/uk_os_OSGM15_GB.tif ]; then
-          curl -fsSL -o ~/proj-data/uk_os_OSGM15_GB.tif \
+        if [ ! -f ~/.local/share/proj/uk_os_OSGM15_GB.tif ]; then
+          curl -fsSL -o ~/.local/share/proj/uk_os_OSGM15_GB.tif \
             https://cdn.proj.org/uk_os_OSGM15_GB.tif
         fi
-        echo "PROJ_DATA=$HOME/proj-data" >> $GITHUB_ENV
+        ls -la ~/.local/share/proj/
 
     - name: Lint with flake8
       run: |
@@ -106,7 +107,6 @@ jobs:
         DATABASE_URL: postgresql+psycopg2://test_user:test_password@localhost:5432/test_db
         PROJ_NETWORK: "OFF"
       run: |
-        echo "PROJ_DATA is set to: $PROJ_DATA"
         pytest --cov=api --cov-report=xml --cov-report=html
 
     - name: Upload coverage to Codecov
