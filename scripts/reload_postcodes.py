@@ -22,8 +22,8 @@ Requirements:
 """
 
 import csv
+import io
 import sys
-from decimal import Decimal
 from pathlib import Path
 
 # Add api directory to path for imports
@@ -34,20 +34,18 @@ from sqlalchemy import text  # noqa: E402
 from api.db.database import get_session_local  # noqa: E402
 
 
-def reload_postcodes(csv_path: Path, batch_size: int = 5000) -> None:
+def reload_postcodes(csv_path: Path) -> None:
     """
     Reload the postcodes table with filtered NSPL data.
 
     Args:
         csv_path: Path to the NSPL CSV file
-        batch_size: Number of rows to insert per batch
     """
     SessionLocal = get_session_local()
     db = SessionLocal()
 
     try:
         print(f"Reading from: {csv_path}")
-        print(f"Batch size: {batch_size:,}")
         print()
 
         # Step 1: Set all trig.postcode to NULL
@@ -58,26 +56,45 @@ def reload_postcodes(csv_path: Path, batch_size: int = 5000) -> None:
         db.commit()
         print(f"  Updated {result.rowcount:,} trig records")
 
-        # Step 2: Truncate all existing postcodes (much faster than DELETE for large tables)
+        # Step 2: Truncate postcodes table (drop FK temporarily for speed)
         print("\nStep 2: Truncating postcodes table...")
-        # TRUNCATE is much faster than DELETE for large tables
-        # CASCADE handles any remaining FK references (though we already nullified trig.postcode)
-        db.execute(text("TRUNCATE TABLE postcodes CASCADE"))
+        # Drop the FK constraint temporarily to allow TRUNCATE
+        db.execute(
+            text("ALTER TABLE trig DROP CONSTRAINT IF EXISTS fk_trig_postcode_postcodes")
+        )
+        db.commit()
+        # Now TRUNCATE is allowed (much faster than DELETE)
+        db.execute(text("TRUNCATE TABLE postcodes"))
+        db.commit()
+        # Recreate the FK constraint
+        db.execute(
+            text(
+                """
+                ALTER TABLE trig
+                ADD CONSTRAINT fk_trig_postcode_postcodes
+                FOREIGN KEY (postcode) REFERENCES postcodes(code)
+                ON DELETE SET NULL
+                """
+            )
+        )
         db.commit()
         print("  Truncated postcodes table")
 
-        # Step 3: Read CSV and insert filtered postcodes
-        print("\nStep 3: Loading filtered postcodes from CSV...")
+        # Step 3: Filter CSV and load using COPY (much faster than INSERT)
+        print("\nStep 3: Filtering and loading postcodes using COPY...")
         print("  Filters: DOTERM = '' (blank) AND USRTYPIND = 0")
+
+        # First pass: filter CSV into memory buffer
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+
+        total_rows = 0
+        skipped_terminated = 0
+        skipped_large_user = 0
+        skipped_missing_data = 0
 
         with open(csv_path, "r", encoding="utf-8") as csv_file:
             reader = csv.DictReader(csv_file)
-
-            batch = []
-            total_rows = 0
-            skipped_terminated = 0
-            skipped_large_user = 0
-            skipped_missing_data = 0
 
             for row in reader:
                 try:
@@ -103,33 +120,13 @@ def reload_postcodes(csv_path: Path, batch_size: int = 5000) -> None:
                         skipped_missing_data += 1
                         continue
 
-                    # Add to batch
-                    batch.append(
-                        {
-                            "code": code,
-                            "lat": Decimal(lat),
-                            "long": Decimal(long_val),
-                        }
-                    )
+                    # Write to buffer
+                    writer.writerow([code, lat, long_val])
                     total_rows += 1
 
-                    # Insert batch when it reaches batch_size
-                    if len(batch) >= batch_size:
-                        db.execute(
-                            text(
-                                """
-                                INSERT INTO postcodes (code, lat, long)
-                                VALUES (:code, :lat, :long)
-                                """
-                            ),
-                            batch,
-                        )
-                        db.commit()
-                        batch = []
-
-                        # Progress indicator
-                        if total_rows % 100000 == 0:
-                            print(f"  Inserted {total_rows:,} rows...")
+                    # Progress indicator
+                    if total_rows % 500000 == 0:
+                        print(f"  Filtered {total_rows:,} rows...")
 
                 except KeyError as e:
                     print(f"  Warning: Missing column {e}")
@@ -140,18 +137,22 @@ def reload_postcodes(csv_path: Path, batch_size: int = 5000) -> None:
                     skipped_missing_data += 1
                     continue
 
-            # Insert any remaining rows
-            if batch:
-                db.execute(
-                    text(
-                        """
-                        INSERT INTO postcodes (code, lat, long)
-                        VALUES (:code, :lat, :long)
-                        """
-                    ),
-                    batch,
+        print(f"  Filtered {total_rows:,} rows, loading via COPY...")
+
+        # Reset buffer position for reading
+        buffer.seek(0)
+
+        # Use raw connection for COPY
+        raw_conn = db.get_bind().raw_connection()
+        try:
+            with raw_conn.cursor() as cur:
+                cur.copy_expert(
+                    "COPY postcodes (code, lat, long) FROM STDIN WITH CSV",
+                    buffer,
                 )
-                db.commit()
+            raw_conn.commit()
+        finally:
+            raw_conn.close()
 
         # Print summary
         print("\n" + "=" * 60)
