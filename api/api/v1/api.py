@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from api.api.v1.endpoints import (
     admin,
     areas,
+    coordinates,
     debug,
     downloads,
     legacy,
@@ -35,3 +36,6 @@ api_router.include_router(legacy.router, prefix="/legacy", tags=["legacy"])
 api_router.include_router(debug.router, prefix="/debug", tags=["debug"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(downloads.router, prefix="/downloads", tags=["download"])
+api_router.include_router(
+    coordinates.router, prefix="/coordinates", tags=["coordinates"]
+)

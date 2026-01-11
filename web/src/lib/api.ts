@@ -830,3 +830,115 @@ export async function deleteDuplicateLog(
   );
 }
 
+// ============================================================================
+// Coordinate Conversion
+// ============================================================================
+
+/**
+ * Request parameters for coordinate conversion.
+ */
+export interface CoordinateConversionRequest {
+  from: "wgs84" | "osgb";
+  to: "wgs84" | "osgb";
+  lat?: number;
+  lon?: number;
+  e?: number;
+  n?: number;
+  height?: number;
+}
+
+/**
+ * Input coordinates in the conversion response.
+ */
+export interface CoordinateInput {
+  lat?: number;
+  lon?: number;
+  e?: number;
+  n?: number;
+  height?: number;
+  gridref?: string;
+}
+
+/**
+ * Output coordinates in the conversion response.
+ */
+export interface CoordinateOutput {
+  lat?: number;
+  lon?: number;
+  e?: number;
+  n?: number;
+  height?: number;
+  gridref?: string;
+}
+
+/**
+ * Response from the coordinate conversion endpoint.
+ */
+export interface CoordinateConversionResponse {
+  from_crs: string;
+  to_crs: string;
+  input: CoordinateInput;
+  output: CoordinateOutput;
+}
+
+/**
+ * Convert coordinates between WGS84 and OSGB36 using OSTN15/OSGM15.
+ *
+ * This endpoint is public (no authentication required).
+ *
+ * @example
+ * // WGS84 to OSGB (2D)
+ * const result = await convertCoordinates({
+ *   from: "wgs84",
+ *   to: "osgb",
+ *   lat: 51.5074,
+ *   lon: -0.1276,
+ * });
+ *
+ * @example
+ * // WGS84 to OSGB (3D with height)
+ * const result = await convertCoordinates({
+ *   from: "wgs84",
+ *   to: "osgb",
+ *   lat: 51.5074,
+ *   lon: -0.1276,
+ *   height: 100, // ellipsoidal height
+ * });
+ *
+ * @example
+ * // OSGB to WGS84
+ * const result = await convertCoordinates({
+ *   from: "osgb",
+ *   to: "wgs84",
+ *   e: 530034,
+ *   n: 179382,
+ * });
+ */
+export async function convertCoordinates(
+  params: CoordinateConversionRequest
+): Promise<CoordinateConversionResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("from", params.from);
+  searchParams.set("to", params.to);
+
+  if (params.lat !== undefined) {
+    searchParams.set("lat", params.lat.toString());
+  }
+  if (params.lon !== undefined) {
+    searchParams.set("lon", params.lon.toString());
+  }
+  if (params.e !== undefined) {
+    searchParams.set("e", params.e.toString());
+  }
+  if (params.n !== undefined) {
+    searchParams.set("n", params.n.toString());
+  }
+  if (params.height !== undefined) {
+    searchParams.set("height", params.height.toString());
+  }
+
+  return apiGet<CoordinateConversionResponse>(
+    `/v1/coordinates/convert?${searchParams.toString()}`
+  );
+}
+

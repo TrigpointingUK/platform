@@ -23,6 +23,18 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install -r requirements.txt
 
+# Download OSTN15/OSGM15 grid files for accurate UK coordinate transformation
+# These files enable sub-centimetre horizontal accuracy and proper height conversion
+# See: docs/decisions/0001-ostn15-coordinate-conversion.md
+RUN mkdir -p /usr/local/share/proj && \
+    curl -fsSL -o /usr/local/share/proj/uk_os_OSTN15_NTv2_OSGBtoETRS.tif \
+        https://cdn.proj.org/uk_os_OSTN15_NTv2_OSGBtoETRS.tif && \
+    curl -fsSL -o /usr/local/share/proj/uk_os_OSGM15_GB.tif \
+        https://cdn.proj.org/uk_os_OSGM15_GB.tif
+
+# Disable PROJ network access - all grid files must be local
+ENV PROJ_NETWORK=OFF
+
 # Copy application code
 COPY api/ ./api/
 COPY res/ ./res/
