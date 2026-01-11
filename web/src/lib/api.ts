@@ -309,8 +309,8 @@ export interface TrigAttrsData {
 export interface TrigDetails {
   current_use: string;
   historic_use: string;
-  wgs_height: number;
-  osgb_height: number;
+  wgs_height: number | null;
+  osgb_height: number | null;
   postcode: string;
   county: string;
   town: string;
@@ -581,11 +581,11 @@ export interface TrigAdminDetail {
   condition: string;
   wgs_lat: string;
   wgs_long: string;
-  wgs_height: number;
+  wgs_height: number | null;
   osgb_eastings: number;
   osgb_northings: number;
   osgb_gridref: string;
-  osgb_height: number;
+  osgb_height: number | null;
   postcode: string;
   county: string;
   town: string;
@@ -608,11 +608,11 @@ export interface TrigAdminUpdate {
   condition: string;
   wgs_lat: string;
   wgs_long: string;
-  wgs_height: number;
+  wgs_height: number | null;
   osgb_eastings: number;
   osgb_northings: number;
   osgb_gridref: string;
-  osgb_height: number;
+  osgb_height: number | null;
   action: "solved" | "revisit" | "cant_fix";
   admin_comment: string;
 }

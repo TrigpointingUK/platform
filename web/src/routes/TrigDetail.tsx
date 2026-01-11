@@ -315,19 +315,28 @@ export default function TrigDetail() {
                   )}
                 </div>
 
-                <div className="hidden">
-                  <span className="font-semibold text-gray-700">
-                    Height (OSGB):
-                  </span>{" "}
-                  {trig.details?.osgb_height}m
-                </div>
+                {trig.details?.osgb_height != null && (
+                  <div>
+                    <span className="font-semibold text-gray-700">
+                      Height above sea level:
+                    </span>{" "}
+                    {trig.details.osgb_height}m
+                  </div>
+                )}
 
                 {trig.details && trig.details.postcode && (
                   <div>
                     <span className="font-semibold text-gray-700">
                       Postcode:
                     </span>{" "}
-                    {trig.details.postcode}
+                    <a
+                      href={`https://www.google.co.uk/maps/search/${encodeURIComponent(trig.details.postcode)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-trig-green-600 hover:underline"
+                    >
+                      {trig.details.postcode}
+                    </a>
                   </div>
                 )}
 

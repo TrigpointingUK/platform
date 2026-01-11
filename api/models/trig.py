@@ -74,7 +74,7 @@ class Trig(Base):
     # These will be deprecated once all code is updated to use PostGIS
     wgs_lat: Any = Column(DECIMAL(7, 5), nullable=False)  # Latitude
     wgs_long: Any = Column(DECIMAL(7, 5), nullable=False)  # Longitude
-    wgs_height = Column(Integer, nullable=False)  # Height in meters
+    wgs_height = Column(Integer, nullable=True)  # Height in meters (NULL = unknown)
 
     @hybrid_property
     def latitude(self) -> float:
@@ -98,7 +98,7 @@ class Trig(Base):
     osgb_eastings = Column(Integer, nullable=False)  # Eastings
     osgb_northings = Column(Integer, nullable=False)  # Northings
     osgb_gridref = Column(String(14), nullable=False)  # Grid reference
-    osgb_height = Column(Integer, nullable=False)  # Height in meters
+    osgb_height = Column(Integer, nullable=True)  # Height in meters (NULL = unknown)
 
     # Location information
     postcode = Column(

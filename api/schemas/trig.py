@@ -77,8 +77,8 @@ class TrigDetails(BaseModel):
 
     current_use: Optional[str] = None
     historic_use: Optional[str] = None
-    wgs_height: int
-    osgb_height: int
+    wgs_height: Optional[int] = None
+    osgb_height: Optional[int] = None
     postcode: Optional[str] = None
     county: Optional[str] = None
     town: Optional[str] = None

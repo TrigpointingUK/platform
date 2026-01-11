@@ -5,13 +5,13 @@ import Spinner from "../ui/Spinner";
 interface LinkedCoordinatesProps {
   wgsLat: string;
   wgsLong: string;
-  wgsHeight: number;
+  wgsHeight: number | null;
   osgbEastings: number;
   osgbNorthings: number;
   osgbGridref: string;
-  osgbHeight: number;
-  onWgsChange: (lat: string, long: string, height: number) => void;
-  onOsgbChange: (eastings: number, northings: number, gridref: string, height: number) => void;
+  osgbHeight: number | null;
+  onWgsChange: (lat: string, long: string, height: number | null) => void;
+  onOsgbChange: (eastings: number, northings: number, gridref: string, height: number | null) => void;
 }
 
 /**
@@ -124,11 +124,11 @@ export default function LinkedCoordinates({
   // Local input state (strings for text inputs)
   const [wgsLatInput, setWgsLatInput] = useState(wgsLat);
   const [wgsLongInput, setWgsLongInput] = useState(wgsLong);
-  const [wgsHeightInput, setWgsHeightInput] = useState(wgsHeight.toString());
+  const [wgsHeightInput, setWgsHeightInput] = useState(wgsHeight?.toString() ?? "");
   const [osgbEastingsInput, setOsgbEastingsInput] = useState(osgbEastings.toString());
   const [osgbNorthingsInput, setOsgbNorthingsInput] = useState(osgbNorthings.toString());
   const [osgbGridrefInput, setOsgbGridrefInput] = useState(osgbGridref);
-  const [osgbHeightInput, setOsgbHeightInput] = useState(osgbHeight.toString());
+  const [osgbHeightInput, setOsgbHeightInput] = useState(osgbHeight?.toString() ?? "");
 
   // Track which side is being edited to determine conversion direction
   const [editingSide, setEditingSide] = useState<"wgs" | "osgb" | null>(null);

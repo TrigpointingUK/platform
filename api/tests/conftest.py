@@ -191,6 +191,11 @@ def setup_test_tables(request):
     """Create all tables once at the session start for each worker."""
     # Create tables (will only succeed for the first worker due to PostgreSQL's transactional DDL)
     try:
+        # Drop and recreate postcodes table to ensure schema is up to date
+        # (create_all doesn't add new columns to existing tables)
+        with engine.begin() as connection:
+            connection.execute(text("DROP TABLE IF EXISTS postcodes CASCADE"))
+
         Base.metadata.create_all(bind=engine)
         with engine.begin() as connection:
             _install_upd_timestamp_triggers(connection)

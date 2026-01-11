@@ -698,14 +698,12 @@ def update_trig_admin(
     # Auto-set postcode based on WGS coordinates
     # Set to nearest postcode if within 5km, otherwise NULL
     postcode_result = location_crud.find_nearest_postcode(
-        db, float(update_data.wgs_lat), float(update_data.wgs_long)
+        db,
+        float(update_data.wgs_lat),
+        float(update_data.wgs_long),
+        max_distance_m=5000.0,
     )
-    if postcode_result:
-        postcode_code, distance_m = postcode_result
-        # Only assign postcode if within 5km (5000 metres)
-        nearest_postcode = postcode_code if distance_m <= 5000 else None
-    else:
-        nearest_postcode = None
+    nearest_postcode = postcode_result[0] if postcode_result else None
 
     # Determine needs_attention value based on action
     if update_data.action == "solved":

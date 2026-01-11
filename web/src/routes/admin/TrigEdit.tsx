@@ -97,11 +97,11 @@ export default function TrigEdit() {
   const [condition, setCondition] = useState("G");
   const [wgsLat, setWgsLat] = useState("");
   const [wgsLong, setWgsLong] = useState("");
-  const [wgsHeight, setWgsHeight] = useState(0);
+  const [wgsHeight, setWgsHeight] = useState<number | null>(0);
   const [osgbEastings, setOsgbEastings] = useState(0);
   const [osgbNorthings, setOsgbNorthings] = useState(0);
   const [osgbGridref, setOsgbGridref] = useState("");
-  const [osgbHeight, setOsgbHeight] = useState(0);
+  const [osgbHeight, setOsgbHeight] = useState<number | null>(0);
   const [action, setAction] = useState<"solved" | "revisit" | "cant_fix">("revisit");
   const [adminComment, setAdminComment] = useState("");
 
@@ -168,13 +168,13 @@ export default function TrigEdit() {
     };
   }, [getAccessTokenSilently, hasAdminRole, hasAdminScope, trigId]);
 
-  const handleWgsChange = (lat: string, long: string, height: number) => {
+  const handleWgsChange = (lat: string, long: string, height: number | null) => {
     setWgsLat(lat);
     setWgsLong(long);
     setWgsHeight(height);
   };
 
-  const handleOsgbChange = (eastings: number, northings: number, gridref: string, height: number) => {
+  const handleOsgbChange = (eastings: number, northings: number, gridref: string, height: number | null) => {
     setOsgbEastings(eastings);
     setOsgbNorthings(northings);
     setOsgbGridref(gridref);
