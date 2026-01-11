@@ -45,7 +45,7 @@ const PHYSICAL_TYPE_OPTIONS = [
   "Buried Block",
   "Surface Block",
   "Cannon",
-  "Intersection Station",
+  "Intersected",
   "Rivet",
   "Spider",
 ];
@@ -97,11 +97,11 @@ export default function TrigEdit() {
   const [condition, setCondition] = useState("G");
   const [wgsLat, setWgsLat] = useState("");
   const [wgsLong, setWgsLong] = useState("");
-  const [wgsHeight, setWgsHeight] = useState(0);
+  const [wgsHeight, setWgsHeight] = useState<number | null>(0);
   const [osgbEastings, setOsgbEastings] = useState(0);
   const [osgbNorthings, setOsgbNorthings] = useState(0);
   const [osgbGridref, setOsgbGridref] = useState("");
-  const [osgbHeight, setOsgbHeight] = useState(0);
+  const [osgbHeight, setOsgbHeight] = useState<number | null>(0);
   const [action, setAction] = useState<"solved" | "revisit" | "cant_fix">("revisit");
   const [adminComment, setAdminComment] = useState("");
 
@@ -168,15 +168,17 @@ export default function TrigEdit() {
     };
   }, [getAccessTokenSilently, hasAdminRole, hasAdminScope, trigId]);
 
-  const handleWgsChange = (lat: string, long: string) => {
+  const handleWgsChange = (lat: string, long: string, height: number | null) => {
     setWgsLat(lat);
     setWgsLong(long);
+    setWgsHeight(height);
   };
 
-  const handleOsgbChange = (eastings: number, northings: number, gridref: string) => {
+  const handleOsgbChange = (eastings: number, northings: number, gridref: string, height: number | null) => {
     setOsgbEastings(eastings);
     setOsgbNorthings(northings);
     setOsgbGridref(gridref);
+    setOsgbHeight(height);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -512,38 +514,14 @@ export default function TrigEdit() {
             <LinkedCoordinates
               wgsLat={wgsLat}
               wgsLong={wgsLong}
+              wgsHeight={wgsHeight}
               osgbEastings={osgbEastings}
               osgbNorthings={osgbNorthings}
               osgbGridref={osgbGridref}
+              osgbHeight={osgbHeight}
               onWgsChange={handleWgsChange}
               onOsgbChange={handleOsgbChange}
             />
-
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  WGS Height (m)
-                </label>
-                <input
-                  type="number"
-                  value={wgsHeight}
-                  onChange={(e) => setWgsHeight(parseInt(e.target.value) || 0)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  OSGB Height (m)
-                </label>
-                <input
-                  type="number"
-                  value={osgbHeight}
-                  onChange={(e) => setOsgbHeight(parseInt(e.target.value) || 0)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
-                />
-              </div>
-            </div>
           </Card>
 
           <Card>

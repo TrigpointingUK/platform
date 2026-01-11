@@ -52,11 +52,11 @@ class TrigAdminDetail(BaseModel):
     condition: Optional[str] = "G"
     wgs_lat: Decimal
     wgs_long: Decimal
-    wgs_height: int
+    wgs_height: Optional[int] = None
     osgb_eastings: int
     osgb_northings: int
     osgb_gridref: Optional[str] = ""
-    osgb_height: int
+    osgb_height: Optional[int] = None
     postcode: Optional[str] = ""
     county: Optional[str] = ""
     town: Optional[str] = ""
@@ -86,13 +86,13 @@ class TrigAdminUpdate(BaseModel):
     # Coordinates - WGS84
     wgs_lat: Decimal = Field(..., ge=-90, le=90)
     wgs_long: Decimal = Field(..., ge=-180, le=180)
-    wgs_height: int
+    wgs_height: Optional[int] = None
 
     # Coordinates - OSGB
     osgb_eastings: int = Field(..., ge=0)
     osgb_northings: int = Field(..., ge=0)
     osgb_gridref: Optional[str] = Field(default="", max_length=14)
-    osgb_height: int
+    osgb_height: Optional[int] = None
 
     # Admin action
     action: str = Field(
