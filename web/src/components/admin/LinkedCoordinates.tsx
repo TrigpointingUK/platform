@@ -33,16 +33,20 @@ function isValidGridRef(gridref: string): boolean {
  * - First letter: 500km square (S, T, N, O, H, J for mainland GB)
  * - Second letter: 100km square within the 500km square
  *
- * The letters follow a specific pattern where:
- * - First letter encodes 500km grid position: 19 - l1 = e500 + 5*n500
- * - Second letter encodes 100km position within that square
+ * The 500km squares are arranged as:
+ *   H J   (N 1000-1300km)
+ *   N O   (N 500-1000km)
+ *   S T   (N 0-500km)
+ *   |  \
+ *   E   E
+ *   0   500-700km
  *
- * Both use a 5x5 grid (excluding I) but with y-axis inverted:
- *   A B C D E  (y=4)
+ * The 100km squares use a 5x5 grid (excluding I) with y-axis inverted:
+ *   A B C D E  (y=4, N 400-500km within 500km square)
  *   F G H J K  (y=3)
  *   L M N O P  (y=2)
  *   Q R S T U  (y=1)
- *   V W X Y Z  (y=0)
+ *   V W X Y Z  (y=0, N 0-100km within 500km square)
  *
  * @returns { eastings, northings } or null if invalid
  */
@@ -56,6 +60,21 @@ function parseGridRef(gridref: string): { eastings: number; northings: number } 
   const eastingStr = parts[1];
   const northingStr = parts[2];
 
+  // First letter - 500km square lookup (matches backend _GRID_500KM)
+  // Returns [e500, n500] where e500 is 0 or 1, n500 is 0, 1, or 2
+  const grid500km: Record<string, [number, number]> = {
+    S: [0, 0], T: [1, 0],  // N 0-500km
+    N: [0, 1], O: [1, 1],  // N 500-1000km
+    H: [0, 2], J: [1, 2],  // N 1000-1300km
+  };
+
+  const first = grid500km[letters[0]];
+  if (!first) {
+    return null; // Invalid first letter for GB
+  }
+  const [e500, n500] = first;
+
+  // Second letter - 100km square within the 500km square
   // Letter to index mapping (excluding I)
   const letterToIndex = (letter: string): number => {
     const code = letter.charCodeAt(0) - 65; // A=0, B=1, etc.
@@ -63,17 +82,6 @@ function parseGridRef(gridref: string): { eastings: number; northings: number } 
     return code > 8 ? code - 1 : code;
   };
 
-  // First letter - determines 500km square
-  // Formula: 19 - l1 = e500 + 5*n500
-  // Where e500 is the 500km easting index (0, 1, ...) and n500 is the 500km northing index
-  const l1 = letterToIndex(letters[0]);
-  const tmp = 19 - l1;
-  const e500 = tmp % 5;
-  const n500 = Math.floor(tmp / 5);
-
-  // Second letter - determines 100km square within the 500km square
-  // The grid is arranged with y increasing downward in the letter sequence,
-  // but northings increase upward, so we need to invert
   const l2 = letterToIndex(letters[1]);
   const e100 = l2 % 5;
   const n100 = 4 - Math.floor(l2 / 5); // Invert y-axis
@@ -288,18 +296,29 @@ export default function LinkedCoordinates({
   const handleGridrefChange = (value: string) => {
     setOsgbGridrefInput(value);
 
-    // Check if it's a valid 10-figure grid reference
-    const valid = isValidGridRef(value);
-    setGridrefValid(valid || value === ""); // Empty is OK (neutral state)
+    // Empty is OK (neutral state)
+    if (value === "") {
+      setGridrefValid(true);
+      return;
+    }
 
-    if (valid) {
-      // Parse and update eastings/northings immediately
-      const parsed = parseGridRef(value);
-      if (parsed) {
-        setOsgbEastingsInput(parsed.eastings.toString());
-        setOsgbNorthingsInput(parsed.northings.toString());
-        // The debounced effect will trigger the API call to update lat/long
-      }
+    // Check if format is valid (2 letters, space, 5 digits, space, 5 digits)
+    const formatValid = isValidGridRef(value);
+    if (!formatValid) {
+      setGridrefValid(false);
+      return;
+    }
+
+    // Parse and validate the grid reference (checks first letter is valid for GB)
+    const parsed = parseGridRef(value);
+    if (parsed) {
+      setOsgbEastingsInput(parsed.eastings.toString());
+      setOsgbNorthingsInput(parsed.northings.toString());
+      setGridrefValid(true);
+      // The debounced effect will trigger the API call to update lat/long
+    } else {
+      // Format is correct but grid reference is invalid (e.g., first letter not S/T/N/O/H/J)
+      setGridrefValid(false);
     }
   };
 
@@ -445,7 +464,7 @@ export default function LinkedCoordinates({
           <p className="text-xs text-gray-500 mt-1">
             {gridrefValid
               ? "Enter a 10-figure grid reference (e.g., TQ 30005 80433) or edit eastings/northings directly"
-              : "Invalid format. Use: XX 00000 00000 (2 letters, space, 5 digits, space, 5 digits)"}
+              : "Invalid grid reference. Format: XX 00000 00000. First letter must be S, T, N, O, H, or J for GB."}
           </p>
         </div>
       </div>
