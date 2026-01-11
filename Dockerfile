@@ -26,11 +26,14 @@ RUN pip install -r requirements.txt
 # Download OSTN15/OSGM15 grid files for accurate UK coordinate transformation
 # These files enable sub-centimetre horizontal accuracy and proper height conversion
 # See: docs/decisions/0001-ostn15-coordinate-conversion.md
-RUN mkdir -p /usr/local/share/proj && \
-    curl -fsSL -o /usr/local/share/proj/uk_os_OSTN15_NTv2_OSGBtoETRS.tif \
+# Files must go in pyproj's bundled PROJ data directory (pip installs its own PROJ)
+RUN PROJ_DATA_DIR=$(python -c "import pyproj; print(pyproj.datadir.get_data_dir())") && \
+    echo "Installing OSTN15/OSGM15 to: $PROJ_DATA_DIR" && \
+    curl -fsSL -o "$PROJ_DATA_DIR/uk_os_OSTN15_NTv2_OSGBtoETRS.tif" \
         https://cdn.proj.org/uk_os_OSTN15_NTv2_OSGBtoETRS.tif && \
-    curl -fsSL -o /usr/local/share/proj/uk_os_OSGM15_GB.tif \
-        https://cdn.proj.org/uk_os_OSGM15_GB.tif
+    curl -fsSL -o "$PROJ_DATA_DIR/uk_os_OSGM15_GB.tif" \
+        https://cdn.proj.org/uk_os_OSGM15_GB.tif && \
+    ls -la "$PROJ_DATA_DIR"/*.tif
 
 # Disable PROJ network access - all grid files must be local
 ENV PROJ_NETWORK=OFF
