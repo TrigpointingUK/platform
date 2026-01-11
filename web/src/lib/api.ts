@@ -575,6 +575,7 @@ export interface TrigAdminDetail {
   stn_number_passive: string;
   stn_number_osgb36: string;
   status_id: number;
+  type_id: number | null;
   current_use: string;
   historic_use: string;
   physical_type: string;
@@ -602,9 +603,9 @@ export interface TrigAdminUpdate {
   stn_number_passive: string;
   stn_number_osgb36: string;
   status_id: number;
+  type_id: number | null;
   current_use: string;
   historic_use: string;
-  physical_type: string;
   condition: string;
   wgs_lat: string;
   wgs_long: string;
