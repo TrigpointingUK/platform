@@ -3,7 +3,6 @@ SQLAlchemy model for the trig table - UK trigonometric stations.
 Updated to use PostGIS GEOGRAPHY types for spatial data.
 """
 
-import sys
 from typing import Any
 
 from geoalchemy2 import Geography
@@ -14,6 +13,7 @@ from sqlalchemy import (
     Column,
     Date,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     String,
@@ -21,19 +21,24 @@ from sqlalchemy import (
     Time,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship
 
 from api.db.database import Base
 
 # Note: MEDIUMINT and TINYINT are MySQL-specific, using Integer/SmallInteger for PostgreSQL
 
-# Detect if we're running tests (pytest imports this module when running tests)
-_IS_SQLITE = "pytest" in sys.modules
+# Tests now use PostgreSQL with PostGIS, so always use Geography type
+_IS_SQLITE = False
 
 
 class Trig(Base):
     """Trig model for UK trigonometric stations."""
 
     __tablename__ = "trig"
+    __table_args__ = (
+        # Explicit index name to avoid collision with ix_trig_type_id (from trig_type.id)
+        Index("ix_trig_typeid", "type_id"),
+    )
 
     # Primary key
     id = Column(Integer, primary_key=True, index=True)
@@ -53,11 +58,23 @@ class Trig(Base):
     status_id = Column(
         Integer, ForeignKey("status.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # New type system - FK to trig_type table
+    # Note: explicit index name to avoid collision with ix_trig_type_id (from trig_type.id)
+    type_id = Column(
+        Integer,
+        ForeignKey("trig_type.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     user_added = Column(SmallInteger, nullable=False, default=0)
     current_use = Column(String(25), nullable=False)  # e.g., "Passive station"
     historic_use = Column(String(30), nullable=False)  # e.g., "Primary"
-    physical_type = Column(String(25), nullable=False)  # e.g., "Pillar"
+    physical_type = Column(
+        String(25), nullable=False
+    )  # e.g., "Pillar" (legacy, to be removed)
     condition = Column(CHAR(1), nullable=False)  # G=Good, etc.
+
+    # Relationship to trig_type
+    trig_type = relationship("TrigType", back_populates="trigs", lazy="joined")
 
     # PostGIS Geography column for WGS84 coordinates
     # This stores coordinates as a GEOGRAPHY(POINT, 4326) type

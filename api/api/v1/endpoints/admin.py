@@ -18,6 +18,7 @@ from api.crud import location as location_crud
 from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
 from api.crud import trig as trig_crud
+from api.crud import trig_type as trig_type_crud
 from api.crud import user as user_crud
 from api.crud import user_merge as user_merge_crud
 from api.models.user import User
@@ -724,6 +725,20 @@ def update_trig_admin(
         else new_comment
     )
 
+    # Handle type_id: if provided, lookup the type and set both type_id and physical_type
+    type_id_value: Optional[int] = update_data.type_id
+    physical_type_value: str = update_data.physical_type or "Pillar"
+
+    if update_data.type_id is not None:
+        trig_type = trig_type_crud.get_type_by_id(db, update_data.type_id)
+        if not trig_type:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid type_id: {update_data.type_id}"
+            )
+        # Set physical_type from the type's name
+        physical_type_value = str(trig_type.name)
+        type_id_value = int(trig_type.id)  # type: ignore[arg-type]
+
     # Prepare updates dictionary - convert None to empty string for text fields
     updates: dict = {
         "name": update_data.name,
@@ -733,9 +748,10 @@ def update_trig_admin(
         "stn_number_passive": update_data.stn_number_passive or "",
         "stn_number_osgb36": update_data.stn_number_osgb36 or "",
         "status_id": update_data.status_id,
+        "type_id": type_id_value,
         "current_use": update_data.current_use or "none",
         "historic_use": update_data.historic_use or "none",
-        "physical_type": update_data.physical_type or "Pillar",
+        "physical_type": physical_type_value,
         "condition": update_data.condition or "G",
         "wgs_lat": update_data.wgs_lat,
         "wgs_long": update_data.wgs_long,

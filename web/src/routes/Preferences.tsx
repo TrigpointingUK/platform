@@ -4,13 +4,18 @@ import toast from "react-hot-toast";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
-import { useUserProfile, updateUserProfile, type UserProfile, type MapLinkOption } from "../hooks/useUserProfile";
+import {
+  useUserProfile,
+  updateUserProfile,
+  type UserProfile,
+  type MapLinkOption,
+} from "../hooks/useUserProfile";
 import { MAP_LINK_OPTIONS, MAP_LINK_DEFAULTS } from "../lib/mapLinks";
 
 export default function Preferences() {
   const queryClient = useQueryClient();
   const { getAccessTokenSilently } = useAuth0();
-  
+
   // Fetch current user's profile with preferences
   const { data: user, isLoading, error } = useUserProfile("me");
 
@@ -18,13 +23,25 @@ export default function Preferences() {
     try {
       if (field === "status_max") {
         // Parse status_max as an integer
-        await updateUserProfile({ status_max: parseInt(value, 10) } as Partial<UserProfile>, getAccessTokenSilently);
+        await updateUserProfile(
+          { status_max: parseInt(value, 10) } as Partial<UserProfile>,
+          getAccessTokenSilently,
+        );
       } else if (field === "distance_ind") {
-        await updateUserProfile({ distance_ind: value } as Partial<UserProfile>, getAccessTokenSilently);
+        await updateUserProfile(
+          { distance_ind: value } as Partial<UserProfile>,
+          getAccessTokenSilently,
+        );
       } else if (field === "public_ind") {
-        await updateUserProfile({ public_ind: value } as Partial<UserProfile>, getAccessTokenSilently);
+        await updateUserProfile(
+          { public_ind: value } as Partial<UserProfile>,
+          getAccessTokenSilently,
+        );
       } else {
-        await updateUserProfile({ [field]: value } as Partial<UserProfile>, getAccessTokenSilently);
+        await updateUserProfile(
+          { [field]: value } as Partial<UserProfile>,
+          getAccessTokenSilently,
+        );
       }
       // Invalidate to refetch
       queryClient.invalidateQueries({ queryKey: ["user", "profile"] });
@@ -40,7 +57,7 @@ export default function Preferences() {
     try {
       await updateUserProfile(
         { ui_prefs: { [key]: value } } as unknown as Partial<UserProfile>,
-        getAccessTokenSilently
+        getAccessTokenSilently,
       );
       // Invalidate to refetch
       queryClient.invalidateQueries({ queryKey: ["user", "profile"] });
@@ -73,7 +90,9 @@ export default function Preferences() {
           <Card>
             <div className="text-center py-12">
               <p className="text-red-600 text-lg">
-                {error ? "Failed to load preferences" : "Preferences not available"}
+                {error
+                  ? "Failed to load preferences"
+                  : "Preferences not available"}
               </p>
             </div>
           </Card>
@@ -88,9 +107,7 @@ export default function Preferences() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Preferences
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Preferences</h1>
           <p className="text-gray-600">
             Customise your experience on Trigpointing.uk
           </p>
@@ -105,18 +122,29 @@ export default function Preferences() {
               </label>
               <select
                 value={user.prefs.status_max || 30}
-                onChange={(e) => handleFieldUpdate("status_max", e.target.value)}
+                onChange={(e) =>
+                  handleFieldUpdate("status_max", e.target.value)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="10">Pillar only</option>
-                <option value="20">Major marks (Pillars, FBMs, Curry Stools)</option>
-                <option value="30">Minor marks (includes Bolts, Blocks)</option>
-                <option value="40">Intersected (includes Intersected stations)</option>
-                <option value="50">User Added (includes user-submitted)</option>
-                <option value="60">Controversial (includes Irish, benchmarks, oddities)</option>
+                <option value="20">
+                  FBM (includes Pillars and Flush Brackets)
+                </option>
+                <option value="30">
+                  Minor marks (includes Bolts, Blocks, Rivets)
+                </option>
+                <option value="40">
+                  Intersected (includes church spires, towers)
+                </option>
+                <option value="50">
+                  Active stations (includes GPS stations)
+                </option>
+                <option value="60">Other (includes all remaining types)</option>
               </select>
               <p className="mt-2 text-xs text-gray-500">
-                Controls which trigpoints you see on the map and browse pages. Higher levels include all lower levels.
+                Controls which trigpoints you see on the map and browse pages.
+                Higher levels include all lower levels.
               </p>
             </div>
 
@@ -127,7 +155,9 @@ export default function Preferences() {
               </label>
               <select
                 value={user.prefs?.public_ind || "N"}
-                onChange={(e) => handleFieldUpdate("public_ind", e.target.value)}
+                onChange={(e) =>
+                  handleFieldUpdate("public_ind", e.target.value)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="N">Copyright me</option>
@@ -153,7 +183,9 @@ export default function Preferences() {
               </label>
               <select
                 value={user.prefs?.distance_ind || "K"}
-                onChange={(e) => handleFieldUpdate("distance_ind", e.target.value)}
+                onChange={(e) =>
+                  handleFieldUpdate("distance_ind", e.target.value)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="K">Kilometres (km)</option>
@@ -183,8 +215,8 @@ export default function Preferences() {
                   Show curated trigpoint condition on log cards
                 </label>
                 <p className="text-xs text-gray-500 mt-1">
-                  Display a condition icon before the trigpoint ID on log cards, showing the
-                  current overall condition of the trigpoint.
+                  Display a condition icon before the trigpoint ID on log cards,
+                  showing the current overall condition of the trigpoint.
                 </p>
               </div>
             </div>
@@ -197,7 +229,8 @@ export default function Preferences() {
             Trigpoint Page Map Links
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-            Choose which mapping service to open when clicking on coordinate links on trigpoint pages.
+            Choose which mapping service to open when clicking on coordinate
+            links on trigpoint pages.
           </p>
           <div className="space-y-6">
             {/* OS Grid Reference Link */}
@@ -206,8 +239,16 @@ export default function Preferences() {
                 OS Grid Reference
               </label>
               <select
-                value={user.prefs?.ui_prefs?.map_link_gridref ?? MAP_LINK_DEFAULTS.gridref}
-                onChange={(e) => handleUIPrefsUpdate("map_link_gridref", e.target.value as MapLinkOption)}
+                value={
+                  user.prefs?.ui_prefs?.map_link_gridref ??
+                  MAP_LINK_DEFAULTS.gridref
+                }
+                onChange={(e) =>
+                  handleUIPrefsUpdate(
+                    "map_link_gridref",
+                    e.target.value as MapLinkOption,
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 {MAP_LINK_OPTIONS.map((option) => (
@@ -217,7 +258,8 @@ export default function Preferences() {
                 ))}
               </select>
               <p className="mt-2 text-xs text-gray-500">
-                Opens when you click on the OS grid reference (e.g. TQ 30800 79930)
+                Opens when you click on the OS grid reference (e.g. TQ 30800
+                79930)
               </p>
             </div>
 
@@ -227,8 +269,15 @@ export default function Preferences() {
                 WGS Coordinates
               </label>
               <select
-                value={user.prefs?.ui_prefs?.map_link_wgs ?? MAP_LINK_DEFAULTS.wgs}
-                onChange={(e) => handleUIPrefsUpdate("map_link_wgs", e.target.value as MapLinkOption)}
+                value={
+                  user.prefs?.ui_prefs?.map_link_wgs ?? MAP_LINK_DEFAULTS.wgs
+                }
+                onChange={(e) =>
+                  handleUIPrefsUpdate(
+                    "map_link_wgs",
+                    e.target.value as MapLinkOption,
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 {MAP_LINK_OPTIONS.map((option) => (
@@ -238,7 +287,8 @@ export default function Preferences() {
                 ))}
               </select>
               <p className="mt-2 text-xs text-gray-500">
-                Opens when you click on the WGS84 coordinates (e.g. 51.50000, -0.12345)
+                Opens when you click on the WGS84 coordinates (e.g. 51.50000,
+                -0.12345)
               </p>
             </div>
 
@@ -248,8 +298,16 @@ export default function Preferences() {
                 Thumbnail Map
               </label>
               <select
-                value={user.prefs?.ui_prefs?.map_link_thumbnail ?? MAP_LINK_DEFAULTS.thumbnail}
-                onChange={(e) => handleUIPrefsUpdate("map_link_thumbnail", e.target.value as MapLinkOption)}
+                value={
+                  user.prefs?.ui_prefs?.map_link_thumbnail ??
+                  MAP_LINK_DEFAULTS.thumbnail
+                }
+                onChange={(e) =>
+                  handleUIPrefsUpdate(
+                    "map_link_thumbnail",
+                    e.target.value as MapLinkOption,
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 {MAP_LINK_OPTIONS.map((option) => (
@@ -259,7 +317,8 @@ export default function Preferences() {
                 ))}
               </select>
               <p className="mt-2 text-xs text-gray-500">
-                Opens when you click on the small thumbnail map image on the trigpoint page
+                Opens when you click on the small thumbnail map image on the
+                trigpoint page
               </p>
             </div>
           </div>
@@ -268,4 +327,3 @@ export default function Preferences() {
     </Layout>
   );
 }
-

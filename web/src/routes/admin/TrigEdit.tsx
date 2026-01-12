@@ -8,6 +8,7 @@ import Button from "../../components/ui/Button";
 import LinkedCoordinates from "../../components/admin/LinkedCoordinates";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
+import { useTrigTypeGroups } from "../../hooks/useTrigTypes";
 import {
   fetchTrigForEdit,
   fetchStatuses,
@@ -37,19 +38,6 @@ const CONDITION_OPTIONS = [
   { value: "Z", label: "Not Logged" },
 ];
 
-const PHYSICAL_TYPE_OPTIONS = [
-  "Pillar",
-  "FBM",
-  "Bolt",
-  "Block",
-  "Buried Block",
-  "Surface Block",
-  "Cannon",
-  "Intersected",
-  "Rivet",
-  "Spider",
-];
-
 const CURRENT_USE_OPTIONS = [
   "none",
   "Passive station",
@@ -75,6 +63,9 @@ export default function TrigEdit() {
   const [trig, setTrig] = useState<TrigAdminDetail | null>(null);
   const [statuses, setStatuses] = useState<StatusRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch trig type groups for the dropdown
+  const { data: typeGroups, isLoading: isLoadingTypes } = useTrigTypeGroups();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -91,9 +82,9 @@ export default function TrigEdit() {
   const [stnNumberPassive, setStnNumberPassive] = useState("");
   const [stnNumberOsgb36, setStnNumberOsgb36] = useState("");
   const [statusId, setStatusId] = useState(1);
+  const [typeId, setTypeId] = useState<number | null>(null);
   const [currentUse, setCurrentUse] = useState("none");
   const [historicUse, setHistoricUse] = useState("none");
-  const [physicalType, setPhysicalType] = useState("Pillar");
   const [condition, setCondition] = useState("G");
   const [wgsLat, setWgsLat] = useState("");
   const [wgsLong, setWgsLong] = useState("");
@@ -138,9 +129,9 @@ export default function TrigEdit() {
           setStnNumberPassive(trigData.stn_number_passive);
           setStnNumberOsgb36(trigData.stn_number_osgb36);
           setStatusId(trigData.status_id);
+          setTypeId(trigData.type_id);
           setCurrentUse(trigData.current_use);
           setHistoricUse(trigData.historic_use);
-          setPhysicalType(trigData.physical_type);
           setCondition(trigData.condition);
           setWgsLat(trigData.wgs_lat);
           setWgsLong(trigData.wgs_long);
@@ -208,9 +199,9 @@ export default function TrigEdit() {
           stn_number_passive: stnNumberPassive,
           stn_number_osgb36: stnNumberOsgb36,
           status_id: statusId,
+          type_id: typeId,
           current_use: currentUse,
           historic_use: historicUse,
-          physical_type: physicalType,
           condition,
           wgs_lat: wgsLat,
           wgs_long: wgsLong,
@@ -365,15 +356,24 @@ export default function TrigEdit() {
                   Type
                 </label>
                 <select
-                  value={physicalType}
-                  onChange={(e) => setPhysicalType(e.target.value)}
+                  value={typeId ?? ""}
+                  onChange={(e) => setTypeId(e.target.value ? parseInt(e.target.value) : null)}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  disabled={isLoadingTypes}
                 >
-                  {PHYSICAL_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
+                  {isLoadingTypes ? (
+                    <option value="">Loading types...</option>
+                  ) : (
+                    typeGroups?.map((group) => (
+                      <optgroup key={group.id} label={group.name}>
+                        {group.types.map((type) => (
+                          <option key={type.id} value={type.id}>
+                            {type.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))
+                  )}
                 </select>
               </div>
 

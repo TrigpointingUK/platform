@@ -48,6 +48,17 @@ class TrigAttrsData(BaseModel):
     )
 
 
+class TrigTypeInfo(BaseModel):
+    """Embedded type information for trig responses."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    code: str = Field(..., description="Type code (e.g., HOTINE, FBM)")
+    name: str = Field(..., description="Type display name")
+    group_code: Optional[str] = Field(None, description="Parent group code")
+    group_name: Optional[str] = Field(None, description="Parent group name")
+
+
 class TrigMinimal(BaseModel):
     """Minimal trig response for /trig/{id}."""
 
@@ -59,8 +70,14 @@ class TrigMinimal(BaseModel):
     status_name: Optional[str] = Field(
         None, description="Human-readable status derived from status_id"
     )
-    physical_type: str = Field(..., description="Physical type (e.g., Pillar)")
+    physical_type: str = Field(..., description="Physical type (e.g., Pillar) - legacy")
     condition: str = Field(..., description="Condition code")
+
+    # New type system
+    type_code: Optional[str] = Field(None, description="Type code (e.g., HOTINE, FBM)")
+    type_name: Optional[str] = Field(None, description="Type display name")
+    group_code: Optional[str] = Field(None, description="Type group code")
+    group_name: Optional[str] = Field(None, description="Type group display name")
 
     # Coordinates and grid ref
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")

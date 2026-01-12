@@ -18,6 +18,7 @@ from api.api.v1.endpoints import (
     stats,
     tiles,
     trigs,
+    types,
     users,
 )
 
@@ -39,3 +40,4 @@ api_router.include_router(downloads.router, prefix="/downloads", tags=["download
 api_router.include_router(
     coordinates.router, prefix="/coordinates", tags=["coordinates"]
 )
+api_router.include_router(types.router, prefix="/types", tags=["type"])

@@ -15,8 +15,14 @@ import { StatusFilter } from "../components/trigs/StatusFilter";
 import { ColorFilter } from "../components/trigs/ColorFilter";
 import Layout from "../components/layout/Layout";
 import Spinner from "../components/ui/Spinner";
-import { useMapTrigsWithProgress, type MapBounds } from "../hooks/useMapTrigsWithProgress";
-import { useMapTrigsGeoJSON, type GeoJSONTrig } from "../hooks/useMapTrigsGeoJSON";
+import {
+  useMapTrigsWithProgress,
+  type MapBounds,
+} from "../hooks/useMapTrigsWithProgress";
+import {
+  useMapTrigsGeoJSON,
+  type GeoJSONTrig,
+} from "../hooks/useMapTrigsGeoJSON";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useUserLoggedTrigs } from "../hooks/useUserLoggedTrigs";
 import type { UserLogStatus } from "../lib/mapIcons";
@@ -32,31 +38,32 @@ import {
   type IconColorMode,
   getUserLogColor,
   getConditionColor,
-  type IconColor
+  type IconColor,
 } from "../lib/mapIcons";
 import { Menu, X, List } from "lucide-react";
 
-// All status levels (IDs)
+// All status levels (IDs) - maps to trig_type_group.sort_order
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
-// Status ID to name mapping (for API keys)
+// Status ID to API key mapping (for GeoJSON collections)
+// These map to trig_type_group.code (lowercase for API compatibility)
 const STATUS_NAMES: Record<number, string> = {
   10: "pillar",
-  20: "major_mark",
+  20: "fbm",
   30: "minor_mark",
   40: "intersected",
-  50: "user_added",
-  60: "controversial",
+  50: "active",
+  60: "other",
 };
 
-// Status ID to display name mapping
+// Status ID to display name mapping (from trig_type_group.name)
 const STATUS_DISPLAY_NAMES: Record<number, string> = {
   10: "Pillar",
-  20: "Major mark",
+  20: "FBM",
   30: "Minor mark",
   40: "Intersected",
-  50: "User Added",
-  60: "Controversial",
+  50: "Active station",
+  60: "Other",
 };
 
 const ALL_ICON_COLORS: IconColor[] = ["green", "yellow", "red", "grey"];
@@ -65,17 +72,17 @@ const USER_LOG_ICON_COLORS: IconColor[] = ["green", "yellow", "red"];
 /**
  * Component to track map viewport changes
  */
-function MapViewportTracker({ 
+function MapViewportTracker({
   onBoundsChange,
   onZoomChange,
   onCenterChange,
-}: { 
+}: {
   onBoundsChange: (bounds: MapBounds) => void;
   onZoomChange: (zoom: number) => void;
   onCenterChange: (lat: number, lon: number) => void;
 }) {
   const map = useMap();
-  
+
   useEffect(() => {
     const updateViewport = () => {
       const bounds = map.getBounds();
@@ -89,20 +96,20 @@ function MapViewportTracker({
       const center = map.getCenter();
       onCenterChange(center.lat, center.lng);
     };
-    
+
     // Initial viewport
     updateViewport();
-    
+
     // Listen to map movements
-    map.on('moveend', updateViewport);
-    map.on('zoomend', updateViewport);
-    
+    map.on("moveend", updateViewport);
+    map.on("zoomend", updateViewport);
+
     return () => {
-      map.off('moveend', updateViewport);
-      map.off('zoomend', updateViewport);
+      map.off("moveend", updateViewport);
+      map.off("zoomend", updateViewport);
     };
   }, [map, onBoundsChange, onZoomChange, onCenterChange]);
-  
+
   return null;
 }
 
@@ -111,26 +118,26 @@ function MapViewportTracker({
  */
 function MapSizeInvalidator({ sidebarOpen }: { sidebarOpen: boolean }) {
   const map = useMap();
-  
+
   useEffect(() => {
     // Wait for CSS transition to complete, then invalidate map size
     const timer = setTimeout(() => {
       map.invalidateSize();
     }, 300); // Match the transition-all duration-300 from sidebar
-    
+
     return () => clearTimeout(timer);
   }, [sidebarOpen, map]);
-  
+
   return null;
 }
 
 export default function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
-  
+
   // Fetch user profile to get status_max preference
   const { data: userProfile } = useUserProfile("me");
-  
+
   // Fetch user's logged trigpoints for icon coloring
   const { data: loggedTrigsMap } = useUserLoggedTrigs();
 
@@ -139,57 +146,69 @@ export default function Map() {
     const userStatusMax = userProfile?.prefs?.status_max ?? 30;
     return ALL_STATUSES.filter((status) => status <= userStatusMax);
   }, [userProfile]);
-  
+
   // Data source mode: always use geojson (now includes all status levels)
-  const [dataSource] = useState<'geojson' | 'paginated'>('geojson');
-  
+  const [dataSource] = useState<"geojson" | "paginated">("geojson");
+
   // State
   const [tileLayerId, setTileLayerId] = useState(getPreferredTileLayer());
-  const [iconColorMode, setIconColorMode] = useState<IconColorMode>(getPreferredIconColorMode());
+  const [iconColorMode, setIconColorMode] = useState<IconColorMode>(
+    getPreferredIconColorMode(),
+  );
   const [selectedStatuses, setSelectedStatuses] = useState<number[]>(() => {
     const statuses = searchParams.get("statuses");
     if (statuses) return statuses.split(",").map(Number);
-    
+
     return preferredStatuses;
   });
   // Derive initial color selection based on icon mode
-  const [selectedColors, setSelectedColors] = useState<IconColor[]>(() => [...ALL_ICON_COLORS]);
+  const [selectedColors, setSelectedColors] = useState<IconColor[]>(() => [
+    ...ALL_ICON_COLORS,
+  ]);
   const [excludeFound, setExcludeFound] = useState<boolean>(
-    () => searchParams.get("excludeFound") === "true"
+    () => searchParams.get("excludeFound") === "true",
   );
   const [mapBounds, setMapBounds] = useState<MapBounds | undefined>(undefined);
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [renderMode, setRenderMode] = useState<'auto' | 'markers' | 'heatmap'>('auto');
-  const [currentZoom, setCurrentZoom] = useState<number>(MAP_CONFIG.defaultZoom);
+  const [renderMode, setRenderMode] = useState<"auto" | "markers" | "heatmap">(
+    "auto",
+  );
+  const [currentZoom, setCurrentZoom] = useState<number>(
+    MAP_CONFIG.defaultZoom,
+  );
   // Track current center for URL persistence
-  const [currentCenter, setCurrentCenter] = useState<{ lat: number; lon: number } | null>(null);
+  const [currentCenter, setCurrentCenter] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
   const maxTrigpoints = 50000; // Always load all trigpoints
-  
+
   // Track if we've initialized statuses from user preferences (use ref to avoid triggering re-renders)
   const statusesInitializedRef = useRef(false);
-  
+
   // Parse area_id from URL params for boundary display
   const areaId = useMemo(() => {
     const areaIdParam = searchParams.get("area_id");
     return areaIdParam ? parseInt(areaIdParam, 10) : undefined;
   }, [searchParams]);
-  
+
   // Fetch area boundary when area_id is provided
-  const { data: areaBoundary, isLoading: isLoadingBoundary } = useAreaBoundary(areaId);
-  
+  const { data: areaBoundary, isLoading: isLoadingBoundary } =
+    useAreaBoundary(areaId);
+
   // Get center from URL params or use default
   const initialCenter: [number, number] = useMemo(() => {
     const lat = parseFloat(searchParams.get("lat") || "");
     const lon = parseFloat(searchParams.get("lon") || "");
-    
+
     if (lat && lon) {
       return [lat, lon];
     }
-    
+
     return [MAP_CONFIG.defaultCenter.lat, MAP_CONFIG.defaultCenter.lng];
   }, [searchParams]);
-  
+
   const initialZoom = useMemo(() => {
     // Check for zoom in URL params first
     const zoomParam = parseFloat(searchParams.get("zoom") || "");
@@ -199,10 +218,10 @@ export default function Map() {
     // Fall back to trig-specific zoom or default
     return searchParams.get("trig") ? 14 : MAP_CONFIG.defaultZoom;
   }, [searchParams]);
-  
+
   // Active zoom for BaseMap - starts with initial zoom, updated when projection changes
   const [activeZoom, setActiveZoom] = useState<number>(initialZoom);
-  
+
   // Fetch trigpoints for current viewport
   // Note: physical_types filter NOT applied in API - we filter client-side
   const {
@@ -214,60 +233,69 @@ export default function Map() {
   } = useMapTrigsWithProgress({
     bounds: mapBounds,
     excludeFound,
-    enabled: dataSource === 'paginated' && !!mapBounds,
+    enabled: dataSource === "paginated" && !!mapBounds,
     zoom: currentZoom,
     maxTrigpoints,
   });
-  
+
   // Fetch GeoJSON data (Pillar + FBM only)
   const {
     data: geojsonData,
     isLoading: isGeoJSONLoading,
     error: geoJsonError,
   } = useMapTrigsGeoJSON({
-    enabled: dataSource === 'geojson',
+    enabled: dataSource === "geojson",
     limit: maxTrigpoints === 50000 ? null : maxTrigpoints, // null = no limit
   });
-  
+
   // Convert GeoJSON features to Trig format for rendering
   const geojsonTrigs = useMemo(() => {
     if (!geojsonData) return [];
-    
+
     // Debug: log the structure we received
-    console.log('GeoJSON data keys:', Object.keys(geojsonData));
-    
+    console.log("GeoJSON data keys:", Object.keys(geojsonData));
+
     const trigs: typeof allTrigsData = [];
-    
+
     // Iterate through all selected statuses
     for (const statusId of selectedStatuses) {
       const statusKey = STATUS_NAMES[statusId];
       if (!statusKey) continue;
-      
+
       // Safely access the collection
       const collection = geojsonData[statusKey as keyof typeof geojsonData];
-      
+
       // Check if collection exists and has features array
-      if (!collection || typeof collection === 'string') {
-        console.log(`Skipping ${statusKey} - not a collection:`, typeof collection);
+      if (!collection || typeof collection === "string") {
+        console.log(
+          `Skipping ${statusKey} - not a collection:`,
+          typeof collection,
+        );
         continue;
       }
       if (!collection.features || !Array.isArray(collection.features)) {
         console.warn(`No features array for status ${statusKey}:`, collection);
         continue;
       }
-      
-      console.log(`Processing ${statusKey}: ${collection.features.length} features`);
-      
+
+      console.log(
+        `Processing ${statusKey}: ${collection.features.length} features`,
+      );
+
       collection.features.forEach((feature: GeoJSONTrig) => {
         // Skip features with missing critical data
-        if (!feature.properties?.id || !feature.geometry?.coordinates?.[0] || !feature.geometry?.coordinates?.[1]) {
-          console.warn('Skipping feature with missing data:', feature);
+        if (
+          !feature.properties?.id ||
+          !feature.geometry?.coordinates?.[0] ||
+          !feature.geometry?.coordinates?.[1]
+        ) {
+          console.warn("Skipping feature with missing data:", feature);
           return;
         }
-        
+
         trigs.push({
           id: feature.properties.id,
-          waypoint: `TP${feature.properties.id.toString().padStart(4, '0')}`,
+          waypoint: `TP${feature.properties.id.toString().padStart(4, "0")}`,
           name: feature.properties.name || "",
           physical_type: feature.properties.physical_type || "Unknown",
           condition: feature.properties.condition || "U",
@@ -278,50 +306,55 @@ export default function Map() {
         });
       });
     }
-    
+
     return trigs;
   }, [geojsonData, selectedStatuses]);
-  
+
   // Client-side filtering by status (for paginated mode - not currently used)
   const paginatedTrigs = useMemo(() => {
     // If all statuses selected, no need to filter
     if (selectedStatuses.length === ALL_STATUSES.length) {
       return allTrigsData;
     }
-    
+
     // Filter by selected statuses (would need status_id in data)
     return allTrigsData;
   }, [allTrigsData, selectedStatuses]);
-  
+
   // Determine which data to use based on mode
-  const trigpoints = dataSource === 'geojson' ? geojsonTrigs : paginatedTrigs;
-  const isLoading = dataSource === 'geojson' ? isGeoJSONLoading : isPaginatedLoading;
-  const error = dataSource === 'geojson' ? geoJsonError : paginatedError;
-  
+  const trigpoints = dataSource === "geojson" ? geojsonTrigs : paginatedTrigs;
+  const isLoading =
+    dataSource === "geojson" ? isGeoJSONLoading : isPaginatedLoading;
+  const error = dataSource === "geojson" ? geoJsonError : paginatedError;
+
   // Helper function to get log status for a trigpoint
-  const getLogStatus = useCallback((trigId: number): UserLogStatus | null => {
-    // Only return log status if using userLog color mode
-    if (iconColorMode !== 'userLog' || !loggedTrigsMap) {
-      return null;
-    }
-    
-    const condition = loggedTrigsMap.get(trigId);
-    return condition 
-      ? { hasLogged: true, condition }
-      : { hasLogged: false };
-  }, [iconColorMode, loggedTrigsMap]);
-  
+  const getLogStatus = useCallback(
+    (trigId: number): UserLogStatus | null => {
+      // Only return log status if using userLog color mode
+      if (iconColorMode !== "userLog" || !loggedTrigsMap) {
+        return null;
+      }
+
+      const condition = loggedTrigsMap.get(trigId);
+      return condition ? { hasLogged: true, condition } : { hasLogged: false };
+    },
+    [iconColorMode, loggedTrigsMap],
+  );
+
   // Helper function to get the color for a trigpoint based on current mode
-  const getTrigColor = useCallback((trig: typeof trigpoints[0]): IconColor => {
-    if (iconColorMode === 'condition') {
-      return getConditionColor(trig.condition);
-    } else {
-      // userLog mode
-      const logStatus = getLogStatus(trig.id);
-      if (!logStatus) return 'grey';
-      return getUserLogColor(logStatus);
-    }
-  }, [iconColorMode, getLogStatus]);
+  const getTrigColor = useCallback(
+    (trig: (typeof trigpoints)[0]): IconColor => {
+      if (iconColorMode === "condition") {
+        return getConditionColor(trig.condition);
+      } else {
+        // userLog mode
+        const logStatus = getLogStatus(trig.id);
+        if (!logStatus) return "grey";
+        return getUserLogColor(logStatus);
+      }
+    },
+    [iconColorMode, getLogStatus],
+  );
 
   const colorFilteredTrigpoints = useMemo(() => {
     if (selectedColors.length === 0) {
@@ -336,9 +369,11 @@ export default function Map() {
       return trigpoints;
     }
 
-    return trigpoints.filter((trig) => selectedColors.includes(getTrigColor(trig)));
+    return trigpoints.filter((trig) =>
+      selectedColors.includes(getTrigColor(trig)),
+    );
   }, [trigpoints, selectedColors, getTrigColor]);
-  
+
   // Calculate physical type counts from filtered trigpoints
   const physicalTypeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -350,15 +385,15 @@ export default function Map() {
 
     return counts;
   }, [colorFilteredTrigpoints]);
-  
+
   // Filter trigpoints by viewport bounds for performance
   const visibleTrigpoints = useMemo(() => {
     if (!mapBounds) return colorFilteredTrigpoints;
-    
+
     return colorFilteredTrigpoints.filter((trig) => {
       const lat = parseFloat(trig.wgs_lat);
       const lon = parseFloat(trig.wgs_long);
-      
+
       return (
         lat >= mapBounds.south &&
         lat <= mapBounds.north &&
@@ -367,16 +402,16 @@ export default function Map() {
       );
     });
   }, [colorFilteredTrigpoints, mapBounds]);
-  
+
   // Determine whether to show markers or heatmap based on visible trigpoint count
   const shouldShowHeatmap = useMemo(() => {
-    if (renderMode === 'markers') return false;
-    if (renderMode === 'heatmap') return true;
+    if (renderMode === "markers") return false;
+    if (renderMode === "heatmap") return true;
     // Auto mode: use heatmap when more than 1000 markers would be visible in viewport
     const tooManyVisibleMarkers = visibleTrigpoints.length > 1000;
     return tooManyVisibleMarkers;
   }, [renderMode, visibleTrigpoints.length]);
-  
+
   // Initialize selected statuses from user preference when profile loads (once)
   // This is responding to async user profile data, not derived state
   useEffect(() => {
@@ -384,16 +419,20 @@ export default function Map() {
     // 1. No URL params are set
     // 2. We haven't already initialized from preferences
     // 3. We have a preferred status list computed
-    if (!searchParams.get("statuses") && !statusesInitializedRef.current && preferredStatuses.length > 0) {
+    if (
+      !searchParams.get("statuses") &&
+      !statusesInitializedRef.current &&
+      preferredStatuses.length > 0
+    ) {
       statusesInitializedRef.current = true;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
       setSelectedStatuses([...preferredStatuses]);
     }
   }, [preferredStatuses, searchParams]);
-  
+
   // Track previous icon color mode to detect changes and avoid cascading renders
   const prevIconColorModeRef = useRef(iconColorMode);
-  
+
   // Handle color selection when switching between Condition and My Logs modes
   // This responds to user interaction (mode toggle), not derived state
   useEffect(() => {
@@ -402,30 +441,33 @@ export default function Map() {
       return;
     }
     prevIconColorModeRef.current = iconColorMode;
-    
-    const newColors = iconColorMode === 'condition' ? [...ALL_ICON_COLORS] : [...USER_LOG_ICON_COLORS];
+
+    const newColors =
+      iconColorMode === "condition"
+        ? [...ALL_ICON_COLORS]
+        : [...USER_LOG_ICON_COLORS];
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Responding to user mode toggle
     setSelectedColors(newColors);
   }, [iconColorMode]);
-  
+
   // Update URL params when filters or viewport change (preserve area_id if present)
   // Using replace: true to avoid polluting browser history with every pan/zoom
   useEffect(() => {
     const params = new URLSearchParams();
-    
+
     // Preserve area_id if it was passed in
     if (areaId !== undefined) {
       params.set("area_id", areaId.toString());
     }
-    
+
     if (selectedStatuses.length !== ALL_STATUSES.length) {
       params.set("statuses", selectedStatuses.join(","));
     }
-    
+
     if (excludeFound) {
       params.set("excludeFound", "true");
     }
-    
+
     // Persist viewport state (lat, lon, zoom) for back navigation
     // Only update if we have actual viewport data (not initial render)
     if (currentCenter && currentZoom) {
@@ -433,20 +475,27 @@ export default function Map() {
       params.set("lon", currentCenter.lon.toFixed(5));
       params.set("zoom", currentZoom.toFixed(1));
     }
-    
+
     setSearchParams(params, { replace: true });
-  }, [selectedStatuses, excludeFound, areaId, currentCenter, currentZoom, setSearchParams]);
-  
+  }, [
+    selectedStatuses,
+    excludeFound,
+    areaId,
+    currentCenter,
+    currentZoom,
+    setSearchParams,
+  ]);
+
   // Handle bounds change with debouncing
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
     setMapBounds(bounds);
   }, []);
-  
+
   // Handle center change for URL persistence
   const handleCenterChange = useCallback((lat: number, lon: number) => {
     setCurrentCenter({ lat, lon });
   }, []);
-  
+
   const handleToggleStatus = useCallback((statusId: number) => {
     setSelectedStatuses((prev) => {
       if (prev.includes(statusId)) {
@@ -456,7 +505,7 @@ export default function Map() {
       }
     });
   }, []);
-  
+
   const handleToggleColor = useCallback((color: IconColor) => {
     setSelectedColors((prev) => {
       if (prev.includes(color)) {
@@ -466,53 +515,56 @@ export default function Map() {
       }
     });
   }, []);
-  
+
   // Handle tileset changes with zoom adjustment for projection switches
-  const handleTilesetChange = useCallback((newTileLayerId: string) => {
-    const currentLayer = getTileLayer(tileLayerId);
-    const newLayer = getTileLayer(newTileLayerId);
-    
-    const currentCrs = currentLayer.crs || 'EPSG:3857';
-    const newCrs = newLayer.crs || 'EPSG:3857';
-    
-    // Calculate adjusted zoom if projection is changing
-    if (currentCrs !== newCrs) {
-      const adjustedZoom = calculateProjectionZoom(
-        currentZoom,
-        currentCrs,
-        newCrs,
-        newLayer
-      );
-      setActiveZoom(adjustedZoom);
-    }
-    
-    setTileLayerId(newTileLayerId);
-  }, [tileLayerId, currentZoom]);
-  
+  const handleTilesetChange = useCallback(
+    (newTileLayerId: string) => {
+      const currentLayer = getTileLayer(tileLayerId);
+      const newLayer = getTileLayer(newTileLayerId);
+
+      const currentCrs = currentLayer.crs || "EPSG:3857";
+      const newCrs = newLayer.crs || "EPSG:3857";
+
+      // Calculate adjusted zoom if projection is changing
+      if (currentCrs !== newCrs) {
+        const adjustedZoom = calculateProjectionZoom(
+          currentZoom,
+          currentCrs,
+          newCrs,
+          newLayer,
+        );
+        setActiveZoom(adjustedZoom);
+      }
+
+      setTileLayerId(newTileLayerId);
+    },
+    [tileLayerId, currentZoom],
+  );
+
   const handleClearFilters = useCallback(() => {
     setSelectedStatuses([...preferredStatuses]);
     setSelectedColors(() => [...ALL_ICON_COLORS]);
     setExcludeFound(false);
-    setRenderMode('auto');
+    setRenderMode("auto");
     setTileLayerId(DEFAULT_TILE_LAYER);
     setActiveZoom(MAP_CONFIG.defaultZoom);
-    
+
     // Clear area_id from URL if present
     if (searchParams.has("area_id")) {
       const newParams = new URLSearchParams(searchParams);
       newParams.delete("area_id");
       setSearchParams(newParams, { replace: true });
     }
-    
+
     // Reset map to show whole UK
     if (mapInstance) {
       mapInstance.setView(
         [MAP_CONFIG.defaultCenter.lat, MAP_CONFIG.defaultCenter.lng],
-        MAP_CONFIG.defaultZoom
+        MAP_CONFIG.defaultZoom,
       );
     }
   }, [mapInstance, preferredStatuses, searchParams, setSearchParams]);
-  
+
   return (
     <Layout>
       <title>Map | TrigpointingUK</title>
@@ -520,7 +572,7 @@ export default function Map() {
         {/* Sidebar */}
         <div
           className={`${
-            isSidebarOpen ? 'w-80' : 'w-0'
+            isSidebarOpen ? "w-80" : "w-0"
           } transition-all duration-300 bg-white border-r border-gray-200 overflow-hidden flex-shrink-0`}
         >
           <div className="p-4 h-full overflow-y-auto scrollbar-hide">
@@ -533,7 +585,7 @@ export default function Map() {
                 <X size={20} />
               </button>
             </div>
-            
+
             {/* Status filter */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -544,7 +596,7 @@ export default function Map() {
                 onToggleStatus={handleToggleStatus}
               />
             </div>
-            
+
             {/* Color filter */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -555,7 +607,7 @@ export default function Map() {
                 onToggleColor={handleToggleColor}
               />
             </div>
-            
+
             {/* Icon color mode selector */}
             <div className="mb-4">
               <IconColorModeSelector
@@ -565,7 +617,7 @@ export default function Map() {
                 isAuthenticated={isAuthenticated}
               />
             </div>
-            
+
             {/* Tileset selector */}
             <div className="mb-4">
               <TilesetSelector
@@ -573,7 +625,7 @@ export default function Map() {
                 onChange={handleTilesetChange}
               />
             </div>
-            
+
             {/* Render mode selector */}
             <div className="mb-4">
               <div className="bg-white rounded-lg shadow-md p-3">
@@ -582,55 +634,57 @@ export default function Map() {
                 </label>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => setRenderMode('auto')}
+                    onClick={() => setRenderMode("auto")}
                     className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                      renderMode === 'auto'
-                        ? 'bg-trig-green-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      renderMode === "auto"
+                        ? "bg-trig-green-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                     title="Auto-switch between markers and heatmap based on count"
                   >
                     Auto
                   </button>
                   <button
-                    onClick={() => setRenderMode('markers')}
+                    onClick={() => setRenderMode("markers")}
                     className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                      renderMode === 'markers'
-                        ? 'bg-trig-green-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      renderMode === "markers"
+                        ? "bg-trig-green-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                     title="Always show individual markers (may be slow for large datasets)"
                   >
                     Markers
                   </button>
                   <button
-                    onClick={() => setRenderMode('heatmap')}
+                    onClick={() => setRenderMode("heatmap")}
                     className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                      renderMode === 'heatmap'
-                        ? 'bg-trig-green-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      renderMode === "heatmap"
+                        ? "bg-trig-green-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                     title="Always show density heatmap"
                   >
                     Heatmap
                   </button>
                 </div>
-                {renderMode === 'auto' && (
+                {renderMode === "auto" && (
                   <div className="mt-2 text-xs text-gray-600">
                     {shouldShowHeatmap ? (
                       <span className="text-amber-600">
-                        Showing heatmap ({visibleTrigpoints.length} visible, {colorFilteredTrigpoints.length} total)
+                        Showing heatmap ({visibleTrigpoints.length} visible,{" "}
+                        {colorFilteredTrigpoints.length} total)
                       </span>
                     ) : (
                       <span className="text-trig-green-600">
-                        Showing {visibleTrigpoints.length} markers ({colorFilteredTrigpoints.length} total)
+                        Showing {visibleTrigpoints.length} markers (
+                        {colorFilteredTrigpoints.length} total)
                       </span>
                     )}
                   </div>
                 )}
               </div>
             </div>
-            
+
             {/* Area boundary info (when viewing an area from /trigs) */}
             {areaBoundary && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -644,10 +698,12 @@ export default function Map() {
             )}
             {isLoadingBoundary && (
               <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <div className="text-sm text-gray-600">Loading area boundary...</div>
+                <div className="text-sm text-gray-600">
+                  Loading area boundary...
+                </div>
               </div>
             )}
-            
+
             {/* Reset map button */}
             <button
               type="button"
@@ -656,43 +712,53 @@ export default function Map() {
             >
               Reset map
             </button>
-            
+
             {/* Results count */}
             <div className="mt-4 text-sm text-gray-600 p-3 bg-gray-50 rounded">
               {isLoading ? (
                 <div>
-                  <div className="text-sm font-semibold mb-2">Loading trigpoints...</div>
+                  <div className="text-sm font-semibold mb-2">
+                    Loading trigpoints...
+                  </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
                     <div
                       className="bg-trig-green-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${loadingProgress}%` }}
                     />
                   </div>
-                  <div className="text-xs text-gray-500">{loadingProgress.toFixed(0)}%</div>
+                  <div className="text-xs text-gray-500">
+                    {loadingProgress.toFixed(0)}%
+                  </div>
                 </div>
               ) : (
                 <div>
-                  <div className="font-semibold">Showing {colorFilteredTrigpoints.length} trigpoints</div>
+                  <div className="font-semibold">
+                    Showing {colorFilteredTrigpoints.length} trigpoints
+                  </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {dataSource === 'geojson' ? (
+                    {dataSource === "geojson" ? (
                       <>
-                        Comprising: {geojsonData ? (
+                        Comprising:{" "}
+                        {geojsonData ? (
                           <>
                             {Object.entries(physicalTypeCounts)
                               .sort(([, countA], [, countB]) => countB - countA)
                               .map(([type, count], index, arr) => (
                                 <span key={type}>
-                                  {count} {type}{count !== 1 ? 's' : ''}
-                                  {index < arr.length - 1 ? ', ' : ''}
+                                  {count} {type}
+                                  {count !== 1 ? "s" : ""}
+                                  {index < arr.length - 1 ? ", " : ""}
                                 </span>
-                              ))
-                            }
+                              ))}
                           </>
-                        ) : 'Loading...'}
+                        ) : (
+                          "Loading..."
+                        )}
                       </>
                     ) : (
                       <>
-                        {allTrigsData.length} loaded, {totalCount} in database (zoom: {currentZoom.toFixed(1)})
+                        {allTrigsData.length} loaded, {totalCount} in database
+                        (zoom: {currentZoom.toFixed(1)})
                       </>
                     )}
                   </div>
@@ -701,17 +767,18 @@ export default function Map() {
                       Filtered by status (client-side)
                     </div>
                   )}
-                  {iconColorMode === 'condition' && selectedColors.length !== ALL_ICON_COLORS.length && (
-                    <div className="text-xs text-blue-600 mt-1">
-                      Filtered by marker colours
-                    </div>
-                  )}
+                  {iconColorMode === "condition" &&
+                    selectedColors.length !== ALL_ICON_COLORS.length && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        Filtered by marker colours
+                      </div>
+                    )}
                 </div>
               )}
             </div>
           </div>
         </div>
-        
+
         {/* Map */}
         <div className="flex-1 relative">
           <BaseMap
@@ -721,13 +788,13 @@ export default function Map() {
             tileLayerId={tileLayerId}
             onMapReady={setMapInstance}
           >
-            <MapViewportTracker 
+            <MapViewportTracker
               onBoundsChange={handleBoundsChange}
               onZoomChange={setCurrentZoom}
               onCenterChange={handleCenterChange}
             />
             <MapSizeInvalidator sidebarOpen={isSidebarOpen} />
-            
+
             {/* Render area boundary if area_id is provided */}
             {areaBoundary && (
               <AreaBoundaryLayer
@@ -737,7 +804,7 @@ export default function Map() {
                 fitBounds={true}
               />
             )}
-            
+
             {/* Render trigpoint markers or heatmap */}
             {shouldShowHeatmap ? (
               <HeatmapLayer trigpoints={colorFilteredTrigpoints} />
@@ -754,7 +821,7 @@ export default function Map() {
               </>
             )}
           </BaseMap>
-          
+
           {/* Map controls overlay */}
           <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
             {mapInstance && (
@@ -775,7 +842,7 @@ export default function Map() {
               </>
             )}
           </div>
-          
+
           {/* Toggle sidebar button (mobile) */}
           {!isSidebarOpen && (
             <button
@@ -785,13 +852,15 @@ export default function Map() {
               <Menu size={24} className="text-gray-700" />
             </button>
           )}
-          
+
           {/* Loading overlay */}
           {isLoading && (
             <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-6 py-4 rounded-lg shadow-lg min-w-[300px]">
               <div className="flex items-center gap-2 mb-3">
                 <Spinner size="sm" />
-                <span className="text-sm text-gray-700 font-semibold">Loading trigpoints...</span>
+                <span className="text-sm text-gray-700 font-semibold">
+                  Loading trigpoints...
+                </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
                 <div
@@ -799,14 +868,18 @@ export default function Map() {
                   style={{ width: `${loadingProgress}%` }}
                 />
               </div>
-              <div className="text-xs text-gray-500 text-center">{loadingProgress.toFixed(0)}%</div>
+              <div className="text-xs text-gray-500 text-center">
+                {loadingProgress.toFixed(0)}%
+              </div>
             </div>
           )}
-          
+
           {/* Error message */}
           {error && (
             <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg shadow-md max-w-md">
-              <p className="text-sm">Failed to load trigpoints: {error.message}</p>
+              <p className="text-sm">
+                Failed to load trigpoints: {error.message}
+              </p>
             </div>
           )}
         </div>
@@ -814,4 +887,3 @@ export default function Map() {
     </Layout>
   );
 }
-
