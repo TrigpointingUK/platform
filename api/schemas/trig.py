@@ -104,6 +104,9 @@ class TrigDetails(BaseModel):
     stn_number_active: Optional[str] = None
     stn_number_passive: Optional[str] = None
     stn_number_osgb36: Optional[str] = None
+    legal_message: Optional[str] = Field(
+        None, description="Optional legal/access message (HTML)"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

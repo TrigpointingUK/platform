@@ -763,6 +763,7 @@ def update_trig_admin(
         "postcode": nearest_postcode,  # NULL if no postcode within 5km
         "needs_attention": needs_attention_value,
         "attention_comment": updated_attention_comment,
+        "legal_message": update_data.legal_message,  # NULL clears the message
     }
 
     # Update PostGIS location from WGS84 coordinates (PostgreSQL only)

@@ -64,6 +64,9 @@ class TrigAdminDetail(BaseModel):
     needs_attention: int
     attention_comment: Optional[str] = ""
     upd_timestamp: Optional[datetime] = None
+    legal_message: Optional[str] = Field(
+        None, description="Optional legal/access message (HTML)"
+    )
 
 
 class TrigAdminUpdate(BaseModel):
@@ -98,6 +101,11 @@ class TrigAdminUpdate(BaseModel):
     osgb_northings: int = Field(..., ge=0)
     osgb_gridref: Optional[str] = Field(default="", max_length=14)
     osgb_height: Optional[int] = None
+
+    # Legal/access information
+    legal_message: Optional[str] = Field(
+        default=None, description="Optional legal/access message (HTML)"
+    )
 
     # Admin action
     action: str = Field(

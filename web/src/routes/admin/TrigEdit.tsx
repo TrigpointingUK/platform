@@ -6,6 +6,7 @@ import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
 import LinkedCoordinates from "../../components/admin/LinkedCoordinates";
+import RichTextEditor from "../../components/ui/RichTextEditor";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
 import { useTrigTypeGroups } from "../../hooks/useTrigTypes";
@@ -93,6 +94,7 @@ export default function TrigEdit() {
   const [osgbNorthings, setOsgbNorthings] = useState(0);
   const [osgbGridref, setOsgbGridref] = useState("");
   const [osgbHeight, setOsgbHeight] = useState<number | null>(0);
+  const [legalMessage, setLegalMessage] = useState<string>("");
   const [action, setAction] = useState<"solved" | "revisit" | "cant_fix">("revisit");
   const [adminComment, setAdminComment] = useState("");
 
@@ -140,6 +142,7 @@ export default function TrigEdit() {
           setOsgbNorthings(trigData.osgb_northings);
           setOsgbGridref(trigData.osgb_gridref);
           setOsgbHeight(trigData.osgb_height);
+          setLegalMessage(trigData.legal_message || "");
         }
       } catch (err) {
         if (!cancelled) {
@@ -210,6 +213,7 @@ export default function TrigEdit() {
           osgb_northings: osgbNorthings,
           osgb_gridref: osgbGridref,
           osgb_height: osgbHeight,
+          legal_message: legalMessage || null,
           action,
           admin_comment: adminComment,
         },
@@ -522,6 +526,30 @@ export default function TrigEdit() {
               onWgsChange={handleWgsChange}
               onOsgbChange={handleOsgbChange}
             />
+          </Card>
+
+          <Card>
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              Legal / Access Information
+            </h2>
+            <p className="text-sm text-gray-600 mb-3">
+              Optional message displayed on the trigpoint detail page above the &quot;Log this trig&quot; button.
+              Use this for access restrictions, landowner permissions, or safety warnings.
+            </p>
+            <RichTextEditor
+              value={legalMessage}
+              onChange={setLegalMessage}
+              placeholder="Enter legal or access information (optional)..."
+            />
+            {legalMessage && (
+              <button
+                type="button"
+                onClick={() => setLegalMessage("")}
+                className="mt-2 text-sm text-red-600 hover:text-red-800"
+              >
+                Clear message
+              </button>
+            )}
           </Card>
 
           <Card>
