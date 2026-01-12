@@ -317,6 +317,7 @@ export interface TrigDetails {
   fb_number: string;
   stn_number: string;
   stn_number_active?: string;
+  legal_message?: string | null;
   stn_number_passive?: string;
   stn_number_osgb36?: string;
 }
@@ -593,6 +594,7 @@ export interface TrigAdminDetail {
   needs_attention: number;
   attention_comment: string;
   upd_timestamp?: string;
+  legal_message: string | null;
 }
 
 export interface TrigAdminUpdate {
@@ -614,6 +616,7 @@ export interface TrigAdminUpdate {
   osgb_northings: number;
   osgb_gridref: string;
   osgb_height: number | null;
+  legal_message: string | null;
   action: "solved" | "revisit" | "cant_fix";
   admin_comment: string;
 }

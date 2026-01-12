@@ -11,6 +11,7 @@ import LogList from "../components/logs/LogList";
 import LogForm from "../components/logs/LogForm";
 import OfficialDataSection from "../components/trig/OfficialDataSection";
 import TrigDetailMap from "../components/map/TrigDetailMap";
+import RichTextDisplay from "../components/ui/RichTextDisplay";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useTrigLogs } from "../hooks/useTrigLogs";
 import { useUserTrigLogs } from "../hooks/useUserTrigLogs";
@@ -714,6 +715,15 @@ export default function TrigDetail() {
               </div>
             </div>
           </Card>
+        )}
+
+        {/* Legal / Access Message */}
+        {trig.details?.legal_message && (
+          <div className="mb-6 bg-red-50 rounded-lg shadow-md p-4">
+            <RichTextDisplay
+              html={trig.details.legal_message}
+            />
+          </div>
         )}
 
         {/* Log This Trig Section */}

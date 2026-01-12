@@ -149,5 +149,10 @@ class Trig(Base):
     # Audit fields - last update
     upd_timestamp = Column(TIMESTAMP, nullable=True)  # Last update time
 
+    # Legal/access information
+    legal_message = Column(
+        Text, nullable=True
+    )  # Optional legal/access message displayed on detail page (HTML)
+
     def __repr__(self):
         return f"<Trig(id={self.id}, waypoint='{self.waypoint}', name='{self.name}')>"
