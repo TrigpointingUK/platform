@@ -18,6 +18,7 @@ from fastapi import Request as FastAPIRequest
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from PIL import Image, ImageDraw
+from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import LockError
 from redis.lock import Lock
 from sqlalchemy.orm import Session
@@ -34,6 +35,7 @@ from api.crud import trig as trig_crud
 from api.crud import trigstats as trigstats_crud
 from api.models.server import Server
 from api.models.trig import Trig
+from api.models.trig_type import TrigType, TrigTypeGroup
 from api.models.user import TLog, User
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.trig import (
@@ -253,51 +255,111 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
     Generate the expensive GeoJSON export data.
 
     Only called when data actually changed based on timestamp check.
+
+    Uses a single optimised query joining trig → trig_type → trig_type_group,
+    selecting only the columns needed for GeoJSON output.
     """
-    # Fetch all status types
-    all_statuses = status_crud.get_all_statuses(db)
+    # Known group codes that map to the 6 filter buttons
+    KNOWN_GROUP_CODES = {
+        "PILLAR",
+        "FBM",
+        "SURVEY_MARK",
+        "INTERSECTED",
+        "ACTIVE",
+        "OTHER",
+    }
 
-    # Filter to non-deleted statuses only (< 90)
-    active_statuses = [s for s in all_statuses if s.id < 90]
-
-    result: dict[str, Any] = {}
-
-    for status in active_statuses:
-        # Query trigpoints for this status
-        status_id_int = int(status.id)  # Ensure it's an int for type checking
-        items = trig_crud.list_trigs_filtered(
-            db,
-            status_ids=[status_id_int],
-            skip=0,
-            limit=limit if limit else 50000,
-            exclude_soft_deleted=True,  # Ensure we exclude status >= 90
+    # Single optimised query: select only needed columns with 3-way join
+    # trig → trig_type → trig_type_group
+    query = (
+        db.query(
+            Trig.id,
+            Trig.name,
+            Trig.condition,
+            Trig.osgb_gridref,
+            Trig.wgs_lat,
+            Trig.wgs_long,
+            TrigType.name.label("type_name"),
+            TrigTypeGroup.code.label("group_code"),
+            TrigTypeGroup.name.label("group_name"),
+            TrigTypeGroup.description.label("group_description"),
         )
+        .join(TrigType, Trig.type_id == TrigType.id)
+        .join(TrigTypeGroup, TrigType.group_id == TrigTypeGroup.id)
+        .filter(Trig.status_id < 90)  # Exclude soft-deleted records
+    )
 
-        # Build GeoJSON features
-        features = []
-        for item in items:
-            features.append(
+    if limit:
+        query = query.limit(limit)
+
+    rows = query.all()
+
+    # Group results by group_code
+    groups_data: dict[str, dict[str, Any]] = {}
+    unmapped_trigs: list[dict[str, Any]] = []
+
+    for row in rows:
+        group_code = row.group_code
+
+        # Check if this group is in our known list
+        if group_code not in KNOWN_GROUP_CODES:
+            unmapped_trigs.append(
                 {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [float(item.wgs_long), float(item.wgs_lat)],
-                    },
-                    "properties": {
-                        "id": item.id,
-                        "name": item.name,
-                        "condition": item.condition,
-                        "osgb_gridref": item.osgb_gridref,
-                        "physical_type": item.physical_type,
-                    },
+                    "id": row.id,
+                    "name": row.name,
+                    "group_code": group_code,
+                    "group_name": row.group_name,
                 }
             )
+            continue
 
-        # Convert status name to snake_case for dict key
-        status_key = status.name.strip().lower().replace(" ", "_")
-        result[status_key] = {
-            "type": "FeatureCollection",
-            "features": features,
+        # Initialise group if not seen before
+        if group_code not in groups_data:
+            groups_data[group_code] = {
+                "type": "FeatureCollection",
+                "name": row.group_name,
+                "description": row.group_description or "",
+                "features": [],
+            }
+
+        # Add feature to group
+        groups_data[group_code]["features"].append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [float(row.wgs_long), float(row.wgs_lat)],
+                },
+                "properties": {
+                    "id": row.id,
+                    "name": row.name,
+                    "condition": row.condition,
+                    "osgb_gridref": row.osgb_gridref,
+                    "physical_type": row.type_name,  # From trig_type.name
+                },
+            }
+        )
+
+    # Build result with groups in consistent order
+    result: dict[str, Any] = {}
+    for code in KNOWN_GROUP_CODES:
+        if code in groups_data:
+            result[code] = groups_data[code]
+
+    # Add warning if any trigs were in unmapped groups
+    if unmapped_trigs:
+        # Group unmapped trigs by their group for the warning
+        unmapped_by_group: dict[str, int] = {}
+        for trig in unmapped_trigs:
+            key = f"{trig['group_code']} ({trig['group_name']})"
+            unmapped_by_group[key] = unmapped_by_group.get(key, 0) + 1
+
+        result["_warning"] = {
+            "message": "⚠️ Some trigpoints not displayed",
+            "reason": "Trigpoints belong to groups not in the standard filter set",
+            "unmapped_count": len(unmapped_trigs),
+            "unmapped_groups": unmapped_by_group,
+            "sample_trigs": unmapped_trigs[:5],  # First 5 as examples
         }
 
     # Add metadata
@@ -425,38 +487,39 @@ def _generate_and_cache_payload(
     """
     Generate a fresh payload, storing it in cache. Handles locking so that
     only one request populates the cache on a miss.
+
+    Falls back gracefully if Redis is unavailable.
     """
     redis_client = get_redis_client()
     if redis_client is not None:
-        lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=60)
-        with lock:
-            cached_entry, _ = cache_get(cache_key)
-            if cached_entry:
-                return cached_entry
+        try:
+            lock = Lock(redis_client, lock_key, timeout=300, blocking_timeout=60)
+            with lock:
+                cached_entry, _ = cache_get(cache_key)
+                if cached_entry:
+                    return cached_entry
 
-            payload = generator_fn(db, limit)
-            timestamp_str = _current_timestamp_str(db)
-            wrapper = _wrap_cache_payload(payload, timestamp_str)
-            _write_cache_entry(cache_key, wrapper)
-            metadata = {
-                "last_validation": datetime.utcnow().isoformat(),
-                "cache_version": CACHE_VERSION,
-            }
-            _set_cache_metadata(cache_key, metadata)
-            logger.info(f"{log_label}: Cache populated")
-            return wrapper
+                payload = generator_fn(db, limit)
+                timestamp_str = _current_timestamp_str(db)
+                wrapper = _wrap_cache_payload(payload, timestamp_str)
+                _write_cache_entry(cache_key, wrapper)
+                metadata = {
+                    "last_validation": datetime.utcnow().isoformat(),
+                    "cache_version": CACHE_VERSION,
+                }
+                _set_cache_metadata(cache_key, metadata)
+                logger.info(f"{log_label}: Cache populated")
+                return wrapper
+        except (LockError, RedisConnectionError, Exception) as e:
+            # Redis unavailable - fall through to generate without caching
+            logger.warning(
+                f"{log_label}: Redis unavailable ({e}), generating without cache"
+            )
 
+    # Generate without Redis caching
     payload = generator_fn(db, limit)
     timestamp_str = _current_timestamp_str(db)
-    wrapper = _wrap_cache_payload(payload, timestamp_str)
-    _write_cache_entry(cache_key, wrapper)
-    metadata = {
-        "last_validation": datetime.utcnow().isoformat(),
-        "cache_version": CACHE_VERSION,
-    }
-    _set_cache_metadata(cache_key, metadata)
-    logger.info(f"{log_label}: Cache populated without Redis lock")
-    return wrapper
+    return _wrap_cache_payload(payload, timestamp_str)
 
 
 def _maybe_refresh_cache_entry(
@@ -518,6 +581,10 @@ def _maybe_refresh_cache_entry(
     except LockError:
         logger.info(f"{log_label}: Refresh already in progress; serving stale data")
         return None, metadata, "REFRESH_IN_PROGRESS"
+    except (RedisConnectionError, Exception) as e:
+        # Redis unavailable - serve stale data
+        logger.warning(f"{log_label}: Redis unavailable ({e}); serving stale data")
+        return None, metadata, "STALE"
 
 
 @router.get(

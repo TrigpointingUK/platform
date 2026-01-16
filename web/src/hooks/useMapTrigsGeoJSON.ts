@@ -17,20 +17,36 @@ export interface GeoJSONTrig {
 
 export interface GeoJSONFeatureCollection {
   type: "FeatureCollection";
+  name?: string; // trig_type_group.name for display
+  description?: string; // trig_type_group.description
   features: GeoJSONTrig[];
 }
 
-// New status-based structure
+// Warning object for unmapped trigpoints
+export interface GeoJSONWarning {
+  message: string;
+  reason: string;
+  unmapped_count: number;
+  unmapped_groups: Record<string, number>;
+  sample_trigs: Array<{
+    id: number;
+    name: string;
+    group_code: string;
+    group_name: string;
+  }>;
+}
+
+// Type group-based structure (keyed by trig_type_group.code)
 export interface GeoJSONResponse {
-  pillar?: GeoJSONFeatureCollection;
-  major_mark?: GeoJSONFeatureCollection;
-  minor_mark?: GeoJSONFeatureCollection;
-  intersected?: GeoJSONFeatureCollection;
-  user_added?: GeoJSONFeatureCollection;
-  controversial?: GeoJSONFeatureCollection;
+  PILLAR?: GeoJSONFeatureCollection;
+  FBM?: GeoJSONFeatureCollection;
+  SURVEY_MARK?: GeoJSONFeatureCollection;
+  INTERSECTED?: GeoJSONFeatureCollection;
+  ACTIVE?: GeoJSONFeatureCollection;
+  OTHER?: GeoJSONFeatureCollection;
+  _warning?: GeoJSONWarning;
   generated_at: string;
-  cache_info: string;
-  [key: string]: GeoJSONFeatureCollection | string | undefined; // Allow dynamic keys
+  [key: string]: GeoJSONFeatureCollection | GeoJSONWarning | string | undefined;
 }
 
 export interface UseMapTrigsGeoJSONOptions {

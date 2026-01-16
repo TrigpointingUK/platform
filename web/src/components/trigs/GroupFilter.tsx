@@ -14,12 +14,12 @@ const GROUP_ICONS: Record<string, string> = {
   FBM: "/icons/t_fbm.png",
   SURVEY_MARK: "/icons/t_passive.png",
   INTERSECTED: "/icons/t_intersected.png",
-  ACTIVE: "/icons/t_user_added.svg",
-  OTHER: "/icons/t_controversial.svg",
+  ACTIVE: "/icons/t_active.png",
+  OTHER: "/icons/t_other.svg",
 };
 
 // Fallback icon
-const DEFAULT_ICON = "/icons/t_controversial.svg";
+const DEFAULT_ICON = "/icons/t_other.svg";
 
 interface GroupFilterProps {
   selectedGroups: string[];

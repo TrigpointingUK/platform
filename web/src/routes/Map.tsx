@@ -46,24 +46,24 @@ import { Menu, X, List } from "lucide-react";
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
 // Status ID to API key mapping (for GeoJSON collections)
-// These map to status.name (snake_case) as returned by the API
+// These map to trig_type_group.code as returned by the API
 const STATUS_NAMES: Record<number, string> = {
-  10: "pillar",
-  20: "major_mark",
-  30: "minor_mark",
-  40: "intersected",
-  50: "user_added",
-  60: "controversial",
+  10: "PILLAR",
+  20: "FBM",
+  30: "SURVEY_MARK",
+  40: "INTERSECTED",
+  50: "ACTIVE",
+  60: "OTHER",
 };
 
-// Status ID to display name mapping (from status.name)
+// Status ID to display name mapping (from trig_type_group.name)
 const STATUS_DISPLAY_NAMES: Record<number, string> = {
   10: "Pillar",
-  20: "Major mark",
-  30: "Minor mark",
+  20: "FBM",
+  30: "Survey mark",
   40: "Intersected",
-  50: "User added",
-  60: "Controversial",
+  50: "Active station",
+  60: "Other",
 };
 
 const ALL_ICON_COLORS: IconColor[] = ["green", "yellow", "red", "grey"];
@@ -265,7 +265,7 @@ export default function Map() {
       // Safely access the collection
       const collection = geojsonData[statusKey as keyof typeof geojsonData];
 
-      // Check if collection exists and has features array
+      // Check if collection exists and is a FeatureCollection (not a string or warning)
       if (!collection || typeof collection === "string") {
         console.log(
           `Skipping ${statusKey} - not a collection:`,
@@ -273,7 +273,14 @@ export default function Map() {
         );
         continue;
       }
-      if (!collection.features || !Array.isArray(collection.features)) {
+
+      // Type guard: check it's a FeatureCollection with features array
+      if (
+        !("type" in collection) ||
+        collection.type !== "FeatureCollection" ||
+        !("features" in collection) ||
+        !Array.isArray(collection.features)
+      ) {
         console.warn(`No features array for status ${statusKey}:`, collection);
         continue;
       }
@@ -282,7 +289,7 @@ export default function Map() {
         `Processing ${statusKey}: ${collection.features.length} features`,
       );
 
-      collection.features.forEach((feature: GeoJSONTrig) => {
+      (collection.features as GeoJSONTrig[]).forEach((feature: GeoJSONTrig) => {
         // Skip features with missing critical data
         if (
           !feature.properties?.id ||
@@ -762,11 +769,6 @@ export default function Map() {
                       </>
                     )}
                   </div>
-                  {selectedStatuses.length < ALL_STATUSES.length && (
-                    <div className="text-xs text-blue-600 mt-1">
-                      Filtered by status (client-side)
-                    </div>
-                  )}
                   {iconColorMode === "condition" &&
                     selectedColors.length !== ALL_ICON_COLORS.length && (
                       <div className="text-xs text-blue-600 mt-1">
