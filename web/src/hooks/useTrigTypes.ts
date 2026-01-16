@@ -52,13 +52,16 @@ export function getGroupCodesUpToSortOrder(
 }
 
 /**
- * Map legacy status IDs to new group codes.
+ * Map legacy status IDs to new group codes (trig_type_group.code).
  * Used during the transition period.
+ * 
+ * Note: These map to trig_type_group.code values, NOT status.name.
+ * The status table uses different names (e.g., "Major mark" vs "FBM").
  */
 export const LEGACY_STATUS_TO_GROUP: Record<number, string> = {
   10: "PILLAR",
   20: "FBM",
-  30: "MINOR_MARK",
+  30: "SURVEY_MARK",
   40: "INTERSECTED",
   50: "ACTIVE",
   60: "OTHER",
@@ -71,7 +74,7 @@ export const LEGACY_STATUS_TO_GROUP: Record<number, string> = {
 export const GROUP_TO_LEGACY_STATUS: Record<string, number> = {
   PILLAR: 10,
   FBM: 20,
-  MINOR_MARK: 30,
+  SURVEY_MARK: 30,
   INTERSECTED: 40,
   ACTIVE: 50,
   OTHER: 60,

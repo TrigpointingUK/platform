@@ -6,7 +6,7 @@ interface StatusFilterProps {
 
 // Trigpoint type groups with icons
 // Maps legacy status IDs to the new type group system
-// sort_order values: PILLAR=10, FBM=20, MINOR_MARK=30, INTERSECTED=40, ACTIVE=50, OTHER=60
+// sort_order values: PILLAR=10, FBM=20, MINOR_MARK=30, INTERSECTED=40, USER_ADDED=50, CONTROVERSIAL=60
 const STATUS_LEVELS = [
   {
     id: 10,
@@ -18,7 +18,7 @@ const STATUS_LEVELS = [
   {
     id: 20,
     code: "FBM",
-    name: "FBM",
+    name: "Major mark",
     icon: "/icons/t_fbm.png",
     color: "bg-green-600",
   },
@@ -38,16 +38,16 @@ const STATUS_LEVELS = [
   },
   {
     id: 50,
-    code: "ACTIVE",
-    name: "Active station",
-    icon: "/icons/t_pillar.png",
-    color: "bg-purple-600",
+    code: "USER_ADDED",
+    name: "User added",
+    icon: "/icons/t_user_added.svg",
+    color: "bg-red-600",
   },
   {
     id: 60,
-    code: "OTHER",
-    name: "Other",
-    icon: "/icons/t_other.png",
+    code: "CONTROVERSIAL",
+    name: "Controversial",
+    icon: "/icons/t_controversial.svg",
     color: "bg-gray-600",
   },
 ];
