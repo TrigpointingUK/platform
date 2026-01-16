@@ -7,18 +7,19 @@
 
 import { useTrigTypeGroups } from "../../hooks/useTrigTypes";
 
-// Icons for each group (matching legacy status icons)
+// Icons for each group (matching trig_type_group.code from API)
+// Note: ACTIVE and OTHER icons use SVG files with ? and ! symbols
 const GROUP_ICONS: Record<string, string> = {
   PILLAR: "/icons/t_pillar.png",
   FBM: "/icons/t_fbm.png",
-  MINOR_MARK: "/icons/t_passive.png",
+  SURVEY_MARK: "/icons/t_passive.png",
   INTERSECTED: "/icons/t_intersected.png",
-  ACTIVE: "/icons/t_active.png",
-  OTHER: "/icons/t_other.png",
+  ACTIVE: "/icons/t_user_added.svg",
+  OTHER: "/icons/t_controversial.svg",
 };
 
 // Fallback icon
-const DEFAULT_ICON = "/icons/t_other.png";
+const DEFAULT_ICON = "/icons/t_controversial.svg";
 
 interface GroupFilterProps {
   selectedGroups: string[];
@@ -107,11 +108,11 @@ interface HybridGroupFilterProps {
   visibleStatuses?: number[];
 }
 
-// Map status IDs to group codes
+// Map status IDs to group codes (trig_type_group.code)
 const STATUS_TO_GROUP: Record<number, string> = {
   10: "PILLAR",
   20: "FBM",
-  30: "MINOR_MARK",
+  30: "SURVEY_MARK",
   40: "INTERSECTED",
   50: "ACTIVE",
   60: "OTHER",
@@ -121,7 +122,7 @@ const STATUS_TO_GROUP: Record<number, string> = {
 const GROUP_TO_STATUS: Record<string, number> = {
   PILLAR: 10,
   FBM: 20,
-  MINOR_MARK: 30,
+  SURVEY_MARK: 30,
   INTERSECTED: 40,
   ACTIVE: 50,
   OTHER: 60,

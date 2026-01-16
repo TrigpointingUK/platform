@@ -46,24 +46,24 @@ import { Menu, X, List } from "lucide-react";
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
 // Status ID to API key mapping (for GeoJSON collections)
-// These map to trig_type_group.code (lowercase for API compatibility)
+// These map to status.name (snake_case) as returned by the API
 const STATUS_NAMES: Record<number, string> = {
   10: "pillar",
-  20: "fbm",
+  20: "major_mark",
   30: "minor_mark",
   40: "intersected",
-  50: "active",
-  60: "other",
+  50: "user_added",
+  60: "controversial",
 };
 
-// Status ID to display name mapping (from trig_type_group.name)
+// Status ID to display name mapping (from status.name)
 const STATUS_DISPLAY_NAMES: Record<number, string> = {
   10: "Pillar",
-  20: "FBM",
+  20: "Major mark",
   30: "Minor mark",
   40: "Intersected",
-  50: "Active station",
-  60: "Other",
+  50: "User added",
+  60: "Controversial",
 };
 
 const ALL_ICON_COLORS: IconColor[] = ["green", "yellow", "red", "grey"];
