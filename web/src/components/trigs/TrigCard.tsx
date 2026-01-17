@@ -11,6 +11,8 @@ interface Trig {
   wgs_long: string;
   osgb_gridref: string;
   status_name?: string;
+  group_code?: string;
+  group_name?: string;
   distance_km?: number;
 }
 
@@ -45,35 +47,23 @@ function getConditionInfo(code: string): { icon: string; label: string } {
   return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
-// Helper to get status badge info (icon, abbrev and color)
-function getStatusInfo(statusName?: string): { icon?: string; abbrev: string; color: string } {
-  const statusMap: Record<string, { icon: string; abbrev: string; color: string }> = {
-    Pillar: { icon: "/icons/t_pillar.png", abbrev: "P", color: "bg-blue-600" },
-    "Major mark": { icon: "/icons/t_fbm.png", abbrev: "MM", color: "bg-green-600" },
-    "Minor mark": { icon: "/icons/t_passive.png", abbrev: "m", color: "bg-yellow-600" },
-    Intersected: { icon: "/icons/t_intersected.png", abbrev: "I", color: "bg-orange-600" },
-    "User Added": { icon: "/icons/t_user_added.svg", abbrev: "UA", color: "bg-red-600" },
-    Controversial: { icon: "/icons/t_controversial.svg", abbrev: "C", color: "bg-gray-600" },
+// Helper to get group badge info (icon, abbrev and color) based on group_code
+function getGroupInfo(groupCode?: string): { icon?: string; abbrev: string; color: string; name: string } {
+  const groupMap: Record<string, { icon: string; abbrev: string; color: string; name: string }> = {
+    PILLAR: { icon: "/icons/t_pillar.png", abbrev: "P", color: "bg-blue-600", name: "Pillar" },
+    FBM: { icon: "/icons/t_fbm.png", abbrev: "MM", color: "bg-green-600", name: "FBM" },
+    SURVEY_MARK: { icon: "/icons/t_passive.png", abbrev: "m", color: "bg-yellow-600", name: "Survey mark" },
+    INTERSECTED: { icon: "/icons/t_intersected.png", abbrev: "I", color: "bg-orange-600", name: "Intersected" },
+    ACTIVE: { icon: "/icons/t_active.png", abbrev: "A", color: "bg-purple-600", name: "Active station" },
+    OTHER: { icon: "/icons/t_other.svg", abbrev: "O", color: "bg-gray-600", name: "Other" },
   };
   
-  // Normalize keys to handle whitespace or case differences
-  const normalizedStatusName = statusName?.trim();
-  
-  if (normalizedStatusName && statusMap[normalizedStatusName]) {
-    return statusMap[normalizedStatusName];
-  }
-  
-  // Fallback check for case-insensitive match
-  if (normalizedStatusName) {
-    const lowerName = normalizedStatusName.toLowerCase();
-    const match = Object.keys(statusMap).find(key => key.toLowerCase() === lowerName);
-    if (match) {
-      return statusMap[match];
-    }
+  if (groupCode && groupMap[groupCode]) {
+    return groupMap[groupCode];
   }
   
   // Default fallback
-  return { abbrev: "?", color: "bg-gray-400" };
+  return { abbrev: "?", color: "bg-gray-400", name: "Unknown" };
 }
 
 // Calculate bearing from one point to another (in degrees, 0 = North)
@@ -123,7 +113,7 @@ export function TrigCard({
   const distanceLabel = distanceUnit === 'M' ? 'mi' : 'km';
   
   const conditionInfo = getConditionInfo(trig.condition);
-  const statusInfo = getStatusInfo(trig.status_name);
+  const groupInfo = getGroupInfo(trig.group_code);
   
   return (
     <Link
@@ -134,20 +124,20 @@ export function TrigCard({
         {/* Left side: Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {/* Status badge */}
-            {statusInfo.icon ? (
+            {/* Group badge */}
+            {groupInfo.icon ? (
               <img 
-                src={statusInfo.icon}
-                alt={statusInfo.abbrev}
+                src={groupInfo.icon}
+                alt={groupInfo.abbrev}
                 className="w-6 h-6 object-contain"
-                title={trig.status_name || "Unknown status"}
+                title={trig.group_name || groupInfo.name}
               />
             ) : (
               <span 
-                className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${statusInfo.color}`}
-                title={trig.status_name || "Unknown status"}
+                className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${groupInfo.color}`}
+                title={trig.group_name || groupInfo.name}
               >
-                {statusInfo.abbrev}
+                {groupInfo.abbrev}
               </span>
             )}
             
