@@ -56,6 +56,16 @@ const STATUS_NAMES: Record<number, string> = {
   60: "OTHER",
 };
 
+// Reverse mapping: group code to status ID
+const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
+  PILLAR: 10,
+  FBM: 20,
+  SURVEY_MARK: 30,
+  INTERSECTED: 40,
+  ACTIVE: 50,
+  OTHER: 60,
+};
+
 // Status ID to display name mapping (from trig_type_group.name)
 const STATUS_DISPLAY_NAMES: Record<number, string> = {
   10: "Pillar",
@@ -135,14 +145,24 @@ export default function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
 
-  // Fetch user profile to get status_max preference
+  // Fetch user profile to get default_groups preference
   const { data: userProfile } = useUserProfile("me");
 
   // Fetch user's logged trigpoints for icon coloring
   const { data: loggedTrigsMap } = useUserLoggedTrigs();
 
-  // Derive preferred statuses from user preferences (defaults to Minor mark max)
+  // Derive preferred statuses from user preferences
+  // Uses default_groups (list of group codes) if available, otherwise falls back to status_max
   const preferredStatuses = useMemo(() => {
+    // First check for new default_groups preference
+    const defaultGroups = userProfile?.prefs?.ui_prefs?.default_groups;
+    if (defaultGroups && defaultGroups.length > 0) {
+      return defaultGroups
+        .map((code: string) => GROUP_CODE_TO_STATUS_ID[code])
+        .filter((id: number | undefined): id is number => id !== undefined);
+    }
+    
+    // Fall back to legacy status_max for users who haven't set default_groups
     const userStatusMax = userProfile?.prefs?.status_max ?? 30;
     return ALL_STATUSES.filter((status) => status <= userStatusMax);
   }, [userProfile]);

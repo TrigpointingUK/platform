@@ -22,6 +22,16 @@ import type { Log } from "../hooks/useInfiniteLogs";
 // All status levels (default: all enabled)
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
+// Reverse mapping: group code to status ID
+const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
+  PILLAR: 10,
+  FBM: 20,
+  SURVEY_MARK: 30,
+  INTERSECTED: 40,
+  ACTIVE: 50,
+  OTHER: 60,
+};
+
 // Format date as YYYY-MM-DD in local timezone (not UTC)
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -98,7 +108,7 @@ export default function Logs() {
   const queryClient = useQueryClient();
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
-  // Fetch user profile to get status_max preference
+  // Fetch user profile to get default_groups preference
   const { data: userProfile } = useUserProfile("me");
 
   // Parse userId from URL if present
@@ -115,10 +125,20 @@ export default function Logs() {
   const showTrigConditionInitializedRef = useRef(false);
 
   // Compute preferred statuses from user profile
+  // Uses default_groups (list of group codes) if available, otherwise falls back to status_max
   const preferredStatuses = useMemo(() => {
+    // First check for new default_groups preference
+    const defaultGroups = userProfile?.prefs?.ui_prefs?.default_groups;
+    if (defaultGroups && defaultGroups.length > 0) {
+      return defaultGroups
+        .map((code: string) => GROUP_CODE_TO_STATUS_ID[code])
+        .filter((id: number | undefined): id is number => id !== undefined);
+    }
+    
+    // Fall back to legacy status_max for users who haven't set default_groups
     const userStatusMax = userProfile?.prefs?.status_max || 30;
     return ALL_STATUSES.filter((s) => s <= userStatusMax);
-  }, [userProfile?.prefs?.status_max]);
+  }, [userProfile?.prefs?.ui_prefs?.default_groups, userProfile?.prefs?.status_max]);
 
   // Filter state - parse from URL or use defaults
   const [centerLat, setCenterLat] = useState<number | null>(() => {

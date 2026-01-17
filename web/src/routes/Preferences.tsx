@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
 import toast from "react-hot-toast";
@@ -11,6 +12,49 @@ import {
   type MapLinkOption,
 } from "../hooks/useUserProfile";
 import { MAP_LINK_OPTIONS, MAP_LINK_DEFAULTS } from "../lib/mapLinks";
+
+// Trigpoint type groups - matches trig_type_group table
+const TYPE_GROUPS = [
+  {
+    code: "PILLAR",
+    name: "Pillar",
+    description: "Triangulation pillars",
+    icon: "/icons/t_pillar.png",
+  },
+  {
+    code: "FBM",
+    name: "FBM",
+    description: "Fundamental Bench Marks",
+    icon: "/icons/t_fbm.png",
+  },
+  {
+    code: "SURVEY_MARK",
+    name: "Survey mark",
+    description: "Minor marks (bolts, blocks, rivets)",
+    icon: "/icons/t_passive.png",
+  },
+  {
+    code: "INTERSECTED",
+    name: "Intersected",
+    description: "Church spires, towers, etc.",
+    icon: "/icons/t_intersected.png",
+  },
+  {
+    code: "ACTIVE",
+    name: "Active station",
+    description: "GPS stations",
+    icon: "/icons/t_active.png",
+  },
+  {
+    code: "OTHER",
+    name: "Other",
+    description: "All remaining types",
+    icon: "/icons/t_other.svg",
+  },
+];
+
+// Default groups for new users (Pillar, FBM, Survey mark)
+const DEFAULT_GROUPS = ["PILLAR", "FBM", "SURVEY_MARK"];
 
 export default function Preferences() {
   const queryClient = useQueryClient();
@@ -53,7 +97,7 @@ export default function Preferences() {
     }
   };
 
-  const handleUIPrefsUpdate = async (key: string, value: boolean | string) => {
+  const handleUIPrefsUpdate = async (key: string, value: boolean | string | string[]) => {
     try {
       await updateUserProfile(
         { ui_prefs: { [key]: value } } as unknown as Partial<UserProfile>,
@@ -65,8 +109,55 @@ export default function Preferences() {
     } catch (error) {
       console.error(`Failed to update ui_prefs.${key}:`, error);
       toast.error("Failed to update preference");
+      throw error; // Re-throw so callers can handle rollback
     }
   };
+
+  // Get current groups from server state
+  const currentGroups = user?.prefs?.ui_prefs?.default_groups ?? DEFAULT_GROUPS;
+
+  const handleGroupToggle = useCallback(async (groupCode: string) => {
+    const newGroups = currentGroups.includes(groupCode)
+      ? currentGroups.filter((g: string) => g !== groupCode)
+      : [...currentGroups, groupCode];
+    
+    // Don't allow deselecting all groups
+    if (newGroups.length === 0) {
+      toast.error("You must have at least one group selected");
+      return;
+    }
+    
+    // Optimistically update the cache immediately
+    const previousData = queryClient.getQueryData<UserProfile>(["user", "profile", "me"]);
+    queryClient.setQueryData<UserProfile>(["user", "profile", "me"], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        prefs: {
+          ...old.prefs!,
+          ui_prefs: {
+            ...old.prefs?.ui_prefs,
+            default_groups: newGroups,
+          },
+        },
+      };
+    });
+    
+    try {
+      await updateUserProfile(
+        { ui_prefs: { default_groups: newGroups } } as unknown as Partial<UserProfile>,
+        getAccessTokenSilently,
+      );
+      // Success - no need to do anything, cache is already updated
+    } catch (error) {
+      // Rollback on failure by restoring previous data
+      console.error("Failed to update default_groups:", error);
+      toast.error("Failed to update preference");
+      if (previousData) {
+        queryClient.setQueryData(["user", "profile", "me"], previousData);
+      }
+    }
+  }, [currentGroups, getAccessTokenSilently, queryClient]);
 
   if (isLoading) {
     return (
@@ -115,37 +206,50 @@ export default function Preferences() {
 
         <Card className="mb-6">
           <div className="grid grid-cols-1 gap-6">
-            {/* Status Max Preference */}
+            {/* Default Trigpoint Groups */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Maximum Status Level
+                Default Trigpoint Types
               </label>
-              <select
-                value={user.prefs.status_max || 30}
-                onChange={(e) =>
-                  handleFieldUpdate("status_max", e.target.value)
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="10">Pillar only</option>
-                <option value="20">
-                  FBM (includes Pillars and Flush Brackets)
-                </option>
-                <option value="30">
-                  Minor marks (includes Bolts, Blocks, Rivets)
-                </option>
-                <option value="40">
-                  Intersected (includes church spires, towers)
-                </option>
-                <option value="50">
-                  Active stations (includes GPS stations)
-                </option>
-                <option value="60">Other (includes all remaining types)</option>
-              </select>
-              <p className="mt-2 text-xs text-gray-500">
-                Controls which trigpoints you see on the map and browse pages.
-                Higher levels include all lower levels.
+              <p className="text-xs text-gray-500 mb-3">
+                Select which types of trigpoints to show by default on the map and browse pages.
+                Click to toggle each type on or off.
               </p>
+              <div className="flex flex-wrap gap-3">
+                {TYPE_GROUPS.map((group) => {
+                  const isSelected = currentGroups.includes(group.code);
+                  return (
+                    <button
+                      key={group.code}
+                      type="button"
+                      onClick={() => handleGroupToggle(group.code)}
+                      className={`
+                        inline-flex flex-col items-center justify-center
+                        w-16 p-2 rounded-lg
+                        transition-all duration-200
+                        ${
+                          isSelected
+                            ? "bg-trig-green-600 shadow-md ring-2 ring-trig-green-400"
+                            : "bg-gray-100 hover:bg-gray-200"
+                        }
+                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-trig-green-500
+                      `}
+                      title={`${group.name}: ${group.description}`}
+                      aria-label={`${isSelected ? "Deselect" : "Select"} ${group.name}`}
+                      aria-pressed={isSelected}
+                    >
+                      <img
+                        src={group.icon}
+                        alt={group.name}
+                        className={`w-8 h-8 object-contain ${isSelected ? "" : "opacity-50"}`}
+                      />
+                      <span className={`text-xs mt-1 ${isSelected ? "text-white font-medium" : "text-gray-600"}`}>
+                        {group.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Default Photo Licence Preference */}
