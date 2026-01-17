@@ -27,49 +27,44 @@ def seed_groups_types_trigs(db: Session):
     - 2 types per group
     - 2 trigs per type
     """
-    # Use time-based ID to avoid collisions - use microseconds for uniqueness
-    import time as time_mod
+    import uuid
 
-    base_id = int(time_mod.time() * 1000000) % 900000000 + 100000000
-    sort_order = int(time_mod.time() * 1000) % 10000 + 5000
+    base_tag = uuid.uuid4().hex[:8].upper()
+    short_tag = base_tag[:6]
+    base_sort = int(base_tag[:4], 16) % 20000 + 1000
 
     # Create groups
     pillar_group = TrigTypeGroup(
-        id=base_id,
-        code=f"PILLAR_T{base_id}",
+        code=f"PILLAR_T{base_tag}",
         name="Test Pillar",
         description="Test pillar group",
-        sort_order=sort_order,
+        sort_order=base_sort,
     )
     fbm_group = TrigTypeGroup(
-        id=base_id + 1,
-        code=f"FBM_T{base_id}",
+        code=f"FBM_T{base_tag}",
         name="Test FBM",
         description="Test FBM group",
-        sort_order=sort_order + 1,
+        sort_order=base_sort + 1,
     )
     db.add_all([pillar_group, fbm_group])
     db.flush()
 
     # Create types
     hotine_type = TrigType(
-        id=base_id,
         group_id=pillar_group.id,
-        code=f"HOTINE_T{base_id}",
+        code=f"HOTINE_T{base_tag}",
         name="Test Hotine",
         sort_order=1,
     )
     vanessa_type = TrigType(
-        id=base_id + 1,
         group_id=pillar_group.id,
-        code=f"VANESSA_T{base_id}",
+        code=f"VANESSA_T{base_tag}",
         name="Test Vanessa",
         sort_order=2,
     )
     fbm_type = TrigType(
-        id=base_id + 2,
         group_id=fbm_group.id,
-        code=f"FBM_MK_T{base_id}",
+        code=f"FBM_MK_T{base_tag}",
         name="Test FBM Mark",
         sort_order=1,
     )
@@ -80,10 +75,10 @@ def seed_groups_types_trigs(db: Session):
     trigs = []
     for i, type_obj in enumerate([hotine_type, hotine_type, vanessa_type, fbm_type]):
         trig = Trig(
-            waypoint=f"E{base_id + i}"[:8],
+            waypoint=f"E{short_tag}{i}",
             name=f"Endpoint Test Trig {i}",
-            fb_number=f"FB{i}",
-            stn_number=f"STN{base_id + i}",
+            fb_number=f"FB{short_tag}{i}",
+            stn_number=f"STN{short_tag}{i}",
             status_id=10,
             user_added=0,
             type_id=type_obj.id,
@@ -112,15 +107,29 @@ def seed_groups_types_trigs(db: Session):
     db.add_all(trigs)
     db.commit()
 
-    return {
-        "pillar_group": pillar_group,
-        "fbm_group": fbm_group,
-        "hotine_type": hotine_type,
-        "vanessa_type": vanessa_type,
-        "fbm_type": fbm_type,
-        "trigs": trigs,
-        "base_id": base_id,
-    }
+    try:
+        yield {
+            "pillar_group": pillar_group,
+            "fbm_group": fbm_group,
+            "hotine_type": hotine_type,
+            "vanessa_type": vanessa_type,
+            "fbm_type": fbm_type,
+            "trigs": trigs,
+            "base_id": base_tag,
+        }
+    finally:
+        trig_ids = [t.id for t in trigs]
+        type_ids = [hotine_type.id, vanessa_type.id, fbm_type.id]
+        group_ids = [pillar_group.id, fbm_group.id]
+
+        db.query(Trig).filter(Trig.id.in_(trig_ids)).delete(synchronize_session=False)
+        db.query(TrigType).filter(TrigType.id.in_(type_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(TrigTypeGroup).filter(TrigTypeGroup.id.in_(group_ids)).delete(
+            synchronize_session=False
+        )
+        db.commit()
 
 
 class TestListTrigsWithGroupsParam:
@@ -333,12 +342,19 @@ class TestListTrigsExcludeFoundAuthenticated:
         db.add(log)
         db.commit()
 
-        return {
-            **data,
-            "user": user,
-            "logged_trig": logged_trig,
-            "unlogged_trigs": data["trigs"][1:],
-        }
+        try:
+            yield {
+                **data,
+                "user": user,
+                "logged_trig": logged_trig,
+                "unlogged_trigs": data["trigs"][1:],
+            }
+        finally:
+            db.query(TLog).filter(TLog.user_id == user.id).delete(
+                synchronize_session=False
+            )
+            db.query(User).filter(User.id == user.id).delete(synchronize_session=False)
+            db.commit()
 
     def test_exclude_found_requires_auth(
         self, client: TestClient, db: Session, seed_user_with_log
@@ -431,12 +447,19 @@ class TestListTrigsOnlyFoundAuthenticated:
 
         db.commit()
 
-        return {
-            **data,
-            "user": user,
-            "logged_trigs": logged_trigs,
-            "unlogged_trigs": data["trigs"][2:],
-        }
+        try:
+            yield {
+                **data,
+                "user": user,
+                "logged_trigs": logged_trigs,
+                "unlogged_trigs": data["trigs"][2:],
+            }
+        finally:
+            db.query(TLog).filter(TLog.user_id == user.id).delete(
+                synchronize_session=False
+            )
+            db.query(User).filter(User.id == user.id).delete(synchronize_session=False)
+            db.commit()
 
     def test_only_found_with_auth(
         self, client: TestClient, db: Session, seed_user_with_multiple_logs
