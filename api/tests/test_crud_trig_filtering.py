@@ -36,25 +36,22 @@ def seed_trig_types(db: Session):
 
     # Create groups
     pillar_group = TrigTypeGroup(
-        id=base_id,
         code=f"PILLAR_{base_id}",
         name="Pillar",
         description="Trig pillars",
-        sort_order=base_id,
+        sort_order=1,
     )
     fbm_group = TrigTypeGroup(
-        id=base_id + 1,
         code=f"FBM_{base_id}",
         name="FBM",
         description="Flush bracket marks",
-        sort_order=base_id + 1,
+        sort_order=2,
     )
     db.add_all([pillar_group, fbm_group])
     db.flush()
 
     # Create types within each group
     hotine_type = TrigType(
-        id=base_id,
         group_id=pillar_group.id,
         code=f"HOTINE_{base_id}",
         name="Hotine Pillar",
@@ -62,7 +59,6 @@ def seed_trig_types(db: Session):
         sort_order=1,
     )
     vanessa_type = TrigType(
-        id=base_id + 1,
         group_id=pillar_group.id,
         code=f"VANESSA_{base_id}",
         name="Vanessa Pillar",
@@ -70,7 +66,6 @@ def seed_trig_types(db: Session):
         sort_order=2,
     )
     fbm_type = TrigType(
-        id=base_id + 2,
         group_id=fbm_group.id,
         code=f"FBM_MARK_{base_id}",
         name="Flush Bracket",
