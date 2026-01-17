@@ -948,6 +948,7 @@ def list_trigs(
         exclude_soft_deleted=True,  # Always exclude status >= 90
         area_id=area_id,
     )
+
     total = trig_crud.count_trigs_filtered(
         db,
         name=name,

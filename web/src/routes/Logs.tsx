@@ -179,9 +179,11 @@ export default function Logs() {
   const [selectedAreaName, setSelectedAreaName] = useState<string | null>(
     () => searchParams.get("areaName") || null
   );
+  // Default to 200km for performance - prevents slow full-table scans
+  const DEFAULT_MAX_KM = 200;
   const [maxKm, setMaxKm] = useState<number | null>(() => {
     const km = searchParams.get("maxKm");
-    return km ? parseInt(km, 10) : null;
+    return km ? parseInt(km, 10) : DEFAULT_MAX_KM;
   });
 
   // Date range filter state

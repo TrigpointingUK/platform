@@ -9,6 +9,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     String,
@@ -93,6 +94,11 @@ class TLog(Base):
     """TLog model for the tlog table."""
 
     __tablename__ = "tlog"
+    __table_args__ = (
+        # Composite index for efficient "has user logged this trig" queries
+        # Used by exclude_found and only_found filters
+        Index("ix_tlog_user_trig", "user_id", "trig_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     trig_id = Column(

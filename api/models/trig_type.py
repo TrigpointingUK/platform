@@ -63,8 +63,8 @@ class TrigType(Base):
     sort_order = Column(SmallInteger, nullable=False)
     legacy_physical_type = Column(String(25), nullable=True)
 
-    # Relationship to parent group
-    group = relationship("TrigTypeGroup", back_populates="types")
+    # Relationship to parent group (joined to avoid N+1 when accessing trig.trig_type.group)
+    group = relationship("TrigTypeGroup", back_populates="types", lazy="joined")
 
     # Relationship to trigs of this type
     trigs = relationship("Trig", back_populates="trig_type", lazy="dynamic")
