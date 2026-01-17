@@ -75,7 +75,8 @@ export default function FindTrigs() {
     }
     
     // Fall back to legacy status_max for users who haven't set default_groups
-    const userStatusMax = userProfile?.prefs?.status_max || 30;
+    // Default is 20 (PILLAR + FBM only) for guests and users without preferences
+    const userStatusMax = userProfile?.prefs?.status_max || 20;
     return ALL_STATUSES.filter(s => s <= userStatusMax);
   }, [userProfile?.prefs?.ui_prefs?.default_groups, userProfile?.prefs?.status_max]);
   
@@ -84,8 +85,8 @@ export default function FindTrigs() {
       const statuses = searchParams.get("statuses");
       if (statuses) return statuses.split(",").map(Number);
       
-      // Default based on fallback (user profile may not be loaded yet)
-      return ALL_STATUSES.filter(s => s <= 30);
+      // Default to PILLAR + FBM only (user profile may not be loaded yet)
+      return ALL_STATUSES.filter(s => s <= 20);
     }
   );
   

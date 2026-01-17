@@ -30,7 +30,7 @@ interface UIPrefs {
   map_link_gridref?: MapLinkOption;
   map_link_wgs?: MapLinkOption;
   map_link_thumbnail?: MapLinkOption;
-  default_groups?: string[]; // List of trig_type_group.code values (e.g., ["PILLAR", "FBM", "SURVEY_MARK"])
+  default_groups?: string[]; // List of trig_type_group.code values (e.g., ["PILLAR", "FBM"])
 }
 
 interface UserPrefs {

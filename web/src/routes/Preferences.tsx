@@ -53,8 +53,8 @@ const TYPE_GROUPS = [
   },
 ];
 
-// Default groups for new users (Pillar, FBM, Survey mark)
-const DEFAULT_GROUPS = ["PILLAR", "FBM", "SURVEY_MARK"];
+// Default groups for new users (Pillar and FBM only)
+const DEFAULT_GROUPS = ["PILLAR", "FBM"];
 
 export default function Preferences() {
   const queryClient = useQueryClient();
@@ -65,13 +65,7 @@ export default function Preferences() {
 
   const handleFieldUpdate = async (field: string, value: string) => {
     try {
-      if (field === "status_max") {
-        // Parse status_max as an integer
-        await updateUserProfile(
-          { status_max: parseInt(value, 10) } as Partial<UserProfile>,
-          getAccessTokenSilently,
-        );
-      } else if (field === "distance_ind") {
+      if (field === "distance_ind") {
         await updateUserProfile(
           { distance_ind: value } as Partial<UserProfile>,
           getAccessTokenSilently,

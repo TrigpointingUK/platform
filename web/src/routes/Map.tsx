@@ -163,7 +163,8 @@ export default function Map() {
     }
     
     // Fall back to legacy status_max for users who haven't set default_groups
-    const userStatusMax = userProfile?.prefs?.status_max ?? 30;
+    // Default is 20 (PILLAR + FBM only) for guests and users without preferences
+    const userStatusMax = userProfile?.prefs?.status_max ?? 20;
     return ALL_STATUSES.filter((status) => status <= userStatusMax);
   }, [userProfile]);
 
