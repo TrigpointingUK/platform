@@ -41,7 +41,7 @@ pyproj==3.7.2
 
 # Profiling
 pyinstrument==5.1.2
-pyroscope-io==0.8.14
+pyroscope-io==0.8.15
 
 # OpenTelemetry - Distributed tracing and metrics
 opentelemetry-api==1.39.1
