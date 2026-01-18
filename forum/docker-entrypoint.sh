@@ -4,6 +4,9 @@ set -e
 [ -x /usr/local/bin/docker-php-entrypoint ] && docker-php-entrypoint php-fpm >/dev/null 2>&1 || true
 
 # Replace phpBB directories with symlinks to EFS (support two layouts)
+# Note: Symlinks must be owned by www-data due to Linux's protected_symlinks
+# security feature. /var/www/html has the sticky bit set, and symlinks owned
+# by root cannot be followed by www-data in sticky directories.
 link_dir() {
     target_name="$1"    # e.g. files | store | images/avatars/upload
     dest="/var/www/html/${target_name}"
@@ -14,10 +17,12 @@ link_dir() {
         echo "Linking ${dest} -> ${src_a}"
         rm -rf "$dest"
         ln -sf "$src_a" "$dest"
+        chown -h www-data:www-data "$dest"
     elif [ -d "$src_b" ]; then
         echo "Linking ${dest} -> ${src_b}"
         rm -rf "$dest"
         ln -sf "$src_b" "$dest"
+        chown -h www-data:www-data "$dest"
     else
         echo "EFS path not found for ${target_name} (checked ${src_a} and ${src_b})"
     fi
