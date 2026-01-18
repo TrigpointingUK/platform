@@ -855,10 +855,7 @@ def list_trigs(
     ),
     groups: Optional[str] = Query(
         None,
-        description="Comma-separated group codes to include (e.g., 'PILLAR,MINOR_MARK')",
-    ),
-    status_ids: Optional[str] = Query(
-        None, description="Comma-separated status IDs to include (e.g., '10,20,30')"
+        description="Comma-separated group codes to include (e.g., 'PILLAR,FBM')",
     ),
     exclude_found: Optional[bool] = Query(
         False, description="Exclude trigpoints already logged by authenticated user"
@@ -881,13 +878,12 @@ def list_trigs(
     Filters:
     - physical_types: Filter by physical type (legacy, e.g., "Pillar,Bolt,FBM")
     - types: Filter by type code (e.g., "HOTINE,FBM,BOLT")
-    - groups: Filter by group code (e.g., "PILLAR,MINOR_MARK")
-    - status_ids: Filter by status IDs (e.g., "10,20,30")
+    - groups: Filter by group code (e.g., "PILLAR,FBM,SURVEY_MARK")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
     - only_found: Include only trigpoints the user has logged (requires authentication)
     - area_id: Filter to trigpoints within a specific geographic area
 
-    Always excludes soft-deleted records (status >= 90).
+    Always excludes soft-deleted records (status_id >= 90).
     """
     # Record trig search metric
     metrics = get_metrics_collector()
@@ -912,13 +908,6 @@ def list_trigs(
     if groups:
         group_codes_list = [g.strip() for g in groups.split(",") if g.strip()]
 
-    # Parse status IDs
-    status_ids_list = None
-    if status_ids:
-        status_ids_list = [
-            int(sid.strip()) for sid in status_ids.split(",") if sid.strip()
-        ]
-
     # Get user ID for exclude_found filter
     exclude_found_by_user_id = None
     if exclude_found and current_user:
@@ -942,10 +931,9 @@ def list_trigs(
         physical_types=physical_types_list,
         type_codes=type_codes_list,
         group_codes=group_codes_list,
-        status_ids=status_ids_list,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
-        exclude_soft_deleted=True,  # Always exclude status >= 90
+        exclude_soft_deleted=True,  # Always exclude status_id >= 90
         area_id=area_id,
     )
 
@@ -959,10 +947,9 @@ def list_trigs(
         physical_types=physical_types_list,
         type_codes=type_codes_list,
         group_codes=group_codes_list,
-        status_ids=status_ids_list,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
-        exclude_soft_deleted=True,  # Always exclude status >= 90
+        exclude_soft_deleted=True,  # Always exclude status_id >= 90
         area_id=area_id,
     )
 
@@ -1005,8 +992,10 @@ def list_trigs(
         params.append(f"order={order}")
     if physical_types:
         params.append(f"physical_types={physical_types}")
-    if status_ids:
-        params.append(f"status_ids={status_ids}")
+    if types:
+        params.append(f"types={types}")
+    if groups:
+        params.append(f"groups={groups}")
     if exclude_found:
         params.append("exclude_found=true")
     if only_found:
