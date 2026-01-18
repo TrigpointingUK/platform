@@ -20,9 +20,22 @@ _KMZ_ICON_FAMILIES = ("pillar", "fbm", "passive", "intersected")
 _KMZ_ICON_COLOURS = ("green", "yellow", "red", "grey")
 
 
+def _get_group_info(trig: Trig) -> tuple[str, str]:
+    """
+    Get group code and name from a trig's type relationship.
+
+    Returns (group_code, group_name) tuple, defaulting to ("", "") if not available.
+    """
+    if trig.trig_type and trig.trig_type.group:
+        return (
+            str(trig.trig_type.group.code or ""),
+            str(trig.trig_type.group.name or ""),
+        )
+    return ("", "")
+
+
 def trigs_to_csv(
     trigs: list[Trig],
-    status_names: Optional[dict[int, str]] = None,
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
 ) -> str:
     """
@@ -30,7 +43,6 @@ def trigs_to_csv(
 
     Args:
         trigs: List of Trig objects
-        status_names: Optional mapping of status_id to status name
         user_logs: Optional mapping of trig_id to user's log data
 
     Returns:
@@ -45,8 +57,8 @@ def trigs_to_csv(
         "name",
         "physical_type",
         "condition",
-        "status_id",
-        "status_name",
+        "group_code",
+        "group_name",
         "wgs_lat",
         "wgs_long",
         "wgs_height",
@@ -69,16 +81,15 @@ def trigs_to_csv(
     writer.writeheader()
 
     for trig in trigs:
+        group_code, group_name = _get_group_info(trig)
         row = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
             "physical_type": trig.physical_type,
             "condition": trig.condition,
-            "status_id": trig.status_id,
-            "status_name": (
-                status_names.get(int(trig.status_id), "") if status_names else ""
-            ),
+            "group_code": group_code,
+            "group_name": group_name,
             "wgs_lat": float(trig.wgs_lat),
             "wgs_long": float(trig.wgs_long),
             "wgs_height": trig.wgs_height,
@@ -114,7 +125,6 @@ def trigs_to_csv(
 
 def trigs_to_geojson(
     trigs: list[Trig],
-    status_names: Optional[dict[int, str]] = None,
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
 ) -> dict:
     """
@@ -122,7 +132,6 @@ def trigs_to_geojson(
 
     Args:
         trigs: List of Trig objects
-        status_names: Optional mapping of status_id to status name
         user_logs: Optional mapping of trig_id to user's log data
 
     Returns:
@@ -131,16 +140,15 @@ def trigs_to_geojson(
     features = []
 
     for trig in trigs:
+        group_code, group_name = _get_group_info(trig)
         properties = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
             "physical_type": trig.physical_type,
             "condition": trig.condition,
-            "status_id": trig.status_id,
-            "status_name": (
-                status_names.get(int(trig.status_id), "") if status_names else ""
-            ),
+            "group_code": group_code,
+            "group_name": group_name,
             "osgb_gridref": trig.osgb_gridref,
             "county": trig.county,
             "town": trig.town,
@@ -177,7 +185,6 @@ def trigs_to_geojson(
 
 def trigs_to_gpx(
     trigs: list[Trig],
-    status_names: Optional[dict[int, str]] = None,
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
 ) -> str:
     """
@@ -187,7 +194,6 @@ def trigs_to_gpx(
 
     Args:
         trigs: List of Trig objects
-        status_names: Optional mapping of status_id to status name
         user_logs: Optional mapping of trig_id to user's log data
 
     Returns:
@@ -268,7 +274,6 @@ def trigs_to_gpx(
 
 def trigs_to_kml(
     trigs: list[Trig],
-    status_names: Optional[dict[int, str]] = None,
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
 ) -> str:
     """
@@ -278,7 +283,6 @@ def trigs_to_kml(
 
     Args:
         trigs: List of Trig objects
-        status_names: Optional mapping of status_id to status name
         user_logs: Optional mapping of trig_id to user's log data
 
     Returns:
@@ -320,13 +324,13 @@ def trigs_to_kml(
     ]
 
     for trig in trigs:
-        status_name = status_names.get(int(trig.status_id), "") if status_names else ""
+        group_code, group_name = _get_group_info(trig)
 
         # Build description HTML
         desc_lines = [
             "<![CDATA[",
             f"<b>Type:</b> {escape_xml(str(trig.physical_type))}<br/>",
-            f"<b>Status:</b> {escape_xml(status_name)}<br/>",
+            f"<b>Group:</b> {escape_xml(group_name)}<br/>",
             f"<b>Grid Ref:</b> {escape_xml(str(trig.osgb_gridref))}<br/>",
             f"<b>Condition:</b> {escape_xml(str(trig.condition))}<br/>",
         ]
@@ -373,7 +377,6 @@ def trigs_to_kml(
 
 def trigs_to_kmz(
     trigs: list[Trig],
-    status_names: Optional[dict[int, str]] = None,
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
 ) -> bytes:
     """
@@ -430,19 +433,19 @@ def trigs_to_kmz(
     def _trig_url(trig_id: int) -> str:
         return f"{_site_base_domain()}/trigs/{trig_id}"
 
-    def _icon_family_from_physical_type(physical_type: str, status_name: str) -> str:
+    def _icon_family_from_physical_type(physical_type: str, group_name: str) -> str:
         """
         Map `physical_type` to one of the 4 KMZ icon families.
 
         This mapping intentionally absorbs many physical types into `passive`.
         """
         pt = (physical_type or "").strip().lower()
-        sn = (status_name or "").strip().lower()
+        gn = (group_name or "").strip().lower()
 
-        # Strong status fallbacks
-        if sn == "pillar":
+        # Strong group fallbacks
+        if gn == "pillar":
             return "pillar"
-        if sn == "intersected":
+        if gn == "intersected":
             return "intersected"
 
         if pt in {"pillar"}:
@@ -519,11 +522,10 @@ def trigs_to_kmz(
             )
         return sorted(_KMZ_ICONS_DIR.glob("mapicon_*.png"))
 
-    def _kml_status_folder_name(trig: Trig) -> str:
-        if status_names:
-            name = status_names.get(int(trig.status_id), "")
-            return str(name).strip() or "Unknown"
-        return "Unknown"
+    def _kml_group_folder_name(trig: Trig) -> str:
+        """Get group name for folder organization."""
+        _, group_name = _get_group_info(trig)
+        return group_name.strip() if group_name else "Unknown"
 
     def _condition_description(code: str) -> str:
         # Definitive wording comes from the wiki (mirrored by our mapping helper).
@@ -589,11 +591,11 @@ def trigs_to_kmz(
 
     # ---- group trigs into folders ----------------------------------------
     # Folder hierarchy:
-    #   Level 1: category (aka status_name)
+    #   Level 1: category (aka group_name)
     #   Level 2: physical_type
     grouped: dict[str, dict[str, list[Trig]]] = {}
     for trig in trigs:
-        category = _kml_status_folder_name(trig)
+        category = _kml_group_folder_name(trig)
         physical_type_folder = (
             str(getattr(trig, "physical_type", "")).strip() or "Unknown"
         )
@@ -601,29 +603,16 @@ def trigs_to_kmz(
             trig
         )
 
-    # Stable folder ordering: by status_id if possible, otherwise alphabetical.
-    status_order: list[str] = []
-    if status_names:
-        # preserve numeric ordering from status table where possible
-        status_pairs = sorted(
-            {(int(t.status_id), _kml_status_folder_name(t)) for t in trigs},
-            key=lambda x: x[0],
-        )
-        seen: set[str] = set()
-        for _, name in status_pairs:
-            if name not in seen:
-                seen.add(name)
-                status_order.append(name)
-    else:
-        status_order = sorted(grouped.keys())
+    # Stable folder ordering: alphabetical by group name
+    group_order = sorted(grouped.keys())
 
-    for status_folder in status_order:
-        physical_types = grouped.get(status_folder, {})
+    for group_folder in group_order:
+        physical_types = grouped.get(group_folder, {})
         if not physical_types:
             continue
 
         kml_lines.append("    <Folder>")
-        kml_lines.append(f"      <name>{_escape_xml(status_folder)}</name>")
+        kml_lines.append(f"      <name>{_escape_xml(group_folder)}</name>")
 
         for physical_type_folder in sorted(physical_types.keys()):
             pts = physical_types.get(physical_type_folder, [])
@@ -640,8 +629,8 @@ def trigs_to_kmz(
                 waypoint = str(trig.waypoint)
                 name = str(trig.name)
                 physical_type = str(trig.physical_type)
-                status_name = _kml_status_folder_name(trig)
-                family = _icon_family_from_physical_type(physical_type, status_name)
+                group_code, group_name = _get_group_info(trig)
+                family = _icon_family_from_physical_type(physical_type, group_name)
 
                 if user_logs is None:
                     colour = _colour_condition_mode(str(getattr(trig, "condition", "")))
@@ -699,7 +688,8 @@ def trigs_to_kmz(
                 ext: dict[str, Any] = {
                     "waypoint": waypoint,
                     "name": name,
-                    "category": status_name,
+                    "group_code": group_code,
+                    "group_name": group_name,
                     "physical_type": physical_type,
                     # Descriptive string per wiki, not letter code.
                     "condition": condition_desc,
