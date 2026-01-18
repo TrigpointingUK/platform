@@ -344,7 +344,7 @@ export interface Trig {
   wgs_long: string;
   osgb_gridref: string;
   /** Grid system: 'gb' (British National Grid) or 'ie' (Irish Grid) */
-  grid_system?: string;
+  grid_system?: 'gb' | 'ie';
   /** Country name (e.g., 'England', 'Ireland', 'Northern Ireland') */
   country_name?: string;
   details?: TrigDetails;
@@ -593,7 +593,7 @@ export interface TrigAdminDetail {
   osgb_gridref: string;
   osgb_height: number | null;
   /** Grid system: 'gb' (OSGB36) or 'ie' (Irish Grid) */
-  grid_system?: string;
+  grid_system?: 'gb' | 'ie';
   /** Country name (e.g., 'England', 'Ireland') */
   country_name?: string;
   postcode: string;
@@ -892,7 +892,7 @@ export interface CoordinateConversionResponse {
   input: CoordinateInput;
   output: CoordinateOutput;
   /** Grid system used: 'gb' (OSGB36) or 'ie' (Irish Grid) */
-  grid_system?: string;
+  grid_system?: 'gb' | 'ie';
   /** Country name if auto-detected (e.g., 'Ireland', 'England') */
   country_name?: string;
 }

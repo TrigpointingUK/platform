@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { BrowserRouter } from 'react-router-dom';
 import TrigDetailMap from '../TrigDetailMap';
-import { createMockTrig, mockLocalStorage, trigsByCondition } from './test-utils';
+import { createMockTrig, createMockIrishTrig, mockLocalStorage, trigsByCondition } from './test-utils';
 import { TILE_LAYER_STORAGE_KEY, MAP_CONFIG } from '../../../lib/mapConfig';
 
 // Wrap component with Router for Link component
@@ -226,10 +226,45 @@ describe('TrigDetailMap', () => {
     });
   });
 
-  describe('Tile Layer Preferences', () => {
-    it('should initialize with OS Paper regardless of localStorage', () => {
-      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osm');
+  describe('Grid System Tileset Selection', () => {
+    it('should default to OS Paper for GB trigs', () => {
+      const trig = createMockTrig({ grid_system: 'gb' });
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const selector = screen.getByRole('combobox') as HTMLSelectElement;
+      expect(selector.value).toBe('osPaper');
+      
+      const mapContainer = screen.getByTestId('map-container');
+      const zoom = parseInt(mapContainer.getAttribute('data-zoom') || '0');
+      expect(zoom).toBe(8); // OS Paper zoom
+    });
+
+    it('should default to OpenTopoMap for Irish trigs', () => {
+      const trig = createMockIrishTrig();
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const selector = screen.getByRole('combobox') as HTMLSelectElement;
+      expect(selector.value).toBe('openTopoMap');
+      
+      const mapContainer = screen.getByTestId('map-container');
+      const zoom = parseInt(mapContainer.getAttribute('data-zoom') || '0');
+      expect(zoom).toBe(MAP_CONFIG.detailMapZoom); // EPSG:3857 zoom (14)
+    });
+
+    it('should default to OS Paper when grid_system is undefined', () => {
       const trig = createMockTrig();
+      delete trig.grid_system;  // Remove grid_system to test fallback
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const selector = screen.getByRole('combobox') as HTMLSelectElement;
+      expect(selector.value).toBe('osPaper');
+    });
+  });
+
+  describe('Tile Layer Preferences', () => {
+    it('should initialize with OS Paper for GB trigs regardless of localStorage', () => {
+      localStorageMock.localStorageMock.setItem(TILE_LAYER_STORAGE_KEY, 'osm');
+      const trig = createMockTrig({ grid_system: 'gb' });
       renderWithRouter(<TrigDetailMap trig={trig} />);
       
       const mapContainer = screen.getByTestId('map-container');

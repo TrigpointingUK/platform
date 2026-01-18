@@ -16,8 +16,11 @@ export default function TrigDetailMap({
   height = MAP_CONFIG.detailMapHeight,
   className = "",
 }: TrigDetailMapProps) {
-  // Always start with OS Paper for detail maps, independent of global preference
-  const [tileLayerId, setTileLayerId] = useState('osPaper');
+  // Choose default tileset based on grid system:
+  // - Irish Grid (ie): Use OpenTopoMap (OS Paper doesn't cover Ireland)
+  // - GB Grid (gb): Use OS Paper (traditional OS maps)
+  const defaultTileset = trig.grid_system === 'ie' ? 'openTopoMap' : 'osPaper';
+  const [tileLayerId, setTileLayerId] = useState(defaultTileset);
   
   // Always use condition mode for detail maps (simpler UX)
   const colorMode: IconColorMode = 'condition';

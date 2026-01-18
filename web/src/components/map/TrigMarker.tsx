@@ -80,6 +80,7 @@ export default function TrigMarker({
             <MiniMap
               lat={typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat}
               lng={typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long) : trig.wgs_long}
+              gridSystem={trig.grid_system}
             />
             
             <h3 className="font-bold text-trig-green-600 mb-2">

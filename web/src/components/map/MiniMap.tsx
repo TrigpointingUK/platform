@@ -7,22 +7,24 @@ import { getCRS } from '../../lib/projections';
 interface MiniMapProps {
   lat: number;
   lng: number;
+  /** Grid system: 'gb' for British National Grid, 'ie' for Irish Grid */
+  gridSystem?: 'gb' | 'ie';
 }
 
 /**
  * Mini-map component for display within popups
  * 
- * Shows a small, highly-zoomed OS Paper (EPSG:27700) map view with a blue circle marker.
+ * Shows a small, highly-zoomed map view with a blue circle marker.
  * Uses vanilla Leaflet API (not React-Leaflet) for lifecycle management within popups.
  * 
  * @remarks
- * - Always uses OS Paper tileset regardless of main map tileset
- * - Zoom level 8 for EPSG:27700 shows approximately 1000m width (896m at zoom 8)
+ * - GB trigs use OS Paper tileset (EPSG:27700) at zoom 8
+ * - Irish trigs use OpenTopoMap (EPSG:3857) at zoom 14
  * - Blue circle marker indicates exact location without obscuring map features
  * - Event propagation is blocked to prevent interference with main map
  * - Map is initialized after DOM mount and cleaned up on unmount
  */
-export default function MiniMap({ lat, lng }: MiniMapProps) {
+export default function MiniMap({ lat, lng, gridSystem = 'gb' }: MiniMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   
@@ -33,15 +35,17 @@ export default function MiniMap({ lat, lng }: MiniMapProps) {
     // Don't initialize twice
     if (mapInstanceRef.current) return;
     
-    // Get OS Paper tile layer configuration
-    const osPaperLayer = TILE_LAYERS.osPaper;
-    const crs = getCRS('EPSG:27700');
+    // Choose tileset and CRS based on grid system
+    // Irish Grid: Use OpenTopoMap (EPSG:3857) - OS Paper doesn't cover Ireland
+    // GB Grid: Use OS Paper (EPSG:27700) - traditional OS maps
+    const isIrish = gridSystem === 'ie';
+    const tileLayer = isIrish ? TILE_LAYERS.openTopoMap : TILE_LAYERS.osPaper;
+    const crs = isIrish ? L.CRS.EPSG3857 : getCRS('EPSG:27700');
     
-    // For EPSG:27700 with resolutions [896.0, 448.0, 224.0, 112.0, 56.0, 28.0, 14.0, 7.0, 3.5, 1.75...]
-    // Zoom 9 (resolution 3.5) gives us ~150px * 3.5 = 525m actual width
-    // But with the bounds and visible area, zoom 8 (resolution 7.0) is closer to 1000m
-    // Let's use zoom 8 for approximately 1000m width
-    const miniMapZoom = 8;
+    // Zoom levels differ between projections:
+    // - EPSG:27700 zoom 8 shows ~1000m width
+    // - EPSG:3857 zoom 14 shows similar detail level
+    const miniMapZoom = isIrish ? 14 : 8;
     
     try {
       // Initialize the map
@@ -58,13 +62,14 @@ export default function MiniMap({ lat, lng }: MiniMapProps) {
         crs: crs,
       });
       
-      // Add OS Paper tile layer
-      L.tileLayer(osPaperLayer.urlTemplate, {
-        attribution: osPaperLayer.attribution,
-        maxZoom: osPaperLayer.maxZoom,
-        maxNativeZoom: osPaperLayer.maxNativeZoom,
-        minZoom: osPaperLayer.minZoom,
-        tileSize: osPaperLayer.tileSize || 256,
+      // Add tile layer
+      L.tileLayer(tileLayer.urlTemplate, {
+        attribution: tileLayer.attribution,
+        maxZoom: tileLayer.maxZoom,
+        maxNativeZoom: tileLayer.maxNativeZoom,
+        minZoom: tileLayer.minZoom,
+        tileSize: tileLayer.tileSize || 256,
+        subdomains: tileLayer.subdomains || [],
       }).addTo(map);
       
       // Add a thin blue circle marker to indicate the exact location
@@ -95,7 +100,7 @@ export default function MiniMap({ lat, lng }: MiniMapProps) {
         mapInstanceRef.current = null;
       }
     };
-  }, [lat, lng]);
+  }, [lat, lng, gridSystem]);
   
   return (
     <div 

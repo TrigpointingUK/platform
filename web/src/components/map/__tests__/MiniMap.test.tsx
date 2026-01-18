@@ -33,9 +33,12 @@ vi.mock('leaflet', () => {
         disableClickPropagation: vi.fn(),
         disableScrollPropagation: vi.fn(),
       },
+      CRS: {
+        EPSG3857: { code: 'EPSG:3857' },
+      },
     },
     CRS: {
-      EPSG3857: {},
+      EPSG3857: { code: 'EPSG:3857' },
     },
   };
 });
@@ -59,6 +62,17 @@ vi.mock('../../../lib/mapConfig', () => ({
       maxZoom: 12,
       maxNativeZoom: 9,
       tileSize: 256,
+    },
+    openTopoMap: {
+      id: 'openTopoMap',
+      name: 'OpenTopoMap',
+      urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      attribution: '© OpenTopoMap',
+      minZoom: 0,
+      maxZoom: 20,
+      maxNativeZoom: 17,
+      crs: 'EPSG:3857',
+      subdomains: ['a', 'b', 'c'],
     },
   },
 }));
@@ -224,6 +238,86 @@ describe('MiniMap', () => {
     );
 
     consoleErrorSpy.mockRestore();
+  });
+
+  describe('Grid System Support', () => {
+    it('should use OS Paper (zoom 8) for GB grid by default', async () => {
+      const L = await import('leaflet');
+      
+      render(
+        <MiniMap lat={51.5} lng={-0.1} gridSystem="gb" />
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(L.default.map).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({
+          zoom: 8,
+        })
+      );
+
+      expect(L.default.tileLayer).toHaveBeenCalledWith(
+        '/tiles/os/{z}/{x}/{y}.png',
+        expect.any(Object)
+      );
+    });
+
+    it('should use OpenTopoMap (zoom 14) for Irish grid', async () => {
+      const L = await import('leaflet');
+      
+      render(
+        <MiniMap lat={53.35} lng={-6.26} gridSystem="ie" />
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(L.default.map).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({
+          zoom: 14,
+        })
+      );
+
+      expect(L.default.tileLayer).toHaveBeenCalledWith(
+        'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+        expect.any(Object)
+      );
+    });
+
+    it('should default to GB grid when gridSystem is undefined', async () => {
+      const L = await import('leaflet');
+      
+      render(
+        <MiniMap lat={51.5} lng={-0.1} />
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(L.default.map).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({
+          zoom: 8,  // GB/OS Paper default zoom
+        })
+      );
+    });
+
+    it('should use EPSG:3857 CRS for Irish grid', async () => {
+      const L = await import('leaflet');
+      
+      render(
+        <MiniMap lat={53.35} lng={-6.26} gridSystem="ie" />
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(L.default.map).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({
+          crs: L.default.CRS.EPSG3857,
+        })
+      );
+    });
   });
 });
 

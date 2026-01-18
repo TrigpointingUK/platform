@@ -26,6 +26,10 @@ export interface TrigData {
   osgb_gridref: string;
   status_name?: string;
   distance_km?: number;
+  /** Grid system: 'gb' (British National Grid) or 'ie' (Irish Grid) */
+  grid_system?: 'gb' | 'ie';
+  /** Country name (e.g., 'England', 'Ireland', 'Northern Ireland') */
+  country_name?: string;
 }
 
 /**
