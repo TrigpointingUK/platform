@@ -30,55 +30,69 @@ def _create_user(db: Session, name: str, joined: date) -> User:
     return user
 
 
-def _ensure_trig(db: Session, trig_id: int) -> None:
-    if db.query(Trig).filter(Trig.id == trig_id).first() is not None:
-        return
+def _create_trig(db: Session, unique_id: int) -> Trig:
+    """Create a trig with a guaranteed unique ID.
 
-    db.add(
-        Trig(
-            id=trig_id,
-            waypoint=f"TP{trig_id:06d}"[:8],
-            name=f"Users Browse Trig {trig_id}",
-            status_id=1,
-            user_added=0,
-            current_use="Passive station",
-            historic_use="Primary",
-            physical_type="Pillar",
-            condition="G",
-            wgs_lat=Decimal("51.50000"),
-            wgs_long=Decimal("-0.12500"),
-            wgs_height=100,
-            osgb_eastings=530000,
-            osgb_northings=180000,
-            osgb_gridref="TQ 30000 80000",
-            osgb_height=95,
-            fb_number="S1234",
-            stn_number="TEST123",
-            permission_ind="Y",
-            postcode=None,
-            county="London",
-            town="Westminster",
-            needs_attention=0,
-            attention_comment="",
-            crt_date=date(2023, 1, 1),
-            crt_time=time(12, 0, 0),
-            crt_user_id=None,
-            crt_ip_addr="127.0.0.1",
-        )
+    Unlike _ensure_trig, this always creates a new trig with a unique ID
+    to avoid race conditions when tests run in parallel.
+    """
+    trig = Trig(
+        id=unique_id,
+        waypoint=f"TB{unique_id % 100000:05d}"[:8],
+        name=f"Users Browse Trig {unique_id}",
+        status_id=1,
+        user_added=0,
+        current_use="Passive station",
+        historic_use="Primary",
+        physical_type="Pillar",
+        condition="G",
+        wgs_lat=Decimal("51.50000"),
+        wgs_long=Decimal("-0.12500"),
+        wgs_height=100,
+        osgb_eastings=530000,
+        osgb_northings=180000,
+        osgb_gridref="TQ 30000 80000",
+        osgb_height=95,
+        fb_number="S1234",
+        stn_number="TEST123",
+        permission_ind="Y",
+        postcode=None,
+        county="London",
+        town="Westminster",
+        needs_attention=0,
+        attention_comment="",
+        crt_date=date(2023, 1, 1),
+        crt_time=time(12, 0, 0),
+        crt_user_id=None,
+        crt_ip_addr="127.0.0.1",
     )
+    db.add(trig)
     db.commit()
+    db.refresh(trig)
+    return trig
+
+
+def _get_unique_trig_id(test_prefix: str, offset: int) -> int:
+    """Generate a unique trig ID based on test prefix and offset.
+
+    Uses hash of prefix to generate IDs that won't conflict between tests.
+    """
+    # Use hash of prefix to get a base ID, then add offset
+    # Ensure ID is positive and reasonably sized
+    base = abs(hash(test_prefix)) % 1000000 + 100000
+    return base + offset
 
 
 def _add_log(
     db: Session,
     user: User,
-    trig_id: int,
+    trig: Trig,
     *,
     log_date: date = date(2024, 1, 1),
 ) -> TLog:
-    _ensure_trig(db, trig_id)
+    """Add a log for a user to an existing trig."""
     log = TLog(
-        trig_id=trig_id,
+        trig_id=trig.id,
         user_id=user.id,
         date=log_date,
         time=time(12, 0),
@@ -121,9 +135,12 @@ def test_users_browse_orders_by_trigs(client: TestClient, db: Session) -> None:
     prefix = f"prolific_{uuid.uuid4().hex[:6]}"
     prolific = _create_user(db, f"{prefix}_prolific", date(2020, 1, 1))
     steady = _create_user(db, f"{prefix}_steady", date(2021, 1, 1))
-    for trig in range(1, 5):
+
+    # Create unique trigs for this test
+    trigs = [_create_trig(db, _get_unique_trig_id(prefix, i)) for i in range(5)]
+    for trig in trigs[:4]:
         _add_log(db, prolific, trig)
-    _add_log(db, steady, 10)
+    _add_log(db, steady, trigs[4])
 
     refresh_user_activity_summary(db)
 
@@ -142,7 +159,8 @@ def test_users_browse_orders_by_trigs(client: TestClient, db: Session) -> None:
 def test_users_browse_filters_by_query(client: TestClient, db: Session) -> None:
     prefix = f"filter_{uuid.uuid4().hex[:6]}"
     target = _create_user(db, f"{prefix}_AliceWonder", date(2019, 6, 1))
-    _add_log(db, target, 1)
+    trig = _create_trig(db, _get_unique_trig_id(prefix, 0))
+    _add_log(db, target, trig)
     _create_user(db, f"{prefix}_BobBuilder", date(2018, 6, 1))
 
     refresh_user_activity_summary(db)
@@ -162,11 +180,14 @@ def test_users_browse_sorts_by_photos(client: TestClient, db: Session) -> None:
     shutterbug = _create_user(db, f"{prefix}_shutterbug", date(2022, 4, 1))
     casual = _create_user(db, f"{prefix}_casual", date(2024, 4, 1))
 
-    shutter_log = _add_log(db, shutterbug, 1)
+    trig1 = _create_trig(db, _get_unique_trig_id(prefix, 0))
+    trig2 = _create_trig(db, _get_unique_trig_id(prefix, 1))
+
+    shutter_log = _add_log(db, shutterbug, trig1)
     for idx in range(2):
         _add_photo(db, shutter_log, f"shot-{idx}")
 
-    casual_log = _add_log(db, casual, 2)
+    casual_log = _add_log(db, casual, trig2)
     _add_photo(db, casual_log, "single")
 
     refresh_user_activity_summary(db)
@@ -188,9 +209,12 @@ def test_users_browse_sorts_by_logs(client: TestClient, db: Session) -> None:
     prefix = f"logs_{uuid.uuid4().hex[:6]}"
     prolific = _create_user(db, f"{prefix}_prolific", date(2020, 5, 1))
     steady = _create_user(db, f"{prefix}_steady", date(2020, 5, 1))
-    for trig in range(1, 5):
+
+    # Create unique trigs for this test
+    trigs = [_create_trig(db, _get_unique_trig_id(prefix, i)) for i in range(5)]
+    for trig in trigs[:4]:
         _add_log(db, prolific, trig)
-    _add_log(db, steady, 99)
+    _add_log(db, steady, trigs[4])
 
     refresh_user_activity_summary(db)
 
@@ -211,8 +235,11 @@ def test_users_browse_paginates_with_cursor(client: TestClient, db: Session) -> 
     prefix = f"cursor_{uuid.uuid4().hex[:6]}"
     first = _create_user(db, f"{prefix}_first", date(2017, 1, 1))
     second = _create_user(db, f"{prefix}_second", date(2016, 1, 1))
-    _add_log(db, first, 1)
-    _add_log(db, second, 2)
+
+    trig1 = _create_trig(db, _get_unique_trig_id(prefix, 0))
+    trig2 = _create_trig(db, _get_unique_trig_id(prefix, 1))
+    _add_log(db, first, trig1)
+    _add_log(db, second, trig2)
 
     refresh_user_activity_summary(db)
 
@@ -240,7 +267,9 @@ def test_users_browse_excludes_zero_activity_users(
     prefix = f"inactive_{uuid.uuid4().hex[:6]}"
     inactive = _create_user(db, f"{prefix}_idle", date(2020, 5, 1))
     active = _create_user(db, f"{prefix}_active", date(2020, 5, 1))
-    _add_log(db, active, 42)
+
+    trig = _create_trig(db, _get_unique_trig_id(prefix, 0))
+    _add_log(db, active, trig)
 
     refresh_user_activity_summary(db)
 

@@ -343,6 +343,10 @@ export interface Trig {
   wgs_lat: string;
   wgs_long: string;
   osgb_gridref: string;
+  /** Grid system: 'gb' (British National Grid) or 'ie' (Irish Grid) */
+  grid_system?: string;
+  /** Country name (e.g., 'England', 'Ireland', 'Northern Ireland') */
+  country_name?: string;
   details?: TrigDetails;
   stats?: TrigStats;
   attrs?: TrigAttrsData[];
