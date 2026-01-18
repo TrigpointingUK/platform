@@ -1,4 +1,6 @@
-import { wgs84ToOSGB } from "./coordinates";
+import { convertCoordinates } from "./api";
+
+export type GridSystem = 'gb' | 'ie' | null;
 
 export interface ParsedLocation {
   eastings: number;
@@ -6,6 +8,8 @@ export interface ParsedLocation {
   gridRef: string;
   lat?: number;
   lon?: number;
+  /** Grid system: 'gb' for British National Grid, 'ie' for Irish Grid */
+  gridSystem?: GridSystem;
 }
 
 export interface ParseResult {
@@ -15,10 +19,88 @@ export interface ParseResult {
 }
 
 /**
- * Convert a grid reference string to eastings and northings
+ * Check if a string looks like an Irish Grid reference (single letter + digits)
+ */
+export function isIrishGridRef(input: string): boolean {
+  const cleaned = input.replace(/\s+/g, "").toUpperCase();
+  return /^[A-HJ-Z]\d+$/.test(cleaned);
+}
+
+/**
+ * Check if a string looks like an OSGB Grid reference (two letters + digits)
+ */
+export function isOsgbGridRef(input: string): boolean {
+  const cleaned = input.replace(/\s+/g, "").toUpperCase();
+  return /^[A-Z]{2}\d+$/.test(cleaned);
+}
+
+/**
+ * Convert an Irish grid reference string to eastings and northings
  * Handles 6, 8, and 10 digit grid references
  */
-export function gridRefToEastingsNorthings(gridRef: string): ParsedLocation {
+export function irishGridRefToEastingsNorthings(gridRef: string): ParsedLocation {
+  const cleaned = gridRef.replace(/\s+/g, "").toUpperCase();
+
+  // Irish grid reference: single letter followed by 6, 8, or 10 digits
+  const match = cleaned.match(/^([A-HJ-Z])(\d+)$/);
+  if (!match) {
+    throw new Error("Invalid Irish grid reference format");
+  }
+
+  const [, letter, digits] = match;
+
+  // Check digit count is even and valid
+  if (digits.length % 2 !== 0 || digits.length < 6 || digits.length > 10) {
+    throw new Error("Irish grid reference must have 6, 8, or 10 digits");
+  }
+
+  const halfLen = digits.length / 2;
+  const eDigits = digits.substring(0, halfLen);
+  const nDigits = digits.substring(halfLen);
+
+  // Pad to 5 digits with trailing zeros for full precision
+  const ePadded = eDigits.padEnd(5, "0");
+  const nPadded = nDigits.padEnd(5, "0");
+
+  // Irish Grid uses a single letter in a 5x5 grid (A-Z excluding I)
+  // Origin is at the southwest
+  // V W X Y Z (row 0, N 0-100km)
+  // Q R S T U (row 1, N 100-200km)
+  // L M N O P (row 2, N 200-300km)
+  // F G H J K (row 3, N 300-400km, skips I)
+  // A B C D E (row 4, N 400-500km)
+  const irishGridLetters: Record<string, { e100: number; n100: number }> = {
+    A: { e100: 0, n100: 4 }, B: { e100: 1, n100: 4 }, C: { e100: 2, n100: 4 }, D: { e100: 3, n100: 4 }, E: { e100: 4, n100: 4 },
+    F: { e100: 0, n100: 3 }, G: { e100: 1, n100: 3 }, H: { e100: 2, n100: 3 }, J: { e100: 3, n100: 3 }, K: { e100: 4, n100: 3 },
+    L: { e100: 0, n100: 2 }, M: { e100: 1, n100: 2 }, N: { e100: 2, n100: 2 }, O: { e100: 3, n100: 2 }, P: { e100: 4, n100: 2 },
+    Q: { e100: 0, n100: 1 }, R: { e100: 1, n100: 1 }, S: { e100: 2, n100: 1 }, T: { e100: 3, n100: 1 }, U: { e100: 4, n100: 1 },
+    V: { e100: 0, n100: 0 }, W: { e100: 1, n100: 0 }, X: { e100: 2, n100: 0 }, Y: { e100: 3, n100: 0 }, Z: { e100: 4, n100: 0 },
+  };
+
+  if (!(letter in irishGridLetters)) {
+    throw new Error(`Invalid letter in Irish grid reference: ${letter}`);
+  }
+
+  const offsets = irishGridLetters[letter];
+  const eastings = offsets.e100 * 100000 + parseInt(ePadded, 10);
+  const northings = offsets.n100 * 100000 + parseInt(nPadded, 10);
+
+  // Format the normalized grid reference with spaces
+  const normalizedGridRef = `${letter} ${ePadded} ${nPadded}`;
+
+  return {
+    eastings,
+    northings,
+    gridRef: normalizedGridRef,
+    gridSystem: 'ie',
+  };
+}
+
+/**
+ * Convert an OSGB grid reference string to eastings and northings
+ * Handles 6, 8, and 10 digit grid references
+ */
+export function osgbGridRefToEastingsNorthings(gridRef: string): ParsedLocation {
   // Remove spaces and convert to uppercase
   const cleaned = gridRef.replace(/\s+/g, "").toUpperCase();
 
@@ -48,30 +130,13 @@ export function gridRefToEastingsNorthings(gridRef: string): ParsedLocation {
   const secondLetter = letters.charAt(1);
 
   // First letter: 500km squares
-  // The OSGB grid uses a 500km square system
-  // Letters are arranged in a grid (omitting I):
-  // HL HM HN HO HP  JL JM JN JO JP
-  // HQ HR HS HT HU  JQ JR JS JT JU
-  // HV HW HX HY HZ  JV JW JX JY JZ
-  // NA NB NC ND NE  OA OB OC OD OE
-  // NF NG NH NJ NK  OF OG OH OJ OK
-  // NL NM NN NO NP  OL OM ON OO OP
-  // NQ NR NS NT NU  OQ OR OS OT OU
-  // NV NW NX NY NZ  OV OW OX OY OZ
-  // SA SB SC SD SE  TA TB TC TD TE
-  // SF SG SH SJ SK  TF TG TH TJ TK
-  // SL SM SN SO SP  TL TM TN TO TP
-  // SQ SR SS ST SU  TQ TR TS TT TU
-  // SV SW SX SY SZ  TV TW TX TY TZ
-  
-  // Map first letter to 500km easting and northing offsets
   const firstLetterOffsets: Record<string, { e500: number; n500: number }> = {
-    S: { e500: 0, n500: 0 },   // SW England
-    T: { e500: 1, n500: 0 },   // SE England
-    N: { e500: 0, n500: 1 },   // NW England/S Scotland
-    O: { e500: 1, n500: 1 },   // NE England/S Scotland  
-    H: { e500: 0, n500: 2 },   // NW Scotland
-    J: { e500: 1, n500: 2 },   // NE Scotland
+    S: { e500: 0, n500: 0 },
+    T: { e500: 1, n500: 0 },
+    N: { e500: 0, n500: 1 },
+    O: { e500: 1, n500: 1 },
+    H: { e500: 0, n500: 2 },
+    J: { e500: 1, n500: 2 },
   };
 
   if (!(firstLetter in firstLetterOffsets)) {
@@ -79,12 +144,6 @@ export function gridRefToEastingsNorthings(gridRef: string): ParsedLocation {
   }
 
   // Second letter: 100km squares within 500km square (5x5 grid, omitting I)
-  // Letters go: VWXYZ, QRSTU, LMNOP, FGHJK, ABCDE (top to bottom, left to right)
-  // Row 4 (north): V W X Y Z
-  // Row 3:        Q R S T U
-  // Row 2:        L M N O P
-  // Row 1:        F G H J K
-  // Row 0 (south): A B C D E
   const secondLetterToRowCol: Record<string, { row: number; col: number }> = {
     V: { row: 4, col: 0 },
     W: { row: 4, col: 1 },
@@ -120,34 +179,48 @@ export function gridRefToEastingsNorthings(gridRef: string): ParsedLocation {
   const firstOffsets = firstLetterOffsets[firstLetter];
   const secondIndex = secondLetterToRowCol[secondLetter];
 
-  // Calculate the 100km square indices
-  // Each 500km square contains a 5x5 grid of 100km squares
-  // n100km within the 500km square = (4 - row) because rows go north to south
-  // e100km within the 500km square = col
   const n100kmWithin500 = 4 - secondIndex.row;
   const e100kmWithin500 = secondIndex.col;
-  
-  // Add the 500km offsets (each 500km square contains 5x100km squares)
+
   const n100km = firstOffsets.n500 * 5 + n100kmWithin500;
   const e100km = firstOffsets.e500 * 5 + e100kmWithin500;
 
-  // Calculate full coordinates
   const eastings = e100km * 100000 + parseInt(ePadded, 10);
   const northings = n100km * 100000 + parseInt(nPadded, 10);
 
-  // Format the normalized grid reference with spaces
   const normalizedGridRef = `${letters} ${ePadded} ${nPadded}`;
 
   return {
     eastings,
     northings,
     gridRef: normalizedGridRef,
+    gridSystem: 'gb',
   };
 }
 
 /**
- * Parse a grid reference string
- * Accepts formats like: TL137055, TL 137 055, TL13780553, TL 1378305532
+ * Convert a grid reference string to eastings and northings.
+ * Automatically detects OSGB (2 letters) vs Irish Grid (1 letter) format.
+ */
+export function gridRefToEastingsNorthings(gridRef: string): ParsedLocation {
+  const cleaned = gridRef.replace(/\s+/g, "").toUpperCase();
+
+  // Try Irish Grid first (single letter)
+  if (isIrishGridRef(cleaned)) {
+    return irishGridRefToEastingsNorthings(gridRef);
+  }
+
+  // Try OSGB (two letters)
+  if (isOsgbGridRef(cleaned)) {
+    return osgbGridRefToEastingsNorthings(gridRef);
+  }
+
+  throw new Error("Invalid grid reference format");
+}
+
+/**
+ * Parse a grid reference string.
+ * Accepts formats like: TL137055, TL 137 055, O123456, O 123 456
  */
 export function parseGridReference(input: string): ParseResult {
   try {
@@ -166,8 +239,83 @@ export function parseGridReference(input: string): ParseResult {
 }
 
 /**
- * Parse lat/long coordinates
+ * Parse lat/long coordinates and convert to grid coordinates using the backend API.
+ * The backend auto-detects whether to use OSGB36 or Irish Grid based on location.
  * Accepts format: "53.69417, -1.78231" or "53.69417,-1.78231"
+ */
+export async function parseLatLongAsync(input: string): Promise<ParseResult> {
+  // Split by comma
+  const parts = input.split(",").map((s) => s.trim());
+
+  if (parts.length !== 2) {
+    return {
+      success: false,
+      error: "Coordinates must be in format: latitude, longitude",
+    };
+  }
+
+  const lat = parseFloat(parts[0]);
+  const lon = parseFloat(parts[1]);
+
+  if (isNaN(lat) || isNaN(lon)) {
+    return {
+      success: false,
+      error: "Invalid coordinates format",
+    };
+  }
+
+  // Validate ranges
+  if (lat < -90 || lat > 90) {
+    return {
+      success: false,
+      error: "Latitude must be between -90 and 90",
+    };
+  }
+
+  if (lon < -180 || lon > 180) {
+    return {
+      success: false,
+      error: "Longitude must be between -180 and 180",
+    };
+  }
+
+  try {
+    // Use backend API for coordinate conversion with auto-detection
+    const result = await convertCoordinates({
+      from: "wgs84",
+      to: "grid",  // Auto-detect GB vs Irish Grid
+      lat,
+      lon,
+    });
+
+    const gridSystem = result.grid_system as GridSystem;
+
+    return {
+      success: true,
+      data: {
+        eastings: result.output.e ?? 0,
+        northings: result.output.n ?? 0,
+        gridRef: result.output.gridref ?? "",
+        lat,
+        lon,
+        gridSystem,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to convert coordinates",
+    };
+  }
+}
+
+/**
+ * Parse lat/long coordinates (synchronous version).
+ * This version returns immediately and doesn't call the backend API.
+ * Use parseLatLongAsync for full coordinate conversion including Irish Grid support.
  */
 export function parseLatLong(input: string): ParseResult {
   // Split by comma
@@ -205,29 +353,19 @@ export function parseLatLong(input: string): ParseResult {
     };
   }
 
-  try {
-    // Convert to OSGB
-    const { eastings, northings, gridRef } = wgs84ToOSGB(lat, lon);
-
-    return {
-      success: true,
-      data: {
-        eastings,
-        northings,
-        gridRef,
-        lat,
-        lon,
-      },
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to convert coordinates to OSGB",
-    };
-  }
+  // Return success with lat/lon but without grid coordinates
+  // The caller should use parseLatLongAsync for full conversion
+  return {
+    success: true,
+    data: {
+      eastings: 0,  // Not available synchronously
+      northings: 0,  // Not available synchronously
+      gridRef: "",  // Not available synchronously
+      lat,
+      lon,
+      gridSystem: null,
+    },
+  };
 }
 
 /**
@@ -242,13 +380,13 @@ export function parseLocation(input: string): ParseResult {
     };
   }
 
-  // Try grid reference first
+  // Try grid reference first (handles both OSGB and Irish Grid)
   const gridResult = parseGridReference(input);
   if (gridResult.success) {
     return gridResult;
   }
 
-  // Try lat/long
+  // Try lat/long (synchronous - returns lat/lon without grid conversion)
   const latLongResult = parseLatLong(input);
   if (latLongResult.success) {
     return latLongResult;
@@ -257,6 +395,38 @@ export function parseLocation(input: string): ParseResult {
   // Both failed - return a generic error
   return {
     success: false,
-    error: "Invalid location format. Use grid reference (e.g., TL 137 055) or coordinates (e.g., 53.69417, -1.78231)",
+    error: "Invalid location format. Use grid reference (e.g., TL 137 055 or O 123 456) or coordinates (e.g., 53.69417, -1.78231)",
+  };
+}
+
+/**
+ * Parse location input with async lat/long conversion.
+ * Use this when you need full grid coordinate conversion for lat/long inputs.
+ */
+export async function parseLocationAsync(input: string): Promise<ParseResult> {
+  // Empty input is not an error, just no location
+  if (!input || input.trim() === "") {
+    return {
+      success: false,
+      error: "",
+    };
+  }
+
+  // Try grid reference first (handles both OSGB and Irish Grid)
+  const gridResult = parseGridReference(input);
+  if (gridResult.success) {
+    return gridResult;
+  }
+
+  // Try lat/long with async API conversion
+  const latLongResult = await parseLatLongAsync(input);
+  if (latLongResult.success) {
+    return latLongResult;
+  }
+
+  // Both failed - return a generic error
+  return {
+    success: false,
+    error: "Invalid location format. Use grid reference (e.g., TL 137 055 or O 123 456) or coordinates (e.g., 53.69417, -1.78231)",
   };
 }

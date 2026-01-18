@@ -523,6 +523,7 @@ export default function TrigEdit() {
               osgbNorthings={osgbNorthings}
               osgbGridref={osgbGridref}
               osgbHeight={osgbHeight}
+              initialGridSystem={trig?.grid_system as 'gb' | 'ie' | null}
               onWgsChange={handleWgsChange}
               onOsgbChange={handleOsgbChange}
             />

@@ -714,12 +714,22 @@ def _get_trig_cached(
     db: Session,
 ):
     """Internal cached function for fetching trig data."""
+    from api.services.grid_system import get_country_info_for_point
+
     trig = trig_crud.get_trig_by_id(db, trig_id=trig_id)
     if trig is None:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
 
     # Build minimal response
     minimal_data = TrigMinimal.model_validate(trig).model_dump()
+
+    # Add grid system and country classification
+    if trig.wgs_lat is not None and trig.wgs_long is not None:
+        grid_system, _, country_name = get_country_info_for_point(
+            db, float(trig.wgs_lat), float(trig.wgs_long)
+        )
+        minimal_data["grid_system"] = grid_system
+        minimal_data["country_name"] = country_name
 
     # Attach includes
     details_obj: Optional[TrigDetails] = None
@@ -813,11 +823,22 @@ def get_trig_by_waypoint(
 
     Returns minimal data by waypoint.
     """
+    from api.services.grid_system import get_country_info_for_point
+
     trig = trig_crud.get_trig_by_waypoint(db, waypoint=waypoint)
     if trig is None:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
 
     minimal_data = TrigMinimal.model_validate(trig).model_dump()
+
+    # Add grid system and country classification
+    if trig.wgs_lat is not None and trig.wgs_long is not None:
+        grid_system, _, country_name = get_country_info_for_point(
+            db, float(trig.wgs_lat), float(trig.wgs_long)
+        )
+        minimal_data["grid_system"] = grid_system
+        minimal_data["country_name"] = country_name
+
     return TrigWithIncludes(**minimal_data)
 
 

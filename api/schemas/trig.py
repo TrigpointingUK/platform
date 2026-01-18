@@ -79,7 +79,17 @@ class TrigMinimal(BaseModel):
     # Coordinates and grid ref
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")
     wgs_long: Decimal = Field(..., description="WGS84 longitude")
-    osgb_gridref: str = Field(..., description="OSGB grid reference")
+    osgb_gridref: str = Field(..., description="Grid reference (OSGB or Irish format)")
+
+    # Grid system classification
+    grid_system: Optional[str] = Field(
+        None,
+        description="Grid system: 'gb' (British National Grid) or 'ie' (Irish Grid)",
+    )
+    country_name: Optional[str] = Field(
+        None,
+        description="Country name (e.g., 'England', 'Ireland', 'Northern Ireland')",
+    )
 
     distance_km: Optional[float] = None  # populated only when lat/lon provided
 

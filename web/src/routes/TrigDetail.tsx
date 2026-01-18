@@ -256,7 +256,7 @@ export default function TrigDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <div>
                   <span className="font-semibold text-gray-700">
-                    OS Grid reference:
+                    Grid reference{trig.grid_system === 'ie' ? ' (Irish)' : ''}:
                   </span>{" "}
                   {isInternalMapLink(mapLinkGridref) ? (
                     <Link
@@ -275,6 +275,7 @@ export default function TrigDetail() {
                         trigId: trigIdNum,
                         wgsLat: parseFloat(trig.wgs_lat),
                         wgsLong: parseFloat(trig.wgs_long),
+                        gridSystem: trig.grid_system as 'gb' | 'ie' | null,
                       }) || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -306,6 +307,7 @@ export default function TrigDetail() {
                         trigId: trigIdNum,
                         wgsLat: parseFloat(trig.wgs_lat),
                         wgsLong: parseFloat(trig.wgs_long),
+                        gridSystem: trig.grid_system as 'gb' | 'ie' | null,
                       }) || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -577,6 +579,7 @@ export default function TrigDetail() {
                     trigId: trigIdNum,
                     wgsLat: parseFloat(trig.wgs_lat),
                     wgsLong: parseFloat(trig.wgs_long),
+                    gridSystem: trig.grid_system as 'gb' | 'ie' | null,
                   }) || '#'}
                   target="_blank"
                   rel="noopener noreferrer"

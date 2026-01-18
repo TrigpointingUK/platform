@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { wgs84ToOSGB, calculateDistance } from "../../lib/coordinates";
+import { calculateDistance } from "../../lib/coordinates";
+import { convertCoordinates } from "../../lib/api";
+import type { GridSystem } from "../../lib/locationParser";
 import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
 
@@ -10,6 +12,12 @@ interface LocationData {
   accuracy: number;
   latitude: number;
   longitude: number;
+  /** Grid system: 'gb' for British National Grid, 'ie' for Irish Grid */
+  gridSystem?: GridSystem;
+  /** Alias for latitude */
+  lat?: number;
+  /** Alias for longitude */
+  lon?: number;
 }
 
 interface LocationPickerProps {
@@ -48,7 +56,7 @@ export default function LocationPicker({
     const startTime = Date.now();
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude, accuracy } = position.coords;
         const responseTime = Date.now() - startTime;
 
@@ -93,25 +101,38 @@ export default function LocationPicker({
         }
 
         try {
-          // Convert WGS84 to OSGB
-          const { eastings, northings, gridRef } = wgs84ToOSGB(
-            latitude,
-            longitude
-          );
+          // Use the backend API to convert WGS84 to grid coordinates
+          // This auto-detects whether to use OSGB36 or Irish Grid based on location
+          const result = await convertCoordinates({
+            from: 'wgs84',
+            to: 'grid',  // Auto-detect GB vs Irish Grid
+            lat: latitude,
+            lon: longitude,
+          });
 
-          console.log('Converted to OSGB:', {
+          const gridSystem = result.grid_system as GridSystem;
+          const eastings = result.output.e ?? 0;
+          const northings = result.output.n ?? 0;
+          const gridRef = result.output.gridref ?? '';
+
+          console.log('Converted to grid:', {
             gridRef,
             eastings,
             northings,
+            gridSystem,
+            countryName: result.country_name,
           });
 
-          const locationData = {
+          const locationData: LocationData = {
             eastings,
             northings,
             gridRef,
             accuracy,
             latitude,
             longitude,
+            gridSystem,
+            lat: latitude,
+            lon: longitude,
           };
 
           // Check distance from trigpoint if coordinates provided
@@ -352,4 +373,3 @@ export default function LocationPicker({
     </>
   );
 }
-

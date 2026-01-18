@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Log, LogCreateInput, LogUpdateInput } from "../../lib/api";
+import { useState, useCallback } from "react";
+import { Log, LogCreateInput, LogUpdateInput, convertCoordinates } from "../../lib/api";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
@@ -9,8 +9,8 @@ import DateTimeEditor from "../forms/DateTimeEditor";
 import LocationPicker from "../forms/LocationPicker";
 import PhotoManager from "../photos/PhotoManager";
 import { useLogPhotos } from "../../hooks/useLogPhotos";
-import { parseLocation } from "../../lib/locationParser";
-import { calculateDistance, osgbToWGS84 } from "../../lib/coordinates";
+import { parseLocation, type GridSystem } from "../../lib/locationParser";
+import { calculateDistance } from "../../lib/coordinates";
 
 interface LogFormProps {
   trigGridRef: string;
@@ -138,6 +138,37 @@ export default function LogForm({
     }
   };
 
+  // Helper to calculate distance using the API for grid conversion
+  const calculateDistanceFromGrid = useCallback(async (
+    eastings: number,
+    northings: number,
+    gridSystem: GridSystem
+  ) => {
+    try {
+      // Use the backend API to convert grid coordinates to WGS84
+      const fromCrs = gridSystem === 'ie' ? 'irish' : 'osgb';
+      const result = await convertCoordinates({
+        from: fromCrs,
+        to: 'wgs84',
+        e: eastings,
+        n: northings,
+      });
+      
+      if (result.output.lat !== undefined && result.output.lon !== undefined) {
+        const distance = calculateDistance(
+          result.output.lat,
+          result.output.lon,
+          trigLatitude,
+          trigLongitude
+        );
+        setDistanceFromTrig(distance);
+      }
+    } catch (error) {
+      console.error("Failed to calculate distance:", error);
+      setDistanceFromTrig(null);
+    }
+  }, [trigLatitude, trigLongitude]);
+
   const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     // Auto-uppercase for grid references
@@ -159,13 +190,22 @@ export default function LogForm({
       setLocationError("");
 
       // Calculate distance from trigpoint
-      try {
-        const { lat, lon } = osgbToWGS84(result.data.eastings, result.data.northings);
-        const distance = calculateDistance(lat, lon, trigLatitude, trigLongitude);
+      if (result.data.lat !== undefined && result.data.lon !== undefined) {
+        // We have lat/lon directly (from lat/lon input)
+        const distance = calculateDistance(
+          result.data.lat,
+          result.data.lon,
+          trigLatitude,
+          trigLongitude
+        );
         setDistanceFromTrig(distance);
-      } catch (error) {
-        console.error("Failed to calculate distance:", error);
-        setDistanceFromTrig(null);
+      } else if (result.data.eastings && result.data.northings) {
+        // We have grid coordinates - use the API to convert and calculate distance
+        calculateDistanceFromGrid(
+          result.data.eastings,
+          result.data.northings,
+          result.data.gridSystem ?? 'gb'
+        );
       }
     } else {
       // Invalid or empty location
@@ -265,14 +305,22 @@ export default function LogForm({
                     setLocationSet(true);
                     setLocationInput(location.gridRef);
                     
-                    // Calculate distance
-                    try {
-                      const { lat, lon } = osgbToWGS84(location.eastings, location.northings);
-                      const distance = calculateDistance(lat, lon, trigLatitude, trigLongitude);
+                    // Calculate distance using lat/lon if available, otherwise use API
+                    if (location.lat !== undefined && location.lon !== undefined) {
+                      const distance = calculateDistance(
+                        location.lat,
+                        location.lon,
+                        trigLatitude,
+                        trigLongitude
+                      );
                       setDistanceFromTrig(distance);
-                    } catch (error) {
-                      console.error("Failed to calculate distance:", error);
-                      setDistanceFromTrig(null);
+                    } else {
+                      // Use API to convert grid coordinates (supports both OSGB and Irish Grid)
+                      calculateDistanceFromGrid(
+                        location.eastings,
+                        location.northings,
+                        location.gridSystem ?? 'gb'
+                      );
                     }
                   }}
                   maxAccuracy={10}

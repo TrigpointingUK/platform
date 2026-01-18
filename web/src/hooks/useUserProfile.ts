@@ -21,6 +21,7 @@ interface UserStats {
 export type MapLinkOption = 
   | 'trigpointinguk'
   | 'streetmap'
+  | 'osi_map'  // Ordnance Survey Ireland (for Irish Grid points)
   | 'google_satellite'
   | 'openstreetmap';
 
