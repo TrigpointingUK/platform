@@ -3,6 +3,7 @@
 
 @layer theme {
   :root {
+    /* Trig green palette */
     --color-trig-green-50: #f0fdf4;
     --color-trig-green-100: #dcfce7;
     --color-trig-green-200: #bbf7d0;
@@ -14,6 +15,28 @@
     --color-trig-green-800: #166534;
     --color-trig-green-900: #14532d;
     --color-trig-green-950: #052e16;
+    
+    /* Semantic colours for light mode */
+    --color-bg-primary: #f9fafb;
+    --color-bg-secondary: #ffffff;
+    --color-bg-tertiary: #f3f4f6;
+    --color-text-primary: #111827;
+    --color-text-secondary: #4b5563;
+    --color-text-muted: #9ca3af;
+    --color-border: #e5e7eb;
+    --color-border-light: #f3f4f6;
+  }
+  
+  .dark {
+    /* Semantic colours for dark mode */
+    --color-bg-primary: #111827;
+    --color-bg-secondary: #1f2937;
+    --color-bg-tertiary: #374151;
+    --color-text-primary: #f9fafb;
+    --color-text-secondary: #d1d5db;
+    --color-text-muted: #9ca3af;
+    --color-border: #374151;
+    --color-border-light: #1f2937;
   }
 }
 
@@ -96,6 +119,17 @@ html, body, #root {
 
 .leaflet-tooltip.minimal-tooltip::before {
   border-top-color: rgba(255, 255, 255, 0.95);
+}
+
+/* Dark mode tooltip styling */
+.dark .leaflet-tooltip.minimal-tooltip {
+  background-color: rgba(31, 41, 55, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f9fafb;
+}
+
+.dark .leaflet-tooltip.minimal-tooltip::before {
+  border-top-color: rgba(31, 41, 55, 0.95);
 }
 
 /* Mini-map styling for popups */

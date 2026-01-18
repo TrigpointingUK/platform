@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import AppRouter from "./router";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Auth0ErrorBoundary from "./components/Auth0ErrorBoundary";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthenticationError } from "./lib/authenticatedFetch";
 import { isAuth0Error } from "./lib/auth0ErrorHandler";
 import "./app.css";
@@ -70,53 +71,55 @@ console.log('Auth0 Configuration:', {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <Auth0Provider
-        domain={domain}
-        clientId={clientId}
-        authorizationParams={{
-          audience,
-          redirect_uri: redirectUri,
-          scope: "openid profile email api:write api:read-pii offline_access",
-        }}
-        useRefreshTokens
-        useRefreshTokensFallback
-        cacheLocation="localstorage"
-        onRedirectCallback={(appState?: AppState) => {
-          console.log('Auth0 redirect callback:', appState);
-          // Save the return path to sessionStorage so Auth0CallbackHandler can navigate
-          const targetUrl = appState?.returnTo || window.location.pathname;
-          if (targetUrl && targetUrl !== '/' && targetUrl !== baseUrl) {
-            sessionStorage.setItem('auth0_returnTo', targetUrl);
-          }
-        }}
-      >
-        <Auth0ErrorBoundary>
-          <QueryClientProvider client={queryClient}>
-            <AppRouter />
-            <Toaster
-              position="top-right"
-              containerStyle={{
-                top: '5rem', // Position below the 4rem (h-16) header with a small gap
-              }}
-              toastOptions={{
-                duration: 5000,
-                error: {
-                  style: {
-                    background: '#dc2626',
-                    color: '#fff',
+      <ThemeProvider>
+        <Auth0Provider
+          domain={domain}
+          clientId={clientId}
+          authorizationParams={{
+            audience,
+            redirect_uri: redirectUri,
+            scope: "openid profile email api:write api:read-pii offline_access",
+          }}
+          useRefreshTokens
+          useRefreshTokensFallback
+          cacheLocation="localstorage"
+          onRedirectCallback={(appState?: AppState) => {
+            console.log('Auth0 redirect callback:', appState);
+            // Save the return path to sessionStorage so Auth0CallbackHandler can navigate
+            const targetUrl = appState?.returnTo || window.location.pathname;
+            if (targetUrl && targetUrl !== '/' && targetUrl !== baseUrl) {
+              sessionStorage.setItem('auth0_returnTo', targetUrl);
+            }
+          }}
+        >
+          <Auth0ErrorBoundary>
+            <QueryClientProvider client={queryClient}>
+              <AppRouter />
+              <Toaster
+                position="top-right"
+                containerStyle={{
+                  top: '5rem', // Position below the 4rem (h-16) header with a small gap
+                }}
+                toastOptions={{
+                  duration: 5000,
+                  error: {
+                    style: {
+                      background: '#dc2626',
+                      color: '#fff',
+                    },
                   },
-                },
-                success: {
-                  style: {
-                    background: '#16a34a',
-                    color: '#fff',
+                  success: {
+                    style: {
+                      background: '#16a34a',
+                      color: '#fff',
+                    },
                   },
-                },
-              }}
-            />
-          </QueryClientProvider>
-        </Auth0ErrorBoundary>
-      </Auth0Provider>
+                }}
+              />
+            </QueryClientProvider>
+          </Auth0ErrorBoundary>
+        </Auth0Provider>
+      </ThemeProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

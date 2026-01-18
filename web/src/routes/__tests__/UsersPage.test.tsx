@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { ThemeProvider } from "../../contexts/ThemeContext";
 import UsersPage from "../UsersPage";
 import { useUsersDirectory } from "../../hooks/useUsersDirectory";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -86,9 +87,11 @@ describe("UsersPage", () => {
 
   it("renders community members", () => {
     render(
-      <MemoryRouter>
-        <UsersPage />
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter>
+          <UsersPage />
+        </MemoryRouter>
+      </ThemeProvider>
     );
 
     expect(
@@ -137,9 +140,11 @@ describe("UsersPage", () => {
     } as never);
 
     render(
-      <MemoryRouter>
-        <UsersPage />
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter>
+          <UsersPage />
+        </MemoryRouter>
+      </ThemeProvider>
     );
 
     expect(
@@ -154,9 +159,11 @@ describe("UsersPage", () => {
     } as never);
 
     render(
-      <MemoryRouter>
-        <UsersPage />
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter>
+          <UsersPage />
+        </MemoryRouter>
+      </ThemeProvider>
     );
 
     expect(
@@ -166,9 +173,11 @@ describe("UsersPage", () => {
 
   it("allows sorting via column headers", () => {
     render(
-      <MemoryRouter>
-        <UsersPage />
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter>
+          <UsersPage />
+        </MemoryRouter>
+      </ThemeProvider>
     );
 
     const nameHeader = screen.getByRole("columnheader", { name: /Name/i });
