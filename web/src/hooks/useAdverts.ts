@@ -6,6 +6,7 @@ export interface AdvertItem {
   title?: string | null;
   text?: string | null;
   photo?: string | null;
+  photo_dark?: string | null;  // Optional dark mode variant of the photo
   link?: string | null;
   startDate?: string | null;
   endDate?: string | null;
