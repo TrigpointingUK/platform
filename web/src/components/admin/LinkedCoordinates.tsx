@@ -389,8 +389,8 @@ export default function LinkedCoordinates({
     }
   };
 
-  const inputClassName = "w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400";
-  const invalidInputClassName = "w-full rounded-md border-2 border-red-400 px-3 py-2 text-gray-800 shadow-sm focus:border-red-500 focus:ring-2 focus:ring-red-300 bg-red-50";
+  const inputClassName = "w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400";
+  const invalidInputClassName = "w-full rounded-md border-2 border-red-400 dark:border-red-600 px-3 py-2 text-gray-800 dark:text-gray-100 shadow-sm focus:border-red-500 focus:ring-2 focus:ring-red-300 bg-red-50 dark:bg-red-900/30";
 
   // Grid system label
   const gridSystemLabel = gridSystem === "ie" 
@@ -413,20 +413,20 @@ export default function LinkedCoordinates({
     <div className="space-y-6">
       {/* Conversion error */}
       {conversionError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-3 py-2 rounded-md text-sm">
           {conversionError}
         </div>
       )}
 
       {/* WGS84 Section */}
-      <div className="border border-gray-300 rounded-md p-4 bg-gray-50 relative">
+      <div className="border border-gray-300 dark:border-gray-600 rounded-md p-4 bg-gray-50 dark:bg-gray-700 relative">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-medium text-gray-800">
+          <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100">
             WGS84 Coordinates
-            <span className="text-sm font-normal text-gray-500 ml-2">(GPS)</span>
+            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">(GPS)</span>
           </h3>
           {isConverting && editingSide === "grid" && (
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
               <Spinner size="sm" />
               <span>updating...</span>
             </div>
@@ -434,7 +434,7 @@ export default function LinkedCoordinates({
         </div>
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitude</label>
             <input
               type="text"
               value={wgsLatInput}
@@ -446,7 +446,7 @@ export default function LinkedCoordinates({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Longitude</label>
             <input
               type="text"
               value={wgsLongInput}
@@ -458,9 +458,9 @@ export default function LinkedCoordinates({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Height (m)
-              <span className="text-xs text-gray-500 ml-1" title="Height above WGS84 ellipsoid">
+              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1" title="Height above WGS84 ellipsoid">
                 ellipsoidal
               </span>
             </label>
@@ -478,27 +478,27 @@ export default function LinkedCoordinates({
       </div>
 
       {/* Projected Grid Section */}
-      <div className="border border-gray-300 rounded-md p-4 bg-gray-50 relative">
+      <div className="border border-gray-300 dark:border-gray-600 rounded-md p-4 bg-gray-50 dark:bg-gray-700 relative">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-medium text-gray-800">
+          <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100">
             Projected Coordinates
-            <span className="text-sm font-normal text-gray-500 ml-2">({gridSystemLabel})</span>
+            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({gridSystemLabel})</span>
           </h3>
           {isConverting && editingSide === "wgs" && (
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
               <Spinner size="sm" />
               <span>updating...</span>
             </div>
           )}
         </div>
         {gridSystem && (
-          <div className="mb-3 text-xs text-gray-600">
+          <div className="mb-3 text-xs text-gray-600 dark:text-gray-400">
             Grid system: <span className="font-medium">{gridSystem === "ie" ? "Irish Grid" : "British National Grid"}</span>
           </div>
         )}
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Eastings</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Eastings</label>
             <input
               type="text"
               value={gridEastingsInput}
@@ -510,7 +510,7 @@ export default function LinkedCoordinates({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Northings</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Northings</label>
             <input
               type="text"
               value={gridNorthingsInput}
@@ -522,9 +522,9 @@ export default function LinkedCoordinates({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Height (m)
-              <span className="text-xs text-gray-500 ml-1" title={gridSystem === "ie" ? "Ordnance Datum Malin Head" : "Ordnance Datum Newlyn"}>
+              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1" title={gridSystem === "ie" ? "Ordnance Datum Malin Head" : "Ordnance Datum Newlyn"}>
                 {gridSystem === "ie" ? "OD Malin" : "ODN"}
               </span>
             </label>
@@ -540,7 +540,7 @@ export default function LinkedCoordinates({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Grid Reference</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grid Reference</label>
           <input
             type="text"
             value={gridRefInput}
@@ -550,7 +550,7 @@ export default function LinkedCoordinates({
             className={gridrefValid ? inputClassName : invalidInputClassName}
             placeholder={gridRefPlaceholder}
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {gridrefValid ? gridRefHelpText : invalidGridRefText}
           </p>
         </div>

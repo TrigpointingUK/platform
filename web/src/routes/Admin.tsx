@@ -340,10 +340,10 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
           aria-controls={panelId}
-          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-[#046935]"
+          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-trig-green-600 dark:text-trig-green-400"
         >
           <svg
-            className={`h-4 w-4 text-[#046935] transition-transform duration-200 ${
+            className={`h-4 w-4 text-trig-green-600 dark:text-trig-green-400 transition-transform duration-200 ${
               isOpen ? "rotate-90" : ""
             }`}
             viewBox="0 0 8 12"
@@ -359,7 +359,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
               strokeLinejoin="round"
             />
           </svg>
-          <span className="text-2xl font-semibold">
+          <span className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
             Legacy User Migration
           </span>
         </button>
@@ -367,7 +367,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
 
       {isOpen ? (
         <>
-          <p className="text-gray-600 mb-4 mt-3">
+          <p className="text-gray-600 dark:text-gray-400 mb-4 mt-3">
             Search for a legacy account, confirm the preferred email address, and trigger the
             Auth0 migration workflow on the user&rsquo;s behalf.
           </p>
@@ -380,7 +380,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
             <div>
               <label
                 htmlFor={searchInputId}
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
                 Search legacy users
               </label>
@@ -390,13 +390,13 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
                 value={query}
                 onChange={handleQueryChange}
                 placeholder="Start typing a username or email fragment..."
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 dark:placeholder-gray-400"
               />
               <div className="flex items-center gap-2 mt-2">
                 {isSearching && <Spinner size="sm" />}
-                {searchError && <p className="text-sm text-red-600">{searchError}</p>}
+                {searchError && <p className="text-sm text-red-600 dark:text-red-400">{searchError}</p>}
                 {!isSearching && hasSearched && results.length === 0 && !searchError ? (
-                  <p className="text-sm text-gray-500">No matching users found.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No matching users found.</p>
                 ) : null}
               </div>
             </div>
@@ -404,13 +404,13 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
             <div>
               <label
                 htmlFor={selectId}
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
                 Matching users
               </label>
               <select
                 id={selectId}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100 dark:disabled:bg-gray-600"
                 value={selectedUserId ?? ""}
                 onChange={handleSelectChange}
                 disabled={results.length === 0}
@@ -429,7 +429,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
                 ))}
               </select>
               {showExistingAuth0Notice ? (
-                <p className="mt-2 text-sm text-amber-600">
+                <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
                   This account already has an Auth0 user identifier. Consider directing the
                   user to the Auth0 self-service password reset flow instead.
                 </p>
@@ -439,7 +439,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
             <div>
               <label
                 htmlFor={emailInputId}
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
                 Email address
               </label>
@@ -449,17 +449,17 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
                 value={email}
                 onChange={handleEmailChange}
                 placeholder="user@example.com"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 dark:placeholder-gray-400"
               />
               {!emailIsValid && email.length > 0 ? (
-                <p className="mt-2 text-sm text-amber-600">
+                <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
                   Please double-check the email address before proceeding.
                 </p>
               ) : null}
             </div>
 
             {migrationError ? (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 px-3 py-2 text-sm text-red-700 dark:text-red-400">
                 {migrationError}
               </div>
             ) : null}
@@ -476,14 +476,14 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
                 )}
               </Button>
               {migrationMessage ? (
-                <p className="text-sm text-trig-green-700">Migration completed successfully.</p>
+                <p className="text-sm text-trig-green-700 dark:text-trig-green-400">Migration completed successfully.</p>
               ) : null}
             </div>
 
             {migrationMessage ? (
               <div>
                 <label
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   htmlFor={replyTextareaId}
                 >
                   Reply template for the user
@@ -492,7 +492,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
                   readOnly
                   value={migrationMessage}
                   id={replyTextareaId}
-                  className="w-full h-32 rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:outline-none"
+                  className="w-full h-32 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:outline-none"
                 />
               </div>
             ) : null}
@@ -556,10 +556,10 @@ function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps)
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
           aria-controls={panelId}
-          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-[#046935]"
+          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-trig-green-600 dark:text-trig-green-400"
         >
           <svg
-            className={`h-4 w-4 text-[#046935] transition-transform duration-200 ${
+            className={`h-4 w-4 text-trig-green-600 dark:text-trig-green-400 transition-transform duration-200 ${
               isOpen ? "rotate-90" : ""
             }`}
             viewBox="0 0 8 12"
@@ -575,7 +575,7 @@ function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps)
               strokeLinejoin="round"
             />
           </svg>
-          <span className="text-2xl font-semibold">
+          <span className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
             Trigpoints Needing Attention
           </span>
         </button>
@@ -586,12 +586,12 @@ function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps)
           {isLoading && (
             <div className="flex items-center gap-2">
               <Spinner size="sm" />
-              <span className="text-gray-600">Loading summary...</span>
+              <span className="text-gray-600 dark:text-gray-400">Loading summary...</span>
             </div>
           )}
 
           {error && (
-            <div className="text-red-600 text-sm">
+            <div className="text-red-600 dark:text-red-400 text-sm">
               Error: {error}
             </div>
           )}
@@ -599,15 +599,15 @@ function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps)
           {summary && !isLoading && (
             <div className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <div className="text-sm text-gray-600">Total flagged</div>
-                  <div className="text-2xl font-bold text-gray-800">
+                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Total flagged</div>
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                     {summary.count}
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <div className="text-sm text-gray-600">Latest update</div>
-                  <div className="text-lg font-semibold text-gray-800">
+                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Latest update</div>
+                  <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                     {summary.latest_update
                       ? new Date(summary.latest_update).toLocaleString()
                       : "None"}
@@ -618,7 +618,7 @@ function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps)
               <div className="mt-4">
                 <a
                   href="/admin/needs-attention"
-                  className="inline-block bg-[#046935] hover:bg-[#035228] text-white font-medium px-4 py-2 rounded-md transition-colors"
+                  className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
                 >
                   View all trigpoints needing attention →
                 </a>
@@ -686,10 +686,10 @@ function LogsNeedsAttentionCard({ getAccessTokenSilently }: LogsNeedsAttentionCa
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
           aria-controls={panelId}
-          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-[#046935]"
+          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-trig-green-600 dark:text-trig-green-400"
         >
           <svg
-            className={`h-4 w-4 text-[#046935] transition-transform duration-200 ${
+            className={`h-4 w-4 text-trig-green-600 dark:text-trig-green-400 transition-transform duration-200 ${
               isOpen ? "rotate-90" : ""
             }`}
             viewBox="0 0 8 12"
@@ -705,7 +705,7 @@ function LogsNeedsAttentionCard({ getAccessTokenSilently }: LogsNeedsAttentionCa
               strokeLinejoin="round"
             />
           </svg>
-          <span className="text-2xl font-semibold">
+          <span className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
             Logs Needing Attention
           </span>
         </button>
@@ -716,12 +716,12 @@ function LogsNeedsAttentionCard({ getAccessTokenSilently }: LogsNeedsAttentionCa
           {isLoading && (
             <div className="flex items-center gap-2">
               <Spinner size="sm" />
-              <span className="text-gray-600">Loading summary...</span>
+              <span className="text-gray-600 dark:text-gray-400">Loading summary...</span>
             </div>
           )}
 
           {error && (
-            <div className="text-red-600 text-sm">
+            <div className="text-red-600 dark:text-red-400 text-sm">
               Error: {error}
             </div>
           )}
@@ -729,21 +729,21 @@ function LogsNeedsAttentionCard({ getAccessTokenSilently }: LogsNeedsAttentionCa
           {summary && !isLoading && (
             <div className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <div className="text-sm text-gray-600">Total orphaned</div>
-                  <div className="text-2xl font-bold text-gray-800">
+                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Total orphaned</div>
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                     {summary.orphaned_count}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Logs for deleted trigpoints
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <div className="text-sm text-gray-600">Total duplicates</div>
-                  <div className="text-2xl font-bold text-gray-800">
+                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Total duplicates</div>
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                     {summary.duplicate_count}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Identical logs without photos
                   </div>
                 </div>
@@ -753,7 +753,7 @@ function LogsNeedsAttentionCard({ getAccessTokenSilently }: LogsNeedsAttentionCa
                 <div className="mt-4">
                   <a
                     href="/admin/attention/logs"
-                    className="inline-block bg-[#046935] hover:bg-[#035228] text-white font-medium px-4 py-2 rounded-md transition-colors"
+                    className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
                   >
                     View all logs needing attention →
                   </a>
@@ -761,7 +761,7 @@ function LogsNeedsAttentionCard({ getAccessTokenSilently }: LogsNeedsAttentionCa
               )}
 
               {totalIssues === 0 && (
-                <div className="text-gray-600 text-sm mt-2">
+                <div className="text-gray-600 dark:text-gray-400 text-sm mt-2">
                   No logs currently need attention.
                 </div>
               )}
@@ -997,10 +997,10 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
           aria-controls={panelId}
-          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-[#046935]"
+          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-trig-green-600 dark:text-trig-green-400"
         >
           <svg
-            className={`h-4 w-4 text-[#046935] transition-transform duration-200 ${
+            className={`h-4 w-4 text-trig-green-600 dark:text-trig-green-400 transition-transform duration-200 ${
               isOpen ? "rotate-90" : ""
             }`}
             viewBox="0 0 8 12"
@@ -1016,13 +1016,13 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
               strokeLinejoin="round"
             />
           </svg>
-          <span className="text-2xl font-semibold">Merge Users</span>
+          <span className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Merge Users</span>
         </button>
       </div>
 
       {isOpen ? (
         <>
-          <p className="text-gray-600 mb-4 mt-3">
+          <p className="text-gray-600 dark:text-gray-400 mb-4 mt-3">
             Merge a source user (to delete) into a target user (to keep). All logs and photo votes
             will be transferred, and blank profile fields will be filled from the source user.
           </p>
@@ -1030,7 +1030,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
           <div id={panelId} className="space-y-5">
             {/* Target User Selection */}
             <div>
-              <label htmlFor={targetSearchInputId} className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor={targetSearchInputId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Search for target user (keep)
               </label>
               <input
@@ -1039,23 +1039,23 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
                 value={targetQuery}
                 onChange={(e) => setTargetQuery(e.target.value)}
                 placeholder="Start typing username or email..."
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 dark:placeholder-gray-400"
               />
               {isSearchingTarget && (
                 <div className="flex items-center gap-2 mt-2">
                   <Spinner size="sm" />
-                  <span className="text-sm text-gray-500">Searching...</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Searching...</span>
                 </div>
               )}
             </div>
 
             <div>
-              <label htmlFor={targetSelectId} className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor={targetSelectId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Target user (keep)
               </label>
               <select
                 id={targetSelectId}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100 dark:disabled:bg-gray-600"
                 value={selectedTargetUserId ?? ""}
                 onChange={(e) => setSelectedTargetUserId(e.target.value ? Number(e.target.value) : null)}
                 disabled={targetResults.length === 0}
@@ -1071,7 +1071,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
 
             {/* Source User Selection */}
             <div>
-              <label htmlFor={sourceSearchInputId} className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor={sourceSearchInputId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Search for source user (delete)
               </label>
               <input
@@ -1080,23 +1080,23 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
                 value={sourceQuery}
                 onChange={(e) => setSourceQuery(e.target.value)}
                 placeholder="Start typing username or email..."
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 dark:placeholder-gray-400"
               />
               {isSearchingSource && (
                 <div className="flex items-center gap-2 mt-2">
                   <Spinner size="sm" />
-                  <span className="text-sm text-gray-500">Searching...</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Searching...</span>
                 </div>
               )}
             </div>
 
             <div>
-              <label htmlFor={sourceSelectId} className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor={sourceSelectId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Source user (delete)
               </label>
               <select
                 id={sourceSelectId}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100 dark:disabled:bg-gray-600"
                 value={selectedSourceUserId ?? ""}
                 onChange={(e) => setSelectedSourceUserId(e.target.value ? Number(e.target.value) : null)}
                 disabled={sourceResults.length === 0}
@@ -1111,11 +1111,11 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
             </div>
 
             {selectedTargetUserId && selectedSourceUserId && selectedTargetUserId === selectedSourceUserId && (
-              <p className="text-sm text-red-600">Target and source users must be different!</p>
+              <p className="text-sm text-red-600 dark:text-red-400">Target and source users must be different!</p>
             )}
 
             {error && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 px-3 py-2 text-sm text-red-700 dark:text-red-400">
                 {error}
               </div>
             )}
@@ -1134,9 +1134,9 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
             </div>
 
             {mergeResult && (
-              <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3">
-                <h3 className="font-semibold text-green-800 mb-2">Merge Completed Successfully!</h3>
-                <ul className="text-sm text-green-700 space-y-1">
+              <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/30 px-4 py-3">
+                <h3 className="font-semibold text-green-800 dark:text-green-400 mb-2">Merge Completed Successfully!</h3>
+                <ul className="text-sm text-green-700 dark:text-green-400 space-y-1">
                   <li>• {mergeResult.updated_records.tlog} logs transferred</li>
                   <li>• {mergeResult.updated_records.tphotovote} photo votes transferred</li>
                   {mergeResult.profile_updated && <li>• Profile fields updated</li>}
@@ -1149,13 +1149,13 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
           {/* Confirmation Dialog */}
           {showConfirmDialog && preview && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Confirm User Merge</h2>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Confirm User Merge</h2>
 
                 <div className="space-y-4 mb-6">
-                  <div className="border border-gray-200 rounded-md p-4">
-                    <h3 className="font-semibold text-gray-800 mb-2">Target User (KEEP)</h3>
-                    <div className="text-sm text-gray-600 space-y-1">
+                  <div className="border border-gray-200 dark:border-gray-600 rounded-md p-4">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">Target User (KEEP)</h3>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                       <p><strong>User ID:</strong> {preview.target_user.id}</p>
                       <p><strong>Name:</strong> {preview.target_user.name}</p>
                       <p><strong>Email:</strong> {preview.target_user.email || "(none)"}</p>
@@ -1163,9 +1163,9 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
                     </div>
                   </div>
 
-                  <div className="border border-red-200 rounded-md p-4 bg-red-50">
-                    <h3 className="font-semibold text-red-800 mb-2">Source User (DELETE)</h3>
-                    <div className="text-sm text-red-700 space-y-1">
+                  <div className="border border-red-200 dark:border-red-800 rounded-md p-4 bg-red-50 dark:bg-red-900/30">
+                    <h3 className="font-semibold text-red-800 dark:text-red-400 mb-2">Source User (DELETE)</h3>
+                    <div className="text-sm text-red-700 dark:text-red-400 space-y-1">
                       <p><strong>User ID:</strong> {preview.source_user.id}</p>
                       <p><strong>Name:</strong> {preview.source_user.name}</p>
                       <p><strong>Email:</strong> {preview.source_user.email || "(none)"}</p>
@@ -1173,9 +1173,9 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
                     </div>
                   </div>
 
-                  <div className="border border-blue-200 rounded-md p-4 bg-blue-50">
-                    <h3 className="font-semibold text-blue-800 mb-2">Changes</h3>
-                    <div className="text-sm text-blue-700 space-y-1">
+                  <div className="border border-blue-200 dark:border-blue-800 rounded-md p-4 bg-blue-50 dark:bg-blue-900/30">
+                    <h3 className="font-semibold text-blue-800 dark:text-blue-400 mb-2">Changes</h3>
+                    <div className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
                       <p><strong>Logs to transfer:</strong> {preview.estimated_records.tlog}</p>
                       <p><strong>Photo votes to transfer:</strong> {preview.estimated_records.tphotovote}</p>
                       {Object.keys(preview.profile_updates).length > 0 && (
@@ -1189,13 +1189,13 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
                         </>
                       )}
                       {preview.auth0_will_update && (
-                        <p className="mt-2 font-semibold text-amber-700">⚠️ Auth0 account will be synchronized</p>
+                        <p className="mt-2 font-semibold text-amber-700 dark:text-amber-400">⚠️ Auth0 account will be synchronized</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="rounded-md border border-red-300 bg-red-100 px-4 py-3">
-                    <p className="text-sm text-red-800 font-semibold">
+                  <div className="rounded-md border border-red-300 dark:border-red-700 bg-red-100 dark:bg-red-900/50 px-4 py-3">
+                    <p className="text-sm text-red-800 dark:text-red-300 font-semibold">
                       ⚠️ Warning: This action cannot be undone. The source user will be permanently deleted.
                     </p>
                   </div>
@@ -1400,10 +1400,10 @@ export default function Admin() {
         <div className="max-w-4xl mx-auto">
           <Card>
             <div className="text-center py-12">
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
                 Access Denied
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 You do not have permission to access the admin area.
               </p>
             </div>
@@ -1422,7 +1422,7 @@ export default function Admin() {
           <Card>
             <div className="text-center py-12">
               <Spinner size="lg" />
-              <p className="text-gray-600 mt-4">
+              <p className="text-gray-600 dark:text-gray-400 mt-4">
                 Verifying admin permissions...
               </p>
             </div>
@@ -1441,10 +1441,10 @@ export default function Admin() {
           <Card>
             <div className="text-center py-12">
               <Spinner size="lg" />
-              <p className="text-gray-600 mt-4">
+              <p className="text-gray-600 dark:text-gray-400 mt-4">
                 Admin access requires re-authentication.
               </p>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                 {redirectDelayLabel}
               </p>
             </div>
@@ -1460,10 +1460,10 @@ export default function Admin() {
       <title>Admin | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">
             Admin Dashboard
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             Welcome to the admin area. More features coming soon.
           </p>
         </Card>
@@ -1478,31 +1478,31 @@ export default function Admin() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
-            <h2 className="text-xl font-semibold text-gray-800 mb-3">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
               User Management
             </h2>
-            <p className="text-gray-500 text-sm">Coming soon...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-800 mb-3">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
               Content Moderation
             </h2>
-            <p className="text-gray-500 text-sm">Coming soon...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-800 mb-3">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
               System Settings
             </h2>
-            <p className="text-gray-500 text-sm">Coming soon...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-800 mb-3">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
               Analytics
             </h2>
-            <p className="text-gray-500 text-sm">Coming soon...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>
           </Card>
         </div>
       </div>
