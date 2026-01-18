@@ -28,7 +28,6 @@ from api.api.lifecycle import lifecycle, openapi_lifecycle
 from api.core.logging import get_logger
 from api.core.metrics import get_metrics_collector
 from api.crud import attr as attr_crud
-from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
 from api.crud import tphoto as tphoto_crud
 from api.crud import trig as trig_crud
@@ -120,10 +119,6 @@ def _generate_export_data(db: Session) -> dict:
     items_serialized = [
         TrigMinimal.model_validate(i).model_dump(mode="json") for i in items
     ]
-
-    # Attach status_name for export endpoint (Android app compatibility)
-    for item, orig in zip(items_serialized, items):
-        item["status_name"] = status_crud.get_status_name_by_id(db, int(orig.status_id))
 
     return {
         "items": items_serialized,
