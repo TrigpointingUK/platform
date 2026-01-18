@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
+import { ThemeProvider } from '../../contexts/ThemeContext';
 import Preferences from '../Preferences';
 
 // Mock Auth0
@@ -53,9 +54,11 @@ const createWrapper = () => {
     },
   });
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>{children}</BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 };
 
@@ -150,9 +153,11 @@ describe('Preferences', () => {
 
       render(<Preferences />, {
         wrapper: ({ children }) => (
-          <QueryClientProvider client={queryClient}>
-            <BrowserRouter>{children}</BrowserRouter>
-          </QueryClientProvider>
+          <ThemeProvider>
+            <QueryClientProvider client={queryClient}>
+              <BrowserRouter>{children}</BrowserRouter>
+            </QueryClientProvider>
+          </ThemeProvider>
         ),
       });
 

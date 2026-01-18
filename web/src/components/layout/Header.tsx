@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { GlobalSearch } from "./GlobalSearch";
+import ThemeToggle from "../ui/ThemeToggle";
 
 export default function Header() {
   const { isAuthenticated, user, loginWithRedirect, logout } = useAuth0();
@@ -64,7 +65,10 @@ export default function Header() {
           </div>
 
           {/* User Menu */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+            
             {isAuthenticated && user ? (
               <div className="relative">
                 <button
@@ -84,17 +88,17 @@ export default function Header() {
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 text-gray-700 z-[1300]">
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 text-gray-700 dark:text-gray-200 z-[1300]">
                     <Link
                       to="/profile"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => setUserMenuOpen(false)}
                     >
                       Profile
                     </Link>
                     <Link
                       to="/preferences"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => setUserMenuOpen(false)}
                     >
                       Preferences
@@ -102,19 +106,19 @@ export default function Header() {
                     {hasAdminRole && (
                       <Link
                         to="/admin"
-                        className="block px-4 py-2 hover:bg-gray-100"
+                        className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => setUserMenuOpen(false)}
                       >
                         Admin
                       </Link>
                     )}
-                    <hr className="my-1" />
+                    <hr className="my-1 border-gray-200 dark:border-gray-600" />
                     <button
                       onClick={() => {
                         setUserMenuOpen(false);
                         handleLogout();
                       }}
-                      className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                       Logout
                     </button>

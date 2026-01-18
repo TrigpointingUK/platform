@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { useAuth0, User } from '@auth0/auth0-react';
+import { ThemeProvider } from '../../contexts/ThemeContext';
 import Contact from '../Contact';
 
 type UseAuth0Return = ReturnType<typeof useAuth0>;
@@ -48,9 +49,11 @@ const createWrapper = () => {
   });
   
   return ({ children }: { children: React.ReactNode }) => (
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 };
 
