@@ -67,14 +67,15 @@ def upgrade() -> None:
         # - ui_prefs doesn't already have default_groups set
         #
         # Uses COALESCE to handle NULL ui_prefs, and jsonb_set to merge
+        # Note: Use CAST() instead of :: to avoid SQLAlchemy interpreting :: as bind params
         result = conn.execute(
             sa.text(
                 """
                 UPDATE "user"
                 SET ui_prefs = jsonb_set(
-                    COALESCE(ui_prefs, '{}'::jsonb),
+                    COALESCE(ui_prefs, CAST('{}' AS jsonb)),
                     '{default_groups}',
-                    :groups_json::jsonb,
+                    CAST(:groups_json AS jsonb),
                     true
                 )
                 WHERE status_max = :status_max
