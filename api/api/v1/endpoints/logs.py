@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user, get_current_user_optional, get_db
 from api.api.lifecycle import openapi_lifecycle
-from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
 from api.crud import tphoto as tphoto_crud
 from api.models.server import Server
@@ -83,7 +82,6 @@ def enrich_logs_with_names(
             Trig.wgs_lat,
             Trig.wgs_long,
             Trig.condition,
-            Trig.status_id,
             Trig.physical_type,
         )
         .filter(Trig.id.in_(trig_ids))
@@ -103,11 +101,6 @@ def enrich_logs_with_names(
             "lat": float(t.wgs_lat) if t.wgs_lat is not None else None,
             "lon": float(t.wgs_long) if t.wgs_long is not None else None,
             "condition": str(t.condition) if t.condition else None,
-            "status_name": (
-                status_crud.get_status_name_by_id(db, int(t.status_id))
-                if t.status_id is not None
-                else None
-            ),
             "physical_type": str(t.physical_type) if t.physical_type else None,
         }
         for t in trigs
@@ -123,7 +116,6 @@ def enrich_logs_with_names(
         log_dict["trig_lat"] = trig_info.get("lat")
         log_dict["trig_lon"] = trig_info.get("lon")
         log_dict["trig_condition"] = trig_info.get("condition")
-        log_dict["trig_status_name"] = trig_info.get("status_name")
         log_dict["trig_physical_type"] = trig_info.get("physical_type")
         log_dict["user_name"] = user_names.get(log.user_id)
 

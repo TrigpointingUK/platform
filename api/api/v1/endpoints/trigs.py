@@ -121,7 +121,7 @@ def _generate_export_data(db: Session) -> dict:
         TrigMinimal.model_validate(i).model_dump(mode="json") for i in items
     ]
 
-    # Attach status_name to each item
+    # Attach status_name for export endpoint (Android app compatibility)
     for item, orig in zip(items_serialized, items):
         item["status_name"] = status_crud.get_status_name_by_id(db, int(orig.status_id))
 
@@ -723,10 +723,8 @@ def _get_trig_cached(
     if trig is None:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
 
-    # Build minimal response with status_name
+    # Build minimal response
     minimal_data = TrigMinimal.model_validate(trig).model_dump()
-    status_name = status_crud.get_status_name_by_id(db, int(trig.status_id))
-    minimal_data["status_name"] = status_name
 
     # Attach includes
     details_obj: Optional[TrigDetails] = None
@@ -825,8 +823,6 @@ def get_trig_by_waypoint(
         raise HTTPException(status_code=404, detail="Trigpoint not found")
 
     minimal_data = TrigMinimal.model_validate(trig).model_dump()
-    status_name = status_crud.get_status_name_by_id(db, int(trig.status_id))
-    minimal_data["status_name"] = status_name
     return TrigWithIncludes(**minimal_data)
 
 
@@ -1012,12 +1008,6 @@ def list_trigs(
     prev_link = (
         base + "?" + "&".join(params + [f"skip={prev_offset}"]) if skip > 0 else None
     )
-
-    # Serialize items minimally
-    # items_serialized = [TrigMinimal.model_validate(i).model_dump() for i in items]
-    # Attach status_name to each item
-    for item, orig in zip(items_serialized, items):
-        item["status_name"] = status_crud.get_status_name_by_id(db, int(orig.status_id))
 
     response = {
         "items": items_serialized,

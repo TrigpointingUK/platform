@@ -139,8 +139,6 @@ def list_trigs_filtered(
     physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
     group_codes: Optional[List[str]] = None,
-    status_ids: Optional[List[int]] = None,
-    max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
@@ -161,14 +159,6 @@ def list_trigs_filtered(
             "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
-
-    # Filter by status IDs (specific statuses)
-    if status_ids:
-        query = query.filter(Trig.status_id.in_(status_ids))
-
-    # Filter by max status (status <= max_status)
-    if max_status is not None:
-        query = query.filter(Trig.status_id <= max_status)
 
     # Filter by physical types (kept for backward compatibility)
     if physical_types:
@@ -291,8 +281,6 @@ def count_trigs_filtered(
     physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
     group_codes: Optional[List[str]] = None,
-    status_ids: Optional[List[int]] = None,
-    max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
@@ -313,14 +301,6 @@ def count_trigs_filtered(
             "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
-
-    # Filter by status IDs (specific statuses)
-    if status_ids:
-        query = query.filter(Trig.status_id.in_(status_ids))
-
-    # Filter by max status (status <= max_status)
-    if max_status is not None:
-        query = query.filter(Trig.status_id <= max_status)
 
     # Filter by physical types (kept for backward compatibility)
     if physical_types:
