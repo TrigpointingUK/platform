@@ -367,7 +367,9 @@ def count_trigs_filtered(
     if county:
         query = query.filter(Trig.county == county)
 
-    # Apply the same geo-distance filtering as in list_trigs_filtered
+    # Apply geo-distance filtering when max_km is specified
+    # Note: Unlike list_trigs_filtered which also calculates distance for ordering,
+    # count only needs to filter, so we only enter this block when all three params exist
     if center_lat is not None and center_lon is not None and max_km is not None:
         if not _is_sqlite(db):
             # Use PostGIS ST_DWithin for efficient spatial filtering
