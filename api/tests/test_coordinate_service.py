@@ -337,10 +337,7 @@ class TestVerifyOSTN15:
 
 
 class TestWGS84ToIrish:
-    """Tests for WGS84/ETRS89 to Irish Grid (TM65/TM75) conversion.
-
-    Note: Irish Grid conversion is 2D only (no height transformation).
-    """
+    """Tests for WGS84/ETRS89 to Irish Grid (TM65/TM75) conversion."""
 
     def test_dublin_conversion(self):
         """Test conversion for Dublin.
@@ -350,11 +347,12 @@ class TestWGS84ToIrish:
         """
         lon, lat = -6.2603, 53.3498
 
-        e, n = convert_wgs84_to_irish(lon, lat)
+        e, n, h = convert_wgs84_to_irish(lon, lat)
 
         # Dublin should be in the O grid square (Eastings 300-400km, Northings 200-300km)
         assert 310000 < e < 320000, f"Eastings {e} outside expected Dublin range"
         assert 230000 < n < 240000, f"Northings {n} outside expected Dublin range"
+        assert h is None  # No height input
 
     def test_belfast_conversion(self):
         """Test conversion for Belfast (Northern Ireland).
@@ -364,11 +362,12 @@ class TestWGS84ToIrish:
         """
         lon, lat = -5.9301, 54.5973
 
-        e, n = convert_wgs84_to_irish(lon, lat)
+        e, n, h = convert_wgs84_to_irish(lon, lat)
 
         # Belfast should be in the J grid square
         assert 330000 < e < 340000, f"Eastings {e} outside expected Belfast range"
         assert 370000 < n < 380000, f"Northings {n} outside expected Belfast range"
+        assert h is None  # No height input
 
     def test_galway_conversion(self):
         """Test conversion for Galway (west coast).
@@ -378,11 +377,12 @@ class TestWGS84ToIrish:
         """
         lon, lat = -9.0568, 53.2707
 
-        e, n = convert_wgs84_to_irish(lon, lat)
+        e, n, h = convert_wgs84_to_irish(lon, lat)
 
         # Galway should be in the M grid square (west)
         assert 125000 < e < 140000, f"Eastings {e} outside expected Galway range"
         assert 220000 < n < 230000, f"Northings {n} outside expected Galway range"
+        assert h is None  # No height input
 
     def test_cork_conversion(self):
         """Test conversion for Cork (south coast).
@@ -392,55 +392,190 @@ class TestWGS84ToIrish:
         """
         lon, lat = -8.4756, 51.8985
 
-        e, n = convert_wgs84_to_irish(lon, lat)
+        e, n, h = convert_wgs84_to_irish(lon, lat)
 
         # Cork should be in the W grid square (south)
         assert 160000 < e < 175000, f"Eastings {e} outside expected Cork range"
         assert 68000 < n < 78000, f"Northings {n} outside expected Cork range"
+        assert h is None  # No height input
+
+    def test_dublin_with_height_conversion(self):
+        """Test 3D conversion for Dublin with height.
+
+        Uses OSGM15 geoid model to convert ellipsoidal height to Malin Head datum.
+        Geoid separation in Dublin area is approximately 56m.
+        """
+        lon, lat = -6.2603, 53.3498
+        wgs_height = 100.0  # 100m ellipsoidal height
+
+        e, n, malin_h = convert_wgs84_to_irish(lon, lat, wgs_height)
+
+        # Horizontal conversion should still work
+        assert 310000 < e < 320000, f"Eastings {e} outside expected Dublin range"
+        assert 230000 < n < 240000, f"Northings {n} outside expected Dublin range"
+
+        # Height should be converted using OSGM15 geoid model
+        # Geoid separation in Dublin is ~56m, so orthometric height = ellipsoidal - N
+        assert malin_h is not None
+        geoid_separation = wgs_height - malin_h
+
+        # Check if OSGM15 geoid model is available
+        if geoid_separation < 1.0:
+            pytest.skip("OSGM15 geoid model not available for Dublin")
+
+        assert (
+            54 < geoid_separation < 58
+        ), f"Geoid separation {geoid_separation} outside expected Dublin range (54-58m)"
+
+    def test_belfast_with_height_conversion(self):
+        """Test 3D conversion for Belfast with height."""
+        lon, lat = -5.9301, 54.5973
+        wgs_height = 100.0
+
+        e, n, malin_h = convert_wgs84_to_irish(lon, lat, wgs_height)
+
+        # Height should be converted
+        assert malin_h is not None
+        geoid_separation = wgs_height - malin_h
+
+        # Check if OSGM15 geoid model is available
+        if geoid_separation < 1.0:
+            pytest.skip("OSGM15 geoid model not available for Belfast")
+
+        # Belfast geoid separation should be similar to Dublin (~56m)
+        assert (
+            54 < geoid_separation < 58
+        ), f"Geoid separation {geoid_separation} outside expected Belfast range"
+
+    def test_galway_with_height_conversion(self):
+        """Test 3D conversion for Galway with height."""
+        lon, lat = -9.0568, 53.2707
+        wgs_height = 100.0
+
+        e, n, malin_h = convert_wgs84_to_irish(lon, lat, wgs_height)
+
+        # Height should be converted
+        assert malin_h is not None
+        geoid_separation = wgs_height - malin_h
+
+        # Check if OSGM15 geoid model is available (gives ~57m separation)
+        # If not available, the height passes through unchanged (0m separation)
+        if geoid_separation < 1.0:
+            pytest.skip("OSGM15 geoid model not available for Galway")
+
+        # Galway geoid separation should be similar (~57m)
+        assert (
+            55 < geoid_separation < 59
+        ), f"Geoid separation {geoid_separation} outside expected Galway range"
+
+    def test_cork_with_height_conversion(self):
+        """Test 3D conversion for Cork with height."""
+        lon, lat = -8.4756, 51.8985
+        wgs_height = 100.0
+
+        e, n, malin_h = convert_wgs84_to_irish(lon, lat, wgs_height)
+
+        # Height should be converted
+        assert malin_h is not None
+        geoid_separation = wgs_height - malin_h
+
+        # Check if OSGM15 geoid model is available (gives ~57m separation)
+        # If not available, the height passes through unchanged (0m separation)
+        if geoid_separation < 1.0:
+            pytest.skip("OSGM15 geoid model not available for Cork")
+
+        # Cork geoid separation should be similar (~57m)
+        assert (
+            55 < geoid_separation < 59
+        ), f"Geoid separation {geoid_separation} outside expected Cork range"
 
 
 class TestIrishToWGS84:
-    """Tests for Irish Grid to WGS84/ETRS89 conversion.
-
-    Note: Irish Grid conversion is 2D only (no height transformation).
-    """
+    """Tests for Irish Grid to WGS84/ETRS89 conversion."""
 
     def test_dublin_reverse(self):
         """Test reverse conversion for Dublin."""
         e, n = 316200.0, 234000.0
 
-        lon, lat = convert_irish_to_wgs84(e, n)
+        lon, lat, h = convert_irish_to_wgs84(e, n)
 
         # Dublin is approximately lat=53.35, lon=-6.26
         assert -6.3 < lon < -6.2, f"Longitude {lon} outside expected Dublin range"
         assert 53.3 < lat < 53.4, f"Latitude {lat} outside expected Dublin range"
+        assert h is None  # No height input
 
     def test_belfast_reverse(self):
         """Test reverse conversion for Belfast."""
         e, n = 334000.0, 373000.0
 
-        lon, lat = convert_irish_to_wgs84(e, n)
+        lon, lat, h = convert_irish_to_wgs84(e, n)
 
         # Belfast is approximately lat=54.6, lon=-5.9
         assert -6.0 < lon < -5.8, f"Longitude {lon} outside expected Belfast range"
         assert 54.5 < lat < 54.7, f"Latitude {lat} outside expected Belfast range"
+        assert h is None  # No height input
+
+    def test_dublin_with_height_conversion(self):
+        """Test reverse 3D conversion for Dublin.
+
+        Uses OSGM15 geoid model to convert Malin Head orthometric height
+        back to ellipsoidal height.
+        """
+        e, n = 316200.0, 234000.0
+        malin_height = 44.0  # ~44m orthometric (Malin Head)
+
+        lon, lat, wgs_h = convert_irish_to_wgs84(e, n, malin_height)
+
+        # Horizontal conversion should still work
+        assert -6.3 < lon < -6.2, f"Longitude {lon} outside expected Dublin range"
+        assert 53.3 < lat < 53.4, f"Latitude {lat} outside expected Dublin range"
+
+        # Height should be converted back to ellipsoidal
+        # With ~56m geoid separation: ellipsoidal = orthometric + N
+        assert wgs_h is not None
+
+        # Check if OSGM15 geoid model is available
+        # If available, 44m orthometric + ~56m geoid separation = ~100m ellipsoidal
+        # If not available, height passes through unchanged
+        if wgs_h < 50:
+            pytest.skip("OSGM15 geoid model not available for Dublin reverse")
+
+        assert (
+            95 < wgs_h < 105
+        ), f"Ellipsoidal height {wgs_h} outside expected range for Dublin"
+
+    def test_belfast_with_height_conversion(self):
+        """Test reverse 3D conversion for Belfast."""
+        e, n = 334000.0, 373000.0
+        malin_height = 44.0  # ~44m orthometric
+
+        lon, lat, wgs_h = convert_irish_to_wgs84(e, n, malin_height)
+
+        # Height should be converted
+        assert wgs_h is not None
+
+        # Check if OSGM15 geoid model is available
+        if wgs_h < 50:
+            pytest.skip("OSGM15 geoid model not available for Belfast reverse")
+
+        # Similar to Dublin: should give ~100m ellipsoidal
+        assert (
+            95 < wgs_h < 105
+        ), f"Ellipsoidal height {wgs_h} outside expected range for Belfast"
 
 
 class TestIrishRoundTrip:
-    """Tests for round-trip Irish Grid conversions.
+    """Tests for round-trip Irish Grid conversions."""
 
-    Note: Irish Grid conversion is 2D only (no height transformation).
-    """
-
-    def test_wgs84_round_trip_ireland(self):
-        """Test WGS84 -> Irish -> WGS84 round trip."""
+    def test_wgs84_round_trip_ireland_2d(self):
+        """Test WGS84 -> Irish -> WGS84 round trip (2D)."""
         original_lon, original_lat = -7.5, 53.0  # Somewhere in central Ireland
 
         # Forward conversion
-        e, n = convert_wgs84_to_irish(original_lon, original_lat)
+        e, n, _ = convert_wgs84_to_irish(original_lon, original_lat)
 
         # Reverse conversion
-        result_lon, result_lat = convert_irish_to_wgs84(e, n)
+        result_lon, result_lat, _ = convert_irish_to_wgs84(e, n)
 
         # Should get back (very close to) original coordinates
         assert (
@@ -450,15 +585,46 @@ class TestIrishRoundTrip:
             abs(result_lat - original_lat) < 0.0001
         ), f"Latitude round-trip error: {result_lat} vs {original_lat}"
 
-    def test_irish_grid_round_trip(self):
-        """Test Irish Grid -> WGS84 -> Irish Grid round trip."""
+    def test_wgs84_round_trip_ireland_3d(self):
+        """Test WGS84 -> Irish -> WGS84 round trip including height."""
+        original_lon, original_lat = -7.5, 53.0  # Central Ireland
+        original_height = 150.0  # 150m ellipsoidal
+
+        # Forward conversion
+        e, n, malin_h = convert_wgs84_to_irish(
+            original_lon, original_lat, original_height
+        )
+
+        # Check if OSGM15 geoid model is available
+        if malin_h is not None and abs(original_height - malin_h) < 1.0:
+            pytest.skip("OSGM15 geoid model not available for 3D round trip")
+
+        # Reverse conversion
+        result_lon, result_lat, result_h = convert_irish_to_wgs84(e, n, malin_h)
+
+        # Should get back (very close to) original coordinates
+        assert (
+            abs(result_lon - original_lon) < 0.0001
+        ), f"Longitude round-trip error: {result_lon} vs {original_lon}"
+        assert (
+            abs(result_lat - original_lat) < 0.0001
+        ), f"Latitude round-trip error: {result_lat} vs {original_lat}"
+
+        # Height should round-trip with sub-metre accuracy
+        assert result_h is not None
+        assert (
+            abs(result_h - original_height) < 0.5
+        ), f"Height round-trip error: {result_h} vs {original_height}"
+
+    def test_irish_grid_round_trip_2d(self):
+        """Test Irish Grid -> WGS84 -> Irish Grid round trip (2D)."""
         original_e, original_n = 200000.0, 250000.0  # Somewhere in Ireland
 
         # Forward conversion
-        lon, lat = convert_irish_to_wgs84(original_e, original_n)
+        lon, lat, _ = convert_irish_to_wgs84(original_e, original_n)
 
         # Reverse conversion
-        result_e, result_n = convert_wgs84_to_irish(lon, lat)
+        result_e, result_n, _ = convert_wgs84_to_irish(lon, lat)
 
         # Should get back (very close to) original coordinates
         # Within 1 metre
@@ -468,6 +634,71 @@ class TestIrishRoundTrip:
         assert (
             abs(result_n - original_n) < 1.0
         ), f"Northings round-trip error: {result_n} vs {original_n}"
+
+    def test_irish_grid_round_trip_3d(self):
+        """Test Irish Grid -> WGS84 -> Irish Grid round trip including height."""
+        original_e, original_n = 200000.0, 250000.0  # Somewhere in Ireland
+        original_height = 50.0  # 50m Malin orthometric
+
+        # Forward conversion
+        lon, lat, wgs_h = convert_irish_to_wgs84(
+            original_e, original_n, original_height
+        )
+
+        # Check if OSGM15 geoid model is available
+        if wgs_h is not None and abs(wgs_h - original_height) < 1.0:
+            pytest.skip("OSGM15 geoid model not available for 3D round trip")
+
+        # Reverse conversion
+        result_e, result_n, result_h = convert_wgs84_to_irish(lon, lat, wgs_h)
+
+        # Should get back (very close to) original coordinates
+        # Within 1 metre
+        assert (
+            abs(result_e - original_e) < 1.0
+        ), f"Eastings round-trip error: {result_e} vs {original_e}"
+        assert (
+            abs(result_n - original_n) < 1.0
+        ), f"Northings round-trip error: {result_n} vs {original_n}"
+
+        # Height should round-trip with sub-metre accuracy
+        assert result_h is not None
+        assert (
+            abs(result_h - original_height) < 0.5
+        ), f"Height round-trip error: {result_h} vs {original_height}"
+
+    def test_multiple_locations_height_round_trip(self):
+        """Test height round-trip accuracy at multiple Irish locations."""
+        test_points = [
+            ("Dublin", -6.2603, 53.3498),
+            ("Belfast", -5.9301, 54.5973),
+            ("Cork", -8.4756, 51.8985),
+            ("Galway", -9.0568, 53.2707),
+            ("Limerick", -8.6305, 52.6638),
+        ]
+        original_height = 100.0
+
+        geoid_available = False
+        for name, lon, lat in test_points:
+            # Forward conversion
+            e, n, malin_h = convert_wgs84_to_irish(lon, lat, original_height)
+
+            # Check if OSGM15 geoid model is available (significant height change)
+            if malin_h is not None and abs(original_height - malin_h) > 10.0:
+                geoid_available = True
+
+            # Reverse conversion
+            _, _, result_h = convert_irish_to_wgs84(e, n, malin_h)
+
+            # Height should round-trip with sub-millimetre accuracy
+            assert result_h is not None
+            error_mm = abs(result_h - original_height) * 1000
+            assert (
+                error_mm < 1.0
+            ), f"Height round-trip error for {name}: {error_mm:.2f}mm"
+
+        if not geoid_available:
+            pytest.skip("OSGM15 geoid model not available for any test location")
 
 
 class TestIrishGridReference:

@@ -494,9 +494,6 @@ export default function LinkedCoordinates({
         {gridSystem && (
           <div className="mb-3 text-xs text-gray-600">
             Grid system: <span className="font-medium">{gridSystem === "ie" ? "Irish Grid" : "British National Grid"}</span>
-            {gridSystem === "ie" && (
-              <span className="ml-2 text-amber-600">(Note: Irish Grid does not support height conversion)</span>
-            )}
           </div>
         )}
         <div className="grid grid-cols-3 gap-4 mb-4">
@@ -527,8 +524,8 @@ export default function LinkedCoordinates({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Height (m)
-              <span className="text-xs text-gray-500 ml-1" title={gridSystem === "ie" ? "Malin Head datum" : "Ordnance Datum Newlyn"}>
-                {gridSystem === "ie" ? "Malin" : "ODN"}
+              <span className="text-xs text-gray-500 ml-1" title={gridSystem === "ie" ? "Ordnance Datum Malin Head" : "Ordnance Datum Newlyn"}>
+                {gridSystem === "ie" ? "OD Malin" : "ODN"}
               </span>
             </label>
             <input
@@ -539,7 +536,6 @@ export default function LinkedCoordinates({
               onBlur={handleBlur}
               className={inputClassName}
               placeholder="e.g., 55"
-              disabled={gridSystem === "ie"}
             />
           </div>
         </div>

@@ -29,7 +29,13 @@ EPSG_BNG_3D = "EPSG:7405"  # British National Grid + ODN height
 
 # Irish Grid CRS codes
 EPSG_WGS84_2D = "EPSG:4326"  # WGS84 lat/lon
-EPSG_IRISH_GRID = "EPSG:29903"  # TM65 / Irish Grid (2D only - no official 3D variant)
+EPSG_IRISH_GRID = "EPSG:29903"  # TM65 / Irish Grid (2D projected)
+
+# Irish vertical datum - Malin Head Ordnance Datum
+# Used for all of Ireland (both ROI and Northern Ireland)
+# OSGM15 geoid model covers Ireland for height conversion
+EPSG_MALIN_HEIGHT = "EPSG:5731"  # Malin Head height (Irish vertical datum)
+EPSG_ETRS89_MALIN = "EPSG:9449"  # ETRS89 + Malin Head height (compound CRS)
 
 # Grid letters for OS National Grid reference conversion
 # The 500km squares use a 2-column x 3-row arrangement covering GB
@@ -78,9 +84,13 @@ _transformer_bng_to_etrs89_2d: Optional[Transformer] = None
 _transformer_etrs89_to_bng_3d: Optional[Transformer] = None
 _transformer_bng_to_etrs89_3d: Optional[Transformer] = None
 
-# Irish Grid transformers
+# Irish Grid transformers (2D horizontal only)
 _transformer_wgs84_to_irish: Optional[Transformer] = None
 _transformer_irish_to_wgs84: Optional[Transformer] = None
+
+# Irish Grid 3D transformers (for Malin Head height conversion using OSGM15)
+_transformer_etrs89_to_malin_3d: Optional[Transformer] = None
+_transformer_malin_to_etrs89_3d: Optional[Transformer] = None
 
 
 def _get_transformer_etrs89_to_bng_2d() -> Transformer:
@@ -141,6 +151,32 @@ def _get_transformer_irish_to_wgs84() -> Transformer:
             EPSG_IRISH_GRID, EPSG_WGS84_2D, always_xy=True
         )
     return _transformer_irish_to_wgs84
+
+
+def _get_transformer_etrs89_to_malin_3d() -> Transformer:
+    """Get or create the ETRS89 3D -> ETRS89 + Malin Height transformer.
+
+    Uses OSGM15 geoid model for height conversion from ellipsoidal to orthometric.
+    """
+    global _transformer_etrs89_to_malin_3d
+    if _transformer_etrs89_to_malin_3d is None:
+        _transformer_etrs89_to_malin_3d = Transformer.from_crs(
+            EPSG_ETRS89_3D, EPSG_ETRS89_MALIN, always_xy=True
+        )
+    return _transformer_etrs89_to_malin_3d
+
+
+def _get_transformer_malin_to_etrs89_3d() -> Transformer:
+    """Get or create the ETRS89 + Malin Height -> ETRS89 3D transformer.
+
+    Uses OSGM15 geoid model for height conversion from orthometric to ellipsoidal.
+    """
+    global _transformer_malin_to_etrs89_3d
+    if _transformer_malin_to_etrs89_3d is None:
+        _transformer_malin_to_etrs89_3d = Transformer.from_crs(
+            EPSG_ETRS89_MALIN, EPSG_ETRS89_3D, always_xy=True
+        )
+    return _transformer_malin_to_etrs89_3d
 
 
 def convert_wgs84_to_osgb(
@@ -272,39 +308,75 @@ def eastings_northings_to_gridref(eastings: float, northings: float) -> str:
 # =============================================================================
 
 
-def convert_wgs84_to_irish(lon: float, lat: float) -> Tuple[float, float]:
+def convert_wgs84_to_irish(
+    lon: float, lat: float, height: Optional[float] = None
+) -> Tuple[float, float, Optional[float]]:
     """
-    Convert WGS84 coordinates to Irish Grid (TM65/EPSG:29903).
+    Convert WGS84/ETRS89 coordinates to Irish Grid (TM65/EPSG:29903).
 
-    Note: Irish Grid is 2D only - no official vertical datum transformation
-    is provided. Heights should be handled separately if needed.
+    Uses OSGM15 geoid model for height conversion when height is provided,
+    converting ellipsoidal height to orthometric height above Malin Head datum.
 
     Args:
-        lon: Longitude in decimal degrees (WGS84)
-        lat: Latitude in decimal degrees (WGS84)
+        lon: Longitude in decimal degrees (WGS84/ETRS89)
+        lat: Latitude in decimal degrees (WGS84/ETRS89)
+        height: Optional ellipsoidal height in metres (above WGS84/GRS80 ellipsoid)
 
     Returns:
-        Tuple of (eastings, northings) in metres
+        Tuple of (eastings, northings, orthometric_height or None)
+        - eastings: Irish Grid eastings in metres
+        - northings: Irish Grid northings in metres
+        - orthometric_height: Height above Malin Head datum in metres, or None if
+          input height was not provided
     """
-    transformer = _get_transformer_wgs84_to_irish()
-    e, n = transformer.transform(lon, lat)
-    return e, n
+    # Get horizontal coordinates
+    transformer_2d = _get_transformer_wgs84_to_irish()
+    e, n = transformer_2d.transform(lon, lat)
+
+    # Convert height if provided
+    if height is not None:
+        transformer_3d = _get_transformer_etrs89_to_malin_3d()
+        # The 3D transformer returns (lon, lat, orthometric_height)
+        _, _, ortho_h = transformer_3d.transform(lon, lat, height)
+        return e, n, ortho_h
+    else:
+        return e, n, None
 
 
-def convert_irish_to_wgs84(eastings: float, northings: float) -> Tuple[float, float]:
+def convert_irish_to_wgs84(
+    eastings: float, northings: float, height: Optional[float] = None
+) -> Tuple[float, float, Optional[float]]:
     """
-    Convert Irish Grid (TM65/EPSG:29903) coordinates to WGS84.
+    Convert Irish Grid (TM65/EPSG:29903) coordinates to WGS84/ETRS89.
+
+    Uses OSGM15 geoid model for height conversion when height is provided,
+    converting orthometric height (Malin Head datum) to ellipsoidal height.
 
     Args:
         eastings: Irish Grid eastings in metres
         northings: Irish Grid northings in metres
+        height: Optional orthometric height in metres (above Malin Head datum)
 
     Returns:
-        Tuple of (longitude, latitude) in decimal degrees
+        Tuple of (longitude, latitude, ellipsoidal_height or None)
+        - longitude: WGS84/ETRS89 longitude in decimal degrees
+        - latitude: WGS84/ETRS89 latitude in decimal degrees
+        - ellipsoidal_height: Height above WGS84/GRS80 ellipsoid in metres, or None if
+          input height was not provided
     """
-    transformer = _get_transformer_irish_to_wgs84()
-    lon, lat = transformer.transform(eastings, northings)
-    return lon, lat
+    # Get horizontal coordinates
+    transformer_2d = _get_transformer_irish_to_wgs84()
+    lon, lat = transformer_2d.transform(eastings, northings)
+
+    # Convert height if provided
+    if height is not None:
+        transformer_3d = _get_transformer_malin_to_etrs89_3d()
+        # The 3D transformer expects (lon, lat, orthometric_height) and returns
+        # (lon, lat, ellipsoidal_height)
+        _, _, ellip_h = transformer_3d.transform(lon, lat, height)
+        return lon, lat, ellip_h
+    else:
+        return lon, lat, None
 
 
 def eastings_northings_to_irish_gridref(eastings: float, northings: float) -> str:
@@ -430,7 +502,7 @@ def parse_irish_gridref(gridref: str) -> Optional[Tuple[float, float, str]]:
     """
     try:
         eastings, northings = irish_gridref_to_eastings_northings(gridref)
-        lon, lat = convert_irish_to_wgs84(eastings, northings)
+        lon, lat, _ = convert_irish_to_wgs84(eastings, northings)
 
         # Format normalized gridref
         e_str = str(eastings % 100000).zfill(5)

@@ -276,7 +276,7 @@ def parse_grid_reference(
     if is_irish_gridref(gridref_norm):
         try:
             eastings, northings = irish_gridref_to_eastings_northings(gridref_norm)
-            lon, lat = convert_irish_to_wgs84(eastings, northings)
+            lon, lat, _ = convert_irish_to_wgs84(eastings, northings)
 
             # Format normalized gridref
             match = re.match(r"([A-HJ-Z])(\d+)", gridref_norm)

@@ -126,8 +126,8 @@ def convert_coordinates(
         None,
         description="Height in metres. If from=wgs84, this is ellipsoidal height. "
         "If from=osgb, this is orthometric height (ODN). "
-        "When provided with OSGB, enables 3D transformation including height conversion. "
-        "Note: Irish Grid does not support height conversion.",
+        "If from=irish, this is orthometric height (Malin Head datum). "
+        "When provided, enables 3D transformation including height conversion.",
     ),
     db: Session = Depends(get_db),
 ) -> CoordinateConversionResponse:
@@ -249,9 +249,9 @@ def convert_coordinates(
             )
 
         elif to_crs == "irish":
-            # WGS84 -> Irish Grid (no height conversion)
+            # WGS84 -> Irish Grid (with Malin Head height conversion)
             try:
-                out_e, out_n = convert_wgs84_to_irish(lon, lat)
+                out_e, out_n, out_h = convert_wgs84_to_irish(lon, lat, height)
             except Exception as exc:
                 raise HTTPException(
                     status_code=400,
@@ -273,7 +273,7 @@ def convert_coordinates(
                 output=CoordinateOutput(
                     e=round(out_e),
                     n=round(out_n),
-                    height=None,  # Irish Grid doesn't do height conversion
+                    height=round(out_h, 1) if out_h is not None else None,
                     gridref=gridref,
                     lat=None,
                     lon=None,
@@ -347,9 +347,9 @@ def convert_coordinates(
                 detail="from=irish can only convert to=wgs84",
             )
 
-        # Perform conversion
+        # Perform conversion (with Malin Head height conversion if height provided)
         try:
-            out_lon, out_lat = convert_irish_to_wgs84(float(e), float(n))
+            out_lon, out_lat, out_h = convert_irish_to_wgs84(float(e), float(n), height)
         except Exception as exc:
             raise HTTPException(
                 status_code=400,
@@ -371,7 +371,7 @@ def convert_coordinates(
             output=CoordinateOutput(
                 lat=round(out_lat, 6),
                 lon=round(out_lon, 6),
-                height=None,  # Irish Grid doesn't do height conversion
+                height=round(out_h, 1) if out_h is not None else None,
                 e=None,
                 n=None,
                 gridref=None,
