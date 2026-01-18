@@ -160,7 +160,7 @@ export default function Preferences() {
         <div className="max-w-4xl mx-auto">
           <div className="py-12 text-center">
             <Spinner size="lg" />
-            <p className="text-gray-600 mt-4">Loading preferences...</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-4">Loading preferences...</p>
           </div>
         </div>
       </Layout>
@@ -174,7 +174,7 @@ export default function Preferences() {
         <div className="max-w-4xl mx-auto">
           <Card>
             <div className="text-center py-12">
-              <p className="text-red-600 text-lg">
+              <p className="text-red-600 dark:text-red-400 text-lg">
                 {error
                   ? "Failed to load preferences"
                   : "Preferences not available"}
@@ -192,8 +192,8 @@ export default function Preferences() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Preferences</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Preferences</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Customise your experience on Trigpointing.uk
           </p>
         </div>
@@ -202,10 +202,10 @@ export default function Preferences() {
           <div className="grid grid-cols-1 gap-6">
             {/* Default Trigpoint Groups */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Default Trigpoint Types
               </label>
-              <p className="text-xs text-gray-500 mb-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                 Select which types of trigpoints to show by default on the map and browse pages.
                 Click to toggle each type on or off.
               </p>
@@ -224,7 +224,7 @@ export default function Preferences() {
                         ${
                           isSelected
                             ? "bg-trig-green-600 shadow-md ring-2 ring-trig-green-400"
-                            : "bg-gray-100 hover:bg-gray-200"
+                            : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
                         }
                         focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-trig-green-500
                       `}
@@ -237,7 +237,7 @@ export default function Preferences() {
                         alt={group.name}
                         className={`w-8 h-8 object-contain ${isSelected ? "" : "opacity-50"}`}
                       />
-                      <span className={`text-xs mt-1 ${isSelected ? "text-white font-medium" : "text-gray-600"}`}>
+                      <span className={`text-xs mt-1 ${isSelected ? "text-white font-medium" : "text-gray-600 dark:text-gray-300"}`}>
                         {group.name}
                       </span>
                     </button>
@@ -248,7 +248,7 @@ export default function Preferences() {
 
             {/* Default Photo Licence Preference */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Default Photo Licence
               </label>
               <select
@@ -256,12 +256,12 @@ export default function Preferences() {
                 onChange={(e) =>
                   handleFieldUpdate("public_ind", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="N">Copyright me</option>
                 <option value="Y">Public domain</option>
               </select>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Choose the default licence for photos you upload
               </p>
             </div>
@@ -270,13 +270,13 @@ export default function Preferences() {
 
         {/* Display Options */}
         <Card className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Display Options
           </h2>
           <div className="space-y-6">
             {/* Distance Units Preference */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Distance Units
               </label>
               <select
@@ -284,12 +284,12 @@ export default function Preferences() {
                 onChange={(e) =>
                   handleFieldUpdate("distance_ind", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="K">Kilometres (km)</option>
                 <option value="M">Miles (mi)</option>
               </select>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Choose your preferred unit for displaying distances
               </p>
             </div>
@@ -303,16 +303,16 @@ export default function Preferences() {
                 onChange={(e) =>
                   handleUIPrefsUpdate("show_trig_condition", e.target.checked)
                 }
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+                className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-trig-green-600 focus:ring-trig-green-500 dark:bg-gray-700"
               />
               <div>
                 <label
                   htmlFor="showTrigCondition"
-                  className="text-sm font-medium text-gray-700 cursor-pointer"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
                 >
                   Show curated trigpoint condition on log cards
                 </label>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Display a condition icon before the trigpoint ID on log cards,
                   showing the current overall condition of the trigpoint.
                 </p>
@@ -323,17 +323,17 @@ export default function Preferences() {
 
         {/* Trigpoint Page Map Links */}
         <Card className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Trigpoint Page Map Links
           </h2>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
             Choose which mapping service to open when clicking on coordinate
             links on trigpoint pages.
           </p>
           <div className="space-y-6">
             {/* OS Grid Reference Link */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 OS Grid Reference
               </label>
               <select
@@ -347,7 +347,7 @@ export default function Preferences() {
                     e.target.value as MapLinkOption,
                   )
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
               >
                 {MAP_LINK_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -355,7 +355,7 @@ export default function Preferences() {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Opens when you click on the OS grid reference (e.g. TQ 30800
                 79930)
               </p>
@@ -363,7 +363,7 @@ export default function Preferences() {
 
             {/* WGS Coordinates Link */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 WGS Coordinates
               </label>
               <select
@@ -376,7 +376,7 @@ export default function Preferences() {
                     e.target.value as MapLinkOption,
                   )
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
               >
                 {MAP_LINK_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -384,7 +384,7 @@ export default function Preferences() {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Opens when you click on the WGS84 coordinates (e.g. 51.50000,
                 -0.12345)
               </p>
@@ -392,7 +392,7 @@ export default function Preferences() {
 
             {/* Thumbnail Map Link */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Thumbnail Map
               </label>
               <select
@@ -406,7 +406,7 @@ export default function Preferences() {
                     e.target.value as MapLinkOption,
                   )
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
               >
                 {MAP_LINK_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -414,7 +414,7 @@ export default function Preferences() {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Opens when you click on the small thumbnail map image on the
                 trigpoint page
               </p>

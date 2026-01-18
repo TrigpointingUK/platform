@@ -124,7 +124,7 @@ export default function UserProfile() {
         <div className="max-w-6xl mx-auto">
           <div className="py-12 text-center">
             <Spinner size="lg" />
-            <p className="text-gray-600 mt-4">Loading profile...</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-4">Loading profile...</p>
           </div>
         </div>
       </Layout>
@@ -137,7 +137,7 @@ export default function UserProfile() {
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="text-center py-12">
-              <p className="text-red-600 text-lg">
+              <p className="text-red-600 dark:text-red-400 text-lg">
                 {error ? "Failed to load user profile" : "User not found"}
               </p>
             </div>
@@ -181,10 +181,10 @@ export default function UserProfile() {
               {/* Top: Username, Member Since, and Statistics */}
               <div className="flex items-start gap-6 flex-col sm:flex-row mb-6">
                 <div className="flex-shrink-0">
-                  <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                  <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                     {user.name}
                   </h1>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     Member since {memberSince}
                   </p>
                 </div>
@@ -198,7 +198,7 @@ export default function UserProfile() {
                       <div className="text-2xl font-bold text-trig-green-600">
                         {user.stats.total_trigs_logged.toLocaleString()}
                       </div>
-                      <div className="text-sm text-gray-600">Trigs Logged</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Trigs Logged</div>
                     </Link>
                     <Link
                       to={`/logs?user=${displayUserId}`}
@@ -207,7 +207,7 @@ export default function UserProfile() {
                       <div className="text-2xl font-bold text-trig-green-600">
                         {user.stats.total_logs.toLocaleString()}
                       </div>
-                      <div className="text-sm text-gray-600">Total Logs</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Total Logs</div>
                     </Link>
                     <Link
                       to={`/profile/${displayUserId}/photos`}
@@ -216,7 +216,7 @@ export default function UserProfile() {
                       <div className="text-2xl font-bold text-trig-green-600">
                         {user.stats.total_photos.toLocaleString()}
                       </div>
-                      <div className="text-sm text-gray-600">Photos</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Photos</div>
                     </Link>
                   </div>
                 )}
@@ -283,7 +283,7 @@ export default function UserProfile() {
               <img 
                 src={`${apiBase}/v1/users/${displayUserId}/map?height=500`}
                 alt={`${user.name}'s trig map`}
-                className="rounded-lg border border-gray-200 w-full h-auto"
+                className="rounded-lg border border-gray-200 dark:border-gray-600 w-full h-auto"
                 loading="lazy"
               />
               <div className="flex justify-center items-center w-full">
@@ -292,7 +292,7 @@ export default function UserProfile() {
                   alt={`${user.name}'s badge`}
                   width="200"
                   height="50"
-                  className="rounded border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                  className="rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
                   loading="lazy"
                   onClick={handleBadgeClick}
                   title="Click to copy URL"
@@ -305,13 +305,13 @@ export default function UserProfile() {
         {/* Breakdown Section */}
         {user.breakdown && (
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
               Trig Statistics Breakdown
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* By Recent Use */}
               <Card>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
                   Recent Use
                 </h3>
                 <div className="space-y-2">
@@ -319,21 +319,21 @@ export default function UserProfile() {
                     .sort(([, a], [, b]) => b - a)
                     .map(([key, value]) => (
                       <div key={key} className="flex justify-between text-sm">
-                        <span className="text-gray-700">{key}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{key}</span>
                         <span className="font-medium text-trig-green-600">
                           {value}
                         </span>
                       </div>
                     ))}
                   {Object.keys(user.breakdown.by_current_use).length === 0 && (
-                    <p className="text-gray-400 text-sm italic">No data</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-sm italic">No data</p>
                   )}
                 </div>
               </Card>
 
               {/* By Historic Use */}
               <Card>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
                   Historic Use
                 </h3>
                 <div className="space-y-2">
@@ -341,21 +341,21 @@ export default function UserProfile() {
                     .sort(([, a], [, b]) => b - a)
                     .map(([key, value]) => (
                       <div key={key} className="flex justify-between text-sm">
-                        <span className="text-gray-700">{key}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{key}</span>
                         <span className="font-medium text-trig-green-600">
                           {value}
                         </span>
                       </div>
                     ))}
                   {Object.keys(user.breakdown.by_historic_use).length === 0 && (
-                    <p className="text-gray-400 text-sm italic">No data</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-sm italic">No data</p>
                   )}
                 </div>
               </Card>
 
               {/* By Physical Type */}
               <Card>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
                   Physical Type
                 </h3>
                 <div className="space-y-2">
@@ -363,21 +363,21 @@ export default function UserProfile() {
                     .sort(([, a], [, b]) => b - a)
                     .map(([key, value]) => (
                       <div key={key} className="flex justify-between text-sm">
-                        <span className="text-gray-700">{key}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{key}</span>
                         <span className="font-medium text-trig-green-600">
                           {value}
                         </span>
                       </div>
                     ))}
                   {Object.keys(user.breakdown.by_physical_type).length === 0 && (
-                    <p className="text-gray-400 text-sm italic">No data</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-sm italic">No data</p>
                   )}
                 </div>
               </Card>
 
               {/* By Condition */}
               <Card>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
                   Condition
                 </h3>
                 <div className="space-y-2">
@@ -385,14 +385,14 @@ export default function UserProfile() {
                     .sort(([, a], [, b]) => b - a)
                     .map(([key, value]) => (
                       <div key={key} className="flex justify-between text-sm">
-                        <span className="text-gray-700">{key}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{key}</span>
                         <span className="font-medium text-trig-green-600">
                           {value}
                         </span>
                       </div>
                     ))}
                   {Object.keys(user.breakdown.by_condition).length === 0 && (
-                    <p className="text-gray-400 text-sm italic">No data</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-sm italic">No data</p>
                   )}
                 </div>
               </Card>
@@ -404,7 +404,7 @@ export default function UserProfile() {
         <div className="mb-6">
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-800">Recent Logs</h2>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Recent Logs</h2>
               <Link
                 to={`/logs?user=${displayUserId}`}
                 className="text-sm text-trig-green-600 hover:text-trig-green-700 hover:underline"
@@ -424,32 +424,32 @@ export default function UserProfile() {
         {/* Debug Info Section (for own profile only) */}
         {isOwnProfile && user && (
           <Card className="mt-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-3">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
               Account Information
             </h2>
-            <div className="space-y-2 text-sm font-mono bg-gray-50 p-3 rounded">
+            <div className="space-y-2 text-sm font-mono bg-gray-50 dark:bg-gray-700 p-3 rounded">
               <div className="flex justify-between">
-                <span className="text-gray-600">User ID:</span>
-                <span className="font-semibold text-gray-800">{user.id}</span>
+                <span className="text-gray-600 dark:text-gray-400">User ID:</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200">{user.id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Auth0 User ID:</span>
-                <span className="font-semibold text-gray-800 break-all">
+                <span className="text-gray-600 dark:text-gray-400">Auth0 User ID:</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200 break-all">
                   {user.auth0_user_id || "N/A"}
                 </span>
               </div>
               {user.roles && user.roles.length > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Roles:</span>
-                  <span className="font-semibold text-gray-800">
+                  <span className="text-gray-600 dark:text-gray-400">Roles:</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">
                     {user.roles.join(", ")}
                   </span>
                 </div>
               )}
               {tokenScopes.length > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Scopes:</span>
-                  <span className="font-semibold text-gray-800">
+                  <span className="text-gray-600 dark:text-gray-400">Scopes:</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">
                     {tokenScopes.join(", ")}
                   </span>
                 </div>

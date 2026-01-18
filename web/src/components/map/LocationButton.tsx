@@ -83,7 +83,7 @@ export default function LocationButton({
       <button
         onClick={handleLocate}
         disabled={isLocating}
-        className={`bg-white hover:bg-gray-50 p-2 rounded-lg shadow-md transition-colors ${
+        className={`bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg shadow-md dark:shadow-gray-900/50 transition-colors ${
           isLocating ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         title="Center on my location"
@@ -95,7 +95,7 @@ export default function LocationButton({
       </button>
       
       {error && (
-        <div className="absolute top-full mt-2 right-0 bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded text-xs whitespace-nowrap">
+        <div className="absolute top-full mt-2 right-0 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-3 py-2 rounded text-xs whitespace-nowrap">
           {error}
         </div>
       )}

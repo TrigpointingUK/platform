@@ -206,25 +206,25 @@ export function DownloadButton({
           <div
             ref={refs.setFloating}
             style={floatingStyles}
-            className="w-72 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            className="w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-600 z-50"
           >
-            <div className="p-3 border-b border-gray-100">
-              <h3 className="font-medium text-gray-900 mb-1">Download Trigpoints</h3>
-              <p className="text-xs text-gray-500">
+            <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">Download Trigpoints</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Downloads current filtered results
               </p>
             </div>
 
             {/* Include my logs checkbox */}
-            <div className="px-3 py-2 border-b border-gray-100">
+            <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeMyLogs}
                   onChange={(e) => setIncludeMyLogs(e.target.checked)}
-                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 dark:bg-gray-700"
                 />
-                <span className="text-sm text-gray-700">Include my log data</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200">Include my log data</span>
               </label>
             </div>
 
@@ -235,16 +235,16 @@ export function DownloadButton({
                   key={option.value}
                   onClick={() => handleDownload(option.value)}
                   disabled={isLoading}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between group disabled:opacity-50"
+                  className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between group disabled:opacity-50"
                 >
                   <div>
-                    <div className="font-medium text-gray-900 group-hover:text-green-600">
+                    <div className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-green-600">
                       {option.label}
                     </div>
-                    <div className="text-xs text-gray-500">{option.description}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{option.description}</div>
                   </div>
                   <svg
-                    className="w-5 h-5 text-gray-400 group-hover:text-green-600"
+                    className="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:text-green-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -261,8 +261,8 @@ export function DownloadButton({
             </div>
 
             {error && (
-              <div className="px-3 py-2 bg-red-50 border-t border-red-100">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="px-3 py-2 bg-red-50 dark:bg-red-900/30 border-t border-red-100 dark:border-red-800">
+                <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
               </div>
             )}
           </div>

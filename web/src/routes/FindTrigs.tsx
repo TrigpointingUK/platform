@@ -307,22 +307,22 @@ export default function FindTrigs() {
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             Browse Trig Points
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             Search and filter UK triangulation pillars and survey markers
           </p>
         </div>
 
         {/* Fixed filter header */}
-        <div className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-md dark:shadow-gray-900/50 rounded-lg p-4 mb-6 sticky top-16 z-40">
           {/* Toggle button and results summary when collapsed */}
           <div className={`flex items-center gap-3 ${isFilterCollapsed ? "" : "mb-2"}`}>
             <button
               type="button"
               onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
-              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               aria-label={isFilterCollapsed ? "Expand filters" : "Collapse filters"}
               title={isFilterCollapsed ? "Expand filters" : "Collapse filters"}
             >
@@ -336,13 +336,13 @@ export default function FindTrigs() {
               </svg>
             </button>
             {isFilterCollapsed ? (
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 {centerLat && centerLon && locationName && `Near ${locationName}`}
                 {selectedAreaName && ` in ${selectedAreaName}`}
                 {!locationName && !selectedAreaName && "Expand to search"}
               </span>
             ) : (
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Search & Filter
               </span>
             )}
@@ -353,7 +353,7 @@ export default function FindTrigs() {
             {/* Location and map preview row */}
             <div className="flex items-end gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Location
                 </label>
                 <LocationSearch
@@ -383,7 +383,7 @@ export default function FindTrigs() {
             {/* Status filter and distance filter */}
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex-shrink-0">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Trigpoint types
                 </label>
                 <StatusFilter
@@ -406,7 +406,7 @@ export default function FindTrigs() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               {isAuthenticated && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     My logged condition
                   </label>
                   <LoggedConditionFilter
@@ -420,7 +420,7 @@ export default function FindTrigs() {
               
               {/* Area filter - shows available areas for the selected location */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Filter by area
                 </label>
                 <div className="flex items-center gap-2">
@@ -463,7 +463,7 @@ export default function FindTrigs() {
             
             {/* Results count and clear filters */}
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
                 {isLoading || centerLat === null || centerLon === null ? (
                   <span>Loading...</span>
                 ) : (
@@ -477,7 +477,7 @@ export default function FindTrigs() {
               <button
                 type="button"
                 onClick={handleClearFilters}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -491,18 +491,18 @@ export default function FindTrigs() {
         {/* Trigpoint list */}
         <div>
         {error && (
-          <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className="mx-4 mt-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
             Error loading trigpoints: {error.message}
           </div>
         )}
 
         {!isLoading && allTrigs.length === 0 && (
           <div className="mx-4 mt-8 text-center py-12">
-            <div className="text-gray-400 text-5xl mb-4">📍</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <div className="text-gray-400 dark:text-gray-500 text-5xl mb-4">📍</div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
               No trigpoints found
             </h3>
-            <p className="text-gray-500">
+            <p className="text-gray-500 dark:text-gray-400">
               Try adjusting your filters or selecting a different location.
             </p>
           </div>
@@ -511,7 +511,7 @@ export default function FindTrigs() {
         {allTrigs.length > 0 && (
           <>
             {/* Trigpoint cards */}
-            <div className="bg-white mx-4 mt-4 rounded-lg shadow overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 mx-4 mt-4 rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
               {allTrigs.map((trig) => (
                 <TrigCard
                   key={trig.id}
@@ -531,8 +531,8 @@ export default function FindTrigs() {
             {/* Loading indicator for infinite scroll */}
             {isFetchingNextPage && (
               <div className="mx-4 my-6 text-center">
-                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                <p className="mt-2 text-sm text-gray-500">Loading more...</p>
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 dark:border-blue-400"></div>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading more...</p>
               </div>
             )}
           </>
@@ -541,8 +541,8 @@ export default function FindTrigs() {
         {/* Initial loading indicator */}
         {isLoading && (
           <div className="mx-4 my-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-500">Loading trigpoints...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
+            <p className="mt-4 text-gray-500 dark:text-gray-400">Loading trigpoints...</p>
           </div>
         )}
         </div>

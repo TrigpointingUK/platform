@@ -243,7 +243,7 @@ export function DistanceFilter({
       {/* Slider with label and floating value */}
       <div className="w-full max-w-[400px]">
         {/* Label aligned with slider */}
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Filter by distance
         </label>
         
@@ -295,7 +295,7 @@ export function DistanceFilter({
             disabled={disabled}
             className={`
               w-full h-2 rounded-lg appearance-none cursor-pointer
-              bg-gray-200
+              bg-gray-200 dark:bg-gray-600
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:w-4
               [&::-webkit-slider-thumb]:h-4
@@ -327,7 +327,7 @@ export function DistanceFilter({
               return (
                 <div
                   key={detent}
-                  className="absolute w-0.5 h-1.5 bg-gray-400 rounded-full"
+                  className="absolute w-0.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full"
                   style={{
                     left: `calc(${pos}% + ${8 - pos * 0.16}px)`,
                     transform: "translateX(-50%)",

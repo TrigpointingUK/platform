@@ -29,8 +29,8 @@ export function LoggedConditionFilter({
           transition-all duration-200
           ${
             showLogged
-              ? "bg-trig-green-600 shadow-md scale-105 ring-2 ring-white"
-              : "bg-gray-200 hover:bg-gray-300"
+              ? "bg-trig-green-600 shadow-md scale-105 ring-2 ring-white dark:ring-gray-800"
+              : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
           }
           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
         `}
@@ -67,8 +67,8 @@ export function LoggedConditionFilter({
           transition-all duration-200
           ${
             showNotLogged
-              ? "bg-trig-green-600 shadow-md scale-105 ring-2 ring-white"
-              : "bg-gray-200 hover:bg-gray-300"
+              ? "bg-trig-green-600 shadow-md scale-105 ring-2 ring-white dark:ring-gray-800"
+              : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
           }
           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
         `}

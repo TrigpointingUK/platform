@@ -23,14 +23,14 @@ export function CoordinateResultItem({ item }: CoordinateResultItemProps) {
   return (
     <button
       onClick={handleClick}
-      className="w-full block p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors text-left"
+      className="w-full block p-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors text-left"
     >
       <div className="flex items-start gap-3">
         <span className="text-2xl">{icon}</span>
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-gray-900 font-mono">{item.name}</div>
+          <div className="font-medium text-gray-900 dark:text-gray-100 font-mono">{item.name}</div>
           {item.description && (
-            <div className="text-sm text-gray-500 mt-0.5">{item.description}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{item.description}</div>
           )}
         </div>
       </div>

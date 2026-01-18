@@ -91,7 +91,7 @@ export default function UserPhotos() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Failed to load user photos</p>
+            <p className="text-red-600 dark:text-red-400">Failed to load user photos</p>
           </Card>
         </div>
       </Layout>
@@ -109,11 +109,11 @@ export default function UserPhotos() {
           >
             ← Back
           </button>
-          <h1 className="text-3xl font-bold text-gray-800">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
             {user?.name ? `${user.name}'s Photos` : "User Photos"}
           </h1>
           {!isLoading && (
-            <p className="text-gray-600 mt-2">
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
               {totalPhotos.toLocaleString()} total photo
               {totalPhotos !== 1 ? "s" : ""}
             </p>
@@ -124,7 +124,7 @@ export default function UserPhotos() {
         {isLoading && (
           <div className="py-12">
             <Spinner size="lg" />
-            <p className="text-center text-gray-600 mt-4">Loading photos...</p>
+            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading photos...</p>
           </div>
         )}
 
@@ -138,11 +138,11 @@ export default function UserPhotos() {
               {isFetchingNextPage && (
                 <>
                   <Spinner size="md" />
-                  <p className="text-gray-600 mt-4">Loading more photos...</p>
+                  <p className="text-gray-600 dark:text-gray-400 mt-4">Loading more photos...</p>
                 </>
               )}
               {!hasNextPage && allPhotos.length > 0 && (
-                <p className="text-gray-500">
+                <p className="text-gray-500 dark:text-gray-400">
                   All {allPhotos.length.toLocaleString()} photo
                   {allPhotos.length !== 1 ? "s" : ""} loaded
                 </p>
@@ -156,7 +156,7 @@ export default function UserPhotos() {
           <Card>
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📷</div>
-              <p className="text-gray-600 text-lg">No photos found</p>
+              <p className="text-gray-600 dark:text-gray-400 text-lg">No photos found</p>
             </div>
           </Card>
         )}

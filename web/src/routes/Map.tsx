@@ -598,22 +598,22 @@ export default function Map() {
         <div
           className={`${
             isSidebarOpen ? "w-80" : "w-0"
-          } transition-all duration-300 bg-white border-r border-gray-200 overflow-hidden flex-shrink-0`}
+          } transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-hidden flex-shrink-0`}
         >
           <div className="p-4 h-full overflow-y-auto scrollbar-hide">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Map Filters</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Map Filters</h2>
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="lg:hidden p-1 hover:bg-gray-100 rounded"
+                className="lg:hidden p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
               >
-                <X size={20} />
+                <X size={20} className="text-gray-700 dark:text-gray-300" />
               </button>
             </div>
 
             {/* Status filter */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Trigpoint types
               </label>
               <StatusFilter
@@ -624,7 +624,7 @@ export default function Map() {
 
             {/* Color filter */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Marker Colors
               </label>
               <ColorFilter
@@ -653,8 +653,8 @@ export default function Map() {
 
             {/* Render mode selector */}
             <div className="mb-4">
-              <div className="bg-white rounded-lg shadow-md p-3">
-                <label className="block text-xs font-medium text-gray-700 mb-2">
+              <div className="bg-white dark:bg-gray-700 rounded-lg shadow-md dark:shadow-gray-900/50 p-3">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Display Mode
                 </label>
                 <div className="flex gap-1">
@@ -663,7 +663,7 @@ export default function Map() {
                     className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
                       renderMode === "auto"
                         ? "bg-trig-green-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500"
                     }`}
                     title="Auto-switch between markers and heatmap based on count"
                   >
@@ -674,7 +674,7 @@ export default function Map() {
                     className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
                       renderMode === "markers"
                         ? "bg-trig-green-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500"
                     }`}
                     title="Always show individual markers (may be slow for large datasets)"
                   >
@@ -685,7 +685,7 @@ export default function Map() {
                     className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
                       renderMode === "heatmap"
                         ? "bg-trig-green-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500"
                     }`}
                     title="Always show density heatmap"
                   >
@@ -693,14 +693,14 @@ export default function Map() {
                   </button>
                 </div>
                 {renderMode === "auto" && (
-                  <div className="mt-2 text-xs text-gray-600">
+                  <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
                     {shouldShowHeatmap ? (
-                      <span className="text-amber-600">
+                      <span className="text-amber-600 dark:text-amber-400">
                         Showing heatmap ({visibleTrigpoints.length} visible,{" "}
                         {colorFilteredTrigpoints.length} total)
                       </span>
                     ) : (
-                      <span className="text-trig-green-600">
+                      <span className="text-trig-green-600 dark:text-trig-green-400">
                         Showing {visibleTrigpoints.length} markers (
                         {colorFilteredTrigpoints.length} total)
                       </span>
@@ -712,18 +712,18 @@ export default function Map() {
 
             {/* Area boundary info (when viewing an area from /trigs) */}
             {areaBoundary && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-xs font-medium text-blue-600 mb-1">
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
                   Viewing Area Boundary
                 </div>
-                <div className="text-sm font-semibold text-blue-900">
+                <div className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                   {areaBoundary.area_type.name}: {areaBoundary.name}
                 </div>
               </div>
             )}
             {isLoadingBoundary && (
-              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <div className="text-sm text-gray-600">
+              <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   Loading area boundary...
                 </div>
               </div>
@@ -733,34 +733,34 @@ export default function Map() {
             <button
               type="button"
               onClick={handleClearFilters}
-              className="w-full text-sm text-trig-green-700 hover:text-trig-green-900 font-medium py-2 border border-trig-green-700 rounded hover:bg-trig-green-50 transition-colors"
+              className="w-full text-sm text-trig-green-700 dark:text-trig-green-400 hover:text-trig-green-900 dark:hover:text-trig-green-300 font-medium py-2 border border-trig-green-700 dark:border-trig-green-600 rounded hover:bg-trig-green-50 dark:hover:bg-trig-green-900/30 transition-colors"
             >
               Reset map
             </button>
 
             {/* Results count */}
-            <div className="mt-4 text-sm text-gray-600 p-3 bg-gray-50 rounded">
+            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-700 rounded">
               {isLoading ? (
                 <div>
-                  <div className="text-sm font-semibold mb-2">
+                  <div className="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
                     Loading trigpoints...
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-1">
                     <div
                       className="bg-trig-green-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${loadingProgress}%` }}
                     />
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
                     {loadingProgress.toFixed(0)}%
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div className="font-semibold">
+                  <div className="font-semibold text-gray-700 dark:text-gray-200">
                     Showing {colorFilteredTrigpoints.length} trigpoints
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {dataSource === "geojson" ? (
                       <>
                         Comprising:{" "}
@@ -789,7 +789,7 @@ export default function Map() {
                   </div>
                   {iconColorMode === "condition" &&
                     selectedColors.length !== ALL_ICON_COLORS.length && (
-                      <div className="text-xs text-blue-600 mt-1">
+                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                         Filtered by marker colours
                       </div>
                     )}
@@ -854,10 +854,10 @@ export default function Map() {
                 />
                 <Link
                   to={`/trigs?lat=${mapInstance.getCenter().lat.toFixed(5)}&lon=${mapInstance.getCenter().lng.toFixed(5)}&location=Map%20centre`}
-                  className="bg-white hover:bg-gray-50 p-3 rounded-lg shadow-md flex items-center justify-center"
+                  className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 p-3 rounded-lg shadow-md dark:shadow-gray-900/50 flex items-center justify-center"
                   title="List nearest trigpoints"
                 >
-                  <List size={24} className="text-gray-700" />
+                  <List size={24} className="text-gray-700 dark:text-gray-300" />
                 </Link>
               </>
             )}
@@ -867,28 +867,28 @@ export default function Map() {
           {!isSidebarOpen && (
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="absolute top-4 left-20 z-[1000] bg-white hover:bg-gray-50 p-3 rounded-lg shadow-md"
+              className="absolute top-4 left-20 z-[1000] bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 p-3 rounded-lg shadow-md dark:shadow-gray-900/50"
             >
-              <Menu size={24} className="text-gray-700" />
+              <Menu size={24} className="text-gray-700 dark:text-gray-300" />
             </button>
           )}
 
           {/* Loading overlay */}
           {isLoading && (
-            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-6 py-4 rounded-lg shadow-lg min-w-[300px]">
+            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-white dark:bg-gray-800 px-6 py-4 rounded-lg shadow-lg dark:shadow-gray-900/50 min-w-[300px]">
               <div className="flex items-center gap-2 mb-3">
                 <Spinner size="sm" />
-                <span className="text-sm text-gray-700 font-semibold">
+                <span className="text-sm text-gray-700 dark:text-gray-200 font-semibold">
                   Loading trigpoints...
                 </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+              <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-1">
                 <div
                   className="bg-trig-green-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${loadingProgress}%` }}
                 />
               </div>
-              <div className="text-xs text-gray-500 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
                 {loadingProgress.toFixed(0)}%
               </div>
             </div>
@@ -896,7 +896,7 @@ export default function Map() {
 
           {/* Error message */}
           {error && (
-            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg shadow-md max-w-md">
+            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg shadow-md dark:shadow-gray-900/50 max-w-md">
               <p className="text-sm">
                 Failed to load trigpoints: {error.message}
               </p>

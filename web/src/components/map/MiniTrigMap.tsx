@@ -125,17 +125,17 @@ export default function MiniTrigMap({
         draggable={false}
       />
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-800/80">
           <Spinner size="sm" />
         </div>
       )}
       {error && !isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-xs text-center px-2">
+        <div className="absolute inset-0 flex items-center justify-center bg-red-50 dark:bg-red-900/50 text-red-600 dark:text-red-300 text-xs text-center px-2">
           {error}
         </div>
       )}
       {missingCoords && !isLoading && !error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/75 text-gray-600 text-xs px-2 text-center">
+        <div className="absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-gray-800/75 text-gray-600 dark:text-gray-400 text-xs px-2 text-center">
           No coordinates
         </div>
       )}
@@ -146,7 +146,7 @@ export default function MiniTrigMap({
           data-testid="mini-trig-dot"
         />
       )}
-      <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs font-mono text-gray-700 max-w-[calc(100%-1rem)] truncate shadow-sm">
+      <div className="absolute top-2 left-2 bg-white/90 dark:bg-gray-800/90 px-2 py-1 rounded text-xs font-mono text-gray-700 dark:text-gray-200 max-w-[calc(100%-1rem)] truncate shadow-sm">
         {label}
       </div>
     </div>

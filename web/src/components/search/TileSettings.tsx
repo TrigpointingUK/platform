@@ -61,7 +61,7 @@ export function TileSettings({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100"
       >
         <span>⚙️</span>
         <span className="text-sm font-medium">Manage Tiles</span>
@@ -76,9 +76,9 @@ export function TileSettings({
           />
 
           {/* Dropdown Menu */}
-          <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+          <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 z-50">
             <div className="p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
                 Tile Visibility
               </h3>
 
@@ -87,30 +87,30 @@ export function TileSettings({
                 {Object.entries(TILE_LABELS).map(([key, { label, icon }]) => (
                   <label
                     key={key}
-                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
                   >
                     <input
                       type="checkbox"
                       checked={visibility[key as keyof TileVisibility]}
                       onChange={() => toggleTile(key as keyof TileVisibility)}
-                      className="rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+                      className="rounded border-gray-300 dark:border-gray-600 text-trig-green-600 focus:ring-trig-green-500 dark:bg-gray-700"
                     />
                     <span className="text-lg">{icon}</span>
-                    <span className="text-sm text-gray-700">{label}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
                   </label>
                 ))}
               </div>
 
               {/* Show Empty Tiles Toggle */}
-              <div className="border-t border-gray-200 pt-3 mb-3">
-                <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mb-3">
+                <label className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
                   <input
                     type="checkbox"
                     checked={showEmptyTiles}
                     onChange={onToggleShowEmpty}
-                    className="rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-trig-green-600 focus:ring-trig-green-500 dark:bg-gray-700"
                   />
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
                     Show tiles with no results
                   </span>
                 </label>
@@ -119,7 +119,7 @@ export function TileSettings({
               {/* Reset Button */}
               <button
                 onClick={resetToDefault}
-                className="w-full px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                className="w-full px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
               >
                 Reset to Defaults
               </button>

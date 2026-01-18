@@ -35,9 +35,9 @@ export default function IconColorModeSelector({
   const currentLegend = ICON_LEGENDS[value];
   
   return (
-    <div className={`bg-white rounded-lg shadow-md p-3 ${className}`}>
+    <div className={`bg-white dark:bg-gray-700 rounded-lg shadow-md dark:shadow-gray-900/50 p-3 ${className}`}>
       <div className="mb-2">
-        <label className="block text-xs font-medium text-gray-700 mb-2">
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
           Icon Colors
         </label>
         
@@ -47,7 +47,7 @@ export default function IconColorModeSelector({
             className={`${isAuthenticated ? 'flex-1' : 'w-full'} px-3 py-1.5 text-sm rounded transition-colors ${
               value === 'condition'
                 ? 'bg-trig-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500'
             }`}
           >
             Condition
@@ -58,7 +58,7 @@ export default function IconColorModeSelector({
               className={`flex-1 px-3 py-1.5 text-sm rounded transition-colors ${
                 value === 'userLog'
                   ? 'bg-trig-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500'
               }`}
             >
               My Logs
@@ -68,10 +68,10 @@ export default function IconColorModeSelector({
       </div>
       
       {showLegend && (
-        <div className="border-t border-gray-200 pt-2">
+        <div className="border-t border-gray-200 dark:border-gray-600 pt-2">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full text-left text-xs font-medium text-gray-600 hover:text-gray-800 flex items-center justify-between"
+            className="w-full text-left text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center justify-between"
           >
             <span>Legend</span>
             <span className="text-lg">{isExpanded ? '▼' : '▶'}</span>
@@ -82,7 +82,7 @@ export default function IconColorModeSelector({
               {currentLegend.map((item) => (
                 <div key={item.color} className="flex items-center gap-2 text-xs">
                   <div
-                    className="w-3 h-3 rounded-full border border-gray-300"
+                    className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-500"
                     style={{
                       backgroundColor:
                         item.color === 'green' ? '#22c55e' :
@@ -91,7 +91,7 @@ export default function IconColorModeSelector({
                         '#6b7280',
                     }}
                   />
-                  <span className="text-gray-700">{item.label}</span>
+                  <span className="text-gray-700 dark:text-gray-300">{item.label}</span>
                 </div>
               ))}
             </div>

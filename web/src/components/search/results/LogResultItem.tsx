@@ -50,7 +50,7 @@ export function LogResultItem({ item }: LogResultItemProps) {
 
   return (
     <Card
-      className="hover:shadow-lg transition-shadow cursor-pointer"
+      className="hover:shadow-lg dark:hover:shadow-gray-900/70 transition-shadow cursor-pointer"
       onClick={handleCardClick}
     >
       <div className="flex flex-col gap-3">
@@ -65,14 +65,14 @@ export function LogResultItem({ item }: LogResultItemProps) {
               {formattedTrigId}
               {item.trig_name && (
                 <>
-                  <span className="text-gray-400 mx-2">·</span>
-                  <span className="font-normal text-gray-700">
+                  <span className="text-gray-400 dark:text-gray-500 mx-2">·</span>
+                  <span className="font-normal text-gray-700 dark:text-gray-300">
                     {item.trig_name}
                   </span>
                 </>
               )}
             </Link>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <span>
                 by{" "}
                 {item.user_name ? (
@@ -93,7 +93,7 @@ export function LogResultItem({ item }: LogResultItemProps) {
                   </Link>
                 )}
               </span>
-              <span className="text-gray-400">·</span>
+              <span className="text-gray-400 dark:text-gray-500">·</span>
               {/* Condition Icon */}
               <img 
                 src={`/icons/conditions/${conditionInfo.icon}`}
@@ -106,10 +106,10 @@ export function LogResultItem({ item }: LogResultItemProps) {
                 size="sm"
                 title={`${item.score}/10`}
               />
-              <span className="text-gray-400">·</span>
-              <span className="text-gray-700">{formattedDate}</span>
+              <span className="text-gray-400 dark:text-gray-500">·</span>
+              <span className="text-gray-700 dark:text-gray-300">{formattedDate}</span>
               {item.time && item.time !== "12:00:00" && (
-                <span className="text-gray-500 text-xs">{item.time}</span>
+                <span className="text-gray-500 dark:text-gray-400 text-xs">{item.time}</span>
               )}
             </div>
           </div>
@@ -118,7 +118,7 @@ export function LogResultItem({ item }: LogResultItemProps) {
         {/* Comment with highlighting */}
         {item.comment && (
           <div className="flex-[2] min-w-0">
-            <p className="text-gray-700 text-sm leading-relaxed">
+            <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
               {highlightText(item.comment, query)}
             </p>
           </div>

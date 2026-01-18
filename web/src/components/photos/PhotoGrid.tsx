@@ -13,7 +13,7 @@ export default function PhotoGrid({ photos, onPhotoClick, onPhotoRotated }: Phot
 
   if (!photos || photos.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         <p>No photos found</p>
       </div>
     );

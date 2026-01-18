@@ -70,11 +70,11 @@ export function AreaFilter({
           inline-flex items-center justify-between gap-2
           px-4 py-2 min-w-[200px] max-w-[400px]
           text-left text-sm
-          border border-gray-300 rounded-lg
+          border border-gray-300 dark:border-gray-600 rounded-lg
           transition-colors
           ${disabled || !hasAreas
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-white hover:bg-gray-50 cursor-pointer"
+            ? "bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+            : "bg-white dark:bg-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
           }
           ${isOpen ? "ring-2 ring-blue-500 border-transparent" : ""}
         `}
@@ -93,7 +93,7 @@ export function AreaFilter({
           )}
         </span>
         <svg
-          className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform flex-shrink-0 ${isOpen ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -107,7 +107,7 @@ export function AreaFilter({
         <button
           type="button"
           onClick={handleClear}
-          className="ml-2 px-2 py-2 text-gray-500 hover:text-gray-700 transition-colors"
+          className="ml-2 px-2 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           title="Clear area filter"
           aria-label="Clear area filter"
         >
@@ -118,7 +118,7 @@ export function AreaFilter({
       {/* Dropdown */}
       {isOpen && hasAreas && (
         <div
-          className="absolute z-50 w-96 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+          className="absolute z-50 w-96 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg dark:shadow-gray-900/50 max-h-96 overflow-y-auto"
           role="listbox"
         >
           {/* Clear option */}
@@ -126,7 +126,7 @@ export function AreaFilter({
             <button
               type="button"
               onClick={handleClear}
-              className="w-full px-4 py-2 text-left text-sm text-gray-500 hover:bg-gray-100 border-b border-gray-200"
+              className="w-full px-4 py-2 text-left text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700"
             >
               Clear selection
             </button>
@@ -140,9 +140,9 @@ export function AreaFilter({
               onClick={() => handleSelectArea(area)}
               className={`
                 w-full px-4 py-2 text-left text-sm
-                hover:bg-blue-50 transition-colors
-                border-b border-gray-100 last:border-b-0
-                ${selectedAreaId === area.id ? "bg-blue-100 text-blue-700" : "text-gray-700"}
+                hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors
+                border-b border-gray-100 dark:border-gray-700 last:border-b-0
+                ${selectedAreaId === area.id ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-200"}
               `}
               role="option"
               aria-selected={selectedAreaId === area.id}

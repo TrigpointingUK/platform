@@ -155,3 +155,35 @@ html, body, #root {
   transition: opacity 0.2s;
 }
 
+/* Dark mode styles for Leaflet zoom controls */
+.dark .leaflet-control-zoom a {
+  background-color: #1f2937;
+  color: #f3f4f6;
+  border-color: #374151;
+}
+
+.dark .leaflet-control-zoom a:hover {
+  background-color: #374151;
+  color: #ffffff;
+}
+
+.dark .leaflet-control-zoom a.leaflet-disabled {
+  background-color: #374151;
+  color: #6b7280;
+}
+
+.dark .leaflet-control-zoom-in,
+.dark .leaflet-control-zoom-out {
+  border-bottom-color: #374151;
+}
+
+/* Dark mode for Leaflet attribution */
+.dark .leaflet-control-attribution {
+  background-color: rgba(31, 41, 55, 0.8);
+  color: #d1d5db;
+}
+
+.dark .leaflet-control-attribution a {
+  color: #60a5fa;
+}
+

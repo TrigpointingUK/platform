@@ -255,7 +255,7 @@ export default function TrigDetail() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <div>
-                  <span className="font-semibold text-gray-700">
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
                     Grid reference{trig.grid_system === 'ie' ? ' (Irish)' : ''}:
                   </span>{" "}
                   {isInternalMapLink(mapLinkGridref) ? (
@@ -287,7 +287,7 @@ export default function TrigDetail() {
                 </div>
 
                 <div>
-                  <span className="font-semibold text-gray-700">
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
                     WGS coordinates:
                   </span>{" "}
                   {isInternalMapLink(mapLinkWgs) ? (
@@ -320,7 +320,7 @@ export default function TrigDetail() {
 
                 {trig.details?.osgb_height != null && (
                   <div>
-                    <span className="font-semibold text-gray-700">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
                       Height above sea level:
                     </span>{" "}
                     {trig.details.osgb_height}m
@@ -329,7 +329,7 @@ export default function TrigDetail() {
 
                 {trig.details && trig.details.postcode && (
                   <div>
-                    <span className="font-semibold text-gray-700">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
                       Postcode:
                     </span>{" "}
                     <a
@@ -344,7 +344,7 @@ export default function TrigDetail() {
                 )}
 
                 <div>
-                  <span className="font-semibold text-gray-700">Type:</span>{" "}
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">Type:</span>{" "}
                   {shouldHaveWikiLink(trig.physical_type) ? (
                     <a
                       href={getWikiUrl(trig.physical_type)}
@@ -360,7 +360,7 @@ export default function TrigDetail() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-700">
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
                     Condition:
                   </span>
                   <Badge variant={condition.variant}>
@@ -377,7 +377,7 @@ export default function TrigDetail() {
                   <>
                     {trig.details.fb_number && (
                       <div>
-                        <span className="font-semibold text-gray-700">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">
                           Flush Bracket:
                         </span>{" "}
                         {trig.details.fb_number}
@@ -386,7 +386,7 @@ export default function TrigDetail() {
 
                     {trig.details.stn_number_active && trig.details.stn_number_active.trim() !== "" && (
                       <div>
-                        <span className="font-semibold text-gray-700">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">
                           Active Station:
                         </span>{" "}
                         {trig.details.stn_number_active}
@@ -395,7 +395,7 @@ export default function TrigDetail() {
 
                     {trig.details.stn_number_passive && trig.details.stn_number_passive.trim() !== "" && (
                       <div>
-                        <span className="font-semibold text-gray-700">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">
                           Passive Station:
                         </span>{" "}
                         <a
@@ -411,7 +411,7 @@ export default function TrigDetail() {
 
                     {trig.details.stn_number_osgb36 && trig.details.stn_number_osgb36.trim() !== "" && (
                       <div>
-                        <span className="font-semibold text-gray-700">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">
                           OSGB36 Station:
                         </span>{" "}
                         {trig.details.stn_number_osgb36}
@@ -419,7 +419,7 @@ export default function TrigDetail() {
                     )}
 
                     <div>
-                      <span className="font-semibold text-gray-700">
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
                         Recent use:
                       </span>{" "}
                       {shouldHaveWikiLink(trig.details.current_use) ? (
@@ -437,7 +437,7 @@ export default function TrigDetail() {
                     </div>
 
                     <div>
-                      <span className="font-semibold text-gray-700">
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
                         Historic use:
                       </span>{" "}
                       {shouldHaveWikiLink(trig.details.historic_use) ? (
@@ -455,14 +455,14 @@ export default function TrigDetail() {
                     </div>
 
                     <div>
-                      <span className="font-semibold text-gray-700">
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
                         County:
                       </span>{" "}
                       {trig.details.county}
                     </div>
 
                     <div>
-                      <span className="font-semibold text-gray-700">
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
                         Nearest town:
                       </span>{" "}
                       {trig.details.town}
@@ -604,19 +604,19 @@ export default function TrigDetail() {
 
           {trig.attrs && trig.attrs.length > 0 ? (
             <Card>
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              <h2 className="text-xl font-semibold text-trig-green-600 mb-4">
                 Official Data
               </h2>
               <OfficialDataSection attrs={trig.attrs} />
             </Card>
           ) : (
-            <Card className="bg-gray-50 border-2 border-dashed border-gray-300">
+            <Card className="bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600">
               <div className="text-center py-12">
                 <div className="text-4xl mb-3">📋</div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
                   Official Data
                 </h3>
-                <p className="text-gray-500">No official data available</p>
+                <p className="text-gray-500 dark:text-gray-400">No official data available</p>
               </div>
             </Card>
           )}
@@ -625,19 +625,19 @@ export default function TrigDetail() {
         {/* Stats Section */}
         {trig.stats && (
           <Card className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className="text-2xl font-bold text-trig-green-600 mb-4">
               Statistics
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Total Logs</div>
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Logs</div>
                 <div className="text-2xl font-bold text-trig-green-600">
                   {trig.stats.logged_count}
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Found Count</div>
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Found Count</div>
                 <div className="text-2xl font-bold text-trig-green-600">
                   {trig.stats.found_count}
                 </div>
@@ -645,24 +645,24 @@ export default function TrigDetail() {
 
               <Link
                 to={`/trigs/${trigIdNum}/photos`}
-                className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors block"
+                className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors block"
               >
-                <div className="text-sm text-gray-600 mb-1">Photos</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Photos</div>
                 <div className="text-2xl font-bold text-trig-green-600">
                   {trig.stats.photo_count}
                 </div>
               </Link>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Mean Score</div>
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Mean Score</div>
                 <div className="text-2xl font-bold text-trig-green-600">
                   {parseFloat(trig.stats.score_mean).toFixed(2)}/10
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">First Logged</div>
-                <div className="text-lg font-semibold text-gray-700">
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">First Logged</div>
+                <div className="text-lg font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200">
                   {trig.stats.logged_first
                     ? new Date(trig.stats.logged_first).toLocaleDateString(
                         "en-GB",
@@ -676,9 +676,9 @@ export default function TrigDetail() {
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Last Logged</div>
-                <div className="text-lg font-semibold text-gray-700">
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Last Logged</div>
+                <div className="text-lg font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200">
                   {trig.stats.logged_last
                     ? new Date(trig.stats.logged_last).toLocaleDateString(
                         "en-GB",
@@ -692,9 +692,9 @@ export default function TrigDetail() {
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Last Found</div>
-                <div className="text-lg font-semibold text-gray-700">
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Last Found</div>
+                <div className="text-lg font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200">
                   {trig.stats.found_last
                     ? new Date(trig.stats.found_last).toLocaleDateString(
                         "en-GB",
@@ -708,11 +708,11 @@ export default function TrigDetail() {
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                   Bayesian Score
                 </div>
-                <div className="text-lg font-semibold text-gray-700">
+                <div className="text-lg font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200">
                   {parseFloat(trig.stats.score_baysian).toFixed(2)}
                 </div>
               </div>
@@ -793,7 +793,7 @@ export default function TrigDetail() {
         {/* Your Visits Section - only shown when user is logged in and has logs */}
         {isAuthenticated && userLogs && userLogs.length > 0 && (
           <Card className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className="text-2xl font-bold text-trig-green-600 mb-4">
               Your Visits
             </h2>
             <LogList
@@ -808,7 +808,7 @@ export default function TrigDetail() {
 
         {/* Logged Visits Section */}
         <Card>
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          <h2 className="text-2xl font-bold text-trig-green-600 mb-4">
             Logged Visits
           </h2>
 

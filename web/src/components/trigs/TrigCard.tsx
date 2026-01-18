@@ -118,7 +118,7 @@ export function TrigCard({
   return (
     <Link
       to={`/trigs/${trig.id}`}
-      className="block border-b border-gray-200 py-3 px-4 hover:bg-gray-50 transition-colors"
+      className="block border-b border-gray-200 dark:border-gray-700 py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
     >
       <div className="flex items-center justify-between gap-3">
         {/* Left side: Main info */}
@@ -150,7 +150,7 @@ export function TrigCard({
             />
             
             {/* Name */}
-            <h3 className="font-medium text-gray-900 truncate">
+            <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
               {trig.name}
             </h3>
             
@@ -166,14 +166,14 @@ export function TrigCard({
           </div>
           
           {/* Grid reference, waypoint & physical type */}
-          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
+          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600 dark:text-gray-400">
             <span className="font-mono">{trig.osgb_gridref}</span>
-            <span className="text-gray-400">•</span>
+            <span className="text-gray-400 dark:text-gray-500">•</span>
             <span>{trig.waypoint}</span>
             {trig.physical_type && (
               <>
-                <span className="text-gray-400">•</span>
-                <span className="text-gray-500 text-xs">{trig.physical_type}</span>
+                <span className="text-gray-400 dark:text-gray-500">•</span>
+                <span className="text-gray-500 dark:text-gray-400 text-xs">{trig.physical_type}</span>
               </>
             )}
           </div>
@@ -184,7 +184,7 @@ export function TrigCard({
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Direction arrow */}
             {bearing !== null && (
-              <div className="text-gray-600" title={`Bearing: ${bearing.toFixed(0)}°`}>
+              <div className="text-gray-600 dark:text-gray-400" title={`Bearing: ${bearing.toFixed(0)}°`}>
                 <svg 
                   width="20" 
                   height="20" 
@@ -203,10 +203,10 @@ export function TrigCard({
             
             {/* Distance */}
             <div className="text-right">
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {displayDistance.toFixed(1)}
               </div>
-              <div className="text-xs text-gray-500">{distanceLabel}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{distanceLabel}</div>
             </div>
           </div>
         )}
