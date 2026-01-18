@@ -32,6 +32,16 @@ const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
   OTHER: 60,
 };
 
+// Forward mapping: status ID to group code
+const STATUS_ID_TO_GROUP_CODE: Record<number, string> = {
+  10: "PILLAR",
+  20: "FBM",
+  30: "SURVEY_MARK",
+  40: "INTERSECTED",
+  50: "ACTIVE",
+  60: "OTHER",
+};
+
 // Format date as YYYY-MM-DD in local timezone (not UTC)
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -340,9 +350,11 @@ export default function Logs() {
     lat: centerLat ?? undefined,
     lon: centerLon ?? undefined,
     maxKm: maxKm ?? undefined,
-    statusIds:
+    groupCodes:
       selectedStatuses.length !== ALL_STATUSES.length
         ? selectedStatuses
+            .map((s) => STATUS_ID_TO_GROUP_CODE[s])
+            .filter((code): code is string => code !== undefined)
         : undefined,
     areaId: selectedAreaId ?? undefined,
     userId,

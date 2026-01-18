@@ -2,7 +2,7 @@
 Tests for user logs filtering functionality.
 
 Tests the filtering parameters added to the /v1/users/{user_id}/logs endpoint:
-- status_ids: Filter by trigpoint status
+- groups: Filter by trigpoint type group codes
 - lat/lon/max_km: Filter by distance from a location
 - from_date/to_date: Filter by date range
 - area_id: Filter by area
@@ -37,39 +37,23 @@ class TestUserLogsFilteringEndpointParams:
         assert "pagination" in body
         assert "links" in body
 
-    def test_list_user_logs_with_status_ids_param(
-        self, client: TestClient, db: Session
-    ):
-        """Test that status_ids parameter is accepted."""
+    def test_list_user_logs_with_groups_param(self, client: TestClient, db: Session):
+        """Test that groups parameter is accepted."""
         user_id = _get_test_user_id(db)
-        resp = client.get(f"{settings.API_V1_STR}/users/{user_id}/logs?status_ids=10")
+        resp = client.get(f"{settings.API_V1_STR}/users/{user_id}/logs?groups=PILLAR")
         assert resp.status_code == 200
         body = resp.json()
         assert "items" in body
 
-    def test_list_user_logs_with_multiple_status_ids(
-        self, client: TestClient, db: Session
-    ):
-        """Test that multiple status_ids are accepted."""
+    def test_list_user_logs_with_multiple_groups(self, client: TestClient, db: Session):
+        """Test that multiple groups are accepted."""
         user_id = _get_test_user_id(db)
         resp = client.get(
-            f"{settings.API_V1_STR}/users/{user_id}/logs?status_ids=10,20,30"
+            f"{settings.API_V1_STR}/users/{user_id}/logs?groups=PILLAR,FBM,SURVEY_MARK"
         )
         assert resp.status_code == 200
         body = resp.json()
         assert "items" in body
-
-    def test_list_user_logs_with_invalid_status_ids(
-        self, client: TestClient, db: Session
-    ):
-        """Test filtering with invalid status_ids format returns 400."""
-        user_id = _get_test_user_id(db)
-        resp = client.get(
-            f"{settings.API_V1_STR}/users/{user_id}/logs?status_ids=invalid"
-        )
-        assert resp.status_code == 400
-        body = resp.json()
-        assert "Invalid status_ids format" in body["detail"]
 
     def test_list_user_logs_with_location_params(self, client: TestClient, db: Session):
         """Test that lat/lon/max_km parameters are accepted."""
@@ -84,12 +68,12 @@ class TestUserLogsFilteringEndpointParams:
     def test_list_user_logs_with_combined_filter_params(
         self, client: TestClient, db: Session
     ):
-        """Test that status_ids and location parameters can be combined."""
+        """Test that groups and location parameters can be combined."""
         user_id = _get_test_user_id(db)
         resp = client.get(
             f"{settings.API_V1_STR}/users/{user_id}/logs"
             "?lat=52.0&lon=-1.5&max_km=100"
-            "&status_ids=10,20"
+            "&groups=PILLAR,FBM"
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -140,7 +124,7 @@ class TestUserLogsFilteringEndpointParams:
         resp = client.get(
             f"{settings.API_V1_STR}/users/{user_id}/logs"
             "?lat=52.0&lon=-1.5&max_km=100"
-            "&status_ids=10,20,30"
+            "&groups=PILLAR,FBM,SURVEY_MARK"
             "&from_date=2024-01-01&to_date=2024-12-31"
         )
         assert resp.status_code == 200
@@ -151,17 +135,15 @@ class TestUserLogsFilteringEndpointParams:
 class TestUserLogsFilteringLinks:
     """Tests for pagination links with filter parameters."""
 
-    def test_list_user_logs_links_include_status_ids(
-        self, client: TestClient, db: Session
-    ):
-        """Test that pagination links include status_ids parameter."""
+    def test_list_user_logs_links_include_groups(self, client: TestClient, db: Session):
+        """Test that pagination links include groups parameter."""
         user_id = _get_test_user_id(db)
         resp = client.get(
-            f"{settings.API_V1_STR}/users/{user_id}/logs?status_ids=10&limit=1"
+            f"{settings.API_V1_STR}/users/{user_id}/logs?groups=PILLAR&limit=1"
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert "status_ids=10" in body["links"]["self"]
+        assert "groups=PILLAR" in body["links"]["self"]
 
     def test_list_user_logs_links_include_location_params(
         self, client: TestClient, db: Session
@@ -215,7 +197,7 @@ class TestUserLogsFilteringLinks:
         resp = client.get(
             f"{settings.API_V1_STR}/users/{user_id}/logs"
             "?lat=52.0&lon=-1.5&max_km=50"
-            "&status_ids=10,20"
+            "&groups=PILLAR,FBM"
             "&from_date=2024-01-01&to_date=2024-12-31"
             "&limit=1"
         )
@@ -225,6 +207,6 @@ class TestUserLogsFilteringLinks:
         assert "lat=52.0" in links_self
         assert "lon=-1.5" in links_self
         assert "max_km=50" in links_self
-        assert "status_ids=10,20" in links_self or "status_ids=10%2C20" in links_self
+        assert "groups=PILLAR,FBM" in links_self or "groups=PILLAR%2CFBM" in links_self
         assert "from_date=2024-01-01" in links_self
         assert "to_date=2024-12-31" in links_self

@@ -47,7 +47,7 @@ export interface UseInfiniteLogsOptions {
   lat?: number;
   lon?: number;
   maxKm?: number;
-  statusIds?: number[];
+  groupCodes?: string[];
   areaId?: number;
   userId?: number;
   showLogged?: boolean; // Show logs for trigpoints logged by user (default: true)
@@ -61,7 +61,7 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
     lat,
     lon,
     maxKm,
-    statusIds,
+    groupCodes,
     areaId,
     userId,
     showLogged = true,
@@ -75,7 +75,7 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
     lat !== undefined ||
     lon !== undefined ||
     maxKm !== undefined ||
-    (statusIds !== undefined && statusIds.length > 0) ||
+    (groupCodes !== undefined && groupCodes.length > 0) ||
     areaId !== undefined ||
     userId !== undefined ||
     !showLogged ||
@@ -90,7 +90,7 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       lat,
       lon,
       maxKm,
-      statusIds,
+      groupCodes,
       areaId,
       userId,
       showLogged,
@@ -115,8 +115,8 @@ export function useInfiniteLogs(options: UseInfiniteLogsOptions = {}) {
       if (maxKm !== undefined) {
         params.append("max_km", maxKm.toString());
       }
-      if (statusIds && statusIds.length > 0) {
-        params.append("status_ids", statusIds.join(","));
+      if (groupCodes && groupCodes.length > 0) {
+        params.append("groups", groupCodes.join(","));
       }
       if (areaId !== undefined) {
         params.append("area_id", areaId.toString());

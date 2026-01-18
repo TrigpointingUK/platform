@@ -281,29 +281,6 @@ class TestPostgisCountWithMaxKm:
 class TestPostgisCombinedFilters:
     """Tests for combining PostGIS with other filters."""
 
-    def test_distance_combined_with_status(
-        self, db: Session, seed_trigs_with_locations
-    ):
-        """Distance filtering works with status_id filter."""
-        skip_if_sqlite(db)
-        data = seed_trigs_with_locations
-
-        # All our trigs have status_id=10
-        result = list_trigs_filtered(
-            db,
-            center_lat=data["center_lat"],
-            center_lon=data["center_lon"],
-            max_km=150.0,
-            status_ids=[10],
-            limit=100,
-        )
-
-        seeded_ids = [t.id for t in data["trigs"]]
-        our_trigs = [t for t in result if t.id in seeded_ids]
-
-        # Should include our seeded trigs (Close, Medium, Far)
-        assert len(our_trigs) >= 3
-
     def test_distance_combined_with_name(self, db: Session, seed_trigs_with_locations):
         """Distance filtering works with name filter."""
         skip_if_sqlite(db)

@@ -185,8 +185,9 @@ def list_logs(
     max_km: Optional[float] = Query(
         None, description="Maximum distance from centre in kilometres"
     ),
-    status_ids: Optional[str] = Query(
-        None, description="Comma-separated list of trigpoint status IDs to filter by"
+    groups: Optional[str] = Query(
+        None,
+        description="Comma-separated group codes to filter by (e.g., 'PILLAR,FBM')",
     ),
     area_id: Optional[int] = Query(
         None, description="Filter to logs for trigpoints within a specific area"
@@ -208,18 +209,10 @@ def list_logs(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    # Parse status_ids from comma-separated string
-    parsed_status_ids: Optional[List[int]] = None
-    if status_ids:
-        try:
-            parsed_status_ids = [
-                int(s.strip()) for s in status_ids.split(",") if s.strip()
-            ]
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid status_ids format. Must be comma-separated integers.",
-            )
+    # Parse groups from comma-separated string
+    parsed_groups: Optional[List[str]] = None
+    if groups:
+        parsed_groups = [g.strip().upper() for g in groups.split(",") if g.strip()]
 
     # Mutually exclusive filters
     if only_found and exclude_found:
@@ -247,7 +240,7 @@ def list_logs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        status_ids=parsed_status_ids,
+        group_codes=parsed_groups,
         area_id=area_id,
         from_date=from_date,
         to_date=to_date,
@@ -261,7 +254,7 @@ def list_logs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        status_ids=parsed_status_ids,
+        group_codes=parsed_groups,
         area_id=area_id,
         from_date=from_date,
         to_date=to_date,
@@ -351,8 +344,8 @@ def list_logs(
         params.append(f"lon={lon}")
     if max_km is not None:
         params.append(f"max_km={max_km}")
-    if status_ids:
-        params.append(f"status_ids={status_ids}")
+    if groups:
+        params.append(f"groups={groups}")
     if area_id is not None:
         params.append(f"area_id={area_id}")
     if from_date is not None:
