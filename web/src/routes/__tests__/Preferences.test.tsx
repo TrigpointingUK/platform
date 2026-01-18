@@ -25,7 +25,6 @@ const mockUserProfile = {
   id: 1,
   name: 'Test User',
   prefs: {
-    status_max: 30,
     distance_ind: 'K',
     public_ind: 'Y',
     ui_prefs: {

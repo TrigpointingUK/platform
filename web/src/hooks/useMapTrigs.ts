@@ -122,7 +122,7 @@ export function useMapTrigs({
           params.append("limit", batchSize.toString());
           params.append("skip", skip.toString());
           
-          // Apply filters (backend auto-applies status_max for authenticated users)
+          // Apply filters
           if (excludeFound) {
             params.append("exclude_found", "true");
           }
@@ -173,7 +173,7 @@ export function useMapTrigs({
         const batchSize = 500;
         const numBatches = 2; // Fetch up to 1000 markers
         
-        // Note: status filter is applied on backend (auto status_max for authenticated users)
+        // Note: status filter is applied on backend
         const fetchPromises = Array.from({ length: numBatches }, (_, i) => {
           const skip = i * batchSize;
           const params = new URLSearchParams();

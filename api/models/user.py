@@ -56,9 +56,6 @@ class User(Base):
     about = Column(
         Text, nullable=True, default=""
     )  # Nullable for PostgreSQL compatibility
-    status_max = Column(
-        Integer, nullable=True, default=0
-    )  # Nullable for PostgreSQL compatibility
 
     # License preferences
     public_ind = Column(

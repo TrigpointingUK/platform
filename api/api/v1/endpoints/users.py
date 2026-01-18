@@ -379,7 +379,6 @@ def get_current_user_profile(
         if "prefs" in tokens:
             # Always allowed on /me
             result.prefs = UserPrefs(
-                status_max=int(current_user.status_max),
                 distance_ind=str(current_user.distance_ind),
                 public_ind=str(current_user.public_ind),
                 email=str(current_user.email),
@@ -447,7 +446,6 @@ def update_current_user_profile(
         user_response.member_since = current_user.crt_date  # type: ignore
         result = UserWithIncludes(**user_response.model_dump())
         result.prefs = UserPrefs(
-            status_max=int(current_user.status_max),
             distance_ind=str(current_user.distance_ind),
             public_ind=str(current_user.public_ind),
             email=str(current_user.email),
@@ -611,7 +609,6 @@ def update_current_user_profile(
 
     # Always include prefs in PATCH response since they might have been updated
     result.prefs = UserPrefs(
-        status_max=int(current_user.status_max),
         distance_ind=str(current_user.distance_ind),
         public_ind=str(current_user.public_ind),
         email=str(current_user.email),

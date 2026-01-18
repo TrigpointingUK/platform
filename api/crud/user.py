@@ -514,7 +514,6 @@ def create_user(db: Session, username: str, email: str, auth0_user_id: str) -> U
         homepage="",
         distance_ind="K",  # Default: kilometres
         about="",
-        status_max=0,
         crt_date=current_date,
         crt_time=current_time,
     )

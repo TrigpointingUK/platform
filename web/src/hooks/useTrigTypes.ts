@@ -42,7 +42,6 @@ export function useTrigTypeGroups() {
 
 /**
  * Get group codes that should be selected based on a max sort_order threshold.
- * This mirrors the legacy status_max behaviour.
  */
 export function getGroupCodesUpToSortOrder(
   groups: TrigTypeGroup[],

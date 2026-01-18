@@ -214,7 +214,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
 
             if "prefs" in tokens:
                 result.prefs = UserPrefs(
-                    status_max=int(user.status_max),
                     distance_ind=str(user.distance_ind),
                     public_ind=str(user.public_ind),
                     email=str(user.email),
@@ -435,7 +434,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
 
         if "prefs" in tokens:
             result.prefs = UserPrefs(
-                status_max=int(user.status_max),
                 distance_ind=str(user.distance_ind),
                 public_ind=str(user.public_ind),
                 email=str(user.email),

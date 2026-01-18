@@ -34,7 +34,6 @@ interface UIPrefs {
 }
 
 interface UserPrefs {
-  status_max: number;
   distance_ind: string;
   public_ind: string;
   online_map_type: string;

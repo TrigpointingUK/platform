@@ -152,9 +152,8 @@ export default function Map() {
   const { data: loggedTrigsMap } = useUserLoggedTrigs();
 
   // Derive preferred statuses from user preferences
-  // Uses default_groups (list of group codes) if available, otherwise falls back to status_max
+  // Uses default_groups (list of group codes) from ui_prefs
   const preferredStatuses = useMemo(() => {
-    // First check for new default_groups preference
     const defaultGroups = userProfile?.prefs?.ui_prefs?.default_groups;
     if (defaultGroups && defaultGroups.length > 0) {
       return defaultGroups
@@ -162,10 +161,8 @@ export default function Map() {
         .filter((id: number | undefined): id is number => id !== undefined);
     }
     
-    // Fall back to legacy status_max for users who haven't set default_groups
-    // Default is 20 (PILLAR + FBM only) for guests and users without preferences
-    const userStatusMax = userProfile?.prefs?.status_max ?? 20;
-    return ALL_STATUSES.filter((status) => status <= userStatusMax);
+    // Default is PILLAR + FBM only for guests and users without preferences
+    return [10, 20]; // PILLAR, FBM
   }, [userProfile]);
 
   // Data source mode: always use geojson (now includes all status levels)

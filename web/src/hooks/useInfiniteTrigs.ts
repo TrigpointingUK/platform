@@ -112,7 +112,7 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         params.append("area_id", areaId.toString());
       }
       
-      // Use authenticated fetch if logged in for status_max and log filters
+      // Use authenticated fetch if logged in for log filters
       const url = `${API_BASE}/v1/trigs?${params.toString()}`;
       const response = isAuthenticated
         ? await authenticatedFetch(url, {}, getAccessTokenSilently)

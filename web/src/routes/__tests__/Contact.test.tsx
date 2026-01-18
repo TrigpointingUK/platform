@@ -153,7 +153,6 @@ describe('Contact', () => {
         prefs: {
           email: 'test@example.com',
           email_valid: 'Y',
-          status_max: 0,
           distance_ind: 'M',
           public_ind: 'Y',
           online_map_type: 'standard',

@@ -64,9 +64,8 @@ export default function FindTrigs() {
   );
   
   // Compute preferred statuses from user profile
-  // Uses default_groups (list of group codes) if available, otherwise falls back to status_max
+  // Uses default_groups (list of group codes) from ui_prefs
   const preferredStatuses = useMemo(() => {
-    // First check for new default_groups preference
     const defaultGroups = userProfile?.prefs?.ui_prefs?.default_groups;
     if (defaultGroups && defaultGroups.length > 0) {
       return defaultGroups
@@ -74,11 +73,9 @@ export default function FindTrigs() {
         .filter((id: number | undefined): id is number => id !== undefined);
     }
     
-    // Fall back to legacy status_max for users who haven't set default_groups
-    // Default is 20 (PILLAR + FBM only) for guests and users without preferences
-    const userStatusMax = userProfile?.prefs?.status_max || 20;
-    return ALL_STATUSES.filter(s => s <= userStatusMax);
-  }, [userProfile?.prefs?.ui_prefs?.default_groups, userProfile?.prefs?.status_max]);
+    // Default is PILLAR + FBM only for guests and users without preferences
+    return [10, 20]; // PILLAR, FBM
+  }, [userProfile?.prefs?.ui_prefs?.default_groups]);
   
   const [selectedStatuses, setSelectedStatuses] = useState<number[]>(
     () => {

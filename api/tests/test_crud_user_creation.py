@@ -152,7 +152,6 @@ def test_create_user_default_values(db: Session):
     assert user.distance_ind == "K"  # Kilometres by default
     assert user.homepage == ""
     assert user.about == ""
-    assert user.status_max == 0
 
 
 def test_create_user_can_be_retrieved(db: Session):
