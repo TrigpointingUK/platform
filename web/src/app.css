@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Configure dark mode to use class-based detection instead of media query */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer theme {
   :root {
     /* Trig green palette */
