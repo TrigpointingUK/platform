@@ -5,7 +5,9 @@ Uses PostGIS spatial functions for containment queries.
 
 from typing import Any, Optional
 
+from geoalchemy2 import Geometry
 from geoalchemy2.functions import ST_AsGeoJSON, ST_Covers, ST_MakePoint, ST_SetSRID
+from sqlalchemy import cast
 from sqlalchemy.orm import Session
 
 from api.models.area import Area, AreaType
@@ -45,11 +47,19 @@ def get_areas_containing_point(
     point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
     # Query areas where the boundary covers the point
-    # Cast boundary to geometry for ST_Covers comparison
+    # Cast Geography to Geometry for efficient spatial index usage.
+    # Geography type uses expensive spheroidal calculations; Geometry
+    # uses planar calculations which are much faster and the GIST index
+    # works more efficiently. This matches the materialized view approach.
     query = (
         db.query(Area)
         .join(AreaType, Area.area_type_id == AreaType.id)
-        .filter(ST_Covers(Area.boundary, point))
+        .filter(
+            ST_Covers(
+                cast(Area.boundary, Geometry),
+                cast(point, Geometry),
+            )
+        )
         .order_by(AreaType.name, Area.name)
     )
 
