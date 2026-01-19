@@ -39,25 +39,25 @@ export default function LegacyMigration() {
       <Layout>
         <title>Account Migration | TrigpointingUK</title>
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
             Legacy Account Migration
           </h1>
           <Card>
-            <div className="bg-green-50 border border-green-200 rounded-lg px-6 py-5">
+            <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg px-6 py-5">
               <div className="flex items-start gap-3">
                 <div className="text-3xl">🎉</div>
                 <div className="flex-1">
-                  <h2 className="text-xl font-bold text-green-800 mb-2">
+                  <h2 className="text-xl font-bold text-green-800 dark:text-green-300 mb-2">
                     Congratulations {username}!
                   </h2>
-                  <p className="text-green-700 mb-3">
+                  <p className="text-green-700 dark:text-green-400 mb-3">
                     Your account has been migrated to the new login system.
                   </p>
-                  <p className="text-green-700">
+                  <p className="text-green-700 dark:text-green-400">
                     Please{" "}
                     <a
                       href="/contact"
-                      className="text-trig-green-600 hover:text-trig-green-700 hover:underline font-medium"
+                      className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline font-medium"
                     >
                       contact us
                     </a>{" "}
@@ -164,29 +164,29 @@ export default function LegacyMigration() {
     <Layout>
       <title>Account Migration | TrigpointingUK</title>
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
           Legacy Account Migration
         </h1>
 
         {/* Explanatory Text */}
         <Card className="mb-6">
-          <div className="prose prose-sm max-w-none">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4">
-              <p className="text-gray-700 mb-2">
+          <div className="prose prose-sm max-w-none dark:prose-invert">
+            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3 mb-4">
+              <p className="text-gray-700 dark:text-gray-300 mb-2">
                 <strong>Important:</strong> This page does not log you into the TrigpointingUK website. 
                 Instead, it is a migration tool for users who previously registered without an email address 
                 but remember their username and password.
               </p>
-              <p className="text-gray-700">
+              <p className="text-gray-700 dark:text-gray-300">
                 By providing your username, password, and email address, you can migrate your log history 
                 to the new login system, which authenticates users by email address and password.
               </p>
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-              <p className="text-gray-700">
+            <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
+              <p className="text-gray-700 dark:text-gray-300">
                 <strong>Note:</strong> If you have already provided an email address with your account, 
                 you do not need to use this page. Instead, you can {" "}
-                <Link to="https://trigpointing.uk/auth0/login.php" className="text-trig-green-600 hover:text-trig-green-700 hover:underline">
+                <Link to="https://trigpointing.uk/auth0/login.php" className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline">
                   login
                 </Link>
                 {" "} using the link on the TrigpointingUK homepage, follwing the "Can't log in to your account?" link if you need a password reset.
@@ -197,7 +197,7 @@ export default function LegacyMigration() {
 
         {/* Migration Form */}
         <Card>
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
             Migration Form
           </h2>
           
@@ -206,7 +206,7 @@ export default function LegacyMigration() {
             <div>
               <label
                 htmlFor="username"
-                className="block text-sm font-semibold text-gray-700 mb-1"
+                className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1"
               >
                 Username <span className="text-red-600">*</span>
               </label>
@@ -218,7 +218,7 @@ export default function LegacyMigration() {
                 onChange={handleChange}
                 required
                 maxLength={30}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
                 placeholder="Enter your username"
                 disabled={isSubmitting}
               />
@@ -228,7 +228,7 @@ export default function LegacyMigration() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-semibold text-gray-700 mb-1"
+                className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1"
               >
                 Password <span className="text-red-600">*</span>
               </label>
@@ -239,7 +239,7 @@ export default function LegacyMigration() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
                 placeholder="Enter your password"
                 disabled={isSubmitting}
               />
@@ -249,7 +249,7 @@ export default function LegacyMigration() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-semibold text-gray-700 mb-1"
+                className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1"
               >
                 Email Address <span className="text-red-600">*</span>
               </label>
@@ -261,11 +261,11 @@ export default function LegacyMigration() {
                 onChange={handleChange}
                 required
                 maxLength={255}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
                 placeholder="Enter your email address"
                 disabled={isSubmitting}
               />
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 This email will be used for your new account login.
               </p>
             </div>
@@ -293,30 +293,30 @@ export default function LegacyMigration() {
           {result && (
             <div className={`mt-6 p-4 rounded-lg border ${
               result.success
-                ? "bg-green-50 border-green-200"
-                : "bg-red-50 border-red-200"
+                ? "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800"
+                : "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800"
             }`}>
               <div className={`font-semibold mb-2 ${
-                result.success ? "text-green-800" : "text-red-800"
+                result.success ? "text-green-800 dark:text-green-300" : "text-red-800 dark:text-red-300"
               }`}>
                 {result.success ? "✓ Migration Successful" : "✗ Migration Failed"}
               </div>
               <p className={`text-sm ${
-                result.success ? "text-green-700" : "text-red-700"
+                result.success ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"
               }`}>
                 {result.message}
               </p>
               {result.success && result.username && (
-                <div className="mt-3 pt-3 border-t border-green-200">
-                  <p className="text-sm text-green-700">
+                <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-800">
+                  <p className="text-sm text-green-700 dark:text-green-400">
                     <strong>Username:</strong> {result.username}
                   </p>
                   {result.email && (
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-green-700 dark:text-green-400">
                       <strong>Email:</strong> {result.email}
                     </p>
                   )}
-                  <p className="text-sm text-green-700 mt-2">
+                  <p className="text-sm text-green-700 dark:text-green-400 mt-2">
                     You can now log in using your email address and password at the{" "}
                     <Link to="/" className="underline font-medium">
                       login page
