@@ -198,7 +198,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
 
       {/* Upload Form */}
       {showUploadForm && selectedFile && (
-        <div className="border border-trig-green-600 dark:border-trig-green-700 bg-trig-green-100 dark:bg-trig-green-950 rounded-lg p-4 space-y-3">
+        <div className="border border-trig-green-600 dark:border-trig-green-800 bg-trig-green-50 dark:bg-[#051510] rounded-lg p-4 space-y-3">
           <div className="flex items-start justify-between">
             <h4 className="font-semibold text-gray-800 dark:text-gray-100">Upload New Photo</h4>
             <button
