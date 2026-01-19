@@ -13,7 +13,7 @@ import { useUserProfile } from "../hooks/useUserProfile";
 function WelcomeSection() {
   return (
     <Card className="mb-6">
-      <h1 className="text-4xl font-bold text-trig-green-600 mb-4">
+      <h1 className="text-4xl font-bold text-trig-green-600 dark:text-trig-green-400 mb-4">
         Welcome to TrigpointingUK
       </h1>
       <p className="text-lg text-gray-700 dark:text-gray-300 mb-4">

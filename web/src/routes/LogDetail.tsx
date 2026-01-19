@@ -158,7 +158,7 @@ export default function LogDetail() {
         <div className="max-w-7xl mx-auto">
           <Card>
             <Spinner size="lg" />
-            <p className="text-center text-gray-600 mt-4">Loading log...</p>
+            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading log...</p>
           </Card>
         </div>
       </Layout>
@@ -190,7 +190,7 @@ export default function LogDetail() {
         <div className="max-w-7xl mx-auto">
           <Card>
             <Spinner size="lg" />
-            <p className="text-center text-gray-600 mt-4">Loading trigpoint data...</p>
+            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading trigpoint data...</p>
           </Card>
         </div>
       </Layout>
@@ -235,8 +235,8 @@ export default function LogDetail() {
             {showDeleteConfirm && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <Card className="max-w-md mx-4">
-                  <h3 className="text-lg font-semibold mb-4">Delete Log?</h3>
-                  <p className="text-gray-600 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Delete Log?</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
                     Are you sure you want to delete this log? This action cannot be undone.
                     All photos associated with this log will also be removed.
                   </p>
@@ -283,8 +283,8 @@ export default function LogDetail() {
         {duplicateLogId && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <Card className="max-w-md mx-4">
-              <h3 className="text-lg font-semibold mb-4">Log Already Exists</h3>
-              <p className="text-gray-700 mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Log Already Exists</h3>
+              <p className="text-gray-700 dark:text-gray-300 mb-6">
                 You already have a log for this trigpoint on the selected date.
                 Would you like to view your existing log instead?
               </p>
