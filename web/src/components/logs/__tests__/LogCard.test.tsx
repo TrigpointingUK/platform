@@ -187,5 +187,33 @@ describe('LogCard', () => {
     expect(trigLink).toBeInTheDocument();
     expect(userLink).toBeInTheDocument();
   });
+
+  it('should hide trig info when showTrigInfo is false', () => {
+    renderWithRouter(<LogCard log={mockLog} showTrigInfo={false} />);
+    
+    // Trig ID should not be rendered
+    expect(screen.queryByText('TP12345')).not.toBeInTheDocument();
+    
+    // Trig link should not exist
+    const links = screen.getAllByRole('link');
+    const trigLink = links.find(link => link.getAttribute('href') === '/trigs/12345');
+    expect(trigLink).toBeUndefined();
+    
+    // User link should still exist
+    const userLink = links.find(link => link.getAttribute('href') === '/profile/100');
+    expect(userLink).toBeInTheDocument();
+  });
+
+  it('should show trig info by default', () => {
+    renderWithRouter(<LogCard log={mockLog} />);
+    
+    // Trig ID should be rendered
+    expect(screen.getByText('TP12345')).toBeInTheDocument();
+    
+    // Trig link should exist
+    const links = screen.getAllByRole('link');
+    const trigLink = links.find(link => link.getAttribute('href') === '/trigs/12345');
+    expect(trigLink).toBeInTheDocument();
+  });
 });
 

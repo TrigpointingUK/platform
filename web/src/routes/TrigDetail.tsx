@@ -802,6 +802,7 @@ export default function TrigDetail() {
               emptyMessage="You haven't logged this trig yet"
               currentUserId={currentUser?.id}
               showTrigCondition={showTrigCondition}
+              showTrigInfo={false}
             />
           </Card>
         )}
@@ -824,6 +825,7 @@ export default function TrigDetail() {
                 emptyMessage="No logged visits yet"
                 currentUserId={currentUser?.id}
                 showTrigCondition={showTrigCondition}
+                showTrigInfo={false}
               />
 
               {/* Load More Trigger */}
