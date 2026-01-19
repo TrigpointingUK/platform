@@ -543,13 +543,24 @@ export default function TrigEdit() {
               placeholder="Enter legal or access information (optional)..."
             />
             {legalMessage && (
-              <button
-                type="button"
-                onClick={() => setLegalMessage("")}
-                className="mt-2 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-              >
-                Clear message
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setLegalMessage("")}
+                  className="mt-2 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  Clear message
+                </button>
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
+                  <div className="bg-red-50 dark:bg-red-900/30 rounded-lg shadow-md p-4">
+                    <div 
+                      className="prose prose-sm max-w-none dark:prose-invert"
+                      dangerouslySetInnerHTML={{ __html: legalMessage }}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </Card>
 
