@@ -268,7 +268,6 @@ def test_update_no_auth0_id_skips_sync(db: Session, mock_auth0_token):
         homepage="",
         distance_ind="K",
         about="",
-        status_max=0,
         crt_date=date.today(),
         crt_time=time(),
         upd_timestamp=datetime.now(),

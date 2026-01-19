@@ -22,6 +22,8 @@ def _make_mock_trig(
     osgb_gridref: str = "TQ 30000 80000",
     county: str = "Greater London",
     fb_number: str = "S1234",
+    group_code: str = "PILLAR",
+    group_name: str = "Pillar",
 ) -> MagicMock:
     """Create a mock Trig object for testing."""
     mock_trig = MagicMock()
@@ -37,6 +39,17 @@ def _make_mock_trig(
     mock_trig.osgb_gridref = osgb_gridref
     mock_trig.county = county
     mock_trig.fb_number = fb_number
+
+    # Mock trig_type and group relationships
+    mock_group = MagicMock()
+    mock_group.code = group_code
+    mock_group.name = group_name
+
+    mock_type = MagicMock()
+    mock_type.group = mock_group
+
+    mock_trig.trig_type = mock_type
+
     return mock_trig
 
 
@@ -159,8 +172,14 @@ class TestTrigsToGpx:
 
 class TestTrigsToKmz:
     def test_kmz_is_zip_with_doc_kml(self):
-        trig = _make_mock_trig(id=7177, waypoint="TP7177", name="Cat and Fiddle")
-        kmz = trigs_to_kmz([trig], status_names={1: "Pillar"})
+        trig = _make_mock_trig(
+            id=7177,
+            waypoint="TP7177",
+            name="Cat and Fiddle",
+            group_code="PILLAR",
+            group_name="Pillar",
+        )
+        kmz = trigs_to_kmz([trig])
 
         with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
             assert "doc.kml" in zf.namelist()
@@ -168,8 +187,14 @@ class TestTrigsToKmz:
             assert "<name>TrigpointingUK</name>" in kml
 
     def test_kmz_embeds_icons_and_references_stylemap(self):
-        trig = _make_mock_trig(id=1, physical_type="Pillar", condition="G")
-        kmz = trigs_to_kmz([trig], status_names={1: "Pillar"})
+        trig = _make_mock_trig(
+            id=1,
+            physical_type="Pillar",
+            condition="G",
+            group_code="PILLAR",
+            group_name="Pillar",
+        )
+        kmz = trigs_to_kmz([trig])
 
         with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
             names = set(zf.namelist())
@@ -181,10 +206,16 @@ class TestTrigsToKmz:
             assert "icons/mapicon_pillar_green_h.png" in kml
 
     def test_kmz_colour_mapping_mylog_vs_condition(self):
-        trig = _make_mock_trig(id=1, physical_type="Pillar", condition="P")
+        trig = _make_mock_trig(
+            id=1,
+            physical_type="Pillar",
+            condition="P",
+            group_code="PILLAR",
+            group_name="Pillar",
+        )
 
         # Condition mode: P => grey
-        kmz = trigs_to_kmz([trig], status_names={1: "Pillar"}, user_logs=None)
+        kmz = trigs_to_kmz([trig], user_logs=None)
         with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
             kml = zf.read("doc.kml").decode("utf-8")
             assert "#sm_pillar_grey" in kml
@@ -192,7 +223,6 @@ class TestTrigsToKmz:
         # My log mode: logged P => red
         kmz2 = trigs_to_kmz(
             [trig],
-            status_names={1: "Pillar"},
             user_logs={1: {"date": "2024-01-01", "condition": "P"}},
         )
         with zipfile.ZipFile(io.BytesIO(kmz2)) as zf:
@@ -200,10 +230,15 @@ class TestTrigsToKmz:
             assert "#sm_pillar_red" in kml2
 
     def test_kmz_blank_logged_condition_is_green(self):
-        trig = _make_mock_trig(id=1, physical_type="Pillar", condition="U")
+        trig = _make_mock_trig(
+            id=1,
+            physical_type="Pillar",
+            condition="U",
+            group_code="PILLAR",
+            group_name="Pillar",
+        )
         kmz = trigs_to_kmz(
             [trig],
-            status_names={1: "Pillar"},
             user_logs={1: {"date": "2024-01-01", "condition": ""}},
         )
         with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
@@ -211,8 +246,14 @@ class TestTrigsToKmz:
             assert "#sm_pillar_green" in kml
 
     def test_kmz_bolt_is_passive_icon_family(self):
-        trig = _make_mock_trig(id=1, physical_type="Bolt", condition="G")
-        kmz = trigs_to_kmz([trig], status_names={1: "Minor mark"})
+        trig = _make_mock_trig(
+            id=1,
+            physical_type="Bolt",
+            condition="G",
+            group_code="SURVEY_MARK",
+            group_name="Survey mark",
+        )
+        kmz = trigs_to_kmz([trig])
         with zipfile.ZipFile(io.BytesIO(kmz)) as zf:
             names = set(zf.namelist())
             assert "icons/mapicon_passive_green.png" in names

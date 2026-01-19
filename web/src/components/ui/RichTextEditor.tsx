@@ -366,8 +366,9 @@ export default function RichTextEditor({
     content: value,
     editorProps: {
       attributes: {
+        // Force light mode styling for editor content (WYSIWYG - matches output display)
         class:
-          "prose prose-sm max-w-none p-3 min-h-[100px] focus:outline-none",
+          "prose prose-sm max-w-none p-3 min-h-[100px] focus:outline-none text-gray-900",
       },
     },
     onUpdate: ({ editor }) => {
@@ -395,7 +396,7 @@ export default function RichTextEditor({
 
   return (
     <div
-      className={`border border-gray-300 rounded-md bg-white ${className}`}
+      className={`relative border border-gray-300 rounded-md bg-white ${className}`}
     >
       <MenuBar editor={editor} />
       <EditorContent editor={editor} />

@@ -13,11 +13,11 @@ export default function AppDetail() {
           <h1 className="text-3xl font-bold text-trig-green-600 mb-4">
             Trig Point Details
           </h1>
-          <p className="text-gray-700">
+          <p className="text-gray-700 dark:text-gray-300">
             This is your friendly /app/ page, giving you full details of trig point{" "}
             <strong>#{id}</strong>
           </p>
-          <p className="text-sm text-gray-500 mt-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
             Note: Full trig point detail page coming soon!
           </p>
         </Card>

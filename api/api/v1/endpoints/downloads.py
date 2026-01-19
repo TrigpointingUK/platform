@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 from api.api.deps import get_current_user, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
 from api.core.logging import get_logger
-from api.crud import status as status_crud
 from api.crud import tphoto as tphoto_crud
 from api.crud import trig as trig_crud
 from api.models.server import Server
@@ -58,12 +57,6 @@ def _get_client_ip(request: Request) -> str:
 MAX_IMMEDIATE_TRIGS = 50000
 
 
-def _get_status_names_map(db: Session) -> dict[int, str]:
-    """Get a mapping of status_id to status name."""
-    statuses = status_crud.get_all_statuses(db)
-    return {int(s.id): str(s.name).strip() for s in statuses}
-
-
 def _get_user_logs_map(db: Session, user_id: int) -> dict[int, dict]:
     """
     Get a mapping of trig_id to user's log data for quick lookup.
@@ -102,8 +95,9 @@ def download_trigs(
         "csv", description="Output format (csv, geojson, kml, kmz, gpx)"
     ),
     # Filters (reusing existing list_trigs patterns)
-    status_ids: Optional[str] = Query(
-        None, description="Comma-separated status IDs (e.g., '10,20,30')"
+    groups: Optional[str] = Query(
+        None,
+        description="Comma-separated group codes to filter by (e.g., 'PILLAR,FBM')",
     ),
     area_id: Optional[int] = Query(
         None, description="Filter to trigpoints within the specified area"
@@ -166,18 +160,10 @@ def download_trigs(
         )
         raise HTTPException(status_code=429, detail=error_message)
 
-    # Parse status IDs
-    status_ids_list: Optional[list[int]] = None
-    if status_ids:
-        try:
-            status_ids_list = [
-                int(s.strip()) for s in status_ids.split(",") if s.strip()
-            ]
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid status_ids format. Use comma-separated integers.",
-            )
+    # Parse groups from comma-separated string
+    parsed_groups: Optional[list[str]] = None
+    if groups:
+        parsed_groups = [g.strip().upper() for g in groups.split(",") if g.strip()]
 
     # Mutually exclusive filters
     if only_found and exclude_found:
@@ -196,7 +182,7 @@ def download_trigs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        status_ids=status_ids_list,
+        group_codes=parsed_groups,
         exclude_found_by_user_id=user_id if exclude_found else None,
         only_found_by_user_id=user_id if only_found else None,
         exclude_soft_deleted=True,
@@ -209,9 +195,6 @@ def download_trigs(
         f"Download request: format={format}, count={count}, user={user_id or 'anonymous'}"
     )
 
-    # Get status names for all formats
-    status_names = _get_status_names_map(db)
-
     # Get user logs if requested
     user_logs: Optional[dict[int, dict]] = None
     if include_my_logs and user_id:
@@ -222,29 +205,29 @@ def download_trigs(
     content: str | bytes
 
     if format == "csv":
-        content = trigs_to_csv(trigs, status_names, user_logs)
+        content = trigs_to_csv(trigs, user_logs)
         filename = f"trigpoints_{timestamp}.csv"
         media_type = "text/csv"
 
     elif format == "geojson":
         import json
 
-        content = json.dumps(trigs_to_geojson(trigs, status_names, user_logs), indent=2)
+        content = json.dumps(trigs_to_geojson(trigs, user_logs), indent=2)
         filename = f"trigpoints_{timestamp}.geojson"
         media_type = "application/geo+json"
 
     elif format == "kml":
-        content = trigs_to_kml(trigs, status_names, user_logs)
+        content = trigs_to_kml(trigs, user_logs)
         filename = f"trigpoints_{timestamp}.kml"
         media_type = "application/vnd.google-earth.kml+xml"
 
     elif format == "gpx":
-        content = trigs_to_gpx(trigs, status_names, user_logs)
+        content = trigs_to_gpx(trigs, user_logs)
         filename = f"trigpoints_{timestamp}.gpx"
         media_type = "application/gpx+xml"
 
     elif format == "kmz":
-        content = trigs_to_kmz(trigs, status_names, user_logs)
+        content = trigs_to_kmz(trigs, user_logs)
         filename = f"trigpoints_{timestamp}.kmz"
         media_type = "application/vnd.google-earth.kmz"
 
@@ -270,8 +253,9 @@ def download_trigs(
     openapi_extra=openapi_lifecycle("beta", note="Preview count before download"),
 )
 def download_trigs_count(
-    status_ids: Optional[str] = Query(
-        None, description="Comma-separated status IDs (e.g., '10,20,30')"
+    groups: Optional[str] = Query(
+        None,
+        description="Comma-separated group codes to filter by (e.g., 'PILLAR,FBM')",
     ),
     area_id: Optional[int] = Query(
         None, description="Filter to trigpoints within the specified area"
@@ -302,18 +286,10 @@ def download_trigs_count(
 
     Use this endpoint to preview the size of a download before requesting it.
     """
-    # Parse status IDs
-    status_ids_list: Optional[list[int]] = None
-    if status_ids:
-        try:
-            status_ids_list = [
-                int(s.strip()) for s in status_ids.split(",") if s.strip()
-            ]
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid status_ids format. Use comma-separated integers.",
-            )
+    # Parse groups from comma-separated string
+    parsed_groups: Optional[list[str]] = None
+    if groups:
+        parsed_groups = [g.strip().upper() for g in groups.split(",") if g.strip()]
 
     user_id = int(current_user.id)
 
@@ -330,7 +306,7 @@ def download_trigs_count(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        status_ids=status_ids_list,
+        group_codes=parsed_groups,
         exclude_found_by_user_id=user_id if exclude_found else None,
         only_found_by_user_id=user_id if only_found else None,
         exclude_soft_deleted=True,

@@ -105,8 +105,8 @@ function DateRangePicker({
   }, [value]);
 
   const navButtonClass = cx(
-    "inline-flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 bg-white text-gray-700",
-    "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-trig-green-500",
+    "inline-flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200",
+    "hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-trig-green-500",
     "disabled:opacity-50 disabled:cursor-not-allowed"
   );
 
@@ -118,15 +118,15 @@ function DateRangePicker({
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
         className={cx(
-          "flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-xs transition-colors",
-          "hover:bg-gray-50",
+          "flex h-10 w-full items-center justify-between rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 shadow-xs transition-colors",
+          "hover:bg-gray-50 dark:hover:bg-gray-600",
           "focus:outline-none focus:ring-2 focus:ring-trig-green-500 focus:border-trig-green-500",
           disabled && "cursor-not-allowed opacity-50"
         )}
       >
         <div className="flex items-center gap-2">
-          <CalendarIcon className="h-5 w-5 text-gray-400" />
-          <span className={cx(!displayValue && "text-gray-400")}>
+          <CalendarIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+          <span className={cx(!displayValue && "text-gray-400 dark:text-gray-500")}>
             {displayValue || placeholder}
           </span>
         </div>
@@ -135,17 +135,17 @@ function DateRangePicker({
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute top-full right-0 z-50 mt-2 w-max rounded-lg border border-gray-200 bg-white p-4 shadow-lg"
+          className="absolute top-full right-0 z-50 mt-2 w-max rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-lg dark:shadow-gray-900/50"
         >
           <div className="flex gap-4">
             {presets && presets.length > 0 && (
-              <div className="flex flex-col gap-1 border-r border-gray-200 pr-4">
+              <div className="flex flex-col gap-1 border-r border-gray-200 dark:border-gray-700 pr-4">
                 {presets.map((preset, index) => (
                   <button
                     key={index}
                     type="button"
                     onClick={() => handlePresetClick(preset)}
-                    className="whitespace-nowrap rounded px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                    className="whitespace-nowrap rounded px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
                   >
                     {preset.label}
                   </button>
@@ -173,7 +173,7 @@ function DateRangePicker({
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                 </div>
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   {format(month, "MMMM yyyy")}
                 </span>
                 <div className="flex items-center gap-1">
@@ -214,22 +214,22 @@ function DateRangePicker({
                   caption_label: "hidden",
                   month_grid: "w-full border-collapse",
                   weekdays: "flex",
-                  weekday: "text-gray-500 w-10 font-medium text-xs text-center",
+                  weekday: "text-gray-500 dark:text-gray-400 w-10 font-medium text-xs text-center",
                   weeks: "flex flex-col",
                   week: "flex w-full mt-1",
                   day: cx(
-                    "relative p-0 text-center text-sm",
+                    "relative p-0 text-center text-sm text-gray-900 dark:text-gray-100",
                     "focus-within:relative focus-within:z-20"
                   ),
                   day_button: cx(
                     "h-10 w-10 p-0 font-normal rounded-md transition-colors cursor-pointer",
-                    "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+                    "hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
                   ),
                   selected: "bg-trig-green-600 text-white hover:bg-trig-green-500 focus:bg-trig-green-600",
-                  today: "bg-gray-100 font-semibold",
-                  outside: "text-gray-300 opacity-50",
-                  disabled: "text-gray-300 opacity-50 cursor-not-allowed hover:bg-transparent",
-                  range_middle: "bg-trig-green-50 text-gray-900 rounded-none",
+                  today: "bg-gray-100 dark:bg-gray-700 font-semibold",
+                  outside: "text-gray-300 dark:text-gray-600 opacity-50",
+                  disabled: "text-gray-300 dark:text-gray-600 opacity-50 cursor-not-allowed hover:bg-transparent",
+                  range_middle: "bg-trig-green-50 dark:bg-trig-green-900/30 text-gray-900 dark:text-gray-100 rounded-none",
                   range_start: "bg-trig-green-600 text-white rounded-l-full",
                   range_end: "bg-trig-green-600 text-white rounded-r-full",
                   hidden: "invisible",
@@ -237,11 +237,11 @@ function DateRangePicker({
               />
 
               {/* Action buttons */}
-              <div className="flex items-center justify-end gap-2 border-t border-gray-200 pt-4">
+              <div className="flex items-center justify-end gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-xs transition-colors hover:bg-gray-50"
+                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-xs transition-colors hover:bg-gray-50 dark:hover:bg-gray-600"
                 >
                   Clear
                 </button>

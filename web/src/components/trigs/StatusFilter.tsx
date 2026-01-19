@@ -5,8 +5,8 @@ interface StatusFilterProps {
 }
 
 // Trigpoint type groups with icons
-// Maps legacy status IDs to the new type group system
-// sort_order values: PILLAR=10, FBM=20, MINOR_MARK=30, INTERSECTED=40, USER_ADDED=50, CONTROVERSIAL=60
+// Maps to trig_type_group table: code and name from database
+// sort_order values: PILLAR=10, FBM=20, SURVEY_MARK=30, INTERSECTED=40, ACTIVE=50, OTHER=60
 const STATUS_LEVELS = [
   {
     id: 10,
@@ -18,14 +18,14 @@ const STATUS_LEVELS = [
   {
     id: 20,
     code: "FBM",
-    name: "Major mark",
+    name: "FBM",
     icon: "/icons/t_fbm.png",
     color: "bg-green-600",
   },
   {
     id: 30,
-    code: "MINOR_MARK",
-    name: "Minor mark",
+    code: "SURVEY_MARK",
+    name: "Survey mark",
     icon: "/icons/t_passive.png",
     color: "bg-yellow-600",
   },
@@ -38,16 +38,16 @@ const STATUS_LEVELS = [
   },
   {
     id: 50,
-    code: "USER_ADDED",
-    name: "User added",
-    icon: "/icons/t_user_added.svg",
+    code: "ACTIVE",
+    name: "Active station",
+    icon: "/icons/t_active.png",
     color: "bg-red-600",
   },
   {
     id: 60,
-    code: "CONTROVERSIAL",
-    name: "Controversial",
-    icon: "/icons/t_controversial.svg",
+    code: "OTHER",
+    name: "Other",
+    icon: "/icons/t_other.svg",
     color: "bg-gray-600",
   },
 ];
@@ -76,8 +76,8 @@ export function StatusFilter({
               transition-all duration-200
               ${
                 isSelected
-                  ? "bg-trig-green-600 shadow-md scale-105 ring-2 ring-white"
-                  : "bg-gray-200 hover:bg-gray-300"
+                  ? "bg-trig-green-600 shadow-md scale-105 ring-2 ring-white dark:ring-gray-800"
+                  : "bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500"
               }
               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
             `}

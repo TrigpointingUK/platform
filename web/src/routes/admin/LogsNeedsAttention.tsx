@@ -94,11 +94,11 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
       entry.time && entry.time !== "12:00:00" ? entry.time : null;
 
     return (
-      <div key={entry.id} className="rounded-md border border-gray-200">
+      <div key={entry.id} className="rounded-md border border-gray-200 dark:border-gray-600">
         <div className="flex items-start justify-between gap-4 p-3">
           <div className="flex-1 min-w-0">
             <Link to={`/logs/${entry.id}`} className="block">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <span className="font-semibold">Log #{entry.id}</span>
                 <span className="text-gray-400">·</span>
                 <img
@@ -119,8 +119,8 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
 
             {entry.comment && (
               <Link to={`/logs/${entry.id}`} className="block mt-2">
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-4">
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4">
                     {entry.comment}
                   </p>
                 </div>
@@ -143,7 +143,7 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
               </Button>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Are you sure?</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Are you sure?</span>
                 <Button
                   onClick={(e) => {
                     e?.preventDefault();
@@ -187,7 +187,7 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
     <Card className="hover:shadow-lg transition-shadow">
       {/* Issue Type Banner */}
       <div className={`-mx-4 -mt-4 px-4 py-2 mb-3 rounded-t-md ${
-        isOrphaned ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
+        isOrphaned ? "bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300" : "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"
       }`}>
         <span className="font-medium text-sm">
           {isOrphaned
@@ -201,18 +201,18 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
           <Link to={`/logs/${log.id}`} className="block">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
-                <h2 className="text-xl font-semibold text-gray-800 mb-1">
+                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">
                   Log #{log.id}
                   {log.trig_id && (
                     <>
                       <span className="text-gray-400 mx-2">·</span>
-                      <span className="font-normal text-red-600">
+                      <span className="font-normal text-red-600 dark:text-red-400">
                         Trig ID: {log.trig_id} (deleted)
                       </span>
                     </>
                   )}
                 </h2>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                   {log.user_name ? (
                     <span>
                       by{" "}
@@ -254,25 +254,25 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
                   <span className="text-gray-400">·</span>
                   <span>{formattedDate}</span>
                   {log.time && log.time !== "12:00:00" && (
-                    <span className="text-gray-500">{log.time}</span>
+                    <span className="text-gray-500 dark:text-gray-400">{log.time}</span>
                   )}
                 </div>
               </div>
             </div>
 
             {log.comment && (
-              <div className="bg-gray-50 p-3 rounded-md mb-3">
-                <p className="text-sm text-gray-700 line-clamp-3">{log.comment}</p>
+              <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md mb-3">
+                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">{log.comment}</p>
               </div>
             )}
 
-            <div className="text-[#046935] hover:text-[#035228] text-sm font-medium">
+            <div className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 text-sm font-medium">
               View log details →
             </div>
           </Link>
 
           {/* Orphaned delete button */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
             {!showConfirmOrphaned ? (
               <Button
                 onClick={(e) => {
@@ -287,7 +287,7 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
               </Button>
             ) : (
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600">Are you sure?</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Are you sure?</span>
                 <Button
                   onClick={(e) => {
                     e?.preventDefault();
@@ -327,7 +327,7 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
         <>
           {/* Duplicate group header */}
           <div className="mb-3">
-            <h2 className="text-xl font-semibold text-gray-800 mb-1">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">
               {duplicateGroup?.trig_id ? (
                 <Link
                   to={`/trigs/${duplicateGroup.trig_id}`}
@@ -340,12 +340,12 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
                 <span>Unknown trig</span>
               )}
             </h2>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               by{" "}
               {duplicateGroup?.user_id ? (
                 <Link
                   to={`/profile/${duplicateGroup.user_id}`}
-                  className="text-trig-green-600 hover:underline font-semibold"
+                  className="text-trig-green-600 dark:text-trig-green-400 hover:underline font-semibold"
                 >
                   {duplicateGroup.user_name ?? `User #${duplicateGroup.user_id}`}
                 </Link>
@@ -472,10 +472,10 @@ export default function LogsNeedsAttention() {
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="text-center py-12">
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
                 Access Denied
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 You do not have permission to access this page.
               </p>
             </div>
@@ -494,7 +494,7 @@ export default function LogsNeedsAttention() {
           <Card>
             <div className="flex flex-col items-center justify-center py-12">
               <Spinner size="lg" />
-              <span className="mt-3 text-gray-600">
+              <span className="mt-3 text-gray-600 dark:text-gray-400">
                 {isAuthLoading ? "Verifying admin permissions..." : "Requesting elevated permissions..."}
               </span>
             </div>
@@ -519,16 +519,16 @@ export default function LogsNeedsAttention() {
         <Card className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                 Logs Needing Attention
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 Manage orphaned and duplicate log entries
               </p>
             </div>
             <Link
               to="/admin"
-              className="text-[#046935] hover:text-[#035228] font-medium"
+              className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 font-medium"
             >
               ← Back to Admin
             </Link>
@@ -539,7 +539,7 @@ export default function LogsNeedsAttention() {
           <Card>
             <div className="flex items-center justify-center py-12">
               <Spinner size="lg" />
-              <span className="ml-3 text-gray-600">Loading logs...</span>
+              <span className="ml-3 text-gray-600 dark:text-gray-400">Loading logs...</span>
             </div>
           </Card>
         )}
@@ -547,7 +547,7 @@ export default function LogsNeedsAttention() {
         {error && (
           <Card>
             <div className="text-center py-12">
-              <p className="text-red-600">Error: {error}</p>
+              <p className="text-red-600 dark:text-red-400">Error: {error}</p>
               <Button onClick={fetchLogs} className="mt-4">
                 Retry
               </Button>
@@ -558,7 +558,7 @@ export default function LogsNeedsAttention() {
         {!isLoading && !error && logs.length === 0 && (
           <Card>
             <div className="text-center py-12">
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 No logs currently need attention.
               </p>
             </div>
@@ -595,7 +595,7 @@ export default function LogsNeedsAttention() {
 
             <Card>
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   Showing {skip + 1} - {Math.min(skip + limit, total)} of {total}{" "}
                   logs
                 </div>

@@ -102,6 +102,24 @@ export const createMockTrig = (overrides?: Partial<TrigData>): TrigData => ({
   wgs_lat: 51.5074,
   wgs_long: -0.1278,
   osgb_gridref: 'TQ 30 80',
+  grid_system: 'gb',  // Default to GB grid
+  ...overrides,
+});
+
+/**
+ * Create a mock Irish trig for testing Irish Grid behaviour
+ */
+export const createMockIrishTrig = (overrides?: Partial<TrigData>): TrigData => ({
+  id: 100,
+  waypoint: 'TP5000',
+  name: 'Dublin Test Trig',
+  physical_type: 'Pillar',
+  condition: 'G',
+  wgs_lat: 53.3498,
+  wgs_long: -6.2603,
+  osgb_gridref: 'O 15 34',  // Irish Grid reference format
+  grid_system: 'ie',  // Irish Grid
+  country_name: 'Ireland',
   ...overrides,
 });
 
@@ -178,6 +196,17 @@ export const mockTileLayers = {
     maxNativeZoom: 9,
     crs: 'EPSG:27700',
     tileSize: 256,
+  },
+  openTopoMap: {
+    id: 'openTopoMap',
+    name: 'OpenTopoMap',
+    urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenTopoMap contributors',
+    minZoom: 0,
+    maxZoom: 20,
+    maxNativeZoom: 17,
+    crs: 'EPSG:3857',
+    subdomains: ['a', 'b', 'c'],
   },
 };
 

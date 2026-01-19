@@ -68,11 +68,11 @@ export default function EditableField({
   if (!editable) {
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           {label}
         </label>
-        <p className="text-gray-900">
-          {value || <span className="text-gray-400 italic">Not set</span>}
+        <p className="text-gray-900 dark:text-gray-100">
+          {value || <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>}
         </p>
       </div>
     );
@@ -80,7 +80,7 @@ export default function EditableField({
 
   return (
     <div className="relative">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {label}
       </label>
       
@@ -96,7 +96,7 @@ export default function EditableField({
             maxLength={maxLength}
             disabled={isSaving}
             rows={4}
-            className="w-full px-3 py-2 border border-trig-green-500 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-400 resize-none"
+            className="w-full px-3 py-2 border border-trig-green-500 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-400 resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         ) : (
           <input
@@ -109,12 +109,12 @@ export default function EditableField({
             placeholder={placeholder}
             maxLength={maxLength}
             disabled={isSaving}
-            className="w-full px-3 py-2 border border-trig-green-500 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-400"
+            className="w-full px-3 py-2 border border-trig-green-500 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         )
       ) : (
         <div
-          className="group flex items-start gap-2 cursor-pointer hover:bg-gray-50 rounded-md -mx-2 px-2 py-1 transition-colors"
+          className="group flex items-start gap-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md -mx-2 px-2 py-1 transition-colors"
           onClick={() => setIsEditing(true)}
           role="button"
           tabIndex={0}
@@ -125,15 +125,15 @@ export default function EditableField({
             }
           }}
         >
-          <p className="flex-1 text-gray-900 min-h-[2.5rem] flex items-center">
-            {value || <span className="text-gray-400 italic">Not set</span>}
+          <p className="flex-1 text-gray-900 dark:text-gray-100 min-h-[2.5rem] flex items-center">
+            {value || <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>}
           </p>
           <div
             className="opacity-0 group-hover:opacity-100 transition-opacity p-1"
             title={`Edit ${label.toLowerCase()}`}
           >
             <svg
-              className="w-4 h-4 text-gray-600"
+              className="w-4 h-4 text-gray-600 dark:text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -150,7 +150,7 @@ export default function EditableField({
       )}
       
       {isSaving && (
-        <span className="absolute right-0 top-0 text-xs text-gray-500">Saving...</span>
+        <span className="absolute right-0 top-0 text-xs text-gray-500 dark:text-gray-400">Saving...</span>
       )}
     </div>
   );

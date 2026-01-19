@@ -13,7 +13,7 @@ python-multipart==0.0.21
 pydantic[email]==2.12.5
 pydantic-settings==2.12.0
 python-dotenv==1.2.1
-alembic==1.18.0
+alembic==1.18.1
 
 # Testing dependencies
 pytest==9.0.2
@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.32.5
-boto3==1.42.25
+boto3==1.42.30
 types-requests==2.32.4.20260107
 
 # Redis/ElastiCache for token caching
@@ -41,7 +41,7 @@ pyproj==3.7.2
 
 # Profiling
 pyinstrument==5.1.2
-pyroscope-io==0.8.14
+pyroscope-io==0.8.15
 
 # OpenTelemetry - Distributed tracing and metrics
 opentelemetry-api==1.39.1

@@ -1,8 +1,12 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Configure dark mode to use class-based detection instead of media query */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer theme {
   :root {
+    /* Trig green palette */
     --color-trig-green-50: #f0fdf4;
     --color-trig-green-100: #dcfce7;
     --color-trig-green-200: #bbf7d0;
@@ -14,6 +18,29 @@
     --color-trig-green-800: #166534;
     --color-trig-green-900: #14532d;
     --color-trig-green-950: #052e16;
+    --color-trig-green-980: #0c1410;
+    
+    /* Semantic colours for light mode */
+    --color-bg-primary: #f9fafb;
+    --color-bg-secondary: #ffffff;
+    --color-bg-tertiary: #f3f4f6;
+    --color-text-primary: #111827;
+    --color-text-secondary: #4b5563;
+    --color-text-muted: #9ca3af;
+    --color-border: #e5e7eb;
+    --color-border-light: #f3f4f6;
+  }
+  
+  .dark {
+    /* Semantic colours for dark mode */
+    --color-bg-primary: #111827;
+    --color-bg-secondary: #1f2937;
+    --color-bg-tertiary: #374151;
+    --color-text-primary: #f9fafb;
+    --color-text-secondary: #d1d5db;
+    --color-text-muted: #9ca3af;
+    --color-border: #374151;
+    --color-border-light: #1f2937;
   }
 }
 
@@ -41,6 +68,8 @@
   .bg-trig-green-800 { background-color: var(--color-trig-green-800); }
   .bg-trig-green-900 { background-color: var(--color-trig-green-900); }
   .bg-trig-green-950 { background-color: var(--color-trig-green-950); }
+  .bg-trig-green-980 { background-color: var(--color-trig-green-980); }
+  .dark\:bg-trig-green-980:where(.dark, .dark *) { background-color: var(--color-trig-green-980); }
   
   .hover\:bg-trig-green-50:hover { background-color: var(--color-trig-green-50); }
   .hover\:bg-trig-green-100:hover { background-color: var(--color-trig-green-100); }
@@ -98,6 +127,17 @@ html, body, #root {
   border-top-color: rgba(255, 255, 255, 0.95);
 }
 
+/* Dark mode tooltip styling */
+.dark .leaflet-tooltip.minimal-tooltip {
+  background-color: rgba(31, 41, 55, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f9fafb;
+}
+
+.dark .leaflet-tooltip.minimal-tooltip::before {
+  border-top-color: rgba(31, 41, 55, 0.95);
+}
+
 /* Mini-map styling for popups */
 .mini-map-container {
   cursor: grab;
@@ -116,5 +156,51 @@ html, body, #root {
 /* Ensure mini-map tiles load smoothly */
 .mini-map-container .leaflet-tile-container {
   transition: opacity 0.2s;
+}
+
+/* Dark mode styles for Leaflet zoom controls */
+.dark .leaflet-control-zoom a {
+  background-color: #1f2937;
+  color: #f3f4f6;
+  border-color: #374151;
+}
+
+.dark .leaflet-control-zoom a:hover {
+  background-color: #374151;
+  color: #ffffff;
+}
+
+.dark .leaflet-control-zoom a.leaflet-disabled {
+  background-color: #374151;
+  color: #6b7280;
+}
+
+.dark .leaflet-control-zoom-in,
+.dark .leaflet-control-zoom-out {
+  border-bottom-color: #374151;
+}
+
+/* Dark mode for Leaflet attribution */
+.dark .leaflet-control-attribution {
+  background-color: rgba(31, 41, 55, 0.8);
+  color: #d1d5db;
+}
+
+.dark .leaflet-control-attribution a {
+  color: #60a5fa;
+}
+
+/* Dark mode for native date/time inputs */
+.dark input[type="date"],
+.dark input[type="time"],
+.dark input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+/* Style the calendar/clock picker icon in dark mode */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
 }
 

@@ -67,9 +67,6 @@ class TrigMinimal(BaseModel):
     name: str = Field(..., description="Trigpoint name")
 
     # Public basic classification/identity
-    status_name: Optional[str] = Field(
-        None, description="Human-readable status derived from status_id"
-    )
     physical_type: str = Field(..., description="Physical type (e.g., Pillar) - legacy")
     condition: str = Field(..., description="Condition code")
 
@@ -82,7 +79,17 @@ class TrigMinimal(BaseModel):
     # Coordinates and grid ref
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")
     wgs_long: Decimal = Field(..., description="WGS84 longitude")
-    osgb_gridref: str = Field(..., description="OSGB grid reference")
+    osgb_gridref: str = Field(..., description="Grid reference (OSGB or Irish format)")
+
+    # Grid system classification
+    grid_system: Optional[str] = Field(
+        None,
+        description="Grid system: 'gb' (British National Grid) or 'ie' (Irish Grid)",
+    )
+    country_name: Optional[str] = Field(
+        None,
+        description="Country name (e.g., 'England', 'Ireland', 'Northern Ireland')",
+    )
 
     distance_km: Optional[float] = None  # populated only when lat/lon provided
 

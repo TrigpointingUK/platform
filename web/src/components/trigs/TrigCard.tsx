@@ -11,6 +11,8 @@ interface Trig {
   wgs_long: string;
   osgb_gridref: string;
   status_name?: string;
+  group_code?: string;
+  group_name?: string;
   distance_km?: number;
 }
 
@@ -45,35 +47,23 @@ function getConditionInfo(code: string): { icon: string; label: string } {
   return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
-// Helper to get status badge info (icon, abbrev and color)
-function getStatusInfo(statusName?: string): { icon?: string; abbrev: string; color: string } {
-  const statusMap: Record<string, { icon: string; abbrev: string; color: string }> = {
-    Pillar: { icon: "/icons/t_pillar.png", abbrev: "P", color: "bg-blue-600" },
-    "Major mark": { icon: "/icons/t_fbm.png", abbrev: "MM", color: "bg-green-600" },
-    "Minor mark": { icon: "/icons/t_passive.png", abbrev: "m", color: "bg-yellow-600" },
-    Intersected: { icon: "/icons/t_intersected.png", abbrev: "I", color: "bg-orange-600" },
-    "User Added": { icon: "/icons/t_user_added.svg", abbrev: "UA", color: "bg-red-600" },
-    Controversial: { icon: "/icons/t_controversial.svg", abbrev: "C", color: "bg-gray-600" },
+// Helper to get group badge info (icon, abbrev and color) based on group_code
+function getGroupInfo(groupCode?: string): { icon?: string; abbrev: string; color: string; name: string } {
+  const groupMap: Record<string, { icon: string; abbrev: string; color: string; name: string }> = {
+    PILLAR: { icon: "/icons/t_pillar.png", abbrev: "P", color: "bg-blue-600", name: "Pillar" },
+    FBM: { icon: "/icons/t_fbm.png", abbrev: "MM", color: "bg-green-600", name: "FBM" },
+    SURVEY_MARK: { icon: "/icons/t_passive.png", abbrev: "m", color: "bg-yellow-600", name: "Survey mark" },
+    INTERSECTED: { icon: "/icons/t_intersected.png", abbrev: "I", color: "bg-orange-600", name: "Intersected" },
+    ACTIVE: { icon: "/icons/t_active.png", abbrev: "A", color: "bg-purple-600", name: "Active station" },
+    OTHER: { icon: "/icons/t_other.svg", abbrev: "O", color: "bg-gray-600", name: "Other" },
   };
   
-  // Normalize keys to handle whitespace or case differences
-  const normalizedStatusName = statusName?.trim();
-  
-  if (normalizedStatusName && statusMap[normalizedStatusName]) {
-    return statusMap[normalizedStatusName];
-  }
-  
-  // Fallback check for case-insensitive match
-  if (normalizedStatusName) {
-    const lowerName = normalizedStatusName.toLowerCase();
-    const match = Object.keys(statusMap).find(key => key.toLowerCase() === lowerName);
-    if (match) {
-      return statusMap[match];
-    }
+  if (groupCode && groupMap[groupCode]) {
+    return groupMap[groupCode];
   }
   
   // Default fallback
-  return { abbrev: "?", color: "bg-gray-400" };
+  return { abbrev: "?", color: "bg-gray-400", name: "Unknown" };
 }
 
 // Calculate bearing from one point to another (in degrees, 0 = North)
@@ -123,31 +113,31 @@ export function TrigCard({
   const distanceLabel = distanceUnit === 'M' ? 'mi' : 'km';
   
   const conditionInfo = getConditionInfo(trig.condition);
-  const statusInfo = getStatusInfo(trig.status_name);
+  const groupInfo = getGroupInfo(trig.group_code);
   
   return (
     <Link
       to={`/trigs/${trig.id}`}
-      className="block border-b border-gray-200 py-3 px-4 hover:bg-gray-50 transition-colors"
+      className="block border-b border-gray-200 dark:border-gray-700 py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
     >
       <div className="flex items-center justify-between gap-3">
         {/* Left side: Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {/* Status badge */}
-            {statusInfo.icon ? (
+            {/* Group badge */}
+            {groupInfo.icon ? (
               <img 
-                src={statusInfo.icon}
-                alt={statusInfo.abbrev}
+                src={groupInfo.icon}
+                alt={groupInfo.abbrev}
                 className="w-6 h-6 object-contain"
-                title={trig.status_name || "Unknown status"}
+                title={trig.group_name || groupInfo.name}
               />
             ) : (
               <span 
-                className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${statusInfo.color}`}
-                title={trig.status_name || "Unknown status"}
+                className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${groupInfo.color}`}
+                title={trig.group_name || groupInfo.name}
               >
-                {statusInfo.abbrev}
+                {groupInfo.abbrev}
               </span>
             )}
             
@@ -160,7 +150,7 @@ export function TrigCard({
             />
             
             {/* Name */}
-            <h3 className="font-medium text-gray-900 truncate">
+            <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
               {trig.name}
             </h3>
             
@@ -176,14 +166,14 @@ export function TrigCard({
           </div>
           
           {/* Grid reference, waypoint & physical type */}
-          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
+          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600 dark:text-gray-400">
             <span className="font-mono">{trig.osgb_gridref}</span>
-            <span className="text-gray-400">•</span>
+            <span className="text-gray-400 dark:text-gray-500">•</span>
             <span>{trig.waypoint}</span>
             {trig.physical_type && (
               <>
-                <span className="text-gray-400">•</span>
-                <span className="text-gray-500 text-xs">{trig.physical_type}</span>
+                <span className="text-gray-400 dark:text-gray-500">•</span>
+                <span className="text-gray-500 dark:text-gray-400 text-xs">{trig.physical_type}</span>
               </>
             )}
           </div>
@@ -194,7 +184,7 @@ export function TrigCard({
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Direction arrow */}
             {bearing !== null && (
-              <div className="text-gray-600" title={`Bearing: ${bearing.toFixed(0)}°`}>
+              <div className="text-gray-600 dark:text-gray-400" title={`Bearing: ${bearing.toFixed(0)}°`}>
                 <svg 
                   width="20" 
                   height="20" 
@@ -213,10 +203,10 @@ export function TrigCard({
             
             {/* Distance */}
             <div className="text-right">
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {displayDistance.toFixed(1)}
               </div>
-              <div className="text-xs text-gray-500">{distanceLabel}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{distanceLabel}</div>
             </div>
           </div>
         )}

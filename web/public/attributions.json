@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-11T23:29:52.210Z",
+  "generatedAt": "2026-01-18T15:38:31.754Z",
   "npm": [
     {
       "name": "@acemir/cssom",
@@ -57,7 +57,7 @@
     },
     {
       "name": "@auth0/auth0-react",
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT",
       "repository": "https://github.com/auth0/auth0-react",
       "author": "Auth0",
@@ -66,7 +66,7 @@
     },
     {
       "name": "@auth0/auth0-spa-js",
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT",
       "repository": "https://github.com/auth0/auth0-spa-js",
       "author": "Auth0",
@@ -327,7 +327,7 @@
     },
     {
       "name": "@esbuild/linux-x64",
-      "version": "0.25.12",
+      "version": "0.27.2",
       "license": "MIT",
       "repository": "https://github.com/evanw/esbuild",
       "author": "Unknown",
@@ -336,7 +336,7 @@
     },
     {
       "name": "@eslint-community/eslint-utils",
-      "version": "4.9.0",
+      "version": "4.9.1",
       "license": "MIT",
       "repository": "https://github.com/eslint-community/eslint-utils",
       "author": "Toru Nagashima",
@@ -390,7 +390,7 @@
     },
     {
       "name": "@eslint/js",
-      "version": "9.39.1",
+      "version": "9.39.2",
       "license": "MIT",
       "repository": "https://github.com/eslint/eslint",
       "author": "Unknown",
@@ -412,6 +412,15 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/eslint/rewrite",
       "author": "Nicholas C. Zakas",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@exodus/bytes",
+      "version": "1.8.0",
+      "license": "MIT",
+      "repository": "https://github.com/ExodusOSS/bytes",
+      "author": "Exodus Movement, Inc.",
       "description": "",
       "type": "npm"
     },
@@ -551,6 +560,15 @@
       "type": "npm"
     },
     {
+      "name": "@remirror/core-constants",
+      "version": "3.0.0",
+      "license": "MIT",
+      "repository": "https://github.com/remirror/remirror",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "@rolldown/pluginutils",
       "version": "1.0.0-beta.53",
       "license": "MIT",
@@ -579,7 +597,7 @@
     },
     {
       "name": "@standard-schema/spec",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT",
       "repository": "https://github.com/standard-schema/standard-schema",
       "author": "Colin McDonnell",
@@ -588,7 +606,7 @@
     },
     {
       "name": "@tailwindcss/node",
-      "version": "4.1.17",
+      "version": "4.1.18",
       "license": "MIT",
       "repository": "https://github.com/tailwindlabs/tailwindcss",
       "author": "Unknown",
@@ -597,7 +615,7 @@
     },
     {
       "name": "@tailwindcss/oxide",
-      "version": "4.1.17",
+      "version": "4.1.18",
       "license": "MIT",
       "repository": "https://github.com/tailwindlabs/tailwindcss",
       "author": "Unknown",
@@ -606,7 +624,7 @@
     },
     {
       "name": "@tailwindcss/oxide-linux-x64-gnu",
-      "version": "4.1.17",
+      "version": "4.1.18",
       "license": "MIT",
       "repository": "https://github.com/tailwindlabs/tailwindcss",
       "author": "Unknown",
@@ -615,7 +633,7 @@
     },
     {
       "name": "@tailwindcss/oxide-linux-x64-musl",
-      "version": "4.1.17",
+      "version": "4.1.18",
       "license": "MIT",
       "repository": "https://github.com/tailwindlabs/tailwindcss",
       "author": "Unknown",
@@ -624,7 +642,7 @@
     },
     {
       "name": "@tailwindcss/postcss",
-      "version": "4.1.17",
+      "version": "4.1.18",
       "license": "MIT",
       "repository": "https://github.com/tailwindlabs/tailwindcss",
       "author": "Unknown",
@@ -633,7 +651,7 @@
     },
     {
       "name": "@tailwindcss/vite",
-      "version": "4.1.17",
+      "version": "4.1.18",
       "license": "MIT",
       "repository": "https://github.com/tailwindlabs/tailwindcss",
       "author": "Unknown",
@@ -642,7 +660,7 @@
     },
     {
       "name": "@tanstack/query-core",
-      "version": "5.90.12",
+      "version": "5.90.19",
       "license": "MIT",
       "repository": "https://github.com/TanStack/query",
       "author": "tannerlinsley",
@@ -651,7 +669,7 @@
     },
     {
       "name": "@tanstack/react-query",
-      "version": "5.90.12",
+      "version": "5.90.19",
       "license": "MIT",
       "repository": "https://github.com/TanStack/query",
       "author": "tannerlinsley",
@@ -678,7 +696,7 @@
     },
     {
       "name": "@testing-library/react",
-      "version": "16.3.0",
+      "version": "16.3.1",
       "license": "MIT",
       "repository": "https://github.com/testing-library/react-testing-library",
       "author": "Kent C. Dodds",
@@ -691,6 +709,276 @@
       "license": "MIT",
       "repository": "https://github.com/testing-library/user-event",
       "author": "Giorgio Polvara",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/core",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-blockquote",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-bold",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-bubble-menu",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-bullet-list",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-code",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-code-block",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-color",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-document",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-dropcursor",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-floating-menu",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-gapcursor",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-hard-break",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-heading",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-horizontal-rule",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-italic",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-link",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-list",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-list-item",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-list-keymap",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-ordered-list",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-paragraph",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-strike",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-text",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-text-style",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extension-underline",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/extensions",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/pm",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/react",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@tiptap/starter-kit",
+      "version": "3.15.3",
+      "license": "MIT",
+      "repository": "https://github.com/ueberdosis/tiptap",
+      "author": "Unknown",
       "description": "",
       "type": "npm"
     },
@@ -803,6 +1091,33 @@
       "type": "npm"
     },
     {
+      "name": "@types/linkify-it",
+      "version": "5.0.0",
+      "license": "MIT",
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@types/markdown-it",
+      "version": "14.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "@types/mdurl",
+      "version": "2.0.0",
+      "license": "MIT",
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "@types/proj4leaflet",
       "version": "1.0.12",
       "license": "MIT",
@@ -813,7 +1128,7 @@
     },
     {
       "name": "@types/react",
-      "version": "19.2.7",
+      "version": "19.2.8",
       "license": "MIT",
       "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped",
       "author": "Unknown",
@@ -830,8 +1145,17 @@
       "type": "npm"
     },
     {
+      "name": "@types/use-sync-external-store",
+      "version": "0.0.6",
+      "license": "MIT",
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "@typescript-eslint/eslint-plugin",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -840,7 +1164,7 @@
     },
     {
       "name": "@typescript-eslint/parser",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -849,7 +1173,7 @@
     },
     {
       "name": "@typescript-eslint/project-service",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -858,7 +1182,7 @@
     },
     {
       "name": "@typescript-eslint/scope-manager",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -867,7 +1191,7 @@
     },
     {
       "name": "@typescript-eslint/tsconfig-utils",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -876,7 +1200,7 @@
     },
     {
       "name": "@typescript-eslint/type-utils",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -885,7 +1209,7 @@
     },
     {
       "name": "@typescript-eslint/types",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -894,7 +1218,7 @@
     },
     {
       "name": "@typescript-eslint/typescript-estree",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -903,7 +1227,7 @@
     },
     {
       "name": "@typescript-eslint/utils",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -912,7 +1236,7 @@
     },
     {
       "name": "@typescript-eslint/visitor-keys",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
       "author": "Unknown",
@@ -930,7 +1254,7 @@
     },
     {
       "name": "@vitest/coverage-v8",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Anthony Fu",
@@ -939,7 +1263,7 @@
     },
     {
       "name": "@vitest/expect",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Unknown",
@@ -948,7 +1272,7 @@
     },
     {
       "name": "@vitest/mocker",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Unknown",
@@ -957,7 +1281,7 @@
     },
     {
       "name": "@vitest/pretty-format",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Unknown",
@@ -966,7 +1290,7 @@
     },
     {
       "name": "@vitest/runner",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Unknown",
@@ -975,7 +1299,7 @@
     },
     {
       "name": "@vitest/snapshot",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Unknown",
@@ -984,7 +1308,7 @@
     },
     {
       "name": "@vitest/spy",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Unknown",
@@ -993,7 +1317,7 @@
     },
     {
       "name": "@vitest/utils",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Unknown",
@@ -1101,7 +1425,7 @@
     },
     {
       "name": "ast-v8-to-istanbul",
-      "version": "0.3.8",
+      "version": "0.3.10",
       "license": "MIT",
       "repository": "https://github.com/AriPerkkio/ast-v8-to-istanbul",
       "author": "Ari Perkkiö",
@@ -1110,7 +1434,7 @@
     },
     {
       "name": "autoprefixer",
-      "version": "10.4.22",
+      "version": "10.4.23",
       "license": "MIT",
       "repository": "https://github.com/postcss/autoprefixer",
       "author": "Andrey Sitnik",
@@ -1236,7 +1560,7 @@
     },
     {
       "name": "chai",
-      "version": "6.2.1",
+      "version": "6.2.2",
       "license": "MIT",
       "repository": "https://github.com/chaijs/chai",
       "author": "Jake Luer",
@@ -1312,6 +1636,15 @@
       "license": "MIT",
       "repository": "https://github.com/jshttp/cookie",
       "author": "Roman Shtylman",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "crelt",
+      "version": "1.0.6",
+      "license": "MIT",
+      "repository": "https://github.com/marijnh/crelt",
+      "author": "Marijn Haverbeke",
       "description": "",
       "type": "npm"
     },
@@ -1497,6 +1830,15 @@
     },
     {
       "name": "entities",
+      "version": "4.5.0",
+      "license": "BSD-2-Clause",
+      "repository": "https://github.com/fb55/entities",
+      "author": "Felix Boehm",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "entities",
       "version": "6.0.1",
       "license": "BSD-2-Clause",
       "repository": "https://github.com/fb55/entities",
@@ -1551,7 +1893,7 @@
     },
     {
       "name": "esbuild",
-      "version": "0.25.12",
+      "version": "0.27.2",
       "license": "MIT",
       "repository": "https://github.com/evanw/esbuild",
       "author": "Unknown",
@@ -1578,7 +1920,7 @@
     },
     {
       "name": "eslint",
-      "version": "9.39.1",
+      "version": "9.39.2",
       "license": "MIT",
       "repository": "https://github.com/eslint/eslint",
       "author": "Nicholas C. Zakas",
@@ -1596,7 +1938,7 @@
     },
     {
       "name": "eslint-plugin-react-refresh",
-      "version": "0.4.24",
+      "version": "0.4.26",
       "license": "MIT",
       "repository": "https://github.com/ArnaudBarre/eslint-plugin-react-refresh",
       "author": "Arnaud Barré",
@@ -1699,6 +2041,15 @@
       "license": "MIT",
       "repository": "https://github.com/epoberezkin/fast-deep-equal",
       "author": "Evgeny Poberezkin",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "fast-equals",
+      "version": "5.4.0",
+      "license": "MIT",
+      "repository": "https://github.com/planttheidea/fast-equals",
+      "author": "tony_quetano@planttheidea.com",
       "description": "",
       "type": "npm"
     },
@@ -1857,7 +2208,7 @@
     },
     {
       "name": "globals",
-      "version": "16.5.0",
+      "version": "17.0.0",
       "license": "MIT",
       "repository": "https://github.com/sindresorhus/globals",
       "author": "Sindre Sorhus",
@@ -1947,7 +2298,7 @@
     },
     {
       "name": "html-encoding-sniffer",
-      "version": "4.0.0",
+      "version": "6.0.0",
       "license": "MIT",
       "repository": "https://github.com/jsdom/html-encoding-sniffer",
       "author": "Domenic Denicola",
@@ -1978,15 +2329,6 @@
       "license": "MIT",
       "repository": "https://github.com/TooTallNate/proxy-agents",
       "author": "Nathan Rajlich",
-      "description": "",
-      "type": "npm"
-    },
-    {
-      "name": "iconv-lite",
-      "version": "0.6.3",
-      "license": "MIT",
-      "repository": "https://github.com/ashtuchkin/iconv-lite",
-      "author": "Alexander Shtuchkin",
       "description": "",
       "type": "npm"
     },
@@ -2126,15 +2468,6 @@
       "type": "npm"
     },
     {
-      "name": "istanbul-lib-source-maps",
-      "version": "5.0.6",
-      "license": "BSD-3-Clause",
-      "repository": "https://github.com/istanbuljs/istanbuljs",
-      "author": "Krishnan Anantheswaran",
-      "description": "",
-      "type": "npm"
-    },
-    {
       "name": "istanbul-reports",
       "version": "3.2.0",
       "license": "BSD-3-Clause",
@@ -2181,7 +2514,7 @@
     },
     {
       "name": "jsdom",
-      "version": "27.3.0",
+      "version": "27.4.0",
       "license": "MIT",
       "repository": "https://github.com/jsdom/jsdom",
       "author": "Unknown",
@@ -2333,6 +2666,24 @@
       "type": "npm"
     },
     {
+      "name": "linkify-it",
+      "version": "5.0.0",
+      "license": "MIT",
+      "repository": "https://github.com/markdown-it/linkify-it",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "linkifyjs",
+      "version": "4.3.2",
+      "license": "MIT",
+      "repository": "https://github.com/nfrasser/linkifyjs",
+      "author": "Nick Frasser",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "locate-path",
       "version": "6.0.0",
       "license": "MIT",
@@ -2379,7 +2730,7 @@
     },
     {
       "name": "lucide-react",
-      "version": "0.556.0",
+      "version": "0.562.0",
       "license": "ISC",
       "repository": "https://github.com/lucide-icons/lucide",
       "author": "Eric Fennis",
@@ -2423,6 +2774,15 @@
       "type": "npm"
     },
     {
+      "name": "markdown-it",
+      "version": "14.1.0",
+      "license": "MIT",
+      "repository": "https://github.com/markdown-it/markdown-it",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "math-intrinsics",
       "version": "1.1.0",
       "license": "MIT",
@@ -2437,6 +2797,15 @@
       "license": "CC0-1.0",
       "repository": "https://github.com/mdn/data",
       "author": "Mozilla Developer Network",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "mdurl",
+      "version": "2.0.0",
+      "license": "MIT",
+      "repository": "https://github.com/markdown-it/mdurl",
+      "author": "Unknown",
       "description": "",
       "type": "npm"
     },
@@ -2531,15 +2900,6 @@
       "type": "npm"
     },
     {
-      "name": "normalize-range",
-      "version": "0.1.2",
-      "license": "MIT",
-      "repository": "https://github.com/jamestalmage/normalize-range",
-      "author": "James Talmage",
-      "description": "",
-      "type": "npm"
-    },
-    {
       "name": "object-keys",
       "version": "1.1.1",
       "license": "MIT",
@@ -2572,6 +2932,15 @@
       "license": "MIT",
       "repository": "https://github.com/gkz/optionator",
       "author": "George Zahariev",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "orderedmap",
+      "version": "2.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/marijnh/orderedmap",
+      "author": "Marijn Haverbeke",
       "description": "",
       "type": "npm"
     },
@@ -2738,6 +3107,168 @@
       "type": "npm"
     },
     {
+      "name": "prosemirror-changeset",
+      "version": "2.3.1",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-changeset",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-collab",
+      "version": "1.3.1",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-collab",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-commands",
+      "version": "1.7.1",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-commands",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-dropcursor",
+      "version": "1.8.2",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-dropcursor",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-gapcursor",
+      "version": "1.4.0",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-gapcursor",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-history",
+      "version": "1.5.0",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-history",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-inputrules",
+      "version": "1.5.1",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-inputrules",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-keymap",
+      "version": "1.2.3",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-keymap",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-markdown",
+      "version": "1.13.2",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-markdown",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-menu",
+      "version": "1.2.5",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-menu",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-model",
+      "version": "1.25.4",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-model",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-schema-basic",
+      "version": "1.2.4",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-schema-basic",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-schema-list",
+      "version": "1.5.1",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-schema-list",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-state",
+      "version": "1.4.4",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-state",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-tables",
+      "version": "1.8.5",
+      "license": "MIT",
+      "repository": "https://github.com/ProseMirror/prosemirror-tables",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-trailing-node",
+      "version": "3.0.0",
+      "license": "MIT",
+      "repository": "https://github.com/remirror/remirror",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-transform",
+      "version": "1.10.5",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-transform",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "prosemirror-view",
+      "version": "1.41.4",
+      "license": "MIT",
+      "repository": "https://github.com/prosemirror/prosemirror-view",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "punycode",
       "version": "2.3.1",
       "license": "MIT",
@@ -2747,8 +3278,17 @@
       "type": "npm"
     },
     {
+      "name": "punycode.js",
+      "version": "2.3.1",
+      "license": "MIT",
+      "repository": "https://github.com/mathiasbynens/punycode.js",
+      "author": "Mathias Bynens",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "react",
-      "version": "19.2.1",
+      "version": "19.2.3",
       "license": "MIT",
       "repository": "https://github.com/facebook/react",
       "author": "Unknown",
@@ -2757,7 +3297,7 @@
     },
     {
       "name": "react-day-picker",
-      "version": "9.12.0",
+      "version": "9.13.0",
       "license": "MIT",
       "repository": "https://github.com/gpbl/react-day-picker",
       "author": "Giampaolo Bellavite",
@@ -2766,7 +3306,7 @@
     },
     {
       "name": "react-dom",
-      "version": "19.2.1",
+      "version": "19.2.3",
       "license": "MIT",
       "repository": "https://github.com/facebook/react",
       "author": "Unknown",
@@ -2784,7 +3324,7 @@
     },
     {
       "name": "react-intersection-observer",
-      "version": "10.0.0",
+      "version": "10.0.2",
       "license": "MIT",
       "repository": "https://github.com/thebuilder/react-intersection-observer",
       "author": "Daniel Schmidt",
@@ -2820,7 +3360,7 @@
     },
     {
       "name": "react-router",
-      "version": "7.10.1",
+      "version": "7.12.0",
       "license": "MIT",
       "repository": "https://github.com/remix-run/react-router",
       "author": "Remix Software",
@@ -2829,7 +3369,7 @@
     },
     {
       "name": "react-router-dom",
-      "version": "7.10.1",
+      "version": "7.12.0",
       "license": "MIT",
       "repository": "https://github.com/remix-run/react-router",
       "author": "Remix Software",
@@ -2873,11 +3413,11 @@
       "type": "npm"
     },
     {
-      "name": "safer-buffer",
-      "version": "2.1.2",
+      "name": "rope-sequence",
+      "version": "1.3.4",
       "license": "MIT",
-      "repository": "https://github.com/ChALkeR/safer-buffer",
-      "author": "Nikita Skovoroda",
+      "repository": "https://github.com/marijnh/rope-sequence",
+      "author": "Marijn Haverbeke",
       "description": "",
       "type": "npm"
     },
@@ -3054,7 +3594,7 @@
     },
     {
       "name": "tailwindcss",
-      "version": "4.1.17",
+      "version": "4.1.18",
       "license": "MIT",
       "repository": "https://github.com/tailwindlabs/tailwindcss",
       "author": "Unknown",
@@ -3171,7 +3711,7 @@
     },
     {
       "name": "ts-api-utils",
-      "version": "2.1.0",
+      "version": "2.4.0",
       "license": "MIT",
       "repository": "https://github.com/JoshuaKGoldberg/ts-api-utils",
       "author": "JoshuaKGoldberg",
@@ -3198,9 +3738,18 @@
     },
     {
       "name": "typescript-eslint",
-      "version": "8.49.0",
+      "version": "8.53.0",
       "license": "MIT",
       "repository": "https://github.com/typescript-eslint/typescript-eslint",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "uc.micro",
+      "version": "2.1.0",
+      "license": "MIT",
+      "repository": "https://github.com/markdown-it/uc.micro",
       "author": "Unknown",
       "description": "",
       "type": "npm"
@@ -3233,8 +3782,17 @@
       "type": "npm"
     },
     {
+      "name": "use-sync-external-store",
+      "version": "1.6.0",
+      "license": "MIT",
+      "repository": "https://github.com/facebook/react",
+      "author": "Unknown",
+      "description": "",
+      "type": "npm"
+    },
+    {
       "name": "vite",
-      "version": "7.2.7",
+      "version": "7.3.1",
       "license": "MIT",
       "repository": "https://github.com/vitejs/vite",
       "author": "Evan You",
@@ -3243,10 +3801,19 @@
     },
     {
       "name": "vitest",
-      "version": "4.0.15",
+      "version": "4.0.17",
       "license": "MIT",
       "repository": "https://github.com/vitest-dev/vitest",
       "author": "Anthony Fu",
+      "description": "",
+      "type": "npm"
+    },
+    {
+      "name": "w3c-keyname",
+      "version": "2.2.8",
+      "license": "MIT",
+      "repository": "https://github.com/marijnh/w3c-keyname",
+      "author": "Marijn Haverbeke",
       "description": "",
       "type": "npm"
     },
@@ -3264,15 +3831,6 @@
       "version": "8.0.0",
       "license": "BSD-2-Clause",
       "repository": "https://github.com/jsdom/webidl-conversions",
-      "author": "Domenic Denicola",
-      "description": "",
-      "type": "npm"
-    },
-    {
-      "name": "whatwg-encoding",
-      "version": "3.1.1",
-      "license": "MIT",
-      "repository": "https://github.com/jsdom/whatwg-encoding",
       "author": "Domenic Denicola",
       "description": "",
       "type": "npm"
@@ -3407,47 +3965,47 @@
   "python": [
     {
       "name": "alembic",
-      "version": "1.17.2",
-      "license": "MIT",
-      "repository": "https://alembic.sqlalchemy.org",
-      "author": "Mike Bayer <mike_mp@zzzcomputing.com>",
-      "description": "A database migration tool for SQLAlchemy.",
+      "version": "1.18.1",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/alembic/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "bandit",
       "version": "1.9.2",
-      "license": "Apache-2.0",
-      "repository": "https://bandit.readthedocs.io/",
-      "author": "PyCQA",
-      "description": "Security oriented static analyser for python code.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/bandit/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "bcrypt",
       "version": "4.3.0",
-      "license": "Apache Software License",
-      "repository": "https://github.com/pyca/bcrypt/",
-      "author": "The Python Cryptographic Authority developers <cryptography-dev@python.org>",
-      "description": "Modern password hashing for your software and your servers",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/bcrypt/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "black",
       "version": "25.12.0",
-      "license": "MIT",
-      "repository": "https://github.com/psf/black",
-      "author": "Łukasz Langa <lukasz@langa.pl>",
-      "description": "The uncompromising code formatter.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/black/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "boto3",
-      "version": "1.42.9",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/boto/boto3",
-      "author": "Amazon Web Services",
-      "description": "The AWS SDK for Python",
+      "version": "1.42.30",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/boto3/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
@@ -3462,10 +4020,10 @@
     {
       "name": "cryptography",
       "version": "46.0.3",
-      "license": "Apache-2.0 OR BSD-3-Clause",
-      "repository": "https://github.com/pyca/cryptography",
-      "author": "The Python Cryptographic Authority and individual contributors <cryptography-dev@python.org>",
-      "description": "cryptography is a package which provides cryptographic recipes and primitives to Python developers.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/cryptography/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
@@ -3488,137 +4046,137 @@
     },
     {
       "name": "fastapi",
-      "version": "0.124.0",
-      "license": "MIT",
-      "repository": "https://github.com/fastapi/fastapi",
-      "author": "=?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>",
-      "description": "FastAPI framework, high performance, easy to learn, fast to code, ready for production",
+      "version": "0.128.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/fastapi/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "flake8",
       "version": "7.3.0",
-      "license": "MIT License",
-      "repository": "https://github.com/pycqa/flake8",
-      "author": "Tarek Ziade",
-      "description": "the modular source code checker: pep8 pyflakes and co",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/flake8/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "geoalchemy2",
       "version": "0.18.1",
-      "license": "MIT License",
-      "repository": "https://geoalchemy-2.readthedocs.io/en/stable/",
-      "author": "Eric Lemoine",
-      "description": "Using SQLAlchemy with Spatial Databases",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/geoalchemy2/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "httpx",
       "version": "0.28.1",
-      "license": "BSD License",
-      "repository": "https://github.com/encode/httpx",
-      "author": "Tom Christie <tom@tomchristie.com>",
-      "description": "The next generation HTTP client.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/httpx/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "isort",
       "version": "7.0.0",
-      "license": "MIT",
-      "repository": "https://pycqa.github.io/isort/index.html",
-      "author": "Timothy Crosley <timothy.crosley@gmail.com>, staticdev <staticdev-support@proton.me>",
-      "description": "A Python utility / library to sort Python imports.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/isort/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "mypy",
       "version": "1.19.1",
-      "license": "MIT License",
-      "repository": "https://www.mypy-lang.org/",
-      "author": "Jukka Lehtosalo <jukka.lehtosalo@iki.fi>",
-      "description": "Optional static typing for Python",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/mypy/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "numpy",
-      "version": "2.3.5",
-      "license": "BSD License",
-      "repository": "https://numpy.org",
-      "author": "Travis E. Oliphant et al.",
-      "description": "Fundamental package for array computing in Python",
+      "version": "2.4.1",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/numpy/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "onnxruntime",
       "version": "1.23.2",
-      "license": "MIT License",
-      "repository": "https://onnxruntime.ai",
-      "author": "Microsoft Corporation",
-      "description": "ONNX Runtime is a runtime accelerator for Machine Learning models",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/onnxruntime/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "opentelemetry-api",
       "version": "1.39.1",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api",
-      "author": "OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>",
-      "description": "OpenTelemetry Python API",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/opentelemetry-api/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "opentelemetry-exporter-otlp-proto-http",
       "version": "1.39.1",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-otlp-proto-http",
-      "author": "OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>",
-      "description": "OpenTelemetry Collector Protobuf over HTTP Exporter",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/opentelemetry-exporter-otlp-proto-http/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "opentelemetry-instrumentation-fastapi",
       "version": "0.60b1",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-fastapi",
-      "author": "OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>",
-      "description": "OpenTelemetry FastAPI Instrumentation",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/opentelemetry-instrumentation-fastapi/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "opentelemetry-instrumentation-sqlalchemy",
       "version": "0.60b1",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-sqlalchemy",
-      "author": "OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>",
-      "description": "OpenTelemetry SQLAlchemy instrumentation",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/opentelemetry-instrumentation-sqlalchemy/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "opentelemetry-sdk",
       "version": "1.39.1",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-sdk",
-      "author": "OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>",
-      "description": "OpenTelemetry Python SDK",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/opentelemetry-sdk/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "passlib",
       "version": "1.7.4",
-      "license": "BSD",
-      "repository": "https://passlib.readthedocs.io",
-      "author": "Eli Collins",
-      "description": "comprehensive password hashing framework supporting over 30 schemes",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/passlib/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "Pillow",
       "version": "12.1.0",
-      "license": "MIT-CMU",
-      "repository": "https://python-pillow.github.io",
-      "author": "\"Jeffrey A. Clark\" <aclark@aclark.net>",
-      "description": "Python Imaging Library (fork)",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/Pillow/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
@@ -3651,178 +4209,178 @@
     {
       "name": "psycopg2-binary",
       "version": "2.9.11",
-      "license": "GNU Library or Lesser General Public License (LGPL)",
-      "repository": "https://psycopg.org/",
-      "author": "Federico Di Gregorio",
-      "description": "psycopg2 - Python-PostgreSQL Database Adapter",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/psycopg2-binary/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pydantic",
       "version": "2.12.5",
-      "license": "MIT",
-      "repository": "https://github.com/pydantic/pydantic",
-      "author": "Samuel Colvin <s@muelcolvin.com>, Eric Jolibois <em.jolibois@gmail.com>, Hasan Ramezani <hasan.r67@gmail.com>, Adrian Garcia Badaracco <1755071+adriangb@users.noreply.github.com>, Terrence Dorsey <terry@pydantic.dev>, David Montague <david@pydantic.dev>, Serge Matveenko <lig@countzero.co>, Marcelo Trylesinski <marcelotryle@gmail.com>, Sydney Runkle <sydneymarierunkle@gmail.com>, David Hewitt <mail@davidhewitt.io>, Alex Hall <alex.mojaki@gmail.com>, Victorien Plot <contact@vctrn.dev>, Douwe Maan <hi@douwe.me>",
-      "description": "Data validation using Python type hints",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pydantic/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pydantic-settings",
       "version": "2.12.0",
-      "license": "MIT",
-      "repository": "https://github.com/pydantic/pydantic-settings",
-      "author": "Samuel Colvin <s@muelcolvin.com>, Eric Jolibois <em.jolibois@gmail.com>, Hasan Ramezani <hasan.r67@gmail.com>",
-      "description": "Settings management using Pydantic",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pydantic-settings/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pyinstrument",
-      "version": "5.1.1",
-      "license": "BSD License",
-      "repository": "https://github.com/joerick/pyinstrument",
-      "author": "Joe Rickerby",
-      "description": "Call stack profiler for Python. Shows you why your code is slow!",
+      "version": "5.1.2",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pyinstrument/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "PyJWT",
       "version": "2.10.1",
-      "license": "MIT License",
-      "repository": "https://github.com/jpadilla/pyjwt",
-      "author": "Jose Padilla <hello@jpadilla.com>",
-      "description": "JSON Web Token implementation in Python",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/PyJWT/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pyproj",
       "version": "3.7.2",
-      "license": "MIT",
-      "repository": "https://github.com/pyproj4/pyproj",
-      "author": "Jeff Whitaker <jeffrey.s.whitaker@noaa.gov>",
-      "description": "Python interface to PROJ (cartographic projections and coordinate transformations library)",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pyproj/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pyroscope-io",
-      "version": "0.8.11",
-      "license": "Apache Software License",
-      "repository": "https://pyroscope.io",
-      "author": "UNKNOWN",
-      "description": "Pyroscope Python integration",
+      "version": "0.8.15",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pyroscope-io/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pytest",
       "version": "9.0.2",
-      "license": "MIT",
-      "repository": "https://docs.pytest.org/en/latest/",
-      "author": "Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin, Others (See AUTHORS)",
-      "description": "pytest: simple powerful testing with Python",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pytest/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pytest-asyncio",
       "version": "1.3.0",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/pytest-dev/pytest-asyncio",
-      "author": "Tin Tvrtković <tinchester@gmail.com>",
-      "description": "Pytest support for asyncio",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pytest-asyncio/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pytest-cov",
       "version": "7.0.0",
-      "license": "MIT",
-      "repository": "https://pytest-cov.readthedocs.io/en/latest/changelog.html",
-      "author": "Marc Schlaich <marc.schlaich@gmail.com>",
-      "description": "Pytest plugin for measuring coverage.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pytest-cov/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "pytest-xdist",
       "version": "3.8.0",
-      "license": "MIT",
-      "repository": "https://github.com/pytest-dev/pytest-xdist",
-      "author": "holger krekel and contributors <pytest-dev@python.org>, holger@merlinux.eu",
-      "description": "pytest xdist plugin for distributed testing, most importantly across multiple CPUs",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/pytest-xdist/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "python-dotenv",
       "version": "1.2.1",
-      "license": "BSD-3-Clause",
-      "repository": "https://github.com/theskumar/python-dotenv",
-      "author": "Saurabh Kumar <me+github@saurabh-kumar.com>",
-      "description": "Read key-value pairs from a .env file and set them as environment variables",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/python-dotenv/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "python-multipart",
-      "version": "0.0.20",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/Kludex/python-multipart",
-      "author": "Andrew Dunham <andrew@du.nham.ca>, Marcelo Trylesinski <marcelotryle@gmail.com>",
-      "description": "A streaming multipart parser for Python",
+      "version": "0.0.21",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/python-multipart/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "redis",
       "version": "7.1.0",
-      "license": "MIT",
-      "repository": "https://github.com/redis/redis-py",
-      "author": "\"Redis Inc.\" <oss@redis.com>",
-      "description": "Python client for Redis database and key-value store",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/redis/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "requests",
       "version": "2.32.5",
-      "license": "Apache Software License",
-      "repository": "https://requests.readthedocs.io",
-      "author": "Kenneth Reitz",
-      "description": "Python HTTP for Humans.",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/requests/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "sqlalchemy",
       "version": "2.0.45",
-      "license": "MIT",
-      "repository": "https://www.sqlalchemy.org",
-      "author": "Mike Bayer",
-      "description": "Database Abstraction Library",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/sqlalchemy/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "starlette",
-      "version": "0.50.0",
-      "license": "BSD-3-Clause",
-      "repository": "https://github.com/Kludex/starlette",
-      "author": "Tom Christie <tom@tomchristie.com>",
-      "description": "The little ASGI library that shines.",
+      "version": "0.49.1  # CVE-2025-62727 fix (DoS via Range header in FileResponse)",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/starlette/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "types-requests",
-      "version": "2.32.4.20250809",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/python/typeshed",
-      "author": "UNKNOWN",
-      "description": "Typing stubs for requests",
+      "version": "2.32.4.20260107",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/types-requests/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     },
     {
       "name": "uvicorn",
-      "version": "0.35.0",
-      "license": "BSD-3-Clause",
-      "repository": "https://www.uvicorn.org/",
-      "author": "Tom Christie <tom@tomchristie.com>, Marcelo Trylesinski <marcelotryle@gmail.com>",
-      "description": "The lightning-fast ASGI server.",
+      "version": "0.40.0",
+      "license": "Unknown",
+      "repository": "https://pypi.org/project/uvicorn/",
+      "author": "Unknown",
+      "description": "",
       "type": "python"
     }
   ],
   "summary": {
-    "total": 424,
-    "npm": 378,
+    "total": 486,
+    "npm": 440,
     "python": 46
   }
 }

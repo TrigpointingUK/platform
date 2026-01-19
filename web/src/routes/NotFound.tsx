@@ -8,8 +8,8 @@ export default function NotFound() {
       <title>Page Not Found | TrigpointingUK</title>
       <div className="text-center py-12">
         <div className="text-6xl mb-4">🧭</div>
-        <h1 className="text-4xl font-bold text-gray-800 mb-4">404 - Not Found</h1>
-        <p className="text-gray-600 mb-6">
+        <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-4">404 - Not Found</h1>
+        <p className="text-gray-600 dark:text-gray-400 mb-6">
           The page you're looking for doesn't exist.
         </p>
         <Link to="/">

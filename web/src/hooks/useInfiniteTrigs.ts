@@ -4,6 +4,16 @@ import { authenticatedFetch } from "../lib/api";
 
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
+// Status ID to group code mapping
+const STATUS_ID_TO_GROUP_CODE: Record<number, string> = {
+  10: "PILLAR",
+  20: "FBM",
+  30: "SURVEY_MARK",
+  40: "INTERSECTED",
+  50: "ACTIVE",
+  60: "OTHER",
+};
+
 interface Trig {
   id: number;
   waypoint: string;
@@ -14,6 +24,10 @@ interface Trig {
   wgs_long: string;
   osgb_gridref: string;
   status_name?: string;
+  group_code?: string;
+  group_name?: string;
+  type_code?: string;
+  type_name?: string;
   distance_km?: number;
 }
 
@@ -76,7 +90,13 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
       }
       
       if (statusIds && statusIds.length > 0) {
-        params.append("status_ids", statusIds.join(","));
+        // Convert status IDs to group codes for the API
+        const groupCodes = statusIds
+          .map((id) => STATUS_ID_TO_GROUP_CODE[id])
+          .filter((code): code is string => code !== undefined);
+        if (groupCodes.length > 0) {
+          params.append("groups", groupCodes.join(","));
+        }
       }
       
       // Log filter: showLogged=false means exclude found, showNotLogged=false means only found
@@ -92,7 +112,7 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         params.append("area_id", areaId.toString());
       }
       
-      // Use authenticated fetch if logged in for status_max and log filters
+      // Use authenticated fetch if logged in for log filters
       const url = `${API_BASE}/v1/trigs?${params.toString()}`;
       const response = isAuthenticated
         ? await authenticatedFetch(url, {}, getAccessTokenSilently)

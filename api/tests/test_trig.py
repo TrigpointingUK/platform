@@ -66,7 +66,6 @@ def test_get_trig_success_minimal(client: TestClient, db: Session):
             "id",
             "waypoint",
             "name",
-            "status_name",
             "physical_type",
             "condition",
             "wgs_lat",

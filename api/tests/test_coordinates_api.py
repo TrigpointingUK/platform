@@ -325,3 +325,157 @@ class TestCoordinateConversionNoAuth:
 
         # Should succeed without authentication
         assert response.status_code == 200
+
+
+# =============================================================================
+# Irish Grid Tests
+# =============================================================================
+
+
+class TestIrishGridConversion:
+    """Tests for Irish Grid (EPSG:29903) coordinate conversion."""
+
+    def test_wgs84_to_irish_dublin(self):
+        """Test WGS84 to Irish Grid conversion for Dublin.
+
+        Dublin city centre: approximately lat=53.3498, lon=-6.2603
+        Expected Irish Grid: approximately E=315900, N=234670
+        """
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "wgs84",
+                "to": "irish",
+                "lat": 53.3498,
+                "lon": -6.2603,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["from_crs"] == "wgs84"
+        assert data["to_crs"] == "irish"
+        assert data["input"]["lat"] == 53.3498
+        assert data["input"]["lon"] == -6.2603
+
+        # Dublin should be around E=315900, N=234670 (within 500m tolerance)
+        assert abs(data["output"]["e"] - 315900) < 500
+        assert abs(data["output"]["n"] - 234670) < 500
+
+        # Grid reference should be in O grid square
+        assert data["output"]["gridref"] is not None
+        assert data["output"]["gridref"].startswith("O")
+
+    def test_wgs84_to_irish_belfast(self):
+        """Test WGS84 to Irish Grid conversion for Belfast (Northern Ireland).
+
+        Belfast city centre: approximately lat=54.5973, lon=-5.9301
+        Expected Irish Grid: approximately E=333828, N=374087
+        """
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "wgs84",
+                "to": "irish",
+                "lat": 54.5973,
+                "lon": -5.9301,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Belfast should be around E=333828, N=374087 (within 500m tolerance)
+        assert abs(data["output"]["e"] - 333828) < 500
+        assert abs(data["output"]["n"] - 374087) < 500
+
+        # Grid reference should be in J grid square
+        assert data["output"]["gridref"] is not None
+        assert data["output"]["gridref"].startswith("J")
+
+    def test_irish_to_wgs84_dublin(self):
+        """Test Irish Grid to WGS84 conversion for Dublin."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "irish",
+                "to": "wgs84",
+                "e": 316200,
+                "n": 234000,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["from_crs"] == "irish"
+        assert data["to_crs"] == "wgs84"
+
+        # Dublin is approximately lat=53.35, lon=-6.26
+        assert abs(data["output"]["lat"] - 53.35) < 0.05
+        assert abs(data["output"]["lon"] - (-6.26)) < 0.05
+
+        # Grid reference should be included in input
+        assert data["input"]["gridref"] is not None
+        assert data["input"]["gridref"].startswith("O")
+
+    def test_irish_to_wgs84_belfast(self):
+        """Test Irish Grid to WGS84 conversion for Belfast."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "irish",
+                "to": "wgs84",
+                "e": 334000,
+                "n": 373000,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Belfast is approximately lat=54.6, lon=-5.9
+        assert abs(data["output"]["lat"] - 54.6) < 0.1
+        assert abs(data["output"]["lon"] - (-5.9)) < 0.1
+
+        # Grid reference should be in J grid square
+        assert data["input"]["gridref"] is not None
+        assert data["input"]["gridref"].startswith("J")
+
+    def test_irish_grid_round_trip(self):
+        """Test that WGS84 -> Irish -> WGS84 gives consistent results."""
+        # First conversion: WGS84 to Irish Grid
+        response1 = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "wgs84",
+                "to": "irish",
+                "lat": 53.5,
+                "lon": -7.5,
+            },
+        )
+        assert response1.status_code == 200
+        data1 = response1.json()
+
+        # Second conversion: Irish Grid back to WGS84
+        response2 = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "irish",
+                "to": "wgs84",
+                "e": data1["output"]["e"],
+                "n": data1["output"]["n"],
+            },
+        )
+        assert response2.status_code == 200
+        data2 = response2.json()
+
+        # Should get back approximately the original coordinates
+        assert abs(data2["output"]["lat"] - 53.5) < 0.001
+        assert abs(data2["output"]["lon"] - (-7.5)) < 0.001
+
+    # Note: Auto-detect tests (to=grid) and gridref parsing tests (from=gridref)
+    # require the database to have country polygon data loaded, which is not
+    # available in the unit test environment. These features are tested in
+    # integration tests that run against the real database.

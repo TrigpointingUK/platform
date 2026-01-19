@@ -379,7 +379,6 @@ def get_current_user_profile(
         if "prefs" in tokens:
             # Always allowed on /me
             result.prefs = UserPrefs(
-                status_max=int(current_user.status_max),
                 distance_ind=str(current_user.distance_ind),
                 public_ind=str(current_user.public_ind),
                 email=str(current_user.email),
@@ -447,7 +446,6 @@ def update_current_user_profile(
         user_response.member_since = current_user.crt_date  # type: ignore
         result = UserWithIncludes(**user_response.model_dump())
         result.prefs = UserPrefs(
-            status_max=int(current_user.status_max),
             distance_ind=str(current_user.distance_ind),
             public_ind=str(current_user.public_ind),
             email=str(current_user.email),
@@ -611,7 +609,6 @@ def update_current_user_profile(
 
     # Always include prefs in PATCH response since they might have been updated
     result.prefs = UserPrefs(
-        status_max=int(current_user.status_max),
         distance_ind=str(current_user.distance_ind),
         public_ind=str(current_user.public_ind),
         email=str(current_user.email),
@@ -1189,8 +1186,9 @@ def list_logs_for_user(
     max_km: Optional[float] = Query(
         None, description="Maximum distance from centre in kilometres"
     ),
-    status_ids: Optional[str] = Query(
-        None, description="Comma-separated list of trigpoint status IDs to filter by"
+    groups: Optional[str] = Query(
+        None,
+        description="Comma-separated group codes to filter by (e.g., 'PILLAR,FBM')",
     ),
     area_id: Optional[int] = Query(
         None, description="Filter to logs for trigpoints within a specific area"
@@ -1203,18 +1201,10 @@ def list_logs_for_user(
     ),
     db: Session = Depends(get_db),
 ):
-    # Parse status_ids from comma-separated string
-    parsed_status_ids: Optional[list[int]] = None
-    if status_ids:
-        try:
-            parsed_status_ids = [
-                int(s.strip()) for s in status_ids.split(",") if s.strip()
-            ]
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid status_ids format. Must be comma-separated integers.",
-            )
+    # Parse groups from comma-separated string
+    parsed_groups: Optional[list[str]] = None
+    if groups:
+        parsed_groups = [g.strip().upper() for g in groups.split(",") if g.strip()]
 
     items = tlog_crud.list_logs_filtered(
         db,
@@ -1224,7 +1214,7 @@ def list_logs_for_user(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        status_ids=parsed_status_ids,
+        group_codes=parsed_groups,
         area_id=area_id,
         from_date=from_date,
         to_date=to_date,
@@ -1235,7 +1225,7 @@ def list_logs_for_user(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        status_ids=parsed_status_ids,
+        group_codes=parsed_groups,
         area_id=area_id,
         from_date=from_date,
         to_date=to_date,
@@ -1300,8 +1290,8 @@ def list_logs_for_user(
         params.append(f"lon={lon}")
     if max_km is not None:
         params.append(f"max_km={max_km}")
-    if status_ids is not None:
-        params.append(f"status_ids={status_ids}")
+    if groups is not None:
+        params.append(f"groups={groups}")
     if area_id is not None:
         params.append(f"area_id={area_id}")
     if from_date is not None:

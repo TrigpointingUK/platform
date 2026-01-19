@@ -70,17 +70,20 @@ def search_locations(
             )
         )
 
-    # Try to parse as OSGB grid reference
+    # Try to parse as grid reference (OSGB or Irish)
     gridref_result = locations_crud.parse_grid_reference(q)
     if gridref_result:
-        lat, lon, normalized = gridref_result
+        lat, lon, normalized, grid_system = gridref_result
+        description = (
+            "Irish Grid Reference" if grid_system == "ie" else "OSGB Grid Reference"
+        )
         results.append(
             LocationSearchResult(
                 type="gridref",
                 name=normalized,
                 lat=lat,
                 lon=lon,
-                description="OSGB Grid Reference",
+                description=description,
                 id=None,
             )
         )
@@ -269,14 +272,17 @@ def search_all(
 
     gridref_result = locations_crud.parse_grid_reference(q)
     if gridref_result:
-        lat, lon, normalized = gridref_result
+        lat, lon, normalized, grid_system = gridref_result
+        description = (
+            "Irish Grid Reference" if grid_system == "ie" else "OSGB Grid Reference"
+        )
         coordinates_items.append(
             LocationSearchResult(
                 type="gridref",
                 name=normalized,
                 lat=lat,
                 lon=lon,
-                description="OSGB Grid Reference",
+                description=description,
                 id=None,
             )
         )

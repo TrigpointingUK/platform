@@ -120,13 +120,15 @@ def list_logs_filtered(
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
-    status_ids: Optional[List[int]] = None,
+    group_codes: Optional[List[str]] = None,
     area_id: Optional[int] = None,
     from_date: Optional[DateType] = None,
     to_date: Optional[DateType] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
 ) -> List[TLog]:
+    from api.crud.trig import _get_type_ids_for_groups
+
     q = db.query(TLog)
 
     # Join to trig table if we need to filter by trig properties
@@ -134,7 +136,7 @@ def list_logs_filtered(
         center_lat is not None
         or center_lon is not None
         or max_km is not None
-        or status_ids is not None
+        or group_codes is not None
         or area_id is not None
     )
 
@@ -146,9 +148,14 @@ def list_logs_filtered(
     if user_id is not None:
         q = q.filter(TLog.user_id == user_id)
 
-    # Filter by status IDs (trigpoint types)
-    if status_ids:
-        q = q.filter(Trig.status_id.in_(status_ids))
+    # Filter by group codes (trigpoint type groups)
+    if group_codes:
+        type_id_list = _get_type_ids_for_groups(db, group_codes)
+        if type_id_list:
+            q = q.filter(Trig.type_id.in_(type_id_list))
+        else:
+            # No matching groups, return empty
+            q = q.filter(Trig.id == -1)
 
     # Filter by area using trig_area_mv materialized view
     if area_id is not None and not _is_sqlite(db):
@@ -234,13 +241,15 @@ def count_logs_filtered(
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
-    status_ids: Optional[List[int]] = None,
+    group_codes: Optional[List[str]] = None,
     area_id: Optional[int] = None,
     from_date: Optional[DateType] = None,
     to_date: Optional[DateType] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
 ) -> int:
+    from api.crud.trig import _get_type_ids_for_groups
+
     q = db.query(func.count(TLog.id))
 
     # Join to trig table if we need to filter by trig properties
@@ -248,7 +257,7 @@ def count_logs_filtered(
         center_lat is not None
         or center_lon is not None
         or max_km is not None
-        or status_ids is not None
+        or group_codes is not None
         or area_id is not None
     )
 
@@ -260,9 +269,14 @@ def count_logs_filtered(
     if user_id is not None:
         q = q.filter(TLog.user_id == user_id)
 
-    # Filter by status IDs (trigpoint types)
-    if status_ids:
-        q = q.filter(Trig.status_id.in_(status_ids))
+    # Filter by group codes (trigpoint type groups)
+    if group_codes:
+        type_id_list = _get_type_ids_for_groups(db, group_codes)
+        if type_id_list:
+            q = q.filter(Trig.type_id.in_(type_id_list))
+        else:
+            # No matching groups, return 0
+            return 0
 
     # Filter by area using trig_area_mv materialized view
     if area_id is not None and not _is_sqlite(db):

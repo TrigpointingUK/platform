@@ -106,7 +106,7 @@ export function LocationSearch({
             }}
             onFocus={() => setIsOpen(true)}
             placeholder="Search location, postcode, grid ref..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400"
             aria-label="Location search"
             aria-autocomplete="list"
             aria-controls="location-results"
@@ -129,7 +129,7 @@ export function LocationSearch({
           <button
             type="button"
             onClick={handleClear}
-            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+            className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
             title="Clear location"
             aria-label="Clear location"
           >
@@ -142,17 +142,17 @@ export function LocationSearch({
       {isOpen && (query.length >= 2 || results) && (
         <div
           id="location-results"
-          className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+          className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg dark:shadow-gray-900/50 max-h-96 overflow-y-auto"
           role="listbox"
         >
           {isLoading && (
-            <div className="px-4 py-3 text-gray-500 text-center">
+            <div className="px-4 py-3 text-gray-500 dark:text-gray-400 text-center">
               Searching...
             </div>
           )}
           
           {!isLoading && results && results.length === 0 && (
-            <div className="px-4 py-3 text-gray-500 text-center">
+            <div className="px-4 py-3 text-gray-500 dark:text-gray-400 text-center">
               No results found
             </div>
           )}
@@ -164,20 +164,20 @@ export function LocationSearch({
                   <button
                     type="button"
                     onClick={() => handleSelectResult(result)}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
+                    className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                     role="option"
                     aria-selected={false}
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-2xl">{getLocationTypeIcon(result.type)}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900">{result.name}</div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{result.name}</div>
                         {result.description && (
-                          <div className="text-sm text-gray-500 mt-0.5">
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                             {result.description}
                           </div>
                         )}
-                        <div className="text-xs text-gray-400 mt-0.5 font-mono">
+                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono">
                           {result.lat.toFixed(5)}, {result.lon.toFixed(5)}
                         </div>
                       </div>

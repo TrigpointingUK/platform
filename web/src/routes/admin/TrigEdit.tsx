@@ -238,10 +238,10 @@ export default function TrigEdit() {
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="text-center py-12">
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
                 Access Denied
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 You do not have permission to access this page.
               </p>
             </div>
@@ -259,7 +259,7 @@ export default function TrigEdit() {
           <Card>
             <div className="flex flex-col items-center justify-center py-12">
               <Spinner size="lg" />
-              <span className="mt-3 text-gray-600">
+              <span className="mt-3 text-gray-600 dark:text-gray-400">
                 {isAuthLoading ? "Verifying admin permissions..." : "Requesting elevated permissions..."}
               </span>
             </div>
@@ -276,7 +276,7 @@ export default function TrigEdit() {
           <Card>
             <div className="flex items-center justify-center py-12">
               <Spinner size="lg" />
-              <span className="ml-3 text-gray-600">Loading trigpoint...</span>
+              <span className="ml-3 text-gray-600 dark:text-gray-400">Loading trigpoint...</span>
             </div>
           </Card>
         </div>
@@ -290,10 +290,10 @@ export default function TrigEdit() {
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="text-center py-12">
-              <p className="text-red-600">Error: {error || "Trigpoint not found"}</p>
+              <p className="text-red-600 dark:text-red-400">Error: {error || "Trigpoint not found"}</p>
               <Link
                 to="/admin/needs-attention"
-                className="text-[#046935] hover:text-[#035228] mt-4 inline-block"
+                className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 mt-4 inline-block"
               >
                 ← Back to list
               </Link>
@@ -310,16 +310,16 @@ export default function TrigEdit() {
         <Card className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                 Edit Trigpoint: {trig.name}
               </h1>
-              <p className="text-gray-600 mb-2">
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
                 Waypoint: {trig.waypoint} | ID: {trig.id}
               </p>
               <div className="flex gap-4 text-sm">
                 <Link
                   to={`/trigs/${trig.id}`}
-                  className="text-[#046935] hover:text-[#035228] font-medium"
+                  className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 font-medium"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -329,7 +329,7 @@ export default function TrigEdit() {
             </div>
             <Link
               to="/admin/needs-attention"
-              className="text-[#046935] hover:text-[#035228] font-medium"
+              className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 font-medium"
             >
               ← Back to Admin
             </Link>
@@ -338,12 +338,12 @@ export default function TrigEdit() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Card>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
               Basic Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Name
                 </label>
                 <input
@@ -351,18 +351,18 @@ export default function TrigEdit() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Type
                 </label>
                 <select
                   value={typeId ?? ""}
                   onChange={(e) => setTypeId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                   disabled={isLoadingTypes}
                 >
                   {isLoadingTypes ? (
@@ -382,13 +382,13 @@ export default function TrigEdit() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Status
                 </label>
                 <select
                   value={statusId}
                   onChange={(e) => setStatusId(parseInt(e.target.value))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 >
                   {statuses.map((status) => (
                     <option key={status.id} value={status.id}>
@@ -399,13 +399,13 @@ export default function TrigEdit() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Current Use
                 </label>
                 <select
                   value={currentUse}
                   onChange={(e) => setCurrentUse(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 >
                   {CURRENT_USE_OPTIONS.map((use) => (
                     <option key={use} value={use}>
@@ -416,13 +416,13 @@ export default function TrigEdit() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Historic Use
                 </label>
                 <select
                   value={historicUse}
                   onChange={(e) => setHistoricUse(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 >
                   {HISTORIC_USE_OPTIONS.map((use) => (
                     <option key={use} value={use}>
@@ -433,13 +433,13 @@ export default function TrigEdit() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Condition
                 </label>
                 <select
                   value={condition}
                   onChange={(e) => setCondition(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 >
                   {CONDITION_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -450,69 +450,69 @@ export default function TrigEdit() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   FB Number
                 </label>
                 <input
                   type="text"
                   value={fbNumber}
                   onChange={(e) => setFbNumber(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Station Number (Deprecated)
                 </label>
                 <input
                   type="text"
                   value={stnNumber}
                   onChange={(e) => setStnNumber(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Station Number (Active)
                 </label>
                 <input
                   type="text"
                   value={stnNumberActive}
                   onChange={(e) => setStnNumberActive(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Station Number (Passive)
                 </label>
                 <input
                   type="text"
                   value={stnNumberPassive}
                   onChange={(e) => setStnNumberPassive(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Station Number (OSGB36)
                 </label>
                 <input
                   type="text"
                   value={stnNumberOsgb36}
                   onChange={(e) => setStnNumberOsgb36(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 />
               </div>
             </div>
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
               Coordinates
             </h2>
             <LinkedCoordinates
@@ -523,16 +523,17 @@ export default function TrigEdit() {
               osgbNorthings={osgbNorthings}
               osgbGridref={osgbGridref}
               osgbHeight={osgbHeight}
+              initialGridSystem={trig?.grid_system as 'gb' | 'ie' | null}
               onWgsChange={handleWgsChange}
               onOsgbChange={handleOsgbChange}
             />
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
               Legal / Access Information
             </h2>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Optional message displayed on the trigpoint detail page above the &quot;Log this trig&quot; button.
               Use this for access restrictions, landowner permissions, or safety warnings.
             </p>
@@ -542,18 +543,29 @@ export default function TrigEdit() {
               placeholder="Enter legal or access information (optional)..."
             />
             {legalMessage && (
-              <button
-                type="button"
-                onClick={() => setLegalMessage("")}
-                className="mt-2 text-sm text-red-600 hover:text-red-800"
-              >
-                Clear message
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setLegalMessage("")}
+                  className="mt-2 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  Clear message
+                </button>
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
+                  <div className="bg-red-50 dark:bg-red-900/30 rounded-lg shadow-md p-4">
+                    <div 
+                      className="prose prose-sm max-w-none dark:prose-invert"
+                      dangerouslySetInnerHTML={{ __html: legalMessage }}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </Card>
 
           <Card>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
               Admin Action
             </h2>
 
@@ -565,9 +577,9 @@ export default function TrigEdit() {
                   value="solved"
                   checked={action === "solved"}
                   onChange={(e) => setAction(e.target.value as typeof action)}
-                  className="h-4 w-4 text-[#046935] focus:ring-[#046935]"
+                  className="h-4 w-4 text-trig-green-600 focus:ring-trig-green-500"
                 />
-                <span className="text-gray-800">
+                <span className="text-gray-800 dark:text-gray-200">
                   Problem solved! Close log (sets needs_attention to 0)
                 </span>
               </label>
@@ -579,9 +591,9 @@ export default function TrigEdit() {
                   value="revisit"
                   checked={action === "revisit"}
                   onChange={(e) => setAction(e.target.value as typeof action)}
-                  className="h-4 w-4 text-[#046935] focus:ring-[#046935]"
+                  className="h-4 w-4 text-trig-green-600 focus:ring-trig-green-500"
                 />
-                <span className="text-gray-800">
+                <span className="text-gray-800 dark:text-gray-200">
                   Leave in &quot;Needs attention&quot; status, to be revisited later
                 </span>
               </label>
@@ -593,16 +605,16 @@ export default function TrigEdit() {
                   value="cant_fix"
                   checked={action === "cant_fix"}
                   onChange={(e) => setAction(e.target.value as typeof action)}
-                  className="h-4 w-4 text-[#046935] focus:ring-[#046935]"
+                  className="h-4 w-4 text-trig-green-600 focus:ring-trig-green-500"
                 />
-                <span className="text-gray-800">
+                <span className="text-gray-800 dark:text-gray-200">
                   Can&apos;t fix using this tool (increments needs_attention)
                 </span>
               </label>
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Admin Comment (required)
               </label>
               <textarea
@@ -610,17 +622,17 @@ export default function TrigEdit() {
                 onChange={(e) => setAdminComment(e.target.value)}
                 required
                 rows={4}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 placeholder="Enter your comment about this update..."
               />
             </div>
 
             {trig.attention_comment && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Comment History
                 </label>
-                <div className="bg-gray-50 p-4 rounded-md border border-gray-300 whitespace-pre-line text-sm text-gray-700 max-h-64 overflow-y-auto">
+                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md border border-gray-300 dark:border-gray-600 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300 max-h-64 overflow-y-auto">
                   {trig.attention_comment}
                 </div>
               </div>
@@ -628,13 +640,13 @@ export default function TrigEdit() {
           </Card>
 
           {saveError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md">
               {saveError}
             </div>
           )}
 
           {saveSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+            <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-md">
               Changes saved successfully! Redirecting...
             </div>
           )}

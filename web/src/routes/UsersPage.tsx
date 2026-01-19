@@ -111,7 +111,7 @@ export default function UsersPage() {
     if (!field) {
       return (
         <span
-          className={`flex items-center gap-1 uppercase tracking-wide text-xs font-semibold text-gray-500 ${alignClass}`}
+          className={`flex items-center gap-1 uppercase tracking-wide text-xs font-semibold text-gray-500 dark:text-gray-400 ${alignClass}`}
         >
           {label}
         </span>
@@ -131,7 +131,7 @@ export default function UsersPage() {
         type="button"
         onClick={() => handleSortClick(field)}
         className={`flex items-center gap-1 uppercase tracking-wide text-xs font-semibold transition-colors ${alignClass} ${
-          isActive ? "text-trig-green-700" : "text-gray-500 hover:text-trig-green-600"
+          isActive ? "text-trig-green-700 dark:text-trig-green-500" : "text-gray-500 dark:text-gray-400 hover:text-trig-green-600 dark:hover:text-trig-green-400"
         }`}
         role="columnheader"
         aria-sort={ariaSort}
@@ -154,20 +154,20 @@ export default function UsersPage() {
           <p className="text-sm uppercase tracking-wide text-trig-green-600 font-semibold">
             Community
           </p>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
             Trigpointing members
           </h1>
-          <p className="text-gray-600 max-w-2xl">
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl">
             Browse the people behind the logs. Sort by trigpoints, photos, or
             joined date and quickly jump to a specific profile.
           </p>
         </div>
 
-        <Card className="shadow-sm border border-gray-100">
+        <Card className="shadow-sm border border-gray-100 dark:border-gray-700">
           <div>
             <label
               htmlFor="user-search"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
               Find a user
             </label>
@@ -178,13 +178,13 @@ export default function UsersPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Start typing a username…"
-                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-base shadow-inner-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 shadow-inner-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-800"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
                 >
                   Clear
                 </button>
@@ -194,18 +194,18 @@ export default function UsersPage() {
         </Card>
 
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-          <p className="text-sm text-gray-600">{resultSummary}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{resultSummary}</p>
           {debouncedSearch && (
-            <span className="text-xs uppercase tracking-wide text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+            <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
               Filtered by "{debouncedSearch}"
             </span>
           )}
         </div>
 
         {/* Mobile sort controls (non-sticky) */}
-        <Card className="sm:hidden shadow-sm border border-gray-100 mb-4">
+        <Card className="sm:hidden shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               Sort by
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -214,8 +214,8 @@ export default function UsersPage() {
                 onClick={() => handleSortClick("name")}
                 className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
                   sort === "name"
-                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
-                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                    ? "bg-trig-green-50 dark:bg-trig-green-900/30 border-trig-green-600 text-trig-green-700 dark:text-trig-green-400"
+                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-trig-green-500"
                 }`}
               >
                 Name {sort === "name" && (direction === "desc" ? "▼" : "▲")}
@@ -225,8 +225,8 @@ export default function UsersPage() {
                 onClick={() => handleSortClick("joined")}
                 className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
                   sort === "joined"
-                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
-                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                    ? "bg-trig-green-50 dark:bg-trig-green-900/30 border-trig-green-600 text-trig-green-700 dark:text-trig-green-400"
+                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-trig-green-500"
                 }`}
               >
                 Joined {sort === "joined" && (direction === "desc" ? "▼" : "▲")}
@@ -236,8 +236,8 @@ export default function UsersPage() {
                 onClick={() => handleSortClick("trigs")}
                 className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
                   sort === "trigs"
-                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
-                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                    ? "bg-trig-green-50 dark:bg-trig-green-900/30 border-trig-green-600 text-trig-green-700 dark:text-trig-green-400"
+                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-trig-green-500"
                 }`}
               >
                 Trigpoints {sort === "trigs" && (direction === "desc" ? "▼" : "▲")}
@@ -247,8 +247,8 @@ export default function UsersPage() {
                 onClick={() => handleSortClick("photos")}
                 className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
                   sort === "photos"
-                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
-                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                    ? "bg-trig-green-50 dark:bg-trig-green-900/30 border-trig-green-600 text-trig-green-700 dark:text-trig-green-400"
+                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-trig-green-500"
                 }`}
               >
                 Photos {sort === "photos" && (direction === "desc" ? "▼" : "▲")}
@@ -258,8 +258,8 @@ export default function UsersPage() {
                 onClick={() => handleSortClick("logs")}
                 className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
                   sort === "logs"
-                    ? "bg-trig-green-50 border-trig-green-600 text-trig-green-700"
-                    : "bg-white border-gray-300 text-gray-700 hover:border-trig-green-500"
+                    ? "bg-trig-green-50 dark:bg-trig-green-900/30 border-trig-green-600 text-trig-green-700 dark:text-trig-green-400"
+                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-trig-green-500"
                 }`}
               >
                 Logs {sort === "logs" && (direction === "desc" ? "▼" : "▲")}
@@ -268,9 +268,9 @@ export default function UsersPage() {
           </div>
         </Card>
 
-        <div className="sticky top-16 z-40 bg-white border-b border-gray-200 shadow-sm hidden sm:block">
+        <div className="sticky top-16 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm hidden sm:block">
           <div className="px-4 py-3">
-            <div className="grid grid-cols-2 gap-4 text-xs font-semibold uppercase tracking-wide text-gray-500 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))]">
+            <div className="grid grid-cols-2 gap-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))]">
               {renderHeaderCell("Name", "name")}
               {renderHeaderCell("Member since", "joined")}
               {renderHeaderCell("Trigpoints", "trigs", "center")}
@@ -281,7 +281,7 @@ export default function UsersPage() {
         </div>
 
         {isError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">
             {error instanceof Error
               ? error.message
               : "Unable to load members right now."}
@@ -291,17 +291,17 @@ export default function UsersPage() {
         {isLoading && (
           <div className="flex flex-col items-center gap-4 py-16">
             <Spinner size="lg" />
-            <p className="text-gray-600">Loading the community directory…</p>
+            <p className="text-gray-600 dark:text-gray-400">Loading the community directory…</p>
           </div>
         )}
 
         {!isLoading && users.length === 0 && (
           <Card className="text-center py-12">
             <p className="text-4xl mb-3">🧭</p>
-            <p className="text-lg font-semibold mb-1 text-gray-900">
+            <p className="text-lg font-semibold mb-1 text-gray-900 dark:text-gray-100">
               No matches found
             </p>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               Try a different search term or change the sort order.
             </p>
           </Card>
@@ -310,27 +310,27 @@ export default function UsersPage() {
         {users.length > 0 && (
           <div className="space-y-0.5">
             {users.map((user) => (
-              <Card className="p-0 transition-shadow hover:shadow-md" key={user.id}>
+              <Card className="p-0 transition-shadow hover:shadow-md dark:hover:shadow-gray-900/70" key={user.id}>
                 <div className="px-3 py-2 sm:py-0.5">
-                  {/* Mobile layout */}
-                  <div className="sm:hidden space-y-2">
-                    <div className="flex flex-wrap justify-between items-baseline gap-x-3 gap-y-1">
-                      <Link
-                        to={user.profile_path}
-                        className="text-left text-[0.95rem] font-semibold text-gray-900 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
-                      >
-                        {user.name}
-                      </Link>
-                      <Link
-                        to={user.profile_path}
-                        className="text-right text-[0.8rem] text-gray-600 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded whitespace-nowrap"
-                      >
-                        <span className="text-gray-500">Member Since:</span>{" "}
-                        <span className="font-medium text-gray-900">
-                          {formatMemberSince(user.member_since)}
-                        </span>
-                      </Link>
-                    </div>
+                    {/* Mobile layout */}
+                    <div className="sm:hidden space-y-2">
+                      <div className="flex flex-wrap justify-between items-baseline gap-x-3 gap-y-1">
+                        <Link
+                          to={user.profile_path}
+                          className="text-left text-[0.95rem] font-semibold text-gray-900 dark:text-gray-100 leading-tight hover:text-trig-green-700 dark:hover:text-trig-green-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
+                        >
+                          {user.name}
+                        </Link>
+                        <Link
+                          to={user.profile_path}
+                          className="text-right text-[0.8rem] text-gray-600 dark:text-gray-400 leading-tight hover:text-trig-green-700 dark:hover:text-trig-green-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded whitespace-nowrap"
+                        >
+                          <span className="text-gray-500 dark:text-gray-400">Member Since:</span>{" "}
+                          <span className="font-medium text-gray-900 dark:text-gray-100">
+                            {formatMemberSince(user.member_since)}
+                          </span>
+                        </Link>
+                      </div>
                     <div className="grid grid-cols-3 gap-2">
                       <CountCell
                         label="Trigpoints"
@@ -351,18 +351,18 @@ export default function UsersPage() {
                   </div>
 
                   {/* Desktop layout */}
-                  <div className="hidden sm:grid gap-0.5 text-[0.95rem] text-gray-700 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))] sm:items-center leading-tight">
+                  <div className="hidden sm:grid gap-0.5 text-[0.95rem] text-gray-700 dark:text-gray-300 sm:grid-cols-[2fr_1.2fr_repeat(3,minmax(0,1fr))] sm:items-center leading-tight">
                     <Link
                       to={user.profile_path}
-                      className="text-left text-[0.95rem] font-semibold text-gray-900 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
+                      className="text-left text-[0.95rem] font-semibold text-gray-900 dark:text-gray-100 leading-tight hover:text-trig-green-700 dark:hover:text-trig-green-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500"
                     >
                       {user.name}
                     </Link>
                     <Link
                       to={user.profile_path}
-                      className="text-gray-600 leading-tight hover:text-trig-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
+                      className="text-gray-600 dark:text-gray-400 leading-tight hover:text-trig-green-700 dark:hover:text-trig-green-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
                     >
-                      <p className="font-medium text-gray-900 leading-tight">
+                      <p className="font-medium text-gray-900 dark:text-gray-100 leading-tight">
                         {formatMemberSince(user.member_since)}
                       </p>
                     </Link>
@@ -391,7 +391,7 @@ export default function UsersPage() {
         {hasNextPage && <div ref={sentinelRef} className="h-px w-full" />}
 
         {isFetchingNextPage && (
-          <div className="flex flex-col items-center gap-3 py-6 text-gray-600">
+          <div className="flex flex-col items-center gap-3 py-6 text-gray-600 dark:text-gray-400">
             <Spinner size="sm" />
             <span>Loading more members…</span>
           </div>
@@ -411,12 +411,12 @@ function CountCell({ label, value, to }: CountCellProps) {
   return (
     <Link
       to={to}
-      className="text-center leading-snug hover:text-trig-green-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
+      className="text-center leading-snug hover:text-trig-green-800 dark:hover:text-trig-green-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trig-green-500 rounded"
     >
-      <p className="text-[0.6rem] uppercase tracking-wide text-gray-500 leading-tight">
+      <p className="text-[0.6rem] uppercase tracking-wide text-gray-500 dark:text-gray-400 leading-tight">
         {label}
       </p>
-      <p className="text-base font-semibold text-trig-green-700 leading-snug">
+      <p className="text-base font-semibold text-trig-green-700 dark:text-trig-green-500 leading-snug">
         {value.toLocaleString("en-GB")}
       </p>
     </Link>

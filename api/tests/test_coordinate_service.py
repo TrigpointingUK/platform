@@ -1,15 +1,23 @@
 """
 Unit tests for the coordinate conversion service.
 
-Tests OSTN15 (horizontal) and OSGM15 (vertical) transformations.
+Tests OSTN15 (horizontal) and OSGM15 (vertical) transformations for GB,
+and Irish Grid (EPSG:29903) transformations for Ireland.
 """
 
 import pytest
 
 from api.services.coordinate_service import (
+    convert_irish_to_wgs84,
     convert_osgb_to_wgs84,
+    convert_wgs84_to_irish,
     convert_wgs84_to_osgb,
     eastings_northings_to_gridref,
+    eastings_northings_to_irish_gridref,
+    irish_gridref_to_eastings_northings,
+    is_irish_gridref,
+    is_osgb_gridref,
+    parse_irish_gridref,
     verify_ostn15_available,
 )
 
@@ -321,3 +329,556 @@ class TestVerifyOSTN15:
             if "OSTN15" in str(e) or "OSGM15" in str(e):
                 pytest.skip(f"OSTN15/OSGM15 grid files not available: {e}")
             raise
+
+
+# =============================================================================
+# Irish Grid Tests (EPSG:29903)
+# =============================================================================
+
+
+class TestWGS84ToIrish:
+    """Tests for WGS84/ETRS89 to Irish Grid (TM65/TM75) conversion."""
+
+    def test_dublin_conversion(self):
+        """Test conversion for Dublin.
+
+        Dublin city centre: approximately lat=53.3498, lon=-6.2603
+        Expected Irish Grid: approximately E=316200, N=234000
+        """
+        lon, lat = -6.2603, 53.3498
+
+        e, n, h = convert_wgs84_to_irish(lon, lat)
+
+        # Dublin should be in the O grid square (Eastings 300-400km, Northings 200-300km)
+        assert 310000 < e < 320000, f"Eastings {e} outside expected Dublin range"
+        assert 230000 < n < 240000, f"Northings {n} outside expected Dublin range"
+        assert h is None  # No height input
+
+    def test_belfast_conversion(self):
+        """Test conversion for Belfast (Northern Ireland).
+
+        Belfast city centre: approximately lat=54.5973, lon=-5.9301
+        Expected Irish Grid: approximately E=334000, N=373000
+        """
+        lon, lat = -5.9301, 54.5973
+
+        e, n, h = convert_wgs84_to_irish(lon, lat)
+
+        # Belfast should be in the J grid square
+        assert 330000 < e < 340000, f"Eastings {e} outside expected Belfast range"
+        assert 370000 < n < 380000, f"Northings {n} outside expected Belfast range"
+        assert h is None  # No height input
+
+    def test_galway_conversion(self):
+        """Test conversion for Galway (west coast).
+
+        Galway city centre: approximately lat=53.2707, lon=-9.0568
+        Expected Irish Grid: approximately E=131000, N=225000
+        """
+        lon, lat = -9.0568, 53.2707
+
+        e, n, h = convert_wgs84_to_irish(lon, lat)
+
+        # Galway should be in the M grid square (west)
+        assert 125000 < e < 140000, f"Eastings {e} outside expected Galway range"
+        assert 220000 < n < 230000, f"Northings {n} outside expected Galway range"
+        assert h is None  # No height input
+
+    def test_cork_conversion(self):
+        """Test conversion for Cork (south coast).
+
+        Cork city centre: approximately lat=51.8985, lon=-8.4756
+        Expected Irish Grid: approximately E=167000, N=72000
+        """
+        lon, lat = -8.4756, 51.8985
+
+        e, n, h = convert_wgs84_to_irish(lon, lat)
+
+        # Cork should be in the W grid square (south)
+        assert 160000 < e < 175000, f"Eastings {e} outside expected Cork range"
+        assert 68000 < n < 78000, f"Northings {n} outside expected Cork range"
+        assert h is None  # No height input
+
+    def test_dublin_with_height_conversion(self):
+        """Test 3D conversion for Dublin with height.
+
+        Uses OSGM15 geoid model to convert ellipsoidal height to Malin Head datum.
+        Geoid separation in Dublin area is approximately 56m.
+        """
+        lon, lat = -6.2603, 53.3498
+        wgs_height = 100.0  # 100m ellipsoidal height
+
+        e, n, malin_h = convert_wgs84_to_irish(lon, lat, wgs_height)
+
+        # Horizontal conversion should still work
+        assert 310000 < e < 320000, f"Eastings {e} outside expected Dublin range"
+        assert 230000 < n < 240000, f"Northings {n} outside expected Dublin range"
+
+        # Height should be converted using OSGM15 geoid model
+        # Geoid separation in Dublin is ~56m, so orthometric height = ellipsoidal - N
+        assert malin_h is not None
+        geoid_separation = wgs_height - malin_h
+
+        # Check if OSGM15 geoid model is available
+        if geoid_separation < 1.0:
+            pytest.skip("OSGM15 geoid model not available for Dublin")
+
+        assert (
+            54 < geoid_separation < 58
+        ), f"Geoid separation {geoid_separation} outside expected Dublin range (54-58m)"
+
+    def test_belfast_with_height_conversion(self):
+        """Test 3D conversion for Belfast with height."""
+        lon, lat = -5.9301, 54.5973
+        wgs_height = 100.0
+
+        e, n, malin_h = convert_wgs84_to_irish(lon, lat, wgs_height)
+
+        # Height should be converted
+        assert malin_h is not None
+        geoid_separation = wgs_height - malin_h
+
+        # Check if OSGM15 geoid model is available
+        if geoid_separation < 1.0:
+            pytest.skip("OSGM15 geoid model not available for Belfast")
+
+        # Belfast geoid separation should be similar to Dublin (~56m)
+        assert (
+            54 < geoid_separation < 58
+        ), f"Geoid separation {geoid_separation} outside expected Belfast range"
+
+    def test_galway_with_height_conversion(self):
+        """Test 3D conversion for Galway with height."""
+        lon, lat = -9.0568, 53.2707
+        wgs_height = 100.0
+
+        e, n, malin_h = convert_wgs84_to_irish(lon, lat, wgs_height)
+
+        # Height should be converted
+        assert malin_h is not None
+        geoid_separation = wgs_height - malin_h
+
+        # Check if OSGM15 geoid model is available (gives ~57m separation)
+        # If not available, the height passes through unchanged (0m separation)
+        if geoid_separation < 1.0:
+            pytest.skip("OSGM15 geoid model not available for Galway")
+
+        # Galway geoid separation should be similar (~57m)
+        assert (
+            55 < geoid_separation < 59
+        ), f"Geoid separation {geoid_separation} outside expected Galway range"
+
+    def test_cork_with_height_conversion(self):
+        """Test 3D conversion for Cork with height."""
+        lon, lat = -8.4756, 51.8985
+        wgs_height = 100.0
+
+        e, n, malin_h = convert_wgs84_to_irish(lon, lat, wgs_height)
+
+        # Height should be converted
+        assert malin_h is not None
+        geoid_separation = wgs_height - malin_h
+
+        # Check if OSGM15 geoid model is available (gives ~57m separation)
+        # If not available, the height passes through unchanged (0m separation)
+        if geoid_separation < 1.0:
+            pytest.skip("OSGM15 geoid model not available for Cork")
+
+        # Cork geoid separation should be similar (~57m)
+        assert (
+            55 < geoid_separation < 59
+        ), f"Geoid separation {geoid_separation} outside expected Cork range"
+
+
+class TestIrishToWGS84:
+    """Tests for Irish Grid to WGS84/ETRS89 conversion."""
+
+    def test_dublin_reverse(self):
+        """Test reverse conversion for Dublin."""
+        e, n = 316200.0, 234000.0
+
+        lon, lat, h = convert_irish_to_wgs84(e, n)
+
+        # Dublin is approximately lat=53.35, lon=-6.26
+        assert -6.3 < lon < -6.2, f"Longitude {lon} outside expected Dublin range"
+        assert 53.3 < lat < 53.4, f"Latitude {lat} outside expected Dublin range"
+        assert h is None  # No height input
+
+    def test_belfast_reverse(self):
+        """Test reverse conversion for Belfast."""
+        e, n = 334000.0, 373000.0
+
+        lon, lat, h = convert_irish_to_wgs84(e, n)
+
+        # Belfast is approximately lat=54.6, lon=-5.9
+        assert -6.0 < lon < -5.8, f"Longitude {lon} outside expected Belfast range"
+        assert 54.5 < lat < 54.7, f"Latitude {lat} outside expected Belfast range"
+        assert h is None  # No height input
+
+    def test_dublin_with_height_conversion(self):
+        """Test reverse 3D conversion for Dublin.
+
+        Uses OSGM15 geoid model to convert Malin Head orthometric height
+        back to ellipsoidal height.
+        """
+        e, n = 316200.0, 234000.0
+        malin_height = 44.0  # ~44m orthometric (Malin Head)
+
+        lon, lat, wgs_h = convert_irish_to_wgs84(e, n, malin_height)
+
+        # Horizontal conversion should still work
+        assert -6.3 < lon < -6.2, f"Longitude {lon} outside expected Dublin range"
+        assert 53.3 < lat < 53.4, f"Latitude {lat} outside expected Dublin range"
+
+        # Height should be converted back to ellipsoidal
+        # With ~56m geoid separation: ellipsoidal = orthometric + N
+        assert wgs_h is not None
+
+        # Check if OSGM15 geoid model is available
+        # If available, 44m orthometric + ~56m geoid separation = ~100m ellipsoidal
+        # If not available, height passes through unchanged
+        if wgs_h < 50:
+            pytest.skip("OSGM15 geoid model not available for Dublin reverse")
+
+        assert (
+            95 < wgs_h < 105
+        ), f"Ellipsoidal height {wgs_h} outside expected range for Dublin"
+
+    def test_belfast_with_height_conversion(self):
+        """Test reverse 3D conversion for Belfast."""
+        e, n = 334000.0, 373000.0
+        malin_height = 44.0  # ~44m orthometric
+
+        lon, lat, wgs_h = convert_irish_to_wgs84(e, n, malin_height)
+
+        # Height should be converted
+        assert wgs_h is not None
+
+        # Check if OSGM15 geoid model is available
+        if wgs_h < 50:
+            pytest.skip("OSGM15 geoid model not available for Belfast reverse")
+
+        # Similar to Dublin: should give ~100m ellipsoidal
+        assert (
+            95 < wgs_h < 105
+        ), f"Ellipsoidal height {wgs_h} outside expected range for Belfast"
+
+
+class TestIrishRoundTrip:
+    """Tests for round-trip Irish Grid conversions."""
+
+    def test_wgs84_round_trip_ireland_2d(self):
+        """Test WGS84 -> Irish -> WGS84 round trip (2D)."""
+        original_lon, original_lat = -7.5, 53.0  # Somewhere in central Ireland
+
+        # Forward conversion
+        e, n, _ = convert_wgs84_to_irish(original_lon, original_lat)
+
+        # Reverse conversion
+        result_lon, result_lat, _ = convert_irish_to_wgs84(e, n)
+
+        # Should get back (very close to) original coordinates
+        assert (
+            abs(result_lon - original_lon) < 0.0001
+        ), f"Longitude round-trip error: {result_lon} vs {original_lon}"
+        assert (
+            abs(result_lat - original_lat) < 0.0001
+        ), f"Latitude round-trip error: {result_lat} vs {original_lat}"
+
+    def test_wgs84_round_trip_ireland_3d(self):
+        """Test WGS84 -> Irish -> WGS84 round trip including height."""
+        original_lon, original_lat = -7.5, 53.0  # Central Ireland
+        original_height = 150.0  # 150m ellipsoidal
+
+        # Forward conversion
+        e, n, malin_h = convert_wgs84_to_irish(
+            original_lon, original_lat, original_height
+        )
+
+        # Check if OSGM15 geoid model is available
+        if malin_h is not None and abs(original_height - malin_h) < 1.0:
+            pytest.skip("OSGM15 geoid model not available for 3D round trip")
+
+        # Reverse conversion
+        result_lon, result_lat, result_h = convert_irish_to_wgs84(e, n, malin_h)
+
+        # Should get back (very close to) original coordinates
+        assert (
+            abs(result_lon - original_lon) < 0.0001
+        ), f"Longitude round-trip error: {result_lon} vs {original_lon}"
+        assert (
+            abs(result_lat - original_lat) < 0.0001
+        ), f"Latitude round-trip error: {result_lat} vs {original_lat}"
+
+        # Height should round-trip with sub-metre accuracy
+        assert result_h is not None
+        assert (
+            abs(result_h - original_height) < 0.5
+        ), f"Height round-trip error: {result_h} vs {original_height}"
+
+    def test_irish_grid_round_trip_2d(self):
+        """Test Irish Grid -> WGS84 -> Irish Grid round trip (2D)."""
+        original_e, original_n = 200000.0, 250000.0  # Somewhere in Ireland
+
+        # Forward conversion
+        lon, lat, _ = convert_irish_to_wgs84(original_e, original_n)
+
+        # Reverse conversion
+        result_e, result_n, _ = convert_wgs84_to_irish(lon, lat)
+
+        # Should get back (very close to) original coordinates
+        # Within 1 metre
+        assert (
+            abs(result_e - original_e) < 1.0
+        ), f"Eastings round-trip error: {result_e} vs {original_e}"
+        assert (
+            abs(result_n - original_n) < 1.0
+        ), f"Northings round-trip error: {result_n} vs {original_n}"
+
+    def test_irish_grid_round_trip_3d(self):
+        """Test Irish Grid -> WGS84 -> Irish Grid round trip including height."""
+        original_e, original_n = 200000.0, 250000.0  # Somewhere in Ireland
+        original_height = 50.0  # 50m Malin orthometric
+
+        # Forward conversion
+        lon, lat, wgs_h = convert_irish_to_wgs84(
+            original_e, original_n, original_height
+        )
+
+        # Check if OSGM15 geoid model is available
+        if wgs_h is not None and abs(wgs_h - original_height) < 1.0:
+            pytest.skip("OSGM15 geoid model not available for 3D round trip")
+
+        # Reverse conversion
+        result_e, result_n, result_h = convert_wgs84_to_irish(lon, lat, wgs_h)
+
+        # Should get back (very close to) original coordinates
+        # Within 1 metre
+        assert (
+            abs(result_e - original_e) < 1.0
+        ), f"Eastings round-trip error: {result_e} vs {original_e}"
+        assert (
+            abs(result_n - original_n) < 1.0
+        ), f"Northings round-trip error: {result_n} vs {original_n}"
+
+        # Height should round-trip with sub-metre accuracy
+        assert result_h is not None
+        assert (
+            abs(result_h - original_height) < 0.5
+        ), f"Height round-trip error: {result_h} vs {original_height}"
+
+    def test_multiple_locations_height_round_trip(self):
+        """Test height round-trip accuracy at multiple Irish locations."""
+        test_points = [
+            ("Dublin", -6.2603, 53.3498),
+            ("Belfast", -5.9301, 54.5973),
+            ("Cork", -8.4756, 51.8985),
+            ("Galway", -9.0568, 53.2707),
+            ("Limerick", -8.6305, 52.6638),
+        ]
+        original_height = 100.0
+
+        geoid_available = False
+        for name, lon, lat in test_points:
+            # Forward conversion
+            e, n, malin_h = convert_wgs84_to_irish(lon, lat, original_height)
+
+            # Check if OSGM15 geoid model is available (significant height change)
+            if malin_h is not None and abs(original_height - malin_h) > 10.0:
+                geoid_available = True
+
+            # Reverse conversion
+            _, _, result_h = convert_irish_to_wgs84(e, n, malin_h)
+
+            # Height should round-trip with sub-millimetre accuracy
+            assert result_h is not None
+            error_mm = abs(result_h - original_height) * 1000
+            assert (
+                error_mm < 1.0
+            ), f"Height round-trip error for {name}: {error_mm:.2f}mm"
+
+        if not geoid_available:
+            pytest.skip("OSGM15 geoid model not available for any test location")
+
+
+class TestIrishGridReference:
+    """Tests for Irish Grid reference generation and parsing."""
+
+    def test_dublin_gridref(self):
+        """Test grid reference for Dublin area."""
+        e, n = 316200, 234000
+
+        gridref = eastings_northings_to_irish_gridref(e, n)
+
+        # Dublin is in the O grid square
+        assert gridref.startswith("O"), f"Expected O grid square, got: {gridref}"
+        assert gridref == "O 16200 34000", f"Unexpected gridref: {gridref}"
+
+    def test_belfast_gridref(self):
+        """Test grid reference for Belfast area."""
+        e, n = 334000, 373000
+
+        gridref = eastings_northings_to_irish_gridref(e, n)
+
+        # Belfast is in the J grid square
+        assert gridref.startswith("J"), f"Expected J grid square, got: {gridref}"
+        assert gridref == "J 34000 73000", f"Unexpected gridref: {gridref}"
+
+    def test_galway_gridref(self):
+        """Test grid reference for Galway (west coast)."""
+        e, n = 131000, 225000
+
+        gridref = eastings_northings_to_irish_gridref(e, n)
+
+        # Galway is in the M grid square
+        assert gridref.startswith("M"), f"Expected M grid square, got: {gridref}"
+        assert gridref == "M 31000 25000", f"Unexpected gridref: {gridref}"
+
+    def test_cork_gridref(self):
+        """Test grid reference for Cork area (south)."""
+        e, n = 167000, 72000
+
+        gridref = eastings_northings_to_irish_gridref(e, n)
+
+        # Cork is in the W grid square
+        assert gridref.startswith("W"), f"Expected W grid square, got: {gridref}"
+        assert gridref == "W 67000 72000", f"Unexpected gridref: {gridref}"
+
+    def test_invalid_irish_coordinates_raises(self):
+        """Test that coordinates outside Irish Grid raise ValueError."""
+        # Way outside Irish Grid (> 500km)
+        with pytest.raises(ValueError, match="outside the Irish Grid"):
+            eastings_northings_to_irish_gridref(600000, 300000)
+
+        # Negative coordinates
+        with pytest.raises(ValueError, match="outside the Irish Grid"):
+            eastings_northings_to_irish_gridref(-100, 100000)
+
+    def test_parse_irish_gridref_dublin(self):
+        """Test parsing Irish grid reference for Dublin."""
+        gridref = "O 16200 34000"
+
+        e, n = irish_gridref_to_eastings_northings(gridref)
+
+        assert e == 316200, f"Eastings {e} should be 316200"
+        assert n == 234000, f"Northings {n} should be 234000"
+
+    def test_parse_irish_gridref_belfast(self):
+        """Test parsing Irish grid reference for Belfast."""
+        gridref = "J 34000 73000"
+
+        e, n = irish_gridref_to_eastings_northings(gridref)
+
+        assert e == 334000, f"Eastings {e} should be 334000"
+        assert n == 373000, f"Northings {n} should be 373000"
+
+    def test_parse_irish_gridref_no_spaces(self):
+        """Test parsing Irish grid reference without spaces."""
+        gridref = "O1620034000"
+
+        e, n = irish_gridref_to_eastings_northings(gridref)
+
+        assert e == 316200, f"Eastings {e} should be 316200"
+        assert n == 234000, f"Northings {n} should be 234000"
+
+    def test_parse_irish_gridref_4_digit(self):
+        """Test parsing 4-digit Irish grid reference."""
+        gridref = "O 1620 3400"
+
+        e, n = irish_gridref_to_eastings_northings(gridref)
+
+        assert e == 316200, f"Eastings {e} should be 316200"
+        assert n == 234000, f"Northings {n} should be 234000"
+
+    def test_parse_invalid_irish_gridref_raises(self):
+        """Test that invalid grid references raise ValueError."""
+        # Invalid letter (I is not used in Irish Grid)
+        with pytest.raises(ValueError):
+            irish_gridref_to_eastings_northings("I 12345 67890")
+
+        # OSGB-style two-letter grid reference
+        with pytest.raises(ValueError):
+            irish_gridref_to_eastings_northings("TQ 12345 67890")
+
+
+class TestGridRefRecognition:
+    """Tests for recognising OSGB vs Irish grid references."""
+
+    def test_is_irish_gridref_valid(self):
+        """Test recognition of valid Irish grid references."""
+        assert is_irish_gridref("O 16200 34000") is True
+        assert is_irish_gridref("J 34000 73000") is True
+        assert is_irish_gridref("M3100025000") is True
+        assert is_irish_gridref("W 67000 72000") is True
+        assert is_irish_gridref("A 12345 67890") is True
+        assert is_irish_gridref("Z 00000 00000") is True
+
+    def test_is_irish_gridref_invalid(self):
+        """Test rejection of non-Irish grid references."""
+        # OSGB two-letter references
+        assert is_irish_gridref("TQ 12345 67890") is False
+        assert is_irish_gridref("NT 25200 73400") is False
+        assert is_irish_gridref("NL 70095 98813") is False
+
+        # Letter I is not used in Irish Grid
+        assert is_irish_gridref("I 12345 67890") is False
+
+        # Odd number of digits (invalid format)
+        assert is_irish_gridref("O 123") is False
+
+        # Not a grid reference
+        assert is_irish_gridref("Dublin") is False
+        assert is_irish_gridref("") is False
+
+    def test_is_osgb_gridref_valid(self):
+        """Test recognition of valid OSGB grid references."""
+        assert is_osgb_gridref("TQ 30005 80433") is True
+        assert is_osgb_gridref("NT 25200 73400") is True
+        assert is_osgb_gridref("NL 70095 98813") is True
+        assert is_osgb_gridref("SW 15000 05000") is True
+        assert is_osgb_gridref("TQ3000580433") is True
+
+    def test_is_osgb_gridref_invalid(self):
+        """Test rejection of non-OSGB grid references."""
+        # Irish single-letter references
+        assert is_osgb_gridref("O 16200 34000") is False
+        assert is_osgb_gridref("J 34000 73000") is False
+
+        # Odd number of digits (invalid format)
+        assert is_osgb_gridref("TQ 123") is False
+
+        # Not a grid reference
+        assert is_osgb_gridref("London") is False
+        assert is_osgb_gridref("") is False
+
+    def test_ambiguous_cases(self):
+        """Test that OSGB and Irish grid refs are distinguished correctly."""
+        # Irish grid ref (single letter O)
+        assert is_irish_gridref("O1234567890") is True
+        assert is_osgb_gridref("O1234567890") is False
+
+        # OSGB grid ref (two letters starting with O)
+        assert is_irish_gridref("OT1234567890") is False
+        assert is_osgb_gridref("OT1234567890") is True
+
+
+class TestParseIrishGridref:
+    """Tests for the parse_irish_gridref function."""
+
+    def test_parse_dublin(self):
+        """Test parsing Dublin grid reference to lat/lon."""
+        result = parse_irish_gridref("O 16200 34000")
+
+        assert result is not None
+        lat, lon, normalized = result
+
+        # Dublin is approximately lat=53.35, lon=-6.26
+        assert 53.3 < lat < 53.4, f"Latitude {lat} outside expected range"
+        assert -6.3 < lon < -6.2, f"Longitude {lon} outside expected range"
+        assert normalized == "O 16200 34000"
+
+    def test_parse_invalid_returns_none(self):
+        """Test that invalid grid references return None."""
+        assert parse_irish_gridref("TQ 12345 67890") is None  # OSGB
+        assert parse_irish_gridref("Invalid") is None
+        assert parse_irish_gridref("") is None

@@ -109,9 +109,9 @@ export default function PhotoAlbum() {
       <Layout>
         <title>Photo Album | TrigpointingUK</title>
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">Photo Gallery</h1>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <p className="text-red-600 mb-4">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">Photo Gallery</h1>
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
+            <p className="text-red-600 dark:text-red-300 mb-4">
               Failed to load photos. Please try again later.
             </p>
             <Button onClick={() => window.location.reload()}>Reload Page</Button>
@@ -129,15 +129,15 @@ export default function PhotoAlbum() {
         <div className="mb-6">
           <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">Photo Gallery</h1>
-              <p className="text-gray-600">
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Photo Gallery</h1>
+              <p className="text-gray-600 dark:text-gray-400">
                 {isLoading ? (
                   "Loading photos..."
                 ) : (
                   <>
                     {allPhotos.length.toLocaleString()} {viewMode === 'unseen' ? 'unseen ' : ''}photo{allPhotos.length !== 1 ? 's' : ''} loaded
                     {viewMode === 'unseen' && historyStats.totalPhotosViewed > 0 && (
-                      <span className="text-sm text-gray-500 ml-2">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
                         ({historyStats.totalPhotosViewed.toLocaleString()} previously viewed)
                       </span>
                     )}
@@ -148,13 +148,13 @@ export default function PhotoAlbum() {
             
             {/* View Mode Controls */}
             <div className="flex flex-wrap gap-2">
-              <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('unseen')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'unseen'
-                      ? 'bg-white text-trig-green-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-800 text-trig-green-600 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
                   }`}
                 >
                   Unseen Photos
@@ -163,8 +163,8 @@ export default function PhotoAlbum() {
                   onClick={() => setViewMode('all')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'all'
-                      ? 'bg-white text-trig-green-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-800 text-trig-green-600 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
                   }`}
                 >
                   All Photos
@@ -188,7 +188,7 @@ export default function PhotoAlbum() {
         {isLoading && (
           <div className="py-12">
             <Spinner size="lg" />
-            <p className="text-center text-gray-600 mt-4">Loading photos...</p>
+            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading photos...</p>
           </div>
         )}
 
@@ -205,11 +205,11 @@ export default function PhotoAlbum() {
               {isFetchingNextPage && (
                 <>
                   <Spinner size="md" />
-                  <p className="text-gray-600 mt-4">Loading more photos...</p>
+                  <p className="text-gray-600 dark:text-gray-400 mt-4">Loading more photos...</p>
                 </>
               )}
               {!hasNextPage && allPhotos.length > 0 && (
-                <p className="text-gray-500">
+                <p className="text-gray-500 dark:text-gray-400">
                   You've reached the end! {allPhotos.length.toLocaleString()}{" "}
                   {viewMode === 'unseen' ? 'unseen ' : ''}photo{allPhotos.length !== 1 ? 's' : ''} loaded.
                 </p>
@@ -224,13 +224,13 @@ export default function PhotoAlbum() {
             <div className="text-6xl mb-4">📷</div>
             {viewMode === 'unseen' ? (
               <>
-                <p className="text-gray-600 text-lg mb-4">
+                <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">
                   You've seen all the photos!
                 </p>
                 <Button onClick={handleClearHistory}>Reset History</Button>
               </>
             ) : (
-              <p className="text-gray-600 text-lg">No photos found</p>
+              <p className="text-gray-600 dark:text-gray-400 text-lg">No photos found</p>
             )}
           </div>
         )}
@@ -239,7 +239,7 @@ export default function PhotoAlbum() {
         {!isLoading && isSearching && allPhotos.length === 0 && (
           <div className="text-center py-12">
             <Spinner size="lg" />
-            <p className="text-gray-600 text-lg mt-4">
+            <p className="text-gray-600 dark:text-gray-400 text-lg mt-4">
               {viewMode === 'unseen' 
                 ? "Finding photos you haven't seen..." 
                 : "Loading photos..."}

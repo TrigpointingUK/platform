@@ -57,16 +57,16 @@ export function SearchTile<T>({
   }, [hasMore, isLoading, isFetchingMore, onLoadMore]);
 
   return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Tile Header */}
-      <div className="w-full px-4 py-3 bg-trig-green-50 border-b border-gray-200 flex items-center justify-between">
+      <div className="w-full px-4 py-3 bg-trig-green-600 border-b border-trig-green-700 flex items-center justify-between">
         <button
           onClick={onToggleCollapse}
           className="flex items-center gap-2 flex-1 hover:opacity-80 transition-opacity"
         >
           <span className="text-2xl">{icon}</span>
-          <h3 className="font-semibold text-gray-900">{title}</h3>
-          <span className="text-sm text-gray-600">({totalResults})</span>
+          <h3 className="font-semibold text-white">{title}</h3>
+          <span className="text-sm text-trig-green-100">({totalResults})</span>
         </button>
         <div className="flex items-center gap-2">
           {onHide && (
@@ -75,7 +75,7 @@ export function SearchTile<T>({
                 e.stopPropagation();
                 onHide();
               }}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
+              className="text-trig-green-200 hover:text-white hover:bg-trig-green-700 p-1 rounded transition-colors"
               title="Hide this tile"
               aria-label="Hide tile"
             >
@@ -95,7 +95,7 @@ export function SearchTile<T>({
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="text-gray-500 hover:text-gray-700 p-1"
+              className="text-trig-green-200 hover:text-white p-1"
               aria-label={isCollapsed ? "Expand tile" : "Collapse tile"}
             >
               <span className="text-sm">
@@ -112,15 +112,15 @@ export function SearchTile<T>({
           {isLoading && items.length === 0 ? (
             <div className="p-8 text-center">
               <Spinner size="md" />
-              <p className="mt-2 text-gray-500">Searching...</p>
+              <p className="mt-2 text-gray-500 dark:text-gray-400">Searching...</p>
             </div>
           ) : items.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               <p>No results found</p>
             </div>
           ) : (
             <>
-              <div className={useCardLayout ? "p-3 space-y-3" : "divide-y divide-gray-100"}>
+              <div className={useCardLayout ? "p-3 space-y-3" : "divide-y divide-gray-100 dark:divide-gray-700"}>
                 {items.map((item, index) => (
                   <div key={`${categoryKey}-${index}`}>
                     {renderItem(item, index)}
@@ -134,12 +134,12 @@ export function SearchTile<T>({
                   {isFetchingMore ? (
                     <div className="flex items-center justify-center gap-2">
                       <Spinner size="sm" />
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         Loading more...
                       </span>
                     </div>
                   ) : (
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       Scroll for more results
                     </span>
                   )}
@@ -148,7 +148,7 @@ export function SearchTile<T>({
 
               {/* No More Results */}
               {!hasMore && items.length > 0 && (
-                <div className="p-4 text-center text-sm text-gray-400">
+                <div className="p-4 text-center text-sm text-gray-400 dark:text-gray-500">
                   All results loaded
                 </div>
               )}

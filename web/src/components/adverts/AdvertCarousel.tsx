@@ -2,33 +2,43 @@ import { useState, useEffect, useCallback } from "react";
 import Card from "../ui/Card";
 import Spinner from "../ui/Spinner";
 import { useAdverts, AdvertItem } from "../../hooks/useAdverts";
+import { useTheme } from "../../hooks/useTheme";
 
 interface AdvertCardProps {
   advert: AdvertItem;
   isBlurred?: boolean;
+  isDarkMode?: boolean;
 }
 
-function AdvertCard({ advert, isBlurred = false }: AdvertCardProps) {
+function AdvertCard({ advert, isBlurred = false, isDarkMode = false }: AdvertCardProps) {
   const hasPhoto = advert.photo;
   const hasLink = advert.link;
   const hasTitle = advert.title;
   const hasText = advert.text;
+  
+  // In dark mode, use photo_dark if available, otherwise fall back to photo
+  const photoSrc = isDarkMode && advert.photo_dark ? advert.photo_dark : advert.photo;
+  // Apply overlay in dark mode when no dedicated dark image is provided
+  const needsOverlay = isDarkMode && hasPhoto && !advert.photo_dark;
 
   const content = (
-    <div className={`h-full flex flex-col p-4 bg-white rounded-lg ${isBlurred ? "blur-sm opacity-60" : ""} ${hasLink && !isBlurred ? "cursor-pointer hover:shadow-lg transition-shadow" : ""}`}>
+    <div className={`h-full flex flex-col p-4 bg-white dark:bg-gray-800 rounded-lg ${isBlurred ? "blur-sm opacity-60" : ""} ${hasLink && !isBlurred ? "cursor-pointer hover:shadow-lg transition-shadow" : ""}`}>
       {hasPhoto && (
-        <div className="w-full flex-1 bg-gray-100 rounded overflow-hidden mb-3">
+        <div className="relative w-full flex-1 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden mb-3">
           <img
-            src={advert.photo!}
+            src={photoSrc!}
             alt={advert.title || "Advertisement"}
             className="w-full h-full object-cover"
           />
+          {needsOverlay && (
+            <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+          )}
         </div>
       )}
       <div className={`flex flex-col ${!hasPhoto ? "justify-center text-center flex-1" : ""}`}>
         {hasTitle && (
           <h3
-            className={`font-bold text-gray-800 mb-2 ${
+            className={`font-bold text-gray-800 dark:text-gray-100 mb-2 ${
               !hasPhoto ? "text-xl" : "text-base"
             }`}
           >
@@ -37,7 +47,7 @@ function AdvertCard({ advert, isBlurred = false }: AdvertCardProps) {
         )}
         {hasText && (
           <p
-            className={`text-gray-600 ${
+            className={`text-gray-600 dark:text-gray-300 ${
               !hasPhoto ? "text-base" : "text-sm"
             } line-clamp-3`}
           >
@@ -67,6 +77,8 @@ function AdvertCard({ advert, isBlurred = false }: AdvertCardProps) {
 
 export default function AdvertCarousel() {
   const { data: adverts, isLoading, error } = useAdverts();
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -164,7 +176,7 @@ export default function AdvertCarousel() {
               }`}
             >
               <div className="w-80 h-[438px]">
-                <AdvertCard advert={prevAdvert} isBlurred={true} />
+                <AdvertCard advert={prevAdvert} isBlurred={true} isDarkMode={isDarkMode} />
               </div>
             </div>
           )}
@@ -176,7 +188,7 @@ export default function AdvertCarousel() {
             }`}
           >
             <div className="w-80 h-[438px] flex-shrink-0">
-              <AdvertCard advert={currentAdvert} />
+              <AdvertCard advert={currentAdvert} isDarkMode={isDarkMode} />
             </div>
           </div>
           
@@ -188,7 +200,7 @@ export default function AdvertCarousel() {
               }`}
             >
               <div className="w-80 h-[438px]">
-                <AdvertCard advert={nextAdvert} isBlurred={true} />
+                <AdvertCard advert={nextAdvert} isBlurred={true} isDarkMode={isDarkMode} />
               </div>
             </div>
           )}
@@ -203,7 +215,7 @@ export default function AdvertCarousel() {
                 handlePrev();
               }}
               disabled={isTransitioning}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors z-20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-700/90 hover:bg-white dark:hover:bg-gray-600 shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors z-20 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Previous advertisement"
             >
               <span className="text-lg leading-none">‹</span>
@@ -214,7 +226,7 @@ export default function AdvertCarousel() {
                 handleNext();
               }}
               disabled={isTransitioning}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors z-20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-700/90 hover:bg-white dark:hover:bg-gray-600 shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors z-20 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Next advertisement"
             >
               <span className="text-lg leading-none">›</span>
@@ -237,7 +249,7 @@ export default function AdvertCarousel() {
               className={`w-2 h-2 rounded-full transition-all disabled:cursor-not-allowed ${
                 index === currentIndex
                   ? "bg-trig-green-600 w-6"
-                  : "bg-gray-300 hover:bg-gray-400"
+                  : "bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500"
               }`}
               aria-label={`Go to advertisement ${index + 1}`}
             />

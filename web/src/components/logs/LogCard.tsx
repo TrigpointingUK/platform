@@ -172,7 +172,7 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
   // Apply light green background for current user's logs
   // Use !bg-green-50 to override Card's default bg-white
   const cardClassName = isCurrentUserLog
-    ? "hover:shadow-lg transition-shadow cursor-pointer !bg-green-50"
+    ? "hover:shadow-lg transition-shadow cursor-pointer !bg-green-50 dark:!bg-green-900/30"
     : "hover:shadow-lg transition-shadow cursor-pointer";
 
   return (
@@ -210,18 +210,18 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
               {formattedTrigId}
               {displayTrigName && (
                 <>
-                  <span className="text-gray-400 mx-2">·</span>
-                  <span className="font-normal text-gray-700">{displayTrigName}</span>
+                  <span className="text-gray-400 dark:text-gray-500 mx-2">·</span>
+                  <span className="font-normal text-gray-700 dark:text-gray-300">{displayTrigName}</span>
                 </>
               )}
               {log.trig_physical_type && (
                 <>
-                  <span className="text-gray-400 mx-1">·</span>
-                  <span className="font-normal text-gray-500 text-sm">{log.trig_physical_type}</span>
+                  <span className="text-gray-400 dark:text-gray-500 mx-1">·</span>
+                  <span className="font-normal text-gray-500 dark:text-gray-400 text-sm">{log.trig_physical_type}</span>
                 </>
               )}
             </Link>
-            <div className="flex flex-wrap items-center gap-2 text-base text-gray-600">
+            <div className="flex flex-wrap items-center gap-2 text-base text-gray-600 dark:text-gray-400">
               <span>
                 by{" "}
                 {displayUserName ? (
@@ -242,7 +242,7 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                   </Link>
                 )}
               </span>
-              <span className="text-gray-400">·</span>
+              <span className="text-gray-400 dark:text-gray-500">·</span>
               {/* Condition Icon */}
               <img 
                 src={`/icons/conditions/${conditionInfo.icon}`}
@@ -255,16 +255,16 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                 size="sm" 
                 title={`${log.score}/10`}
               />
-              <span className="text-gray-400">·</span>
-              <span className="text-gray-700">{formattedDate}</span>
+              <span className="text-gray-400 dark:text-gray-500">·</span>
+              <span className="text-gray-700 dark:text-gray-300">{formattedDate}</span>
               {log.time && log.time !== "12:00:00" && (
-                <span className="text-gray-500">{log.time}</span>
+                <span className="text-gray-500 dark:text-gray-400">{log.time}</span>
               )}
               
               {/* Distance from filter center point */}
               {showDistance && log.distance_km != null && (
                 <>
-                  <span className="text-gray-400">·</span>
+                  <span className="text-gray-400 dark:text-gray-500">·</span>
                   <span className="text-sm text-blue-600 font-medium">
                     {log.distance_km < 1 
                       ? `${Math.round(log.distance_km * 1000)}m away`
@@ -276,9 +276,9 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
               {/* Location and Distance from log point */}
               {log.osgb_gridref && log.location_distance_m !== undefined && (
                 <>
-                  <span className="text-gray-400">·</span>
-                  <span className="text-gray-600 font-mono">{log.osgb_gridref}</span>
-                  <span className="text-gray-400">·</span>
+                  <span className="text-gray-400 dark:text-gray-500">·</span>
+                  <span className="text-gray-600 dark:text-gray-400 font-mono">{log.osgb_gridref}</span>
+                  <span className="text-gray-400 dark:text-gray-500">·</span>
                   <span className="text-sm">{formatDistance(log.location_distance_m)}</span>
                 </>
               )}
@@ -292,7 +292,7 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
             {/* Comment - Left 33% */}
             <div className="flex-[2] min-w-0">
               {log.comment && (
-                <p className="text-gray-700 text-sm leading-relaxed">{log.comment}</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{log.comment}</p>
               )}
             </div>
 
@@ -308,13 +308,13 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                     <img
                       src={photo.icon_url}
                       alt={photo.caption}
-                      className="h-full w-full object-cover rounded border border-gray-200 transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
+                      className="h-full w-full object-cover rounded border border-gray-200 dark:border-gray-600 transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
                       title={photo.caption}
                     />
                   </div>
                 ))}
                 {log.photos.length > 20 && (
-                  <div className="h-20 w-20 flex items-center justify-center bg-gray-100 rounded border border-gray-200 flex-shrink-0 text-sm text-gray-600">
+                  <div className="h-20 w-20 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 flex-shrink-0 text-sm text-gray-600 dark:text-gray-400">
                     +{log.photos.length - 20}
                   </div>
                 )}

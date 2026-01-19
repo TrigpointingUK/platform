@@ -105,7 +105,7 @@ export function GlobalSearch({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className="w-full px-4 py-2 pr-14 rounded-md text-gray-900 bg-white border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-trig-green-400 focus:border-trig-green-400"
+          className="w-full px-4 py-2 pr-14 rounded-md text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-trig-green-400 focus:border-trig-green-400"
           aria-label="Global search"
           aria-autocomplete="list"
           aria-controls="search-results"
@@ -113,7 +113,7 @@ export function GlobalSearch({
         />
         <button
           type="submit"
-          className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded border border-gray-200 flex items-center justify-center transition-colors"
+          className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-600 flex items-center justify-center transition-colors"
           aria-label="Search"
           title="Go to search page"
         >
@@ -135,17 +135,17 @@ export function GlobalSearch({
       {isOpen && query.length >= 2 && (
         <div
           id="search-results"
-          className="absolute z-50 w-full min-w-[320px] mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+          className="absolute z-50 w-full min-w-[320px] mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg dark:shadow-gray-900/50 max-h-96 overflow-y-auto"
           role="listbox"
         >
           {isLoading && (
-            <div className="px-4 py-3 text-gray-500 text-center">
+            <div className="px-4 py-3 text-gray-500 dark:text-gray-400 text-center">
               Searching...
             </div>
           )}
 
           {!isLoading && results && results.length === 0 && (
-            <div className="px-4 py-3 text-gray-500 text-center">
+            <div className="px-4 py-3 text-gray-500 dark:text-gray-400 text-center">
               No results found
             </div>
           )}
@@ -157,7 +157,7 @@ export function GlobalSearch({
                   <button
                     type="button"
                     onClick={() => handleSelectResult(result)}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
+                    className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                     role="option"
                     aria-selected={false}
                   >
@@ -166,16 +166,16 @@ export function GlobalSearch({
                         {getResultTypeIcon(result.type)}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-gray-900 dark:text-gray-100">
                           {result.name}
                         </div>
                         {result.description && (
-                          <div className="text-sm text-gray-500 mt-0.5">
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                             {result.description}
                           </div>
                         )}
                         {result.type !== "user" && (
-                          <div className="text-xs text-gray-400 mt-0.5 font-mono">
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono">
                             {result.lat.toFixed(5)}, {result.lon.toFixed(5)}
                           </div>
                         )}

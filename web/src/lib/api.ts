@@ -343,6 +343,10 @@ export interface Trig {
   wgs_lat: string;
   wgs_long: string;
   osgb_gridref: string;
+  /** Grid system: 'gb' (British National Grid) or 'ie' (Irish Grid) */
+  grid_system?: 'gb' | 'ie';
+  /** Country name (e.g., 'England', 'Ireland', 'Northern Ireland') */
+  country_name?: string;
   details?: TrigDetails;
   stats?: TrigStats;
   attrs?: TrigAttrsData[];
@@ -588,6 +592,10 @@ export interface TrigAdminDetail {
   osgb_northings: number;
   osgb_gridref: string;
   osgb_height: number | null;
+  /** Grid system: 'gb' (OSGB36) or 'ie' (Irish Grid) */
+  grid_system?: 'gb' | 'ie';
+  /** Country name (e.g., 'England', 'Ireland') */
+  country_name?: string;
   postcode: string;
   county: string;
   town: string;
@@ -842,8 +850,8 @@ export async function deleteDuplicateLog(
  * Request parameters for coordinate conversion.
  */
 export interface CoordinateConversionRequest {
-  from: "wgs84" | "osgb";
-  to: "wgs84" | "osgb";
+  from: "wgs84" | "osgb" | "irish";
+  to: "wgs84" | "osgb" | "irish" | "grid";  // "grid" = auto-detect based on location
   lat?: number;
   lon?: number;
   e?: number;
@@ -883,6 +891,10 @@ export interface CoordinateConversionResponse {
   to_crs: string;
   input: CoordinateInput;
   output: CoordinateOutput;
+  /** Grid system used: 'gb' (OSGB36) or 'ie' (Irish Grid) */
+  grid_system?: 'gb' | 'ie';
+  /** Country name if auto-detected (e.g., 'Ireland', 'England') */
+  country_name?: string;
 }
 
 /**

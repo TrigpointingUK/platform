@@ -22,6 +22,26 @@ import type { Log } from "../hooks/useInfiniteLogs";
 // All status levels (default: all enabled)
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
+// Reverse mapping: group code to status ID
+const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
+  PILLAR: 10,
+  FBM: 20,
+  SURVEY_MARK: 30,
+  INTERSECTED: 40,
+  ACTIVE: 50,
+  OTHER: 60,
+};
+
+// Forward mapping: status ID to group code
+const STATUS_ID_TO_GROUP_CODE: Record<number, string> = {
+  10: "PILLAR",
+  20: "FBM",
+  30: "SURVEY_MARK",
+  40: "INTERSECTED",
+  50: "ACTIVE",
+  60: "OTHER",
+};
+
 // Format date as YYYY-MM-DD in local timezone (not UTC)
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -98,7 +118,7 @@ export default function Logs() {
   const queryClient = useQueryClient();
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
-  // Fetch user profile to get status_max preference
+  // Fetch user profile to get default_groups preference
   const { data: userProfile } = useUserProfile("me");
 
   // Parse userId from URL if present
@@ -115,10 +135,18 @@ export default function Logs() {
   const showTrigConditionInitializedRef = useRef(false);
 
   // Compute preferred statuses from user profile
+  // Uses default_groups (list of group codes) from ui_prefs
   const preferredStatuses = useMemo(() => {
-    const userStatusMax = userProfile?.prefs?.status_max || 30;
-    return ALL_STATUSES.filter((s) => s <= userStatusMax);
-  }, [userProfile?.prefs?.status_max]);
+    const defaultGroups = userProfile?.prefs?.ui_prefs?.default_groups;
+    if (defaultGroups && defaultGroups.length > 0) {
+      return defaultGroups
+        .map((code: string) => GROUP_CODE_TO_STATUS_ID[code])
+        .filter((id: number | undefined): id is number => id !== undefined);
+    }
+    
+    // Default is PILLAR + FBM only for guests and users without preferences
+    return [10, 20]; // PILLAR, FBM
+  }, [userProfile?.prefs?.ui_prefs?.default_groups]);
 
   // Filter state - parse from URL or use defaults
   const [centerLat, setCenterLat] = useState<number | null>(() => {
@@ -135,8 +163,8 @@ export default function Logs() {
   const [selectedStatuses, setSelectedStatuses] = useState<number[]>(() => {
     const statuses = searchParams.get("statuses");
     if (statuses) return statuses.split(",").map(Number);
-    // Default based on fallback (user profile may not be loaded yet)
-    return ALL_STATUSES.filter((s) => s <= 30);
+    // Default to PILLAR + FBM only (user profile may not be loaded yet)
+    return ALL_STATUSES.filter((s) => s <= 20);
   });
 
   // Initialize selected statuses from user preference when profile loads (once)
@@ -159,9 +187,11 @@ export default function Logs() {
   const [selectedAreaName, setSelectedAreaName] = useState<string | null>(
     () => searchParams.get("areaName") || null
   );
+  // Default to 200km for performance - prevents slow full-table scans
+  const DEFAULT_MAX_KM = 200;
   const [maxKm, setMaxKm] = useState<number | null>(() => {
     const km = searchParams.get("maxKm");
-    return km ? parseInt(km, 10) : null;
+    return km ? parseInt(km, 10) : DEFAULT_MAX_KM;
   });
 
   // Date range filter state
@@ -317,9 +347,11 @@ export default function Logs() {
     lat: centerLat ?? undefined,
     lon: centerLon ?? undefined,
     maxKm: maxKm ?? undefined,
-    statusIds:
+    groupCodes:
       selectedStatuses.length !== ALL_STATUSES.length
         ? selectedStatuses
+            .map((s) => STATUS_ID_TO_GROUP_CODE[s])
+            .filter((code): code is string => code !== undefined)
         : undefined,
     areaId: selectedAreaId ?? undefined,
     userId,
@@ -578,9 +610,9 @@ export default function Logs() {
       <Layout>
         <title>{pageTitle}</title>
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">{headerTitle}</h1>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <p className="text-red-600 mb-4">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">{headerTitle}</h1>
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
+            <p className="text-red-600 dark:text-red-300 mb-4">
               Failed to load logs. Please try again later.
             </p>
             <Button onClick={() => window.location.reload()}>Reload Page</Button>
@@ -604,8 +636,8 @@ export default function Logs() {
               ← Back to profile
             </Link>
           )}
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{headerTitle}</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{headerTitle}</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             {userId && filteredUserProfile
               ? `Browse visit logs by ${filteredUserProfile.name}`
               : "Browse recent visit logs from trigpointers across the UK"}
@@ -615,7 +647,7 @@ export default function Logs() {
         {/* Filter Panel */}
         <div
           ref={filterPanelRef}
-          className="bg-white border-b border-gray-200 shadow-md rounded-lg p-4 mb-6 sticky top-16 z-40"
+          className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-md dark:shadow-gray-900/50 rounded-lg p-4 mb-6 sticky top-16 z-40"
         >
           {/* Toggle button and results summary when collapsed */}
           <div
@@ -624,7 +656,7 @@ export default function Logs() {
             <button
               type="button"
               onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
-              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               aria-label={
                 isFilterCollapsed ? "Expand filters" : "Collapse filters"
               }
@@ -645,13 +677,13 @@ export default function Logs() {
               </svg>
             </button>
             {isFilterCollapsed ? (
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 {hasActiveFilters
                   ? `Filtered${locationName ? ` near ${locationName}` : ""}${selectedAreaName ? ` in ${selectedAreaName}` : ""}${!locationName && !selectedAreaName && selectedStatuses.length !== ALL_STATUSES.length ? " by type" : ""}`
                   : "Expand to filter logs by area"}
               </span>
             ) : (
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Filter Logs
               </span>
             )}
@@ -661,7 +693,7 @@ export default function Logs() {
           <div className={`space-y-4 ${isFilterCollapsed ? "hidden" : ""}`}>
             {/* Location search */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Location
               </label>
               <LocationSearch
@@ -682,7 +714,7 @@ export default function Logs() {
             {/* Status filter, logged filter and distance filter */}
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex-shrink-0">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Trigpoint types
                 </label>
                 <StatusFilter
@@ -694,7 +726,7 @@ export default function Logs() {
               {/* Logged condition filter - only for authenticated users AND when not viewing a specific user's logs */}
               {isAuthenticated && !userId && (
                 <div className="flex-shrink-0">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     My logged condition
                   </label>
                   <LoggedConditionFilter
@@ -719,7 +751,7 @@ export default function Logs() {
             {/* Area filter and Date range filter */}
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex-1 min-w-[300px]">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Filter by area
                 </label>
                 <AreaFilter
@@ -732,7 +764,7 @@ export default function Logs() {
               </div>
 
               <div className="flex-1 min-w-[300px]">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Filter by date range
                 </label>
                 <DateRangePicker
@@ -803,11 +835,11 @@ export default function Logs() {
                   id="showTrigCondition"
                   checked={showTrigCondition}
                   onChange={(e) => handleToggleShowTrigCondition(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-trig-green-600 focus:ring-trig-green-500 dark:bg-gray-700"
                 />
                 <label
                   htmlFor="showTrigCondition"
-                  className="text-sm text-gray-700 select-none cursor-pointer"
+                  className="text-sm text-gray-700 dark:text-gray-300 select-none cursor-pointer"
                 >
                   Show curated trigpoint condition
                 </label>
@@ -825,11 +857,11 @@ export default function Logs() {
                       handleToggleShowTrigCondition(true);
                     }
                   }}
-                  className="h-4 w-4 rounded border-gray-300 text-trig-green-600 focus:ring-trig-green-500"
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-trig-green-600 focus:ring-trig-green-500 dark:bg-gray-700"
                 />
                 <label
                   htmlFor="showOnlyDisagreements"
-                  className="text-sm text-gray-700 select-none cursor-pointer"
+                  className="text-sm text-gray-700 dark:text-gray-300 select-none cursor-pointer"
                   title="Compare logged condition with curated condition. Treats G/S as matching, Q/N as matching. Ignores logs with P, U, or Z conditions."
                 >
                   Show only condition disagreements
@@ -839,7 +871,7 @@ export default function Logs() {
 
             {/* Results count and clear filters */}
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
                 {isLoading ? (
                   <span>Loading...</span>
                 ) : (
@@ -856,7 +888,7 @@ export default function Logs() {
                 <button
                   type="button"
                   onClick={handleClearFilters}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   <svg
                     className="w-4 h-4"
@@ -882,7 +914,7 @@ export default function Logs() {
         {isLoading && (
           <div className="py-12">
             <Spinner size="lg" />
-            <p className="text-center text-gray-600 mt-4">Loading logs...</p>
+            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading logs...</p>
           </div>
         )}
 
@@ -907,7 +939,7 @@ export default function Logs() {
                     }}
                     className={`transition-all duration-300 ${
                       isFeatured
-                        ? "border-2 border-trig-green-300 rounded-xl shadow-lg"
+                        ? "border-2 border-trig-green-300 dark:border-trig-green-600 rounded-xl shadow-lg dark:shadow-gray-900/50"
                         : "border-2 border-transparent"
                     } ${
                       isAboveFeatured
@@ -930,11 +962,11 @@ export default function Logs() {
               {isFetchingNextPage && (
                 <>
                   <Spinner size="md" />
-                  <p className="text-gray-600 mt-4">Loading more logs...</p>
+                  <p className="text-gray-600 dark:text-gray-400 mt-4">Loading more logs...</p>
                 </>
               )}
               {!hasNextPage && allLogs.length > 0 && (
-                <p className="text-gray-500">
+                <p className="text-gray-500 dark:text-gray-400">
                   You've reached the end! {allLogs.length.toLocaleString()} log
                   {allLogs.length !== 1 ? "s" : ""} loaded.
                 </p>
@@ -947,10 +979,10 @@ export default function Logs() {
         {!isLoading && allLogs.length === 0 && (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">📝</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
               No logs found
             </h3>
-            <p className="text-gray-500">
+            <p className="text-gray-500 dark:text-gray-400">
               {hasActiveFilters
                 ? "Try adjusting your filters or clearing them to see more logs."
                 : "No visit logs are available at this time."}
@@ -959,7 +991,7 @@ export default function Logs() {
               <button
                 type="button"
                 onClick={handleClearFilters}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
               >
                 Clear all filters
               </button>
@@ -978,7 +1010,7 @@ export default function Logs() {
                 : { right: mapRightOffset }
             }
           >
-            <div className="bg-white rounded-lg border-2 border-gray-300 shadow-2xl overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-2xl dark:shadow-gray-900/70 overflow-hidden">
               <div className="relative">
                 <MiniTrigMap
                   trigId={featuredLog?.trig_id ?? null}

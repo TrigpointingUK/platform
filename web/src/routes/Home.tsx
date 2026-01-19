@@ -13,10 +13,10 @@ import { useUserProfile } from "../hooks/useUserProfile";
 function WelcomeSection() {
   return (
     <Card className="mb-6">
-      <h1 className="text-4xl font-bold text-trig-green-600 mb-4">
-        Welcome to Trigpointing UK
+      <h1 className="text-4xl font-bold text-trig-green-600 dark:text-trig-green-400 mb-4">
+        Welcome to TrigpointingUK
       </h1>
-      <p className="text-lg text-gray-700 mb-4">
+      <p className="text-lg text-gray-700 dark:text-gray-300 mb-4">
         The UK's premier resource for triangulation pillars and survey markers.
         Join thousands of enthusiasts exploring Britain's geodetic heritage.
       </p>
@@ -46,10 +46,10 @@ function SiteStatsSection() {
     return (
       <Card className="mb-6">
         <div className="mb-4">
-          <h2 className="text-2xl font-bold text-gray-800 inline">Site Statistics</h2>
-          <span className="text-sm font-normal text-gray-600 ml-2">(Click to browse)</span>
+          <h2 className="text-2xl font-bold text-trig-green-600 inline">Database Entries</h2>
+          <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">(Click to browse)</span>
         </div>
-        <p className="text-red-600">Failed to load statistics</p>
+        <p className="text-red-600 dark:text-red-400">Failed to load statistics</p>
       </Card>
     );
   }
@@ -58,8 +58,8 @@ function SiteStatsSection() {
     return (
       <Card className="mb-6">
         <div className="mb-4">
-          <h2 className="text-2xl font-bold text-gray-800 inline">Site Statistics</h2>
-          <span className="text-sm font-normal text-gray-600 ml-2">(Click to browse)</span>
+          <h2 className="text-2xl font-bold text-trig-green-600 inline">Database Entries</h2>
+          <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">(Click to browse)</span>
         </div>
         <Spinner size="md" />
       </Card>
@@ -104,15 +104,15 @@ function SiteStatsSection() {
   return (
     <Card className="mb-6">
       <div className="mb-4">
-        <h2 className="text-2xl font-bold text-gray-800 inline">Site Statistics</h2>
-        <span className="text-sm font-normal text-gray-600 ml-2">(Click to browse)</span>
+        <h2 className="text-2xl font-bold text-trig-green-600 inline">Database Entries</h2>
+        <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">(Click to browse)</span>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statItems.map((item) => (
           <Link
             key={item.label}
             to={item.link}
-            className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors block"
+            className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors block"
           >
             <div className="text-3xl mb-2 flex justify-center items-center h-12">
               {item.isImage ? (
@@ -128,12 +128,12 @@ function SiteStatsSection() {
             <div className={`text-3xl font-bold ${item.color} mb-1`}>
               {item.value}
             </div>
-            <div className="text-sm text-gray-600">{item.label}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-300">{item.label}</div>
           </Link>
         ))}
       </div>
       {stats.recent_logs_7d > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-600 text-center">
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-400 text-center">
           <strong>{stats.recent_logs_7d.toLocaleString()}</strong> logs added in
           the last 7 days •{" "}
           <strong>{stats.recent_users_30d.toLocaleString()}</strong> new users in
@@ -154,7 +154,7 @@ function NewsSection() {
   if (isLoading) {
     return (
       <Card className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Recent Site News</h2>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Recent Site News</h2>
         <Spinner size="sm" />
       </Card>
     );
@@ -166,16 +166,16 @@ function NewsSection() {
 
   return (
     <Card className="mb-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Recent Site News</h2>
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Recent Site News</h2>
       <div className="space-y-4">
         {news.slice(0, 3).map((item) => (
           <div key={item.id} className="border-l-4 border-trig-green-600 pl-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-800">{item.title}</h3>
-                <p className="text-sm text-gray-600 mt-1">{item.summary}</p>
+                <h3 className="font-semibold text-gray-800 dark:text-gray-100">{item.title}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.summary}</p>
               </div>
-              <time className="text-xs text-gray-500 whitespace-nowrap">
+              <time className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                 {new Date(item.date).toLocaleDateString("en-GB", {
                   day: "numeric",
                   month: "short",
@@ -206,7 +206,7 @@ function RecentLogsSection() {
   return (
     <Card>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-gray-800">Recent Activity</h2>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Recent Activity</h2>
         <Link
           to="/logs"
           className="text-sm text-trig-green-600 hover:text-trig-green-700 hover:underline"
@@ -215,7 +215,7 @@ function RecentLogsSection() {
         </Link>
       </div>
       {error ? (
-        <p className="text-red-600">Failed to load recent logs</p>
+        <p className="text-red-600 dark:text-red-400">Failed to load recent logs</p>
       ) : (
         <LogList
           logs={logsData?.items || []}

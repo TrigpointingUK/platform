@@ -1,15 +1,34 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import LogForm from "../LogForm";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "../../../contexts/ThemeContext";
 
 // Mock the hooks
 vi.mock("../../hooks/useLogPhotos", () => ({
   useLogPhotos: () => ({ data: [] }),
 }));
 
-// Create a wrapper with QueryClient
+// Mock the API module to avoid network calls
+vi.mock("../../../lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../lib/api")>();
+  return {
+    ...actual,
+    convertCoordinates: vi.fn().mockResolvedValue({
+      from_crs: "osgb",
+      to_crs: "wgs84",
+      input: { e: 513700, n: 205500, gridref: "TL 13700 05500" },
+      output: { lat: 51.736691, lon: -0.354803 },
+      grid_system: "gb",
+    }),
+  };
+});
+
+// Import the mocked function for manipulation in tests
+import { convertCoordinates } from "../../../lib/api";
+
+// Create a wrapper with QueryClient and ThemeProvider
 const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -18,7 +37,9 @@ const createWrapper = () => {
     },
   });
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </ThemeProvider>
   );
 };
 
@@ -33,6 +54,18 @@ describe("LogForm - Location Input", () => {
     onCancel: vi.fn(),
     isSubmitting: false,
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default mock returns coordinates near the trig point
+    vi.mocked(convertCoordinates).mockResolvedValue({
+      from_crs: "osgb",
+      to_crs: "wgs84",
+      input: { e: 513700, n: 205500, gridref: "TL 13700 05500" },
+      output: { lat: 52.0001, lon: -1.0001 },
+      grid_system: "gb",
+    });
+  });
 
   it("should render editable location input", () => {
     render(<LogForm {...defaultProps} />, { wrapper: createWrapper() });
@@ -116,6 +149,15 @@ describe("LogForm - Location Input", () => {
   });
 
   it("should show distance > 20m for far location", async () => {
+    // Mock returns coordinates about 600m away from trig (52.0, -1.0)
+    vi.mocked(convertCoordinates).mockResolvedValue({
+      from_crs: "osgb",
+      to_crs: "wgs84",
+      input: { e: 514000, n: 206000, gridref: "TL 14000 06000" },
+      output: { lat: 52.005, lon: -0.995 },
+      grid_system: "gb",
+    });
+    
     render(<LogForm {...defaultProps} />, { wrapper: createWrapper() });
     
     const locationInput = screen.getByPlaceholderText(/Enter grid ref/i);

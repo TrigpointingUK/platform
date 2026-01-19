@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Log, LogCreateInput, LogUpdateInput } from "../../lib/api";
+import { useState, useCallback } from "react";
+import { Log, LogCreateInput, LogUpdateInput, convertCoordinates } from "../../lib/api";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
@@ -9,8 +9,8 @@ import DateTimeEditor from "../forms/DateTimeEditor";
 import LocationPicker from "../forms/LocationPicker";
 import PhotoManager from "../photos/PhotoManager";
 import { useLogPhotos } from "../../hooks/useLogPhotos";
-import { parseLocation } from "../../lib/locationParser";
-import { calculateDistance, osgbToWGS84 } from "../../lib/coordinates";
+import { parseLocation, type GridSystem } from "../../lib/locationParser";
+import { calculateDistance } from "../../lib/coordinates";
 
 interface LogFormProps {
   trigGridRef: string;
@@ -138,6 +138,37 @@ export default function LogForm({
     }
   };
 
+  // Helper to calculate distance using the API for grid conversion
+  const calculateDistanceFromGrid = useCallback(async (
+    eastings: number,
+    northings: number,
+    gridSystem: GridSystem
+  ) => {
+    try {
+      // Use the backend API to convert grid coordinates to WGS84
+      const fromCrs = gridSystem === 'ie' ? 'irish' : 'osgb';
+      const result = await convertCoordinates({
+        from: fromCrs,
+        to: 'wgs84',
+        e: eastings,
+        n: northings,
+      });
+      
+      if (result.output.lat !== undefined && result.output.lon !== undefined) {
+        const distance = calculateDistance(
+          result.output.lat,
+          result.output.lon,
+          trigLatitude,
+          trigLongitude
+        );
+        setDistanceFromTrig(distance);
+      }
+    } catch (error) {
+      console.error("Failed to calculate distance:", error);
+      setDistanceFromTrig(null);
+    }
+  }, [trigLatitude, trigLongitude]);
+
   const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     // Auto-uppercase for grid references
@@ -159,13 +190,22 @@ export default function LogForm({
       setLocationError("");
 
       // Calculate distance from trigpoint
-      try {
-        const { lat, lon } = osgbToWGS84(result.data.eastings, result.data.northings);
-        const distance = calculateDistance(lat, lon, trigLatitude, trigLongitude);
+      if (result.data.lat !== undefined && result.data.lon !== undefined) {
+        // We have lat/lon directly (from lat/lon input)
+        const distance = calculateDistance(
+          result.data.lat,
+          result.data.lon,
+          trigLatitude,
+          trigLongitude
+        );
         setDistanceFromTrig(distance);
-      } catch (error) {
-        console.error("Failed to calculate distance:", error);
-        setDistanceFromTrig(null);
+      } else if (result.data.eastings && result.data.northings) {
+        // We have grid coordinates - use the API to convert and calculate distance
+        calculateDistanceFromGrid(
+          result.data.eastings,
+          result.data.northings,
+          result.data.gridSystem ?? 'gb'
+        );
       }
     } else {
       // Invalid or empty location
@@ -186,7 +226,7 @@ export default function LogForm({
   return (
     <Card>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
           {existingLog ? "Edit Log" : "Log This Trig"}
         </h2>
 
@@ -220,7 +260,7 @@ export default function LogForm({
 
         {/* Location */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
             Location (optional)
           </label>
           
@@ -232,10 +272,10 @@ export default function LogForm({
                 value={locationInput}
                 onChange={handleLocationInputChange}
                 placeholder="Enter grid ref (e.g., TL 137 055) or coordinates (e.g., 53.69417, -1.78231)"
-                className={`flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-trig-green-500 ${
+                className={`flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-trig-green-500 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400 ${
                   locationError && locationInput.trim() !== "" 
-                    ? "border-red-300 bg-red-50" 
-                    : "border-gray-300 bg-white"
+                    ? "border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/30" 
+                    : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
                 }`}
               />
               
@@ -249,7 +289,7 @@ export default function LogForm({
                 }
                 readOnly
                 placeholder="Distance"
-                className="w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm"
+                className="w-full sm:w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
               />
               
               {/* Buttons - kept together on small screens */}
@@ -265,14 +305,22 @@ export default function LogForm({
                     setLocationSet(true);
                     setLocationInput(location.gridRef);
                     
-                    // Calculate distance
-                    try {
-                      const { lat, lon } = osgbToWGS84(location.eastings, location.northings);
-                      const distance = calculateDistance(lat, lon, trigLatitude, trigLongitude);
+                    // Calculate distance using lat/lon if available, otherwise use API
+                    if (location.lat !== undefined && location.lon !== undefined) {
+                      const distance = calculateDistance(
+                        location.lat,
+                        location.lon,
+                        trigLatitude,
+                        trigLongitude
+                      );
                       setDistanceFromTrig(distance);
-                    } catch (error) {
-                      console.error("Failed to calculate distance:", error);
-                      setDistanceFromTrig(null);
+                    } else {
+                      // Use API to convert grid coordinates (supports both OSGB and Irish Grid)
+                      calculateDistanceFromGrid(
+                        location.eastings,
+                        location.northings,
+                        location.gridSystem ?? 'gb'
+                      );
                     }
                   }}
                   maxAccuracy={10}
@@ -306,7 +354,7 @@ export default function LogForm({
             
             {/* Validation Error */}
             {locationError && locationInput.trim() !== "" && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
                 {locationError}
               </div>
             )}
@@ -317,15 +365,15 @@ export default function LogForm({
         {showDistanceWarning && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <Card className="max-w-md mx-4">
-              <h3 className="text-lg font-semibold mb-4">Location Distance Warning</h3>
-              <p className="text-gray-700 mb-4">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Location Distance Warning</h3>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
                 The location you've entered is <strong>{distanceFromTrig?.toFixed(1)}m</strong> from the 
                 recorded trigpoint location. This is more than 20 meters away.
               </p>
-              <p className="text-gray-600 mb-6 text-sm">
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
                 Are you sure this is correct? Large distances may indicate:
               </p>
-              <ul className="text-sm text-gray-600 mb-6 list-disc list-inside space-y-1">
+              <ul className="text-sm text-gray-600 dark:text-gray-400 mb-6 list-disc list-inside space-y-1">
                 <li>The trigpoint has been moved</li>
                 <li>GPS accuracy issues</li>
                 <li>An incorrect location entry</li>
@@ -356,7 +404,7 @@ export default function LogForm({
         <div>
           <label
             htmlFor="fb_number"
-            className="block text-sm font-semibold text-gray-700 mb-1"
+            className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1"
           >
             Flush Bracket Number
           </label>
@@ -367,7 +415,7 @@ export default function LogForm({
             value={formData.fb_number}
             onChange={handleChange}
             maxLength={10}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
           />
         </div>
 
@@ -375,7 +423,7 @@ export default function LogForm({
         <div>
           <label
             htmlFor="comment"
-            className="block text-sm font-semibold text-gray-700 mb-1"
+            className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1"
           >
             Comment
           </label>
@@ -385,14 +433,14 @@ export default function LogForm({
             value={formData.comment}
             onChange={handleChange}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
             placeholder="Describe your visit..."
           />
         </div>
 
         {/* Photo Management - Only show for existing logs */}
         {existingLog ? (
-          <div className="pt-4 border-t border-gray-200">
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
             <PhotoManager
               logId={existingLog.id}
               photos={photos}
@@ -400,9 +448,9 @@ export default function LogForm({
             />
           </div>
         ) : (
-          <div className="pt-4 border-t border-gray-200">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-              <p className="text-sm text-gray-700">
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
                 <strong>Note:</strong> Save your log first, then you can add photos by editing it.
               </p>
             </div>

@@ -34,28 +34,19 @@ describe("Location Validation - Real Data Tests", () => {
       }
     });
 
-    it("should parse database lat/long and match coordinates within 1m", () => {
+    it("should parse database lat/long coordinates correctly", () => {
+      // Note: The synchronous parseLocation returns lat/lon without grid conversion
+      // since grid conversion now requires async API call for Irish Grid support.
+      // This test verifies the parsing works; grid conversion is tested via round-trip.
       const result = parseLocation(`${dbLat}, ${dbLon}`);
       
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
       
       if (result.data) {
-        // Convert back to WGS84 and check
-        const { lat, lon } = osgbToWGS84(result.data.eastings, result.data.northings);
-        
-        // Calculate distance from database coordinates
-        const distance = calculateDistance(lat, lon, dbLat, dbLon);
-        
-        // Should be less than 1m
-        expect(distance).toBeLessThan(1);
-        
-        // If this fails, it may indicate a geodesy library precision issue
-        if (distance >= 1) {
-          console.warn(
-            `Distance error: ${distance.toFixed(3)}m - May indicate geodesy library precision issue`
-          );
-        }
+        // Synchronous parse returns the lat/lon but not eastings/northings
+        expect(result.data.lat).toBe(dbLat);
+        expect(result.data.lon).toBe(dbLon);
       }
     });
 

@@ -618,7 +618,6 @@ class TestLegacyLoginIncludes:
         assert response.status_code == 200
         data = response.json()
         assert "prefs" in data
-        assert "status_max" in data["prefs"]
         assert "distance_ind" in data["prefs"]
         assert "email" in data["prefs"]
         assert "email_valid" in data["prefs"]

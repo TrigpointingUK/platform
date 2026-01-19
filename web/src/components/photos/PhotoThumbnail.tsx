@@ -101,7 +101,7 @@ export default function PhotoThumbnail({
 
   return (
     <div
-      className="relative group cursor-pointer overflow-hidden rounded-lg bg-gray-100"
+      className="relative group cursor-pointer overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
       onClick={onClick}
     >
       {/* Loading Placeholder */}
@@ -113,8 +113,8 @@ export default function PhotoThumbnail({
 
       {/* Error State */}
       {error && (
-        <div className="aspect-square flex items-center justify-center bg-gray-200">
-          <span className="text-gray-400 text-sm">Failed to load</span>
+        <div className="aspect-square flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+          <span className="text-gray-400 dark:text-gray-500 text-sm">Failed to load</span>
         </div>
       )}
 

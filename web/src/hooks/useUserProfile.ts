@@ -21,6 +21,7 @@ interface UserStats {
 export type MapLinkOption = 
   | 'trigpointinguk'
   | 'streetmap'
+  | 'osi_map'  // Ordnance Survey Ireland (for Irish Grid points)
   | 'google_satellite'
   | 'openstreetmap';
 
@@ -30,10 +31,10 @@ interface UIPrefs {
   map_link_gridref?: MapLinkOption;
   map_link_wgs?: MapLinkOption;
   map_link_thumbnail?: MapLinkOption;
+  default_groups?: string[]; // List of trig_type_group.code values (e.g., ["PILLAR", "FBM"])
 }
 
 interface UserPrefs {
-  status_max: number;
   distance_ind: string;
   public_ind: string;
   online_map_type: string;

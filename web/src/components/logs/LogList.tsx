@@ -35,14 +35,14 @@ export default function LogList({
     return (
       <div className="py-12">
         <Spinner size="lg" />
-        <p className="text-center text-gray-600 mt-4">Loading logs...</p>
+        <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading logs...</p>
       </div>
     );
   }
 
   if (!logs || logs.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         <p>{emptyMessage}</p>
       </div>
     );

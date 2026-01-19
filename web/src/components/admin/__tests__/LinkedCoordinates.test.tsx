@@ -73,7 +73,8 @@ describe("LinkedCoordinates", () => {
       render(<LinkedCoordinates {...defaultProps} />);
 
       expect(screen.getByText("WGS84 Coordinates")).toBeInTheDocument();
-      expect(screen.getByText("OSGB36 Coordinates")).toBeInTheDocument();
+      // Component now shows "Projected Coordinates" with a dynamic subtitle for the grid system
+      expect(screen.getByText("Projected Coordinates")).toBeInTheDocument();
     });
   });
 
@@ -110,7 +111,7 @@ describe("LinkedCoordinates", () => {
 
       expect(mockConvertCoordinates).toHaveBeenCalledWith({
         from: "wgs84",
-        to: "osgb",
+        to: "grid",  // Auto-detect grid system based on location
         lat: 52.0,
         lon: -0.1276,
         height: 100,
@@ -285,12 +286,12 @@ describe("LinkedCoordinates", () => {
       expect(screen.queryByText(/Invalid grid reference/i)).not.toBeInTheDocument();
     });
 
-    it("validates various grid reference formats correctly", () => {
+    it("validates various OSGB grid reference formats correctly", () => {
       render(<LinkedCoordinates {...defaultProps} />);
 
       const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
 
-      // Valid formats
+      // Valid OSGB formats
       const validRefs = ["TQ 30005 80433", "NL 12345 67890", "HU 00000 00000"];
       for (const ref of validRefs) {
         fireEvent.focus(gridrefInput);
@@ -298,22 +299,43 @@ describe("LinkedCoordinates", () => {
         expect(screen.queryByText(/Invalid grid reference/i)).not.toBeInTheDocument();
       }
 
-      // Invalid grid references
+      // Invalid OSGB grid references
       const invalidRefs = [
         "TQ30005 80433", // Missing first space
         "TQ 3000580433", // Missing second space
         "TQ  30005 80433", // Double space
-        "T 30005 80433", // Only one letter
         "TQQ 30005 80433", // Three letters
         "TQ 3005 80433", // 4-digit eastings
         "TQ 30005 8043", // 4-digit northings
-        "TI 30005 80433", // Contains I
+        "TI 30005 80433", // Contains I (I is never valid)
       ];
       for (const ref of invalidRefs) {
         fireEvent.focus(gridrefInput);
         fireEvent.change(gridrefInput, { target: { value: ref } });
         expect(screen.getByText(/Invalid grid reference/i)).toBeInTheDocument();
       }
+    });
+
+    it("recognizes valid Irish Grid references", () => {
+      // Irish Grid uses single letter format: "X 00000 00000"
+      render(<LinkedCoordinates {...defaultProps} />);
+
+      const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433");
+
+      // Valid Irish Grid format - single letter (A-Z except I)
+      fireEvent.focus(gridrefInput);
+      fireEvent.change(gridrefInput, { target: { value: "T 30005 80433" } });
+      expect(screen.queryByText(/Invalid grid reference/i)).not.toBeInTheDocument();
+
+      // Another valid Irish Grid ref
+      fireEvent.focus(gridrefInput);
+      fireEvent.change(gridrefInput, { target: { value: "O 12345 67890" } });
+      expect(screen.queryByText(/Invalid grid reference/i)).not.toBeInTheDocument();
+
+      // I is not valid even for Irish Grid
+      fireEvent.focus(gridrefInput);
+      fireEvent.change(gridrefInput, { target: { value: "I 30005 80433" } });
+      expect(screen.getByText(/Invalid grid reference/i)).toBeInTheDocument();
     });
 
     it("marks grid references with invalid first letter as invalid", () => {
@@ -386,7 +408,7 @@ describe("LinkedCoordinates", () => {
 
       expect(mockConvertCoordinates).toHaveBeenCalledWith({
         from: "wgs84",
-        to: "osgb",
+        to: "grid",  // Auto-detect grid system based on location
         lat: 51.5074,
         lon: -0.1276,
         height: 150,
@@ -507,7 +529,7 @@ describe("LinkedCoordinates", () => {
       expect(mockConvertCoordinates).toHaveBeenCalledTimes(1);
       expect(mockConvertCoordinates).toHaveBeenCalledWith({
         from: "wgs84",
-        to: "osgb",
+        to: "grid",  // Auto-detect grid system based on location
         lat: 52.5,
         lon: -0.1276,
         height: 100,

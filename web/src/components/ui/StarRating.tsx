@@ -28,7 +28,7 @@ export default function StarRating({ rating, maxRating = 5, size = "md", title }
             <div key={index} className="relative">
               {/* Empty star background */}
               <svg
-                className={`${sizeClasses[size]} text-gray-300`}
+                className={`${sizeClasses[size]} text-gray-300 dark:text-gray-500`}
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 20 20"
                 fill="currentColor"
@@ -53,7 +53,7 @@ export default function StarRating({ rating, maxRating = 5, size = "md", title }
           <svg
             key={index}
             className={`${sizeClasses[size]} ${
-              starType === "full" ? "text-green-700 fill-current" : "text-gray-300"
+              starType === "full" ? "text-green-700 fill-current" : "text-gray-300 dark:text-gray-500"
             }`}
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"

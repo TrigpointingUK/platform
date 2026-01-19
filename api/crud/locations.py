@@ -1,16 +1,28 @@
 """
 CRUD operations for location search.
+
+Supports both OSGB (British National Grid) and Irish Grid reference parsing.
 """
 
 import re
-from typing import List, Optional, Tuple
+from typing import List, Literal, Optional, Tuple
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from api.models.location import Postcode, Town
 from api.models.trig import Trig
+from api.services.coordinate_service import (
+    convert_irish_to_wgs84,
+    convert_osgb_to_wgs84,
+    irish_gridref_to_eastings_northings,
+    is_irish_gridref,
+    is_osgb_gridref,
+)
 from api.utils.geodesy import osgb_to_wgs84 as geodesy_osgb_to_wgs84
+
+# Grid system type for parsed results
+GridSystem = Literal["gb", "ie"]
 
 # OSGB Grid reference mapping for 100km squares
 OSGB_GRID_LETTERS = {
@@ -237,15 +249,100 @@ def osgb_to_wgs84(eastings: int, northings: int) -> Tuple[float, float]:
     return geodesy_osgb_to_wgs84(eastings, northings)
 
 
-def parse_grid_reference(gridref: str) -> Optional[Tuple[float, float, str]]:
+def parse_grid_reference(
+    gridref: str,
+) -> Optional[Tuple[float, float, str, GridSystem]]:
+    """
+    Parse an OSGB or Irish grid reference and return WGS84 coordinates.
+
+    Automatically detects whether the input is an OSGB (2-letter) or Irish (1-letter)
+    grid reference and uses the appropriate conversion.
+
+    Supports formats like:
+    - OSGB: "SK123456", "SK 123 456", "SK12345678"
+    - Irish: "O123456", "O 123 456", "O12345678"
+
+    Args:
+        gridref: Grid reference string (OSGB or Irish)
+
+    Returns:
+        Tuple of (lat, lon, normalized_gridref, grid_system) or None if invalid
+        grid_system is 'gb' for OSGB or 'ie' for Irish Grid
+    """
+    # Normalize: uppercase, remove spaces
+    gridref_norm = gridref.upper().replace(" ", "")
+
+    # Try Irish Grid first (single letter)
+    if is_irish_gridref(gridref_norm):
+        try:
+            eastings, northings = irish_gridref_to_eastings_northings(gridref_norm)
+            lon, lat, _ = convert_irish_to_wgs84(eastings, northings)
+
+            # Format normalized gridref
+            match = re.match(r"([A-HJ-Z])(\d+)", gridref_norm)
+            if match:
+                letter = match.group(1)
+                digits = match.group(2)
+                mid = len(digits) // 2
+                e_str = digits[:mid].ljust(5, "0")
+                n_str = digits[mid:].ljust(5, "0")
+                normalized = f"{letter} {e_str} {n_str}"
+                return lat, lon, normalized, "ie"
+        except (ValueError, IndexError):
+            pass
+
+    # Try OSGB Grid (two letters)
+    if is_osgb_gridref(gridref_norm):
+        match = re.match(r"([A-Z]{2})(\d+)", gridref_norm)
+        if match:
+            letters, digits = match.groups()
+
+            # Check if letters are valid
+            if letters not in OSGB_GRID_LETTERS:
+                return None
+
+            # Digits must be even length (pairs for easting/northing)
+            if len(digits) % 2 != 0:
+                return None
+
+            # Split digits into easting/northing
+            mid = len(digits) // 2
+            easting_str = digits[:mid]
+            northing_str = digits[mid:]
+
+            # Pad to 5 digits (1m resolution)
+            easting_str = easting_str.ljust(5, "0")
+            northing_str = northing_str.ljust(5, "0")
+
+            # Get 100km square offset
+            square_e, square_n = OSGB_GRID_LETTERS[letters]
+
+            # Calculate full easting/northing
+            eastings = square_e * 100000 + int(easting_str)
+            northings = square_n * 100000 + int(northing_str)
+
+            # Convert to WGS84 using OSTN15-backed service for accuracy
+            try:
+                out_lon, out_lat, _ = convert_osgb_to_wgs84(
+                    float(eastings), float(northings)
+                )
+            except Exception:
+                # Fall back to Helmert if OSTN15 fails (e.g. outside grid)
+                out_lat, out_lon = osgb_to_wgs84(eastings, northings)
+
+            # Format normalized gridref
+            normalized = f"{letters} {easting_str} {northing_str}"
+
+            return out_lat, out_lon, normalized, "gb"
+
+    return None
+
+
+def parse_grid_reference_legacy(gridref: str) -> Optional[Tuple[float, float, str]]:
     """
     Parse an OSGB grid reference and return WGS84 coordinates.
 
-    Supports formats like:
-    - "SK123456" (6 digits)
-    - "SK 123 456" (with spaces)
-    - "SK12345678" (8 digits)
-    - "SK 1234 5678" (8 digits with spaces)
+    Legacy function for backwards compatibility - use parse_grid_reference instead.
 
     Args:
         gridref: OSGB grid reference string
@@ -253,47 +350,11 @@ def parse_grid_reference(gridref: str) -> Optional[Tuple[float, float, str]]:
     Returns:
         Tuple of (lat, lon, normalized_gridref) or None if invalid
     """
-    # Normalize: uppercase, remove spaces
-    gridref_norm = gridref.upper().replace(" ", "")
-
-    # Match pattern: 2 letters + digits
-    match = re.match(r"([A-Z]{2})(\d+)", gridref_norm)
-    if not match:
-        return None
-
-    letters, digits = match.groups()
-
-    # Check if letters are valid
-    if letters not in OSGB_GRID_LETTERS:
-        return None
-
-    # Digits must be even length (pairs for easting/northing)
-    if len(digits) % 2 != 0:
-        return None
-
-    # Split digits into easting/northing
-    mid = len(digits) // 2
-    easting_str = digits[:mid]
-    northing_str = digits[mid:]
-
-    # Pad to 5 digits (100m resolution)
-    easting_str = easting_str.ljust(5, "0")
-    northing_str = northing_str.ljust(5, "0")
-
-    # Get 100km square offset
-    square_e, square_n = OSGB_GRID_LETTERS[letters]
-
-    # Calculate full easting/northing
-    eastings = square_e * 100000 + int(easting_str)
-    northings = square_n * 100000 + int(northing_str)
-
-    # Convert to WGS84
-    lat, lon = osgb_to_wgs84(eastings, northings)
-
-    # Format normalized gridref
-    normalized = f"{letters} {easting_str} {northing_str}"
-
-    return lat, lon, normalized
+    result = parse_grid_reference(gridref)
+    if result is not None:
+        lat, lon, normalized, _ = result
+        return lat, lon, normalized
+    return None
 
 
 def parse_latlon_string(text: str) -> Optional[Tuple[float, float]]:
@@ -330,8 +391,9 @@ def parse_latlon_string(text: str) -> Optional[Tuple[float, float]]:
                 if "W" in parts[1]:
                     lon = -lon
 
-                # Validate reasonable UK bounds
-                if 49 <= lat <= 61 and -8 <= lon <= 2:
+                # Validate reasonable UK + Ireland bounds
+                # Extended west to -11 to cover western Ireland
+                if 49 <= lat <= 61 and -11 <= lon <= 2:
                     return lat, lon
             except ValueError:
                 pass
@@ -351,8 +413,9 @@ def parse_latlon_string(text: str) -> Optional[Tuple[float, float]]:
             if "W" in parts[1]:
                 lon = -lon
 
-            # Validate reasonable UK bounds
-            if 49 <= lat <= 61 and -8 <= lon <= 2:
+            # Validate reasonable UK + Ireland bounds
+            # Extended west to -11 to cover western Ireland
+            if 49 <= lat <= 61 and -11 <= lon <= 2:
                 return lat, lon
         except ValueError:
             pass

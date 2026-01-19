@@ -5,19 +5,41 @@ Updated to use PostGIS spatial functions for distance calculations.
 
 from typing import List, Optional
 
-from sqlalchemy import Float, cast, func
+from geoalchemy2 import Geography
+from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
+from sqlalchemy import Float, cast, false, func
 from sqlalchemy.orm import Session
 
 from api.models.trig import Trig
 from api.models.user import TLog
 
-# PostGIS imports commented out until location column is populated
-# from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint
-
 
 def _is_sqlite(db: Session) -> bool:
     """Check if the database is SQLite."""
     return db.bind.dialect.name == "sqlite"  # type: ignore[union-attr]
+
+
+def _get_type_ids_for_codes(db: Session, type_codes: List[str]) -> List[int]:
+    """Get type IDs matching the given type codes."""
+    from api.models.trig_type import TrigType
+
+    upper_codes = [c.upper() for c in type_codes]
+    type_ids = db.query(TrigType.id).filter(TrigType.code.in_(upper_codes)).all()
+    return [t[0] for t in type_ids]
+
+
+def _get_type_ids_for_groups(db: Session, group_codes: List[str]) -> List[int]:
+    """Get type IDs for all types in the given groups."""
+    from api.models.trig_type import TrigType, TrigTypeGroup
+
+    upper_codes = [c.upper() for c in group_codes]
+    type_ids = (
+        db.query(TrigType.id)
+        .join(TrigTypeGroup)
+        .filter(TrigTypeGroup.code.in_(upper_codes))
+        .all()
+    )
+    return [t[0] for t in type_ids]
 
 
 def get_trig_by_id(db: Session, trig_id: int) -> Optional[Trig]:
@@ -117,8 +139,6 @@ def list_trigs_filtered(
     physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
     group_codes: Optional[List[str]] = None,
-    status_ids: Optional[List[int]] = None,
-    max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
@@ -140,60 +160,46 @@ def list_trigs_filtered(
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
 
-    # Filter by status IDs (specific statuses)
-    if status_ids:
-        query = query.filter(Trig.status_id.in_(status_ids))
-
-    # Filter by max status (status <= max_status)
-    if max_status is not None:
-        query = query.filter(Trig.status_id <= max_status)
-
     # Filter by physical types (kept for backward compatibility)
     if physical_types:
         query = query.filter(Trig.physical_type.in_(physical_types))
 
     # Filter by type codes (new type system)
     if type_codes:
-        from api.models.trig_type import TrigType
-
-        upper_codes = [c.upper() for c in type_codes]
-        type_subquery = db.query(TrigType.id).filter(
-            func.upper(TrigType.code).in_(upper_codes)
-        )
-        query = query.filter(Trig.type_id.in_(type_subquery))
+        type_id_list = _get_type_ids_for_codes(db, type_codes)
+        if type_id_list:
+            query = query.filter(Trig.type_id.in_(type_id_list))
+        else:
+            query = query.filter(false())  # No matching types
 
     # Filter by group codes (new type system)
     if group_codes:
-        from api.models.trig_type import TrigType, TrigTypeGroup
+        type_id_list = _get_type_ids_for_groups(db, group_codes)
+        if type_id_list:
+            query = query.filter(Trig.type_id.in_(type_id_list))
+        else:
+            query = query.filter(false())  # No matching groups
 
-        upper_codes = [c.upper() for c in group_codes]
-        type_subquery = (
-            db.query(TrigType.id)
-            .join(TrigTypeGroup)
-            .filter(func.upper(TrigTypeGroup.code).in_(upper_codes))
-        )
-        query = query.filter(Trig.type_id.in_(type_subquery))
-
-    # Exclude trigpoints already found by user
+    # Exclude trigpoints already found by user (use NOT EXISTS for efficiency)
     if exclude_found_by_user_id is not None:
-        # LEFT JOIN to find trigs NOT logged by this user
-        subquery = (
-            db.query(TLog.trig_id)
+        # NOT EXISTS is more efficient than NOT IN - it can short-circuit
+        exists_subquery = (
+            db.query(TLog.id)
+            .filter(TLog.trig_id == Trig.id)
             .filter(TLog.user_id == exclude_found_by_user_id)
-            .distinct()
-            .subquery()
+            .exists()
         )
-        query = query.filter(~Trig.id.in_(subquery))  # type: ignore[arg-type]
+        query = query.filter(~exists_subquery)
 
-    # Include ONLY trigpoints found by user (inverse of exclude_found)
+    # Include ONLY trigpoints found by user (use EXISTS for efficiency)
     if only_found_by_user_id is not None:
-        subquery = (
-            db.query(TLog.trig_id)
+        exists_subquery = (
+            db.query(TLog.id)
+            .filter(TLog.trig_id == Trig.id)
             .filter(TLog.user_id == only_found_by_user_id)
-            .distinct()
-            .subquery()
+            .exists()
         )
-        query = query.filter(Trig.id.in_(subquery))  # type: ignore[arg-type]
+        query = query.filter(exists_subquery)
 
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
@@ -201,34 +207,54 @@ def list_trigs_filtered(
         query = query.filter(Trig.county == county)
 
     if center_lat is not None and center_lon is not None:
-        # TEMPORARILY: Use haversine formula for all databases until PostGIS location column is populated
-        # TODO: Switch back to PostGIS ST_Distance when location column has data
-        # For now, use a simple haversine distance calculation
-        lat1_rad = func.radians(center_lat)
-        lat2_rad = func.radians(Trig.wgs_lat)
-        lon1_rad = func.radians(center_lon)
-        lon2_rad = func.radians(Trig.wgs_long)
+        # Use PostGIS for distance calculation (location column is now populated)
+        if not _is_sqlite(db):
+            # Create a geography point from the center coordinates
+            # ST_SetSRID sets the coordinate system (4326 = WGS84)
+            # Cast to Geography for spherical distance in meters
+            center_geog = cast(
+                ST_SetSRID(ST_MakePoint(center_lon, center_lat), 4326), Geography
+            )
 
-        dlat = lat2_rad - lat1_rad
-        dlon = lon2_rad - lon1_rad
+            # ST_Distance returns meters when using geography type
+            distance_m = cast(ST_Distance(Trig.location, center_geog), Float).label(
+                "distance_m"
+            )
 
-        a = func.sin(dlat / 2) * func.sin(dlat / 2) + func.cos(lat1_rad) * func.cos(
-            lat2_rad
-        ) * func.sin(dlon / 2) * func.sin(dlon / 2)
-        c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
-        distance_m = cast(6371000 * c, Float).label(
-            "distance_m"
-        )  # Earth radius in meters
+            query = query.add_columns(distance_m)
 
-        query = query.add_columns(distance_m)
+            if max_km is not None:
+                # ST_DWithin uses spatial index for efficient bounding
+                query = query.filter(
+                    ST_DWithin(Trig.location, center_geog, max_km * 1000)
+                )
 
-        if max_km is not None:
-            # Use filter with the distance expression (not the label) for WHERE clause
-            distance_expr = cast(6371000 * c, Float)
-            query = query.filter(distance_expr < max_km * 1000)
+            if order in (None, "", "distance"):
+                query = query.order_by(distance_m)
+        else:
+            # Fallback to haversine for SQLite (no PostGIS)
+            lat1_rad = func.radians(center_lat)
+            lat2_rad = func.radians(Trig.wgs_lat)
+            lon1_rad = func.radians(center_lon)
+            lon2_rad = func.radians(Trig.wgs_long)
 
-        if order in (None, "", "distance"):
-            query = query.order_by(distance_m)
+            dlat = lat2_rad - lat1_rad
+            dlon = lon2_rad - lon1_rad
+
+            a = func.sin(dlat / 2) * func.sin(dlat / 2) + func.cos(lat1_rad) * func.cos(
+                lat2_rad
+            ) * func.sin(dlon / 2) * func.sin(dlon / 2)
+            c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
+            distance_m = cast(6371000 * c, Float).label("distance_m")
+
+            query = query.add_columns(distance_m)
+
+            if max_km is not None:
+                distance_expr = cast(6371000 * c, Float)
+                query = query.filter(distance_expr < max_km * 1000)
+
+            if order in (None, "", "distance"):
+                query = query.order_by(distance_m)
     else:
         # deterministic default
         if order in (None, "", "id"):
@@ -255,8 +281,6 @@ def count_trigs_filtered(
     physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
     group_codes: Optional[List[str]] = None,
-    status_ids: Optional[List[int]] = None,
-    max_status: Optional[int] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
@@ -278,84 +302,76 @@ def count_trigs_filtered(
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
 
-    # Filter by status IDs (specific statuses)
-    if status_ids:
-        query = query.filter(Trig.status_id.in_(status_ids))
-
-    # Filter by max status (status <= max_status)
-    if max_status is not None:
-        query = query.filter(Trig.status_id <= max_status)
-
     # Filter by physical types (kept for backward compatibility)
     if physical_types:
         query = query.filter(Trig.physical_type.in_(physical_types))
 
     # Filter by type codes (new type system)
     if type_codes:
-        from api.models.trig_type import TrigType
-
-        upper_codes = [c.upper() for c in type_codes]
-        type_subquery = db.query(TrigType.id).filter(
-            func.upper(TrigType.code).in_(upper_codes)
-        )
-        query = query.filter(Trig.type_id.in_(type_subquery))
+        type_id_list = _get_type_ids_for_codes(db, type_codes)
+        if type_id_list:
+            query = query.filter(Trig.type_id.in_(type_id_list))
+        else:
+            query = query.filter(false())  # No matching types
 
     # Filter by group codes (new type system)
     if group_codes:
-        from api.models.trig_type import TrigType, TrigTypeGroup
+        type_id_list = _get_type_ids_for_groups(db, group_codes)
+        if type_id_list:
+            query = query.filter(Trig.type_id.in_(type_id_list))
+        else:
+            query = query.filter(false())  # No matching groups
 
-        upper_codes = [c.upper() for c in group_codes]
-        type_subquery = (
-            db.query(TrigType.id)
-            .join(TrigTypeGroup)
-            .filter(func.upper(TrigTypeGroup.code).in_(upper_codes))
-        )
-        query = query.filter(Trig.type_id.in_(type_subquery))
-
-    # Exclude trigpoints already found by user
+    # Exclude trigpoints already found by user (use NOT EXISTS for efficiency)
     if exclude_found_by_user_id is not None:
-        subquery = (
-            db.query(TLog.trig_id)
+        exists_subquery = (
+            db.query(TLog.id)
+            .filter(TLog.trig_id == Trig.id)
             .filter(TLog.user_id == exclude_found_by_user_id)
-            .distinct()
-            .subquery()
+            .exists()
         )
-        query = query.filter(~Trig.id.in_(subquery))  # type: ignore[arg-type]
+        query = query.filter(~exists_subquery)
 
-    # Include ONLY trigpoints found by user (inverse of exclude_found)
+    # Include ONLY trigpoints found by user (use EXISTS for efficiency)
     if only_found_by_user_id is not None:
-        subquery = (
-            db.query(TLog.trig_id)
+        exists_subquery = (
+            db.query(TLog.id)
+            .filter(TLog.trig_id == Trig.id)
             .filter(TLog.user_id == only_found_by_user_id)
-            .distinct()
-            .subquery()
+            .exists()
         )
-        query = query.filter(Trig.id.in_(subquery))  # type: ignore[arg-type]
+        query = query.filter(exists_subquery)
 
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
     if county:
         query = query.filter(Trig.county == county)
 
-    # Apply the same geo-distance filtering as in list_trigs_filtered
-    if center_lat is not None and center_lon is not None:
-        # TEMPORARILY: Use haversine formula for all databases until PostGIS location column is populated
-        # TODO: Switch back to PostGIS ST_DWithin when location column has data
-        lat1_rad = func.radians(center_lat)
-        lat2_rad = func.radians(Trig.wgs_lat)
-        lon1_rad = func.radians(center_lon)
-        lon2_rad = func.radians(Trig.wgs_long)
+    # Apply geo-distance filtering when max_km is specified
+    # Note: Unlike list_trigs_filtered which also calculates distance for ordering,
+    # count only needs to filter, so we only enter this block when all three params exist
+    if center_lat is not None and center_lon is not None and max_km is not None:
+        if not _is_sqlite(db):
+            # Use PostGIS ST_DWithin for efficient spatial filtering
+            center_geog = cast(
+                ST_SetSRID(ST_MakePoint(center_lon, center_lat), 4326), Geography
+            )
+            query = query.filter(ST_DWithin(Trig.location, center_geog, max_km * 1000))
+        else:
+            # Fallback to haversine for SQLite
+            lat1_rad = func.radians(center_lat)
+            lat2_rad = func.radians(Trig.wgs_lat)
+            lon1_rad = func.radians(center_lon)
+            lon2_rad = func.radians(Trig.wgs_long)
 
-        dlat = lat2_rad - lat1_rad
-        dlon = lon2_rad - lon1_rad
+            dlat = lat2_rad - lat1_rad
+            dlon = lon2_rad - lon1_rad
 
-        a = func.sin(dlat / 2) * func.sin(dlat / 2) + func.cos(lat1_rad) * func.cos(
-            lat2_rad
-        ) * func.sin(dlon / 2) * func.sin(dlon / 2)
-        c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
-        distance_m = cast(6371000 * c, Float)  # Earth radius in meters
-
-        if max_km is not None:
+            a = func.sin(dlat / 2) * func.sin(dlat / 2) + func.cos(lat1_rad) * func.cos(
+                lat2_rad
+            ) * func.sin(dlon / 2) * func.sin(dlon / 2)
+            c = 2 * func.atan2(func.sqrt(a), func.sqrt(1 - a))
+            distance_m = cast(6371000 * c, Float)
             query = query.filter(distance_m < max_km * 1000)
 
     return int(query.scalar() or 0)

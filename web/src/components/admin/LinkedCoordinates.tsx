@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { convertCoordinates } from "../../lib/api";
 import Spinner from "../ui/Spinner";
 
+type GridSystem = "gb" | "ie" | null;
+
 interface LinkedCoordinatesProps {
   wgsLat: string;
   wgsLong: string;
@@ -10,48 +12,45 @@ interface LinkedCoordinatesProps {
   osgbNorthings: number;
   osgbGridref: string;
   osgbHeight: number | null;
+  /** Initial grid system, if known (from trig data) */
+  initialGridSystem?: GridSystem;
   onWgsChange: (lat: string, long: string, height: number | null) => void;
   onOsgbChange: (eastings: number, northings: number, gridref: string, height: number | null) => void;
 }
 
 /**
- * Validate a 10-figure OS Grid Reference.
+ * Validate an OSGB 10-figure Grid Reference.
  * Format: "XX 00000 00000" - 2 letters, space, 5 digits, space, 5 digits
- *
- * @returns true if the format is valid (doesn't check if location exists in GB)
  */
-function isValidGridRef(gridref: string): boolean {
-  // Pattern: 2 letters, single space, 5 digits, single space, 5 digits
+function isValidOsgbGridRef(gridref: string): boolean {
   const pattern = /^[A-HJ-Z]{2} \d{5} \d{5}$/i;
   return pattern.test(gridref);
 }
 
 /**
- * Parse a valid 10-figure grid reference into eastings and northings.
- *
- * The OS National Grid uses a two-letter system:
- * - First letter: 500km square (S, T, N, O, H, J for mainland GB)
- * - Second letter: 100km square within the 500km square
- *
- * The 500km squares are arranged as:
- *   H J   (N 1000-1300km)
- *   N O   (N 500-1000km)
- *   S T   (N 0-500km)
- *   |  \
- *   E   E
- *   0   500-700km
- *
- * The 100km squares use a 5x5 grid (excluding I) with y-axis inverted:
- *   A B C D E  (y=4, N 400-500km within 500km square)
- *   F G H J K  (y=3)
- *   L M N O P  (y=2)
- *   Q R S T U  (y=1)
- *   V W X Y Z  (y=0, N 0-100km within 500km square)
- *
- * @returns { eastings, northings } or null if invalid
+ * Validate an Irish Grid Reference.
+ * Format: "X 00000 00000" - 1 letter (A-Z except I), space, 5 digits, space, 5 digits
  */
-function parseGridRef(gridref: string): { eastings: number; northings: number } | null {
-  if (!isValidGridRef(gridref)) {
+function isValidIrishGridRef(gridref: string): boolean {
+  const pattern = /^[A-HJ-Z] \d{5} \d{5}$/i;
+  return pattern.test(gridref);
+}
+
+/**
+ * Detect grid system from gridref format.
+ */
+function detectGridSystemFromGridref(gridref: string): GridSystem {
+  const normalized = gridref.trim().toUpperCase();
+  if (isValidIrishGridRef(normalized)) return "ie";
+  if (isValidOsgbGridRef(normalized)) return "gb";
+  return null;
+}
+
+/**
+ * Parse a valid 10-figure OSGB grid reference into eastings and northings.
+ */
+function parseOsgbGridRef(gridref: string): { eastings: number; northings: number } | null {
+  if (!isValidOsgbGridRef(gridref)) {
     return null;
   }
 
@@ -60,37 +59,32 @@ function parseGridRef(gridref: string): { eastings: number; northings: number } 
   const eastingStr = parts[1];
   const northingStr = parts[2];
 
-  // First letter - 500km square lookup (matches backend _GRID_500KM)
-  // Returns [e500, n500] where e500 is 0 or 1, n500 is 0, 1, or 2
+  // First letter - 500km square lookup
   const grid500km: Record<string, [number, number]> = {
-    S: [0, 0], T: [1, 0],  // N 0-500km
-    N: [0, 1], O: [1, 1],  // N 500-1000km
-    H: [0, 2], J: [1, 2],  // N 1000-1300km
+    S: [0, 0], T: [1, 0],
+    N: [0, 1], O: [1, 1],
+    H: [0, 2], J: [1, 2],
   };
 
   const first = grid500km[letters[0]];
   if (!first) {
-    return null; // Invalid first letter for GB
+    return null;
   }
   const [e500, n500] = first;
 
   // Second letter - 100km square within the 500km square
-  // Letter to index mapping (excluding I)
   const letterToIndex = (letter: string): number => {
-    const code = letter.charCodeAt(0) - 65; // A=0, B=1, etc.
-    // Skip I (which would be index 8 in standard alphabet)
+    const code = letter.charCodeAt(0) - 65;
     return code > 8 ? code - 1 : code;
   };
 
   const l2 = letterToIndex(letters[1]);
   const e100 = l2 % 5;
-  const n100 = 4 - Math.floor(l2 / 5); // Invert y-axis
+  const n100 = 4 - Math.floor(l2 / 5);
 
-  // Calculate full eastings and northings
   const eastings = e500 * 500000 + e100 * 100000 + parseInt(eastingStr, 10);
   const northings = n500 * 500000 + n100 * 100000 + parseInt(northingStr, 10);
 
-  // Basic range check for GB
   if (eastings < 0 || eastings > 700000 || northings < 0 || northings > 1300000) {
     return null;
   }
@@ -99,24 +93,73 @@ function parseGridRef(gridref: string): { eastings: number; northings: number } 
 }
 
 /**
- * LinkedCoordinates component for editing coordinates in both WGS84 and OSGB36 systems.
+ * Parse a valid Irish grid reference into eastings and northings.
+ */
+function parseIrishGridRef(gridref: string): { eastings: number; northings: number } | null {
+  if (!isValidIrishGridRef(gridref)) {
+    return null;
+  }
+
+  const parts = gridref.toUpperCase().split(" ");
+  const letter = parts[0];
+  const eastingStr = parts[1];
+  const northingStr = parts[2];
+
+  // Irish Grid uses single letters A-Z (except I) in a 5x5 grid
+  const irishGridLetters: Record<string, [number, number]> = {
+    A: [0, 4], B: [1, 4], C: [2, 4], D: [3, 4], E: [4, 4],
+    F: [0, 3], G: [1, 3], H: [2, 3], J: [3, 3], K: [4, 3],
+    L: [0, 2], M: [1, 2], N: [2, 2], O: [3, 2], P: [4, 2],
+    Q: [0, 1], R: [1, 1], S: [2, 1], T: [3, 1], U: [4, 1],
+    V: [0, 0], W: [1, 0], X: [2, 0], Y: [3, 0], Z: [4, 0],
+  };
+
+  const pos = irishGridLetters[letter];
+  if (!pos) {
+    return null;
+  }
+  const [e100, n100] = pos;
+
+  const eastings = e100 * 100000 + parseInt(eastingStr, 10);
+  const northings = n100 * 100000 + parseInt(northingStr, 10);
+
+  if (eastings < 0 || eastings > 500000 || northings < 0 || northings > 500000) {
+    return null;
+  }
+
+  return { eastings, northings };
+}
+
+/**
+ * Parse a grid reference (OSGB or Irish) into eastings and northings.
+ */
+function parseGridRef(gridref: string): { eastings: number; northings: number; gridSystem: GridSystem } | null {
+  // Try Irish first (single letter)
+  const irishResult = parseIrishGridRef(gridref);
+  if (irishResult) {
+    return { ...irishResult, gridSystem: "ie" };
+  }
+
+  // Try OSGB (two letters)
+  const osgbResult = parseOsgbGridRef(gridref);
+  if (osgbResult) {
+    return { ...osgbResult, gridSystem: "gb" };
+  }
+
+  return null;
+}
+
+/**
+ * LinkedCoordinates component for editing coordinates in both WGS84 and projected grid systems.
+ *
+ * Supports both OSGB36 (British National Grid) and Irish Grid (TM65/EPSG:29903).
+ * The grid system is auto-detected based on:
+ * - Initial prop (from trig data)
+ * - Grid reference format (1 letter = Irish, 2 letters = OSGB)
+ * - WGS84 coordinates (using backend auto-detection via to=grid)
  *
  * Edits in one coordinate system are automatically converted to the other using the
- * backend OSTN15/OSGM15 transformation API for sub-centimetre accuracy.
- *
- * Height conversion uses OSGM15:
- * - WGS84 height = ellipsoidal height (above WGS84 ellipsoid)
- * - OSGB height = orthometric height (above ODN/sea level)
- *
- * Focus management:
- * - The field being edited never loses focus during conversion
- * - Only the "other side" of the conversion is updated
- * - Conversions are debounced at 500ms
- *
- * Grid reference can be edited directly:
- * - Must be 10-figure format: "XX 00000 00000"
- * - Valid input immediately updates eastings/northings
- * - Invalid input is highlighted with a red border
+ * backend transformation API.
  */
 export default function LinkedCoordinates({
   wgsLat,
@@ -126,20 +169,26 @@ export default function LinkedCoordinates({
   osgbNorthings,
   osgbGridref,
   osgbHeight,
+  initialGridSystem,
   onWgsChange,
   onOsgbChange,
 }: LinkedCoordinatesProps) {
+  // Detected grid system
+  const [gridSystem, setGridSystem] = useState<GridSystem>(
+    initialGridSystem ?? detectGridSystemFromGridref(osgbGridref)
+  );
+
   // Local input state (strings for text inputs)
   const [wgsLatInput, setWgsLatInput] = useState(wgsLat);
   const [wgsLongInput, setWgsLongInput] = useState(wgsLong);
   const [wgsHeightInput, setWgsHeightInput] = useState(wgsHeight?.toString() ?? "");
-  const [osgbEastingsInput, setOsgbEastingsInput] = useState(osgbEastings.toString());
-  const [osgbNorthingsInput, setOsgbNorthingsInput] = useState(osgbNorthings.toString());
-  const [osgbGridrefInput, setOsgbGridrefInput] = useState(osgbGridref);
-  const [osgbHeightInput, setOsgbHeightInput] = useState(osgbHeight?.toString() ?? "");
+  const [gridEastingsInput, setGridEastingsInput] = useState(osgbEastings.toString());
+  const [gridNorthingsInput, setGridNorthingsInput] = useState(osgbNorthings.toString());
+  const [gridRefInput, setGridRefInput] = useState(osgbGridref);
+  const [gridHeightInput, setGridHeightInput] = useState(osgbHeight?.toString() ?? "");
 
   // Track which side is being edited to determine conversion direction
-  const [editingSide, setEditingSide] = useState<"wgs" | "osgb" | null>(null);
+  const [editingSide, setEditingSide] = useState<"wgs" | "grid" | null>(null);
 
   // Track the currently focused field to avoid updating it during conversion
   const focusedFieldRef = useRef<string | null>(null);
@@ -151,8 +200,8 @@ export default function LinkedCoordinates({
   const [isConverting, setIsConverting] = useState(false);
   const [conversionError, setConversionError] = useState<string | null>(null);
 
-  // Convert WGS84 to OSGB - only updates OSGB fields
-  const convertWgsToOsgb = useCallback(async () => {
+  // Convert WGS84 to Grid (auto-detect) - only updates grid fields
+  const convertWgsToGrid = useCallback(async () => {
     const lat = parseFloat(wgsLatInput);
     const lon = parseFloat(wgsLongInput);
     const height = parseFloat(wgsHeightInput);
@@ -163,9 +212,10 @@ export default function LinkedCoordinates({
     setConversionError(null);
 
     try {
+      // Use "grid" to auto-detect the appropriate grid system based on location
       const result = await convertCoordinates({
         from: "wgs84",
-        to: "osgb",
+        to: "grid",
         lat,
         lon,
         height: isNaN(height) ? undefined : height,
@@ -174,50 +224,59 @@ export default function LinkedCoordinates({
       // Update parent WGS values (local inputs are already correct)
       onWgsChange(wgsLatInput, wgsLongInput, isNaN(height) ? 0 : height);
 
-      // Update OSGB fields from conversion result
+      // Update grid system from response
+      const detectedSystem = result.grid_system as GridSystem;
+      if (detectedSystem) {
+        setGridSystem(detectedSystem);
+      }
+
+      // Update grid fields from conversion result
       const newEastings = result.output.e ?? 0;
       const newNorthings = result.output.n ?? 0;
       const newGridref = result.output.gridref ?? "";
-      const newOsgbHeight = result.output.height ?? 0;
+      const newHeight = result.output.height ?? 0;
 
       // Only update fields that aren't currently focused
-      if (focusedFieldRef.current !== "osgbEastings") {
-        setOsgbEastingsInput(newEastings.toString());
+      if (focusedFieldRef.current !== "gridEastings") {
+        setGridEastingsInput(newEastings.toString());
       }
-      if (focusedFieldRef.current !== "osgbNorthings") {
-        setOsgbNorthingsInput(newNorthings.toString());
+      if (focusedFieldRef.current !== "gridNorthings") {
+        setGridNorthingsInput(newNorthings.toString());
       }
-      if (focusedFieldRef.current !== "osgbGridref") {
-        setOsgbGridrefInput(newGridref);
+      if (focusedFieldRef.current !== "gridRef") {
+        setGridRefInput(newGridref);
         setGridrefValid(true);
       }
-      if (focusedFieldRef.current !== "osgbHeight") {
-        setOsgbHeightInput(Math.round(newOsgbHeight).toString());
+      if (focusedFieldRef.current !== "gridHeight") {
+        setGridHeightInput(Math.round(newHeight).toString());
       }
 
-      onOsgbChange(newEastings, newNorthings, newGridref, Math.round(newOsgbHeight));
+      onOsgbChange(newEastings, newNorthings, newGridref, Math.round(newHeight));
     } catch (error) {
-      console.error("Error converting WGS84 to OSGB:", error);
+      console.error("Error converting WGS84 to grid:", error);
       setConversionError(error instanceof Error ? error.message : "Conversion failed");
     } finally {
       setIsConverting(false);
     }
   }, [wgsLatInput, wgsLongInput, wgsHeightInput, onWgsChange, onOsgbChange]);
 
-  // Convert OSGB to WGS84 - only updates WGS fields
-  const convertOsgbToWgs = useCallback(async () => {
-    const eastings = parseInt(osgbEastingsInput);
-    const northings = parseInt(osgbNorthingsInput);
-    const height = parseFloat(osgbHeightInput);
+  // Convert Grid to WGS84 - only updates WGS fields
+  const convertGridToWgs = useCallback(async () => {
+    const eastings = parseInt(gridEastingsInput);
+    const northings = parseInt(gridNorthingsInput);
+    const height = parseFloat(gridHeightInput);
 
     if (isNaN(eastings) || isNaN(northings)) return;
+
+    // Determine which grid system to use based on current gridSystem or gridref format
+    const fromSystem = gridSystem === "ie" ? "irish" : "osgb";
 
     setIsConverting(true);
     setConversionError(null);
 
     try {
       const result = await convertCoordinates({
-        from: "osgb",
+        from: fromSystem,
         to: "wgs84",
         e: eastings,
         n: northings,
@@ -225,13 +284,13 @@ export default function LinkedCoordinates({
       });
 
       // Update gridref from API response (only if not editing gridref directly)
-      const gridref = result.input.gridref ?? osgbGridrefInput;
-      if (focusedFieldRef.current !== "osgbGridref") {
-        setOsgbGridrefInput(gridref);
+      const gridref = result.input.gridref ?? gridRefInput;
+      if (focusedFieldRef.current !== "gridRef") {
+        setGridRefInput(gridref);
         setGridrefValid(true);
       }
 
-      // Update parent OSGB values
+      // Update parent grid values
       onOsgbChange(eastings, northings, gridref, isNaN(height) ? 0 : height);
 
       // Update WGS fields from conversion result
@@ -252,49 +311,48 @@ export default function LinkedCoordinates({
 
       onWgsChange(newLat, newLon, Math.round(newWgsHeight));
     } catch (error) {
-      console.error("Error converting OSGB to WGS84:", error);
+      console.error("Error converting grid to WGS84:", error);
       setConversionError(error instanceof Error ? error.message : "Conversion failed");
     } finally {
       setIsConverting(false);
     }
-  }, [osgbEastingsInput, osgbNorthingsInput, osgbHeightInput, osgbGridrefInput, onWgsChange, onOsgbChange]);
+  }, [gridEastingsInput, gridNorthingsInput, gridHeightInput, gridRefInput, gridSystem, onWgsChange, onOsgbChange]);
 
   // Debounced conversion when WGS values change
   useEffect(() => {
     if (editingSide !== "wgs") return;
 
     const timer = setTimeout(() => {
-      convertWgsToOsgb();
+      convertWgsToGrid();
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [wgsLatInput, wgsLongInput, wgsHeightInput, editingSide, convertWgsToOsgb]);
+  }, [wgsLatInput, wgsLongInput, wgsHeightInput, editingSide, convertWgsToGrid]);
 
-  // Debounced conversion when OSGB values change (including from grid ref edits)
+  // Debounced conversion when grid values change
   useEffect(() => {
-    if (editingSide !== "osgb") return;
+    if (editingSide !== "grid") return;
 
     const timer = setTimeout(() => {
-      convertOsgbToWgs();
+      convertGridToWgs();
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [osgbEastingsInput, osgbNorthingsInput, osgbHeightInput, editingSide, convertOsgbToWgs]);
+  }, [gridEastingsInput, gridNorthingsInput, gridHeightInput, editingSide, convertGridToWgs]);
 
   // Track focus for each field
-  const handleFocus = (fieldName: string, side: "wgs" | "osgb") => {
+  const handleFocus = (fieldName: string, side: "wgs" | "grid") => {
     focusedFieldRef.current = fieldName;
     setEditingSide(side);
   };
 
   const handleBlur = () => {
     focusedFieldRef.current = null;
-    // Don't clear editingSide on blur - let the debounce complete
   };
 
   // Handle grid reference input changes
   const handleGridrefChange = (value: string) => {
-    setOsgbGridrefInput(value);
+    setGridRefInput(value);
 
     // Empty is OK (neutral state)
     if (value === "") {
@@ -302,47 +360,73 @@ export default function LinkedCoordinates({
       return;
     }
 
-    // Check if format is valid (2 letters, space, 5 digits, space, 5 digits)
-    const formatValid = isValidGridRef(value);
-    if (!formatValid) {
-      setGridrefValid(false);
+    // Check format and detect grid system
+    const detectedSystem = detectGridSystemFromGridref(value);
+    if (!detectedSystem) {
+      // Check if it's a partially valid format
+      const normalizedValue = value.trim().toUpperCase();
+      const isPartialIrish = /^[A-HJ-Z] \d+ \d*$/i.test(normalizedValue);
+      const isPartialOsgb = /^[A-HJ-Z]{2} \d+ \d*$/i.test(normalizedValue);
+      
+      if (!isPartialIrish && !isPartialOsgb) {
+        setGridrefValid(false);
+      }
       return;
     }
 
-    // Parse and validate the grid reference (checks first letter is valid for GB)
+    // Update grid system based on detected format
+    setGridSystem(detectedSystem);
+
+    // Parse and validate the grid reference
     const parsed = parseGridRef(value);
     if (parsed) {
-      setOsgbEastingsInput(parsed.eastings.toString());
-      setOsgbNorthingsInput(parsed.northings.toString());
+      setGridEastingsInput(parsed.eastings.toString());
+      setGridNorthingsInput(parsed.northings.toString());
       setGridrefValid(true);
       // The debounced effect will trigger the API call to update lat/long
     } else {
-      // Format is correct but grid reference is invalid (e.g., first letter not S/T/N/O/H/J)
       setGridrefValid(false);
     }
   };
 
-  const inputClassName = "w-full rounded-md border border-gray-300 px-3 py-2 text-gray-800 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400";
-  const invalidInputClassName = "w-full rounded-md border-2 border-red-400 px-3 py-2 text-gray-800 shadow-sm focus:border-red-500 focus:ring-2 focus:ring-red-300 bg-red-50";
+  const inputClassName = "w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400";
+  const invalidInputClassName = "w-full rounded-md border-2 border-red-400 dark:border-red-600 px-3 py-2 text-gray-800 dark:text-gray-100 shadow-sm focus:border-red-500 focus:ring-2 focus:ring-red-300 bg-red-50 dark:bg-red-900/30";
+
+  // Grid system label
+  const gridSystemLabel = gridSystem === "ie" 
+    ? "Irish Grid (TM65/EPSG:29903)" 
+    : "British National Grid (OSGB36)";
+  
+  const gridRefPlaceholder = gridSystem === "ie"
+    ? "e.g., O 31500 23400"
+    : "e.g., TQ 30005 80433";
+  
+  const gridRefHelpText = gridSystem === "ie"
+    ? "Enter a 10-figure Irish grid reference (e.g., O 31500 23400)"
+    : "Enter a 10-figure grid reference (e.g., TQ 30005 80433)";
+  
+  const invalidGridRefText = gridSystem === "ie"
+    ? "Invalid grid reference. Format: X 00000 00000 (single letter A-Z except I)"
+    : "Invalid grid reference. Format: XX 00000 00000 (first letter must be S, T, N, O, H, or J for GB)";
 
   return (
     <div className="space-y-6">
       {/* Conversion error */}
       {conversionError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-3 py-2 rounded-md text-sm">
           {conversionError}
         </div>
       )}
 
       {/* WGS84 Section */}
-      <div className="border border-gray-300 rounded-md p-4 bg-gray-50 relative">
+      <div className="border border-gray-300 dark:border-gray-600 rounded-md p-4 bg-gray-50 dark:bg-gray-700 relative">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-medium text-gray-800">
+          <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100">
             WGS84 Coordinates
-            <span className="text-sm font-normal text-gray-500 ml-2">(GPS)</span>
+            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">(GPS)</span>
           </h3>
-          {isConverting && editingSide === "osgb" && (
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+          {isConverting && editingSide === "grid" && (
+            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
               <Spinner size="sm" />
               <span>updating...</span>
             </div>
@@ -350,7 +434,7 @@ export default function LinkedCoordinates({
         </div>
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitude</label>
             <input
               type="text"
               value={wgsLatInput}
@@ -362,7 +446,7 @@ export default function LinkedCoordinates({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Longitude</label>
             <input
               type="text"
               value={wgsLongInput}
@@ -374,9 +458,9 @@ export default function LinkedCoordinates({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Height (m)
-              <span className="text-xs text-gray-500 ml-1" title="Height above WGS84 ellipsoid">
+              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1" title="Height above WGS84 ellipsoid">
                 ellipsoidal
               </span>
             </label>
@@ -393,57 +477,62 @@ export default function LinkedCoordinates({
         </div>
       </div>
 
-      {/* OSGB36 Section */}
-      <div className="border border-gray-300 rounded-md p-4 bg-gray-50 relative">
+      {/* Projected Grid Section */}
+      <div className="border border-gray-300 dark:border-gray-600 rounded-md p-4 bg-gray-50 dark:bg-gray-700 relative">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-medium text-gray-800">
-            OSGB36 Coordinates
-            <span className="text-sm font-normal text-gray-500 ml-2">(British National Grid)</span>
+          <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100">
+            Projected Coordinates
+            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({gridSystemLabel})</span>
           </h3>
           {isConverting && editingSide === "wgs" && (
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
               <Spinner size="sm" />
               <span>updating...</span>
             </div>
           )}
         </div>
+        {gridSystem && (
+          <div className="mb-3 text-xs text-gray-600 dark:text-gray-400">
+            Grid system: <span className="font-medium">{gridSystem === "ie" ? "Irish Grid" : "British National Grid"}</span>
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Eastings</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Eastings</label>
             <input
               type="text"
-              value={osgbEastingsInput}
-              onChange={(e) => setOsgbEastingsInput(e.target.value)}
-              onFocus={() => handleFocus("osgbEastings", "osgb")}
+              value={gridEastingsInput}
+              onChange={(e) => setGridEastingsInput(e.target.value)}
+              onFocus={() => handleFocus("gridEastings", "grid")}
               onBlur={handleBlur}
               className={inputClassName}
               placeholder="e.g., 512345"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Northings</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Northings</label>
             <input
               type="text"
-              value={osgbNorthingsInput}
-              onChange={(e) => setOsgbNorthingsInput(e.target.value)}
-              onFocus={() => handleFocus("osgbNorthings", "osgb")}
+              value={gridNorthingsInput}
+              onChange={(e) => setGridNorthingsInput(e.target.value)}
+              onFocus={() => handleFocus("gridNorthings", "grid")}
               onBlur={handleBlur}
               className={inputClassName}
               placeholder="e.g., 212345"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Height (m)
-              <span className="text-xs text-gray-500 ml-1" title="Height above Ordnance Datum Newlyn (sea level)">
-                ODN
+              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1" title={gridSystem === "ie" ? "Ordnance Datum Malin Head" : "Ordnance Datum Newlyn"}>
+                {gridSystem === "ie" ? "OD Malin" : "ODN"}
               </span>
             </label>
             <input
               type="number"
-              value={osgbHeightInput}
-              onChange={(e) => setOsgbHeightInput(e.target.value)}
-              onFocus={() => handleFocus("osgbHeight", "osgb")}
+              value={gridHeightInput}
+              onChange={(e) => setGridHeightInput(e.target.value)}
+              onFocus={() => handleFocus("gridHeight", "grid")}
               onBlur={handleBlur}
               className={inputClassName}
               placeholder="e.g., 55"
@@ -451,20 +540,18 @@ export default function LinkedCoordinates({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Grid Reference</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grid Reference</label>
           <input
             type="text"
-            value={osgbGridrefInput}
+            value={gridRefInput}
             onChange={(e) => handleGridrefChange(e.target.value)}
-            onFocus={() => handleFocus("osgbGridref", "osgb")}
+            onFocus={() => handleFocus("gridRef", "grid")}
             onBlur={handleBlur}
             className={gridrefValid ? inputClassName : invalidInputClassName}
-            placeholder="e.g., TQ 30005 80433"
+            placeholder={gridRefPlaceholder}
           />
-          <p className="text-xs text-gray-500 mt-1">
-            {gridrefValid
-              ? "Enter a 10-figure grid reference (e.g., TQ 30005 80433) or edit eastings/northings directly"
-              : "Invalid grid reference. Format: XX 00000 00000. First letter must be S, T, N, O, H, or J for GB."}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {gridrefValid ? gridRefHelpText : invalidGridRefText}
           </p>
         </div>
       </div>

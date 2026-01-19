@@ -108,13 +108,13 @@ class Auth0ErrorBoundaryInner extends Component<InnerProps, State> {
         : "An authentication error occurred.";
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
           <div className="max-w-md w-full text-center">
             <div className="text-6xl mb-4">🔐</div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">
               Authentication Required
             </h1>
-            <p className="text-gray-600 mb-6">{errorMessage}</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{errorMessage}</p>
             <div className="flex gap-4 justify-center flex-wrap">
               <Button onClick={this.handleRetry} variant="primary">
                 Try Again

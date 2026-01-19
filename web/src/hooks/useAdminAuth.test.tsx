@@ -27,10 +27,14 @@ const makeJwt = (payload: Record<string, unknown>): string => {
 describe("useAdminAuth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Clear the admin scope cache before each test
+    sessionStorage.removeItem("trigpointing_admin_scope_verified");
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    // Clean up cache after each test
+    sessionStorage.removeItem("trigpointing_admin_scope_verified");
   });
 
   it("reports admin scope when api:admin is present", async () => {
