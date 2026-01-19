@@ -9,7 +9,7 @@ import LinkedCoordinates from "../../components/admin/LinkedCoordinates";
 import RichTextEditor from "../../components/ui/RichTextEditor";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
-import { useTrigTypeGroups } from "../../hooks/useTrigTypes";
+import { useTrigCategories } from "../../hooks/useTrigTypes";
 import {
   fetchTrigForEdit,
   fetchStatuses,
@@ -65,8 +65,8 @@ export default function TrigEdit() {
   const [statuses, setStatuses] = useState<StatusRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch trig type groups for the dropdown
-  const { data: typeGroups, isLoading: isLoadingTypes } = useTrigTypeGroups();
+  // Fetch trig type categories for the dropdown
+  const { data: typeCategories, isLoading: isLoadingTypes } = useTrigCategories();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -368,9 +368,9 @@ export default function TrigEdit() {
                   {isLoadingTypes ? (
                     <option value="">Loading types...</option>
                   ) : (
-                    typeGroups?.map((group) => (
-                      <optgroup key={group.id} label={group.name}>
-                        {group.types.map((type) => (
+                    typeCategories?.map((category) => (
+                      <optgroup key={category.id} label={category.name}>
+                        {category.types.map((type) => (
                           <option key={type.id} value={type.id}>
                             {type.name}
                           </option>

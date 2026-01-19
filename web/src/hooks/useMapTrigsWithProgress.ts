@@ -14,6 +14,10 @@ interface Trig {
   wgs_long: string;
   osgb_gridref: string;
   status_name?: string;
+  type_code?: string;
+  type_name?: string;
+  category_code?: string;
+  category_name?: string;
   distance_km?: number;
 }
 

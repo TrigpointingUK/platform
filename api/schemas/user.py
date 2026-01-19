@@ -79,6 +79,25 @@ class UserListResponse(BaseModel):
     applied_filters: UserListFilters
 
 
+class TypeCount(BaseModel):
+    """Count of trigpoints logged for a specific type."""
+
+    type_code: str = Field(..., description="Type code (e.g., HOTINE)")
+    type_name: str = Field(..., description="Type display name")
+    count: int = Field(..., description="Number of distinct trigpoints logged")
+
+
+class CategoryTypeBreakdown(BaseModel):
+    """Breakdown of types within a category."""
+
+    category_code: str = Field(..., description="Category code (e.g., PILLAR)")
+    category_name: str = Field(..., description="Category display name")
+    sort_order: int = Field(..., description="Category sort order")
+    types: list[TypeCount] = Field(
+        [], description="Types within this category, sorted by count descending"
+    )
+
+
 class UserBreakdown(BaseModel):
     # Breakdown by trig characteristics (distinct trigpoints only)
     by_current_use: Dict[str, int] = Field(
@@ -88,7 +107,11 @@ class UserBreakdown(BaseModel):
         {}, description="Trigpoints logged grouped by historic use"
     )
     by_physical_type: Dict[str, int] = Field(
-        {}, description="Trigpoints logged grouped by physical type"
+        {}, description="Trigpoints logged grouped by physical type (legacy)"
+    )
+    by_type: list[CategoryTypeBreakdown] = Field(
+        [],
+        description="Trigpoints logged grouped by category and type, sorted by category sort_order",
     )
 
     # Breakdown by log condition (all logs counted)

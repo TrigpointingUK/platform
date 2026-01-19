@@ -1,7 +1,7 @@
 """
-Tests for /v1/trigs endpoint with groups parameter and type information.
+Tests for /v1/trigs endpoint with categories parameter and type information.
 
-Tests the groups filtering, type info in response, and authenticated
+Tests the categories filtering, type info in response, and authenticated
 exclude_found/only_found filters.
 """
 
@@ -14,17 +14,17 @@ from sqlalchemy.orm import Session
 
 from api.core.config import settings
 from api.models.trig import Trig
-from api.models.trig_type import TrigType, TrigTypeGroup
+from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog, User
 
 
 @pytest.fixture
-def seed_groups_types_trigs(db: Session):
-    """Seed complete test data with groups, types, and trigs.
+def seed_categories_types_trigs(db: Session):
+    """Seed complete test data with categories, types, and trigs.
 
     Creates:
-    - 2 groups (PILLAR_TEST, FBM_TEST)
-    - 2 types per group
+    - 2 categories (PILLAR_TEST, FBM_TEST)
+    - 2 types per category
     - 2 trigs per type
     """
     import uuid
@@ -33,37 +33,37 @@ def seed_groups_types_trigs(db: Session):
     short_tag = base_tag[:6]
     base_sort = int(base_tag[:4], 16) % 20000 + 1000
 
-    # Create groups
-    pillar_group = TrigTypeGroup(
+    # Create categories
+    pillar_category = TrigCategory(
         code=f"PILLAR_T{base_tag}",
         name="Test Pillar",
-        description="Test pillar group",
+        description="Test pillar category",
         sort_order=base_sort,
     )
-    fbm_group = TrigTypeGroup(
+    fbm_category = TrigCategory(
         code=f"FBM_T{base_tag}",
         name="Test FBM",
-        description="Test FBM group",
+        description="Test FBM category",
         sort_order=base_sort + 1,
     )
-    db.add_all([pillar_group, fbm_group])
+    db.add_all([pillar_category, fbm_category])
     db.flush()
 
     # Create types
     hotine_type = TrigType(
-        group_id=pillar_group.id,
+        category_id=pillar_category.id,
         code=f"HOTINE_T{base_tag}",
         name="Test Hotine",
         sort_order=1,
     )
     vanessa_type = TrigType(
-        group_id=pillar_group.id,
+        category_id=pillar_category.id,
         code=f"VANESSA_T{base_tag}",
         name="Test Vanessa",
         sort_order=2,
     )
     fbm_type = TrigType(
-        group_id=fbm_group.id,
+        category_id=fbm_category.id,
         code=f"FBM_MK_T{base_tag}",
         name="Test FBM Mark",
         sort_order=1,
@@ -109,8 +109,8 @@ def seed_groups_types_trigs(db: Session):
 
     try:
         yield {
-            "pillar_group": pillar_group,
-            "fbm_group": fbm_group,
+            "pillar_category": pillar_category,
+            "fbm_category": fbm_category,
             "hotine_type": hotine_type,
             "vanessa_type": vanessa_type,
             "fbm_type": fbm_type,
@@ -120,32 +120,32 @@ def seed_groups_types_trigs(db: Session):
     finally:
         trig_ids = [t.id for t in trigs]
         type_ids = [hotine_type.id, vanessa_type.id, fbm_type.id]
-        group_ids = [pillar_group.id, fbm_group.id]
+        category_ids = [pillar_category.id, fbm_category.id]
 
         db.query(Trig).filter(Trig.id.in_(trig_ids)).delete(synchronize_session=False)
         db.query(TrigType).filter(TrigType.id.in_(type_ids)).delete(
             synchronize_session=False
         )
-        db.query(TrigTypeGroup).filter(TrigTypeGroup.id.in_(group_ids)).delete(
+        db.query(TrigCategory).filter(TrigCategory.id.in_(category_ids)).delete(
             synchronize_session=False
         )
         db.commit()
 
 
-class TestListTrigsWithGroupsParam:
-    """Tests for /v1/trigs?groups= parameter."""
+class TestListTrigsWithCategoriesParam:
+    """Tests for /v1/trigs?categories= parameter."""
 
-    def test_groups_param_filters_results(
-        self, client: TestClient, db: Session, seed_groups_types_trigs
+    def test_categories_param_filters_results(
+        self, client: TestClient, db: Session, seed_categories_types_trigs
     ):
-        """?groups=PILLAR filters to only pillar trigs."""
-        data = seed_groups_types_trigs
-        pillar_code = data["pillar_group"].code
+        """?categories=PILLAR filters to only pillar trigs."""
+        data = seed_categories_types_trigs
+        pillar_code = data["pillar_category"].code
 
         response = client.get(
             f"{settings.API_V1_STR}/trigs",
             params={
-                "groups": pillar_code,
+                "categories": pillar_code,
                 "lat": "51.5",
                 "lon": "-0.1",
                 "limit": 100,
@@ -169,17 +169,17 @@ class TestListTrigsWithGroupsParam:
             trig = next(t for t in data["trigs"] if t.id == item["id"])
             assert trig.type_id in pillar_type_ids
 
-    def test_multiple_groups_param(
-        self, client: TestClient, db: Session, seed_groups_types_trigs
+    def test_multiple_categories_param(
+        self, client: TestClient, db: Session, seed_categories_types_trigs
     ):
-        """?groups=PILLAR,FBM returns trigs from both groups."""
-        data = seed_groups_types_trigs
-        codes = f"{data['pillar_group'].code},{data['fbm_group'].code}"
+        """?categories=PILLAR,FBM returns trigs from both categories."""
+        data = seed_categories_types_trigs
+        codes = f"{data['pillar_category'].code},{data['fbm_category'].code}"
 
         response = client.get(
             f"{settings.API_V1_STR}/trigs",
             params={
-                "groups": codes,
+                "categories": codes,
                 "lat": "51.5",
                 "lon": "-0.1",
                 "limit": 100,
@@ -196,14 +196,14 @@ class TestListTrigsWithGroupsParam:
         # Should include all 4 seeded trigs
         assert len(our_items) == 4
 
-    def test_invalid_group_returns_empty(
-        self, client: TestClient, db: Session, seed_groups_types_trigs
+    def test_invalid_category_returns_empty(
+        self, client: TestClient, db: Session, seed_categories_types_trigs
     ):
-        """Invalid group code returns empty results."""
+        """Invalid category code returns empty results."""
         response = client.get(
             f"{settings.API_V1_STR}/trigs",
             params={
-                "groups": "NONEXISTENT_GROUP_XYZ",
+                "categories": "NONEXISTENT_CATEGORY_XYZ",
                 "lat": "51.5",
                 "lon": "-0.1",
                 "limit": 100,
@@ -219,19 +219,19 @@ class TestListTrigsWithGroupsParam:
 
 
 class TestListTrigsTypeInfoInResponse:
-    """Tests for type info (group_code, group_name) in response."""
+    """Tests for type info (category_code, category_name) in response."""
 
-    def test_response_includes_group_code(
-        self, client: TestClient, db: Session, seed_groups_types_trigs
+    def test_response_includes_category_code(
+        self, client: TestClient, db: Session, seed_categories_types_trigs
     ):
-        """Response includes group_code for each trig."""
-        data = seed_groups_types_trigs
-        pillar_code = data["pillar_group"].code
+        """Response includes category_code for each trig."""
+        data = seed_categories_types_trigs
+        pillar_code = data["pillar_category"].code
 
         response = client.get(
             f"{settings.API_V1_STR}/trigs",
             params={
-                "groups": pillar_code,
+                "categories": pillar_code,
                 "lat": "51.5",
                 "lon": "-0.1",
                 "limit": 100,
@@ -244,22 +244,22 @@ class TestListTrigsTypeInfoInResponse:
         seeded_ids = [t.id for t in data["trigs"]]
         our_items = [item for item in result["items"] if item["id"] in seeded_ids]
 
-        # Each item should have group_code
+        # Each item should have category_code
         for item in our_items:
-            assert "group_code" in item
-            assert item["group_code"] == pillar_code
+            assert "category_code" in item
+            assert item["category_code"] == pillar_code
 
-    def test_response_includes_group_name(
-        self, client: TestClient, db: Session, seed_groups_types_trigs
+    def test_response_includes_category_name(
+        self, client: TestClient, db: Session, seed_categories_types_trigs
     ):
-        """Response includes group_name for each trig."""
-        data = seed_groups_types_trigs
-        pillar_code = data["pillar_group"].code
+        """Response includes category_name for each trig."""
+        data = seed_categories_types_trigs
+        pillar_code = data["pillar_category"].code
 
         response = client.get(
             f"{settings.API_V1_STR}/trigs",
             params={
-                "groups": pillar_code,
+                "categories": pillar_code,
                 "lat": "51.5",
                 "lon": "-0.1",
                 "limit": 100,
@@ -272,22 +272,22 @@ class TestListTrigsTypeInfoInResponse:
         seeded_ids = [t.id for t in data["trigs"]]
         our_items = [item for item in result["items"] if item["id"] in seeded_ids]
 
-        # Each item should have group_name
+        # Each item should have category_name
         for item in our_items:
-            assert "group_name" in item
-            assert item["group_name"] == data["pillar_group"].name
+            assert "category_name" in item
+            assert item["category_name"] == data["pillar_category"].name
 
     def test_response_includes_type_info(
-        self, client: TestClient, db: Session, seed_groups_types_trigs
+        self, client: TestClient, db: Session, seed_categories_types_trigs
     ):
         """Response includes type_code and type_name for each trig."""
-        data = seed_groups_types_trigs
-        pillar_code = data["pillar_group"].code
+        data = seed_categories_types_trigs
+        pillar_code = data["pillar_category"].code
 
         response = client.get(
             f"{settings.API_V1_STR}/trigs",
             params={
-                "groups": pillar_code,
+                "categories": pillar_code,
                 "lat": "51.5",
                 "lon": "-0.1",
                 "limit": 100,
@@ -312,9 +312,9 @@ class TestListTrigsExcludeFoundAuthenticated:
     """Tests for exclude_found parameter with authentication."""
 
     @pytest.fixture
-    def seed_user_with_log(self, db: Session, seed_groups_types_trigs):
+    def seed_user_with_log(self, db: Session, seed_categories_types_trigs):
         """Create user with a log entry for one trig."""
-        data = seed_groups_types_trigs
+        data = seed_categories_types_trigs
 
         user = User(
             name=f"api_test_user_{data['base_id']}",
@@ -382,7 +382,7 @@ class TestListTrigsExcludeFoundAuthenticated:
         """exclude_found with auth excludes user's logged trigs."""
         data = seed_user_with_log
         user = data["user"]
-        pillar_group_code = data["pillar_group"].code
+        pillar_category_code = data["pillar_category"].code
 
         response = client.get(
             f"{settings.API_V1_STR}/trigs",
@@ -390,7 +390,7 @@ class TestListTrigsExcludeFoundAuthenticated:
                 "lat": "51.5",
                 "lon": "-0.1",
                 "exclude_found": "true",
-                "groups": pillar_group_code,  # Filter to our test group
+                "categories": pillar_category_code,  # Filter to our test category
                 "limit": 100,
             },
             headers={"Authorization": f"Bearer auth0_user_{user.id}"},
@@ -415,9 +415,9 @@ class TestListTrigsOnlyFoundAuthenticated:
     """Tests for only_found parameter with authentication."""
 
     @pytest.fixture
-    def seed_user_with_multiple_logs(self, db: Session, seed_groups_types_trigs):
+    def seed_user_with_multiple_logs(self, db: Session, seed_categories_types_trigs):
         """Create user with logs for some trigs."""
-        data = seed_groups_types_trigs
+        data = seed_categories_types_trigs
 
         user = User(
             name=f"only_test_user_{data['base_id']}",

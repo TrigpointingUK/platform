@@ -60,13 +60,25 @@ export interface UserLogStatus {
 }
 
 /**
- * Map physical types to icon base names
+ * Map category codes to icon base names
  * 
  * Based on available icons in res/icons/:
  * - pillar
  * - fbm
  * - passive
  * - intersected
+ */
+const CATEGORY_CODE_TO_ICON: Record<string, string> = {
+  'PILLAR': 'pillar',
+  'FBM': 'fbm',
+  'SURVEY_MARK': 'passive',
+  'INTERSECTED': 'intersected',
+  'ACTIVE': 'passive',
+  'OTHER': 'pillar',
+};
+
+/**
+ * Map physical types to icon base names (legacy fallback)
  */
 const PHYSICAL_TYPE_TO_ICON: Record<string, string> = {
   'Pillar': 'pillar',
@@ -129,7 +141,14 @@ const CONDITION_TO_COLOR: Record<ConditionCode, IconColor> = {
 };
 
 /**
- * Get icon base name for a physical type
+ * Get icon base name from category code
+ */
+export const getIconBaseNameFromCategory = (categoryCode: string): string => {
+  return CATEGORY_CODE_TO_ICON[categoryCode?.toUpperCase()] || 'pillar';
+};
+
+/**
+ * Get icon base name for a physical type (legacy fallback)
  */
 export const getIconBaseName = (physicalType: string): string => {
   return PHYSICAL_TYPE_TO_ICON[physicalType] || 'pillar';
@@ -207,12 +226,13 @@ export const getIconUrl = (
 /**
  * Get icon URL based on color mode
  * 
- * @param physicalType - Physical type of the trigpoint
+ * @param physicalType - Physical type of the trigpoint (legacy fallback)
  * @param condition - Condition code
  * @param colorMode - Icon color mode (condition or userLog)
  * @param logStatus - User's log status for this trig
  * @param highlighted - Whether to highlight the icon
- * @param statusName - Status name (e.g., "Minor mark") - used to override icon type
+ * @param statusName - Status name (e.g., "Minor mark") - used to override icon type (legacy)
+ * @param categoryCode - Category code (e.g., "PILLAR", "FBM") - preferred for icon selection
  */
 export const getIconUrlForTrig = (
   physicalType: string,
@@ -220,7 +240,8 @@ export const getIconUrlForTrig = (
   colorMode: IconColorMode,
   logStatus: UserLogStatus | null,
   highlighted: boolean = false,
-  statusName?: string
+  statusName?: string,
+  categoryCode?: string
 ): string => {
   let color: IconColor;
   
@@ -236,13 +257,23 @@ export const getIconUrlForTrig = (
     }
   }
   
-  // Override physical type icon for Minor marks - use passive icon
-  let iconPhysicalType = physicalType;
-  if (statusName && statusName.trim() === 'Minor mark') {
-    iconPhysicalType = 'Passive Station';  // This maps to 'passive' icon
+  // Determine icon base name - prefer category_code, fall back to physical_type
+  let baseName: string;
+  if (categoryCode) {
+    baseName = getIconBaseNameFromCategory(categoryCode);
+  } else {
+    // Legacy fallback: use physical_type with status_name override
+    let iconPhysicalType = physicalType;
+    if (statusName && statusName.trim() === 'Minor mark') {
+      iconPhysicalType = 'Passive Station';  // This maps to 'passive' icon
+    }
+    baseName = getIconBaseName(iconPhysicalType);
   }
   
-  return getIconUrl(iconPhysicalType, color, highlighted);
+  const highlightSuffix = highlighted ? '_h' : '';
+  const filename = `mapicon_${baseName}_${color}${highlightSuffix}.png`;
+  
+  return `/icons/${filename}`;
 };
 
 /**

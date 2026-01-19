@@ -1,5 +1,5 @@
 """
-Pydantic schemas for trig_type and trig_type_group endpoints.
+Pydantic schemas for trig_type and trig_category endpoints.
 """
 
 from typing import Optional
@@ -7,29 +7,29 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class TrigTypeGroupBase(BaseModel):
-    """Base schema for trig type group."""
+class TrigCategoryBase(BaseModel):
+    """Base schema for trig category."""
 
     code: str = Field(..., description="API-friendly code (e.g., PILLAR, MINOR_MARK)")
     name: str = Field(..., description="Display name (e.g., Pillar, Minor mark)")
-    description: Optional[str] = Field(None, description="Group description")
-    wiki_url: Optional[str] = Field(None, description="Wiki URL for this group")
+    description: Optional[str] = Field(None, description="Category description")
+    wiki_url: Optional[str] = Field(None, description="Wiki URL for this category")
     sort_order: int = Field(..., description="Sort order for threshold filtering")
 
 
-class TrigTypeGroupResponse(TrigTypeGroupBase):
-    """Response schema for trig type group."""
+class TrigCategoryResponse(TrigCategoryBase):
+    """Response schema for trig category."""
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int = Field(..., description="Group ID")
+    id: int = Field(..., description="Category ID")
 
 
-class TrigTypeGroupWithTypes(TrigTypeGroupResponse):
-    """Response schema for trig type group with nested types."""
+class TrigCategoryWithTypes(TrigCategoryResponse):
+    """Response schema for trig category with nested types."""
 
     types: list["TrigTypeResponse"] = Field(
-        default_factory=list, description="Types in this group"
+        default_factory=list, description="Types in this category"
     )
 
 
@@ -42,7 +42,7 @@ class TrigTypeBase(BaseModel):
     )
     description: Optional[str] = Field(None, description="Type description")
     wiki_url: Optional[str] = Field(None, description="Wiki URL for this type")
-    sort_order: int = Field(..., description="Sort order within group")
+    sort_order: int = Field(..., description="Sort order within category")
 
 
 class TrigTypeResponse(TrigTypeBase):
@@ -51,13 +51,13 @@ class TrigTypeResponse(TrigTypeBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(..., description="Type ID")
-    group_id: int = Field(..., description="Parent group ID")
+    category_id: int = Field(..., description="Parent category ID")
 
 
-class TrigTypeWithGroup(TrigTypeResponse):
-    """Response schema for trig type with nested group."""
+class TrigTypeWithCategory(TrigTypeResponse):
+    """Response schema for trig type with nested category."""
 
-    group: TrigTypeGroupResponse = Field(..., description="Parent group")
+    category: TrigCategoryResponse = Field(..., description="Parent category")
 
 
 class TrigTypeMinimal(BaseModel):
@@ -67,9 +67,9 @@ class TrigTypeMinimal(BaseModel):
 
     code: str = Field(..., description="Type code")
     name: str = Field(..., description="Type display name")
-    group_code: Optional[str] = Field(None, description="Parent group code")
-    group_name: Optional[str] = Field(None, description="Parent group name")
+    category_code: Optional[str] = Field(None, description="Parent category code")
+    category_name: Optional[str] = Field(None, description="Parent category name")
 
 
 # Update forward references
-TrigTypeGroupWithTypes.model_rebuild()
+TrigCategoryWithTypes.model_rebuild()

@@ -16,6 +16,10 @@ interface Log {
   trig_condition?: string | null;
   trig_status_name?: string | null;
   trig_physical_type?: string | null;
+  trig_type_code?: string | null;
+  trig_type_name?: string | null;
+  trig_category_code?: string | null;
+  trig_category_name?: string | null;
   date: string;
   time: string;
   condition: string;
@@ -217,10 +221,14 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                     <span className="font-normal text-gray-700 dark:text-gray-300">{displayTrigName}</span>
                   </>
                 )}
-                {log.trig_physical_type && (
+                {log.trig_type_name && (
                   <>
                     <span className="text-gray-400 dark:text-gray-500 mx-1">·</span>
-                    <span className="font-normal text-gray-500 dark:text-gray-400 text-sm">{log.trig_physical_type}</span>
+                    <span className="font-normal text-gray-500 dark:text-gray-400 text-sm">
+                      {log.trig_type_code === log.trig_category_code
+                        ? log.trig_type_name
+                        : `${log.trig_category_name} · ${log.trig_type_name}`}
+                    </span>
                   </>
                 )}
               </Link>

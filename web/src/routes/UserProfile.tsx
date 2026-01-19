@@ -353,23 +353,35 @@ export default function UserProfile() {
                 </div>
               </Card>
 
-              {/* By Physical Type */}
+              {/* By Type (grouped by category) */}
               <Card>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
-                  Physical Type
+                  Type
                 </h3>
-                <div className="space-y-2">
-                  {Object.entries(user.breakdown.by_physical_type)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([key, value]) => (
-                      <div key={key} className="flex justify-between text-sm">
-                        <span className="text-gray-700 dark:text-gray-300">{key}</span>
-                        <span className="font-medium text-trig-green-600">
-                          {value}
-                        </span>
+                <div className="space-y-4">
+                  {user.breakdown.by_type && user.breakdown.by_type.length > 0 ? (
+                    user.breakdown.by_type.map((category) => (
+                      <div key={category.category_code}>
+                        <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                          {category.category_name}
+                        </h4>
+                        <div className="space-y-1 pl-3">
+                          {category.types.map((type) => (
+                            <div key={type.type_code} className="flex justify-between text-sm">
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {type.type_code === category.category_code
+                                  ? type.type_name
+                                  : type.type_name}
+                              </span>
+                              <span className="font-medium text-trig-green-600">
+                                {type.count}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  {Object.keys(user.breakdown.by_physical_type).length === 0 && (
+                    ))
+                  ) : (
                     <p className="text-gray-400 dark:text-gray-500 text-sm italic">No data</p>
                   )}
                 </div>

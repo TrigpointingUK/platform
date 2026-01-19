@@ -11,8 +11,10 @@ interface Trig {
   wgs_long: string;
   osgb_gridref: string;
   status_name?: string;
-  group_code?: string;
-  group_name?: string;
+  type_code?: string;
+  type_name?: string;
+  category_code?: string;
+  category_name?: string;
   distance_km?: number;
 }
 
@@ -47,9 +49,9 @@ function getConditionInfo(code: string): { icon: string; label: string } {
   return conditions[code] || { icon: "c_unknown.png", label: code };
 }
 
-// Helper to get group badge info (icon, abbrev and color) based on group_code
-function getGroupInfo(groupCode?: string): { icon?: string; abbrev: string; color: string; name: string } {
-  const groupMap: Record<string, { icon: string; abbrev: string; color: string; name: string }> = {
+// Helper to get category badge info (icon, abbrev and color) based on category_code
+function getCategoryInfo(categoryCode?: string): { icon?: string; abbrev: string; color: string; name: string } {
+  const categoryMap: Record<string, { icon: string; abbrev: string; color: string; name: string }> = {
     PILLAR: { icon: "/icons/t_pillar.png", abbrev: "P", color: "bg-blue-600", name: "Pillar" },
     FBM: { icon: "/icons/t_fbm.png", abbrev: "MM", color: "bg-green-600", name: "FBM" },
     SURVEY_MARK: { icon: "/icons/t_passive.png", abbrev: "m", color: "bg-yellow-600", name: "Survey mark" },
@@ -58,8 +60,8 @@ function getGroupInfo(groupCode?: string): { icon?: string; abbrev: string; colo
     OTHER: { icon: "/icons/t_other.svg", abbrev: "O", color: "bg-gray-600", name: "Other" },
   };
   
-  if (groupCode && groupMap[groupCode]) {
-    return groupMap[groupCode];
+  if (categoryCode && categoryMap[categoryCode]) {
+    return categoryMap[categoryCode];
   }
   
   // Default fallback
@@ -113,7 +115,7 @@ export function TrigCard({
   const distanceLabel = distanceUnit === 'M' ? 'mi' : 'km';
   
   const conditionInfo = getConditionInfo(trig.condition);
-  const groupInfo = getGroupInfo(trig.group_code);
+  const categoryInfo = getCategoryInfo(trig.category_code);
   
   return (
     <Link
@@ -124,20 +126,20 @@ export function TrigCard({
         {/* Left side: Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {/* Group badge */}
-            {groupInfo.icon ? (
+            {/* Category badge */}
+            {categoryInfo.icon ? (
               <img 
-                src={groupInfo.icon}
-                alt={groupInfo.abbrev}
+                src={categoryInfo.icon}
+                alt={categoryInfo.abbrev}
                 className="w-6 h-6 object-contain"
-                title={trig.group_name || groupInfo.name}
+                title={trig.category_name || categoryInfo.name}
               />
             ) : (
               <span 
-                className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${groupInfo.color}`}
-                title={trig.group_name || groupInfo.name}
+                className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${categoryInfo.color}`}
+                title={trig.category_name || categoryInfo.name}
               >
-                {groupInfo.abbrev}
+                {categoryInfo.abbrev}
               </span>
             )}
             
@@ -165,15 +167,19 @@ export function TrigCard({
             )}
           </div>
           
-          {/* Grid reference, waypoint & physical type */}
+          {/* Grid reference, waypoint & type */}
           <div className="flex items-center gap-3 mt-1 text-sm text-gray-600 dark:text-gray-400">
             <span className="font-mono">{trig.osgb_gridref}</span>
             <span className="text-gray-400 dark:text-gray-500">•</span>
             <span>{trig.waypoint}</span>
-            {trig.physical_type && (
+            {trig.type_name && (
               <>
                 <span className="text-gray-400 dark:text-gray-500">•</span>
-                <span className="text-gray-500 dark:text-gray-400 text-xs">{trig.physical_type}</span>
+                <span className="text-gray-500 dark:text-gray-400 text-xs">
+                  {trig.type_code === trig.category_code
+                    ? trig.type_name
+                    : `${trig.category_name} · ${trig.type_name}`}
+                </span>
               </>
             )}
           </div>

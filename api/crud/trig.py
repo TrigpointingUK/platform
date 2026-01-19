@@ -28,15 +28,15 @@ def _get_type_ids_for_codes(db: Session, type_codes: List[str]) -> List[int]:
     return [t[0] for t in type_ids]
 
 
-def _get_type_ids_for_groups(db: Session, group_codes: List[str]) -> List[int]:
-    """Get type IDs for all types in the given groups."""
-    from api.models.trig_type import TrigType, TrigTypeGroup
+def _get_type_ids_for_categories(db: Session, category_codes: List[str]) -> List[int]:
+    """Get type IDs for all types in the given categories."""
+    from api.models.trig_type import TrigCategory, TrigType
 
-    upper_codes = [c.upper() for c in group_codes]
+    upper_codes = [c.upper() for c in category_codes]
     type_ids = (
         db.query(TrigType.id)
-        .join(TrigTypeGroup)
-        .filter(TrigTypeGroup.code.in_(upper_codes))
+        .join(TrigCategory)
+        .filter(TrigCategory.code.in_(upper_codes))
         .all()
     )
     return [t[0] for t in type_ids]
@@ -138,7 +138,7 @@ def list_trigs_filtered(
     order: Optional[str] = None,
     physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
-    group_codes: Optional[List[str]] = None,
+    category_codes: Optional[List[str]] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
@@ -172,13 +172,13 @@ def list_trigs_filtered(
         else:
             query = query.filter(false())  # No matching types
 
-    # Filter by group codes (new type system)
-    if group_codes:
-        type_id_list = _get_type_ids_for_groups(db, group_codes)
+    # Filter by category codes (new type system)
+    if category_codes:
+        type_id_list = _get_type_ids_for_categories(db, category_codes)
         if type_id_list:
             query = query.filter(Trig.type_id.in_(type_id_list))
         else:
-            query = query.filter(false())  # No matching groups
+            query = query.filter(false())  # No matching categories
 
     # Exclude trigpoints already found by user (use NOT EXISTS for efficiency)
     if exclude_found_by_user_id is not None:
@@ -280,7 +280,7 @@ def count_trigs_filtered(
     max_km: Optional[float] = None,
     physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
-    group_codes: Optional[List[str]] = None,
+    category_codes: Optional[List[str]] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
@@ -314,13 +314,13 @@ def count_trigs_filtered(
         else:
             query = query.filter(false())  # No matching types
 
-    # Filter by group codes (new type system)
-    if group_codes:
-        type_id_list = _get_type_ids_for_groups(db, group_codes)
+    # Filter by category codes (new type system)
+    if category_codes:
+        type_id_list = _get_type_ids_for_categories(db, category_codes)
         if type_id_list:
             query = query.filter(Trig.type_id.in_(type_id_list))
         else:
-            query = query.filter(false())  # No matching groups
+            query = query.filter(false())  # No matching categories
 
     # Exclude trigpoints already found by user (use NOT EXISTS for efficiency)
     if exclude_found_by_user_id is not None:

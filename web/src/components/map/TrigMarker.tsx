@@ -46,7 +46,8 @@ export default function TrigMarker({
     colorMode,
     logStatus,
     highlighted,
-    trig.status_name  // Pass status_name to override icon for minor marks
+    trig.status_name,  // Pass status_name to override icon for minor marks (legacy)
+    trig.category_code // Preferred: use category_code for icon selection
   );
   
   // Create Leaflet icon
@@ -89,7 +90,7 @@ export default function TrigMarker({
             
             <div className="space-y-1 text-sm mb-3">
               <div>
-                <span className="font-semibold">Type:</span> {trig.physical_type}
+                <span className="font-semibold">Type:</span> {trig.type_name || trig.physical_type}
               </div>
               <div>
                 <span className="font-semibold">Grid ref:</span> {trig.osgb_gridref}

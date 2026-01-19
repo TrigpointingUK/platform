@@ -345,18 +345,28 @@ export default function TrigDetail() {
 
                 <div>
                   <span className="font-semibold text-gray-700 dark:text-gray-300">Type:</span>{" "}
-                  {shouldHaveWikiLink(trig.physical_type) ? (
-                    <a
-                      href={getWikiUrl(trig.physical_type)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-trig-green-600 hover:underline"
-                    >
-                      {trig.physical_type}
-                    </a>
-                  ) : (
-                    trig.physical_type
-                  )}
+                  {(() => {
+                    // Determine display text: type_name if same as category, else "category · type"
+                    const displayText = trig.type_name
+                      ? trig.type_code === trig.category_code
+                        ? trig.type_name
+                        : `${trig.category_name} · ${trig.type_name}`
+                      : trig.physical_type;
+                    
+                    // Link using type_name for wiki URL
+                    return trig.type_name && shouldHaveWikiLink(trig.type_name) ? (
+                      <a
+                        href={getWikiUrl(trig.type_name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-trig-green-600 hover:underline"
+                      >
+                        {displayText}
+                      </a>
+                    ) : (
+                      displayText
+                    );
+                  })()}
                 </div>
 
                 <div className="flex items-center gap-2">

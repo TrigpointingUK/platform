@@ -120,14 +120,14 @@ def list_logs_filtered(
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
-    group_codes: Optional[List[str]] = None,
+    category_codes: Optional[List[str]] = None,
     area_id: Optional[int] = None,
     from_date: Optional[DateType] = None,
     to_date: Optional[DateType] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
 ) -> List[TLog]:
-    from api.crud.trig import _get_type_ids_for_groups
+    from api.crud.trig import _get_type_ids_for_categories
 
     q = db.query(TLog)
 
@@ -136,7 +136,7 @@ def list_logs_filtered(
         center_lat is not None
         or center_lon is not None
         or max_km is not None
-        or group_codes is not None
+        or category_codes is not None
         or area_id is not None
     )
 
@@ -148,13 +148,13 @@ def list_logs_filtered(
     if user_id is not None:
         q = q.filter(TLog.user_id == user_id)
 
-    # Filter by group codes (trigpoint type groups)
-    if group_codes:
-        type_id_list = _get_type_ids_for_groups(db, group_codes)
+    # Filter by category codes (trigpoint type categories)
+    if category_codes:
+        type_id_list = _get_type_ids_for_categories(db, category_codes)
         if type_id_list:
             q = q.filter(Trig.type_id.in_(type_id_list))
         else:
-            # No matching groups, return empty
+            # No matching categories, return empty
             q = q.filter(Trig.id == -1)
 
     # Filter by area using trig_area_mv materialized view
@@ -241,14 +241,14 @@ def count_logs_filtered(
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
-    group_codes: Optional[List[str]] = None,
+    category_codes: Optional[List[str]] = None,
     area_id: Optional[int] = None,
     from_date: Optional[DateType] = None,
     to_date: Optional[DateType] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
 ) -> int:
-    from api.crud.trig import _get_type_ids_for_groups
+    from api.crud.trig import _get_type_ids_for_categories
 
     q = db.query(func.count(TLog.id))
 
@@ -257,7 +257,7 @@ def count_logs_filtered(
         center_lat is not None
         or center_lon is not None
         or max_km is not None
-        or group_codes is not None
+        or category_codes is not None
         or area_id is not None
     )
 
@@ -269,13 +269,13 @@ def count_logs_filtered(
     if user_id is not None:
         q = q.filter(TLog.user_id == user_id)
 
-    # Filter by group codes (trigpoint type groups)
-    if group_codes:
-        type_id_list = _get_type_ids_for_groups(db, group_codes)
+    # Filter by category codes (trigpoint type categories)
+    if category_codes:
+        type_id_list = _get_type_ids_for_categories(db, category_codes)
         if type_id_list:
             q = q.filter(Trig.type_id.in_(type_id_list))
         else:
-            # No matching groups, return 0
+            # No matching categories, return 0
             return 0
 
     # Filter by area using trig_area_mv materialized view

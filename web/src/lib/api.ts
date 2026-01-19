@@ -347,6 +347,14 @@ export interface Trig {
   grid_system?: 'gb' | 'ie';
   /** Country name (e.g., 'England', 'Ireland', 'Northern Ireland') */
   country_name?: string;
+  /** Type code (e.g., HOTINE, FBM) */
+  type_code?: string;
+  /** Type display name (e.g., Hotine Pillar, Flush Bracket Mark) */
+  type_name?: string;
+  /** Category code (e.g., PILLAR, FBM, SURVEY_MARK) */
+  category_code?: string;
+  /** Category display name (e.g., Pillar, FBM, Survey mark) */
+  category_name?: string;
   details?: TrigDetails;
   stats?: TrigStats;
   attrs?: TrigAttrsData[];

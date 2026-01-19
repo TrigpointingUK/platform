@@ -1,5 +1,5 @@
 /**
- * Hook for fetching trig type groups and types from the API.
+ * Hook for fetching trig type categories and types from the API.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -13,10 +13,10 @@ export interface TrigType {
   description: string | null;
   wiki_url: string | null;
   sort_order: number;
-  group_id: number;
+  category_id: number;
 }
 
-export interface TrigTypeGroup {
+export interface TrigCategory {
   id: number;
   code: string;
   name: string;
@@ -27,13 +27,13 @@ export interface TrigTypeGroup {
 }
 
 /**
- * Fetch all trig type groups with their nested types.
+ * Fetch all trig type categories with their nested types.
  */
-export function useTrigTypeGroups() {
-  return useQuery<TrigTypeGroup[]>({
-    queryKey: ["trigTypeGroups"],
+export function useTrigCategories() {
+  return useQuery<TrigCategory[]>({
+    queryKey: ["trigCategories"],
     queryFn: async () => {
-      return apiGet<TrigTypeGroup[]>("/v1/types/groups");
+      return apiGet<TrigCategory[]>("/v1/types/categories");
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours - types rarely change
     gcTime: 24 * 60 * 60 * 1000,
@@ -41,23 +41,23 @@ export function useTrigTypeGroups() {
 }
 
 /**
- * Get group codes that should be selected based on a max sort_order threshold.
+ * Get category codes that should be selected based on a max sort_order threshold.
  */
-export function getGroupCodesUpToSortOrder(
-  groups: TrigTypeGroup[],
+export function getCategoryCodesUpToSortOrder(
+  categories: TrigCategory[],
   maxSortOrder: number,
 ): string[] {
-  return groups.filter((g) => g.sort_order <= maxSortOrder).map((g) => g.code);
+  return categories.filter((c) => c.sort_order <= maxSortOrder).map((c) => c.code);
 }
 
 /**
- * Map legacy status IDs to new group codes (trig_type_group.code).
+ * Map legacy status IDs to new category codes (trig_category.code).
  * Used during the transition period.
  * 
- * Note: These map to trig_type_group.code values, NOT status.name.
+ * Note: These map to trig_category.code values, NOT status.name.
  * The status table uses different names (e.g., "Major mark" vs "FBM").
  */
-export const LEGACY_STATUS_TO_GROUP: Record<number, string> = {
+export const LEGACY_STATUS_TO_CATEGORY: Record<number, string> = {
   10: "PILLAR",
   20: "FBM",
   30: "SURVEY_MARK",
@@ -67,10 +67,10 @@ export const LEGACY_STATUS_TO_GROUP: Record<number, string> = {
 };
 
 /**
- * Map new group codes to legacy status IDs.
+ * Map new category codes to legacy status IDs.
  * Used during the transition period.
  */
-export const GROUP_TO_LEGACY_STATUS: Record<string, number> = {
+export const CATEGORY_TO_LEGACY_STATUS: Record<string, number> = {
   PILLAR: 10,
   FBM: 20,
   SURVEY_MARK: 30,
@@ -80,19 +80,19 @@ export const GROUP_TO_LEGACY_STATUS: Record<string, number> = {
 };
 
 /**
- * Convert legacy status IDs to group codes.
+ * Convert legacy status IDs to category codes.
  */
-export function statusIdsToGroupCodes(statusIds: number[]): string[] {
+export function statusIdsToCategoryCodes(statusIds: number[]): string[] {
   return statusIds
-    .map((id) => LEGACY_STATUS_TO_GROUP[id])
+    .map((id) => LEGACY_STATUS_TO_CATEGORY[id])
     .filter((code): code is string => code !== undefined);
 }
 
 /**
- * Convert group codes to legacy status IDs.
+ * Convert category codes to legacy status IDs.
  */
-export function groupCodesToStatusIds(groupCodes: string[]): number[] {
-  return groupCodes
-    .map((code) => GROUP_TO_LEGACY_STATUS[code.toUpperCase()])
+export function categoryCodesToStatusIds(categoryCodes: string[]): number[] {
+  return categoryCodes
+    .map((code) => CATEGORY_TO_LEGACY_STATUS[code.toUpperCase()])
     .filter((id): id is number => id !== undefined);
 }

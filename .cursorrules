@@ -17,6 +17,16 @@
 - Add unit tests for any new or modified code
 - **Alembic migrations (DML logging)**: Any migration that runs data-changing SQL (`UPDATE`/`DELETE`/`INSERT`) MUST log how many rows were affected for each statement (e.g. via `conn = op.get_bind(); result = conn.execute(sa.text(...)); logger.info("...", result.rowcount)`). This helps auditing and makes `make migrate-staging` output actionable.
 
+## Testing Requirements
+- **SQLAlchemy queries with joins**: When writing queries that join multiple tables, especially with aggregations:
+  - Use `.select_from(BaseTable)` to establish an explicit left side when the query columns come from joined tables
+  - Add integration tests that exercise the actual query against the test database
+  - Test with fixtures that populate all joined tables (e.g., `trig_type`, `trig_category`)
+- **API endpoint changes**: When modifying API endpoints:
+  - Add or update integration tests in `api/tests/` that call the endpoint
+  - For breakdown/aggregation endpoints, include test fixtures that create the necessary related records
+- **Manual verification**: For complex queries or UI changes, manually test against staging before marking complete
+
 ## Git Workflow
 - Push changes to develop branch (never directly to main)
 - Commit changes frequently to avoid potential breakages

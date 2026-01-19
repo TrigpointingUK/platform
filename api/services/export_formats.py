@@ -20,16 +20,16 @@ _KMZ_ICON_FAMILIES = ("pillar", "fbm", "passive", "intersected")
 _KMZ_ICON_COLOURS = ("green", "yellow", "red", "grey")
 
 
-def _get_group_info(trig: Trig) -> tuple[str, str]:
+def _get_category_info(trig: Trig) -> tuple[str, str]:
     """
-    Get group code and name from a trig's type relationship.
+    Get category code and name from a trig's type relationship.
 
-    Returns (group_code, group_name) tuple, defaulting to ("", "") if not available.
+    Returns (category_code, category_name) tuple, defaulting to ("", "") if not available.
     """
-    if trig.trig_type and trig.trig_type.group:
+    if trig.trig_type and trig.trig_type.category:
         return (
-            str(trig.trig_type.group.code or ""),
-            str(trig.trig_type.group.name or ""),
+            str(trig.trig_type.category.code or ""),
+            str(trig.trig_type.category.name or ""),
         )
     return ("", "")
 
@@ -57,8 +57,8 @@ def trigs_to_csv(
         "name",
         "physical_type",
         "condition",
-        "group_code",
-        "group_name",
+        "category_code",
+        "category_name",
         "wgs_lat",
         "wgs_long",
         "wgs_height",
@@ -81,15 +81,15 @@ def trigs_to_csv(
     writer.writeheader()
 
     for trig in trigs:
-        group_code, group_name = _get_group_info(trig)
+        category_code, category_name = _get_category_info(trig)
         row = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
             "physical_type": trig.physical_type,
             "condition": trig.condition,
-            "group_code": group_code,
-            "group_name": group_name,
+            "category_code": category_code,
+            "category_name": category_name,
             "wgs_lat": float(trig.wgs_lat),
             "wgs_long": float(trig.wgs_long),
             "wgs_height": trig.wgs_height,
@@ -140,15 +140,15 @@ def trigs_to_geojson(
     features = []
 
     for trig in trigs:
-        group_code, group_name = _get_group_info(trig)
+        category_code, category_name = _get_category_info(trig)
         properties = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
             "physical_type": trig.physical_type,
             "condition": trig.condition,
-            "group_code": group_code,
-            "group_name": group_name,
+            "category_code": category_code,
+            "category_name": category_name,
             "osgb_gridref": trig.osgb_gridref,
             "county": trig.county,
             "town": trig.town,
@@ -324,13 +324,13 @@ def trigs_to_kml(
     ]
 
     for trig in trigs:
-        group_code, group_name = _get_group_info(trig)
+        category_code, category_name = _get_category_info(trig)
 
         # Build description HTML
         desc_lines = [
             "<![CDATA[",
             f"<b>Type:</b> {escape_xml(str(trig.physical_type))}<br/>",
-            f"<b>Group:</b> {escape_xml(group_name)}<br/>",
+            f"<b>Category:</b> {escape_xml(category_name)}<br/>",
             f"<b>Grid Ref:</b> {escape_xml(str(trig.osgb_gridref))}<br/>",
             f"<b>Condition:</b> {escape_xml(str(trig.condition))}<br/>",
         ]
@@ -433,14 +433,14 @@ def trigs_to_kmz(
     def _trig_url(trig_id: int) -> str:
         return f"{_site_base_domain()}/trigs/{trig_id}"
 
-    def _icon_family_from_physical_type(physical_type: str, group_name: str) -> str:
+    def _icon_family_from_physical_type(physical_type: str, category_name: str) -> str:
         """
         Map `physical_type` to one of the 4 KMZ icon families.
 
         This mapping intentionally absorbs many physical types into `passive`.
         """
         pt = (physical_type or "").strip().lower()
-        gn = (group_name or "").strip().lower()
+        gn = (category_name or "").strip().lower()
 
         # Strong group fallbacks
         if gn == "pillar":
@@ -522,10 +522,10 @@ def trigs_to_kmz(
             )
         return sorted(_KMZ_ICONS_DIR.glob("mapicon_*.png"))
 
-    def _kml_group_folder_name(trig: Trig) -> str:
-        """Get group name for folder organization."""
-        _, group_name = _get_group_info(trig)
-        return group_name.strip() if group_name else "Unknown"
+    def _kml_category_folder_name(trig: Trig) -> str:
+        """Get category name for folder organization."""
+        _, category_name = _get_category_info(trig)
+        return category_name.strip() if category_name else "Unknown"
 
     def _condition_description(code: str) -> str:
         # Definitive wording comes from the wiki (mirrored by our mapping helper).
@@ -591,11 +591,11 @@ def trigs_to_kmz(
 
     # ---- group trigs into folders ----------------------------------------
     # Folder hierarchy:
-    #   Level 1: category (aka group_name)
+    #   Level 1: category (category_name)
     #   Level 2: physical_type
     grouped: dict[str, dict[str, list[Trig]]] = {}
     for trig in trigs:
-        category = _kml_group_folder_name(trig)
+        category = _kml_category_folder_name(trig)
         physical_type_folder = (
             str(getattr(trig, "physical_type", "")).strip() or "Unknown"
         )
@@ -629,8 +629,8 @@ def trigs_to_kmz(
                 waypoint = str(trig.waypoint)
                 name = str(trig.name)
                 physical_type = str(trig.physical_type)
-                group_code, group_name = _get_group_info(trig)
-                family = _icon_family_from_physical_type(physical_type, group_name)
+                category_code, category_name = _get_category_info(trig)
+                family = _icon_family_from_physical_type(physical_type, category_name)
 
                 if user_logs is None:
                     colour = _colour_condition_mode(str(getattr(trig, "condition", "")))
@@ -688,8 +688,8 @@ def trigs_to_kmz(
                 ext: dict[str, Any] = {
                     "waypoint": waypoint,
                     "name": name,
-                    "group_code": group_code,
-                    "group_name": group_name,
+                    "category_code": category_code,
+                    "category_name": category_name,
                     "physical_type": physical_type,
                     # Descriptive string per wiki, not letter code.
                     "condition": condition_desc,

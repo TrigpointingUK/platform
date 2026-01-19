@@ -31,10 +31,13 @@ from api.crud import user as user_crud
 from api.models.server import Server
 from api.models.tphoto import TPhoto
 from api.models.trig import Trig
+from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog, User
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.user import (
+    CategoryTypeBreakdown,
     SortDirection,
+    TypeCount,
     UserBreakdown,
     UserCreate,
     UserCreateResponse,
@@ -357,6 +360,59 @@ def get_current_user_profile(
                 str(ptype): int(count) for ptype, count in by_physical_type_raw
             }
 
+            # Calculate breakdown by type grouped by category (new type system)
+            by_type_raw = (
+                db.query(
+                    TrigCategory.code.label("category_code"),
+                    TrigCategory.name.label("category_name"),
+                    TrigCategory.sort_order.label("sort_order"),
+                    TrigType.code.label("type_code"),
+                    TrigType.name.label("type_name"),
+                    func.count(func.distinct(user_crud.TLog.trig_id)).label(
+                        "trig_count"
+                    ),
+                )
+                .select_from(Trig)
+                .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
+                .join(TrigType, Trig.type_id == TrigType.id)
+                .join(TrigCategory, TrigType.category_id == TrigCategory.id)
+                .filter(user_crud.TLog.user_id == current_user.id)
+                .group_by(
+                    TrigCategory.code,
+                    TrigCategory.name,
+                    TrigCategory.sort_order,
+                    TrigType.code,
+                    TrigType.name,
+                )
+                .all()
+            )
+
+            # Group by category and build the structured response
+            categories_dict: Dict[str, CategoryTypeBreakdown] = {}
+            for row in by_type_raw:
+                cat_code = str(row.category_code)
+                if cat_code not in categories_dict:
+                    categories_dict[cat_code] = CategoryTypeBreakdown(
+                        category_code=cat_code,
+                        category_name=str(row.category_name),
+                        sort_order=int(row.sort_order),
+                        types=[],
+                    )
+                categories_dict[cat_code].types.append(
+                    TypeCount(
+                        type_code=str(row.type_code),
+                        type_name=str(row.type_name),
+                        count=int(row.trig_count),
+                    )
+                )
+
+            # Sort types within each category by count descending
+            for cat in categories_dict.values():
+                cat.types.sort(key=lambda t: t.count, reverse=True)
+
+            # Sort categories by sort_order
+            by_type = sorted(categories_dict.values(), key=lambda c: c.sort_order)
+
             # Calculate breakdown by log condition (all logs counted)
             condition_counts_raw = (
                 db.query(user_crud.TLog.condition, func.count(user_crud.TLog.id))
@@ -373,6 +429,7 @@ def get_current_user_profile(
                 by_current_use=by_current_use,
                 by_historic_use=by_historic_use,
                 by_physical_type=by_physical_type,
+                by_type=by_type,
                 by_condition=by_condition,
             )
 
@@ -1001,6 +1058,57 @@ def get_user(
             str(ptype): int(count) for ptype, count in by_physical_type_raw
         }
 
+        # Calculate breakdown by type grouped by category (new type system)
+        by_type_raw = (
+            db.query(
+                TrigCategory.code.label("category_code"),
+                TrigCategory.name.label("category_name"),
+                TrigCategory.sort_order.label("sort_order"),
+                TrigType.code.label("type_code"),
+                TrigType.name.label("type_name"),
+                func.count(func.distinct(user_crud.TLog.trig_id)).label("trig_count"),
+            )
+            .select_from(Trig)
+            .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
+            .join(TrigType, Trig.type_id == TrigType.id)
+            .join(TrigCategory, TrigType.category_id == TrigCategory.id)
+            .filter(user_crud.TLog.user_id == user_id)
+            .group_by(
+                TrigCategory.code,
+                TrigCategory.name,
+                TrigCategory.sort_order,
+                TrigType.code,
+                TrigType.name,
+            )
+            .all()
+        )
+
+        # Group by category and build the structured response
+        categories_dict: Dict[str, CategoryTypeBreakdown] = {}
+        for row in by_type_raw:
+            cat_code = str(row.category_code)
+            if cat_code not in categories_dict:
+                categories_dict[cat_code] = CategoryTypeBreakdown(
+                    category_code=cat_code,
+                    category_name=str(row.category_name),
+                    sort_order=int(row.sort_order),
+                    types=[],
+                )
+            categories_dict[cat_code].types.append(
+                TypeCount(
+                    type_code=str(row.type_code),
+                    type_name=str(row.type_name),
+                    count=int(row.trig_count),
+                )
+            )
+
+        # Sort types within each category by count descending
+        for cat in categories_dict.values():
+            cat.types.sort(key=lambda t: t.count, reverse=True)
+
+        # Sort categories by sort_order
+        by_type = sorted(categories_dict.values(), key=lambda c: c.sort_order)
+
         # Calculate breakdown by log condition (all logs counted)
         condition_counts_raw = (
             db.query(user_crud.TLog.condition, func.count(user_crud.TLog.id))
@@ -1017,6 +1125,7 @@ def get_user(
             by_current_use=by_current_use,
             by_historic_use=by_historic_use,
             by_physical_type=by_physical_type,
+            by_type=by_type,
             by_condition=by_condition,
         )
 
@@ -1214,7 +1323,7 @@ def list_logs_for_user(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        group_codes=parsed_groups,
+        category_codes=parsed_groups,
         area_id=area_id,
         from_date=from_date,
         to_date=to_date,
@@ -1225,7 +1334,7 @@ def list_logs_for_user(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        group_codes=parsed_groups,
+        category_codes=parsed_groups,
         area_id=area_id,
         from_date=from_date,
         to_date=to_date,

@@ -22,8 +22,8 @@ def _make_mock_trig(
     osgb_gridref: str = "TQ 30000 80000",
     county: str = "Greater London",
     fb_number: str = "S1234",
-    group_code: str = "PILLAR",
-    group_name: str = "Pillar",
+    category_code: str = "PILLAR",
+    category_name: str = "Pillar",
 ) -> MagicMock:
     """Create a mock Trig object for testing."""
     mock_trig = MagicMock()
@@ -40,13 +40,13 @@ def _make_mock_trig(
     mock_trig.county = county
     mock_trig.fb_number = fb_number
 
-    # Mock trig_type and group relationships
-    mock_group = MagicMock()
-    mock_group.code = group_code
-    mock_group.name = group_name
+    # Mock trig_type and category relationships
+    mock_category = MagicMock()
+    mock_category.code = category_code
+    mock_category.name = category_name
 
     mock_type = MagicMock()
-    mock_type.group = mock_group
+    mock_type.category = mock_category
 
     mock_trig.trig_type = mock_type
 
@@ -176,8 +176,8 @@ class TestTrigsToKmz:
             id=7177,
             waypoint="TP7177",
             name="Cat and Fiddle",
-            group_code="PILLAR",
-            group_name="Pillar",
+            category_code="PILLAR",
+            category_name="Pillar",
         )
         kmz = trigs_to_kmz([trig])
 
@@ -191,8 +191,8 @@ class TestTrigsToKmz:
             id=1,
             physical_type="Pillar",
             condition="G",
-            group_code="PILLAR",
-            group_name="Pillar",
+            category_code="PILLAR",
+            category_name="Pillar",
         )
         kmz = trigs_to_kmz([trig])
 
@@ -210,8 +210,8 @@ class TestTrigsToKmz:
             id=1,
             physical_type="Pillar",
             condition="P",
-            group_code="PILLAR",
-            group_name="Pillar",
+            category_code="PILLAR",
+            category_name="Pillar",
         )
 
         # Condition mode: P => grey
@@ -234,8 +234,8 @@ class TestTrigsToKmz:
             id=1,
             physical_type="Pillar",
             condition="U",
-            group_code="PILLAR",
-            group_name="Pillar",
+            category_code="PILLAR",
+            category_name="Pillar",
         )
         kmz = trigs_to_kmz(
             [trig],
@@ -250,8 +250,8 @@ class TestTrigsToKmz:
             id=1,
             physical_type="Bolt",
             condition="G",
-            group_code="SURVEY_MARK",
-            group_name="Survey mark",
+            category_code="SURVEY_MARK",
+            category_name="Survey mark",
         )
         kmz = trigs_to_kmz([trig])
         with zipfile.ZipFile(io.BytesIO(kmz)) as zf:

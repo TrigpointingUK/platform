@@ -125,16 +125,16 @@ class TestLogsFilteringLinks:
 class TestLogsCrudFiltering:
     """Tests for tlog CRUD filtering functions."""
 
-    def test_list_logs_filtered_accepts_group_codes(self, db: Session):
-        """Test CRUD list_logs_filtered accepts group_codes parameter."""
+    def test_list_logs_filtered_accepts_category_codes(self, db: Session):
+        """Test CRUD list_logs_filtered accepts category_codes parameter."""
         # Should not raise an error
-        logs = tlog_crud.list_logs_filtered(db, group_codes=["PILLAR"])
+        logs = tlog_crud.list_logs_filtered(db, category_codes=["PILLAR"])
         assert isinstance(logs, list)
 
-    def test_list_logs_filtered_accepts_multiple_group_codes(self, db: Session):
-        """Test CRUD list_logs_filtered accepts multiple group_codes."""
+    def test_list_logs_filtered_accepts_multiple_category_codes(self, db: Session):
+        """Test CRUD list_logs_filtered accepts multiple category_codes."""
         logs = tlog_crud.list_logs_filtered(
-            db, group_codes=["PILLAR", "FBM", "SURVEY_MARK"]
+            db, category_codes=["PILLAR", "FBM", "SURVEY_MARK"]
         )
         assert isinstance(logs, list)
 
@@ -149,16 +149,16 @@ class TestLogsCrudFiltering:
         """Test CRUD list_logs_filtered accepts combined parameters."""
         logs = tlog_crud.list_logs_filtered(
             db,
-            group_codes=["PILLAR", "FBM"],
+            category_codes=["PILLAR", "FBM"],
             center_lat=52.0,
             center_lon=-1.5,
             max_km=100,
         )
         assert isinstance(logs, list)
 
-    def test_count_logs_filtered_accepts_group_codes(self, db: Session):
-        """Test CRUD count_logs_filtered accepts group_codes parameter."""
-        count = tlog_crud.count_logs_filtered(db, group_codes=["PILLAR"])
+    def test_count_logs_filtered_accepts_category_codes(self, db: Session):
+        """Test CRUD count_logs_filtered accepts category_codes parameter."""
+        count = tlog_crud.count_logs_filtered(db, category_codes=["PILLAR"])
         assert isinstance(count, int)
         assert count >= 0
 
@@ -174,7 +174,7 @@ class TestLogsCrudFiltering:
         """Test CRUD count_logs_filtered accepts combined parameters."""
         count = tlog_crud.count_logs_filtered(
             db,
-            group_codes=["PILLAR", "FBM"],
+            category_codes=["PILLAR", "FBM"],
             center_lat=52.0,
             center_lon=-1.5,
             max_km=100,

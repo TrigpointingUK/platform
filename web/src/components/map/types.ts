@@ -30,6 +30,14 @@ export interface TrigData {
   grid_system?: 'gb' | 'ie';
   /** Country name (e.g., 'England', 'Ireland', 'Northern Ireland') */
   country_name?: string;
+  /** Type code (e.g., HOTINE, FBM) */
+  type_code?: string;
+  /** Type display name (e.g., Hotine Pillar) */
+  type_name?: string;
+  /** Category code (e.g., PILLAR, FBM) */
+  category_code?: string;
+  /** Category display name (e.g., Pillar) */
+  category_name?: string;
 }
 
 /**

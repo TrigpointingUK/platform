@@ -35,8 +35,8 @@ from api.models import (  # noqa: F401
     TPhoto,
     TPhotoVote,
     Trig,
+    TrigCategory,
     TrigType,
-    TrigTypeGroup,
     User,
 )
 

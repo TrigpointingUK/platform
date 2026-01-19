@@ -41,9 +41,9 @@ describe('TrigCard', () => {
     });
   });
 
-  describe('group_code icon rendering', () => {
-    it('should render PILLAR group icon', () => {
-      const trig = { ...baseTrig, group_code: 'PILLAR' };
+  describe('category_code icon rendering', () => {
+    it('should render PILLAR category icon', () => {
+      const trig = { ...baseTrig, category_code: 'PILLAR' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       // Icon uses abbrev as alt and full name as title
@@ -51,59 +51,59 @@ describe('TrigCard', () => {
       expect(icon).toHaveAttribute('src', '/icons/t_pillar.png');
     });
 
-    it('should render FBM group icon', () => {
-      const trig = { ...baseTrig, group_code: 'FBM' };
+    it('should render FBM category icon', () => {
+      const trig = { ...baseTrig, category_code: 'FBM' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('FBM');
       expect(icon).toHaveAttribute('src', '/icons/t_fbm.png');
     });
 
-    it('should render SURVEY_MARK group icon', () => {
-      const trig = { ...baseTrig, group_code: 'SURVEY_MARK' };
+    it('should render SURVEY_MARK category icon', () => {
+      const trig = { ...baseTrig, category_code: 'SURVEY_MARK' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('Survey mark');
       expect(icon).toHaveAttribute('src', '/icons/t_passive.png');
     });
 
-    it('should render INTERSECTED group icon', () => {
-      const trig = { ...baseTrig, group_code: 'INTERSECTED' };
+    it('should render INTERSECTED category icon', () => {
+      const trig = { ...baseTrig, category_code: 'INTERSECTED' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('Intersected');
       expect(icon).toHaveAttribute('src', '/icons/t_intersected.png');
     });
 
-    it('should render ACTIVE group icon', () => {
-      const trig = { ...baseTrig, group_code: 'ACTIVE' };
+    it('should render ACTIVE category icon', () => {
+      const trig = { ...baseTrig, category_code: 'ACTIVE' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('Active station');
       expect(icon).toHaveAttribute('src', '/icons/t_active.png');
     });
 
-    it('should render OTHER group icon', () => {
-      const trig = { ...baseTrig, group_code: 'OTHER' };
+    it('should render OTHER category icon', () => {
+      const trig = { ...baseTrig, category_code: 'OTHER' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('Other');
       expect(icon).toHaveAttribute('src', '/icons/t_other.svg');
     });
 
-    it('should render fallback for unknown group', () => {
-      const trig = { ...baseTrig, group_code: 'UNKNOWN' };
+    it('should render fallback for unknown category', () => {
+      const trig = { ...baseTrig, category_code: 'UNKNOWN' };
       renderWithRouter(<TrigCard trig={trig} />);
       
-      // Unknown group shows "?" badge instead of icon
+      // Unknown category shows "?" badge instead of icon
       expect(screen.getByText('?')).toBeInTheDocument();
     });
 
-    it('should render fallback when group_code is undefined', () => {
+    it('should render fallback when category_code is undefined', () => {
       const trig = { ...baseTrig };
       renderWithRouter(<TrigCard trig={trig} />);
       
-      // No group_code shows "?" badge
+      // No category_code shows "?" badge
       expect(screen.getByText('?')).toBeInTheDocument();
     });
   });

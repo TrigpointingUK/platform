@@ -16,6 +16,7 @@ from api.crud import tlog as tlog_crud
 from api.crud import tphoto as tphoto_crud
 from api.models.server import Server
 from api.models.trig import Trig
+from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog as TLogModel
 from api.models.user import User
 from api.schemas.tlog import TLogCreate, TLogResponse, TLogUpdate, TLogWithIncludes
@@ -75,6 +76,7 @@ def enrich_logs_with_names(
     trig_ids = list(set(log.trig_id for log in logs))
     user_ids = list(set(log.user_id for log in logs))
 
+    # Query trigs with type and category joins
     trigs = (
         db.query(
             Trig.id,
@@ -83,7 +85,13 @@ def enrich_logs_with_names(
             Trig.wgs_long,
             Trig.condition,
             Trig.physical_type,
+            TrigType.code.label("type_code"),
+            TrigType.name.label("type_name"),
+            TrigCategory.code.label("category_code"),
+            TrigCategory.name.label("category_name"),
         )
+        .outerjoin(TrigType, Trig.type_id == TrigType.id)
+        .outerjoin(TrigCategory, TrigType.category_id == TrigCategory.id)
         .filter(Trig.id.in_(trig_ids))
         .all()
         if trig_ids
@@ -102,6 +110,10 @@ def enrich_logs_with_names(
             "lon": float(t.wgs_long) if t.wgs_long is not None else None,
             "condition": str(t.condition) if t.condition else None,
             "physical_type": str(t.physical_type) if t.physical_type else None,
+            "type_code": str(t.type_code) if t.type_code else None,
+            "type_name": str(t.type_name) if t.type_name else None,
+            "category_code": str(t.category_code) if t.category_code else None,
+            "category_name": str(t.category_name) if t.category_name else None,
         }
         for t in trigs
     }
@@ -117,6 +129,11 @@ def enrich_logs_with_names(
         log_dict["trig_lon"] = trig_info.get("lon")
         log_dict["trig_condition"] = trig_info.get("condition")
         log_dict["trig_physical_type"] = trig_info.get("physical_type")
+        # New type system fields
+        log_dict["trig_type_code"] = trig_info.get("type_code")
+        log_dict["trig_type_name"] = trig_info.get("type_name")
+        log_dict["trig_category_code"] = trig_info.get("category_code")
+        log_dict["trig_category_name"] = trig_info.get("category_name")
         log_dict["user_name"] = user_names.get(log.user_id)
 
         # Calculate distance if log has custom location
@@ -232,7 +249,7 @@ def list_logs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        group_codes=parsed_groups,
+        category_codes=parsed_groups,
         area_id=area_id,
         from_date=from_date,
         to_date=to_date,
@@ -246,7 +263,7 @@ def list_logs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        group_codes=parsed_groups,
+        category_codes=parsed_groups,
         area_id=area_id,
         from_date=from_date,
         to_date=to_date,

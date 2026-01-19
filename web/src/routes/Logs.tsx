@@ -135,18 +135,18 @@ export default function Logs() {
   const showTrigConditionInitializedRef = useRef(false);
 
   // Compute preferred statuses from user profile
-  // Uses default_groups (list of group codes) from ui_prefs
+  // Uses default_categories (list of category codes) from ui_prefs
   const preferredStatuses = useMemo(() => {
-    const defaultGroups = userProfile?.prefs?.ui_prefs?.default_groups;
-    if (defaultGroups && defaultGroups.length > 0) {
-      return defaultGroups
+    const defaultCategories = userProfile?.prefs?.ui_prefs?.default_categories;
+    if (defaultCategories && defaultCategories.length > 0) {
+      return defaultCategories
         .map((code: string) => GROUP_CODE_TO_STATUS_ID[code])
         .filter((id: number | undefined): id is number => id !== undefined);
     }
     
     // Default is PILLAR + FBM only for guests and users without preferences
     return [10, 20]; // PILLAR, FBM
-  }, [userProfile?.prefs?.ui_prefs?.default_groups]);
+  }, [userProfile?.prefs?.ui_prefs?.default_categories]);
 
   // Filter state - parse from URL or use defaults
   const [centerLat, setCenterLat] = useState<number | null>(() => {

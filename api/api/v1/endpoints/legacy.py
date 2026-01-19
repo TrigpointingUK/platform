@@ -209,6 +209,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                     by_current_use=by_current_use,
                     by_historic_use=by_historic_use,
                     by_physical_type=by_physical_type,
+                    by_type=[],  # Legacy endpoint doesn't support grouped breakdown
                     by_condition=by_condition,
                 )
 
@@ -429,6 +430,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 by_current_use=by_current_use,
                 by_historic_use=by_historic_use,
                 by_physical_type=by_physical_type,
+                by_type=[],  # Legacy endpoint doesn't support grouped breakdown
                 by_condition=by_condition,
             )
 
