@@ -113,38 +113,38 @@ export default function Attributions() {
     const licenseLower = license.toLowerCase();
     // MIT and similar permissive licenses
     if (licenseLower.includes("mit") || licenseLower.includes("isc")) {
-      return "bg-green-100 text-green-800";
+      return "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300";
     }
     // Apache licenses
     if (licenseLower.includes("apache")) {
-      return "bg-blue-100 text-blue-800";
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300";
     }
     // BSD licenses
     if (licenseLower.includes("bsd")) {
-      return "bg-purple-100 text-purple-800";
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300";
     }
     // GPL licenses
     if (licenseLower.includes("gpl") && !licenseLower.includes("agpl")) {
-      return "bg-yellow-100 text-yellow-800";
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300";
     }
     // AGPL
     if (licenseLower.includes("agpl")) {
-      return "bg-orange-100 text-orange-800";
+      return "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300";
     }
     // Creative Commons licenses
     if (licenseLower.includes("creative commons") || licenseLower.includes("cc-") || licenseLower.includes("cc by")) {
-      return "bg-indigo-100 text-indigo-800";
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300";
     }
     // Unlicense / Public Domain
     if (licenseLower.includes("unlicense") || licenseLower.includes("public domain")) {
-      return "bg-teal-100 text-teal-800";
+      return "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300";
     }
     // Unknown
     if (licenseLower.includes("unknown")) {
-      return "bg-gray-100 text-gray-600";
+      return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
     // Default
-    return "bg-gray-100 text-gray-800";
+    return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
   };
 
   if (error) {
@@ -152,17 +152,17 @@ export default function Attributions() {
       <Layout>
         <title>Attributions | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
             Open Source Attributions
           </h1>
           <Card>
-            <p className="text-red-600">
+            <p className="text-red-600 dark:text-red-400">
               Unable to load attribution data: {error}
             </p>
-            <p className="text-gray-600 mt-4 text-sm">
+            <p className="text-gray-600 dark:text-gray-400 mt-4 text-sm">
               Attribution data is generated during the build process. If you're
               running in development, you may need to run:{" "}
-              <code className="bg-gray-100 px-2 py-1 rounded">
+              <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-800 dark:text-gray-200">
                 node generate-attributions.mjs
               </code>
             </p>
@@ -177,11 +177,11 @@ export default function Attributions() {
       <Layout>
         <title>Attributions | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
             Open Source Attributions
           </h1>
           <Card>
-            <p className="text-gray-600">Loading attribution data...</p>
+            <p className="text-gray-600 dark:text-gray-400">Loading attribution data...</p>
           </Card>
         </div>
       </Layout>
@@ -192,10 +192,10 @@ export default function Attributions() {
     <Layout>
       <title>Attributions | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
           Open Source Attributions
         </h1>
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 dark:text-gray-400 mb-6">
           This page lists all open source packages used in this application,
           along with their licenses and attribution information.
         </p>
@@ -204,26 +204,26 @@ export default function Attributions() {
         <Card className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <dt className="text-sm font-medium text-gray-500">Total Packages</dt>
-              <dd className="mt-1 text-2xl font-bold text-gray-900">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Packages</dt>
+              <dd className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {data.summary.total}
               </dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-gray-500">NPM Packages</dt>
-              <dd className="mt-1 text-2xl font-bold text-blue-600">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">NPM Packages</dt>
+              <dd className="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {data.summary.npm}
               </dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-gray-500">Python Packages</dt>
-              <dd className="mt-1 text-2xl font-bold text-green-600">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Python Packages</dt>
+              <dd className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">
                 {data.summary.python}
               </dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
-              <dd className="mt-1 text-sm text-gray-900">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Last Updated</dt>
+              <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                 {formatDate(data.generatedAt)}
               </dd>
             </div>
@@ -236,7 +236,7 @@ export default function Attributions() {
             <div>
               <label
                 htmlFor="search"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
                 Search Packages
               </label>
@@ -246,14 +246,14 @@ export default function Attributions() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name, license, or author..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trig-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400 focus:ring-2 focus:ring-trig-green-500 focus:border-transparent"
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label
                   htmlFor="type-filter"
-                  className="block text-sm font-medium text-gray-700 mb-2"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
                   Package Type
                 </label>
@@ -263,17 +263,17 @@ export default function Attributions() {
                   onChange={(e) =>
                     setFilterType(e.target.value as "all" | "npm" | "python")
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trig-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-trig-green-500 focus:border-transparent"
                 >
-                  <option value="all">All Types</option>
-                  <option value="npm">NPM Packages</option>
-                  <option value="python">Python Packages</option>
+                  <option value="all" className="bg-white dark:bg-gray-700">All Types</option>
+                  <option value="npm" className="bg-white dark:bg-gray-700">NPM Packages</option>
+                  <option value="python" className="bg-white dark:bg-gray-700">Python Packages</option>
                 </select>
               </div>
               <div>
                 <label
                   htmlFor="license-filter"
-                  className="block text-sm font-medium text-gray-700 mb-2"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
                   License
                 </label>
@@ -281,11 +281,11 @@ export default function Attributions() {
                   id="license-filter"
                   value={filterLicense}
                   onChange={(e) => setFilterLicense(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trig-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-trig-green-500 focus:border-transparent"
                 >
-                  <option value="all">All Licenses</option>
+                  <option value="all" className="bg-white dark:bg-gray-700">All Licenses</option>
                   {uniqueLicenses.map((license) => (
-                    <option key={license} value={license}>
+                    <option key={license} value={license} className="bg-white dark:bg-gray-700">
                       {license}
                     </option>
                   ))}
@@ -293,7 +293,7 @@ export default function Attributions() {
               </div>
             </div>
             {filteredDeps.length !== data.summary.total && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Showing {filteredDeps.length} of {data.summary.total} packages
               </p>
             )}
@@ -304,7 +304,7 @@ export default function Attributions() {
         <div className="space-y-4">
           {filteredDeps.length === 0 ? (
             <Card>
-              <p className="text-gray-600 text-center py-8">
+              <p className="text-gray-600 dark:text-gray-400 text-center py-8">
                 No packages found matching your filters.
               </p>
             </Card>
@@ -314,30 +314,30 @@ export default function Attributions() {
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-semibold text-gray-900">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                         {dep.name}
                       </h3>
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded ${
                           dep.type === "npm"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-green-100 text-green-800"
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300"
+                            : "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
                         }`}
                       >
                         {dep.type.toUpperCase()}
                       </span>
-                      <span className="text-sm text-gray-500 font-mono">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
                         v{dep.version}
                       </span>
                     </div>
                     {dep.description && (
-                      <p className="text-gray-600 text-sm mb-3">
+                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
                         {dep.description}
                       </p>
                     )}
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <div>
-                        <span className="text-gray-500">License:</span>{" "}
+                        <span className="text-gray-500 dark:text-gray-400">License:</span>{" "}
                         <span
                           className={`px-2 py-1 rounded text-xs font-medium ${getLicenseBadgeColor(
                             dep.license
@@ -348,8 +348,8 @@ export default function Attributions() {
                       </div>
                       {dep.author !== "Unknown" && (
                         <div>
-                          <span className="text-gray-500">Author:</span>{" "}
-                          <span className="text-gray-900">{dep.author}</span>
+                          <span className="text-gray-500 dark:text-gray-400">Author:</span>{" "}
+                          <span className="text-gray-900 dark:text-gray-100">{dep.author}</span>
                         </div>
                       )}
                     </div>
@@ -373,13 +373,13 @@ export default function Attributions() {
         </div>
 
         {/* License Notice */}
-        <Card className="mt-8 bg-gray-50">
-          <h2 className="text-xl font-bold text-gray-800 mb-3">
+        <Card className="mt-8 bg-gray-50 dark:bg-gray-800">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3">
             Shapefile Attributions
           </h2>
-          <p className="text-gray-700 text-sm leading-relaxed">
-          This website makes use of data provided by the <a href="https://county-borders.co.uk/" target="_blank" rel="noopener noreferrer" className="text-trig-green-600 hover:text-trig-green-700 underline">Historic County Borders Project</a>.<br />
-          This website makes use of data provided by the <a href="https://wikishire.co.uk/" target="_blank" rel="noopener noreferrer" className="text-trig-green-600 hover:text-trig-green-700 underline">WikiShire Project</a>.<br />
+          <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+          This website makes use of data provided by the <a href="https://county-borders.co.uk/" target="_blank" rel="noopener noreferrer" className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 underline">Historic County Borders Project</a>.<br />
+          This website makes use of data provided by the <a href="https://wikishire.co.uk/" target="_blank" rel="noopener noreferrer" className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 underline">WikiShire Project</a>.<br />
           <br />
           May contain Ordnance Survey data © Crown credit and database right 2014–18.<br />
           May contain public sector information licensed under the Northern Ireland Open Government Licence.<br />
@@ -389,22 +389,22 @@ export default function Attributions() {
         </Card>
 
         {/* License Notice */}
-        <Card className="mt-8 bg-gray-50">
-          <h2 className="text-xl font-bold text-gray-800 mb-3">
+        <Card className="mt-8 bg-gray-50 dark:bg-gray-800">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3">
             License Notice
           </h2>
-          <p className="text-gray-700 text-sm leading-relaxed">
+          <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
             This application uses open source software. Each package listed above
             is provided under its respective license. Please refer to the
             individual package repositories for full license text and terms. 
             TrigpointingUK would like to express its sincere gratitude to all open source
             developers the world over.
           </p>
-          <p className="text-gray-700 text-sm mt-3">
+          <p className="text-gray-700 dark:text-gray-300 text-sm mt-3">
             For questions or concerns about open source licensing, please{" "}
             <a
               href="/contact"
-              className="text-trig-green-600 hover:text-trig-green-700 underline"
+              className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 underline"
             >
               contact us
             </a>
