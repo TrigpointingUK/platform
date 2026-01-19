@@ -366,8 +366,9 @@ export default function RichTextEditor({
     content: value,
     editorProps: {
       attributes: {
+        // Force light mode styling for editor content (WYSIWYG - matches output display)
         class:
-          "prose prose-sm max-w-none p-3 min-h-[100px] focus:outline-none",
+          "prose prose-sm max-w-none p-3 min-h-[100px] focus:outline-none text-gray-900",
       },
     },
     onUpdate: ({ editor }) => {
