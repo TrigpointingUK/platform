@@ -181,7 +181,7 @@ export default function TrigDetail() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Invalid trigpoint ID</p>
+            <p className="text-red-600 dark:text-red-400">Invalid trigpoint ID</p>
           </Card>
         </div>
       </Layout>
@@ -193,7 +193,7 @@ export default function TrigDetail() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Failed to load trigpoint details</p>
+            <p className="text-red-600 dark:text-red-400">Failed to load trigpoint details</p>
           </Card>
         </div>
       </Layout>
@@ -206,7 +206,7 @@ export default function TrigDetail() {
         <div className="max-w-7xl mx-auto">
           <Card>
             <Spinner size="lg" />
-            <p className="text-center text-gray-600 mt-4">
+            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">
               Loading trigpoint details...
             </p>
           </Card>
@@ -220,7 +220,7 @@ export default function TrigDetail() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Trigpoint not found</p>
+            <p className="text-red-600 dark:text-red-400">Trigpoint not found</p>
           </Card>
         </div>
       </Layout>
@@ -813,7 +813,7 @@ export default function TrigDetail() {
           </h2>
 
           {logsError && (
-            <p className="text-red-600">Failed to load logged visits</p>
+            <p className="text-red-600 dark:text-red-400">Failed to load logged visits</p>
           )}
 
           {!logsError && (

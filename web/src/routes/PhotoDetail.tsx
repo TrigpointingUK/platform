@@ -159,7 +159,7 @@ export default function PhotoDetail() {
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <Spinner size="lg" />
-            <p className="mt-4 text-gray-600">Loading photo...</p>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading photo...</p>
           </div>
         </div>
       </Layout>
@@ -171,8 +171,8 @@ export default function PhotoDetail() {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <p className="text-red-600 mb-4">
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-6 text-center">
+            <p className="text-red-600 dark:text-red-400 mb-4">
               {error ? 'Failed to load photo.' : 'Photo not found.'}
             </p>
             <button

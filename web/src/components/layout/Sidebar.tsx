@@ -9,13 +9,13 @@ export default function Sidebar() {
 
       {/* Quick Links */}
       <Card>
-        <h3 className="font-bold text-lg mb-3 text-gray-800">Quick Links</h3>
+        <h3 className="font-bold text-lg mb-3 text-gray-800 dark:text-gray-100">Quick Links</h3>
         <nav className="space-y-2">
           <a
             href="https://www.ordnancesurvey.co.uk"
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+            className="block text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline"
           >
             🗺️ Ordnance Survey
           </a>
@@ -23,7 +23,7 @@ export default function Sidebar() {
             href="https://www.bench-marks.org.uk/"
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+            className="block text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline"
           >
             📖 Bench Mark Database
           </a>
@@ -31,7 +31,7 @@ export default function Sidebar() {
             href="https://interactivemaps.uk/os-benchmark-archive"
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+            className="block text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline"
           >
             🗺️ OS Benchmark Archive
           </a>          
@@ -39,13 +39,13 @@ export default function Sidebar() {
             href="https://www.haroldstreet.org.uk/"
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+            className="block text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline"
           >
             🗺️ Harold Street
           </a>
           <a
             href="/legacy-migration"
-            className="block text-trig-green-600 hover:text-trig-green-700 hover:underline"
+            className="block text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline"
           >
             🔧 Solve your Login problems here!
           </a>        </nav>

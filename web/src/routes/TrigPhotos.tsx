@@ -93,7 +93,7 @@ export default function TrigPhotos() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Invalid trigpoint ID</p>
+            <p className="text-red-600 dark:text-red-400">Invalid trigpoint ID</p>
           </Card>
         </div>
       </Layout>
@@ -105,7 +105,7 @@ export default function TrigPhotos() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Failed to load trig photos</p>
+            <p className="text-red-600 dark:text-red-400">Failed to load trig photos</p>
           </Card>
         </div>
       </Layout>

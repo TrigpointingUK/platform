@@ -43,20 +43,20 @@ class ErrorBoundary extends Component<Props, State> {
       const isChunkError = this.state.error?.message.includes('Failed to fetch dynamically imported module');
       
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
           <div className="max-w-md w-full text-center">
             <div className="text-6xl mb-4">⚠️</div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">
               {isChunkError ? 'App Update Available' : 'Something went wrong'}
             </h1>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               {isChunkError 
                 ? 'The application has been updated. Please reload the page to get the latest version.'
                 : 'An unexpected error occurred. Please try reloading the page.'}
             </p>
             {import.meta.env.DEV && this.state.error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded text-left">
-                <p className="text-sm font-mono text-red-800 break-all">
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-left">
+                <p className="text-sm font-mono text-red-800 dark:text-red-300 break-all">
                   {this.state.error.message}
                 </p>
               </div>

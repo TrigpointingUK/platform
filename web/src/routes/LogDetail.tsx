@@ -127,7 +127,7 @@ export default function LogDetail() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Invalid log ID</p>
+            <p className="text-red-600 dark:text-red-400">Invalid log ID</p>
           </Card>
         </div>
       </Layout>
@@ -139,7 +139,7 @@ export default function LogDetail() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Failed to load log details</p>
+            <p className="text-red-600 dark:text-red-400">Failed to load log details</p>
             <Link
               to="/"
               className="text-trig-green-600 hover:underline mt-4 inline-block"
@@ -170,7 +170,7 @@ export default function LogDetail() {
       <Layout>
         <div className="max-w-7xl mx-auto">
           <Card>
-            <p className="text-red-600">Log not found</p>
+            <p className="text-red-600 dark:text-red-400">Log not found</p>
             <Link
               to="/"
               className="text-trig-green-600 hover:underline mt-4 inline-block"

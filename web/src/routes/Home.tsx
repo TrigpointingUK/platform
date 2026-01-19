@@ -49,7 +49,7 @@ function SiteStatsSection() {
           <h2 className="text-2xl font-bold text-trig-green-600 inline">Database Entries</h2>
           <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">(Click to browse)</span>
         </div>
-        <p className="text-red-600">Failed to load statistics</p>
+        <p className="text-red-600 dark:text-red-400">Failed to load statistics</p>
       </Card>
     );
   }
@@ -215,7 +215,7 @@ function RecentLogsSection() {
         </Link>
       </div>
       {error ? (
-        <p className="text-red-600">Failed to load recent logs</p>
+        <p className="text-red-600 dark:text-red-400">Failed to load recent logs</p>
       ) : (
         <LogList
           logs={logsData?.items || []}
