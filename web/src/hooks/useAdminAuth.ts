@@ -9,14 +9,47 @@ interface UseAdminAuthResult {
   isLoading: boolean;
 }
 
+const ADMIN_SCOPE_CACHE_KEY = "trigpointing_admin_scope_verified";
+
+/**
+ * Get cached admin scope status from sessionStorage.
+ * Returns true if admin scope was verified in this session, null otherwise.
+ */
+function getCachedAdminScope(): boolean | null {
+  try {
+    const cached = sessionStorage.getItem(ADMIN_SCOPE_CACHE_KEY);
+    return cached === "true" ? true : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cache admin scope verification result in sessionStorage.
+ */
+function setCachedAdminScope(hasScope: boolean): void {
+  try {
+    if (hasScope) {
+      sessionStorage.setItem(ADMIN_SCOPE_CACHE_KEY, "true");
+    } else {
+      sessionStorage.removeItem(ADMIN_SCOPE_CACHE_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 /**
  * Custom hook to handle admin authentication flow.
  * Checks if user has api-admin role and api:admin scope.
  * Handles re-authentication if needed.
+ * Caches successful scope verification in sessionStorage to avoid
+ * loading flashes when navigating between admin pages.
  */
 export function useAdminAuth(): UseAdminAuthResult {
   const { user, getAccessTokenSilently, loginWithRedirect, isLoading: isAuth0Loading, isAuthenticated } = useAuth0();
-  const [hasAdminScope, setHasAdminScope] = useState<boolean | null>(null);
+  // Initialize from cache to avoid loading flash on navigation
+  const [hasAdminScope, setHasAdminScope] = useState<boolean | null>(getCachedAdminScope);
   const [isActivelyChecking, setIsActivelyChecking] = useState(false);
   const location = useLocation();
 
@@ -56,6 +89,12 @@ export function useAdminAuth(): UseAdminAuthResult {
       checkInitiatedRef.current = false;
       setIsActivelyChecking(false);
       setHasAdminScope(null);
+      setCachedAdminScope(false);
+      return;
+    }
+
+    // If we already have confirmed admin scope (from cache or previous check), skip re-checking
+    if (hasAdminScope === true) {
       return;
     }
 
@@ -93,12 +132,14 @@ export function useAdminAuth(): UseAdminAuthResult {
         
         if (hasScope) {
           setHasAdminScope(true);
+          setCachedAdminScope(true);
           setIsActivelyChecking(false);
           return;
         }
 
         // We don't have the admin scope, need to re-authenticate
         setHasAdminScope(false);
+        setCachedAdminScope(false);
         // We're no longer "checking"; we're about to request elevation.
         setIsActivelyChecking(false);
         
