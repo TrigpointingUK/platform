@@ -171,7 +171,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-800">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Photos {photos && photos.length > 0 && `(${photos.length})`}
         </h3>
         {isEditing && logId && (
@@ -198,24 +198,24 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
 
       {/* Upload Form */}
       {showUploadForm && selectedFile && (
-        <div className="border border-blue-300 bg-blue-50 rounded-lg p-4 space-y-3">
+        <div className="border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 space-y-3">
           <div className="flex items-start justify-between">
-            <h4 className="font-semibold text-gray-800">Upload New Photo</h4>
+            <h4 className="font-semibold text-gray-800 dark:text-gray-100">Upload New Photo</h4>
             <button
               type="button"
               onClick={handleCancelUpload}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             >
               <X size={18} />
             </button>
           </div>
           
-          <div className="text-sm text-gray-600 bg-white rounded px-3 py-2">
+          <div className="text-sm text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 rounded px-3 py-2">
             <strong>File:</strong> {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Caption *
             </label>
             <input
@@ -224,14 +224,14 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
               onChange={(e) =>
                 setUploadForm((prev) => ({ ...prev, caption: e.target.value }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
               placeholder="Brief caption"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description
             </label>
             <textarea
@@ -239,7 +239,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
               onChange={(e) =>
                 setUploadForm((prev) => ({ ...prev, text_desc: e.target.value }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
               rows={2}
               placeholder="Detailed description (optional)"
             />
@@ -247,7 +247,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Type *
               </label>
               <select
@@ -255,11 +255,11 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                 onChange={(e) =>
                   setUploadForm((prev) => ({ ...prev, type: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
                 required
               >
                 {photoTypeOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
+                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     {opt.label}
                   </option>
                 ))}
@@ -267,7 +267,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 License *
               </label>
               <select
@@ -275,11 +275,11 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                 onChange={(e) =>
                   setUploadForm((prev) => ({ ...prev, license: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-trig-green-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-trig-green-500"
                 required
               >
                 {licenseOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
+                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     {opt.label}
                   </option>
                 ))}
@@ -325,7 +325,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
           {photos.map((photo) => (
             <div
               key={photo.id}
-              className="border border-gray-200 rounded-lg overflow-hidden bg-white"
+              className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800"
             >
               <div className="relative">
                 <img
@@ -340,19 +340,19 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                       type="button"
                       onClick={() => handleRotate(photo.id, 90)}
                       disabled={rotateMutation.isPending}
-                      className="p-1.5 bg-white/90 hover:bg-white rounded shadow-sm"
+                      className="p-1.5 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 rounded shadow-sm"
                       title="Rotate 90° clockwise"
                     >
-                      <RotateCw size={16} className="text-gray-700" />
+                      <RotateCw size={16} className="text-gray-700 dark:text-gray-300" />
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(photo.id)}
                       disabled={deleteMutation.isPending}
-                      className="p-1.5 bg-white/90 hover:bg-white rounded shadow-sm"
+                      className="p-1.5 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 rounded shadow-sm"
                       title="Delete photo"
                     >
-                      <Trash2 size={16} className="text-red-600" />
+                      <Trash2 size={16} className="text-red-600 dark:text-red-400" />
                     </button>
                   </div>
                 )}
@@ -367,7 +367,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                       onChange={(e) =>
                         setEditForm((prev) => ({ ...prev, caption: e.target.value }))
                       }
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400"
                       placeholder="Caption"
                     />
                     <textarea
@@ -375,7 +375,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                       onChange={(e) =>
                         setEditForm((prev) => ({ ...prev, text_desc: e.target.value }))
                       }
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 dark:placeholder-gray-400"
                       rows={2}
                       placeholder="Description"
                     />
@@ -385,10 +385,10 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                         onChange={(e) =>
                           setEditForm((prev) => ({ ...prev, type: e.target.value }))
                         }
-                        className="px-2 py-1 text-sm border border-gray-300 rounded"
+                        className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       >
                         {photoTypeOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
+                          <option key={opt.value} value={opt.value} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                             {opt.label}
                           </option>
                         ))}
@@ -398,10 +398,10 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                         onChange={(e) =>
                           setEditForm((prev) => ({ ...prev, license: e.target.value }))
                         }
-                        className="px-2 py-1 text-sm border border-gray-300 rounded"
+                        className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       >
                         {licenseOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
+                          <option key={opt.value} value={opt.value} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                             {opt.label}
                           </option>
                         ))}
@@ -426,7 +426,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                       <button
                         type="button"
                         onClick={handleCancelEdit}
-                        className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"
+                        className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                       >
                         <X size={14} className="inline mr-1" />
                         Cancel
@@ -437,11 +437,11 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                   <>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h4 className="font-medium text-sm text-gray-800">
+                        <h4 className="font-medium text-sm text-gray-800 dark:text-gray-100">
                           {photo.caption}
                         </h4>
                         {photo.text_desc && (
-                          <p className="text-xs text-gray-600 mt-1">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                             {photo.text_desc}
                           </p>
                         )}
@@ -450,14 +450,14 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                         <button
                           type="button"
                           onClick={() => handleEdit(photo)}
-                          className="ml-2 p-1 text-gray-500 hover:text-gray-700"
+                          className="ml-2 p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                           title="Edit metadata"
                         >
                           <Edit2 size={14} />
                         </button>
                       )}
                     </div>
-                    <div className="flex gap-2 text-xs text-gray-500">
+                    <div className="flex gap-2 text-xs text-gray-500 dark:text-gray-400">
                       <span>
                         {photoTypeOptions.find((t) => t.value === photo.type)?.label || photo.type}
                       </span>
