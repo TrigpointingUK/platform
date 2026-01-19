@@ -18,6 +18,7 @@
     --color-trig-green-800: #166534;
     --color-trig-green-900: #14532d;
     --color-trig-green-950: #052e16;
+    --color-trig-green-980: #0c1410;
     
     /* Semantic colours for light mode */
     --color-bg-primary: #f9fafb;
@@ -67,6 +68,8 @@
   .bg-trig-green-800 { background-color: var(--color-trig-green-800); }
   .bg-trig-green-900 { background-color: var(--color-trig-green-900); }
   .bg-trig-green-950 { background-color: var(--color-trig-green-950); }
+  .bg-trig-green-980 { background-color: var(--color-trig-green-980); }
+  .dark\:bg-trig-green-980:where(.dark, .dark *) { background-color: var(--color-trig-green-980); }
   
   .hover\:bg-trig-green-50:hover { background-color: var(--color-trig-green-50); }
   .hover\:bg-trig-green-100:hover { background-color: var(--color-trig-green-100); }
