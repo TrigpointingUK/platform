@@ -115,7 +115,7 @@ module "phpbb" {
   ecs_security_group_id       = aws_security_group.phpbb_ecs.id
   private_subnet_ids          = aws_subnet.private[*].id
   target_group_arn            = aws_lb_target_group.phpbb.arn
-  image_uri                   = "ghcr.io/trigpointinguk/fastapi/forum:main"
+  image_uri                   = "ghcr.io/trigpointinguk/platform/forum:main"
 
   # Database config
   db_credentials_arn = var.phpbb_db_credentials_arn

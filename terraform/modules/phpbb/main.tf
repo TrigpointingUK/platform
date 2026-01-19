@@ -17,9 +17,10 @@ resource "aws_ecs_task_definition" "phpbb" {
   memory                   = var.memory
   execution_role_arn       = var.ecs_task_execution_role_arn
   task_role_arn            = var.ecs_task_role_arn
-
+  enable_fault_injection   = false
   volume {
-    name = "phpbb-efs"
+    name                = "phpbb-efs"
+    configure_at_launch = false
     efs_volume_configuration {
       file_system_id     = var.efs_file_system_id
       transit_encryption = "ENABLED"

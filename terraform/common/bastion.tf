@@ -14,7 +14,7 @@ data "aws_ami" "amazon_linux" {
 
   filter {
     name   = "name"
-    values = ["al2023-ami-2023.8.*-arm64"]
+    values = ["al2023-ami-2023*-arm64"]
   }
 }
 
@@ -57,7 +57,7 @@ resource "aws_instance" "bastion" {
   lifecycle {
     # Ignore changes to public IP/DNS as they're managed by EIP association
     # AWS provider v6 incorrectly detects these as changes
-    ignore_changes = [public_ip, public_dns]
+    ignore_changes = [public_ip, public_dns, ami]
   }
 }
 

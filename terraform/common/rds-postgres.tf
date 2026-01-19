@@ -112,7 +112,7 @@ resource "aws_db_instance" "postgres" {
 
   # Engine
   engine         = "postgres"
-  engine_version = "16.6"
+  engine_version = "16.10"
   instance_class = var.db_instance_class_postgres
 
   # Storage
