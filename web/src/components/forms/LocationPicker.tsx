@@ -245,11 +245,11 @@ export default function LocationPicker({
       {/* Distance confirmation dialog - portal/modal style */}
       {pendingLocation && distanceFromTrig !== null && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl dark:shadow-gray-900/50 max-w-md w-full">
             <div className="p-4">
               <div className="flex items-start gap-3">
                 <svg 
-                  className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" 
+                  className="w-6 h-6 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" 
                   fill="currentColor" 
                   viewBox="0 0 20 20"
                 >
@@ -260,10 +260,10 @@ export default function LocationPicker({
                   />
                 </svg>
                 <div className="flex-1">
-                  <div className="font-semibold text-amber-900 mb-2">
+                  <div className="font-semibold text-amber-900 dark:text-amber-400 mb-2">
                     Location is {Math.round(distanceFromTrig)}m from trigpoint
                   </div>
-                  <div className="text-sm text-amber-800 mb-3 space-y-1">
+                  <div className="text-sm text-amber-800 dark:text-amber-300 mb-3 space-y-1">
                     <div>
                       Your GPS position is <strong>{Math.round(distanceFromTrig)} meters</strong> away from 
                       the recorded trigpoint coordinates.
@@ -297,7 +297,7 @@ export default function LocationPicker({
                       ✗ Try Again
                     </Button>
                   </div>
-                  <div className="text-xs text-amber-700 mt-3 border-t border-amber-200 pt-2">
+                  <div className="text-xs text-amber-700 dark:text-amber-400 mt-3 border-t border-amber-200 dark:border-amber-700 pt-2">
                     <strong>Note:</strong> Large discrepancies may indicate the trigpoint has been 
                     relocated. If you're certain you're at the correct trigpoint with good GPS accuracy, 
                     confirm to proceed.
@@ -312,11 +312,11 @@ export default function LocationPicker({
       {/* Error message - portal/modal style */}
       {error && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl dark:shadow-gray-900/50 max-w-md w-full">
             <div className="p-4">
               <div className="flex items-start gap-2">
                 <svg 
-                  className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" 
+                  className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" 
                   fill="currentColor" 
                   viewBox="0 0 20 20"
                 >
@@ -327,10 +327,10 @@ export default function LocationPicker({
                   />
                 </svg>
                 <div className="flex-1">
-                  <div className="font-semibold text-amber-800 text-sm">Location Issue</div>
-                  <div className="text-sm text-amber-700 mt-1">{error}</div>
+                  <div className="font-semibold text-amber-800 dark:text-amber-400 text-sm">Location Issue</div>
+                  <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">{error}</div>
                   {lastAttempt && (
-                    <div className="text-amber-600 mt-2 text-xs">
+                    <div className="text-amber-600 dark:text-amber-400 mt-2 text-xs">
                       Last attempt: {Math.round(lastAttempt.accuracy)}m accuracy
                       (need ≤{maxAccuracy}m)
                     </div>
@@ -354,9 +354,9 @@ export default function LocationPicker({
 
       {/* Success feedback */}
       {lastAttempt && !error && !pendingLocation && (
-        <div className="fixed bottom-4 right-4 z-40 bg-green-50 border border-green-200 rounded-lg px-4 py-3 shadow-lg max-w-xs">
-          <div className="flex items-center gap-2 text-xs text-gray-700">
-            <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+        <div className="fixed bottom-4 right-4 z-40 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3 shadow-lg dark:shadow-gray-900/50 max-w-xs">
+          <div className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"

@@ -52,7 +52,7 @@ export default function ConditionSelector({
 
   return (
     <div className="relative">
-      <label className="block text-sm font-semibold text-gray-700 mb-1">
+      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
         Condition {required && <span className="text-red-500">*</span>}
       </label>
       
@@ -60,7 +60,7 @@ export default function ConditionSelector({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-trig-green-500 flex items-center justify-between"
+        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-trig-green-500 flex items-center justify-between"
       >
         <Badge variant={selectedCondition.variant}>
           <img
@@ -97,14 +97,14 @@ export default function ConditionSelector({
           />
           
           {/* Options - height accommodates all 13 conditions without scrolling */}
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-[32rem] overflow-y-auto">
+          <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg dark:shadow-gray-900/50 max-h-[32rem] overflow-y-auto">
             {CONDITIONS.map((condition) => (
               <button
                 key={condition.value}
                 type="button"
                 onClick={() => handleSelect(condition.value)}
-                className={`w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center gap-2 ${
-                  condition.value === value ? "bg-gray-50" : ""
+                className={`w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
+                  condition.value === value ? "bg-gray-50 dark:bg-gray-700" : ""
                 }`}
               >
                 <Badge variant={condition.variant}>
