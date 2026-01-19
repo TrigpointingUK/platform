@@ -241,10 +241,14 @@ export function useAdminAuth(): UseAdminAuthResult {
   // Derive isCheckingScope from conditions - no effect needed for this
   const isCheckingScope = shouldCheckScope && (hasAdminScope === null || isActivelyChecking);
 
+  // If we have a cached/verified admin scope, don't show loading even if Auth0 is still initializing.
+  // This prevents the flash when navigating between admin pages.
+  const hasCachedScope = hasAdminScope === true;
+
   return {
     hasAdminRole,
     hasAdminScope,
     isCheckingScope,
-    isLoading: isAuth0Loading || isCheckingScope,
+    isLoading: hasCachedScope ? false : (isAuth0Loading || isCheckingScope),
   };
 }
