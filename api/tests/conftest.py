@@ -275,7 +275,7 @@ def setup_test_tables(request):
                     INSERT INTO trig (
                         id, waypoint, name, fb_number, stn_number,
                         status_id, user_added, current_use, historic_use,
-                        physical_type, condition,
+                        condition,
                         location, wgs_lat, wgs_long, wgs_height,
                         osgb_eastings, osgb_northings, osgb_gridref, osgb_height,
                         postcode, county, town,
@@ -285,7 +285,7 @@ def setup_test_tables(request):
                     VALUES (
                         1, 'TP0001', 'Test Trig 1', 'FB1', 'STN1',
                         1, 0, 'Passive station', 'Primary',
-                        'Pillar', 'G',
+                        'G',
                         NULL, 0.0, 0.0, 0,
                         100000, 200000, 'TQ 00000 00000', 0,
                         NULL, 'Testshire', 'Testtown',
@@ -299,7 +299,7 @@ def setup_test_tables(request):
                     INSERT INTO trig (
                         id, waypoint, name, fb_number, stn_number,
                         status_id, user_added, current_use, historic_use,
-                        physical_type, condition,
+                        condition,
                         location, wgs_lat, wgs_long, wgs_height,
                         osgb_eastings, osgb_northings, osgb_gridref, osgb_height,
                         postcode, county, town,
@@ -309,7 +309,7 @@ def setup_test_tables(request):
                     VALUES (
                         2, 'TP0002', 'Test Trig 2', 'FB2', 'STN2',
                         1, 0, 'Passive station', 'Primary',
-                        'Pillar', 'G',
+                        'G',
                         NULL, 0.0, 0.0, 0,
                         150000, 250000, 'TQ 50000 50000', 0,
                         NULL, 'Testshire', 'Testtown',
@@ -349,6 +349,16 @@ def db():
 
     Note: Tests share the same database, so use unique IDs/names to avoid conflicts.
     The session-scoped setup creates tables once, and they persist across tests.
+
+    This fixture creates a fresh session for each test and rolls back any
+    uncommitted changes on teardown. For tests that commit data (especially
+    those using the `client` fixture which requires committed data to be
+    visible), ensure you use unique identifiers to avoid conflicts.
+
+    Tips to avoid flaky tests:
+    - Use uuid.uuid4().hex[:8] suffixes for usernames/emails
+    - Use high-range IDs (100000+) or let the database generate IDs
+    - Don't rely on specific seed data existing - create what you need
     """
     session = TestingSessionLocal()
     try:
@@ -356,6 +366,46 @@ def db():
     finally:
         session.rollback()  # Rollback any uncommitted changes
         session.close()
+
+
+@pytest.fixture(scope="function")
+def db_isolated():
+    """Create a fully isolated test database session using transaction wrapping.
+
+    This fixture wraps ALL database operations (including commits) in a single
+    transaction that is rolled back after the test. This provides complete
+    isolation but is NOT compatible with the `client` fixture (HTTP requests
+    won't see uncommitted data).
+
+    Use this fixture for:
+    - Pure CRUD/model tests that don't need HTTP client
+    - Tests that need guaranteed cleanup regardless of commits
+
+    Do NOT use with:
+    - Tests that also use the `client` fixture
+    - Tests that need committed data visible across connections
+    """
+    connection = engine.connect()
+    # Begin outer transaction that wraps the entire test
+    transaction = connection.begin()
+
+    # Create session bound to the connection
+    session = TestingSessionLocal(bind=connection)
+
+    # Patch session.commit to use savepoints
+    def _savepoint_commit():
+        """Flush without committing - outer transaction handles rollback."""
+        session.flush()
+
+    session.commit = _savepoint_commit  # type: ignore[method-assign]
+
+    try:
+        yield session
+    finally:
+        session.close()
+        # Rollback the outer transaction - this undoes ALL changes
+        transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="function")
@@ -482,7 +532,6 @@ def test_tlog_entries(db, test_user):
                 user_added=0,
                 current_use="Passive station",
                 historic_use="Primary",
-                physical_type="Pillar",
                 condition="G",
                 location=None,
                 wgs_lat=0.0,
