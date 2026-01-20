@@ -21,7 +21,7 @@ from api.models.user import TLog, User
 
 
 @pytest.fixture
-def test_users_for_migration(db: Session) -> list[User]:
+def test_users_for_migration(db: Session, test_trig) -> list[User]:
     """Create test users for migration."""
     import uuid
 
@@ -110,7 +110,7 @@ def test_users_for_migration(db: Session) -> list[User]:
     # Add logs for user selection
     # User 1: older log
     log1 = TLog(
-        trig_id=1,
+        trig_id=test_trig.id,
         user_id=user1.id,
         date=datetime(2023, 1, 1).date(),
         time=datetime(2023, 1, 1).time(),
@@ -126,7 +126,7 @@ def test_users_for_migration(db: Session) -> list[User]:
 
     # User 3: newer log (same email as user1, should be chosen)
     log3 = TLog(
-        trig_id=1,
+        trig_id=test_trig.id,
         user_id=user3.id,
         date=datetime(2024, 1, 1).date(),
         time=datetime(2024, 1, 1).time(),
@@ -142,7 +142,7 @@ def test_users_for_migration(db: Session) -> list[User]:
 
     # User 2: log
     log2 = TLog(
-        trig_id=1,
+        trig_id=test_trig.id,
         user_id=user2.id,
         date=datetime(2023, 6, 1).date(),
         time=datetime(2023, 6, 1).time(),
@@ -271,7 +271,7 @@ class TestMigrateUsersRealMigration:
 
         Redesigned to work with parallel execution by using dynamic mock
         that generates unique auth0 IDs for any number of users.
-        Uses large limit to ensure fixture users are included.
+        Uses small limit since fixture users should be included in first few results.
         """
         import uuid as uuid_module
 
@@ -285,10 +285,12 @@ class TestMigrateUsersRealMigration:
         mock_auth0_service.create_user_for_migration.side_effect = mock_create_user
         mock_auth0_service.send_verification_email.return_value = True
 
-        # Use large limit to ensure our fixture users are included
+        # Process enough users to include fixture users. The test DB should have
+        # minimal users without auth0_user_id; if this test is slow (~1s per user),
+        # clean up the test DB or optimize get_users_for_migration to use JOINs.
         response = client.post(
             f"{settings.API_V1_STR}/legacy/migrate_users",
-            json={"limit": 1000, "dry_run": False, "send_confirmation_email": True},
+            json={"limit": 100, "dry_run": False, "send_confirmation_email": True},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
