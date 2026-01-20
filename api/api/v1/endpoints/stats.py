@@ -49,16 +49,12 @@ def get_site_stats(db: Session = Depends(get_db)):
     try:
         # Try to use pg_class for fast approximate counts (PostgreSQL specific)
         # This is orders of magnitude faster than COUNT(*) on large tables
-        approx_stats = db.execute(
-            text(
-                """
+        approx_stats = db.execute(text("""
             SELECT
                 (SELECT reltuples::bigint FROM pg_class WHERE relname = 'trig') as total_trigs,
                 (SELECT reltuples::bigint FROM pg_class WHERE relname = 'user') as total_users,
                 (SELECT reltuples::bigint FROM pg_class WHERE relname = 'tlog') as total_logs
-            """
-            )
-        ).first()
+            """)).first()
 
         # For photos, we need exact count due to deleted_ind filter, but optimize it
         total_photos = db.execute(

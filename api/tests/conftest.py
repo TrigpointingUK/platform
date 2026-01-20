@@ -133,9 +133,7 @@ def _install_upd_timestamp_triggers(connection) -> None:
     Tests build the schema via Base.metadata.create_all(), so Alembic migrations
     (which create these triggers in real environments) are not applied here.
     """
-    connection.execute(
-        text(
-            """
+    connection.execute(text("""
             CREATE OR REPLACE FUNCTION public.set_upd_timestamp_utc()
             RETURNS trigger
             LANGUAGE plpgsql
@@ -157,13 +155,9 @@ def _install_upd_timestamp_triggers(connection) -> None:
                 RETURN NEW;
             END;
             $$;
-            """
-        )
-    )
+            """))
 
-    connection.execute(
-        text(
-            """
+    connection.execute(text("""
             DO $$
             DECLARE
                 r RECORD;
@@ -200,9 +194,7 @@ def _install_upd_timestamp_triggers(connection) -> None:
                 END LOOP;
             END
             $$;
-            """
-        )
-    )
+            """))
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -238,74 +230,48 @@ def setup_test_tables(request):
     # Seed minimal reference rows used by many tests (FK constraints are now enforced).
     try:
         with engine.begin() as connection:
-            connection.execute(
-                text(
-                    """
+            connection.execute(text("""
                     INSERT INTO status (id, name, descr, limit_descr)
                     VALUES (1, 'ACTIVE', 'Active', 'Active')
                     ON CONFLICT (id) DO NOTHING
-                    """
-                )
-            )
-            connection.execute(
-                text(
-                    """
+                    """))
+            connection.execute(text("""
                     INSERT INTO status (id, name, descr, limit_descr)
                     VALUES (0, 'UNKNOWN', 'Unknown', 'Unknown')
                     ON CONFLICT (id) DO NOTHING
-                    """
-                )
-            )
-            connection.execute(
-                text(
-                    """
+                    """))
+            connection.execute(text("""
                     INSERT INTO status (id, name, descr, limit_descr)
                     VALUES (10, 'TEST', 'Test', 'Test')
                     ON CONFLICT (id) DO NOTHING
-                    """
-                )
-            )
+                    """))
 
-            connection.execute(
-                text(
-                    """
+            connection.execute(text("""
                     INSERT INTO server (id, url, path, name)
                     VALUES
                         (1, 'https://example.invalid/1/', '/', 'Test Server 1'),
                         (3, 'https://example.invalid/3/', '/', 'Test Server 3'),
                         (999, 'https://example.invalid/999/', '/', 'Test Server 999')
                     ON CONFLICT (id) DO NOTHING
-                    """
-                )
-            )
+                    """))
 
             # Seed a couple of users with well-known IDs for tests that still use user_id=1/2.
-            connection.execute(
-                text(
-                    """
+            connection.execute(text("""
                     INSERT INTO "user" (id, name, email, cryptpw, email_valid, public_ind)
                     VALUES
                         (1, 'seed_user_1', 'seed1@example.invalid', '', 'Y', 'Y'),
                         (2, 'seed_user_2', 'seed2@example.invalid', '', 'Y', 'Y')
                     ON CONFLICT (id) DO NOTHING
-                    """
-                )
-            )
+                    """))
             # Ensure the sequence is at least MAX(id) so future inserts don't collide.
-            connection.execute(
-                text(
-                    """
+            connection.execute(text("""
                     SELECT setval(
                         pg_get_serial_sequence('"user"', 'id'),
                         GREATEST((SELECT COALESCE(MAX(id), 1) FROM "user"), 1)
                     )
-                    """
-                )
-            )
+                    """))
 
-            connection.execute(
-                text(
-                    """
+            connection.execute(text("""
                     INSERT INTO trig (
                         id, waypoint, name, fb_number, stn_number,
                         status_id, user_added, current_use, historic_use,
@@ -327,13 +293,9 @@ def setup_test_tables(request):
                         '2023-01-01', '00:00:00', NULL, '127.0.0.1'
                     )
                     ON CONFLICT (id) DO NOTHING
-                    """
-                )
-            )
+                    """))
 
-            connection.execute(
-                text(
-                    """
+            connection.execute(text("""
                     INSERT INTO trig (
                         id, waypoint, name, fb_number, stn_number,
                         status_id, user_added, current_use, historic_use,
@@ -355,15 +317,11 @@ def setup_test_tables(request):
                         '2023-01-01', '00:00:00', NULL, '127.0.0.1'
                     )
                     ON CONFLICT (id) DO NOTHING
-                    """
-                )
-            )
+                    """))
 
             # Ensure trig.id sequence is at least MAX(id) so inserts without explicit IDs
             # don't collide with the seeded rows (id=1, id=2).
-            connection.execute(
-                text(
-                    """
+            connection.execute(text("""
                     DO $$
                     DECLARE
                         seq_name text;
@@ -375,9 +333,7 @@ def setup_test_tables(request):
                             EXECUTE format('SELECT setval(%L, %s)', seq_name, next_val);
                         END IF;
                     END $$;
-                    """
-                )
-            )
+                    """))
     except Exception:
         # Best-effort seeding; tests can still create their own reference data.
         pass

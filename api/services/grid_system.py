@@ -50,15 +50,13 @@ def classify_country_for_point(db: Session, lat: float, lon: float) -> Optional[
         Country code (e.g., 'E92000001', 'IE', 'N92000002') or None if not found
     """
     result = db.execute(
-        text(
-            """
+        text("""
             SELECT code
             FROM area
             WHERE area_type_id = :area_type_id
               AND ST_Covers(boundary, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))
             LIMIT 1
-        """
-        ),
+        """),
         {"area_type_id": COUNTRY_AREA_TYPE_ID, "lat": lat, "lon": lon},
     ).fetchone()
 
@@ -82,15 +80,13 @@ def classify_country_name_for_point(
         Country name (e.g., 'England', 'Ireland', 'Northern Ireland') or None
     """
     result = db.execute(
-        text(
-            """
+        text("""
             SELECT name
             FROM area
             WHERE area_type_id = :area_type_id
               AND ST_Covers(boundary, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))
             LIMIT 1
-        """
-        ),
+        """),
         {"area_type_id": COUNTRY_AREA_TYPE_ID, "lat": lat, "lon": lon},
     ).fetchone()
 
@@ -173,15 +169,13 @@ def get_country_info_for_point(
         All values may be None if point is not within a known country
     """
     result = db.execute(
-        text(
-            """
+        text("""
             SELECT code, name
             FROM area
             WHERE area_type_id = :area_type_id
               AND ST_Covers(boundary, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))
             LIMIT 1
-        """
-        ),
+        """),
         {"area_type_id": COUNTRY_AREA_TYPE_ID, "lat": lat, "lon": lon},
     ).fetchone()
 
