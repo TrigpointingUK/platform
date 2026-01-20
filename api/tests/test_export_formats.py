@@ -22,6 +22,8 @@ def _make_mock_trig(
     osgb_gridref: str = "TQ 30000 80000",
     county: str = "Greater London",
     fb_number: str = "S1234",
+    type_code: str = "PILLAR",
+    type_name: str = "Pillar",
     category_code: str = "PILLAR",
     category_name: str = "Pillar",
 ) -> MagicMock:
@@ -46,6 +48,8 @@ def _make_mock_trig(
     mock_category.name = category_name
 
     mock_type = MagicMock()
+    mock_type.code = type_code
+    mock_type.name = type_name
     mock_type.category = mock_category
 
     mock_trig.trig_type = mock_type

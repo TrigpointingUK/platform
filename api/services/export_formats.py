@@ -34,6 +34,35 @@ def _get_category_info(trig: Trig) -> tuple[str, str]:
     return ("", "")
 
 
+def _get_type_info(trig: Trig) -> tuple[str, str]:
+    """
+    Get type code and name from a trig's type relationship.
+
+    Returns (type_code, type_name) tuple, defaulting to ("", "") if not available.
+    """
+    if trig.trig_type:
+        return (
+            str(trig.trig_type.code or ""),
+            str(trig.trig_type.name or ""),
+        )
+    return ("", "")
+
+
+def _get_physical_type(trig: Trig) -> str:
+    """
+    Get the physical_type value for export.
+
+    TEMPORARY: Populate from trig_type.name instead of trig.physical_type
+    to ensure consistency with the new type system. The legacy physical_type
+    column will be deprecated once all exports have migrated.
+
+    Falls back to trig.physical_type if type relationship is not available.
+    """
+    if trig.trig_type and trig.trig_type.name:
+        return str(trig.trig_type.name)
+    return str(trig.physical_type or "")
+
+
 def trigs_to_csv(
     trigs: list[Trig],
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
@@ -57,6 +86,8 @@ def trigs_to_csv(
         "name",
         "physical_type",
         "condition",
+        "type_code",
+        "type_name",
         "category_code",
         "category_name",
         "wgs_lat",
@@ -81,13 +112,16 @@ def trigs_to_csv(
     writer.writeheader()
 
     for trig in trigs:
+        type_code, type_name = _get_type_info(trig)
         category_code, category_name = _get_category_info(trig)
         row = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
-            "physical_type": trig.physical_type,
+            "physical_type": _get_physical_type(trig),
             "condition": trig.condition,
+            "type_code": type_code,
+            "type_name": type_name,
             "category_code": category_code,
             "category_name": category_name,
             "wgs_lat": float(trig.wgs_lat),
@@ -140,13 +174,16 @@ def trigs_to_geojson(
     features = []
 
     for trig in trigs:
+        type_code, type_name = _get_type_info(trig)
         category_code, category_name = _get_category_info(trig)
         properties = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
-            "physical_type": trig.physical_type,
+            "physical_type": _get_physical_type(trig),
             "condition": trig.condition,
+            "type_code": type_code,
+            "type_name": type_name,
             "category_code": category_code,
             "category_name": category_name,
             "osgb_gridref": trig.osgb_gridref,
@@ -228,8 +265,9 @@ def trigs_to_gpx(
 
     for trig in trigs:
         # Build description
+        physical_type = _get_physical_type(trig)
         desc_parts = [
-            f"Type: {trig.physical_type}",
+            f"Type: {physical_type}",
             f"Grid Ref: {trig.osgb_gridref}",
             f"Condition: {trig.condition}",
         ]
@@ -264,7 +302,7 @@ def trigs_to_gpx(
         lines.append("      <text>View on TrigpointingUK</text>")
         lines.append("    </link>")
         lines.append("    <sym>Triangle</sym>")
-        lines.append(f"    <type>{escape_xml(str(trig.physical_type))}</type>")
+        lines.append(f"    <type>{escape_xml(physical_type)}</type>")
         lines.append("  </wpt>")
 
     lines.append("</gpx>")
@@ -324,12 +362,13 @@ def trigs_to_kml(
     ]
 
     for trig in trigs:
+        physical_type = _get_physical_type(trig)
         category_code, category_name = _get_category_info(trig)
 
         # Build description HTML
         desc_lines = [
             "<![CDATA[",
-            f"<b>Type:</b> {escape_xml(str(trig.physical_type))}<br/>",
+            f"<b>Type:</b> {escape_xml(physical_type)}<br/>",
             f"<b>Category:</b> {escape_xml(category_name)}<br/>",
             f"<b>Grid Ref:</b> {escape_xml(str(trig.osgb_gridref))}<br/>",
             f"<b>Condition:</b> {escape_xml(str(trig.condition))}<br/>",
@@ -592,43 +631,37 @@ def trigs_to_kmz(
     # ---- group trigs into folders ----------------------------------------
     # Folder hierarchy:
     #   Level 1: category (category_name)
-    #   Level 2: physical_type
+    #   Level 2: type_name (from trig_type.name, falling back to physical_type)
     grouped: dict[str, dict[str, list[Trig]]] = {}
     for trig in trigs:
         category = _kml_category_folder_name(trig)
-        physical_type_folder = (
-            str(getattr(trig, "physical_type", "")).strip() or "Unknown"
-        )
-        grouped.setdefault(category, {}).setdefault(physical_type_folder, []).append(
-            trig
-        )
+        type_folder = _get_physical_type(trig) or "Unknown"
+        grouped.setdefault(category, {}).setdefault(type_folder, []).append(trig)
 
     # Stable folder ordering: alphabetical by group name
     group_order = sorted(grouped.keys())
 
     for group_folder in group_order:
-        physical_types = grouped.get(group_folder, {})
-        if not physical_types:
+        types_in_group = grouped.get(group_folder, {})
+        if not types_in_group:
             continue
 
         kml_lines.append("    <Folder>")
         kml_lines.append(f"      <name>{_escape_xml(group_folder)}</name>")
 
-        for physical_type_folder in sorted(physical_types.keys()):
-            pts = physical_types.get(physical_type_folder, [])
-            if not pts:
+        for type_folder in sorted(types_in_group.keys()):
+            trigs_in_type = types_in_group.get(type_folder, [])
+            if not trigs_in_type:
                 continue
 
             kml_lines.append("      <Folder>")
-            kml_lines.append(
-                f"        <name>{_escape_xml(physical_type_folder)}</name>"
-            )
+            kml_lines.append(f"        <name>{_escape_xml(type_folder)}</name>")
 
-            for trig in pts:
+            for trig in trigs_in_type:
                 trig_id = int(trig.id)
                 waypoint = str(trig.waypoint)
                 name = str(trig.name)
-                physical_type = str(trig.physical_type)
+                physical_type = _get_physical_type(trig)
                 category_code, category_name = _get_category_info(trig)
                 family = _icon_family_from_physical_type(physical_type, category_name)
 
