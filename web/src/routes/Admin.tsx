@@ -1494,6 +1494,21 @@ export default function Admin() {
 
           <Card>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
+              Condition Statuses
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+              Manage trigpoint condition status values.
+            </p>
+            <a
+              href="/admin/status"
+              className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
+            >
+              Manage Statuses →
+            </a>
+          </Card>
+
+          <Card>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
               User Management
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>

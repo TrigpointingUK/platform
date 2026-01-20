@@ -1211,3 +1211,104 @@ export async function fetchTypeUsage(
   return apiGet<TrigTypeUsage>(`/v1/admin/types/types/${typeId}/usage`, token);
 }
 
+// ============================================================================
+// Status Admin Types and Functions
+// ============================================================================
+
+/**
+ * Status record
+ */
+export interface Status {
+  id: number;
+  name: string;
+  descr: string;
+  limit_descr: string;
+}
+
+/**
+ * Input for creating a new status
+ */
+export interface StatusCreateInput {
+  id: number;
+  name: string;
+  descr: string;
+  limit_descr: string;
+}
+
+/**
+ * Input for updating a status
+ */
+export interface StatusUpdateInput {
+  name?: string;
+  descr?: string;
+  limit_descr?: string;
+}
+
+/**
+ * Status usage response
+ */
+export interface StatusUsage {
+  status_id: number;
+  usage_count: number;
+}
+
+/**
+ * Get all statuses (admin)
+ */
+export async function fetchAllStatuses(token: string): Promise<Status[]> {
+  return apiGet<Status[]>(`/v1/admin/status/statuses`, token);
+}
+
+/**
+ * Create a new status (admin)
+ */
+export async function createStatus(
+  data: StatusCreateInput,
+  token: string
+): Promise<Status> {
+  return apiPost<Status>(`/v1/admin/status/statuses`, data, token);
+}
+
+/**
+ * Update a status (admin)
+ */
+export async function updateStatus(
+  statusId: number,
+  data: StatusUpdateInput,
+  token: string
+): Promise<Status> {
+  return apiPatch<Status>(`/v1/admin/status/statuses/${statusId}`, data, token);
+}
+
+/**
+ * Delete a status (admin)
+ * Will fail if any trigpoints are using this status.
+ */
+export async function deleteStatus(
+  statusId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/status/statuses/${statusId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Get usage count for a status (admin)
+ */
+export async function fetchStatusUsage(
+  statusId: number,
+  token: string
+): Promise<StatusUsage> {
+  return apiGet<StatusUsage>(`/v1/admin/status/statuses/${statusId}/usage`, token);
+}
+

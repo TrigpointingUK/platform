@@ -16,6 +16,7 @@ from api.api.v1.endpoints import (
     maps,
     photos,
     stats,
+    status_admin,
     tiles,
     trigs,
     types,
@@ -44,4 +45,7 @@ api_router.include_router(
 api_router.include_router(types.router, prefix="/types", tags=["type"])
 api_router.include_router(
     types_admin.router, prefix="/admin/types", tags=["admin-types"]
+)
+api_router.include_router(
+    status_admin.router, prefix="/admin/status", tags=["admin-status"]
 )
