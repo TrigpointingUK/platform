@@ -190,6 +190,35 @@ html, body, #root {
   color: #60a5fa;
 }
 
+/* Dark mode for Leaflet popup */
+.dark .leaflet-popup-content-wrapper {
+  background-color: #1f2937;
+  color: #f9fafb;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
+}
+
+.dark .leaflet-popup-tip {
+  background-color: #1f2937;
+}
+
+.dark .leaflet-popup-content {
+  color: #f9fafb;
+}
+
+/* Ensure popup close button is visible in dark mode */
+.dark .leaflet-popup-close-button {
+  color: #9ca3af;
+}
+
+.dark .leaflet-popup-close-button:hover {
+  color: #f9fafb;
+}
+
+/* Ensure button/link text in popup is not overridden by Leaflet styles */
+.leaflet-popup-content a.inline-block {
+  color: inherit;
+}
+
 /* Dark mode for native date/time inputs */
 .dark input[type="date"],
 .dark input[type="time"],

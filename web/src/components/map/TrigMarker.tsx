@@ -84,11 +84,11 @@ export default function TrigMarker({
               gridSystem={trig.grid_system}
             />
             
-            <h3 className="font-bold text-trig-green-600 mb-2">
+            <h3 className="font-bold text-trig-green-600 dark:text-trig-green-400 mb-2">
               {trig.waypoint} - {trig.name}
             </h3>
             
-            <div className="space-y-1 text-sm mb-3">
+            <div className="space-y-1 text-sm mb-3 text-gray-700 dark:text-gray-200">
               <div>
                 <span className="font-semibold">Type:</span> {trig.type_name || trig.physical_type}
               </div>
@@ -104,7 +104,7 @@ export default function TrigMarker({
             
             <Link
               to={`/trigs/${trig.id}`}
-              className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+              className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-gray-100 px-3 py-1 rounded text-sm font-medium transition-colors"
             >
               View Details
             </Link>
