@@ -1482,7 +1482,7 @@ export default function Admin() {
               Types &amp; Categories
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
-              Manage trigpoint type classifications and categories.
+              Manage trigpoint physical types and categories.
             </p>
             <a
               href="/admin/types"

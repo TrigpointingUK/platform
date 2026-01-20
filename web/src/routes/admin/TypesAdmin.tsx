@@ -732,7 +732,7 @@ export default function TypesAdmin() {
                 Types &amp; Categories
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Manage trigpoint type classifications and categories
+                Manage trigpoint physical types and categories
               </p>
             </div>
             <Button onClick={handleAddCategory}>

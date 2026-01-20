@@ -571,7 +571,7 @@ describe("TypesAdmin", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/manage trigpoint type classifications/i)
+          screen.getByText(/Manage trigpoint physical types and categories/i)
         ).toBeInTheDocument();
       });
     });
