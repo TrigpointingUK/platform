@@ -27,6 +27,7 @@ const Admin = lazy(() => import("./routes/Admin"));
 const AdminNeedsAttention = lazy(() => import("./routes/admin/NeedsAttention"));
 const AdminLogsNeedsAttention = lazy(() => import("./routes/admin/LogsNeedsAttention"));
 const AdminTrigEdit = lazy(() => import("./routes/admin/TrigEdit"));
+const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
 
 // Redirect component for old /trig/ URLs
 function TrigRedirect() {
@@ -264,6 +265,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <AdminTrigEdit />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/types",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminTypesAdmin />
         </Suspense>
       ),
     },

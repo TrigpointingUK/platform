@@ -19,6 +19,7 @@ from api.api.v1.endpoints import (
     tiles,
     trigs,
     types,
+    types_admin,
     users,
 )
 
@@ -41,3 +42,6 @@ api_router.include_router(
     coordinates.router, prefix="/coordinates", tags=["coordinates"]
 )
 api_router.include_router(types.router, prefix="/types", tags=["type"])
+api_router.include_router(
+    types_admin.router, prefix="/admin/types", tags=["admin-types"]
+)

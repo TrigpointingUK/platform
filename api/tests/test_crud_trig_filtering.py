@@ -10,6 +10,7 @@ from datetime import date, time
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.crud.trig import (
@@ -34,18 +35,25 @@ def seed_trig_types(db: Session):
     # sort_order is SmallInteger (max 32767), so use smaller range
     base_id = abs(hash(uuid.uuid4().hex[:8])) % 20000 + 10000
 
+    # Get unique sort_order values to avoid conflicts - find max and add small offsets
+    max_cat_order = db.query(
+        func.coalesce(func.max(TrigCategory.sort_order), 0)
+    ).scalar()
+    cat_sort_1 = max_cat_order + 1
+    cat_sort_2 = max_cat_order + 2
+
     # Create categories
     pillar_category = TrigCategory(
         code=f"PILLAR_{base_id}",
         name="Pillar",
         description="Trig pillars",
-        sort_order=1,
+        sort_order=cat_sort_1,
     )
     fbm_category = TrigCategory(
         code=f"FBM_{base_id}",
         name="FBM",
         description="Fundamental benchmark",
-        sort_order=2,
+        sort_order=cat_sort_2,
     )
     db.add_all([pillar_category, fbm_category])
     db.flush()

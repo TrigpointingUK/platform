@@ -9,6 +9,7 @@ from datetime import date, time
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.models.trig import Trig
@@ -25,6 +26,12 @@ def seed_user_with_logs_and_types(db: Session):
     """
     # Generate unique base ID to avoid conflicts
     base_id = abs(hash(uuid.uuid4().hex[:8])) % 20000 + 10000
+
+    # Get unique sort_order values to avoid conflicts
+    max_cat_order = db.query(
+        func.coalesce(func.max(TrigCategory.sort_order), 0)
+    ).scalar()
+    cat_sort_order = max_cat_order + 1
 
     # Create test user
     unique_name = f"breakdown_test_{base_id}"
@@ -46,7 +53,7 @@ def seed_user_with_logs_and_types(db: Session):
         code=f"BKDN_PILLAR_{base_id}",
         name="Pillar",
         description="Trig pillars",
-        sort_order=1,
+        sort_order=cat_sort_order,
     )
     db.add(pillar_category)
     db.flush()

@@ -964,3 +964,250 @@ export async function convertCoordinates(
   );
 }
 
+
+// ============================================================================
+// Types Admin API
+// ============================================================================
+
+/**
+ * Trig type within a category
+ */
+export interface TrigType {
+  id: number;
+  category_id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  wiki_url: string | null;
+  sort_order: number;
+}
+
+/**
+ * Trig type with nested category
+ */
+export interface TrigTypeWithCategory extends TrigType {
+  category: TrigCategory;
+}
+
+/**
+ * Trig category (high-level grouping)
+ */
+export interface TrigCategory {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  wiki_url: string | null;
+  sort_order: number;
+}
+
+/**
+ * Trig category with nested types
+ */
+export interface TrigCategoryWithTypes extends TrigCategory {
+  types: TrigType[];
+}
+
+/**
+ * Input for creating a new category
+ */
+export interface TrigCategoryCreateInput {
+  code: string;
+  name: string;
+  description?: string | null;
+  wiki_url?: string | null;
+  sort_order?: number | null;
+}
+
+/**
+ * Input for updating a category
+ */
+export interface TrigCategoryUpdateInput {
+  code?: string;
+  name?: string;
+  description?: string | null;
+  wiki_url?: string | null;
+  sort_order?: number;
+}
+
+/**
+ * Input for creating a new type
+ */
+export interface TrigTypeCreateInput {
+  category_id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  wiki_url?: string | null;
+  sort_order?: number | null;
+  legacy_physical_type?: string | null;
+}
+
+/**
+ * Input for updating a type
+ */
+export interface TrigTypeUpdateInput {
+  category_id?: number;
+  code?: string;
+  name?: string;
+  description?: string | null;
+  wiki_url?: string | null;
+  sort_order?: number;
+  legacy_physical_type?: string | null;
+}
+
+/**
+ * Type usage information
+ */
+export interface TrigTypeUsage {
+  type_id: number;
+  type_code: string;
+  type_name: string;
+  usage_count: number;
+}
+
+/**
+ * Get all categories with their types (admin)
+ */
+export async function fetchCategoriesWithTypes(
+  token: string
+): Promise<TrigCategoryWithTypes[]> {
+  return apiGet<TrigCategoryWithTypes[]>(`/v1/admin/types/categories`, token);
+}
+
+/**
+ * Create a new category (admin)
+ */
+export async function createCategory(
+  data: TrigCategoryCreateInput,
+  token: string
+): Promise<TrigCategory> {
+  return apiPost<TrigCategory>(`/v1/admin/types/categories`, data, token);
+}
+
+/**
+ * Update an existing category (admin)
+ */
+export async function updateCategory(
+  categoryId: number,
+  data: TrigCategoryUpdateInput,
+  token: string
+): Promise<TrigCategory> {
+  return apiPatch<TrigCategory>(
+    `/v1/admin/types/categories/${categoryId}`,
+    data,
+    token
+  );
+}
+
+/**
+ * Delete a category (admin)
+ * Will fail if any types are assigned to this category.
+ */
+export async function deleteCategory(
+  categoryId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(
+    `${apiBase}/v1/admin/types/categories/${categoryId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Reorder categories (admin)
+ */
+export async function reorderCategories(
+  order: number[],
+  token: string
+): Promise<TrigCategory[]> {
+  return apiPost<TrigCategory[]>(
+    `/v1/admin/types/categories/reorder`,
+    { order },
+    token
+  );
+}
+
+/**
+ * Create a new type (admin)
+ */
+export async function createType(
+  data: TrigTypeCreateInput,
+  token: string
+): Promise<TrigTypeWithCategory> {
+  return apiPost<TrigTypeWithCategory>(`/v1/admin/types/types`, data, token);
+}
+
+/**
+ * Update an existing type (admin)
+ */
+export async function updateType(
+  typeId: number,
+  data: TrigTypeUpdateInput,
+  token: string
+): Promise<TrigTypeWithCategory> {
+  return apiPatch<TrigTypeWithCategory>(
+    `/v1/admin/types/types/${typeId}`,
+    data,
+    token
+  );
+}
+
+/**
+ * Delete a type (admin)
+ * Will fail if any trigpoints are using this type.
+ */
+export async function deleteType(
+  typeId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/types/types/${typeId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Reorder types within a category (admin)
+ */
+export async function reorderTypes(
+  categoryId: number,
+  order: number[],
+  token: string
+): Promise<TrigType[]> {
+  return apiPost<TrigType[]>(
+    `/v1/admin/types/types/reorder`,
+    { category_id: categoryId, order },
+    token
+  );
+}
+
+/**
+ * Get usage count for a type (admin)
+ */
+export async function fetchTypeUsage(
+  typeId: number,
+  token: string
+): Promise<TrigTypeUsage> {
+  return apiGet<TrigTypeUsage>(`/v1/admin/types/types/${typeId}/usage`, token);
+}
+
