@@ -103,6 +103,7 @@ describe('TrigCard', () => {
     });
 
     it('should render fallback when category_code is undefined', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Destructuring to remove these fields
       const { category_code, category_name, ...trigWithoutCategory } = baseTrig;
       renderWithRouter(<TrigCard trig={trigWithoutCategory} />);
       

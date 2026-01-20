@@ -29,7 +29,6 @@ def _create_test_trig(db: Session) -> Trig:
         user_added=0,
         current_use="Passive station",
         historic_use="Primary",
-        physical_type="Pillar",
         wgs_lat=Decimal("51.50000"),
         wgs_long=Decimal("-0.12500"),
         wgs_height=100,

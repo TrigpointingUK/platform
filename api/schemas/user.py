@@ -106,9 +106,6 @@ class UserBreakdown(BaseModel):
     by_historic_use: Dict[str, int] = Field(
         {}, description="Trigpoints logged grouped by historic use"
     )
-    by_physical_type: Dict[str, int] = Field(
-        {}, description="Trigpoints logged grouped by physical type (legacy)"
-    )
     by_type: list[CategoryTypeBreakdown] = Field(
         [],
         description="Trigpoints logged grouped by category and type, sorted by category sort_order",

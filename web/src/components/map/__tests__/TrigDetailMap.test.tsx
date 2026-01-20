@@ -355,7 +355,6 @@ describe('TrigDetailMap', () => {
         id: 1,
         waypoint: 'TP0001',
         name: 'Minimal',
-        physical_type: 'Pillar',
         condition: 'U',
         wgs_lat: 51.5,
         wgs_long: -0.1,

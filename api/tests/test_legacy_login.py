@@ -533,7 +533,6 @@ class TestLegacyLoginIncludes:
             user_added=0,
             current_use="Unknown",
             historic_use="Triangulation Station",
-            physical_type="Pillar",
             condition="G",
             wgs_lat=51.5,
             wgs_long=-0.1,
@@ -591,7 +590,6 @@ class TestLegacyLoginIncludes:
         assert "breakdown" in data
         assert "by_current_use" in data["breakdown"]
         assert "by_historic_use" in data["breakdown"]
-        assert "by_physical_type" in data["breakdown"]
         assert "by_condition" in data["breakdown"]
 
     @patch("api.api.v1.endpoints.legacy.auth0_service")

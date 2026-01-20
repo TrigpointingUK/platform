@@ -49,7 +49,6 @@ class TrigAdminDetail(BaseModel):
     type_id: Optional[int] = Field(None, description="Trig type ID (FK to trig_type)")
     current_use: Optional[str] = "none"
     historic_use: Optional[str] = "none"
-    physical_type: Optional[str] = "Pillar"
     condition: Optional[str] = "G"
     wgs_lat: Decimal
     wgs_long: Decimal
@@ -84,11 +83,10 @@ class TrigAdminUpdate(BaseModel):
     status_id: int = Field(..., ge=1)
     type_id: Optional[int] = Field(
         None,
-        description="Trig type ID - if provided, physical_type will be set from type name",
+        description="Trig type ID (FK to trig_type)",
     )
     current_use: Optional[str] = Field(default="none", max_length=25)
     historic_use: Optional[str] = Field(default="none", max_length=30)
-    physical_type: Optional[str] = Field(default=None, max_length=25)
     condition: Optional[str] = Field(default="G", min_length=1, max_length=1)
 
     # Coordinates - WGS84

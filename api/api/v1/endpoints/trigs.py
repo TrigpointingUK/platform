@@ -330,7 +330,7 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
                     "name": row.name,
                     "condition": row.condition,
                     "osgb_gridref": row.osgb_gridref,
-                    "physical_type": row.type_name,  # From trig_type.name
+                    "type_name": row.type_name,
                 },
             }
         )
@@ -598,7 +598,7 @@ def export_trigs_geojson(
     Export trigpoints in GeoJSON format for map display, grouped by status.
 
     Returns FeatureCollections for each status level (Pillar, Major mark, Minor mark, etc.).
-    Each feature contains id, name, condition, osgb_gridref, and physical_type in properties.
+    Each feature contains id, name, condition, osgb_gridref, and type_name in properties.
 
     Excludes soft-deleted records (status >= 90).
 
@@ -875,9 +875,6 @@ def list_trigs(
         None, ge=0, description="Max distance from centre (km)"
     ),
     order: Optional[str] = Query(None, description="id | name | distance"),
-    physical_types: Optional[str] = Query(
-        None, description="Comma-separated physical types to include (legacy)"
-    ),
     types: Optional[str] = Query(
         None, description="Comma-separated type codes to include (e.g., 'HOTINE,FBM')"
     ),
@@ -904,7 +901,6 @@ def list_trigs(
     Filtered collection endpoint for trigs returning envelope with items, pagination, links.
 
     Filters:
-    - physical_types: Filter by physical type (legacy, e.g., "Pillar,Bolt,FBM")
     - types: Filter by type code (e.g., "HOTINE,FBM,BOLT")
     - categories: Filter by category code (e.g., "PILLAR,FBM,SURVEY_MARK")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
@@ -919,14 +915,7 @@ def list_trigs(
         search_type = "nearby" if (lat and lon and max_km) else "general"
         metrics.record_trig_search(search_type)
 
-    # Parse physical types (legacy)
-    physical_types_list = None
-    if physical_types:
-        physical_types_list = [
-            pt.strip() for pt in physical_types.split(",") if pt.strip()
-        ]
-
-    # Parse type codes (new system)
+    # Parse type codes
     type_codes_list = None
     if types:
         type_codes_list = [t.strip() for t in types.split(",") if t.strip()]
@@ -956,7 +945,6 @@ def list_trigs(
         center_lon=lon,
         max_km=max_km,
         order=order,
-        physical_types=physical_types_list,
         type_codes=type_codes_list,
         category_codes=category_codes_list,
         exclude_found_by_user_id=exclude_found_by_user_id,
@@ -972,7 +960,6 @@ def list_trigs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        physical_types=physical_types_list,
         type_codes=type_codes_list,
         category_codes=category_codes_list,
         exclude_found_by_user_id=exclude_found_by_user_id,
@@ -1018,8 +1005,6 @@ def list_trigs(
         params.append(f"max_km={max_km}")
     if order:
         params.append(f"order={order}")
-    if physical_types:
-        params.append(f"physical_types={physical_types}")
     if types:
         params.append(f"types={types}")
     if categories:

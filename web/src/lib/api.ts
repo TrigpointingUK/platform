@@ -338,7 +338,6 @@ export interface Trig {
   waypoint: string;
   name: string;
   status_name?: string;
-  physical_type: string;
   condition: string;
   wgs_lat: string;
   wgs_long: string;
@@ -591,7 +590,6 @@ export interface TrigAdminDetail {
   type_id: number | null;
   current_use: string;
   historic_use: string;
-  physical_type: string;
   condition: string;
   wgs_lat: string;
   wgs_long: string;

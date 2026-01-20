@@ -41,13 +41,11 @@ export default function TrigMarker({
   
   // Get the appropriate icon URL based on color mode
   const iconUrl = getIconUrlForTrig(
-    trig.physical_type,
     trig.condition,
     colorMode,
     logStatus,
     highlighted,
-    trig.status_name,  // Pass status_name to override icon for minor marks (legacy)
-    trig.category_code // Preferred: use category_code for icon selection
+    trig.category_code // Category code for icon selection
   );
   
   // Create Leaflet icon
@@ -90,7 +88,7 @@ export default function TrigMarker({
             
             <div className="space-y-1 text-sm mb-3 text-gray-700 dark:text-gray-200">
               <div>
-                <span className="font-semibold">Type:</span> {trig.type_name || trig.physical_type}
+                <span className="font-semibold">Type:</span> {trig.type_name || "Unknown"}
               </div>
               <div>
                 <span className="font-semibold">Grid ref:</span> {trig.osgb_gridref}

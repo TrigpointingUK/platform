@@ -212,50 +212,50 @@ describe('mapIcons', () => {
 
   describe('getIconUrlForTrig', () => {
     it('should use condition color in condition mode', () => {
-      const url = getIconUrlForTrig('Pillar', 'G', 'condition', null);
+      const url = getIconUrlForTrig('G', 'condition', null, false, 'PILLAR');
       expect(url).toBe('/icons/mapicon_pillar_green.png');
     });
 
     it('should handle damaged condition', () => {
-      const url = getIconUrlForTrig('FBM', 'D', 'condition', null);
+      const url = getIconUrlForTrig('D', 'condition', null, false, 'FBM');
       expect(url).toBe('/icons/mapicon_fbm_yellow.png');
     });
 
     it('should handle Moved condition (M = yellow)', () => {
-      const url = getIconUrlForTrig('Passive Station', 'M', 'condition', null);
+      const url = getIconUrlForTrig('M', 'condition', null, false, 'SURVEY_MARK');
       expect(url).toBe('/icons/mapicon_passive_yellow.png');
     });
 
     it('should handle Destroyed condition (X = red)', () => {
-      const url = getIconUrlForTrig('Passive Station', 'X', 'condition', null);
+      const url = getIconUrlForTrig('X', 'condition', null, false, 'SURVEY_MARK');
       expect(url).toBe('/icons/mapicon_passive_red.png');
     });
 
     it('should use grey when no log status in userLog mode', () => {
-      const url = getIconUrlForTrig('Pillar', 'G', 'userLog', null);
+      const url = getIconUrlForTrig('G', 'userLog', null, false, 'PILLAR');
       expect(url).toBe('/icons/mapicon_pillar_grey.png');
     });
 
     it('should use log status color in userLog mode', () => {
       const logStatus: UserLogStatus = { hasLogged: true, condition: 'G' };
-      const url = getIconUrlForTrig('Pillar', 'M', 'userLog', logStatus);
+      const url = getIconUrlForTrig('M', 'userLog', logStatus, false, 'PILLAR');
       expect(url).toBe('/icons/mapicon_pillar_green.png');
     });
 
     it('should use yellow for Moved (M) in userLog mode', () => {
       const logStatus: UserLogStatus = { hasLogged: true, condition: 'M' };
-      const url = getIconUrlForTrig('Pillar', 'G', 'userLog', logStatus);
+      const url = getIconUrlForTrig('G', 'userLog', logStatus, false, 'PILLAR');
       expect(url).toBe('/icons/mapicon_pillar_yellow.png');
     });
 
     it('should use red for Possibly missing (Q) in userLog mode', () => {
       const logStatus: UserLogStatus = { hasLogged: true, condition: 'Q' };
-      const url = getIconUrlForTrig('Pillar', 'G', 'userLog', logStatus);
+      const url = getIconUrlForTrig('G', 'userLog', logStatus, false, 'PILLAR');
       expect(url).toBe('/icons/mapicon_pillar_red.png');
     });
 
     it('should add highlight suffix when highlighted', () => {
-      const url = getIconUrlForTrig('Pillar', 'G', 'condition', null, true);
+      const url = getIconUrlForTrig('G', 'condition', null, true, 'PILLAR');
       expect(url).toBe('/icons/mapicon_pillar_green_h.png');
     });
   });
@@ -356,7 +356,7 @@ describe('mapIcons', () => {
 
     it('should return condition icons by default in TrigDetailMap scenario', () => {
       // TrigDetailMap always uses condition mode
-      const url = getIconUrlForTrig('Pillar', 'G', 'condition', null);
+      const url = getIconUrlForTrig('G', 'condition', null, false, 'PILLAR');
       expect(url).toContain('green');
     });
   });

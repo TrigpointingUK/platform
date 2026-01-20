@@ -87,7 +87,6 @@ def seed_user_with_logs_and_types(db: Session):
             type_id=type_obj.id,
             current_use="Passive station",
             historic_use="Primary",
-            physical_type="Pillar",
             wgs_lat=Decimal("51.5") + Decimal(str(i * 0.01)),
             wgs_long=Decimal("-0.1") + Decimal(str(i * 0.01)),
             wgs_height=100,

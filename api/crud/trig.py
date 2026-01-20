@@ -136,7 +136,6 @@ def list_trigs_filtered(
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
     order: Optional[str] = None,
-    physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
     category_codes: Optional[List[str]] = None,
     exclude_found_by_user_id: Optional[int] = None,
@@ -160,11 +159,7 @@ def list_trigs_filtered(
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
 
-    # Filter by physical types (kept for backward compatibility)
-    if physical_types:
-        query = query.filter(Trig.physical_type.in_(physical_types))
-
-    # Filter by type codes (new type system)
+    # Filter by type codes
     if type_codes:
         type_id_list = _get_type_ids_for_codes(db, type_codes)
         if type_id_list:
@@ -278,7 +273,6 @@ def count_trigs_filtered(
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
-    physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
     category_codes: Optional[List[str]] = None,
     exclude_found_by_user_id: Optional[int] = None,
@@ -302,11 +296,7 @@ def count_trigs_filtered(
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
 
-    # Filter by physical types (kept for backward compatibility)
-    if physical_types:
-        query = query.filter(Trig.physical_type.in_(physical_types))
-
-    # Filter by type codes (new type system)
+    # Filter by type codes
     if type_codes:
         type_id_list = _get_type_ids_for_codes(db, type_codes)
         if type_id_list:

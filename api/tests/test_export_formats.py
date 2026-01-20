@@ -13,7 +13,6 @@ def _make_mock_trig(
     id: int = 1,
     waypoint: str = "TP0001",
     name: str = "Test Trig",
-    physical_type: str = "Pillar",
     condition: str = "G",
     status_id: int = 1,
     wgs_lat: float = 51.5074,
@@ -32,7 +31,6 @@ def _make_mock_trig(
     mock_trig.id = id
     mock_trig.waypoint = waypoint
     mock_trig.name = name
-    mock_trig.physical_type = physical_type
     mock_trig.condition = condition
     mock_trig.status_id = status_id
     mock_trig.wgs_lat = wgs_lat
@@ -70,8 +68,8 @@ class TestTrigsToGpx:
         assert "</link>" in result
 
     def test_gpx_contains_type_element(self):
-        """Test that GPX output contains type element with physical_type."""
-        trig = _make_mock_trig(physical_type="Pillar")
+        """Test that GPX output contains type element with type_name."""
+        trig = _make_mock_trig(type_name="Pillar")
         result = trigs_to_gpx([trig])
 
         assert "<type>Pillar</type>" in result
@@ -193,7 +191,6 @@ class TestTrigsToKmz:
     def test_kmz_embeds_icons_and_references_stylemap(self):
         trig = _make_mock_trig(
             id=1,
-            physical_type="Pillar",
             condition="G",
             category_code="PILLAR",
             category_name="Pillar",
@@ -212,7 +209,6 @@ class TestTrigsToKmz:
     def test_kmz_colour_mapping_mylog_vs_condition(self):
         trig = _make_mock_trig(
             id=1,
-            physical_type="Pillar",
             condition="P",
             category_code="PILLAR",
             category_name="Pillar",
@@ -236,7 +232,6 @@ class TestTrigsToKmz:
     def test_kmz_blank_logged_condition_is_green(self):
         trig = _make_mock_trig(
             id=1,
-            physical_type="Pillar",
             condition="U",
             category_code="PILLAR",
             category_name="Pillar",
@@ -252,7 +247,6 @@ class TestTrigsToKmz:
     def test_kmz_bolt_is_passive_icon_family(self):
         trig = _make_mock_trig(
             id=1,
-            physical_type="Bolt",
             condition="G",
             category_code="SURVEY_MARK",
             category_name="Survey mark",

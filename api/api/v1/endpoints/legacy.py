@@ -178,21 +178,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                     str(use): int(count) for use, count in by_historic_use_no_email_raw
                 }
 
-                by_physical_type_no_email_raw = (
-                    db.query(
-                        Trig.physical_type,
-                        func.count(func.distinct(user_crud.TLog.trig_id)),
-                    )
-                    .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
-                    .filter(user_crud.TLog.user_id == user.id)
-                    .group_by(Trig.physical_type)
-                    .all()
-                )
-                by_physical_type: Dict[str, int] = {
-                    str(ptype): int(count)
-                    for ptype, count in by_physical_type_no_email_raw
-                }
-
                 condition_counts_no_email_raw = (
                     db.query(user_crud.TLog.condition, func.count(user_crud.TLog.id))
                     .filter(user_crud.TLog.user_id == user.id)
@@ -208,7 +193,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 result.breakdown = UserBreakdown(
                     by_current_use=by_current_use,
                     by_historic_use=by_historic_use,
-                    by_physical_type=by_physical_type,
                     by_type=[],  # Legacy endpoint doesn't support grouped breakdown
                     by_condition=by_condition,
                 )
@@ -400,20 +384,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 str(use): int(count) for use, count in by_historic_use_raw
             }
 
-            by_physical_type_raw = (
-                db.query(
-                    Trig.physical_type,
-                    func.count(func.distinct(user_crud.TLog.trig_id)),
-                )
-                .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
-                .filter(user_crud.TLog.user_id == user.id)
-                .group_by(Trig.physical_type)
-                .all()
-            )
-            by_physical_type: Dict[str, int] = {  # type: ignore[no-redef]
-                str(ptype): int(count) for ptype, count in by_physical_type_raw
-            }
-
             # Calculate breakdown by log condition (all logs counted)
             condition_counts_raw = (
                 db.query(user_crud.TLog.condition, func.count(user_crud.TLog.id))
@@ -429,7 +399,6 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
             result.breakdown = UserBreakdown(
                 by_current_use=by_current_use,
                 by_historic_use=by_historic_use,
-                by_physical_type=by_physical_type,
                 by_type=[],  # Legacy endpoint doesn't support grouped breakdown
                 by_condition=by_condition,
             )

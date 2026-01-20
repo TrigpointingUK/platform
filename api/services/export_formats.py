@@ -48,19 +48,15 @@ def _get_type_info(trig: Trig) -> tuple[str, str]:
     return ("", "")
 
 
-def _get_physical_type(trig: Trig) -> str:
+def _get_type_name(trig: Trig) -> str:
     """
-    Get the physical_type value for export.
+    Get the type name from a trig's type relationship.
 
-    TEMPORARY: Populate from trig_type.name instead of trig.physical_type
-    to ensure consistency with the new type system. The legacy physical_type
-    column will be deprecated once all exports have migrated.
-
-    Falls back to trig.physical_type if type relationship is not available.
+    Returns the type name if available, otherwise an empty string.
     """
     if trig.trig_type and trig.trig_type.name:
         return str(trig.trig_type.name)
-    return str(trig.physical_type or "")
+    return ""
 
 
 def trigs_to_csv(
@@ -84,7 +80,6 @@ def trigs_to_csv(
         "id",
         "waypoint",
         "name",
-        "physical_type",
         "condition",
         "type_code",
         "type_name",
@@ -118,7 +113,6 @@ def trigs_to_csv(
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
-            "physical_type": _get_physical_type(trig),
             "condition": trig.condition,
             "type_code": type_code,
             "type_name": type_name,
@@ -180,7 +174,6 @@ def trigs_to_geojson(
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
-            "physical_type": _get_physical_type(trig),
             "condition": trig.condition,
             "type_code": type_code,
             "type_name": type_name,
@@ -265,9 +258,9 @@ def trigs_to_gpx(
 
     for trig in trigs:
         # Build description
-        physical_type = _get_physical_type(trig)
+        type_name = _get_type_name(trig)
         desc_parts = [
-            f"Type: {physical_type}",
+            f"Type: {type_name}",
             f"Grid Ref: {trig.osgb_gridref}",
             f"Condition: {trig.condition}",
         ]
@@ -302,7 +295,7 @@ def trigs_to_gpx(
         lines.append("      <text>View on TrigpointingUK</text>")
         lines.append("    </link>")
         lines.append("    <sym>Triangle</sym>")
-        lines.append(f"    <type>{escape_xml(physical_type)}</type>")
+        lines.append(f"    <type>{escape_xml(type_name)}</type>")
         lines.append("  </wpt>")
 
     lines.append("</gpx>")
@@ -362,13 +355,13 @@ def trigs_to_kml(
     ]
 
     for trig in trigs:
-        physical_type = _get_physical_type(trig)
+        type_name = _get_type_name(trig)
         category_code, category_name = _get_category_info(trig)
 
         # Build description HTML
         desc_lines = [
             "<![CDATA[",
-            f"<b>Type:</b> {escape_xml(physical_type)}<br/>",
+            f"<b>Type:</b> {escape_xml(type_name)}<br/>",
             f"<b>Category:</b> {escape_xml(category_name)}<br/>",
             f"<b>Grid Ref:</b> {escape_xml(str(trig.osgb_gridref))}<br/>",
             f"<b>Condition:</b> {escape_xml(str(trig.condition))}<br/>",
@@ -472,13 +465,13 @@ def trigs_to_kmz(
     def _trig_url(trig_id: int) -> str:
         return f"{_site_base_domain()}/trigs/{trig_id}"
 
-    def _icon_family_from_physical_type(physical_type: str, category_name: str) -> str:
+    def _icon_family_from_type_name(type_name: str, category_name: str) -> str:
         """
-        Map `physical_type` to one of the 4 KMZ icon families.
+        Map type_name to one of the 4 KMZ icon families.
 
-        This mapping intentionally absorbs many physical types into `passive`.
+        This mapping intentionally absorbs many type names into `passive`.
         """
-        pt = (physical_type or "").strip().lower()
+        pt = (type_name or "").strip().lower()
         gn = (category_name or "").strip().lower()
 
         # Strong group fallbacks
@@ -631,11 +624,11 @@ def trigs_to_kmz(
     # ---- group trigs into folders ----------------------------------------
     # Folder hierarchy:
     #   Level 1: category (category_name)
-    #   Level 2: type_name (from trig_type.name, falling back to physical_type)
+    #   Level 2: type_name (from trig_type.name)
     grouped: dict[str, dict[str, list[Trig]]] = {}
     for trig in trigs:
         category = _kml_category_folder_name(trig)
-        type_folder = _get_physical_type(trig) or "Unknown"
+        type_folder = _get_type_name(trig) or "Unknown"
         grouped.setdefault(category, {}).setdefault(type_folder, []).append(trig)
 
     # Stable folder ordering: alphabetical by group name
@@ -661,9 +654,9 @@ def trigs_to_kmz(
                 trig_id = int(trig.id)
                 waypoint = str(trig.waypoint)
                 name = str(trig.name)
-                physical_type = _get_physical_type(trig)
+                type_name = _get_type_name(trig)
                 category_code, category_name = _get_category_info(trig)
-                family = _icon_family_from_physical_type(physical_type, category_name)
+                family = _icon_family_from_type_name(type_name, category_name)
 
                 if user_logs is None:
                     colour = _colour_condition_mode(str(getattr(trig, "condition", "")))
@@ -687,7 +680,7 @@ def trigs_to_kmz(
                                 f'<b><a href="{_escape_xml(_trig_url(trig_id))}">'
                                 f"{_escape_xml(waypoint)} – {_escape_xml(name)}</a></b><br/>"
                             ),
-                            # f"<b>Type:</b> {_escape_xml(physical_type)}<br/>",
+                            # f"<b>Type:</b> {_escape_xml(type_name)}<br/>",
                             # f"<b>Category:</b> {_escape_xml(status_name)}<br/>",
                             # f"<b>Grid ref:</b> {_escape_xml(str(trig.osgb_gridref))}<br/>",
                             # f"<b>Condition:</b> {_escape_xml(condition_desc)}<br/>",
@@ -723,7 +716,7 @@ def trigs_to_kmz(
                     "name": name,
                     "category_code": category_code,
                     "category_name": category_name,
-                    "physical_type": physical_type,
+                    "type_name": type_name,
                     # Descriptive string per wiki, not letter code.
                     "condition": condition_desc,
                     "osgb_gridref": str(getattr(trig, "osgb_gridref", "")),

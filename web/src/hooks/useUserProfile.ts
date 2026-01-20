@@ -20,7 +20,6 @@ interface CategoryTypeBreakdown {
 interface UserBreakdown {
   by_current_use: Record<string, number>;
   by_historic_use: Record<string, number>;
-  by_physical_type: Record<string, number>;
   by_type: CategoryTypeBreakdown[];
   by_condition: Record<string, number>;
 }

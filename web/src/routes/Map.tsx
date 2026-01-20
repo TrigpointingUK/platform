@@ -241,7 +241,7 @@ export default function Map() {
   const [activeZoom, setActiveZoom] = useState<number>(initialZoom);
 
   // Fetch trigpoints for current viewport
-  // Note: physical_types filter NOT applied in API - we filter client-side
+  // Note: type filtering happens client-side
   const {
     data: allTrigsData,
     totalCount,
@@ -322,12 +322,12 @@ export default function Map() {
           id: feature.properties.id,
           waypoint: `TP${feature.properties.id.toString().padStart(4, "0")}`,
           name: feature.properties.name || "",
-          physical_type: feature.properties.physical_type || "Unknown",
           condition: feature.properties.condition || "U",
           wgs_lat: feature.geometry.coordinates[1].toString(),
           wgs_long: feature.geometry.coordinates[0].toString(),
           osgb_gridref: feature.properties.osgb_gridref || "",
           status_name: STATUS_DISPLAY_NAMES[statusId] || "",
+          type_code: feature.properties.type_code,
           type_name: feature.properties.type_name,
           category_code: feature.properties.category_code,
           category_name: feature.properties.category_name,
@@ -407,8 +407,7 @@ export default function Map() {
     const counts: Record<string, number> = {};
 
     for (const trig of colorFilteredTrigpoints) {
-      // Prefer type_name, fall back to physical_type
-      const type = trig.type_name || trig.physical_type || "Unknown";
+      const type = trig.type_name || "Unknown";
       counts[type] = (counts[type] || 0) + 1;
     }
 

@@ -43,7 +43,6 @@ const createMockTrig = (overrides = {}) => ({
   id: 12345,
   waypoint: 'TP1234',
   name: 'Test Hill',
-  physical_type: 'pillar',
   condition: 'G',
   wgs_lat: '51.5074',
   wgs_long: '-0.1278',

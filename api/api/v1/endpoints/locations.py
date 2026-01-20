@@ -101,8 +101,8 @@ def search_locations(
         parts = []
         if trig.waypoint:
             parts.append(str(trig.waypoint))
-        if trig.physical_type:
-            parts.append(str(trig.physical_type))
+        if trig.trig_type and trig.trig_type.name:
+            parts.append(str(trig.trig_type.name))
         description = " - ".join(parts) if parts else "Trigpoint"
 
         results.append(
@@ -297,8 +297,8 @@ def search_all(
         parts = []
         if trig.waypoint:
             parts.append(str(trig.waypoint))
-        if trig.physical_type:
-            parts.append(str(trig.physical_type))
+        if trig.trig_type and trig.trig_type.name:
+            parts.append(str(trig.trig_type.name))
         description = " - ".join(parts) if parts else "Trigpoint"
         trigpoint_items.append(
             LocationSearchResult(
@@ -547,8 +547,8 @@ def search_trigpoints_only(
         parts = []
         if trig.waypoint:
             parts.append(str(trig.waypoint))
-        if trig.physical_type:
-            parts.append(str(trig.physical_type))
+        if trig.trig_type and trig.trig_type.name:
+            parts.append(str(trig.trig_type.name))
         description = " - ".join(parts) if parts else "Trigpoint"
         items.append(
             LocationSearchResult(

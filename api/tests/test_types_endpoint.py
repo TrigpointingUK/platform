@@ -12,19 +12,37 @@ from fastapi.testclient import TestClient
 from api.models.trig_type import TrigCategory, TrigType
 
 
+def _get_unique_sort_orders(db, count: int = 2) -> list[int]:
+    """Find unique sort_order values that don't exist in the database.
+
+    Uses a retry mechanism to handle race conditions in parallel testing.
+    """
+    import random
+
+    existing = {
+        row[0] for row in db.query(TrigCategory.sort_order).all() if row[0] is not None
+    }
+
+    # SmallInteger max is 32767, use range 10000-32000 to avoid real data
+    attempts = 0
+    while attempts < 100:
+        base = random.randint(10000, 32000 - count)
+        candidates = [base + i for i in range(count)]
+        if not any(c in existing for c in candidates):
+            return candidates
+        attempts += 1
+
+    # Fallback: use very high values
+    return [32000 + i for i in range(count)]
+
+
 @pytest.fixture
 def type_test_data(db):
     """Create test categories and types for endpoint testing."""
-    import os
-    import time
-
     unique_suffix = uuid.uuid4().hex[:6]
 
-    # Use a hash of process ID + time + uuid to get unique sort_order
-    # SmallInteger max is 32767, use modulo to fit while minimising collision
-    base_sort = (
-        int(time.time() * 1000000) + os.getpid() + hash(unique_suffix)
-    ) % 30000 + 1000
+    # Get unique sort_order values that don't collide with existing data
+    sort_orders = _get_unique_sort_orders(db, count=2)
 
     # Create test categories
     category1 = TrigCategory(
@@ -32,14 +50,14 @@ def type_test_data(db):
         name="Test Category 1",
         description="First test category",
         wiki_url="https://example.com/cat1",
-        sort_order=base_sort,
+        sort_order=sort_orders[0],
     )
     category2 = TrigCategory(
         code=f"CAT2_{unique_suffix}",
         name="Test Category 2",
         description="Second test category",
         wiki_url="https://example.com/cat2",
-        sort_order=base_sort + 1,
+        sort_order=sort_orders[1],
     )
     db.add(category1)
     db.add(category2)

@@ -67,10 +67,9 @@ class TrigMinimal(BaseModel):
     name: str = Field(..., description="Trigpoint name")
 
     # Public basic classification/identity
-    physical_type: str = Field(..., description="Physical type (e.g., Pillar) - legacy")
     condition: str = Field(..., description="Condition code")
 
-    # New type system
+    # Type system
     type_code: Optional[str] = Field(None, description="Type code (e.g., HOTINE, FBM)")
     type_name: Optional[str] = Field(None, description="Type display name")
     category_code: Optional[str] = Field(None, description="Type category code")

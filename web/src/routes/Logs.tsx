@@ -238,12 +238,13 @@ export default function Logs() {
     }
   }, [userProfile?.prefs?.ui_prefs?.show_trig_condition, showOnlyDisagreements]);
 
-  // Ensure showTrigCondition is enabled when showOnlyDisagreements is loaded from URL
+  // Ensure showTrigCondition is enabled when showOnlyDisagreements changes
   useEffect(() => {
     if (showOnlyDisagreements && !showTrigCondition) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: disagreements filter requires curated condition to be visible
       setShowTrigCondition(true);
     }
-  }, []); // Only run once on mount
+  }, [showOnlyDisagreements, showTrigCondition]);
 
   // Fetch areas containing the current location
   const { data: areasData, isLoading: isLoadingAreas } = useAreasContaining(

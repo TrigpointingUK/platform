@@ -226,21 +226,17 @@ export const getIconUrl = (
 /**
  * Get icon URL based on color mode
  * 
- * @param physicalType - Physical type of the trigpoint (legacy fallback)
  * @param condition - Condition code
  * @param colorMode - Icon color mode (condition or userLog)
  * @param logStatus - User's log status for this trig
  * @param highlighted - Whether to highlight the icon
- * @param statusName - Status name (e.g., "Minor mark") - used to override icon type (legacy)
- * @param categoryCode - Category code (e.g., "PILLAR", "FBM") - preferred for icon selection
+ * @param categoryCode - Category code (e.g., "PILLAR", "FBM") - used for icon selection
  */
 export const getIconUrlForTrig = (
-  physicalType: string,
   condition: string,
   colorMode: IconColorMode,
   logStatus: UserLogStatus | null,
   highlighted: boolean = false,
-  statusName?: string,
   categoryCode?: string
 ): string => {
   let color: IconColor;
@@ -257,18 +253,10 @@ export const getIconUrlForTrig = (
     }
   }
   
-  // Determine icon base name - prefer category_code, fall back to physical_type
-  let baseName: string;
-  if (categoryCode) {
-    baseName = getIconBaseNameFromCategory(categoryCode);
-  } else {
-    // Legacy fallback: use physical_type with status_name override
-    let iconPhysicalType = physicalType;
-    if (statusName && statusName.trim() === 'Minor mark') {
-      iconPhysicalType = 'Passive Station';  // This maps to 'passive' icon
-    }
-    baseName = getIconBaseName(iconPhysicalType);
-  }
+  // Determine icon base name from category_code
+  const baseName = categoryCode 
+    ? getIconBaseNameFromCategory(categoryCode) 
+    : 'pillar'; // Default to pillar if no category
   
   const highlightSuffix = highlighted ? '_h' : '';
   const filename = `mapicon_${baseName}_${color}${highlightSuffix}.png`;

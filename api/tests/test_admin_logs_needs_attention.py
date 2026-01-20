@@ -39,7 +39,6 @@ def _create_trig(db) -> Trig:
         user_added=0,
         current_use="none",
         historic_use="none",
-        physical_type="Pillar",
         condition="G",
         wgs_lat=0.0,
         wgs_long=0.0,

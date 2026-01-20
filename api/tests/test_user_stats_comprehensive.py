@@ -75,13 +75,11 @@ class TestUserStatsIntegration:
         breakdown = UserBreakdown(
             by_current_use={"Passive station": 30, "Active station": 20},
             by_historic_use={"Primary": 25, "Secondary": 25},
-            by_physical_type={"Pillar": 40, "Bolt": 10},
             by_condition={"Good": 80, "Damaged": 20},
         )
 
         assert breakdown.by_current_use == {"Passive station": 30, "Active station": 20}
         assert breakdown.by_historic_use == {"Primary": 25, "Secondary": 25}
-        assert breakdown.by_physical_type == {"Pillar": 40, "Bolt": 10}
         assert breakdown.by_condition == {"Good": 80, "Damaged": 20}
 
     def test_user_response_with_member_since(self):
@@ -135,7 +133,6 @@ class TestUserEndpointStats:
             name="Test Trig 1",
             current_use="Passive station",
             historic_use="Primary",
-            physical_type="Pillar",
             condition="G",
             wgs_lat=51.0,
             wgs_long=-1.0,
@@ -166,7 +163,6 @@ class TestUserEndpointStats:
             name="Test Trig 2",
             current_use="Active station",
             historic_use="Secondary",
-            physical_type="Bolt",
             condition="S",
             wgs_lat=51.1,
             wgs_long=-1.1,
@@ -267,7 +263,6 @@ class TestUserEndpointStats:
         # - total_trigs_logged: 2 (distinct trig_ids: 1, 2)
         # - by_current_use: {'Passive station': 1, 'Active station': 1} (distinct trigs)
         # - by_historic_use: {'Primary': 1, 'Secondary': 1} (distinct trigs)
-        # - by_physical_type: {'Pillar': 1, 'Bolt': 1} (distinct trigs)
         # - by_condition: {'Good': 1, 'Slightly damaged': 1, "Couldn't find it": 1} (all logs)
 
         from sqlalchemy import func

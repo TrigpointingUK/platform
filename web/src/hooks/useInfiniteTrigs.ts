@@ -18,7 +18,6 @@ interface Trig {
   id: number;
   waypoint: string;
   name: string;
-  physical_type: string;
   condition: string;
   wgs_lat: string;
   wgs_long: string;

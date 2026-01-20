@@ -19,7 +19,6 @@ export interface TrigData {
   id: number;
   waypoint: string;
   name: string;
-  physical_type: string;
   condition: string;
   wgs_lat: string | number;
   wgs_long: string | number;

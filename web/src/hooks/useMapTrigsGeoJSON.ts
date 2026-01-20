@@ -11,7 +11,7 @@ export interface GeoJSONTrig {
     name: string;
     condition: string;
     osgb_gridref: string;
-    physical_type: string; // Legacy field
+    type_code?: string; // From trig_type.code
     type_name?: string; // From trig_type.name
     category_code?: string; // From trig_category.code
     category_name?: string; // From trig_category.name

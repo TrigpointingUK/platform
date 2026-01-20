@@ -84,7 +84,6 @@ def enrich_logs_with_names(
             Trig.wgs_lat,
             Trig.wgs_long,
             Trig.condition,
-            Trig.physical_type,
             TrigType.code.label("type_code"),
             TrigType.name.label("type_name"),
             TrigCategory.code.label("category_code"),
@@ -109,7 +108,6 @@ def enrich_logs_with_names(
             "lat": float(t.wgs_lat) if t.wgs_lat is not None else None,
             "lon": float(t.wgs_long) if t.wgs_long is not None else None,
             "condition": str(t.condition) if t.condition else None,
-            "physical_type": str(t.physical_type) if t.physical_type else None,
             "type_code": str(t.type_code) if t.type_code else None,
             "type_name": str(t.type_name) if t.type_name else None,
             "category_code": str(t.category_code) if t.category_code else None,
@@ -128,8 +126,7 @@ def enrich_logs_with_names(
         log_dict["trig_lat"] = trig_info.get("lat")
         log_dict["trig_lon"] = trig_info.get("lon")
         log_dict["trig_condition"] = trig_info.get("condition")
-        log_dict["trig_physical_type"] = trig_info.get("physical_type")
-        # New type system fields
+        # Type system fields
         log_dict["trig_type_code"] = trig_info.get("type_code")
         log_dict["trig_type_name"] = trig_info.get("type_name")
         log_dict["trig_category_code"] = trig_info.get("category_code")

@@ -15,7 +15,6 @@ interface Log {
   trig_lon?: number | null;
   trig_condition?: string | null;
   trig_status_name?: string | null;
-  trig_physical_type?: string | null;
   trig_type_code?: string | null;
   trig_type_name?: string | null;
   trig_category_code?: string | null;

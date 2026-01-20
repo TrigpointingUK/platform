@@ -346,21 +346,7 @@ def get_current_user_profile(
                 str(use): int(count) for use, count in by_historic_use_raw
             }
 
-            by_physical_type_raw = (
-                db.query(
-                    Trig.physical_type,
-                    func.count(func.distinct(user_crud.TLog.trig_id)),
-                )
-                .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
-                .filter(user_crud.TLog.user_id == current_user.id)
-                .group_by(Trig.physical_type)
-                .all()
-            )
-            by_physical_type: Dict[str, int] = {
-                str(ptype): int(count) for ptype, count in by_physical_type_raw
-            }
-
-            # Calculate breakdown by type grouped by category (new type system)
+            # Calculate breakdown by type grouped by category
             by_type_raw = (
                 db.query(
                     TrigCategory.code.label("category_code"),
@@ -428,7 +414,6 @@ def get_current_user_profile(
             result.breakdown = UserBreakdown(
                 by_current_use=by_current_use,
                 by_historic_use=by_historic_use,
-                by_physical_type=by_physical_type,
                 by_type=by_type,
                 by_condition=by_condition,
             )
@@ -1045,20 +1030,7 @@ def get_user(
             str(use): int(count) for use, count in by_historic_use_raw
         }
 
-        by_physical_type_raw = (
-            db.query(
-                Trig.physical_type, func.count(func.distinct(user_crud.TLog.trig_id))
-            )
-            .join(user_crud.TLog, user_crud.TLog.trig_id == Trig.id)
-            .filter(user_crud.TLog.user_id == user_id)
-            .group_by(Trig.physical_type)
-            .all()
-        )
-        by_physical_type: Dict[str, int] = {
-            str(ptype): int(count) for ptype, count in by_physical_type_raw
-        }
-
-        # Calculate breakdown by type grouped by category (new type system)
+        # Calculate breakdown by type grouped by category
         by_type_raw = (
             db.query(
                 TrigCategory.code.label("category_code"),
@@ -1124,7 +1096,6 @@ def get_user(
         result.breakdown = UserBreakdown(
             by_current_use=by_current_use,
             by_historic_use=by_historic_use,
-            by_physical_type=by_physical_type,
             by_type=by_type,
             by_condition=by_condition,
         )

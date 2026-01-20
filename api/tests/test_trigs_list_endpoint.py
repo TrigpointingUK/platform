@@ -84,7 +84,6 @@ def seed_categories_types_trigs(db: Session):
             type_id=type_obj.id,
             current_use="Passive station",
             historic_use="Primary",
-            physical_type="Pillar" if "Pillar" in type_obj.name else "FBM",
             wgs_lat=Decimal("51.5") + Decimal(str(i * 0.01)),
             wgs_long=Decimal("-0.1"),
             wgs_height=100,
