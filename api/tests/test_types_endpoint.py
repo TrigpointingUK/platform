@@ -15,13 +15,16 @@ from api.models.trig_type import TrigCategory, TrigType
 @pytest.fixture
 def type_test_data(db):
     """Create test categories and types for endpoint testing."""
-    import random
+    import os
+    import time
 
     unique_suffix = uuid.uuid4().hex[:6]
 
-    # Use completely random large numbers for sort_order to avoid collisions
-    # SmallInteger max is 32767, so use 20000-32000 range with random offset
-    base_sort = random.randint(20000, 32000)
+    # Use a hash of process ID + time + uuid to get unique sort_order
+    # SmallInteger max is 32767, use modulo to fit while minimising collision
+    base_sort = (
+        int(time.time() * 1000000) + os.getpid() + hash(unique_suffix)
+    ) % 30000 + 1000
 
     # Create test categories
     category1 = TrigCategory(

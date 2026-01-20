@@ -12,11 +12,14 @@ const baseTrig = {
   id: 1,
   waypoint: 'TP0001',
   name: 'Test Trigpoint',
-  physical_type: 'Pillar',
   condition: 'G',
   wgs_lat: '51.5074',
   wgs_long: '-0.1278',
   osgb_gridref: 'TQ 30000 80000',
+  type_code: 'PILLAR',
+  type_name: 'Pillar',
+  category_code: 'PILLAR',
+  category_name: 'Pillar',
 };
 
 describe('TrigCard', () => {
@@ -52,7 +55,7 @@ describe('TrigCard', () => {
     });
 
     it('should render FBM category icon', () => {
-      const trig = { ...baseTrig, category_code: 'FBM' };
+      const trig = { ...baseTrig, category_code: 'FBM', category_name: 'FBM' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('FBM');
@@ -60,7 +63,7 @@ describe('TrigCard', () => {
     });
 
     it('should render SURVEY_MARK category icon', () => {
-      const trig = { ...baseTrig, category_code: 'SURVEY_MARK' };
+      const trig = { ...baseTrig, category_code: 'SURVEY_MARK', category_name: 'Survey mark' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('Survey mark');
@@ -68,7 +71,7 @@ describe('TrigCard', () => {
     });
 
     it('should render INTERSECTED category icon', () => {
-      const trig = { ...baseTrig, category_code: 'INTERSECTED' };
+      const trig = { ...baseTrig, category_code: 'INTERSECTED', category_name: 'Intersected' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('Intersected');
@@ -76,7 +79,7 @@ describe('TrigCard', () => {
     });
 
     it('should render ACTIVE category icon', () => {
-      const trig = { ...baseTrig, category_code: 'ACTIVE' };
+      const trig = { ...baseTrig, category_code: 'ACTIVE', category_name: 'Active station' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('Active station');
@@ -84,7 +87,7 @@ describe('TrigCard', () => {
     });
 
     it('should render OTHER category icon', () => {
-      const trig = { ...baseTrig, category_code: 'OTHER' };
+      const trig = { ...baseTrig, category_code: 'OTHER', category_name: 'Other' };
       renderWithRouter(<TrigCard trig={trig} />);
       
       const icon = screen.getByTitle('Other');
@@ -92,7 +95,7 @@ describe('TrigCard', () => {
     });
 
     it('should render fallback for unknown category', () => {
-      const trig = { ...baseTrig, category_code: 'UNKNOWN' };
+      const trig = { ...baseTrig, category_code: 'UNKNOWN', category_name: undefined };
       renderWithRouter(<TrigCard trig={trig} />);
       
       // Unknown category shows "?" badge instead of icon
@@ -100,8 +103,8 @@ describe('TrigCard', () => {
     });
 
     it('should render fallback when category_code is undefined', () => {
-      const trig = { ...baseTrig };
-      renderWithRouter(<TrigCard trig={trig} />);
+      const { category_code, category_name, ...trigWithoutCategory } = baseTrig;
+      renderWithRouter(<TrigCard trig={trigWithoutCategory} />);
       
       // No category_code shows "?" badge
       expect(screen.getByText('?')).toBeInTheDocument();
