@@ -393,6 +393,10 @@ def client(monkeypatch, db):
             try:
                 user_id = int(auth0_user_id.split("|")[1])
             except ValueError:
+                # Special case for auth0|admin - return any existing user
+                # (scope check handles admin authorization separately)
+                if auth0_user_id == "auth0|admin":
+                    return db.query(UserModel).first()
                 return None
 
             from api.crud.user import get_user_by_id

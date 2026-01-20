@@ -34,14 +34,44 @@ def _get_unique_sort_orders(db: Session, count: int = 2) -> list[int]:
 
 
 @pytest.fixture
-def admin_auth_mock():
-    """Mock authentication to return admin token."""
+def admin_user(db: Session):
+    """Create an admin user for testing."""
+    from api.crud.user import create_user
 
-    def _mock(user_id: int = 1):
+    unique_suffix = uuid.uuid4().hex[:8]
+    user = create_user(
+        db=db,
+        username=f"admin_{unique_suffix}",
+        email=f"admin_{unique_suffix}@example.com",
+        auth0_user_id=f"auth0|admin_{unique_suffix}",
+    )
+    return user
+
+
+@pytest.fixture
+def non_admin_user(db: Session):
+    """Create a non-admin user for testing."""
+    from api.crud.user import create_user
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    user = create_user(
+        db=db,
+        username=f"user_{unique_suffix}",
+        email=f"user_{unique_suffix}@example.com",
+        auth0_user_id=f"auth0|user_{unique_suffix}",
+    )
+    return user
+
+
+@pytest.fixture
+def admin_auth_mock(admin_user):
+    """Mock authentication to return admin token using real user."""
+
+    def _mock():
         return {
             "token_type": "auth0",
-            "auth0_user_id": f"auth0|{user_id}",
-            "sub": f"auth0|{user_id}",
+            "auth0_user_id": admin_user.auth0_user_id,
+            "sub": admin_user.auth0_user_id,
             "scope": "api:write api:admin",
         }
 
@@ -49,14 +79,14 @@ def admin_auth_mock():
 
 
 @pytest.fixture
-def non_admin_auth_mock():
-    """Mock authentication to return non-admin token."""
+def non_admin_auth_mock(non_admin_user):
+    """Mock authentication to return non-admin token using real user."""
 
-    def _mock(user_id: int = 1):
+    def _mock():
         return {
             "token_type": "auth0",
-            "auth0_user_id": f"auth0|{user_id}",
-            "sub": f"auth0|{user_id}",
+            "auth0_user_id": non_admin_user.auth0_user_id,
+            "sub": non_admin_user.auth0_user_id,
             "scope": "api:write",  # Missing api:admin
         }
 
@@ -135,7 +165,7 @@ class TestAdminGetCategories:
     ):
         """Test that non-admin users cannot access admin categories endpoint."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.get(
                 "/v1/admin/types/categories",
@@ -149,7 +179,7 @@ class TestAdminGetCategories:
     ):
         """Test that admin users can get categories."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.get(
                 "/v1/admin/types/categories",
@@ -182,7 +212,7 @@ class TestAdminCreateCategory:
     ):
         """Test that non-admin users cannot create categories."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/categories",
@@ -199,7 +229,7 @@ class TestAdminCreateCategory:
         unique_code = f"NEWCAT_{uuid.uuid4().hex[:6]}"
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/categories",
@@ -227,7 +257,7 @@ class TestAdminCreateCategory:
         existing_code = admin_test_data["category1"].code
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/categories",
@@ -249,7 +279,7 @@ class TestAdminUpdateCategory:
         category_id = admin_test_data["category1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.patch(
                 f"/v1/admin/types/categories/{category_id}",
@@ -266,7 +296,7 @@ class TestAdminUpdateCategory:
         category_id = admin_test_data["category1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.patch(
                 f"/v1/admin/types/categories/{category_id}",
@@ -287,7 +317,7 @@ class TestAdminUpdateCategory:
     ):
         """Test 404 for non-existent category."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.patch(
                 "/v1/admin/types/categories/999999",
@@ -308,7 +338,7 @@ class TestAdminDeleteCategory:
         category_id = admin_test_data["category1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.delete(
                 f"/v1/admin/types/categories/{category_id}",
@@ -324,7 +354,7 @@ class TestAdminDeleteCategory:
         category_id = admin_test_data["category1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.delete(
                 f"/v1/admin/types/categories/{category_id}",
@@ -350,7 +380,7 @@ class TestAdminDeleteCategory:
         category_id = empty_category.id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.delete(
                 f"/v1/admin/types/categories/{category_id}",
@@ -374,7 +404,7 @@ class TestAdminReorderCategories:
     ):
         """Test that non-admin users cannot reorder categories."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/categories/reorder",
@@ -392,7 +422,7 @@ class TestAdminReorderCategories:
         cat2_id = admin_test_data["category2"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             # Reverse the order
             response = client.post(
@@ -422,7 +452,7 @@ class TestAdminCreateType:
     ):
         """Test that non-admin users cannot create types."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/types",
@@ -444,7 +474,7 @@ class TestAdminCreateType:
         category_id = admin_test_data["category1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/types",
@@ -472,7 +502,7 @@ class TestAdminCreateType:
     ):
         """Test that creating a type with invalid category fails."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/types",
@@ -494,7 +524,7 @@ class TestAdminCreateType:
         existing_code = admin_test_data["type1"].code
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/types",
@@ -520,7 +550,7 @@ class TestAdminUpdateType:
         type_id = admin_test_data["type1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.patch(
                 f"/v1/admin/types/types/{type_id}",
@@ -537,7 +567,7 @@ class TestAdminUpdateType:
         type_id = admin_test_data["type1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.patch(
                 f"/v1/admin/types/types/{type_id}",
@@ -563,7 +593,7 @@ class TestAdminUpdateType:
         new_category_id = admin_test_data["category2"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.patch(
                 f"/v1/admin/types/types/{type_id}",
@@ -580,7 +610,7 @@ class TestAdminUpdateType:
     ):
         """Test 404 for non-existent type."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.patch(
                 "/v1/admin/types/types/999999",
@@ -601,7 +631,7 @@ class TestAdminDeleteType:
         type_id = admin_test_data["type1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.delete(
                 f"/v1/admin/types/types/{type_id}",
@@ -626,7 +656,7 @@ class TestAdminDeleteType:
         type_id = new_type.id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.delete(
                 f"/v1/admin/types/types/{type_id}",
@@ -644,7 +674,7 @@ class TestAdminDeleteType:
     ):
         """Test 404 for non-existent type."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.delete(
                 "/v1/admin/types/types/999999",
@@ -662,7 +692,7 @@ class TestAdminReorderTypes:
     ):
         """Test that non-admin users cannot reorder types."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/types/reorder",
@@ -684,7 +714,7 @@ class TestAdminReorderTypes:
         type2_id = admin_test_data["type2"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             # Reverse the order
             response = client.post(
@@ -714,7 +744,7 @@ class TestAdminReorderTypes:
         type3_id = admin_test_data["type3"].id  # In category2
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.post(
                 "/v1/admin/types/types/reorder",
@@ -736,7 +766,7 @@ class TestAdminGetTypeUsage:
         type_id = admin_test_data["type1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = non_admin_auth_mock(1)
+            mock.return_value = non_admin_auth_mock()
 
             response = client.get(
                 f"/v1/admin/types/types/{type_id}/usage",
@@ -752,7 +782,7 @@ class TestAdminGetTypeUsage:
         type_id = admin_test_data["type1"].id
 
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.get(
                 f"/v1/admin/types/types/{type_id}/usage",
@@ -770,7 +800,7 @@ class TestAdminGetTypeUsage:
     ):
         """Test 404 for non-existent type."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-            mock.return_value = admin_auth_mock(1)
+            mock.return_value = admin_auth_mock()
 
             response = client.get(
                 "/v1/admin/types/types/999999/usage",

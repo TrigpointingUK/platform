@@ -11,16 +11,21 @@ from api.models.user import TLog, User
 
 
 def _ensure_admin_user(db) -> None:
-    """Ensure the mocked auth0_admin token maps to a real DB user."""
-    existing = db.query(User).filter(User.auth0_user_id == "auth0|admin").first()
+    """Ensure the mocked auth0_admin token maps to a real DB user.
+
+    Note: The conftest mock for auth0|admin returns ANY user, so we just
+    need to ensure at least one user exists in the database.
+    """
+    existing = db.query(User).first()
     if existing:
         return
     suffix = uuid.uuid4().hex[:8]
+    # Create a regular user - the mock will use this for auth0|admin tokens
     create_user(
         db=db,
         username=f"admin_{suffix}",
         email=f"admin_{suffix}@example.com",
-        auth0_user_id="auth0|admin",
+        auth0_user_id=f"auth0|admin_{suffix}",
     )
 
 
