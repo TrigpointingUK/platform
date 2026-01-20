@@ -418,6 +418,8 @@ def migrate_user_to_auth0(
             detail="User not found.",
         )
 
+    user_id = int(user.id)
+
     if user.auth0_user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -437,7 +439,7 @@ def migrate_user_to_auth0(
         auth0_user = auth0_service.create_user_for_admin_migration(
             username=str(user.name),
             email=email,
-            legacy_user_id=int(user.id),
+            legacy_user_id=user_id,
             firstname=str(user.firstname) if user.firstname else None,
             surname=str(user.surname) if user.surname else None,
         )
@@ -451,7 +453,7 @@ def migrate_user_to_auth0(
             json.dumps(
                 {
                     "event": "admin_legacy_migration_auth0_failure",
-                    "user_id": int(user.id),
+                    "user_id": user_id,
                     "email": email,
                     "details": getattr(exc, "details", {}),
                 }
@@ -466,7 +468,7 @@ def migrate_user_to_auth0(
             json.dumps(
                 {
                     "event": "admin_legacy_migration_unexpected_error",
-                    "user_id": int(user.id),
+                    "user_id": user_id,
                     "email": email,
                     "error": str(exc),
                 }
@@ -483,7 +485,7 @@ def migrate_user_to_auth0(
             json.dumps(
                 {
                     "event": "admin_legacy_migration_missing_auth0_id",
-                    "user_id": int(user.id),
+                    "user_id": user_id,
                     "email": email,
                 }
             )
@@ -529,7 +531,7 @@ def migrate_user_to_auth0(
         logger.error(
             "Auth0 migration database integrity error",
             extra={
-                "user_id": int(user.id),
+                "user_id": user_id,
                 "auth0_user_id": auth0_user_id_str,
                 "email": email,
                 "error": str(exc),
@@ -547,7 +549,7 @@ def migrate_user_to_auth0(
         logger.error(
             "Auth0 migration database persist failure",
             extra={
-                "user_id": int(user.id),
+                "user_id": user_id,
                 "auth0_user_id": auth0_user_id_str,
                 "email": email,
                 "error": str(exc),

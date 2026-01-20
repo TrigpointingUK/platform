@@ -243,9 +243,10 @@ def test_update_user_auth0_mapping_exception_does_not_crash(monkeypatch, caplog)
             pass
 
     with caplog.at_level("ERROR"):
+        user_id = 1_000_001
         ok = update_user_auth0_mapping(
             db=FakeDB(),
-            user_id=1,
+            user_id=user_id,
             auth0_user_id="auth0|x",
         )
     assert ok is True
@@ -278,7 +279,7 @@ def test_update_user_auth0_mapping_exception_does_not_crash(monkeypatch, caplog)
 #     with caplog.at_level("WARNING"):
 #         ok = update_user_auth0_mapping(
 #             db=FakeDB(),
-#             user_id=1,
+#             user_id=1_000_001,
 #             auth0_user_id="auth0|y",
 #         )
 #     assert ok is True
@@ -301,9 +302,10 @@ def test_update_user_auth0_mapping_commit_fallback_failure(monkeypatch, caplog):
             pass
 
     with caplog.at_level("ERROR"):
+        user_id = 1_000_002
         ok = update_user_auth0_mapping(
             db=FakeDB(),
-            user_id=1,
+            user_id=user_id,
             auth0_user_id="auth0|z",
         )
     assert ok is False

@@ -339,7 +339,7 @@ class TestDeletePhoto:
 
         assert response.status_code == 403
 
-    def test_delete_photo_as_admin(self, client: TestClient, db):
+    def test_delete_photo_as_admin(self, client: TestClient, db, test_trig):
         """Test that admin can delete any photo."""
         # Create a fresh photo for this test
         unique_suffix = uuid.uuid4().hex[:6]
@@ -357,7 +357,7 @@ class TestDeletePhoto:
         db.flush()
 
         log = TLog(
-            trig_id=1,
+            trig_id=test_trig.id,
             user_id=user.id,
             date=date(2023, 12, 15),
             time=time(14, 30, 0),

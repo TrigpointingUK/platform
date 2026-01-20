@@ -264,6 +264,7 @@ def test_migrate_user_database_failure_returns_500(
     target_user = _create_user(
         db, username=f"ivan_{suffix}", email=f"ivan_{suffix}@example.com"
     )
+    target_user_id = int(target_user.id)
 
     def failing_commit(self):
         raise RuntimeError("db commit failed")
@@ -281,7 +282,7 @@ def test_migrate_user_database_failure_returns_500(
     ) as mock_delete:
         response = client.post(
             "/v1/admin/legacy-migration/migrate",
-            json={"user_id": target_user.id, "email": f"ivan_{suffix}_new@example.com"},
+            json={"user_id": target_user_id, "email": f"ivan_{suffix}_new@example.com"},
             headers=_admin_headers(admin_user),
         )
 
@@ -289,5 +290,6 @@ def test_migrate_user_database_failure_returns_500(
     assert "Failed to persist Auth0 migration details" in response.json()["detail"]
     mock_delete.assert_called_once_with(f"auth0|ivan_{suffix}")
 
-    db.refresh(target_user)
-    assert target_user.auth0_user_id is None
+    db.expire_all()
+    refreshed = db.get(User, target_user_id)
+    assert refreshed is None or refreshed.auth0_user_id is None

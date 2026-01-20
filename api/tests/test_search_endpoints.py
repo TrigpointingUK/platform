@@ -22,15 +22,15 @@ class TestLogSearchSubstringEndpoint:
     """Test cases for GET /search/logs/substring endpoint."""
 
     def test_search_logs_substring_returns_results(
-        self, client: TestClient, db: Session
+        self, client: TestClient, db: Session, test_user, test_trig
     ):
         """Test that search returns matching logs."""
         prefix = f"API_SUBSTRING_{uuid.uuid4().hex[:8]}"
 
         # Create test logs with unique prefix
         log1 = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 1),
             time=time(12, 0, 0),
             fb_number="S1234",
@@ -41,8 +41,8 @@ class TestLogSearchSubstringEndpoint:
             source="W",
         )
         log2 = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 2),
             time=time(13, 0, 0),
             fb_number="S1235",
@@ -88,7 +88,9 @@ class TestLogSearchSubstringEndpoint:
         assert body["total"] == 0
         assert len(body["items"]) == 0
 
-    def test_search_logs_substring_pagination(self, client: TestClient, db: Session):
+    def test_search_logs_substring_pagination(
+        self, client: TestClient, db: Session, test_user, test_trig
+    ):
         """Test pagination in search results."""
         prefix = f"API_PAGINATE_{uuid.uuid4().hex[:8]}"
 
@@ -96,8 +98,8 @@ class TestLogSearchSubstringEndpoint:
         logs = []
         for i in range(15):
             log = TLog(
-                trig_id=1,
-                user_id=1,
+                trig_id=test_trig.id,
+                user_id=test_user.id,
                 date=date(2024, 1, 1),
                 time=time(12, 0, 0),
                 fb_number=f"P{i}",
@@ -150,14 +152,16 @@ class TestLogSearchRegexEndpoint:
     which would have caught the REGEXP vs ~* syntax error.
     """
 
-    def test_search_logs_regex_returns_results(self, client: TestClient, db: Session):
+    def test_search_logs_regex_returns_results(
+        self, client: TestClient, db: Session, test_user, test_trig
+    ):
         """Test that regex search returns matching logs."""
         prefix = f"API_REGEX_{uuid.uuid4().hex[:8]}"
 
         # Create test logs with pattern-matchable content
         log1 = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 1),
             time=time(12, 0, 0),
             fb_number="S1234",
@@ -168,8 +172,8 @@ class TestLogSearchRegexEndpoint:
             source="W",
         )
         log2 = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 2),
             time=time(13, 0, 0),
             fb_number="S1235",
@@ -180,8 +184,8 @@ class TestLogSearchRegexEndpoint:
             source="W",
         )
         log3 = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 3),
             time=time(14, 0, 0),
             fb_number="S1236",
@@ -213,14 +217,16 @@ class TestLogSearchRegexEndpoint:
         for item in body["items"]:
             assert "TP" in item["comment"]
 
-    def test_search_logs_regex_no_results(self, client: TestClient, db: Session):
+    def test_search_logs_regex_no_results(
+        self, client: TestClient, db: Session, test_user, test_trig
+    ):
         """Test regex search with no matching results."""
         prefix = f"API_REGEX_NONE_{uuid.uuid4().hex[:8]}"
 
         # Create a log that won't match the pattern
         log = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 1),
             time=time(12, 0, 0),
             fb_number="S1234",
@@ -243,14 +249,16 @@ class TestLogSearchRegexEndpoint:
         body = response.json()
         assert body["total"] == 0
 
-    def test_search_logs_regex_case_insensitive(self, client: TestClient, db: Session):
+    def test_search_logs_regex_case_insensitive(
+        self, client: TestClient, db: Session, test_user, test_trig
+    ):
         """Test that regex search is case-insensitive (uses ~* operator)."""
         prefix = f"API_REGEX_CI_{uuid.uuid4().hex[:8]}"
 
         # Create log with mixed case
         log = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 1),
             time=time(12, 0, 0),
             fb_number="S1234",
@@ -274,15 +282,15 @@ class TestLogSearchRegexEndpoint:
         assert body["total"] >= 1
 
     def test_search_logs_regex_special_characters(
-        self, client: TestClient, db: Session
+        self, client: TestClient, db: Session, test_user, test_trig
     ):
         """Test regex search with special regex characters."""
         prefix = f"API_REGEX_SPECIAL_{uuid.uuid4().hex[:8]}"
 
         # Create log
         log = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 1),
             time=time(12, 0, 0),
             fb_number="S1234",
@@ -321,15 +329,15 @@ class TestUnifiedSearchEndpoint:
     """Test cases for GET /search/all endpoint (unified search)."""
 
     def test_unified_search_returns_multiple_categories(
-        self, client: TestClient, db: Session
+        self, client: TestClient, db: Session, test_user, test_trig
     ):
         """Test that unified search returns results from multiple categories."""
         prefix = f"API_UNIFIED_{uuid.uuid4().hex[:8]}"
 
         # Create a log that will be found
         log = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 1),
             time=time(12, 0, 0),
             fb_number="S1234",

@@ -473,13 +473,14 @@ class TestLegacyLoginIncludes:
         client: TestClient,
         db: Session,
         test_user: User,
+        test_trig,
     ):
         """Test login with stats include."""
         mock_auth0_service.update_user_password.return_value = True
 
         # Create a log for the user
         log = TLog(
-            trig_id=1,
+            trig_id=test_trig.id,
             user_id=test_user.id,
             date=date(2023, 1, 1),
             time=time(12, 0),

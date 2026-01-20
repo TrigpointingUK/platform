@@ -212,7 +212,7 @@ function StatusForm({ initialData, onSubmit, isSubmitting, mode }: StatusFormPro
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
-              <Spinner size="sm" className="mr-2" />
+              <span className="mr-2"><Spinner size="sm" /></span>
               {mode === "create" ? "Creating..." : "Saving..."}
             </>
           ) : mode === "create" ? (
@@ -249,7 +249,7 @@ export default function StatusAdmin() {
     try {
       setLoading(true);
       setError(null);
-      const token = await getAccessTokenSilently(ADMIN_AUTH_PARAMS);
+      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
       const data = await fetchAllStatuses(token);
       setStatuses(data);
     } catch (err) {
@@ -270,7 +270,7 @@ export default function StatusAdmin() {
   const handleAddStatus = async (data: StatusCreateInput | StatusUpdateInput) => {
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently(ADMIN_AUTH_PARAMS);
+      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
       await createStatus(data as StatusCreateInput, token);
       toast.success("Status created successfully");
       setIsAddDialogOpen(false);
@@ -287,7 +287,7 @@ export default function StatusAdmin() {
     if (!editingStatus) return;
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently(ADMIN_AUTH_PARAMS);
+      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
       await updateStatus(editingStatus.id, data as StatusUpdateInput, token);
       toast.success("Status updated successfully");
       setEditingStatus(null);
@@ -306,7 +306,7 @@ export default function StatusAdmin() {
 
     // Fetch usage count
     try {
-      const token = await getAccessTokenSilently(ADMIN_AUTH_PARAMS);
+      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
       const usage = await fetchStatusUsage(status.id, token);
       setDeleteUsageCount(usage.usage_count);
     } catch (err) {
@@ -319,7 +319,7 @@ export default function StatusAdmin() {
     if (!deletingStatus) return;
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently(ADMIN_AUTH_PARAMS);
+      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
       await deleteStatus(deletingStatus.id, token);
       toast.success("Status deleted successfully");
       setDeletingStatus(null);
@@ -388,7 +388,7 @@ export default function StatusAdmin() {
               Status Management
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Manage trigpoint condition statuses
+              Manage trigpoint statuses
             </p>
           </div>
           <Button onClick={() => setIsAddDialogOpen(true)}>
@@ -423,7 +423,7 @@ export default function StatusAdmin() {
             <DialogHeader>
               <DialogTitle>Add New Status</DialogTitle>
               <DialogDescription>
-                Create a new trigpoint condition status.
+                Create a new trigpoint status.
               </DialogDescription>
             </DialogHeader>
             <StatusForm
@@ -469,9 +469,9 @@ export default function StatusAdmin() {
                 ? `This status is used by ${deleteUsageCount} trigpoint(s) and cannot be deleted.`
                 : `Are you sure you want to delete "${deletingStatus?.name.trim()}"? This action cannot be undone.`
           }
-          confirmLabel={deleteUsageCount === 0 ? "Delete" : "Close"}
+          confirmText={deleteUsageCount === 0 ? "Delete" : "Close"}
           onConfirm={deleteUsageCount === 0 ? handleConfirmDelete : () => setDeletingStatus(null)}
-          destructive={deleteUsageCount === 0}
+          variant={deleteUsageCount === 0 ? "danger" : "default"}
         />
       </div>
     </Layout>

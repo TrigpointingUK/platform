@@ -257,7 +257,9 @@ class TestMigrateUsersDryRun:
 class TestMigrateUsersRealMigration:
     """Test actual migration."""
 
-    @pytest.mark.skip(reason="Legacy feature - initial migration complete, test too slow (~60s)")
+    @pytest.mark.skip(
+        reason="Legacy feature - initial migration complete, test too slow (~60s)"
+    )
     @patch("api.api.v1.endpoints.legacy.auth0_service")
     def test_successful_migration(
         self,

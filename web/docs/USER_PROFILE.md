@@ -65,7 +65,7 @@ A user profile page with inline editing capabilities for authenticated users vie
 Each breakdown card shows:
 - Current Use (Triangulation, Navigation, etc.)
 - Historic Use (Primary, Secondary, etc.)
-- Physical Type (Pillar, Bolt, Rivet, etc.)
+- Type (grouped by category: Pillar, FBM, Survey Mark, etc.)
 - Condition (Good, Damaged, Missing, etc.)
 
 ## API Integration
@@ -87,7 +87,16 @@ Each breakdown card shows:
   breakdown?: {
     by_current_use: Record<string, number>;
     by_historic_use: Record<string, number>;
-    by_physical_type: Record<string, number>;
+    by_type: Array<{
+      category_code: string;
+      category_name: string;
+      sort_order: number;
+      types: Array<{
+        type_code: string;
+        type_name: string;
+        count: number;
+      }>;
+    }>;
     by_condition: Record<string, number>;
   };
 }

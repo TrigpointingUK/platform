@@ -1494,10 +1494,10 @@ export default function Admin() {
 
           <Card>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-              Condition Statuses
+              Trigpoint Statuses
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
-              Manage trigpoint condition status values.
+              Manage trigpoint status values.
             </p>
             <a
               href="/admin/status"
