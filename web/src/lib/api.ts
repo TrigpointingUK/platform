@@ -1345,3 +1345,119 @@ export async function fetchStatusUsage(
   return apiGet<StatusUsage>(`/v1/admin/status/statuses/${statusId}/usage`, token);
 }
 
+// ============================================================================
+// Condition Admin Types and Functions
+// ============================================================================
+
+/**
+ * Condition record
+ */
+export interface Condition {
+  code: string;
+  name: string;
+  description: string | null;
+  icon_file: string | null;
+  trig_colour: string | null;
+  log_colour: string | null;
+  similar_codes: string | null;
+  wiki_url: string | null;
+  sort_order: number;
+}
+
+/**
+ * Input for creating a new condition
+ */
+export interface ConditionCreateInput {
+  code: string;
+  name: string;
+  sort_order: number;
+  description?: string;
+  icon_file?: string;
+  trig_colour?: string;
+  log_colour?: string;
+  similar_codes?: string;
+  wiki_url?: string;
+}
+
+/**
+ * Input for updating a condition
+ */
+export interface ConditionUpdateInput {
+  name?: string;
+  description?: string;
+  icon_file?: string;
+  trig_colour?: string;
+  log_colour?: string;
+  similar_codes?: string;
+  wiki_url?: string;
+  sort_order?: number;
+}
+
+/**
+ * Condition usage response
+ */
+export interface ConditionUsage {
+  code: string;
+  usage_count: number;
+}
+
+/**
+ * Get all conditions (admin)
+ */
+export async function fetchAllConditions(token: string): Promise<Condition[]> {
+  return apiGet<Condition[]>(`/v1/admin/condition/conditions`, token);
+}
+
+/**
+ * Create a new condition (admin)
+ */
+export async function createCondition(
+  data: ConditionCreateInput,
+  token: string
+): Promise<Condition> {
+  return apiPost<Condition>(`/v1/admin/condition/conditions`, data, token);
+}
+
+/**
+ * Update a condition (admin)
+ */
+export async function updateCondition(
+  code: string,
+  data: ConditionUpdateInput,
+  token: string
+): Promise<Condition> {
+  return apiPatch<Condition>(`/v1/admin/condition/conditions/${code}`, data, token);
+}
+
+/**
+ * Delete a condition (admin)
+ * Will fail if any logs are using this condition.
+ */
+export async function deleteCondition(
+  code: string,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/condition/conditions/${code}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Get usage count for a condition (admin)
+ */
+export async function fetchConditionUsage(
+  code: string,
+  token: string
+): Promise<ConditionUsage> {
+  return apiGet<ConditionUsage>(`/v1/admin/condition/conditions/${code}/usage`, token);
+}
+

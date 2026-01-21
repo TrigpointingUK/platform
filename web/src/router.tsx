@@ -30,6 +30,7 @@ const AdminTrigEdit = lazy(() => import("./routes/admin/TrigEdit"));
 const AdminTrigCreate = lazy(() => import("./routes/admin/TrigCreate"));
 const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
 const AdminStatusAdmin = lazy(() => import("./routes/admin/StatusAdmin"));
+const AdminConditionAdmin = lazy(() => import("./routes/admin/ConditionAdmin"));
 
 // Redirect component for old /trig/ URLs
 function TrigRedirect() {
@@ -291,6 +292,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <AdminStatusAdmin />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/condition",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminConditionAdmin />
         </Suspense>
       ),
     },

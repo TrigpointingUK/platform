@@ -1,5 +1,6 @@
 from .area import Area, AreaType
 from .attr import Attr, AttrSet, AttrSetAttrVal, AttrSource, AttrVal
+from .condition import Condition
 from .location import Postcode, Town
 from .server import Server
 from .status import Status
@@ -11,6 +12,7 @@ from .user import TLog, TPhotoVote, User
 __all__ = [
     "Area",
     "AreaType",
+    "Condition",
     "User",
     "TLog",
     "TPhotoVote",
