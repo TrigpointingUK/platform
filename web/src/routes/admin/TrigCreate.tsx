@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
@@ -11,10 +11,8 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
 import { useTrigCategories } from "../../hooks/useTrigTypes";
 import {
-  fetchTrigForEdit,
   fetchStatuses,
-  updateTrigAdmin,
-  TrigAdminDetail,
+  createTrigAdmin,
   StatusRecord,
 } from "../../lib/api";
 
@@ -56,13 +54,11 @@ const HISTORIC_USE_OPTIONS = [
   "Intersection",
 ];
 
-export default function TrigEdit() {
-  const { trigId } = useParams<{ trigId: string }>();
+export default function TrigCreate() {
   const { getAccessTokenSilently } = useAuth0();
   const navigate = useNavigate();
   const { hasAdminRole, hasAdminScope, isLoading: isAuthLoading } = useAdminAuth();
 
-  const [trig, setTrig] = useState<TrigAdminDetail | null>(null);
   const [statuses, setStatuses] = useState<StatusRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -73,34 +69,33 @@ export default function TrigEdit() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Update document title when trig data loads
-  useDocumentTitle(trig ? `Edit: ${trig.name}` : null);
+  // Set document title
+  useDocumentTitle("Create New Trigpoint");
 
-  // Form fields
+  // Form fields with empty defaults
   const [name, setName] = useState("");
   const [fbNumber, setFbNumber] = useState("");
   const [stnNumber, setStnNumber] = useState("");
   const [stnNumberActive, setStnNumberActive] = useState("");
   const [stnNumberPassive, setStnNumberPassive] = useState("");
   const [stnNumberOsgb36, setStnNumberOsgb36] = useState("");
-  const [statusId, setStatusId] = useState(1);
+  const [statusId, setStatusId] = useState(10); // Default to a common status
   const [typeId, setTypeId] = useState<number | null>(null);
   const [currentUse, setCurrentUse] = useState("none");
   const [historicUse, setHistoricUse] = useState("none");
-  const [condition, setCondition] = useState("G");
+  const [condition, setCondition] = useState("U");
   const [wgsLat, setWgsLat] = useState("");
   const [wgsLong, setWgsLong] = useState("");
-  const [wgsHeight, setWgsHeight] = useState<number | null>(0);
+  const [wgsHeight, setWgsHeight] = useState<number | null>(null);
   const [osgbEastings, setOsgbEastings] = useState(0);
   const [osgbNorthings, setOsgbNorthings] = useState(0);
   const [osgbGridref, setOsgbGridref] = useState("");
-  const [osgbHeight, setOsgbHeight] = useState<number | null>(0);
+  const [osgbHeight, setOsgbHeight] = useState<number | null>(null);
   const [legalMessage, setLegalMessage] = useState<string>("");
-  const [action, setAction] = useState<"solved" | "revisit" | "cant_fix">("revisit");
   const [adminComment, setAdminComment] = useState("");
 
   useEffect(() => {
-    if (!hasAdminRole || !hasAdminScope || !trigId) {
+    if (!hasAdminRole || !hasAdminScope) {
       return;
     }
 
@@ -115,39 +110,14 @@ export default function TrigEdit() {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
 
-        const [trigData, statusesData] = await Promise.all([
-          fetchTrigForEdit(parseInt(trigId), token),
-          fetchStatuses(token),
-        ]);
+        const statusesData = await fetchStatuses(token);
 
         if (!cancelled) {
-          setTrig(trigData);
           setStatuses(statusesData);
-
-          // Populate form fields
-          setName(trigData.name);
-          setFbNumber(trigData.fb_number);
-          setStnNumber(trigData.stn_number);
-          setStnNumberActive(trigData.stn_number_active);
-          setStnNumberPassive(trigData.stn_number_passive);
-          setStnNumberOsgb36(trigData.stn_number_osgb36);
-          setStatusId(trigData.status_id);
-          setTypeId(trigData.type_id);
-          setCurrentUse(trigData.current_use);
-          setHistoricUse(trigData.historic_use);
-          setCondition(trigData.condition);
-          setWgsLat(trigData.wgs_lat);
-          setWgsLong(trigData.wgs_long);
-          setWgsHeight(trigData.wgs_height);
-          setOsgbEastings(trigData.osgb_eastings);
-          setOsgbNorthings(trigData.osgb_northings);
-          setOsgbGridref(trigData.osgb_gridref);
-          setOsgbHeight(trigData.osgb_height);
-          setLegalMessage(trigData.legal_message || "");
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load trigpoint");
+          setError(err instanceof Error ? err.message : "Failed to load data");
         }
       } finally {
         if (!cancelled) {
@@ -161,7 +131,7 @@ export default function TrigEdit() {
     return () => {
       cancelled = true;
     };
-  }, [getAccessTokenSilently, hasAdminRole, hasAdminScope, trigId]);
+  }, [getAccessTokenSilently, hasAdminRole, hasAdminScope]);
 
   const handleWgsChange = (lat: string, long: string, height: number | null) => {
     setWgsLat(lat);
@@ -184,6 +154,16 @@ export default function TrigEdit() {
       return;
     }
 
+    if (!name.trim()) {
+      setSaveError("Name is required");
+      return;
+    }
+
+    if (!wgsLat || !wgsLong) {
+      setSaveError("Coordinates are required");
+      return;
+    }
+
     setIsSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -193,8 +173,7 @@ export default function TrigEdit() {
         authorizationParams: { ...ADMIN_AUTH_PARAMS },
       });
 
-      await updateTrigAdmin(
-        parseInt(trigId!),
+      const newTrig = await createTrigAdmin(
         {
           name,
           fb_number: fbNumber,
@@ -215,19 +194,18 @@ export default function TrigEdit() {
           osgb_gridref: osgbGridref,
           osgb_height: osgbHeight,
           legal_message: legalMessage || null,
-          action,
           admin_comment: adminComment,
         },
         token
       );
 
       setSaveSuccess(true);
-      // Redirect to trigpoint detail page after short delay
+      // Redirect to the new trigpoint's detail page after short delay
       setTimeout(() => {
-        navigate(`/trigs/${trigId}`);
+        navigate(`/trigs/${newTrig.id}`);
       }, 1500);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save changes");
+      setSaveError(err instanceof Error ? err.message : "Failed to create trigpoint");
     } finally {
       setIsSaving(false);
     }
@@ -277,7 +255,7 @@ export default function TrigEdit() {
           <Card>
             <div className="flex items-center justify-center py-12">
               <Spinner size="lg" />
-              <span className="ml-3 text-gray-600 dark:text-gray-400">Loading trigpoint...</span>
+              <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
             </div>
           </Card>
         </div>
@@ -285,18 +263,18 @@ export default function TrigEdit() {
     );
   }
 
-  if (error || !trig) {
+  if (error) {
     return (
       <Layout>
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="text-center py-12">
-              <p className="text-red-600 dark:text-red-400">Error: {error || "Trigpoint not found"}</p>
+              <p className="text-red-600 dark:text-red-400">Error: {error}</p>
               <Link
-                to="/admin/needs-attention"
+                to="/admin"
                 className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 mt-4 inline-block"
               >
-                ← Back to list
+                ← Back to Admin
               </Link>
             </div>
           </Card>
@@ -312,24 +290,14 @@ export default function TrigEdit() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                Edit Trigpoint: {trig.name}
+                Create New Trigpoint
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mb-2">
-                Waypoint: {trig.waypoint} | ID: {trig.id}
+              <p className="text-gray-600 dark:text-gray-400">
+                A waypoint code will be automatically assigned when the trigpoint is created.
               </p>
-              <div className="flex gap-4 text-sm">
-                <Link
-                  to={`/trigs/${trig.id}`}
-                  className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 font-medium"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View Trigpoint Details →
-                </Link>
-              </div>
             </div>
             <Link
-              to="/admin/needs-attention"
+              to="/admin"
               className="text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 font-medium"
             >
               ← Back to Admin
@@ -345,7 +313,7 @@ export default function TrigEdit() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Name
+                  Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -353,6 +321,7 @@ export default function TrigEdit() {
                   onChange={(e) => setName(e.target.value)}
                   required
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+                  placeholder="e.g., Ben Nevis"
                 />
               </div>
 
@@ -366,6 +335,7 @@ export default function TrigEdit() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                   disabled={isLoadingTypes}
                 >
+                  <option value="">Select type...</option>
                   {isLoadingTypes ? (
                     <option value="">Loading types...</option>
                   ) : (
@@ -514,7 +484,7 @@ export default function TrigEdit() {
 
           <Card>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
-              Coordinates
+              Coordinates <span className="text-red-500">*</span>
             </h2>
             <LinkedCoordinates
               wgsLat={wgsLat}
@@ -524,7 +494,7 @@ export default function TrigEdit() {
               osgbNorthings={osgbNorthings}
               osgbGridref={osgbGridref}
               osgbHeight={osgbHeight}
-              initialGridSystem={trig?.grid_system as 'gb' | 'ie' | null}
+              initialGridSystem="gb"
               onWgsChange={handleWgsChange}
               onOsgbChange={handleOsgbChange}
             />
@@ -567,77 +537,19 @@ export default function TrigEdit() {
 
           <Card>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
-              Admin Action
+              Admin Comment <span className="text-red-500">*</span>
             </h2>
-
-            <div className="space-y-3 mb-6">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="action"
-                  value="solved"
-                  checked={action === "solved"}
-                  onChange={(e) => setAction(e.target.value as typeof action)}
-                  className="h-4 w-4 text-trig-green-600 focus:ring-trig-green-500"
-                />
-                <span className="text-gray-800 dark:text-gray-200">
-                  Problem solved! Close log (sets needs_attention to 0)
-                </span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="action"
-                  value="revisit"
-                  checked={action === "revisit"}
-                  onChange={(e) => setAction(e.target.value as typeof action)}
-                  className="h-4 w-4 text-trig-green-600 focus:ring-trig-green-500"
-                />
-                <span className="text-gray-800 dark:text-gray-200">
-                  Leave in &quot;Needs attention&quot; status, to be revisited later
-                </span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="action"
-                  value="cant_fix"
-                  checked={action === "cant_fix"}
-                  onChange={(e) => setAction(e.target.value as typeof action)}
-                  className="h-4 w-4 text-trig-green-600 focus:ring-trig-green-500"
-                />
-                <span className="text-gray-800 dark:text-gray-200">
-                  Can&apos;t fix using this tool (increments needs_attention)
-                </span>
-              </label>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Admin Comment (required)
-              </label>
-              <textarea
-                value={adminComment}
-                onChange={(e) => setAdminComment(e.target.value)}
-                required
-                rows={4}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
-                placeholder="Enter your comment about this update..."
-              />
-            </div>
-
-            {trig.attention_comment && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Comment History
-                </label>
-                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md border border-gray-300 dark:border-gray-600 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300 max-h-64 overflow-y-auto">
-                  {trig.attention_comment}
-                </div>
-              </div>
-            )}
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              Provide a reason for creating this trigpoint. This will be recorded in the audit trail.
+            </p>
+            <textarea
+              value={adminComment}
+              onChange={(e) => setAdminComment(e.target.value)}
+              required
+              rows={4}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
+              placeholder="e.g., Adding missing trigpoint discovered during survey..."
+            />
           </Card>
 
           {saveError && (
@@ -648,7 +560,7 @@ export default function TrigEdit() {
 
           {saveSuccess && (
             <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-md">
-              Changes saved successfully! Redirecting...
+              Trigpoint created successfully! Redirecting...
             </div>
           )}
 
@@ -657,15 +569,17 @@ export default function TrigEdit() {
               {isSaving ? (
                 <span className="flex items-center gap-2">
                   <Spinner size="sm" />
-                  <span>Saving...</span>
+                  <span>Creating...</span>
                 </span>
               ) : (
-                "Update"
+                "Create Trigpoint"
               )}
             </Button>
-            <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
-              Cancel
-            </Button>
+            <Link to="/admin">
+              <Button type="button" variant="secondary">
+                Cancel
+              </Button>
+            </Link>
           </div>
         </form>
       </div>

@@ -27,6 +27,7 @@ const Admin = lazy(() => import("./routes/Admin"));
 const AdminNeedsAttention = lazy(() => import("./routes/admin/NeedsAttention"));
 const AdminLogsNeedsAttention = lazy(() => import("./routes/admin/LogsNeedsAttention"));
 const AdminTrigEdit = lazy(() => import("./routes/admin/TrigEdit"));
+const AdminTrigCreate = lazy(() => import("./routes/admin/TrigCreate"));
 const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
 const AdminStatusAdmin = lazy(() => import("./routes/admin/StatusAdmin"));
 
@@ -258,6 +259,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <AdminLogsNeedsAttention />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/trigs/new",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminTrigCreate />
         </Suspense>
       ),
     },

@@ -635,6 +635,29 @@ export interface TrigAdminUpdate {
   admin_comment: string;
 }
 
+export interface TrigAdminCreate {
+  name: string;
+  fb_number: string;
+  stn_number: string;
+  stn_number_active: string;
+  stn_number_passive: string;
+  stn_number_osgb36: string;
+  status_id: number;
+  type_id: number | null;
+  current_use: string;
+  historic_use: string;
+  condition: string;
+  wgs_lat: string;
+  wgs_long: string;
+  wgs_height: number | null;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  osgb_height: number | null;
+  legal_message: string | null;
+  admin_comment: string;
+}
+
 export interface StatusRecord {
   id: number;
   name: string;
@@ -688,6 +711,16 @@ export async function updateTrigAdmin(
   token: string
 ): Promise<TrigAdminDetail> {
   return apiPatch<TrigAdminDetail>(`/v1/admin/trigs/${trigId}`, data, token);
+}
+
+/**
+ * Create a new trigpoint with admin privileges
+ */
+export async function createTrigAdmin(
+  data: TrigAdminCreate,
+  token: string
+): Promise<TrigAdminDetail> {
+  return apiPost<TrigAdminDetail>(`/v1/admin/trigs`, data, token);
 }
 
 /**
