@@ -25,6 +25,7 @@ from api.api.deps import (
     verify_webhook_auth,
 )
 from api.api.lifecycle import openapi_lifecycle
+from api.crud import area as area_crud
 from api.crud import tlog as tlog_crud
 from api.crud import tphoto as tphoto_crud
 from api.crud import user as user_crud
@@ -33,6 +34,11 @@ from api.models.tphoto import TPhoto
 from api.models.trig import Trig
 from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog, User
+from api.schemas.area import (
+    AreaCountItem,
+    AreaTypeResponse,
+    UserAreaBreakdownResponse,
+)
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.user import (
     CategoryTypeBreakdown,
@@ -706,6 +712,62 @@ def get_user_logged_trigs_cached(user_id: int, db: Session):
         {"trig_id": int(log.trig_id), "condition": str(log.condition or "U")}
         for log in logs
     ]
+
+
+@router.get(
+    "/{user_id}/area-breakdown",
+    response_model=UserAreaBreakdownResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Get user's log counts grouped by area for a specific area type. "
+        "Uses spatial queries to determine which area each logged trigpoint falls within.",
+    ),
+)
+@cached(
+    resource_type="user",
+    ttl=86400,
+    resource_id_param="user_id",
+    subresource="area-breakdown",
+)  # 24 hours - area boundaries don't change often
+def get_user_area_breakdown(
+    user_id: int,
+    area_type_code: str = Query(
+        "county_1991",
+        description="Area type code (e.g., county_1991, historic_county)",
+    ),
+    db: Session = Depends(get_db),
+) -> UserAreaBreakdownResponse:
+    """
+    Get user's log counts grouped by area for a specific area type.
+
+    Returns the count of distinct trigpoints the user has logged within each area
+    of the specified type, ordered by count descending.
+
+    Uses PostGIS spatial queries to determine which area each trigpoint falls within.
+    """
+    # Get area type info
+    area_type = area_crud.get_area_type_by_code(db, area_type_code)
+    if area_type is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Area type '{area_type_code}' not found",
+        )
+
+    # Get log counts by area
+    counts = area_crud.get_user_log_counts_by_area(db, user_id, area_type_code)
+
+    return UserAreaBreakdownResponse(
+        area_type=AreaTypeResponse(
+            id=int(area_type.id),
+            code=str(area_type.code),
+            name=str(area_type.name),
+            description=str(area_type.description) if area_type.description else None,
+        ),
+        items=[
+            AreaCountItem(area_name=item["area_name"], count=item["count"])
+            for item in counts
+        ],
+    )
 
 
 @router.get(

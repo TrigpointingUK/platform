@@ -8,6 +8,7 @@ import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import EditableField from "../components/ui/EditableField";
 import LogList from "../components/logs/LogList";
+import AreaBreakdown from "../components/profile/AreaBreakdown";
 import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
@@ -308,7 +309,7 @@ export default function UserProfile() {
             <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
               Trig Statistics Breakdown
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {/* By Recent Use */}
               <Card>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
@@ -408,6 +409,9 @@ export default function UserProfile() {
                   )}
                 </div>
               </Card>
+
+              {/* By Area */}
+              <AreaBreakdown userId={displayUserId} />
             </div>
           </div>
         )}

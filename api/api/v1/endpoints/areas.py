@@ -62,6 +62,9 @@ def get_areas_containing_point(
                 id=type_id,
                 code=str(area_type.code),
                 name=str(area_type.name),
+                description=(
+                    str(area_type.description) if area_type.description else None
+                ),
             )
 
         groups_dict[type_id].append(
@@ -110,7 +113,12 @@ def list_area_types(
     """
     types = area_crud.list_area_types(db)
     return [
-        AreaTypeResponse(id=int(t.id), code=str(t.code), name=str(t.name))
+        AreaTypeResponse(
+            id=int(t.id),
+            code=str(t.code),
+            name=str(t.name),
+            description=str(t.description) if t.description else None,
+        )
         for t in types
     ]
 
@@ -143,6 +151,9 @@ def get_area(
             id=int(area.area_type.id),
             code=str(area.area_type.code),
             name=str(area.area_type.name),
+            description=(
+                str(area.area_type.description) if area.area_type.description else None
+            ),
         ),
     )
 
@@ -176,6 +187,7 @@ def get_area_boundary(
             id=result["area_type"]["id"],
             code=result["area_type"]["code"],
             name=result["area_type"]["name"],
+            description=result["area_type"].get("description"),
         ),
         boundary=result["boundary"],
     )

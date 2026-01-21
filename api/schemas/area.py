@@ -15,6 +15,7 @@ class AreaTypeResponse(BaseModel):
     id: int = Field(..., description="Area type ID")
     code: str = Field(..., description="Area type code (e.g., historic_county)")
     name: str = Field(..., description="Area type display name")
+    description: Optional[str] = Field(None, description="Area type description")
 
 
 class AreaResponse(BaseModel):
@@ -55,4 +56,22 @@ class AreaBoundaryResponse(BaseModel):
     area_type: AreaTypeResponse = Field(..., description="Area type information")
     boundary: dict[str, Any] = Field(
         ..., description="GeoJSON geometry (MultiPolygon or Polygon)"
+    )
+
+
+class AreaCountItem(BaseModel):
+    """Response model for area count item in user breakdown."""
+
+    area_name: str = Field(..., description="Area name")
+    count: int = Field(
+        ..., description="Number of distinct trigpoints logged in this area"
+    )
+
+
+class UserAreaBreakdownResponse(BaseModel):
+    """Response model for user log counts grouped by area."""
+
+    area_type: AreaTypeResponse = Field(..., description="Area type information")
+    items: list[AreaCountItem] = Field(
+        ..., description="Areas with log counts, ordered by count descending"
     )

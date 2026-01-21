@@ -5,12 +5,23 @@ Uses PostGIS spatial functions for containment queries.
 
 from typing import Any, Optional
 
+import sqlalchemy as sa
 from geoalchemy2 import Geometry
 from geoalchemy2.functions import ST_AsGeoJSON, ST_Covers, ST_MakePoint, ST_SetSRID
-from sqlalchemy import cast
+from sqlalchemy import cast, func
 from sqlalchemy.orm import Session
 
 from api.models.area import Area, AreaType
+from api.models.user import TLog
+
+# Reference to the trig_area_mv materialized view for efficient trig-to-area lookups
+TRIG_AREA_MV = sa.table(
+    "trig_area_mv",
+    sa.column("trig_id", sa.Integer),
+    sa.column("area_id", sa.Integer),
+    sa.column("area_type_id", sa.Integer),
+    sa.column("area_type_code", sa.String),
+)
 
 
 def _is_sqlite(db: Session) -> bool:
@@ -221,6 +232,60 @@ def get_area_boundary_geojson(db: Session, area_id: int) -> Optional[dict[str, A
             "id": int(area_type.id),
             "code": str(area_type.code),
             "name": str(area_type.name),
+            "description": (
+                str(area_type.description) if area_type.description else None
+            ),
         },
         "boundary": boundary_dict,
     }
+
+
+def get_user_log_counts_by_area(
+    db: Session,
+    user_id: int,
+    area_type_code: str,
+) -> list[dict[str, Any]]:
+    """
+    Get user's log counts grouped by area for a specific area type.
+
+    Uses the trig_area_mv materialized view for efficient trig-to-area lookups
+    (precomputed spatial containment). Counts distinct trigpoints (not individual
+    logs) for each area.
+
+    Args:
+        db: Database session
+        user_id: User ID to get log counts for
+        area_type_code: Area type code (e.g., "county_1991")
+
+    Returns:
+        List of dicts with area_name and count, ordered by count descending.
+        Format: [{"area_name": str, "count": int}, ...]
+    """
+    if _is_sqlite(db):
+        # SQLite doesn't support the materialized view - return empty list for tests
+        return []
+
+    # Query: join user's logged trigs with areas via the materialized view
+    # trig_area_mv already has area_type_code so we can filter directly
+    query = (
+        db.query(
+            Area.name.label("area_name"),
+            func.count(func.distinct(TLog.trig_id)).label("trig_count"),
+        )
+        .select_from(TLog)
+        .join(TRIG_AREA_MV, TRIG_AREA_MV.c.trig_id == TLog.trig_id)
+        .join(Area, Area.id == TRIG_AREA_MV.c.area_id)
+        .filter(
+            TLog.user_id == user_id,
+            TRIG_AREA_MV.c.area_type_code == area_type_code,
+        )
+        .group_by(Area.name)
+        .order_by(func.count(func.distinct(TLog.trig_id)).desc())
+    )
+
+    results = query.all()
+
+    return [
+        {"area_name": str(row.area_name), "count": int(row.trig_count)}
+        for row in results
+    ]
