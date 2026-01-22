@@ -415,7 +415,7 @@ def get_current_user_profile(
             condition_counts: Dict[str, int] = {
                 str(cond): int(count) for cond, count in condition_counts_raw
             }
-            by_condition = get_condition_counts_by_description(condition_counts)
+            by_condition = get_condition_counts_by_description(condition_counts, db)
 
             result.breakdown = UserBreakdown(
                 by_current_use=by_current_use,
@@ -1153,7 +1153,7 @@ def get_user(
         condition_counts: Dict[str, int] = {
             str(cond): int(count) for cond, count in condition_counts_raw
         }
-        by_condition = get_condition_counts_by_description(condition_counts)
+        by_condition = get_condition_counts_by_description(condition_counts, db)
 
         result.breakdown = UserBreakdown(
             by_current_use=by_current_use,

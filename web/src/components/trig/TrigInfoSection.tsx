@@ -5,28 +5,8 @@ import Badge from "../ui/Badge";
 import { Trig } from "../../lib/api";
 import { useAreasContaining, type Area } from "../../hooks/useAreasContaining";
 import { useUserProfile, type MapLinkOption } from "../../hooks/useUserProfile";
+import { useConditionInfo } from "../../hooks/useConditionInfo";
 import { generateMapUrl, getTrigpointingUKMapPath, isInternalMapLink, MAP_LINK_DEFAULTS } from "../../lib/mapLinks";
-
-// Condition code to display info mapping
-const conditionMap: Record<
-  string,
-  { label: string; icon: string; variant: "good" | "damaged" | "missing" | "unknown" }
-> = {
-  Z: { label: "Not Logged", icon: "c_unknown.png", variant: "unknown" },
-  N: { label: "Couldn't Find", icon: "c_possiblymissing.png", variant: "missing" },
-  G: { label: "Good", icon: "c_good.png", variant: "good" },
-  S: { label: "Slightly Damaged", icon: "c_slightlydamaged.png", variant: "damaged" },
-  C: { label: "Converted", icon: "c_slightlydamaged.png", variant: "damaged" },
-  D: { label: "Damaged", icon: "c_damaged.png", variant: "damaged" },
-  R: { label: "Remains", icon: "c_toppled.png", variant: "damaged" },
-  T: { label: "Toppled", icon: "c_toppled.png", variant: "damaged" },
-  M: { label: "Moved", icon: "c_toppled.png", variant: "missing" },
-  Q: { label: "Possibly Missing", icon: "c_possiblymissing.png", variant: "damaged" },
-  X: { label: "Destroyed", icon: "c_definitelymissing.png", variant: "missing" },
-  V: { label: "Unreachable but Visible", icon: "c_unreachablebutvisible.png", variant: "unknown" },
-  P: { label: "Inaccessible", icon: "c_unknown.png", variant: "unknown" },
-  U: { label: "Unknown", icon: "c_unknown.png", variant: "unknown" },
-};
 
 interface TrigInfoSectionProps {
   trig: Trig;
@@ -48,6 +28,9 @@ export default function TrigInfoSection({
   const mapLinkGridref: MapLinkOption = userProfile?.prefs?.ui_prefs?.map_link_gridref ?? MAP_LINK_DEFAULTS.gridref;
   const mapLinkWgs: MapLinkOption = userProfile?.prefs?.ui_prefs?.map_link_wgs ?? MAP_LINK_DEFAULTS.wgs;
   const mapLinkThumbnail: MapLinkOption = userProfile?.prefs?.ui_prefs?.map_link_thumbnail ?? MAP_LINK_DEFAULTS.thumbnail;
+
+  // Get condition info from API or fallback
+  const { getConditionInfo } = useConditionInfo();
 
   // Fetch areas containing this trigpoint
   const { data: areasData, isLoading: isAreasLoading } = useAreasContaining(
@@ -73,7 +56,7 @@ export default function TrigInfoSection({
   // State for areas dropdown
   const [isAreasDropdownOpen, setIsAreasDropdownOpen] = useState(false);
 
-  const condition = conditionMap[trig.condition] || conditionMap.U;
+  const condition = getConditionInfo(trig.condition);
   const apiBase = import.meta.env.VITE_API_BASE as string;
 
   // Helper function to create wiki links

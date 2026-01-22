@@ -188,7 +188,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                     str(cond): int(count)
                     for cond, count in condition_counts_no_email_raw
                 }
-                by_condition = get_condition_counts_by_description(condition_counts)
+                by_condition = get_condition_counts_by_description(condition_counts, db)
 
                 result.breakdown = UserBreakdown(
                     by_current_use=by_current_use,
@@ -394,7 +394,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
             condition_counts: Dict[str, int] = {  # type: ignore[no-redef]
                 str(cond): int(count) for cond, count in condition_counts_raw
             }
-            by_condition = get_condition_counts_by_description(condition_counts)
+            by_condition = get_condition_counts_by_description(condition_counts, db)
 
             result.breakdown = UserBreakdown(
                 by_current_use=by_current_use,

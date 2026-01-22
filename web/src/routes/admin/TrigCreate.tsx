@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
@@ -10,6 +10,7 @@ import RichTextEditor from "../../components/ui/RichTextEditor";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
 import { useTrigCategories } from "../../hooks/useTrigTypes";
+import { useConditions } from "../../hooks/useConditions";
 import {
   fetchStatuses,
   createTrigAdmin,
@@ -21,7 +22,8 @@ const ADMIN_AUTH_PARAMS = {
   scope: "openid profile email api:write api:read-pii offline_access api:admin",
 };
 
-const CONDITION_OPTIONS = [
+// Fallback condition options for when API data is loading
+const FALLBACK_CONDITION_OPTIONS = [
   { value: "U", label: "Unknown" },
   { value: "G", label: "Good" },
   { value: "S", label: "Slightly damaged" },
@@ -64,6 +66,15 @@ export default function TrigCreate() {
 
   // Fetch trig type categories for the dropdown
   const { data: typeCategories, isLoading: isLoadingTypes } = useTrigCategories();
+
+  // Fetch condition options from API
+  const { data: apiConditions } = useConditions();
+  const conditionOptions = useMemo(() => {
+    if (!apiConditions || apiConditions.length === 0) {
+      return FALLBACK_CONDITION_OPTIONS;
+    }
+    return apiConditions.map((c) => ({ value: c.code, label: c.name }));
+  }, [apiConditions]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -412,7 +423,7 @@ export default function TrigCreate() {
                   onChange={(e) => setCondition(e.target.value)}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 >
-                  {CONDITION_OPTIONS.map((opt) => (
+                  {conditionOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>

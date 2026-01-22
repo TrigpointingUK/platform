@@ -4,6 +4,7 @@ import StarRating from "../ui/StarRating";
 import DirectionArrow from "../ui/DirectionArrow";
 import { Photo } from "../../lib/api";
 import { osgbToWGS84 } from "../../lib/coordinates";
+import { useConditionInfo } from "../../hooks/useConditionInfo";
 
 interface Log {
   id: number;
@@ -47,27 +48,6 @@ interface LogCardProps {
   showTrigInfo?: boolean;
 }
 
-// Helper function to get condition icon and label
-function getConditionInfo(code: string): { icon: string; label: string } {
-  const conditions: Record<string, { icon: string; label: string }> = {
-    Z: { icon: "c_unknown.png", label: "Not Logged" },
-    N: { icon: "c_possiblymissing.png", label: "Couldn't Find" },
-    G: { icon: "c_good.png", label: "Good" },
-    S: { icon: "c_slightlydamaged.png", label: "Slightly Damaged" },
-    C: { icon: "c_slightlydamaged.png", label: "Converted" },
-    D: { icon: "c_damaged.png", label: "Damaged" },
-    R: { icon: "c_toppled.png", label: "Remains" },
-    T: { icon: "c_toppled.png", label: "Toppled" },
-    M: { icon: "c_toppled.png", label: "Moved" },
-    Q: { icon: "c_possiblymissing.png", label: "Possibly Missing" },
-    X: { icon: "c_definitelymissing.png", label: "Destroyed" },
-    V: { icon: "c_unreachablebutvisible.png", label: "Unreachable but Visible" },
-    P: { icon: "c_unknown.png", label: "Inaccessible" },
-    U: { icon: "c_unknown.png", label: "Unknown" },
-    "-": { icon: "c_nolog.png", label: "Not Visited" },
-  };
-  return conditions[code] || { icon: "c_unknown.png", label: code };
-}
 
 // Helper to get status icon info
 function getStatusInfo(statusName?: string | null): { icon?: string; abbrev: string } {
@@ -100,6 +80,7 @@ function getStatusInfo(statusName?: string | null): { icon?: string; abbrev: str
 
 export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false, showTrigInfo = true }: LogCardProps) {
   const navigate = useNavigate();
+  const { getConditionInfo } = useConditionInfo();
   const conditionInfo = getConditionInfo(log.condition);
   const formattedDate = new Date(log.date).toLocaleDateString("en-GB", {
     day: "numeric",

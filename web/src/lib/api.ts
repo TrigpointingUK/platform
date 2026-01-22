@@ -1461,3 +1461,33 @@ export async function fetchConditionUsage(
   return apiGet<ConditionUsage>(`/v1/admin/condition/conditions/${code}/usage`, token);
 }
 
+// ============================================================================
+// Public Conditions API (no auth required)
+// ============================================================================
+
+/**
+ * Get all conditions (public, cached)
+ */
+export async function fetchPublicConditions(): Promise<Condition[]> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/conditions`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch conditions");
+  }
+  return response.json();
+}
+
+/**
+ * Get a single condition by code (public, cached)
+ */
+export async function fetchPublicConditionByCode(
+  code: string
+): Promise<Condition> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/conditions/${code}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch condition ${code}`);
+  }
+  return response.json();
+}
+

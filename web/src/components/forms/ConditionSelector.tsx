@@ -1,20 +1,20 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Badge from "../ui/Badge";
+import { useConditions } from "../../hooks/useConditions";
+import { mapTrigColourToVariant, type ConditionVariant } from "../../lib/conditionUtils";
 
 interface ConditionOption {
   value: string;
   label: string;
-  icon: string;
-  variant: "good" | "damaged" | "missing" | "unknown";
+  icon: string | null;
+  variant: ConditionVariant;
 }
 
 /**
- * Condition options with colours matching "My Logs" map mode:
- * - Green (good): G, S
- * - Yellow (damaged): C, D, R, T, M, V
- * - Red (missing): Q, X, N, P, U
+ * Hardcoded fallback conditions for when API data is loading.
+ * These match the expected values from the condition table.
  */
-const CONDITIONS: ConditionOption[] = [
+const FALLBACK_CONDITIONS: ConditionOption[] = [
   { value: "G", label: "Good", icon: "c_good.png", variant: "good" },
   { value: "S", label: "Slightly Damaged", icon: "c_slightlydamaged.png", variant: "good" },
   { value: "D", label: "Damaged", icon: "c_damaged.png", variant: "damaged" },
@@ -26,8 +26,8 @@ const CONDITIONS: ConditionOption[] = [
   { value: "Q", label: "Possibly Missing", icon: "c_possiblymissing.png", variant: "missing" },
   { value: "X", label: "Destroyed", icon: "c_definitelymissing.png", variant: "missing" },
   { value: "N", label: "Couldn't Find", icon: "c_possiblymissing.png", variant: "missing" },
-  { value: "P", label: "Inaccessible", icon: "c_unknown.png", variant: "missing" },
-  { value: "U", label: "Unknown", icon: "c_unknown.png", variant: "missing" },
+  { value: "P", label: "Inaccessible", icon: "c_unknown.png", variant: "unknown" },
+  { value: "U", label: "Unknown", icon: "c_unknown.png", variant: "unknown" },
 ];
 
 interface ConditionSelectorProps {
@@ -42,8 +42,28 @@ export default function ConditionSelector({
   required = false,
 }: ConditionSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  
-  const selectedCondition = CONDITIONS.find((c) => c.value === value) || CONDITIONS[0];
+  const { data: apiConditions, isLoading } = useConditions();
+
+  // Build condition options from API data or use fallback
+  const conditions: ConditionOption[] = useMemo(() => {
+    if (!apiConditions || apiConditions.length === 0) {
+      return FALLBACK_CONDITIONS;
+    }
+
+    // Build lookup map for fallback icons
+    const fallbackMap = new Map(FALLBACK_CONDITIONS.map((c) => [c.value, c]));
+
+    return apiConditions.map((c) => ({
+      value: c.code,
+      label: c.name,
+      // Use API icon if available, otherwise fall back to hardcoded
+      icon: c.icon_file || fallbackMap.get(c.code)?.icon || "c_unknown.png",
+      variant: mapTrigColourToVariant(c.trig_colour),
+    }));
+  }, [apiConditions]);
+
+  const selectedCondition =
+    conditions.find((c) => c.value === value) || conditions[0];
 
   const handleSelect = (conditionValue: string) => {
     onChange(conditionValue);
@@ -55,19 +75,22 @@ export default function ConditionSelector({
       <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
         Condition {required && <span className="text-red-500">*</span>}
       </label>
-      
+
       {/* Selected Condition Display (clickable) */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-trig-green-500 flex items-center justify-between"
+        disabled={isLoading}
+        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-trig-green-500 flex items-center justify-between disabled:opacity-50"
       >
         <Badge variant={selectedCondition.variant}>
-          <img
-            src={`/icons/conditions/${selectedCondition.icon}`}
-            alt=""
-            className="w-4 h-4 inline-block mr-1.5"
-          />
+          {selectedCondition.icon && (
+            <img
+              src={`/icons/conditions/${selectedCondition.icon}`}
+              alt=""
+              className="w-4 h-4 inline-block mr-1.5"
+            />
+          )}
           {selectedCondition.label}
         </Badge>
         <svg
@@ -95,10 +118,10 @@ export default function ConditionSelector({
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          
-          {/* Options - height accommodates all 13 conditions without scrolling */}
+
+          {/* Options - height accommodates all conditions without scrolling */}
           <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg dark:shadow-gray-900/50 max-h-[32rem] overflow-y-auto">
-            {CONDITIONS.map((condition) => (
+            {conditions.map((condition) => (
               <button
                 key={condition.value}
                 type="button"
@@ -108,11 +131,13 @@ export default function ConditionSelector({
                 }`}
               >
                 <Badge variant={condition.variant}>
-                  <img
-                    src={`/icons/conditions/${condition.icon}`}
-                    alt=""
-                    className="w-4 h-4 inline-block mr-1.5"
-                  />
+                  {condition.icon && (
+                    <img
+                      src={`/icons/conditions/${condition.icon}`}
+                      alt=""
+                      className="w-4 h-4 inline-block mr-1.5"
+                    />
+                  )}
                   {condition.label}
                 </Badge>
                 {condition.value === value && (
@@ -136,4 +161,3 @@ export default function ConditionSelector({
     </div>
   );
 }
-

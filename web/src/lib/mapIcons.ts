@@ -1,18 +1,22 @@
 /**
  * Map icon configuration and utilities
- * 
+ *
  * @stable - These types and functions determine marker appearance on all maps.
  * Changes can affect visual consistency across the application.
- * 
+ *
  * Maps physical types to icon filenames and handles color modes for markers.
- * 
+ *
+ * This module provides two sets of functions:
+ * 1. Hardcoded fallback functions (work without API data)
+ * 2. Dynamic functions that use condition data from the API
+ *
  * @remarks
  * Breaking changes to consider:
  * - Changing IconColorMode type values
  * - Modifying icon file naming conventions
  * - Changing color mapping logic
  * - Altering function signatures
- * 
+ *
  * Non-breaking changes:
  * - Adding new physical types
  * - Adding new color modes (with fallback)
@@ -20,44 +24,43 @@
  * - Internal refactoring
  */
 
+import type { Condition } from "./api";
+import {
+  type IconColor,
+  type UserLogStatus,
+  getConditionColour as getConditionColourFromMap,
+  getUserLogColour as getUserLogColourFromMap,
+} from "./conditionUtils";
+
+// Re-export types from conditionUtils for backward compatibility
+export type { IconColor, UserLogStatus };
+
 /**
  * Icon color modes
  * @stable
  */
-export type IconColorMode = 'condition' | 'userLog';
-
-/**
- * Available icon colors
- */
-export type IconColor = 'green' | 'yellow' | 'red' | 'grey';
+export type IconColorMode = "condition" | "userLog";
 
 /**
  * Trig condition codes
  * Based on legacy PHP code condition mappings (see api/utils/condition_mapping.py)
+ * @deprecated Use condition data from API instead
  */
-export type ConditionCode = 
-  | 'G'  // Good
-  | 'S'  // Slightly damaged
-  | 'C'  // Converted
-  | 'D'  // Damaged
-  | 'R'  // Remains
-  | 'T'  // Toppled
-  | 'M'  // Moved
-  | 'Q'  // Possibly missing
-  | 'X'  // Destroyed
-  | 'V'  // Unreachable but visible
-  | 'P'  // Inaccessible
-  | 'N'  // Couldn't find it
-  | 'U'  // Unknown (fallback)
-  | 'Z'; // Not Logged
-
-/**
- * User log status for a trigpoint
- */
-export interface UserLogStatus {
-  hasLogged: boolean;
-  condition?: string; // Condition code from the user's log
-}
+export type ConditionCode =
+  | "G" // Good
+  | "S" // Slightly damaged
+  | "C" // Converted
+  | "D" // Damaged
+  | "R" // Remains
+  | "T" // Toppled
+  | "M" // Moved
+  | "Q" // Possibly missing
+  | "X" // Destroyed
+  | "V" // Unreachable but visible
+  | "P" // Inaccessible
+  | "N" // Couldn't find it
+  | "U" // Unknown (fallback)
+  | "Z"; // Not Logged
 
 /**
  * Map category codes to icon base names
@@ -302,16 +305,101 @@ export const setPreferredIconColorMode = (mode: IconColorMode): void => {
  */
 export const ICON_LEGENDS = {
   condition: [
-    { color: 'green', label: 'Good/slightly damaged' },
-    { color: 'yellow', label: 'Damaged/compromised' },
-    { color: 'red', label: 'Missing or destroyed' },
-    { color: 'grey', label: 'Unknown/inaccessible' },
+    { color: "green", label: "Good/slightly damaged" },
+    { color: "yellow", label: "Damaged/compromised" },
+    { color: "red", label: "Missing or destroyed" },
+    { color: "grey", label: "Unknown/inaccessible" },
   ],
   userLog: [
-    { color: 'green', label: 'Logged' },
-    { color: 'yellow', label: 'Logged - damaged/compromised' },
-    { color: 'red', label: 'Logged - missing/destroyed/inaccessible' },
-    { color: 'grey', label: 'Not logged by you' },
+    { color: "green", label: "Logged" },
+    { color: "yellow", label: "Logged - damaged/compromised" },
+    { color: "red", label: "Logged - missing/destroyed/inaccessible" },
+    { color: "grey", label: "Not logged by you" },
   ],
 } as const;
+
+// ============================================================================
+// Dynamic functions that use condition data from the API
+// ============================================================================
+
+/**
+ * Get color for condition mode using API condition data.
+ *
+ * @param conditionMap - Map of conditions from API
+ * @param condition - Condition code
+ * @returns Icon color based on condition's trig_colour
+ */
+export const getConditionColorWithMap = (
+  conditionMap: Map<string, Condition> | null,
+  condition: string
+): IconColor => {
+  // Fall back to hardcoded if no map available
+  if (!conditionMap || conditionMap.size === 0) {
+    return getConditionColor(condition);
+  }
+  return getConditionColourFromMap(conditionMap, condition);
+};
+
+/**
+ * Get color for user log mode using API condition data.
+ *
+ * @param conditionMap - Map of conditions from API
+ * @param logStatus - User's log status
+ * @returns Icon color based on condition's log_colour
+ */
+export const getUserLogColorWithMap = (
+  conditionMap: Map<string, Condition> | null,
+  logStatus: UserLogStatus
+): IconColor => {
+  // Fall back to hardcoded if no map available
+  if (!conditionMap || conditionMap.size === 0) {
+    return getUserLogColor(logStatus);
+  }
+  return getUserLogColourFromMap(conditionMap, logStatus);
+};
+
+/**
+ * Get icon URL based on color mode, using API condition data when available.
+ *
+ * This is the preferred function to use when condition data is available.
+ * Falls back to hardcoded mappings if conditionMap is null or empty.
+ *
+ * @param conditionMap - Map of conditions from API (or null for fallback)
+ * @param condition - Condition code
+ * @param colorMode - Icon color mode (condition or userLog)
+ * @param logStatus - User's log status for this trig
+ * @param highlighted - Whether to highlight the icon
+ * @param categoryCode - Category code (e.g., "PILLAR", "FBM") - used for icon selection
+ */
+export const getIconUrlForTrigWithMap = (
+  conditionMap: Map<string, Condition> | null,
+  condition: string,
+  colorMode: IconColorMode,
+  logStatus: UserLogStatus | null,
+  highlighted: boolean = false,
+  categoryCode?: string
+): string => {
+  let color: IconColor;
+
+  if (colorMode === "condition") {
+    color = getConditionColorWithMap(conditionMap, condition);
+  } else {
+    // User log mode
+    if (!logStatus) {
+      color = "grey";
+    } else {
+      color = getUserLogColorWithMap(conditionMap, logStatus);
+    }
+  }
+
+  // Determine icon base name from category_code
+  const baseName = categoryCode
+    ? getIconBaseNameFromCategory(categoryCode)
+    : "pillar";
+
+  const highlightSuffix = highlighted ? "_h" : "";
+  const filename = `mapicon_${baseName}_${color}${highlightSuffix}.png`;
+
+  return `/icons/${filename}`;
+};
 

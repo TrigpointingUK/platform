@@ -11,6 +11,8 @@ import Button from "../components/ui/Button";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useAreasContaining } from "../hooks/useAreasContaining";
 import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
+import { useConditions, buildConditionMap } from "../hooks/useConditions";
+import { conditionsDisagree as checkConditionsDisagree } from "../lib/conditionUtils";
 import { LocationSearch } from "../components/trigs/LocationSearch";
 import { DistanceFilter } from "../components/trigs/DistanceFilter";
 import { StatusFilter } from "../components/trigs/StatusFilter";
@@ -57,16 +59,12 @@ function parseLocalDate(dateStr: string): Date {
 }
 
 /**
- * Check if a logged condition significantly disagrees with a curated condition.
- * Matching rules (non-transitive):
- * - G and S match (but G and D do not)
- * - D and S match (but D and G do not)
- * - Q and N match
- * - Logged conditions of N, P, U, Z are always ignored
- * - Logged condition V is ignored unless curated is Q, N, X, or U
- * - Returns true if conditions disagree significantly
+ * Hardcoded fallback for checking condition disagreements.
+ * Used when API condition data is not yet loaded.
+ *
+ * @deprecated Use conditionsDisagree from conditionUtils with API data
  */
-function conditionsDisagree(
+function conditionsDisagreeFallback(
   loggedCondition: string,
   curatedCondition: string | null | undefined
 ): boolean {
@@ -120,6 +118,13 @@ export default function Logs() {
 
   // Fetch user profile to get default_groups preference
   const { data: userProfile } = useUserProfile("me");
+
+  // Fetch conditions for disagreement checking
+  const { data: apiConditions } = useConditions();
+  const conditionMap = useMemo(() => {
+    if (!apiConditions) return null;
+    return buildConditionMap(apiConditions);
+  }, [apiConditions]);
 
   // Parse userId from URL if present
   const userIdParam = searchParams.get("user");
@@ -508,10 +513,15 @@ export default function Logs() {
     if (!showOnlyDisagreements) {
       return logs;
     }
-    return logs.filter((log) =>
-      conditionsDisagree(log.condition, log.trig_condition)
-    );
-  }, [data?.pages, showOnlyDisagreements]);
+    return logs.filter((log) => {
+      // Use API-based disagreement check if condition data is loaded
+      if (conditionMap && conditionMap.size > 0) {
+        return checkConditionsDisagree(conditionMap, log.condition, log.trig_condition);
+      }
+      // Fall back to hardcoded logic if API data not yet loaded
+      return conditionsDisagreeFallback(log.condition, log.trig_condition);
+    });
+  }, [data?.pages, showOnlyDisagreements, conditionMap]);
 
   const totalCount = data?.pages[0]?.pagination.total || 0;
 
