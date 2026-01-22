@@ -188,3 +188,33 @@ def get_condition_usage_count(db: Session, code: str) -> int:
     from api.models.user import TLog
 
     return db.query(TLog).filter(TLog.condition == code).count()
+
+
+# Fallback codes for "found" conditions when condition table is empty
+FALLBACK_FOUND_CONDITIONS = {"G", "S"}
+
+
+def get_found_condition_codes(db: Session) -> set[str]:
+    """
+    Get condition codes that indicate a trig was "found".
+
+    Returns condition codes where log_colour is 'green' or 'yellow'.
+    Falls back to hardcoded values if condition table is empty.
+
+    Args:
+        db: Database session
+
+    Returns:
+        Set of condition codes (uppercase)
+    """
+    conditions = (
+        db.query(Condition.code)
+        .filter(Condition.log_colour.in_(["green", "yellow"]))
+        .all()
+    )
+
+    if conditions:
+        return {str(c.code).upper() for c in conditions}
+
+    # Fallback if condition table is empty
+    return FALLBACK_FOUND_CONDITIONS.copy()
