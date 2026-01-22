@@ -191,7 +191,7 @@ def get_condition_usage_count(db: Session, code: str) -> int:
 
 
 # Fallback codes for "found" conditions when condition table is empty
-FALLBACK_FOUND_CONDITIONS = {"G", "S"}
+FALLBACK_FOUND_CONDITIONS = {"G", "S", "C", "D", "R", "T", "M", "V", "Z"}
 
 
 def get_found_condition_codes(db: Session) -> set[str]:

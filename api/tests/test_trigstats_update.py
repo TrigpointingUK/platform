@@ -119,7 +119,7 @@ class TestUpdateTrigstats:
             user_id=user.id,
             date=date(2023, 8, 20),
             time=time(12, 0, 0),
-            condition="D",  # Not found condition
+            condition="X",  # Destroyed - not found condition
             score=3,
             comment="Third log",
         )

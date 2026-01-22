@@ -229,7 +229,7 @@ def download_trigs(
         media_type = "application/gpx+xml"
 
     elif format == "kmz":
-        content = trigs_to_kmz(trigs, user_logs)
+        content = trigs_to_kmz(trigs, user_logs, db=db)
         filename = f"trigpoints_{timestamp}.kmz"
         media_type = "application/vnd.google-earth.kmz"
 

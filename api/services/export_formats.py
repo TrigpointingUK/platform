@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from sqlalchemy.orm import Session
+
 from api.models.trig import Trig
 
 _KMZ_ICONS_DIR = Path(__file__).resolve().parents[1] / "assets" / "kmz" / "icons"
@@ -407,14 +409,90 @@ def trigs_to_kml(
     return "\n".join(lines)
 
 
+def _build_condition_colour_maps(
+    db: Optional[Session],
+) -> tuple[dict[str, str], dict[str, str]]:
+    """
+    Build condition code to colour mappings from the database.
+
+    Returns:
+        (trig_colour_map, log_colour_map) - dicts mapping condition code to colour name
+    """
+    # Fallback maps if db not available
+    fallback_trig = {
+        "G": "green",
+        "S": "green",
+        "C": "yellow",
+        "D": "yellow",
+        "R": "yellow",
+        "T": "yellow",
+        "M": "yellow",
+        "V": "yellow",
+        "Q": "red",
+        "X": "red",
+        "N": "red",
+        "P": "grey",
+        "U": "grey",
+        "Z": "grey",
+    }
+    fallback_log = fallback_trig.copy()
+
+    if not db:
+        return fallback_trig, fallback_log
+
+    try:
+        from api.crud.condition import get_all_conditions
+
+        conditions = get_all_conditions(db)
+        if not conditions:
+            return fallback_trig, fallback_log
+
+        trig_map: dict[str, str] = {}
+        log_map: dict[str, str] = {}
+
+        for c in conditions:
+            code = str(c.code).upper()
+            # Map trig_colour to our 4 colour names
+            trig_colour = (c.trig_colour or "").lower()
+            if trig_colour in ("green", "lime"):
+                trig_map[code] = "green"
+            elif trig_colour in ("yellow", "orange", "amber"):
+                trig_map[code] = "yellow"
+            elif trig_colour in ("red", "maroon"):
+                trig_map[code] = "red"
+            else:
+                trig_map[code] = "grey"
+
+            # Map log_colour to our 4 colour names
+            log_colour = (c.log_colour or "").lower()
+            if log_colour in ("green", "lime"):
+                log_map[code] = "green"
+            elif log_colour in ("yellow", "orange", "amber"):
+                log_map[code] = "yellow"
+            elif log_colour in ("red", "maroon"):
+                log_map[code] = "red"
+            else:
+                log_map[code] = "grey"
+
+        return trig_map, log_map
+    except Exception:
+        return fallback_trig, fallback_log
+
+
 def trigs_to_kmz(
     trigs: list[Trig],
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
+    db: Optional[Session] = None,
 ) -> bytes:
     """
     Convert trigpoints to a KMZ (zipped KML + embedded icons).
 
     This is intended for Google Earth / Google My Maps exploration.
+
+    Args:
+        trigs: List of Trig objects
+        user_logs: Optional mapping of trig_id to user's log data
+        db: Optional database session for condition lookups
 
     Notes:
     - OS map thumbnails are NOT embedded (licence restriction); description HTML links to an API URL.
@@ -424,6 +502,8 @@ def trigs_to_kmz(
         with special case: blank/NULL/'Z' -> green; 'P'/'U' -> red; 'N' -> red
     - Icon families are restricted to: pillar, fbm, passive, intersected.
     """
+    # Build colour maps from database (or use fallbacks)
+    trig_colour_map, log_colour_map = _build_condition_colour_maps(db)
 
     # ---- helpers ---------------------------------------------------------
     def _escape_xml(text: str) -> str:
@@ -494,30 +574,9 @@ def trigs_to_kmz(
         # Everything else is treated as passive (bolts, berntsens, blocks, etc.)
         return "passive"
 
-    _CONDITION_MODE_COLOUR = {
-        # Green
-        "G": "green",
-        "S": "green",
-        # Yellow
-        "C": "yellow",
-        "D": "yellow",
-        "R": "yellow",
-        "T": "yellow",
-        "M": "yellow",
-        "V": "yellow",
-        # Red
-        "Q": "red",
-        "X": "red",
-        "N": "red",
-        # Grey
-        "P": "grey",
-        "U": "grey",
-        "Z": "grey",
-    }
-
     def _colour_condition_mode(condition: str) -> str:
         code = (condition or "").strip().upper()
-        return _CONDITION_MODE_COLOUR.get(code, "grey")
+        return trig_colour_map.get(code, "grey")
 
     def _colour_mylog_mode(log_data: Optional[dict[str, Any]]) -> str:
         # Not logged by the user at all
@@ -534,7 +593,8 @@ def trigs_to_kmz(
         if code in {"P", "U"}:
             return "red"
 
-        return _colour_condition_mode(code)
+        # Use log_colour_map for logged conditions
+        return log_colour_map.get(code, "grey")
 
     def _style_map_id(family: str, colour: str) -> str:
         return f"sm_{family}_{colour}"
@@ -563,7 +623,7 @@ def trigs_to_kmz(
         # Definitive wording comes from the wiki (mirrored by our mapping helper).
         from api.utils.condition_mapping import get_condition_description
 
-        return get_condition_description(code)
+        return get_condition_description(code, db)
 
     def _log_condition_description(log_data: Optional[dict[str, Any]]) -> str:
         """
