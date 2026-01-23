@@ -147,8 +147,9 @@ export default function TrigEdit() {
           setCurrentUse(trigData.current_use);
           setHistoricUse(trigData.historic_use);
           setCondition(trigData.condition);
-          setWgsLat(trigData.wgs_lat);
-          setWgsLong(trigData.wgs_long);
+          // Format coordinates with appropriate decimal places
+          setWgsLat(Number(trigData.wgs_lat).toFixed(8));
+          setWgsLong(Number(trigData.wgs_long).toFixed(8));
           setWgsHeight(trigData.wgs_height);
           setOsgbEastings(trigData.osgb_eastings);
           setOsgbNorthings(trigData.osgb_northings);

@@ -34,8 +34,8 @@ export default function TrigInfoSection({
 
   // Fetch areas containing this trigpoint
   const { data: areasData, isLoading: isAreasLoading } = useAreasContaining(
-    parseFloat(trig.wgs_lat),
-    parseFloat(trig.wgs_long)
+    Number(trig.wgs_lat),
+    Number(trig.wgs_long)
   );
 
   // Flatten areas for the dropdown
@@ -93,8 +93,8 @@ export default function TrigInfoSection({
                 <Link
                   to={getTrigpointingUKMapPath({
                     trigId: trigIdNum,
-                    wgsLat: parseFloat(trig.wgs_lat),
-                    wgsLong: parseFloat(trig.wgs_long),
+                    wgsLat: Number(trig.wgs_lat),
+                    wgsLong: Number(trig.wgs_long),
                   })}
                   className="text-trig-green-600 hover:underline"
                 >
@@ -104,8 +104,8 @@ export default function TrigInfoSection({
                 <a
                   href={generateMapUrl(mapLinkGridref, {
                     trigId: trigIdNum,
-                    wgsLat: parseFloat(trig.wgs_lat),
-                    wgsLong: parseFloat(trig.wgs_long),
+                    wgsLat: Number(trig.wgs_lat),
+                    wgsLong: Number(trig.wgs_long),
                     gridSystem: trig.grid_system as 'gb' | 'ie' | null,
                   }) || '#'}
                   target="_blank"
@@ -125,26 +125,26 @@ export default function TrigInfoSection({
                 <Link
                   to={getTrigpointingUKMapPath({
                     trigId: trigIdNum,
-                    wgsLat: parseFloat(trig.wgs_lat),
-                    wgsLong: parseFloat(trig.wgs_long),
+                    wgsLat: Number(trig.wgs_lat),
+                    wgsLong: Number(trig.wgs_long),
                   })}
                   className="text-trig-green-600 hover:underline"
                 >
-                  {trig.wgs_lat}, {trig.wgs_long}
+                  {Number(trig.wgs_lat).toFixed(7)}, {Number(trig.wgs_long).toFixed(7)}
                 </Link>
               ) : (
                 <a
                   href={generateMapUrl(mapLinkWgs, {
                     trigId: trigIdNum,
-                    wgsLat: parseFloat(trig.wgs_lat),
-                    wgsLong: parseFloat(trig.wgs_long),
+                    wgsLat: Number(trig.wgs_lat),
+                    wgsLong: Number(trig.wgs_long),
                     gridSystem: trig.grid_system as 'gb' | 'ie' | null,
                   }) || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-trig-green-600 hover:underline"
                 >
-                  {trig.wgs_lat}, {trig.wgs_long}
+                  {Number(trig.wgs_lat).toFixed(7)}, {Number(trig.wgs_long).toFixed(7)}
                 </a>
               )}
             </div>
@@ -154,7 +154,7 @@ export default function TrigInfoSection({
                 <span className="font-semibold text-gray-700 dark:text-gray-300">
                   Height above sea level:
                 </span>{" "}
-                {trig.details.osgb_height}m
+                {Number(trig.details.osgb_height).toFixed(3)}m
               </div>
             )}
 
@@ -405,8 +405,8 @@ export default function TrigInfoSection({
             <Link
               to={getTrigpointingUKMapPath({
                 trigId: trigIdNum,
-                wgsLat: parseFloat(trig.wgs_lat),
-                wgsLong: parseFloat(trig.wgs_long),
+                wgsLat: Number(trig.wgs_lat),
+                wgsLong: Number(trig.wgs_long),
               })}
               title="View on map"
             >
@@ -420,8 +420,8 @@ export default function TrigInfoSection({
             <a
               href={generateMapUrl(mapLinkThumbnail, {
                 trigId: trigIdNum,
-                wgsLat: parseFloat(trig.wgs_lat),
-                wgsLong: parseFloat(trig.wgs_long),
+                wgsLat: Number(trig.wgs_lat),
+                wgsLong: Number(trig.wgs_long),
                 gridSystem: trig.grid_system as 'gb' | 'ie' | null,
               }) || '#'}
               target="_blank"

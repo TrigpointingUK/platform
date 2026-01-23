@@ -84,11 +84,13 @@ class Trig(Base):
         ),  # Spatial index will be created in PostgreSQL
     )
 
-    # Legacy WGS84 coordinate columns (maintained for backward compatibility)
-    # These will be deprecated once all code is updated to use PostGIS
-    wgs_lat: Any = Column(DECIMAL(7, 5), nullable=False)  # Latitude
-    wgs_long: Any = Column(DECIMAL(7, 5), nullable=False)  # Longitude
-    wgs_height = Column(Integer, nullable=True)  # Height in meters (NULL = unknown)
+    # WGS84 coordinate columns
+    # High precision (8dp) to support source data with 6dp seconds accuracy (~1mm precision)
+    wgs_lat: Any = Column(DECIMAL(11, 8), nullable=False)  # Latitude
+    wgs_long: Any = Column(DECIMAL(12, 8), nullable=False)  # Longitude
+    wgs_height: Any = Column(
+        DECIMAL(8, 4), nullable=True
+    )  # Height in metres (0.1mm precision)
 
     @hybrid_property
     def latitude(self) -> float:
@@ -108,11 +110,15 @@ class Trig(Base):
             return float(ST_X(self.location))
         return float(self.wgs_long)
 
-    # OSGB coordinates
-    osgb_eastings = Column(Integer, nullable=False)  # Eastings
-    osgb_northings = Column(Integer, nullable=False)  # Northings
+    # OSGB coordinates (4dp for 0.1mm precision)
+    osgb_eastings: Any = Column(DECIMAL(10, 4), nullable=False)  # Eastings
+    osgb_northings: Any = Column(
+        DECIMAL(11, 4), nullable=False
+    )  # Northings (11,4 for values >1M)
     osgb_gridref = Column(String(14), nullable=False)  # Grid reference
-    osgb_height = Column(Integer, nullable=True)  # Height in meters (NULL = unknown)
+    osgb_height: Any = Column(
+        DECIMAL(8, 4), nullable=True
+    )  # Height in metres (0.1mm precision)
 
     # Location information
     postcode = Column(

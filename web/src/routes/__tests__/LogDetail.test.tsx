@@ -86,8 +86,8 @@ const mockTrig = {
   waypoint: 'TP0456',
   name: 'Test Hill',
   condition: 'G',
-  wgs_lat: '51.5074',
-  wgs_long: '-0.1278',
+  wgs_lat: 51.5074,
+  wgs_long: -0.1278,
   osgb_gridref: 'TQ123456',
   grid_system: 'gb' as const,
   type_code: 'HOTINE',
@@ -229,7 +229,7 @@ describe('LogDetail', () => {
 
     // Check that basic trig info is shown
     expect(screen.getByText('TQ123456')).toBeInTheDocument();
-    expect(screen.getByText('51.5074, -0.1278')).toBeInTheDocument();
+    expect(screen.getByText('51.5074000, -0.1278000')).toBeInTheDocument();
     
     // Check that log card content is rendered
     expect(screen.getByText('Test User')).toBeInTheDocument();
@@ -345,7 +345,7 @@ describe('LogDetail', () => {
       expect(screen.getByText(/Grid reference:/i)).toBeInTheDocument();
       expect(screen.getByText(/WGS coordinates:/i)).toBeInTheDocument();
       expect(screen.getByText(/Height above sea level:/i)).toBeInTheDocument();
-      expect(screen.getByText('100m')).toBeInTheDocument();
+      expect(screen.getByText('100.000m')).toBeInTheDocument();
     });
   });
 

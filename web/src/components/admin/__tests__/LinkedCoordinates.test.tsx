@@ -47,8 +47,8 @@ describe("LinkedCoordinates", () => {
       const northingsInput = screen.getByPlaceholderText("e.g., 212345") as HTMLInputElement;
       const gridrefInput = screen.getByPlaceholderText("e.g., TQ 30005 80433") as HTMLInputElement;
 
-      expect(eastingsInput.value).toBe("530034");
-      expect(northingsInput.value).toBe("179382");
+      expect(eastingsInput.value).toBe("530034.0000");
+      expect(northingsInput.value).toBe("179382.0000");
       expect(gridrefInput.value).toBe("TQ 30034 79382");
     });
 
@@ -58,8 +58,8 @@ describe("LinkedCoordinates", () => {
       const wgsHeightInput = screen.getAllByRole("spinbutton")[0] as HTMLInputElement;
       const osgbHeightInput = screen.getAllByRole("spinbutton")[1] as HTMLInputElement;
 
-      expect(wgsHeightInput.value).toBe("100");
-      expect(osgbHeightInput.value).toBe("55");
+      expect(wgsHeightInput.value).toBe("100.0000");
+      expect(osgbHeightInput.value).toBe("55.0000");
     });
 
     it("renders grid reference field as editable", () => {
@@ -196,7 +196,7 @@ describe("LinkedCoordinates", () => {
         await vi.runAllTimersAsync();
       });
 
-      expect(onWgsChange).toHaveBeenCalledWith("52.12345", "-1.54321", 105);
+      expect(onWgsChange).toHaveBeenCalledWith("52.12345000", "-1.54321000", 105);
     });
   });
 
@@ -229,8 +229,8 @@ describe("LinkedCoordinates", () => {
       });
 
       // Eastings and northings should update immediately (not waiting for debounce)
-      expect(eastingsInput.value).toBe("530005");
-      expect(northingsInput.value).toBe("180433");
+      expect(eastingsInput.value).toBe("530005.0000");
+      expect(northingsInput.value).toBe("180433.0000");
     });
 
     it("triggers API call to update WGS84 after valid grid reference is entered", async () => {
@@ -374,7 +374,7 @@ describe("LinkedCoordinates", () => {
       });
 
       // Should still parse correctly
-      expect(eastingsInput.value).toBe("530005");
+      expect(eastingsInput.value).toBe("530005.0000");
     });
   });
 

@@ -60,7 +60,7 @@ class TrigTypeInfo(BaseModel):
 
 
 class TrigMinimal(BaseModel):
-    """Minimal trig response for /trig/{id}."""
+    """Minimal trig response for /trig/{id} and /export (Android app)."""
 
     id: int = Field(..., description="Trigpoint ID")
     waypoint: str = Field(..., description="Waypoint code (e.g., TP0001)")
@@ -94,14 +94,19 @@ class TrigMinimal(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_serializer("wgs_lat", "wgs_long")
+    def serialize_coords_5dp(self, value: Decimal) -> float:
+        """Round to 5dp for backward compatibility with Android app."""
+        return round(float(value), 5)
+
 
 class TrigDetails(BaseModel):
     """Details sub-object for /trig/{id}/details or include=details."""
 
     current_use: Optional[str] = None
     historic_use: Optional[str] = None
-    wgs_height: Optional[int] = None
-    osgb_height: Optional[int] = None
+    wgs_height: Optional[Decimal] = None
+    osgb_height: Optional[Decimal] = None
     postcode: Optional[str] = None
     county: Optional[str] = None
     town: Optional[str] = None
@@ -120,6 +125,11 @@ class TrigDetails(BaseModel):
     def serialize_town(self, value: Optional[str]) -> Optional[str]:
         """Convert town name from ALL CAPS to Mixed Case."""
         return value.title() if value else value
+
+    @field_serializer("wgs_height", "osgb_height")
+    def serialize_height(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize height as float for JSON output."""
+        return float(value) if value is not None else None
 
 
 class TrigStats(BaseModel):
