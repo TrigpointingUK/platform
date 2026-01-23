@@ -523,8 +523,8 @@ DEST,0,0,0,N 50 00 00,W 001 00 00,100,300000.000,400000.000,50,Newlyn,02,CC0000,
                 waypoint="TP0001",
                 name="Station 1",
                 stn_number_active="STN1",
-                osgb_eastings=100001,  # 1m difference
-                osgb_northings=200001,  # 1m difference
+                osgb_eastings=100000.005,  # 5mm difference
+                osgb_northings=200000.005,  # 5mm difference -> total ~7mm < 10mm tolerance
                 osgb_gridref="AA0000",
                 osgb_height=50,
             ),

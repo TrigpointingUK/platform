@@ -29,7 +29,7 @@ OSNET_URL = (
 OSNET_CACHE_DURATION = timedelta(hours=1)
 
 # Coordinate comparison tolerance in metres
-COORDINATE_TOLERANCE_METRES = 2.0
+COORDINATE_TOLERANCE_METRES = 0.01
 
 
 # Section identifiers for the OS Net file
