@@ -16,6 +16,7 @@ from api.api.v1.endpoints import (
     locations,
     logs,
     maps,
+    osnet_admin,
     photos,
     stats,
     status_admin,
@@ -54,4 +55,7 @@ api_router.include_router(
 )
 api_router.include_router(
     condition_admin.router, prefix="/admin/condition", tags=["admin-condition"]
+)
+api_router.include_router(
+    osnet_admin.router, prefix="/admin/osnet", tags=["admin-osnet"]
 )

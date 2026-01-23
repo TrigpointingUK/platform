@@ -122,11 +122,15 @@ def trigs_to_csv(
             "category_name": category_name,
             "wgs_lat": float(trig.wgs_lat),
             "wgs_long": float(trig.wgs_long),
-            "wgs_height": trig.wgs_height,
+            "wgs_height": (
+                float(trig.wgs_height) if trig.wgs_height is not None else None
+            ),
             "osgb_gridref": trig.osgb_gridref,
-            "osgb_eastings": trig.osgb_eastings,
-            "osgb_northings": trig.osgb_northings,
-            "osgb_height": trig.osgb_height,
+            "osgb_eastings": float(trig.osgb_eastings),
+            "osgb_northings": float(trig.osgb_northings),
+            "osgb_height": (
+                float(trig.osgb_height) if trig.osgb_height is not None else None
+            ),
             "county": trig.county,
             "town": trig.town,
             "fb_number": trig.fb_number,
@@ -283,7 +287,8 @@ def trigs_to_gpx(
         lines.append(
             f'  <wpt lat="{float(trig.wgs_lat)}" lon="{float(trig.wgs_long)}">'
         )
-        lines.append(f"    <ele>{trig.wgs_height}</ele>")
+        ele_value = float(trig.wgs_height) if trig.wgs_height is not None else 0
+        lines.append(f"    <ele>{ele_value}</ele>")
         lines.append(
             f"    <name>{escape_xml(str(trig.waypoint))} - {escape_xml(str(trig.name))}</name>"
         )
@@ -397,8 +402,9 @@ def trigs_to_kml(
         lines.append(f"      <description>{description}</description>")
         lines.append(f"      <styleUrl>{style_url}</styleUrl>")
         lines.append("      <Point>")
+        ele_value = float(trig.wgs_height) if trig.wgs_height is not None else 0
         lines.append(
-            f"        <coordinates>{float(trig.wgs_long)},{float(trig.wgs_lat)},{trig.wgs_height}</coordinates>"
+            f"        <coordinates>{float(trig.wgs_long)},{float(trig.wgs_lat)},{ele_value}</coordinates>"
         )
         lines.append("      </Point>")
         lines.append("    </Placemark>")

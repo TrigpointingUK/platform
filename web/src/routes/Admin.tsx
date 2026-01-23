@@ -1539,23 +1539,17 @@ export default function Admin() {
 
           <Card>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-              User Management
+              OS Net Comparison
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>
-          </Card>
-
-          <Card>
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-              Content Moderation
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>
-          </Card>
-
-          <Card>
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-              System Settings
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+              Compare OS Net active GPS stations with database records.
+            </p>
+            <a
+              href="/admin/osnet"
+              className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
+            >
+              Compare Stations →
+            </a>
           </Card>
         </div>
       </div>

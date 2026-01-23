@@ -257,9 +257,9 @@ def eastings_northings_to_gridref(eastings: float, northings: float) -> str:
     Raises:
         ValueError: If coordinates are outside the GB National Grid bounds
     """
-    # Convert to integers for grid reference
-    e = int(round(eastings))
-    n = int(round(northings))
+    # Truncate to integers for grid reference (grid refs use truncation, not rounding)
+    e = int(eastings)
+    n = int(northings)
 
     # Check bounds (GB National Grid extends from 0,0 to 700000,1300000 approximately)
     if e < 0 or e > 700000 or n < 0 or n > 1300000:
@@ -396,9 +396,9 @@ def eastings_northings_to_irish_gridref(eastings: float, northings: float) -> st
     Raises:
         ValueError: If coordinates are outside the Irish Grid bounds
     """
-    # Convert to integers for grid reference
-    e = int(round(eastings))
-    n = int(round(northings))
+    # Truncate to integers for grid reference (grid refs use truncation, not rounding)
+    e = int(eastings)
+    n = int(northings)
 
     # Check bounds (Irish Grid extends from 0,0 to 500000,500000 approximately)
     if e < 0 or e > 500000 or n < 0 or n > 500000:

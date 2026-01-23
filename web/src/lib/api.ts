@@ -339,8 +339,10 @@ export interface Trig {
   name: string;
   status_name?: string;
   condition: string;
-  wgs_lat: string;
-  wgs_long: string;
+  /** WGS84 latitude (serialized as float, rounded to 5dp) */
+  wgs_lat: number;
+  /** WGS84 longitude (serialized as float, rounded to 5dp) */
+  wgs_long: number;
   osgb_gridref: string;
   /** Grid system: 'gb' (British National Grid) or 'ie' (Irish Grid) */
   grid_system?: 'gb' | 'ie';
@@ -591,12 +593,18 @@ export interface TrigAdminDetail {
   current_use: string;
   historic_use: string;
   condition: string;
-  wgs_lat: string;
-  wgs_long: string;
+  /** WGS84 latitude (8dp precision, ~1mm) */
+  wgs_lat: number;
+  /** WGS84 longitude (8dp precision, ~1mm) */
+  wgs_long: number;
+  /** WGS84 height in metres (4dp precision, 0.1mm) */
   wgs_height: number | null;
+  /** OSGB eastings in metres (4dp precision, 0.1mm) */
   osgb_eastings: number;
+  /** OSGB northings in metres (4dp precision, 0.1mm) */
   osgb_northings: number;
   osgb_gridref: string;
+  /** OSGB height in metres (4dp precision, 0.1mm) */
   osgb_height: number | null;
   /** Grid system: 'gb' (OSGB36) or 'ie' (Irish Grid) */
   grid_system?: 'gb' | 'ie';
@@ -623,12 +631,18 @@ export interface TrigAdminUpdate {
   current_use: string;
   historic_use: string;
   condition: string;
-  wgs_lat: string;
-  wgs_long: string;
+  /** WGS84 latitude (8dp precision, ~1mm) */
+  wgs_lat: number | string;
+  /** WGS84 longitude (8dp precision, ~1mm) */
+  wgs_long: number | string;
+  /** WGS84 height in metres (4dp precision, 0.1mm) */
   wgs_height: number | null;
-  osgb_eastings: number;
-  osgb_northings: number;
+  /** OSGB eastings in metres (4dp precision, 0.1mm) */
+  osgb_eastings: number | string;
+  /** OSGB northings in metres (4dp precision, 0.1mm) */
+  osgb_northings: number | string;
   osgb_gridref: string;
+  /** OSGB height in metres (4dp precision, 0.1mm) */
   osgb_height: number | null;
   legal_message: string | null;
   action: "solved" | "revisit" | "cant_fix";
@@ -647,12 +661,18 @@ export interface TrigAdminCreate {
   current_use: string;
   historic_use: string;
   condition: string;
-  wgs_lat: string;
-  wgs_long: string;
+  /** WGS84 latitude (8dp precision, ~1mm) */
+  wgs_lat: number | string;
+  /** WGS84 longitude (8dp precision, ~1mm) */
+  wgs_long: number | string;
+  /** WGS84 height in metres (4dp precision, 0.1mm) */
   wgs_height: number | null;
-  osgb_eastings: number;
-  osgb_northings: number;
+  /** OSGB eastings in metres (4dp precision, 0.1mm) */
+  osgb_eastings: number | string;
+  /** OSGB northings in metres (4dp precision, 0.1mm) */
+  osgb_northings: number | string;
   osgb_gridref: string;
+  /** OSGB height in metres (4dp precision, 0.1mm) */
   osgb_height: number | null;
   legal_message: string | null;
   admin_comment: string;
@@ -1489,5 +1509,93 @@ export async function fetchPublicConditionByCode(
     throw new Error(`Failed to fetch condition ${code}`);
   }
   return response.json();
+}
+
+// ============================================================================
+// OS Net Comparison Types and Functions (admin)
+// ============================================================================
+
+export interface OSNetStationData {
+  code?: string;
+  easting?: number;
+  northing?: number;
+  gridref?: string;
+  height?: number;
+  lat_dms?: string;
+  lon_dms?: string;
+}
+
+export interface DBStationData {
+  trig_id?: number;
+  waypoint?: string;
+  name?: string;
+  stn_number_active?: string;
+  easting?: number;
+  northing?: number;
+  gridref?: string;
+  height?: number;
+}
+
+export interface StationDifference {
+  station_code: string;
+  difference_type: 
+    | "new_in_osnet" 
+    | "missing_from_osnet" 
+    | "coordinate_mismatch" 
+    | "unmatched_db"
+    | "destroyed_not_in_db"
+    | "legacy_not_in_db";
+  description: string;
+  osnet_data?: OSNetStationData;
+  db_data?: DBStationData;
+  distance_metres?: number;
+  osnet_section?: number;
+  osnet_section_name?: string;
+}
+
+export interface OSNetComparisonResponse {
+  osnet_count: number;
+  osnet_current_count: number;
+  osnet_legacy_count: number;
+  osnet_destroyed_count: number;
+  db_count: number;
+  matched_count: number;
+  differences: StationDifference[];
+  osnet_fetch_time: string;
+  changelog_entries: string[];
+  new_in_osnet_count: number;
+  missing_from_osnet_count: number;
+  coordinate_mismatch_count: number;
+  unmatched_db_count: number;
+  destroyed_not_in_db_count: number;
+  legacy_not_in_db_count: number;
+}
+
+/**
+ * Fetch OS Net comparison data (admin)
+ */
+export async function fetchOSNetComparison(
+  token: string,
+  forceRefresh: boolean = false
+): Promise<OSNetComparisonResponse> {
+  const params = forceRefresh ? "?force_refresh=true" : "";
+  return apiGet<OSNetComparisonResponse>(`/v1/admin/osnet/comparison${params}`, token);
+}
+
+/**
+ * Clear OS Net cache (admin)
+ */
+export async function clearOSNetCache(token: string): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/osnet/cache/clear`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
 }
 

@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class TrigNeedsAttentionSummary(BaseModel):
@@ -52,11 +52,11 @@ class TrigAdminDetail(BaseModel):
     condition: Optional[str] = "G"
     wgs_lat: Decimal
     wgs_long: Decimal
-    wgs_height: Optional[int] = None
-    osgb_eastings: int
-    osgb_northings: int
+    wgs_height: Optional[Decimal] = None
+    osgb_eastings: Decimal
+    osgb_northings: Decimal
     osgb_gridref: Optional[str] = ""
-    osgb_height: Optional[int] = None
+    osgb_height: Optional[Decimal] = None
     postcode: Optional[str] = ""
     county: Optional[str] = ""
     town: Optional[str] = ""
@@ -66,6 +66,21 @@ class TrigAdminDetail(BaseModel):
     legal_message: Optional[str] = Field(
         None, description="Optional legal/access message (HTML)"
     )
+
+    @field_serializer("wgs_lat", "wgs_long")
+    def serialize_wgs_coords(self, value: Decimal) -> float:
+        """Serialize WGS84 coordinates as float."""
+        return float(value)
+
+    @field_serializer("osgb_eastings", "osgb_northings")
+    def serialize_osgb_coords(self, value: Decimal) -> float:
+        """Serialize OSGB coordinates as float."""
+        return float(value)
+
+    @field_serializer("wgs_height", "osgb_height")
+    def serialize_height(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize height as float."""
+        return float(value) if value is not None else None
 
 
 class TrigAdminUpdate(BaseModel):
@@ -92,13 +107,13 @@ class TrigAdminUpdate(BaseModel):
     # Coordinates - WGS84
     wgs_lat: Decimal = Field(..., ge=-90, le=90)
     wgs_long: Decimal = Field(..., ge=-180, le=180)
-    wgs_height: Optional[int] = None
+    wgs_height: Optional[Decimal] = None
 
-    # Coordinates - OSGB
-    osgb_eastings: int = Field(..., ge=0)
-    osgb_northings: int = Field(..., ge=0)
+    # Coordinates - OSGB (4dp for 0.1mm precision)
+    osgb_eastings: Decimal = Field(..., ge=0)
+    osgb_northings: Decimal = Field(..., ge=0)
     osgb_gridref: Optional[str] = Field(default="", max_length=14)
-    osgb_height: Optional[int] = None
+    osgb_height: Optional[Decimal] = None
 
     # Legal/access information
     legal_message: Optional[str] = Field(
@@ -140,13 +155,13 @@ class TrigAdminCreate(BaseModel):
     # Coordinates - WGS84
     wgs_lat: Decimal = Field(..., ge=-90, le=90)
     wgs_long: Decimal = Field(..., ge=-180, le=180)
-    wgs_height: Optional[int] = None
+    wgs_height: Optional[Decimal] = None
 
-    # Coordinates - OSGB
-    osgb_eastings: int = Field(..., ge=0)
-    osgb_northings: int = Field(..., ge=0)
+    # Coordinates - OSGB (4dp for 0.1mm precision)
+    osgb_eastings: Decimal = Field(..., ge=0)
+    osgb_northings: Decimal = Field(..., ge=0)
     osgb_gridref: Optional[str] = Field(default="", max_length=14)
-    osgb_height: Optional[int] = None
+    osgb_height: Optional[Decimal] = None
 
     # Legal/access information
     legal_message: Optional[str] = Field(

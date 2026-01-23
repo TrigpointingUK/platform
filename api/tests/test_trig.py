@@ -57,7 +57,7 @@ def test_get_trig_success_minimal(client: TestClient, db: Session):
     assert data["id"] == test_trig.id
     assert data["waypoint"] == "TP0001"
     assert data["name"] == "Test Trigpoint"
-    assert data["wgs_lat"] == "51.50000"
+    assert data["wgs_lat"] == 51.5  # Now serialized as float with 5dp precision
     assert "county" not in data  # county is in details only now
     # minimal fields present
     assert set(

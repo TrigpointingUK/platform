@@ -179,13 +179,14 @@ export default function LinkedCoordinates({
   );
 
   // Local input state (strings for text inputs)
+  // Format with appropriate decimal places: lat/long 8dp, eastings/northings 4dp, heights 4dp
   const [wgsLatInput, setWgsLatInput] = useState(wgsLat);
   const [wgsLongInput, setWgsLongInput] = useState(wgsLong);
-  const [wgsHeightInput, setWgsHeightInput] = useState(wgsHeight?.toString() ?? "");
-  const [gridEastingsInput, setGridEastingsInput] = useState(osgbEastings.toString());
-  const [gridNorthingsInput, setGridNorthingsInput] = useState(osgbNorthings.toString());
+  const [wgsHeightInput, setWgsHeightInput] = useState(wgsHeight != null ? Number(wgsHeight).toFixed(4) : "");
+  const [gridEastingsInput, setGridEastingsInput] = useState(Number(osgbEastings).toFixed(4));
+  const [gridNorthingsInput, setGridNorthingsInput] = useState(Number(osgbNorthings).toFixed(4));
   const [gridRefInput, setGridRefInput] = useState(osgbGridref);
-  const [gridHeightInput, setGridHeightInput] = useState(osgbHeight?.toString() ?? "");
+  const [gridHeightInput, setGridHeightInput] = useState(osgbHeight != null ? Number(osgbHeight).toFixed(4) : "");
 
   // Track which side is being edited to determine conversion direction
   const [editingSide, setEditingSide] = useState<"wgs" | "grid" | null>(null);
@@ -230,7 +231,7 @@ export default function LinkedCoordinates({
         setGridSystem(detectedSystem);
       }
 
-      // Update grid fields from conversion result
+      // Update grid fields from conversion result (4dp for eastings/northings/height)
       const newEastings = result.output.e ?? 0;
       const newNorthings = result.output.n ?? 0;
       const newGridref = result.output.gridref ?? "";
@@ -238,20 +239,20 @@ export default function LinkedCoordinates({
 
       // Only update fields that aren't currently focused
       if (focusedFieldRef.current !== "gridEastings") {
-        setGridEastingsInput(newEastings.toString());
+        setGridEastingsInput(Number(newEastings).toFixed(4));
       }
       if (focusedFieldRef.current !== "gridNorthings") {
-        setGridNorthingsInput(newNorthings.toString());
+        setGridNorthingsInput(Number(newNorthings).toFixed(4));
       }
       if (focusedFieldRef.current !== "gridRef") {
         setGridRefInput(newGridref);
         setGridrefValid(true);
       }
       if (focusedFieldRef.current !== "gridHeight") {
-        setGridHeightInput(Math.round(newHeight).toString());
+        setGridHeightInput(Number(newHeight).toFixed(4));
       }
 
-      onOsgbChange(newEastings, newNorthings, newGridref, Math.round(newHeight));
+      onOsgbChange(newEastings, newNorthings, newGridref, newHeight);
     } catch (error) {
       console.error("Error converting WGS84 to grid:", error);
       setConversionError(error instanceof Error ? error.message : "Conversion failed");
@@ -262,8 +263,8 @@ export default function LinkedCoordinates({
 
   // Convert Grid to WGS84 - only updates WGS fields
   const convertGridToWgs = useCallback(async () => {
-    const eastings = parseInt(gridEastingsInput);
-    const northings = parseInt(gridNorthingsInput);
+    const eastings = parseFloat(gridEastingsInput);
+    const northings = parseFloat(gridNorthingsInput);
     const height = parseFloat(gridHeightInput);
 
     if (isNaN(eastings) || isNaN(northings)) return;
@@ -293,9 +294,9 @@ export default function LinkedCoordinates({
       // Update parent grid values
       onOsgbChange(eastings, northings, gridref, isNaN(height) ? 0 : height);
 
-      // Update WGS fields from conversion result
-      const newLat = result.output.lat?.toFixed(5) ?? "0";
-      const newLon = result.output.lon?.toFixed(5) ?? "0";
+      // Update WGS fields from conversion result (8dp for lat/long, 4dp for height)
+      const newLat = result.output.lat?.toFixed(8) ?? "0";
+      const newLon = result.output.lon?.toFixed(8) ?? "0";
       const newWgsHeight = result.output.height ?? 0;
 
       // Only update fields that aren't currently focused
@@ -306,10 +307,10 @@ export default function LinkedCoordinates({
         setWgsLongInput(newLon);
       }
       if (focusedFieldRef.current !== "wgsHeight") {
-        setWgsHeightInput(Math.round(newWgsHeight).toString());
+        setWgsHeightInput(Number(newWgsHeight).toFixed(4));
       }
 
-      onWgsChange(newLat, newLon, Math.round(newWgsHeight));
+      onWgsChange(newLat, newLon, newWgsHeight);
     } catch (error) {
       console.error("Error converting grid to WGS84:", error);
       setConversionError(error instanceof Error ? error.message : "Conversion failed");
@@ -380,8 +381,8 @@ export default function LinkedCoordinates({
     // Parse and validate the grid reference
     const parsed = parseGridRef(value);
     if (parsed) {
-      setGridEastingsInput(parsed.eastings.toString());
-      setGridNorthingsInput(parsed.northings.toString());
+      setGridEastingsInput(Number(parsed.eastings).toFixed(4));
+      setGridNorthingsInput(Number(parsed.northings).toFixed(4));
       setGridrefValid(true);
       // The debounced effect will trigger the API call to update lat/long
     } else {

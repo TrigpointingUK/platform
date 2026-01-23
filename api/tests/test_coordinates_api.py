@@ -58,7 +58,7 @@ class TestCoordinateConversionEndpoint:
         - ETRS89: 51.507879, -0.128094, 10m (ellipsoidal)
         - OSGB36: 530005.2410, 180432.6360, -35.549m (ODN)
 
-        Note: API rounds height to 1 decimal place.
+        Note: API rounds height to 4 decimal places.
         """
         response = client.get(
             "/v1/coordinates/convert",
@@ -76,9 +76,9 @@ class TestCoordinateConversionEndpoint:
 
         assert data["input"]["height"] == 10.0
 
-        # API rounds height to 1 decimal place - check within 0.1m
+        # API rounds height to 4 decimal places - check within 0.01m
         assert data["output"]["height"] is not None
-        assert abs(data["output"]["height"] - (-35.5)) < 0.2
+        assert abs(data["output"]["height"] - (-35.549)) < 0.01
 
     def test_osgb_to_wgs84_2d_official_os_data(self):
         """Test OSGB to WGS84 conversion (2D) using official OS reference data.
@@ -141,7 +141,7 @@ class TestCoordinateConversionEndpoint:
         # OSTN15/OSGM15 should achieve high accuracy
         # Expected ellipsoidal height is ~10m
         assert data["output"]["height"] is not None
-        assert abs(data["output"]["height"] - 10.0) < 1.0  # Within 1m (input rounded)
+        assert abs(data["output"]["height"] - 10.0) < 0.01  # Within 1cm
 
     def test_barra_differential_wgs_to_osgb(self):
         """Test conversion for Barra Differential (reference point from database).

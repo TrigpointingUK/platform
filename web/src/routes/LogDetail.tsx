@@ -256,8 +256,8 @@ export default function LogDetail() {
                 trigGridRef={log.osgb_gridref}
                 trigEastings={log.osgb_eastings}
                 trigNorthings={log.osgb_northings}
-                trigLatitude={parseFloat(trig.wgs_lat)}
-                trigLongitude={parseFloat(trig.wgs_long)}
+                trigLatitude={trig.wgs_lat}
+                trigLongitude={trig.wgs_long}
                 existingLog={log}
                 onSubmit={handleUpdateSubmit}
                 onCancel={handleCancelEdit}

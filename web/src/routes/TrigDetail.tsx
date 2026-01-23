@@ -337,8 +337,8 @@ export default function TrigDetail() {
               trigGridRef={trig.osgb_gridref}
               trigEastings={parseInt(trig.osgb_gridref.substring(2, 7))} // Simplified - would need proper conversion
               trigNorthings={parseInt(trig.osgb_gridref.substring(7, 12))} // Simplified - would need proper conversion
-              trigLatitude={parseFloat(trig.wgs_lat)}
-              trigLongitude={parseFloat(trig.wgs_long)}
+              trigLatitude={trig.wgs_lat}
+              trigLongitude={trig.wgs_long}
               defaultCondition={trig.condition}
               onSubmit={handleLogSubmit}
               onCancel={handleLogCancel}

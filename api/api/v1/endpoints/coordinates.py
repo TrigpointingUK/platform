@@ -35,10 +35,10 @@ class CoordinateInput(BaseModel):
 
     lat: Optional[float] = Field(None, description="WGS84 latitude in decimal degrees")
     lon: Optional[float] = Field(None, description="WGS84 longitude in decimal degrees")
-    e: Optional[int] = Field(
+    e: Optional[float] = Field(
         None, description="Eastings in metres (OSGB36 or Irish Grid)"
     )
-    n: Optional[int] = Field(
+    n: Optional[float] = Field(
         None, description="Northings in metres (OSGB36 or Irish Grid)"
     )
     height: Optional[float] = Field(
@@ -55,10 +55,10 @@ class CoordinateOutput(BaseModel):
 
     lat: Optional[float] = Field(None, description="WGS84 latitude in decimal degrees")
     lon: Optional[float] = Field(None, description="WGS84 longitude in decimal degrees")
-    e: Optional[int] = Field(
+    e: Optional[float] = Field(
         None, description="Eastings in metres (OSGB36 or Irish Grid)"
     )
-    n: Optional[int] = Field(
+    n: Optional[float] = Field(
         None, description="Northings in metres (OSGB36 or Irish Grid)"
     )
     height: Optional[float] = Field(
@@ -110,13 +110,13 @@ def convert_coordinates(
     lon: Optional[float] = Query(
         None, ge=-180, le=180, description="WGS84 longitude (required if from=wgs84)"
     ),
-    e: Optional[int] = Query(
+    e: Optional[float] = Query(
         None,
         ge=0,
         le=700000,
         description="Eastings in metres (required if from=osgb or from=irish)",
     ),
-    n: Optional[int] = Query(
+    n: Optional[float] = Query(
         None,
         ge=0,
         le=1300000,
@@ -237,9 +237,9 @@ def convert_coordinates(
                     lat=lat, lon=lon, height=height, e=None, n=None, gridref=None
                 ),
                 output=CoordinateOutput(
-                    e=round(out_e),
-                    n=round(out_n),
-                    height=round(out_h, 1) if out_h is not None else None,
+                    e=round(out_e, 4),
+                    n=round(out_n, 4),
+                    height=round(out_h, 4) if out_h is not None else None,
                     gridref=gridref,
                     lat=None,
                     lon=None,
@@ -271,9 +271,9 @@ def convert_coordinates(
                     lat=lat, lon=lon, height=height, e=None, n=None, gridref=None
                 ),
                 output=CoordinateOutput(
-                    e=round(out_e),
-                    n=round(out_n),
-                    height=round(out_h, 1) if out_h is not None else None,
+                    e=round(out_e, 4),
+                    n=round(out_n, 4),
+                    height=round(out_h, 4) if out_h is not None else None,
                     gridref=gridref,
                     lat=None,
                     lon=None,
@@ -320,9 +320,9 @@ def convert_coordinates(
                 e=e, n=n, height=height, gridref=gridref, lat=None, lon=None
             ),
             output=CoordinateOutput(
-                lat=round(out_lat, 6),
-                lon=round(out_lon, 6),
-                height=round(out_h, 1) if out_h is not None else None,
+                lat=round(out_lat, 8),
+                lon=round(out_lon, 8),
+                height=round(out_h, 4) if out_h is not None else None,
                 e=None,
                 n=None,
                 gridref=None,
@@ -369,9 +369,9 @@ def convert_coordinates(
                 e=e, n=n, height=height, gridref=gridref, lat=None, lon=None
             ),
             output=CoordinateOutput(
-                lat=round(out_lat, 6),
-                lon=round(out_lon, 6),
-                height=round(out_h, 1) if out_h is not None else None,
+                lat=round(out_lat, 8),
+                lon=round(out_lon, 8),
+                height=round(out_h, 4) if out_h is not None else None,
                 e=None,
                 n=None,
                 gridref=None,
