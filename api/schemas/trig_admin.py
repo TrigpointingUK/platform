@@ -49,7 +49,6 @@ class TrigAdminDetail(BaseModel):
     type_id: Optional[int] = Field(None, description="Trig type ID (FK to trig_type)")
     current_use: Optional[str] = "none"
     historic_use: Optional[str] = "none"
-    physical_type: Optional[str] = "Pillar"
     condition: Optional[str] = "G"
     wgs_lat: Decimal
     wgs_long: Decimal
@@ -84,11 +83,10 @@ class TrigAdminUpdate(BaseModel):
     status_id: int = Field(..., ge=1)
     type_id: Optional[int] = Field(
         None,
-        description="Trig type ID - if provided, physical_type will be set from type name",
+        description="Trig type ID (FK to trig_type)",
     )
     current_use: Optional[str] = Field(default="none", max_length=25)
     historic_use: Optional[str] = Field(default="none", max_length=30)
-    physical_type: Optional[str] = Field(default=None, max_length=25)
     condition: Optional[str] = Field(default="G", min_length=1, max_length=1)
 
     # Coordinates - WGS84
@@ -115,6 +113,49 @@ class TrigAdminUpdate(BaseModel):
     )
     admin_comment: str = Field(
         ..., min_length=1, description="Admin comment to append to history"
+    )
+
+
+class TrigAdminCreate(BaseModel):
+    """Request schema for creating a new trigpoint via admin POST."""
+
+    # Basic fields
+    name: str = Field(..., min_length=1, max_length=50)
+    fb_number: Optional[str] = Field(default="", max_length=10)
+    stn_number: Optional[str] = Field(default="", max_length=20)
+    stn_number_active: Optional[str] = Field(default="", max_length=20)
+    stn_number_passive: Optional[str] = Field(default="", max_length=20)
+    stn_number_osgb36: Optional[str] = Field(default="", max_length=20)
+
+    # Classification
+    status_id: int = Field(..., ge=1)
+    type_id: Optional[int] = Field(
+        None,
+        description="Trig type ID (FK to trig_type)",
+    )
+    current_use: Optional[str] = Field(default="none", max_length=25)
+    historic_use: Optional[str] = Field(default="none", max_length=30)
+    condition: Optional[str] = Field(default="G", min_length=1, max_length=1)
+
+    # Coordinates - WGS84
+    wgs_lat: Decimal = Field(..., ge=-90, le=90)
+    wgs_long: Decimal = Field(..., ge=-180, le=180)
+    wgs_height: Optional[int] = None
+
+    # Coordinates - OSGB
+    osgb_eastings: int = Field(..., ge=0)
+    osgb_northings: int = Field(..., ge=0)
+    osgb_gridref: Optional[str] = Field(default="", max_length=14)
+    osgb_height: Optional[int] = None
+
+    # Legal/access information
+    legal_message: Optional[str] = Field(
+        default=None, description="Optional legal/access message (HTML)"
+    )
+
+    # Admin comment for audit trail
+    admin_comment: str = Field(
+        ..., min_length=1, description="Admin comment for the creation audit trail"
     )
 
 

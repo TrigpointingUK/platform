@@ -42,6 +42,7 @@ from api.schemas.log_admin import (
 )
 from api.schemas.trig_admin import (
     StatusResponse,
+    TrigAdminCreate,
     TrigAdminDetail,
     TrigAdminUpdate,
     TrigNeedsAttentionListItem,
@@ -418,6 +419,8 @@ def migrate_user_to_auth0(
             detail="User not found.",
         )
 
+    user_id = int(user.id)
+
     if user.auth0_user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -437,7 +440,7 @@ def migrate_user_to_auth0(
         auth0_user = auth0_service.create_user_for_admin_migration(
             username=str(user.name),
             email=email,
-            legacy_user_id=int(user.id),
+            legacy_user_id=user_id,
             firstname=str(user.firstname) if user.firstname else None,
             surname=str(user.surname) if user.surname else None,
         )
@@ -451,7 +454,7 @@ def migrate_user_to_auth0(
             json.dumps(
                 {
                     "event": "admin_legacy_migration_auth0_failure",
-                    "user_id": int(user.id),
+                    "user_id": user_id,
                     "email": email,
                     "details": getattr(exc, "details", {}),
                 }
@@ -466,7 +469,7 @@ def migrate_user_to_auth0(
             json.dumps(
                 {
                     "event": "admin_legacy_migration_unexpected_error",
-                    "user_id": int(user.id),
+                    "user_id": user_id,
                     "email": email,
                     "error": str(exc),
                 }
@@ -483,7 +486,7 @@ def migrate_user_to_auth0(
             json.dumps(
                 {
                     "event": "admin_legacy_migration_missing_auth0_id",
-                    "user_id": int(user.id),
+                    "user_id": user_id,
                     "email": email,
                 }
             )
@@ -529,7 +532,7 @@ def migrate_user_to_auth0(
         logger.error(
             "Auth0 migration database integrity error",
             extra={
-                "user_id": int(user.id),
+                "user_id": user_id,
                 "auth0_user_id": auth0_user_id_str,
                 "email": email,
                 "error": str(exc),
@@ -547,7 +550,7 @@ def migrate_user_to_auth0(
         logger.error(
             "Auth0 migration database persist failure",
             extra={
-                "user_id": int(user.id),
+                "user_id": user_id,
                 "auth0_user_id": auth0_user_id_str,
                 "email": email,
                 "error": str(exc),
@@ -658,6 +661,119 @@ def get_trig_for_admin(
     return TrigAdminDetail.model_validate(trig)
 
 
+@router.post(
+    "/trigs",
+    response_model=TrigAdminDetail,
+    status_code=status.HTTP_201_CREATED,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Create a new trigpoint with admin privileges."
+    ),
+)
+def create_trig_admin(
+    create_data: TrigAdminCreate,
+    request: Request,
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> TrigAdminDetail:
+    """
+    Create a new trigpoint with admin tracking.
+
+    Creates a new trigpoint record with auto-generated waypoint code.
+    Populates creation audit fields (crt_user_id, crt_date, crt_time, crt_ip_addr)
+    and admin tracking fields (admin_user_id, admin_timestamp, admin_ip_addr).
+
+    The waypoint is auto-generated as "TP" followed by the next available number.
+    County and town fields are set to empty strings (deprecated fields).
+    user_added is set to 0 (admin-created trigs are trusted).
+    Postcode is auto-computed from WGS84 coordinates (NULL if >5km away).
+    """
+    from api.utils.ip_address import get_client_ip_normalized
+
+    raw_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip_normalized(raw_ip)
+
+    # Auto-generate waypoint
+    waypoint = trig_crud.get_next_waypoint(db)
+
+    # Validate type_id if provided
+    type_id_value: Optional[int] = create_data.type_id
+    if create_data.type_id is not None:
+        trig_type = trig_type_crud.get_type_by_id(db, create_data.type_id)
+        if not trig_type:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid type_id: {create_data.type_id}"
+            )
+        type_id_value = int(trig_type.id)  # type: ignore[arg-type]
+
+    # Auto-set postcode based on WGS coordinates
+    postcode_result = location_crud.find_nearest_postcode(
+        db,
+        float(create_data.wgs_lat),
+        float(create_data.wgs_long),
+        max_distance_m=5000.0,
+    )
+    nearest_postcode = postcode_result[0] if postcode_result else None
+
+    # Format timestamp for attention_comment
+    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    attention_comment = f"{timestamp_str} - {admin_user.name} - {admin_user.email} - CREATED: {create_data.admin_comment}"
+
+    # Prepare trig data
+    trig_data: dict = {
+        "name": create_data.name,
+        "fb_number": create_data.fb_number or "",
+        "stn_number": create_data.stn_number or "",
+        "stn_number_active": create_data.stn_number_active or "",
+        "stn_number_passive": create_data.stn_number_passive or "",
+        "stn_number_osgb36": create_data.stn_number_osgb36 or "",
+        "status_id": create_data.status_id,
+        "type_id": type_id_value,
+        "current_use": create_data.current_use or "none",
+        "historic_use": create_data.historic_use or "none",
+        "condition": create_data.condition or "G",
+        "wgs_lat": create_data.wgs_lat,
+        "wgs_long": create_data.wgs_long,
+        "wgs_height": create_data.wgs_height,
+        "osgb_eastings": create_data.osgb_eastings,
+        "osgb_northings": create_data.osgb_northings,
+        "osgb_gridref": create_data.osgb_gridref or "",
+        "osgb_height": create_data.osgb_height,
+        "postcode": nearest_postcode,
+        "attention_comment": attention_comment,
+        "legal_message": create_data.legal_message,
+    }
+
+    # Set PostGIS location from WGS84 coordinates (PostgreSQL only)
+    if db.bind and db.bind.dialect.name != "sqlite":  # type: ignore[union-attr]
+        from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
+
+        trig_data["location"] = ST_SetSRID(
+            ST_MakePoint(float(create_data.wgs_long), float(create_data.wgs_lat)), 4326
+        )
+
+    # Create the trigpoint
+    new_trig = trig_crud.create_trig_admin(
+        db, waypoint, int(admin_user.id), client_ip, trig_data
+    )
+
+    # Invalidate export caches (new trig added)
+    invalidate_patterns(["trigs:*:export*"])
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_trig_create",
+                "trig_id": int(new_trig.id),
+                "waypoint": waypoint,
+                "admin_user_id": int(admin_user.id),
+                "name": create_data.name,
+            }
+        )
+    )
+
+    return TrigAdminDetail.model_validate(new_trig)
+
+
 @router.patch(
     "/trigs/{trig_id}",
     response_model=TrigAdminDetail,
@@ -725,9 +841,8 @@ def update_trig_admin(
         else new_comment
     )
 
-    # Handle type_id: if provided, lookup the type and set both type_id and physical_type
+    # Validate type_id if provided
     type_id_value: Optional[int] = update_data.type_id
-    physical_type_value: str = update_data.physical_type or "Pillar"
 
     if update_data.type_id is not None:
         trig_type = trig_type_crud.get_type_by_id(db, update_data.type_id)
@@ -735,8 +850,6 @@ def update_trig_admin(
             raise HTTPException(
                 status_code=400, detail=f"Invalid type_id: {update_data.type_id}"
             )
-        # Set physical_type from the type's name
-        physical_type_value = str(trig_type.name)
         type_id_value = int(trig_type.id)  # type: ignore[arg-type]
 
     # Prepare updates dictionary - convert None to empty string for text fields
@@ -751,7 +864,6 @@ def update_trig_admin(
         "type_id": type_id_value,
         "current_use": update_data.current_use or "none",
         "historic_use": update_data.historic_use or "none",
-        "physical_type": physical_type_value,
         "condition": update_data.condition or "G",
         "wgs_lat": update_data.wgs_lat,
         "wgs_long": update_data.wgs_long,

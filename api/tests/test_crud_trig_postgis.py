@@ -69,7 +69,6 @@ def seed_trigs_with_locations(db: Session):
             user_added=0,
             current_use="Passive station",
             historic_use="Primary",
-            physical_type="Pillar",
             wgs_lat=Decimal(str(lat)),
             wgs_long=Decimal(str(lon)),
             wgs_height=100,

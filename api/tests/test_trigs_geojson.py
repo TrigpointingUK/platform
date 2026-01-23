@@ -114,7 +114,10 @@ class TestGeoJSONStructure:
                 assert "name" in props
                 assert "condition" in props
                 assert "osgb_gridref" in props
-                assert "physical_type" in props
+                assert "type_code" in props
+                assert "type_name" in props
+                assert "category_code" in props
+                assert "category_name" in props
                 break
 
 

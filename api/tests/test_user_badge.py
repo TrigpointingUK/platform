@@ -18,7 +18,9 @@ def test_get_user_badge_not_found(client: TestClient, db: Session):
     assert response.json()["detail"] == "User not found"
 
 
-def test_get_user_badge_success(client: TestClient, db: Session):
+def test_get_user_badge_success(
+    client: TestClient, db: Session, test_trig, test_trig_two
+):
     """Test getting a badge for an existing user."""
     # Create a test user
     import uuid
@@ -41,7 +43,7 @@ def test_get_user_badge_success(client: TestClient, db: Session):
     # Add some test logs for the user
     log1 = TLog(
         user_id=user.id,
-        trig_id=1,
+        trig_id=test_trig.id,
         date=date(2023, 1, 1),
         time=time(12, 0, 0),
         osgb_eastings=0,
@@ -56,7 +58,7 @@ def test_get_user_badge_success(client: TestClient, db: Session):
     )
     log2 = TLog(
         user_id=user.id,
-        trig_id=2,
+        trig_id=test_trig_two.id,
         date=date(2023, 1, 2),
         time=time(12, 0, 0),
         osgb_eastings=0,
@@ -71,7 +73,7 @@ def test_get_user_badge_success(client: TestClient, db: Session):
     )
     log3 = TLog(
         user_id=user.id,
-        trig_id=1,
+        trig_id=test_trig.id,
         date=date(2023, 1, 3),
         time=time(12, 0, 0),
         osgb_eastings=0,

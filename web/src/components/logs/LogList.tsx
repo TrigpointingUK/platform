@@ -22,6 +22,8 @@ interface LogListProps {
   emptyMessage?: string;
   currentUserId?: number;
   showTrigCondition?: boolean;
+  /** Show the trig header line (waypoint, name, type). Default: true */
+  showTrigInfo?: boolean;
 }
 
 export default function LogList({
@@ -30,6 +32,7 @@ export default function LogList({
   emptyMessage = "No logs found",
   currentUserId,
   showTrigCondition = false,
+  showTrigInfo = true,
 }: LogListProps) {
   if (isLoading) {
     return (
@@ -56,6 +59,7 @@ export default function LogList({
           log={log}
           isCurrentUserLog={currentUserId !== undefined && log.user_id === currentUserId}
           showTrigCondition={showTrigCondition}
+          showTrigInfo={showTrigInfo}
         />
       ))}
     </div>

@@ -338,7 +338,6 @@ export interface Trig {
   waypoint: string;
   name: string;
   status_name?: string;
-  physical_type: string;
   condition: string;
   wgs_lat: string;
   wgs_long: string;
@@ -347,6 +346,14 @@ export interface Trig {
   grid_system?: 'gb' | 'ie';
   /** Country name (e.g., 'England', 'Ireland', 'Northern Ireland') */
   country_name?: string;
+  /** Type code (e.g., HOTINE, FBM) */
+  type_code?: string;
+  /** Type display name (e.g., Hotine Pillar, Flush Bracket Mark) */
+  type_name?: string;
+  /** Category code (e.g., PILLAR, FBM, SURVEY_MARK) */
+  category_code?: string;
+  /** Category display name (e.g., Pillar, FBM, Survey mark) */
+  category_name?: string;
   details?: TrigDetails;
   stats?: TrigStats;
   attrs?: TrigAttrsData[];
@@ -583,7 +590,6 @@ export interface TrigAdminDetail {
   type_id: number | null;
   current_use: string;
   historic_use: string;
-  physical_type: string;
   condition: string;
   wgs_lat: string;
   wgs_long: string;
@@ -626,6 +632,29 @@ export interface TrigAdminUpdate {
   osgb_height: number | null;
   legal_message: string | null;
   action: "solved" | "revisit" | "cant_fix";
+  admin_comment: string;
+}
+
+export interface TrigAdminCreate {
+  name: string;
+  fb_number: string;
+  stn_number: string;
+  stn_number_active: string;
+  stn_number_passive: string;
+  stn_number_osgb36: string;
+  status_id: number;
+  type_id: number | null;
+  current_use: string;
+  historic_use: string;
+  condition: string;
+  wgs_lat: string;
+  wgs_long: string;
+  wgs_height: number | null;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  osgb_height: number | null;
+  legal_message: string | null;
   admin_comment: string;
 }
 
@@ -682,6 +711,16 @@ export async function updateTrigAdmin(
   token: string
 ): Promise<TrigAdminDetail> {
   return apiPatch<TrigAdminDetail>(`/v1/admin/trigs/${trigId}`, data, token);
+}
+
+/**
+ * Create a new trigpoint with admin privileges
+ */
+export async function createTrigAdmin(
+  data: TrigAdminCreate,
+  token: string
+): Promise<TrigAdminDetail> {
+  return apiPost<TrigAdminDetail>(`/v1/admin/trigs`, data, token);
 }
 
 /**
@@ -956,5 +995,499 @@ export async function convertCoordinates(
   return apiGet<CoordinateConversionResponse>(
     `/v1/coordinates/convert?${searchParams.toString()}`
   );
+}
+
+
+// ============================================================================
+// Types Admin API
+// ============================================================================
+
+/**
+ * Trig type within a category
+ */
+export interface TrigType {
+  id: number;
+  category_id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  wiki_url: string | null;
+  sort_order: number;
+}
+
+/**
+ * Trig type with nested category
+ */
+export interface TrigTypeWithCategory extends TrigType {
+  category: TrigCategory;
+}
+
+/**
+ * Trig category (high-level grouping)
+ */
+export interface TrigCategory {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  wiki_url: string | null;
+  sort_order: number;
+}
+
+/**
+ * Trig category with nested types
+ */
+export interface TrigCategoryWithTypes extends TrigCategory {
+  types: TrigType[];
+}
+
+/**
+ * Input for creating a new category
+ */
+export interface TrigCategoryCreateInput {
+  code: string;
+  name: string;
+  description?: string | null;
+  wiki_url?: string | null;
+  sort_order?: number | null;
+}
+
+/**
+ * Input for updating a category
+ */
+export interface TrigCategoryUpdateInput {
+  code?: string;
+  name?: string;
+  description?: string | null;
+  wiki_url?: string | null;
+  sort_order?: number;
+}
+
+/**
+ * Input for creating a new type
+ */
+export interface TrigTypeCreateInput {
+  category_id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  wiki_url?: string | null;
+  sort_order?: number | null;
+  legacy_physical_type?: string | null;
+}
+
+/**
+ * Input for updating a type
+ */
+export interface TrigTypeUpdateInput {
+  category_id?: number;
+  code?: string;
+  name?: string;
+  description?: string | null;
+  wiki_url?: string | null;
+  sort_order?: number;
+  legacy_physical_type?: string | null;
+}
+
+/**
+ * Type usage information
+ */
+export interface TrigTypeUsage {
+  type_id: number;
+  type_code: string;
+  type_name: string;
+  usage_count: number;
+}
+
+/**
+ * Get all categories with their types (admin)
+ */
+export async function fetchCategoriesWithTypes(
+  token: string
+): Promise<TrigCategoryWithTypes[]> {
+  return apiGet<TrigCategoryWithTypes[]>(`/v1/admin/types/categories`, token);
+}
+
+/**
+ * Create a new category (admin)
+ */
+export async function createCategory(
+  data: TrigCategoryCreateInput,
+  token: string
+): Promise<TrigCategory> {
+  return apiPost<TrigCategory>(`/v1/admin/types/categories`, data, token);
+}
+
+/**
+ * Update an existing category (admin)
+ */
+export async function updateCategory(
+  categoryId: number,
+  data: TrigCategoryUpdateInput,
+  token: string
+): Promise<TrigCategory> {
+  return apiPatch<TrigCategory>(
+    `/v1/admin/types/categories/${categoryId}`,
+    data,
+    token
+  );
+}
+
+/**
+ * Delete a category (admin)
+ * Will fail if any types are assigned to this category.
+ */
+export async function deleteCategory(
+  categoryId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(
+    `${apiBase}/v1/admin/types/categories/${categoryId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Reorder categories (admin)
+ */
+export async function reorderCategories(
+  order: number[],
+  token: string
+): Promise<TrigCategory[]> {
+  return apiPost<TrigCategory[]>(
+    `/v1/admin/types/categories/reorder`,
+    { order },
+    token
+  );
+}
+
+/**
+ * Create a new type (admin)
+ */
+export async function createType(
+  data: TrigTypeCreateInput,
+  token: string
+): Promise<TrigTypeWithCategory> {
+  return apiPost<TrigTypeWithCategory>(`/v1/admin/types/types`, data, token);
+}
+
+/**
+ * Update an existing type (admin)
+ */
+export async function updateType(
+  typeId: number,
+  data: TrigTypeUpdateInput,
+  token: string
+): Promise<TrigTypeWithCategory> {
+  return apiPatch<TrigTypeWithCategory>(
+    `/v1/admin/types/types/${typeId}`,
+    data,
+    token
+  );
+}
+
+/**
+ * Delete a type (admin)
+ * Will fail if any trigpoints are using this type.
+ */
+export async function deleteType(
+  typeId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/types/types/${typeId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Reorder types within a category (admin)
+ */
+export async function reorderTypes(
+  categoryId: number,
+  order: number[],
+  token: string
+): Promise<TrigType[]> {
+  return apiPost<TrigType[]>(
+    `/v1/admin/types/types/reorder`,
+    { category_id: categoryId, order },
+    token
+  );
+}
+
+/**
+ * Get usage count for a type (admin)
+ */
+export async function fetchTypeUsage(
+  typeId: number,
+  token: string
+): Promise<TrigTypeUsage> {
+  return apiGet<TrigTypeUsage>(`/v1/admin/types/types/${typeId}/usage`, token);
+}
+
+// ============================================================================
+// Status Admin Types and Functions
+// ============================================================================
+
+/**
+ * Status record
+ */
+export interface Status {
+  id: number;
+  name: string;
+  descr: string;
+  limit_descr: string;
+}
+
+/**
+ * Input for creating a new status
+ */
+export interface StatusCreateInput {
+  id: number;
+  name: string;
+  descr: string;
+  limit_descr: string;
+}
+
+/**
+ * Input for updating a status
+ */
+export interface StatusUpdateInput {
+  name?: string;
+  descr?: string;
+  limit_descr?: string;
+}
+
+/**
+ * Status usage response
+ */
+export interface StatusUsage {
+  status_id: number;
+  usage_count: number;
+}
+
+/**
+ * Get all statuses (admin)
+ */
+export async function fetchAllStatuses(token: string): Promise<Status[]> {
+  return apiGet<Status[]>(`/v1/admin/status/statuses`, token);
+}
+
+/**
+ * Create a new status (admin)
+ */
+export async function createStatus(
+  data: StatusCreateInput,
+  token: string
+): Promise<Status> {
+  return apiPost<Status>(`/v1/admin/status/statuses`, data, token);
+}
+
+/**
+ * Update a status (admin)
+ */
+export async function updateStatus(
+  statusId: number,
+  data: StatusUpdateInput,
+  token: string
+): Promise<Status> {
+  return apiPatch<Status>(`/v1/admin/status/statuses/${statusId}`, data, token);
+}
+
+/**
+ * Delete a status (admin)
+ * Will fail if any trigpoints are using this status.
+ */
+export async function deleteStatus(
+  statusId: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/status/statuses/${statusId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Get usage count for a status (admin)
+ */
+export async function fetchStatusUsage(
+  statusId: number,
+  token: string
+): Promise<StatusUsage> {
+  return apiGet<StatusUsage>(`/v1/admin/status/statuses/${statusId}/usage`, token);
+}
+
+// ============================================================================
+// Condition Admin Types and Functions
+// ============================================================================
+
+/**
+ * Condition record
+ */
+export interface Condition {
+  code: string;
+  name: string;
+  description: string | null;
+  icon_file: string | null;
+  trig_colour: string | null;
+  log_colour: string | null;
+  similar_codes: string | null;
+  wiki_url: string | null;
+  sort_order: number;
+}
+
+/**
+ * Input for creating a new condition
+ */
+export interface ConditionCreateInput {
+  code: string;
+  name: string;
+  sort_order: number;
+  description?: string;
+  icon_file?: string;
+  trig_colour?: string;
+  log_colour?: string;
+  similar_codes?: string;
+  wiki_url?: string;
+}
+
+/**
+ * Input for updating a condition
+ */
+export interface ConditionUpdateInput {
+  name?: string;
+  description?: string;
+  icon_file?: string;
+  trig_colour?: string;
+  log_colour?: string;
+  similar_codes?: string;
+  wiki_url?: string;
+  sort_order?: number;
+}
+
+/**
+ * Condition usage response
+ */
+export interface ConditionUsage {
+  code: string;
+  usage_count: number;
+}
+
+/**
+ * Get all conditions (admin)
+ */
+export async function fetchAllConditions(token: string): Promise<Condition[]> {
+  return apiGet<Condition[]>(`/v1/admin/condition/conditions`, token);
+}
+
+/**
+ * Create a new condition (admin)
+ */
+export async function createCondition(
+  data: ConditionCreateInput,
+  token: string
+): Promise<Condition> {
+  return apiPost<Condition>(`/v1/admin/condition/conditions`, data, token);
+}
+
+/**
+ * Update a condition (admin)
+ */
+export async function updateCondition(
+  code: string,
+  data: ConditionUpdateInput,
+  token: string
+): Promise<Condition> {
+  return apiPatch<Condition>(`/v1/admin/condition/conditions/${code}`, data, token);
+}
+
+/**
+ * Delete a condition (admin)
+ * Will fail if any logs are using this condition.
+ */
+export async function deleteCondition(
+  code: string,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/condition/conditions/${code}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Get usage count for a condition (admin)
+ */
+export async function fetchConditionUsage(
+  code: string,
+  token: string
+): Promise<ConditionUsage> {
+  return apiGet<ConditionUsage>(`/v1/admin/condition/conditions/${code}/usage`, token);
+}
+
+// ============================================================================
+// Public Conditions API (no auth required)
+// ============================================================================
+
+/**
+ * Get all conditions (public, cached)
+ */
+export async function fetchPublicConditions(): Promise<Condition[]> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/conditions`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch conditions");
+  }
+  return response.json();
+}
+
+/**
+ * Get a single condition by code (public, cached)
+ */
+export async function fetchPublicConditionByCode(
+  code: string
+): Promise<Condition> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/conditions/${code}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch condition ${code}`);
+  }
+  return response.json();
 }
 

@@ -159,9 +159,9 @@ test: ## Run tests (requires test-db-start)
 	@docker compose -f docker-compose.test.yml ps test-db | grep -qE "(Up|running)" || { echo "❌ Test database not running. Run 'make test-db-start' first."; exit 1; }
 	CACHE_ENABLED=false pytest -n auto
 
-test-cov: ## Run tests with coverage
-	CACHE_ENABLED=false pytest -n auto
-	pytest --cov=api --cov-report=term-missing --cov-report=html --cov-report=xml:coverage.xml
+test-cov: ## Run tests with coverage and HTML report
+	@docker compose -f docker-compose.test.yml ps test-db | grep -qE "(Up|running)" || { echo "❌ Test database not running. Run 'make test-db-start' first."; exit 1; }
+	CACHE_ENABLED=false pytest -n auto --cov-report=html
 
 diff-cov: ## Check diff coverage against origin/main (fail if < 90%)
 	@if [ ! -f coverage.xml ]; then \

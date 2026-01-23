@@ -4,6 +4,7 @@ import StarRating from "../ui/StarRating";
 import DirectionArrow from "../ui/DirectionArrow";
 import { Photo } from "../../lib/api";
 import { osgbToWGS84 } from "../../lib/coordinates";
+import { useConditionInfo } from "../../hooks/useConditionInfo";
 
 interface Log {
   id: number;
@@ -15,7 +16,10 @@ interface Log {
   trig_lon?: number | null;
   trig_condition?: string | null;
   trig_status_name?: string | null;
-  trig_physical_type?: string | null;
+  trig_type_code?: string | null;
+  trig_type_name?: string | null;
+  trig_category_code?: string | null;
+  trig_category_name?: string | null;
   date: string;
   time: string;
   condition: string;
@@ -40,29 +44,10 @@ interface LogCardProps {
   showDistance?: boolean;
   /** Show the curated trig condition icon before the TP number */
   showTrigCondition?: boolean;
+  /** Show the trig header line (waypoint, name, type). Default: true */
+  showTrigInfo?: boolean;
 }
 
-// Helper function to get condition icon and label
-function getConditionInfo(code: string): { icon: string; label: string } {
-  const conditions: Record<string, { icon: string; label: string }> = {
-    Z: { icon: "c_unknown.png", label: "Not Logged" },
-    N: { icon: "c_possiblymissing.png", label: "Couldn't Find" },
-    G: { icon: "c_good.png", label: "Good" },
-    S: { icon: "c_slightlydamaged.png", label: "Slightly Damaged" },
-    C: { icon: "c_slightlydamaged.png", label: "Converted" },
-    D: { icon: "c_damaged.png", label: "Damaged" },
-    R: { icon: "c_toppled.png", label: "Remains" },
-    T: { icon: "c_toppled.png", label: "Toppled" },
-    M: { icon: "c_toppled.png", label: "Moved" },
-    Q: { icon: "c_possiblymissing.png", label: "Possibly Missing" },
-    X: { icon: "c_definitelymissing.png", label: "Destroyed" },
-    V: { icon: "c_unreachablebutvisible.png", label: "Unreachable but Visible" },
-    P: { icon: "c_unknown.png", label: "Inaccessible" },
-    U: { icon: "c_unknown.png", label: "Unknown" },
-    "-": { icon: "c_nolog.png", label: "Not Visited" },
-  };
-  return conditions[code] || { icon: "c_unknown.png", label: code };
-}
 
 // Helper to get status icon info
 function getStatusInfo(statusName?: string | null): { icon?: string; abbrev: string } {
@@ -93,8 +78,9 @@ function getStatusInfo(statusName?: string | null): { icon?: string; abbrev: str
   return { abbrev: "?" };
 }
 
-export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false }: LogCardProps) {
+export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false, showTrigInfo = true }: LogCardProps) {
   const navigate = useNavigate();
+  const { getConditionInfo } = useConditionInfo();
   const conditionInfo = getConditionInfo(log.condition);
   const formattedDate = new Date(log.date).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -184,46 +170,51 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <Link
-              to={`/trigs/${log.trig_id}`}
-              className="inline-flex items-center gap-1.5 text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Status icon (type) - always shown */}
-              {log.trig_status_name && getStatusInfo(log.trig_status_name).icon && (
-                <img
-                  src={getStatusInfo(log.trig_status_name).icon}
-                  alt={getStatusInfo(log.trig_status_name).abbrev}
-                  title={log.trig_status_name}
-                  className="w-6 h-6 object-contain"
-                />
-              )}
-              {/* Trig condition icon (square) - only shown when enabled */}
-              {showTrigCondition && log.trig_condition && (
-                <img
-                  src={`/icons/conditions/${getConditionInfo(log.trig_condition).icon}`}
-                  alt={getConditionInfo(log.trig_condition).label}
-                  title={`Trig condition: ${getConditionInfo(log.trig_condition).label}`}
-                  className="w-5 h-5"
-                />
-              )}
-              {formattedTrigId}
-              {displayTrigName && (
-                <>
-                  <span className="text-gray-400 dark:text-gray-500 mx-2">·</span>
-                  <span className="font-normal text-gray-700 dark:text-gray-300">{displayTrigName}</span>
-                </>
-              )}
-              {log.trig_physical_type && (
-                <>
-                  <span className="text-gray-400 dark:text-gray-500 mx-1">·</span>
-                  <span className="font-normal text-gray-500 dark:text-gray-400 text-sm">{log.trig_physical_type}</span>
-                </>
-              )}
-            </Link>
+            {showTrigInfo && (
+              <Link
+                to={`/trigs/${log.trig_id}`}
+                className="inline-flex items-center gap-1.5 text-lg font-semibold text-trig-green-600 hover:text-trig-green-700 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Status icon (type) - always shown */}
+                {log.trig_status_name && getStatusInfo(log.trig_status_name).icon && (
+                  <img
+                    src={getStatusInfo(log.trig_status_name).icon}
+                    alt={getStatusInfo(log.trig_status_name).abbrev}
+                    title={log.trig_status_name}
+                    className="w-6 h-6 object-contain"
+                  />
+                )}
+                {/* Trig condition icon (square) - only shown when enabled */}
+                {showTrigCondition && log.trig_condition && (
+                  <img
+                    src={`/icons/conditions/${getConditionInfo(log.trig_condition).icon}`}
+                    alt={getConditionInfo(log.trig_condition).label}
+                    title={`Trig condition: ${getConditionInfo(log.trig_condition).label}`}
+                    className="w-5 h-5"
+                  />
+                )}
+                {formattedTrigId}
+                {displayTrigName && (
+                  <>
+                    <span className="text-gray-400 dark:text-gray-500 mx-2">·</span>
+                    <span className="font-normal text-gray-700 dark:text-gray-300">{displayTrigName}</span>
+                  </>
+                )}
+                {log.trig_type_name && (
+                  <>
+                    <span className="text-gray-400 dark:text-gray-500 mx-1">·</span>
+                    <span className="font-normal text-gray-500 dark:text-gray-400 text-sm">
+                      {log.trig_type_code === log.trig_category_code
+                        ? log.trig_type_name
+                        : `${log.trig_category_name} · ${log.trig_type_name}`}
+                    </span>
+                  </>
+                )}
+              </Link>
+            )}
             <div className="flex flex-wrap items-center gap-2 text-base text-gray-600 dark:text-gray-400">
               <span>
-                by{" "}
                 {displayUserName ? (
                   <Link
                     to={`/profile/${log.user_id}`}

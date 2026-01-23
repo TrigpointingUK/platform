@@ -13,7 +13,6 @@ def _make_mock_trig(
     id: int = 1,
     waypoint: str = "TP0001",
     name: str = "Test Trig",
-    physical_type: str = "Pillar",
     condition: str = "G",
     status_id: int = 1,
     wgs_lat: float = 51.5074,
@@ -22,15 +21,16 @@ def _make_mock_trig(
     osgb_gridref: str = "TQ 30000 80000",
     county: str = "Greater London",
     fb_number: str = "S1234",
-    group_code: str = "PILLAR",
-    group_name: str = "Pillar",
+    type_code: str = "PILLAR",
+    type_name: str = "Pillar",
+    category_code: str = "PILLAR",
+    category_name: str = "Pillar",
 ) -> MagicMock:
     """Create a mock Trig object for testing."""
     mock_trig = MagicMock()
     mock_trig.id = id
     mock_trig.waypoint = waypoint
     mock_trig.name = name
-    mock_trig.physical_type = physical_type
     mock_trig.condition = condition
     mock_trig.status_id = status_id
     mock_trig.wgs_lat = wgs_lat
@@ -40,13 +40,15 @@ def _make_mock_trig(
     mock_trig.county = county
     mock_trig.fb_number = fb_number
 
-    # Mock trig_type and group relationships
-    mock_group = MagicMock()
-    mock_group.code = group_code
-    mock_group.name = group_name
+    # Mock trig_type and category relationships
+    mock_category = MagicMock()
+    mock_category.code = category_code
+    mock_category.name = category_name
 
     mock_type = MagicMock()
-    mock_type.group = mock_group
+    mock_type.code = type_code
+    mock_type.name = type_name
+    mock_type.category = mock_category
 
     mock_trig.trig_type = mock_type
 
@@ -66,8 +68,8 @@ class TestTrigsToGpx:
         assert "</link>" in result
 
     def test_gpx_contains_type_element(self):
-        """Test that GPX output contains type element with physical_type."""
-        trig = _make_mock_trig(physical_type="Pillar")
+        """Test that GPX output contains type element with type_name."""
+        trig = _make_mock_trig(type_name="Pillar")
         result = trigs_to_gpx([trig])
 
         assert "<type>Pillar</type>" in result
@@ -176,8 +178,8 @@ class TestTrigsToKmz:
             id=7177,
             waypoint="TP7177",
             name="Cat and Fiddle",
-            group_code="PILLAR",
-            group_name="Pillar",
+            category_code="PILLAR",
+            category_name="Pillar",
         )
         kmz = trigs_to_kmz([trig])
 
@@ -189,10 +191,9 @@ class TestTrigsToKmz:
     def test_kmz_embeds_icons_and_references_stylemap(self):
         trig = _make_mock_trig(
             id=1,
-            physical_type="Pillar",
             condition="G",
-            group_code="PILLAR",
-            group_name="Pillar",
+            category_code="PILLAR",
+            category_name="Pillar",
         )
         kmz = trigs_to_kmz([trig])
 
@@ -208,10 +209,9 @@ class TestTrigsToKmz:
     def test_kmz_colour_mapping_mylog_vs_condition(self):
         trig = _make_mock_trig(
             id=1,
-            physical_type="Pillar",
             condition="P",
-            group_code="PILLAR",
-            group_name="Pillar",
+            category_code="PILLAR",
+            category_name="Pillar",
         )
 
         # Condition mode: P => grey
@@ -232,10 +232,9 @@ class TestTrigsToKmz:
     def test_kmz_blank_logged_condition_is_green(self):
         trig = _make_mock_trig(
             id=1,
-            physical_type="Pillar",
             condition="U",
-            group_code="PILLAR",
-            group_name="Pillar",
+            category_code="PILLAR",
+            category_name="Pillar",
         )
         kmz = trigs_to_kmz(
             [trig],
@@ -248,10 +247,9 @@ class TestTrigsToKmz:
     def test_kmz_bolt_is_passive_icon_family(self):
         trig = _make_mock_trig(
             id=1,
-            physical_type="Bolt",
             condition="G",
-            group_code="SURVEY_MARK",
-            group_name="Survey mark",
+            category_code="SURVEY_MARK",
+            category_name="Survey mark",
         )
         kmz = trigs_to_kmz([trig])
         with zipfile.ZipFile(io.BytesIO(kmz)) as zf:

@@ -42,11 +42,11 @@ import {
 } from "../lib/mapIcons";
 import { Menu, X, List } from "lucide-react";
 
-// All status levels (IDs) - maps to trig_type_group.sort_order
+// All status levels (IDs) - maps to trig_category.sort_order
 const ALL_STATUSES = [10, 20, 30, 40, 50, 60];
 
 // Status ID to API key mapping (for GeoJSON collections)
-// These map to trig_type_group.code as returned by the API
+// These map to trig_category.code as returned by the API
 const STATUS_NAMES: Record<number, string> = {
   10: "PILLAR",
   20: "FBM",
@@ -56,8 +56,8 @@ const STATUS_NAMES: Record<number, string> = {
   60: "OTHER",
 };
 
-// Reverse mapping: group code to status ID
-const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
+// Reverse mapping: category code to status ID
+const CATEGORY_CODE_TO_STATUS_ID: Record<string, number> = {
   PILLAR: 10,
   FBM: 20,
   SURVEY_MARK: 30,
@@ -66,7 +66,7 @@ const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
   OTHER: 60,
 };
 
-// Status ID to display name mapping (from trig_type_group.name)
+// Status ID to display name mapping (from trig_category.name)
 const STATUS_DISPLAY_NAMES: Record<number, string> = {
   10: "Pillar",
   20: "FBM",
@@ -152,12 +152,12 @@ export default function Map() {
   const { data: loggedTrigsMap } = useUserLoggedTrigs();
 
   // Derive preferred statuses from user preferences
-  // Uses default_groups (list of group codes) from ui_prefs
+  // Uses default_categories (list of category codes) from ui_prefs
   const preferredStatuses = useMemo(() => {
-    const defaultGroups = userProfile?.prefs?.ui_prefs?.default_groups;
-    if (defaultGroups && defaultGroups.length > 0) {
-      return defaultGroups
-        .map((code: string) => GROUP_CODE_TO_STATUS_ID[code])
+    const defaultCategories = userProfile?.prefs?.ui_prefs?.default_categories;
+    if (defaultCategories && defaultCategories.length > 0) {
+      return defaultCategories
+        .map((code: string) => CATEGORY_CODE_TO_STATUS_ID[code])
         .filter((id: number | undefined): id is number => id !== undefined);
     }
     
@@ -241,7 +241,7 @@ export default function Map() {
   const [activeZoom, setActiveZoom] = useState<number>(initialZoom);
 
   // Fetch trigpoints for current viewport
-  // Note: physical_types filter NOT applied in API - we filter client-side
+  // Note: type filtering happens client-side
   const {
     data: allTrigsData,
     totalCount,
@@ -322,12 +322,15 @@ export default function Map() {
           id: feature.properties.id,
           waypoint: `TP${feature.properties.id.toString().padStart(4, "0")}`,
           name: feature.properties.name || "",
-          physical_type: feature.properties.physical_type || "Unknown",
           condition: feature.properties.condition || "U",
           wgs_lat: feature.geometry.coordinates[1].toString(),
           wgs_long: feature.geometry.coordinates[0].toString(),
           osgb_gridref: feature.properties.osgb_gridref || "",
           status_name: STATUS_DISPLAY_NAMES[statusId] || "",
+          type_code: feature.properties.type_code,
+          type_name: feature.properties.type_name,
+          category_code: feature.properties.category_code,
+          category_name: feature.properties.category_name,
         });
       });
     }
@@ -399,12 +402,12 @@ export default function Map() {
     );
   }, [trigpoints, selectedColors, getTrigColor]);
 
-  // Calculate physical type counts from filtered trigpoints
-  const physicalTypeCounts = useMemo(() => {
+  // Calculate type counts from filtered trigpoints
+  const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
 
     for (const trig of colorFilteredTrigpoints) {
-      const type = trig.physical_type || "Unknown";
+      const type = trig.type_name || "Unknown";
       counts[type] = (counts[type] || 0) + 1;
     }
 
@@ -766,7 +769,7 @@ export default function Map() {
                         Comprising:{" "}
                         {geojsonData ? (
                           <>
-                            {Object.entries(physicalTypeCounts)
+                            {Object.entries(typeCounts)
                               .sort(([, countA], [, countB]) => countB - countA)
                               .map(([type, count], index, arr) => (
                                 <span key={type}>

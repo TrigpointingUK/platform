@@ -11,14 +11,17 @@ export interface GeoJSONTrig {
     name: string;
     condition: string;
     osgb_gridref: string;
-    physical_type: string; // Added for new structure
+    type_code?: string; // From trig_type.code
+    type_name?: string; // From trig_type.name
+    category_code?: string; // From trig_category.code
+    category_name?: string; // From trig_category.name
   };
 }
 
 export interface GeoJSONFeatureCollection {
   type: "FeatureCollection";
-  name?: string; // trig_type_group.name for display
-  description?: string; // trig_type_group.description
+  name?: string; // trig_category.name for display
+  description?: string; // trig_category.description
   features: GeoJSONTrig[];
 }
 
@@ -27,16 +30,16 @@ export interface GeoJSONWarning {
   message: string;
   reason: string;
   unmapped_count: number;
-  unmapped_groups: Record<string, number>;
+  unmapped_categories: Record<string, number>;
   sample_trigs: Array<{
     id: number;
     name: string;
-    group_code: string;
-    group_name: string;
+    category_code: string;
+    category_name: string;
   }>;
 }
 
-// Type group-based structure (keyed by trig_type_group.code)
+// Category-based structure (keyed by trig_category.code)
 export interface GeoJSONResponse {
   PILLAR?: GeoJSONFeatureCollection;
   FBM?: GeoJSONFeatureCollection;

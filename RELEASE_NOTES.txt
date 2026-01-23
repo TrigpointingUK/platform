@@ -1,0 +1,37 @@
+19th Jan 2026
+=============
+
+Better support for Irish Trigs:
+Grid references are now shown in Irish grid format
+The thumbnail map on the details pages defaults to OpenTopoMap
+.
+Dark mode is now available:
+Click the button in the titlebar to switch between light, dark and auto modes
+.
+Active stations are now separately toggleable in the map and trigpoint list pages
+User-added is no longer a category, and these are now listed under "Other" until they have been reviewed
+.
+The trigpoint list now defaults to a maximum distance of 200km, to improve performance
+Ensure you push it back up to ∞ before downloading, if you want the whole UK dataset
+.
+Fixed the forum's Attachments tab. You can now upload photos / screenshots and include them in forum posts.
+
+
+
+xx Jan 2026
+===========
+
+Better support for counties:
+Added 1991 counties to the area list
+Added breakdown by county (and country, OS map etc) to profile page
+
+More granular physical types
+
+Misc:
+Avoid repetition of trigpoint details on log lists
+
+Admin:
+Added "Create new trig" page
+Added maintenance pages for type hierarchy, condition and status
+
+

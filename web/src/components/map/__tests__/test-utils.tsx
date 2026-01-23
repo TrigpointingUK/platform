@@ -97,12 +97,15 @@ export const createMockTrig = (overrides?: Partial<TrigData>): TrigData => ({
   id: 1,
   waypoint: 'TP1234',
   name: 'Test Trig Point',
-  physical_type: 'Pillar',
   condition: 'G',
   wgs_lat: 51.5074,
   wgs_long: -0.1278,
   osgb_gridref: 'TQ 30 80',
   grid_system: 'gb',  // Default to GB grid
+  type_code: 'PILLAR',
+  type_name: 'Pillar',
+  category_code: 'PILLAR',
+  category_name: 'Pillar',
   ...overrides,
 });
 
@@ -113,13 +116,16 @@ export const createMockIrishTrig = (overrides?: Partial<TrigData>): TrigData => 
   id: 100,
   waypoint: 'TP5000',
   name: 'Dublin Test Trig',
-  physical_type: 'Pillar',
   condition: 'G',
   wgs_lat: 53.3498,
   wgs_long: -6.2603,
   osgb_gridref: 'O 15 34',  // Irish Grid reference format
   grid_system: 'ie',  // Irish Grid
   country_name: 'Ireland',
+  type_code: 'PILLAR',
+  type_name: 'Pillar',
+  category_code: 'PILLAR',
+  category_name: 'Pillar',
   ...overrides,
 });
 
@@ -231,14 +237,14 @@ export const trigsByCondition = {
 /**
  * Trigpoints with different physical types
  */
-export const trigsByPhysicalType = {
-  pillar: createMockTrig({ id: 1, physical_type: 'Pillar', name: 'Pillar Trig' }),
-  fbm: createMockTrig({ id: 2, physical_type: 'FBM', name: 'FBM Trig' }),
-  passive: createMockTrig({ id: 3, physical_type: 'Passive Station', name: 'Passive Trig' }),
-  intersection: createMockTrig({ id: 4, physical_type: 'Intersection', name: 'Intersection Trig' }),
-  bolt: createMockTrig({ id: 5, physical_type: 'Bolt', name: 'Bolt Trig' }),
-  active: createMockTrig({ id: 6, physical_type: 'Active Station', name: 'Active Trig' }),
-  other: createMockTrig({ id: 7, physical_type: 'Other', name: 'Other Trig' }),
+export const trigsByType = {
+  pillar: createMockTrig({ id: 1, type_name: 'Pillar', type_code: 'PILLAR', category_code: 'PILLAR', name: 'Pillar Trig' }),
+  fbm: createMockTrig({ id: 2, type_name: 'FBM', type_code: 'FBM', category_code: 'FBM', name: 'FBM Trig' }),
+  passive: createMockTrig({ id: 3, type_name: 'Passive Station', type_code: 'PASSIVE', category_code: 'SURVEY_MARK', name: 'Passive Trig' }),
+  intersection: createMockTrig({ id: 4, type_name: 'Intersection', type_code: 'INTERSECTED', category_code: 'INTERSECTED', name: 'Intersection Trig' }),
+  bolt: createMockTrig({ id: 5, type_name: 'Bolt', type_code: 'BOLT', category_code: 'SURVEY_MARK', name: 'Bolt Trig' }),
+  active: createMockTrig({ id: 6, type_name: 'Active Station', type_code: 'ACTIVE', category_code: 'ACTIVE', name: 'Active Trig' }),
+  other: createMockTrig({ id: 7, type_name: 'Other', type_code: 'OTHER', category_code: 'OTHER', name: 'Other Trig' }),
 };
 
 /**

@@ -27,6 +27,10 @@ const Admin = lazy(() => import("./routes/Admin"));
 const AdminNeedsAttention = lazy(() => import("./routes/admin/NeedsAttention"));
 const AdminLogsNeedsAttention = lazy(() => import("./routes/admin/LogsNeedsAttention"));
 const AdminTrigEdit = lazy(() => import("./routes/admin/TrigEdit"));
+const AdminTrigCreate = lazy(() => import("./routes/admin/TrigCreate"));
+const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
+const AdminStatusAdmin = lazy(() => import("./routes/admin/StatusAdmin"));
+const AdminConditionAdmin = lazy(() => import("./routes/admin/ConditionAdmin"));
 
 // Redirect component for old /trig/ URLs
 function TrigRedirect() {
@@ -260,10 +264,42 @@ const router = createBrowserRouter(
       ),
     },
     {
+      path: "/admin/trigs/new",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminTrigCreate />
+        </Suspense>
+      ),
+    },
+    {
       path: "/admin/trigs/:trigId/edit",
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <AdminTrigEdit />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/types",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminTypesAdmin />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/status",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminStatusAdmin />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/condition",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminConditionAdmin />
         </Suspense>
       ),
     },

@@ -15,8 +15,9 @@ class TestAuth0IntegrationInCRUD:
 
     def setup_method(self):
         """Set up test fixtures."""
+        self.user_id = 1_000_001
         self.mock_user = User(
-            id=1,
+            id=self.user_id,
             name="testuser",
             email="test@example.com",
             cryptpw="$1$salt$hash",
@@ -54,13 +55,13 @@ class TestAuth0IntegrationInCRUD:
             email="test@example.com",
             name="testuser",
             password="password",
-            user_id=1,
+            user_id=self.user_id,
             firstname=None,
             surname=None,
         )
         mock_update_mapping.assert_called_once_with(
             db=self.mock_db,
-            user_id=1,
+            user_id=self.user_id,
             auth0_user_id="auth0|123",
         )
 
@@ -86,7 +87,7 @@ class TestAuth0IntegrationInCRUD:
             email="test@example.com",
             name="testuser",
             password="password",
-            user_id=1,
+            user_id=self.user_id,
             firstname=None,
             surname=None,
         )
@@ -121,13 +122,13 @@ class TestAuth0IntegrationInCRUD:
             email="test@example.com",
             name="testuser",
             password="password",
-            user_id=1,
+            user_id=self.user_id,
             firstname=None,
             surname=None,
         )
         mock_update_mapping.assert_called_once_with(
             db=self.mock_db,
-            user_id=1,
+            user_id=self.user_id,
             auth0_user_id="auth0|123",
         )
 
@@ -186,7 +187,7 @@ class TestAuth0IntegrationInCRUD:
         """Test authentication with user that has no email."""
         # Setup mocks
         user_no_email = User(
-            id=1,
+            id=self.user_id,
             name="testuser",
             email=None,
             cryptpw="$1$salt$hash",
@@ -206,13 +207,13 @@ class TestAuth0IntegrationInCRUD:
             email=None,
             name="testuser",
             password="password",
-            user_id=1,
+            user_id=self.user_id,
             firstname=None,
             surname=None,
         )
         mock_update_mapping.assert_called_once_with(
             db=self.mock_db,
-            user_id=1,
+            user_id=self.user_id,
             auth0_user_id="auth0|123",
         )
 
@@ -238,7 +239,7 @@ class TestAuth0IntegrationInCRUD:
             email="test@example.com",
             name="testuser",
             password="password",
-            user_id=1,
+            user_id=self.user_id,
             firstname=None,
             surname=None,
         )
@@ -265,7 +266,7 @@ class TestAuth0IntegrationInCRUD:
             email="test@example.com",
             name="testuser",
             password="password",
-            user_id=1,
+            user_id=self.user_id,
             firstname=None,
             surname=None,
         )
@@ -279,7 +280,7 @@ class TestAuth0IntegrationInCRUD:
         """Test authentication with user that already has auth0_user_id (now still syncs)."""
         # Setup mocks - user already has Auth0 ID
         user_with_auth0 = User(
-            id=1,
+            id=self.user_id,
             name="testuser",
             email="test@example.com",
             cryptpw="$1$salt$hash",
@@ -300,7 +301,7 @@ class TestAuth0IntegrationInCRUD:
             email="test@example.com",
             name="testuser",
             password="password",
-            user_id=1,
+            user_id=self.user_id,
             firstname=None,
             surname=None,
         )

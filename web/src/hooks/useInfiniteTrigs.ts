@@ -4,8 +4,8 @@ import { authenticatedFetch } from "../lib/api";
 
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
-// Status ID to group code mapping
-const STATUS_ID_TO_GROUP_CODE: Record<number, string> = {
+// Status ID to category code mapping
+const STATUS_ID_TO_CATEGORY_CODE: Record<number, string> = {
   10: "PILLAR",
   20: "FBM",
   30: "SURVEY_MARK",
@@ -18,16 +18,15 @@ interface Trig {
   id: number;
   waypoint: string;
   name: string;
-  physical_type: string;
   condition: string;
   wgs_lat: string;
   wgs_long: string;
   osgb_gridref: string;
   status_name?: string;
-  group_code?: string;
-  group_name?: string;
   type_code?: string;
   type_name?: string;
+  category_code?: string;
+  category_name?: string;
   distance_km?: number;
 }
 
@@ -90,12 +89,12 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
       }
       
       if (statusIds && statusIds.length > 0) {
-        // Convert status IDs to group codes for the API
-        const groupCodes = statusIds
-          .map((id) => STATUS_ID_TO_GROUP_CODE[id])
+        // Convert status IDs to category codes for the API
+        const categoryCodes = statusIds
+          .map((id) => STATUS_ID_TO_CATEGORY_CODE[id])
           .filter((code): code is string => code !== undefined);
-        if (groupCodes.length > 0) {
-          params.append("groups", groupCodes.join(","));
+        if (categoryCodes.length > 0) {
+          params.append("categories", categoryCodes.join(","));
         }
       }
       

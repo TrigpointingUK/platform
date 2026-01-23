@@ -475,7 +475,125 @@ class TestIrishGridConversion:
         assert abs(data2["output"]["lat"] - 53.5) < 0.001
         assert abs(data2["output"]["lon"] - (-7.5)) < 0.001
 
-    # Note: Auto-detect tests (to=grid) and gridref parsing tests (from=gridref)
+    def test_missing_e_for_irish_grid(self):
+        """Test that missing eastings returns 400 error for Irish Grid."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "irish",
+                "to": "wgs84",
+                # e is missing
+                "n": 234000,
+            },
+        )
+
+        assert response.status_code == 400
+        assert "e" in response.json()["detail"].lower()
+
+    def test_missing_n_for_irish_grid(self):
+        """Test that missing northings returns 400 error for Irish Grid."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "irish",
+                "to": "wgs84",
+                "e": 316200,
+                # n is missing
+            },
+        )
+
+        assert response.status_code == 400
+        assert "n" in response.json()["detail"].lower()
+
+    def test_irish_to_osgb_not_supported(self):
+        """Test that Irish Grid to OSGB conversion returns 400 error."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "irish",
+                "to": "osgb",
+                "e": 316200,
+                "n": 234000,
+            },
+        )
+
+        assert response.status_code == 400
+        assert "wgs84" in response.json()["detail"].lower()
+
+    def test_osgb_to_irish_not_supported(self):
+        """Test that OSGB to Irish Grid conversion returns 400 error."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "osgb",
+                "to": "irish",
+                "e": 530005,
+                "n": 180433,
+            },
+        )
+
+        assert response.status_code == 400
+        assert "wgs84" in response.json()["detail"].lower()
+
+    def test_irish_3d_conversion(self):
+        """Test Irish Grid conversion with height (3D)."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "wgs84",
+                "to": "irish",
+                "lat": 53.3498,
+                "lon": -6.2603,
+                "height": 50.0,  # 50m ellipsoidal
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should have height in output
+        assert data["output"]["height"] is not None
+
+
+# =============================================================================
+# Auto-detect Grid Tests (to=grid)
+# =============================================================================
+
+
+class TestAutoDetectGrid:
+    """Tests for auto-detect grid system (to=grid)."""
+
+    def test_auto_detect_requires_wgs84(self):
+        """Test that to=grid only works from wgs84."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "osgb",
+                "to": "grid",
+                "e": 530005,
+                "n": 180433,
+            },
+        )
+
+        assert response.status_code == 400
+        assert "wgs84" in response.json()["detail"].lower()
+
+    def test_auto_detect_requires_lat_lon(self):
+        """Test that to=grid requires lat and lon."""
+        response = client.get(
+            "/v1/coordinates/convert",
+            params={
+                "from": "wgs84",
+                "to": "grid",
+                "lat": 51.5074,
+                # lon is missing
+            },
+        )
+
+        assert response.status_code == 400
+        assert "lon" in response.json()["detail"].lower()
+
+    # Note: Full auto-detect tests (to=grid) that select between OSGB and Irish
     # require the database to have country polygon data loaded, which is not
     # available in the unit test environment. These features are tested in
     # integration tests that run against the real database.

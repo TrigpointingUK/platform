@@ -28,15 +28,15 @@ def _get_type_ids_for_codes(db: Session, type_codes: List[str]) -> List[int]:
     return [t[0] for t in type_ids]
 
 
-def _get_type_ids_for_groups(db: Session, group_codes: List[str]) -> List[int]:
-    """Get type IDs for all types in the given groups."""
-    from api.models.trig_type import TrigType, TrigTypeGroup
+def _get_type_ids_for_categories(db: Session, category_codes: List[str]) -> List[int]:
+    """Get type IDs for all types in the given categories."""
+    from api.models.trig_type import TrigCategory, TrigType
 
-    upper_codes = [c.upper() for c in group_codes]
+    upper_codes = [c.upper() for c in category_codes]
     type_ids = (
         db.query(TrigType.id)
-        .join(TrigTypeGroup)
-        .filter(TrigTypeGroup.code.in_(upper_codes))
+        .join(TrigCategory)
+        .filter(TrigCategory.code.in_(upper_codes))
         .all()
     )
     return [t[0] for t in type_ids]
@@ -136,9 +136,8 @@ def list_trigs_filtered(
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
     order: Optional[str] = None,
-    physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
-    group_codes: Optional[List[str]] = None,
+    category_codes: Optional[List[str]] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
@@ -160,11 +159,7 @@ def list_trigs_filtered(
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
 
-    # Filter by physical types (kept for backward compatibility)
-    if physical_types:
-        query = query.filter(Trig.physical_type.in_(physical_types))
-
-    # Filter by type codes (new type system)
+    # Filter by type codes
     if type_codes:
         type_id_list = _get_type_ids_for_codes(db, type_codes)
         if type_id_list:
@@ -172,13 +167,13 @@ def list_trigs_filtered(
         else:
             query = query.filter(false())  # No matching types
 
-    # Filter by group codes (new type system)
-    if group_codes:
-        type_id_list = _get_type_ids_for_groups(db, group_codes)
+    # Filter by category codes (new type system)
+    if category_codes:
+        type_id_list = _get_type_ids_for_categories(db, category_codes)
         if type_id_list:
             query = query.filter(Trig.type_id.in_(type_id_list))
         else:
-            query = query.filter(false())  # No matching groups
+            query = query.filter(false())  # No matching categories
 
     # Exclude trigpoints already found by user (use NOT EXISTS for efficiency)
     if exclude_found_by_user_id is not None:
@@ -278,9 +273,8 @@ def count_trigs_filtered(
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     max_km: Optional[float] = None,
-    physical_types: Optional[List[str]] = None,
     type_codes: Optional[List[str]] = None,
-    group_codes: Optional[List[str]] = None,
+    category_codes: Optional[List[str]] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
@@ -302,11 +296,7 @@ def count_trigs_filtered(
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
 
-    # Filter by physical types (kept for backward compatibility)
-    if physical_types:
-        query = query.filter(Trig.physical_type.in_(physical_types))
-
-    # Filter by type codes (new type system)
+    # Filter by type codes
     if type_codes:
         type_id_list = _get_type_ids_for_codes(db, type_codes)
         if type_id_list:
@@ -314,13 +304,13 @@ def count_trigs_filtered(
         else:
             query = query.filter(false())  # No matching types
 
-    # Filter by group codes (new type system)
-    if group_codes:
-        type_id_list = _get_type_ids_for_groups(db, group_codes)
+    # Filter by category codes (new type system)
+    if category_codes:
+        type_id_list = _get_type_ids_for_categories(db, category_codes)
         if type_id_list:
             query = query.filter(Trig.type_id.in_(type_id_list))
         else:
-            query = query.filter(false())  # No matching groups
+            query = query.filter(false())  # No matching categories
 
     # Exclude trigpoints already found by user (use NOT EXISTS for efficiency)
     if exclude_found_by_user_id is not None:
@@ -473,6 +463,118 @@ def update_trig_admin(
     trig.admin_timestamp = datetime.utcnow()  # type: ignore
     trig.admin_ip_addr = admin_ip_addr  # type: ignore
 
+    db.commit()
+    db.refresh(trig)
+    return trig
+
+
+def get_next_waypoint(db: Session) -> str:
+    """
+    Generate the next available waypoint code.
+
+    Queries for the maximum numeric portion of existing "TP" prefixed waypoints
+    and returns the next sequential value (e.g., "TP12345" -> "TP12346").
+
+    Args:
+        db: Database session
+
+    Returns:
+        Next available waypoint code (e.g., "TP12346")
+    """
+    import re
+
+    # Get the maximum waypoint that starts with "TP" followed by digits
+    # We need to extract the numeric part and find the max
+    max_waypoint = (
+        db.query(func.max(Trig.waypoint)).filter(Trig.waypoint.like("TP%")).scalar()
+    )
+
+    if max_waypoint:
+        # Extract numeric portion after "TP"
+        match = re.match(r"TP(\d+)", max_waypoint)
+        if match:
+            next_num = int(match.group(1)) + 1
+            return f"TP{next_num}"
+
+    # Fallback: start from TP100000 if no existing waypoints found
+    # This avoids collision with legacy numbering
+    return "TP100000"
+
+
+def create_trig_admin(
+    db: Session,
+    waypoint: str,
+    admin_user_id: int,
+    admin_ip_addr: str,
+    trig_data: dict,
+) -> Trig:
+    """
+    Create a new trigpoint with admin tracking fields.
+
+    Creates a new trigpoint record and populates creation audit fields
+    (crt_user_id, crt_date, crt_time, crt_ip_addr) and admin tracking fields.
+
+    Args:
+        db: Database session
+        waypoint: Auto-generated waypoint code
+        admin_user_id: Admin user ID performing the creation
+        admin_ip_addr: Admin IP address
+        trig_data: Dictionary of trig field values
+
+    Returns:
+        Newly created Trig object
+    """
+    from datetime import date, datetime, time
+
+    now = datetime.utcnow()
+
+    trig = Trig(
+        waypoint=waypoint,
+        # Basic fields from trig_data
+        name=trig_data["name"],
+        fb_number=trig_data.get("fb_number", ""),
+        stn_number=trig_data.get("stn_number", ""),
+        stn_number_active=trig_data.get("stn_number_active", ""),
+        stn_number_passive=trig_data.get("stn_number_passive", ""),
+        stn_number_osgb36=trig_data.get("stn_number_osgb36", ""),
+        # Classification
+        status_id=trig_data["status_id"],
+        type_id=trig_data.get("type_id"),
+        current_use=trig_data.get("current_use", "none"),
+        historic_use=trig_data.get("historic_use", "none"),
+        condition=trig_data.get("condition", "G"),
+        user_added=0,  # Admin-created trigs are trusted, not user-added
+        # Coordinates
+        wgs_lat=trig_data["wgs_lat"],
+        wgs_long=trig_data["wgs_long"],
+        wgs_height=trig_data.get("wgs_height"),
+        osgb_eastings=trig_data["osgb_eastings"],
+        osgb_northings=trig_data["osgb_northings"],
+        osgb_gridref=trig_data.get("osgb_gridref", ""),
+        osgb_height=trig_data.get("osgb_height"),
+        # Location (deprecated, use defaults)
+        county="",
+        town="",
+        postcode=trig_data.get("postcode"),  # Auto-computed by endpoint
+        # PostGIS location (set by endpoint if PostgreSQL)
+        location=trig_data.get("location"),
+        # Admin/attention fields
+        permission_ind="Y",
+        needs_attention=0,
+        attention_comment=trig_data.get("attention_comment", ""),
+        legal_message=trig_data.get("legal_message"),
+        # Creation audit fields
+        crt_date=date.today(),
+        crt_time=time(now.hour, now.minute, now.second),
+        crt_user_id=admin_user_id,
+        crt_ip_addr=admin_ip_addr,
+        # Admin tracking fields
+        admin_user_id=admin_user_id,
+        admin_timestamp=now,
+        admin_ip_addr=admin_ip_addr,
+    )
+
+    db.add(trig)
     db.commit()
     db.refresh(trig)
     return trig

@@ -6,6 +6,7 @@ import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
+import { useConditionInfo } from "../../hooks/useConditionInfo";
 import {
   fetchLogsNeedsAttention,
   deleteOrphanedLog,
@@ -21,30 +22,6 @@ const ADMIN_AUTH_PARAMS = {
   scope: "openid profile email api:write api:read-pii offline_access api:admin",
 };
 
-// Helper function to get condition icon and label
-function getConditionInfo(code: string | null): { icon: string; label: string } {
-  if (!code) return { icon: "c_unknown.png", label: "Unknown" };
-  
-  const conditions: Record<string, { icon: string; label: string }> = {
-    Z: { icon: "c_unknown.png", label: "Not Logged" },
-    N: { icon: "c_possiblymissing.png", label: "Couldn't Find" },
-    G: { icon: "c_good.png", label: "Good" },
-    S: { icon: "c_slightlydamaged.png", label: "Slightly Damaged" },
-    C: { icon: "c_slightlydamaged.png", label: "Converted" },
-    D: { icon: "c_damaged.png", label: "Damaged" },
-    R: { icon: "c_toppled.png", label: "Remains" },
-    T: { icon: "c_toppled.png", label: "Toppled" },
-    M: { icon: "c_toppled.png", label: "Moved" },
-    Q: { icon: "c_possiblymissing.png", label: "Possibly Missing" },
-    X: { icon: "c_definitelymissing.png", label: "Destroyed" },
-    V: { icon: "c_unreachablebutvisible.png", label: "Unreachable but Visible" },
-    P: { icon: "c_unknown.png", label: "Inaccessible" },
-    U: { icon: "c_unknown.png", label: "Unknown" },
-    "-": { icon: "c_nolog.png", label: "Not Visited" },
-  };
-  return conditions[code] || { icon: "c_unknown.png", label: code };
-}
-
 function isOrphanedLog(log: LogNeedsAttentionItem): log is OrphanedLogItem {
   return log.issue_type === "orphaned";
 }
@@ -57,9 +34,10 @@ interface LogCardProps {
   log: LogNeedsAttentionItem;
   onDelete: (logId: number, type: "orphaned" | "duplicate") => Promise<void>;
   isDeleting: boolean;
+  getConditionInfo: (code: string | null | undefined) => { icon: string; label: string };
 }
 
-function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
+function LogAttentionCard({ log, onDelete, isDeleting, getConditionInfo }: LogCardProps) {
   const formattedDate = log.date
     ? new Date(log.date).toLocaleDateString("en-GB", {
         day: "numeric",
@@ -368,6 +346,7 @@ function LogAttentionCard({ log, onDelete, isDeleting }: LogCardProps) {
 export default function LogsNeedsAttention() {
   const { getAccessTokenSilently } = useAuth0();
   const { hasAdminRole, hasAdminScope, isLoading: isAuthLoading } = useAdminAuth();
+  const { getConditionInfo } = useConditionInfo();
   const [logs, setLogs] = useState<LogNeedsAttentionItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -587,6 +566,7 @@ export default function LogsNeedsAttention() {
                   log={log}
                   onDelete={handleDelete}
                   isDeleting={isDeletingCard}
+                  getConditionInfo={getConditionInfo}
                 />
                   );
                 })()

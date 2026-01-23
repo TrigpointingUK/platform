@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from api.core.config import settings
 from api.core.logging import get_logger
+from api.crud.condition import get_found_condition_codes
 from api.models.tphoto import TPhoto
 from api.models.trigstats import TrigStats
 from api.models.user import TLog
@@ -27,9 +28,6 @@ def _get_global_mean_cache_key() -> str:
     environment = settings.ENVIRONMENT.lower()
     return f"fastapi:{environment}:trigstats:global_mean"
 
-
-# Condition codes that indicate the trig was "found" (Good or Slightly damaged)
-FOUND_CONDITIONS = {"G", "S"}
 
 # Minimum votes for Bayesian calculation (wm in the formula)
 BAYESIAN_MIN_VOTES = 1
@@ -130,7 +128,7 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
     Recalculates all statistics from tlog and tphoto tables using efficient
     SQL aggregates:
     - logged_first, logged_last, logged_count
-    - found_last, found_count (conditions 'G' or 'S')
+    - found_last, found_count (conditions with green/yellow log_colour)
     - photo_count
     - score_mean, score_baysian
 
@@ -145,6 +143,9 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
 
     start_time = time.time()
 
+    # Get "found" condition codes from condition table
+    found_conditions = get_found_condition_codes(db)
+
     # Use SQL aggregates for efficient calculation - single query for all stats
     log_stats = (
         db.query(
@@ -153,12 +154,12 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
             func.max(TLog.date).label("logged_last"),
             func.sum(TLog.score).label("total_score"),
             func.count(TLog.score).label("score_count"),
-            # Found stats: count and last date for 'G' or 'S' conditions
+            # Found stats: count and last date for conditions with green/yellow log_colour
             func.count(
-                case((TLog.condition.in_(FOUND_CONDITIONS), TLog.id), else_=None)
+                case((TLog.condition.in_(found_conditions), TLog.id), else_=None)
             ).label("found_count"),
             func.max(
-                case((TLog.condition.in_(FOUND_CONDITIONS), TLog.date), else_=None)
+                case((TLog.condition.in_(found_conditions), TLog.date), else_=None)
             ).label("found_last"),
         )
         .filter(TLog.trig_id == trig_id)

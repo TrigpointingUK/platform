@@ -473,13 +473,14 @@ class TestLegacyLoginIncludes:
         client: TestClient,
         db: Session,
         test_user: User,
+        test_trig,
     ):
         """Test login with stats include."""
         mock_auth0_service.update_user_password.return_value = True
 
         # Create a log for the user
         log = TLog(
-            trig_id=1,
+            trig_id=test_trig.id,
             user_id=test_user.id,
             date=date(2023, 1, 1),
             time=time(12, 0),
@@ -533,7 +534,6 @@ class TestLegacyLoginIncludes:
             user_added=0,
             current_use="Unknown",
             historic_use="Triangulation Station",
-            physical_type="Pillar",
             condition="G",
             wgs_lat=51.5,
             wgs_long=-0.1,
@@ -591,7 +591,6 @@ class TestLegacyLoginIncludes:
         assert "breakdown" in data
         assert "by_current_use" in data["breakdown"]
         assert "by_historic_use" in data["breakdown"]
-        assert "by_physical_type" in data["breakdown"]
         assert "by_condition" in data["breakdown"]
 
     @patch("api.api.v1.endpoints.legacy.auth0_service")

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from api.core.config import settings
+from api.models.trig import Trig
 from api.models.user import TLog, User
 
 
@@ -37,8 +38,39 @@ def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
     db.commit()
     db.refresh(user)
 
+    trig = Trig(
+        waypoint=f"TP{unique_name[-6:]}".upper(),
+        name=f"Upload Trig {unique_name}",
+        status_id=1,
+        user_added=0,
+        current_use="Passive station",
+        historic_use="Primary",
+        condition="G",
+        wgs_lat=0.0,
+        wgs_long=0.0,
+        wgs_height=0,
+        osgb_eastings=100000,
+        osgb_northings=200000,
+        osgb_gridref="TQ 00000 00000",
+        osgb_height=0,
+        fb_number=f"FB{unique_name[-4:]}",
+        stn_number=f"STN{unique_name[-4:]}",
+        permission_ind="Y",
+        county="Testshire",
+        town="Testtown",
+        needs_attention=0,
+        attention_comment="",
+        crt_date=datetime(2023, 1, 1).date(),
+        crt_time=datetime(2023, 1, 1).time(),
+        crt_user_id=user.id,
+        crt_ip_addr="127.0.0.1",
+    )
+    db.add(trig)
+    db.commit()
+    db.refresh(trig)
+
     tlog = TLog(
-        trig_id=1,
+        trig_id=trig.id,
         user_id=user.id,
         date=datetime(2023, 1, 1).date(),
         time=datetime(2023, 1, 1).time(),

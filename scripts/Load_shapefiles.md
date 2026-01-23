@@ -231,3 +231,87 @@ psql -h localhost -p 5433 -U fastapi_production -d tuk_production \
 ```
 
 
+## 1991 counties
+
+```sql
+INSERT INTO area_type (id, code, name, description, source_url) VALUES
+(7, 'county_1991', 'County (1991)', 'UK Counties (1991)', 'https://borders.ukdataservice.ac.uk/easy_download.html');
+```
+
+```bash
+ogr2ogr -f "PostgreSQL" \
+  "PG:host=localhost port=5433 dbname=tuk_staging user=$PG_USER password=$PG_PASS" \
+  ~/Trigpointing/Data/Counties_1991/England_ct_1991/england_ct_1991.shp \
+  -nln area_staging_counties_1991_england \
+  -nlt PROMOTE_TO_MULTI \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=boundary \
+  -overwrite
+
+ogr2ogr -f "PostgreSQL" \
+  "PG:host=localhost port=5433 dbname=tuk_staging user=$PG_USER password=$PG_PASS" \
+  ~/Trigpointing/Data/Counties_1991/NIreland_lgd_1992/nireland_lgd_1992.shp \
+  -nln area_staging_counties_1992_nireland \
+  -nlt PROMOTE_TO_MULTI \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=boundary \
+  -overwrite
+
+ogr2ogr -f "PostgreSQL" \
+  "PG:host=localhost port=5433 dbname=tuk_staging user=$PG_USER password=$PG_PASS" \
+  ~/Trigpointing/Data/Counties_1991/Scotland_region_1991/scotland_region_1991.shp \
+  -nln area_staging_counties_1991_scotland \
+  -nlt PROMOTE_TO_MULTI \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=boundary \
+  -overwrite
+
+ogr2ogr -f "PostgreSQL" \
+  "PG:host=localhost port=5433 dbname=tuk_staging user=$PG_USER password=$PG_PASS" \
+  ~/Trigpointing/Data/Counties_1991/Wales_ct_1991/wales_ct_1991.shp \
+  -nln area_staging_counties_1991_wales \
+  -nlt PROMOTE_TO_MULTI \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=boundary \
+  -overwrite
+```
+
+```sql
+INSERT INTO area (area_type_id, code, name, boundary)
+SELECT 
+    7 AS area_type_id,
+    label AS code,           -- e.g., "49" for Dyfed
+    name AS name,           -- e.g., "Dyfed"
+    ST_Union(boundary)::geography AS boundary  -- Combines all polygons for each county
+FROM area_staging_counties_1991_wales
+GROUP BY code, name;
+
+INSERT INTO area (area_type_id, code, name, boundary)
+SELECT 
+    7 AS area_type_id,
+    label AS code,           -- e.g., "49" for Dyfed
+    name AS name,           -- e.g., "Dyfed"
+    ST_Union(boundary)::geography AS boundary  -- Combines all polygons for each county
+FROM area_staging_counties_1991_england
+GROUP BY code, name;
+
+INSERT INTO area (area_type_id, code, name, boundary)
+SELECT 
+    7 AS area_type_id,
+    label AS code,           -- e.g., "49" for Dyfed
+    name AS name,           -- e.g., "Dyfed"
+    ST_Union(boundary)::geography AS boundary  -- Combines all polygons for each county
+FROM area_staging_counties_1991_scotland
+GROUP BY code, name;
+
+INSERT INTO area (area_type_id, code, name, boundary)
+SELECT 
+    7 AS area_type_id,
+    label AS code,           -- e.g., "49" for Dyfed
+    name AS name,           -- e.g., "Dyfed"
+    ST_Union(boundary)::geography AS boundary  -- Combines all polygons for each county
+FROM area_staging_counties_1992_nireland
+GROUP BY code, name;
+```
+
+

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import TrigMarker from '../TrigMarker';
-import { createMockTrig, trigsByCondition, trigsByPhysicalType } from './test-utils';
+import { createMockTrig, trigsByCondition, trigsByType } from './test-utils';
 import type { UserLogStatus } from '../../../lib/mapIcons';
 
 // Mock react-leaflet components
@@ -213,7 +213,7 @@ describe('TrigMarker', () => {
 
   describe('Physical Type Icons', () => {
     it('should use pillar icon for Pillar type', () => {
-      const trig = trigsByPhysicalType.pillar;
+      const trig = trigsByType.pillar;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
@@ -222,7 +222,7 @@ describe('TrigMarker', () => {
     });
 
     it('should use fbm icon for FBM type', () => {
-      const trig = trigsByPhysicalType.fbm;
+      const trig = trigsByType.fbm;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
@@ -231,7 +231,7 @@ describe('TrigMarker', () => {
     });
 
     it('should use passive icon for Passive Station type', () => {
-      const trig = trigsByPhysicalType.passive;
+      const trig = trigsByType.passive;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
@@ -240,7 +240,7 @@ describe('TrigMarker', () => {
     });
 
     it('should use intersected icon for Intersection type', () => {
-      const trig = trigsByPhysicalType.intersection;
+      const trig = trigsByType.intersection;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
@@ -248,17 +248,17 @@ describe('TrigMarker', () => {
       expect(iconUrl).toContain('intersected');
     });
 
-    it('should fallback to pillar icon for Bolt type', () => {
-      const trig = trigsByPhysicalType.bolt;
+    it('should use passive icon for Bolt type (category: SURVEY_MARK)', () => {
+      const trig = trigsByType.bolt;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
       const iconUrl = marker.getAttribute('data-icon-url');
-      expect(iconUrl).toContain('pillar');
+      expect(iconUrl).toContain('passive');
     });
 
     it('should fallback to passive icon for Active Station type', () => {
-      const trig = trigsByPhysicalType.active;
+      const trig = trigsByType.active;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
@@ -267,7 +267,7 @@ describe('TrigMarker', () => {
     });
 
     it('should fallback to pillar icon for Other type', () => {
-      const trig = trigsByPhysicalType.other;
+      const trig = trigsByType.other;
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
       const marker = screen.getByTestId('marker');
@@ -314,9 +314,9 @@ describe('TrigMarker', () => {
       expect(tooltip).toHaveTextContent('Test Trig Point');
     });
 
-    it('should display physical type in popup', () => {
+    it('should display type name in popup', () => {
       const trig = createMockTrig({
-        physical_type: 'Pillar',
+        type_name: 'Pillar',
       });
       render(<TrigMarker trig={trig} colorMode="condition" />);
       
@@ -402,7 +402,7 @@ describe('TrigMarker', () => {
   describe('Icon URL Construction', () => {
     it('should construct correct icon URL path', () => {
       const trig = createMockTrig({
-        physical_type: 'Pillar',
+        category_code: 'PILLAR',
         condition: 'G',
       });
       render(<TrigMarker trig={trig} colorMode="condition" />);
@@ -414,7 +414,7 @@ describe('TrigMarker', () => {
 
     it('should use correct path structure for all combinations', () => {
       const trig = createMockTrig({
-        physical_type: 'FBM',
+        category_code: 'FBM',
         condition: 'D',
       });
       render(<TrigMarker trig={trig} colorMode="condition" />);
@@ -472,7 +472,6 @@ describe('TrigMarker', () => {
         id: 1,
         waypoint: 'TP0001',
         name: 'Minimal',
-        physical_type: 'Other',
         condition: 'U',
         wgs_lat: 51,
         wgs_long: 0,

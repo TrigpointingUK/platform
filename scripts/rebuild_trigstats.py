@@ -35,13 +35,11 @@ from sqlalchemy import case, create_engine, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from api.crud.condition import get_found_condition_codes
 from api.models.tphoto import TPhoto
 from api.models.trig import Trig
 from api.models.trigstats import TrigStats
 from api.models.user import TLog
-
-# Condition codes that indicate the trig was "found" (Good or Slightly damaged)
-FOUND_CONDITIONS = {"G", "S"}
 
 # Minimum votes for Bayesian calculation
 BAYESIAN_MIN_VOTES = 1
@@ -71,7 +69,7 @@ def get_global_mean_score(db: Session) -> Decimal:
 
 
 def calculate_trigstats_for_trig(
-    db: Session, trig_id: int, global_mean: Decimal
+    db: Session, trig_id: int, global_mean: Decimal, found_conditions: set[str]
 ) -> Optional[dict]:
     """
     Calculate trigstats values for a single trig without committing.
@@ -86,12 +84,12 @@ def calculate_trigstats_for_trig(
             func.max(TLog.date).label("logged_last"),
             func.sum(TLog.score).label("total_score"),
             func.count(TLog.score).label("score_count"),
-            # Found stats: count and last date for 'G' or 'S' conditions
+            # Found stats: count and last date for conditions with green/yellow log_colour
             func.count(
-                case((TLog.condition.in_(FOUND_CONDITIONS), TLog.id), else_=None)
+                case((TLog.condition.in_(found_conditions), TLog.id), else_=None)
             ).label("found_count"),
             func.max(
-                case((TLog.condition.in_(FOUND_CONDITIONS), TLog.date), else_=None)
+                case((TLog.condition.in_(found_conditions), TLog.date), else_=None)
             ).label("found_last"),
         )
         .filter(TLog.trig_id == trig_id)
@@ -205,10 +203,7 @@ def main():
     with Session(engine) as db:
         # Get count of trigs with logs
         trig_ids = (
-            db.query(TLog.trig_id)
-            .distinct()
-            .filter(TLog.trig_id.isnot(None))
-            .all()
+            db.query(TLog.trig_id).distinct().filter(TLog.trig_id.isnot(None)).all()
         )
         trig_ids = [t[0] for t in trig_ids]
         total_trigs = len(trig_ids)
@@ -227,6 +222,10 @@ def main():
         global_mean = get_global_mean_score(db)
         print(f"Global mean score: {global_mean}")
 
+        # Get "found" condition codes from condition table
+        found_conditions = get_found_condition_codes(db)
+        print(f"Found conditions (green/yellow log_colour): {sorted(found_conditions)}")
+
         # Process in batches
         updated_count = 0
         skipped_count = 0
@@ -244,7 +243,9 @@ def main():
 
             for trig_id in batch:
                 try:
-                    values = calculate_trigstats_for_trig(db, int(trig_id), global_mean)
+                    values = calculate_trigstats_for_trig(
+                        db, int(trig_id), global_mean, found_conditions
+                    )
                     if values is None:
                         skipped_count += 1
                         continue
@@ -291,4 +292,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

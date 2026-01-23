@@ -50,7 +50,7 @@ This document summarizes the implementation of interactive trigpoint maps for th
 
 **Icon System:**
 - 32 icon files copied from `res/icons/` to `web/public/icons/`
-- Icons organized by physical type: Pillar, FBM, Passive Station, Intersection
+- Icons organized by category: Pillar, FBM, Survey Mark, Intersected
 - Four colors per type: Green, Yellow, Red, Grey
 - Highlighted versions available for future features
 
@@ -66,7 +66,7 @@ This document summarizes the implementation of interactive trigpoint maps for th
   - Not Logged → Grey
 
 **Filtering:**
-- Physical type checkboxes (reused from `/trigs` page)
+- Type/Category checkboxes (reused from `/trigs` page)
 - Exclude found trigpoints (authenticated users only)
 - URL parameter persistence
 
@@ -91,7 +91,7 @@ This document summarizes the implementation of interactive trigpoint maps for th
 **`useMapTrigs`:**
 - Fetches trigpoints within viewport bounds
 - Integrates with existing `/v1/trigs` endpoint
-- Supports physical type filtering
+- Supports type/category filtering
 - Supports exclude found filtering (with authentication)
 - Returns trigpoints, total count, loading state
 
@@ -153,7 +153,7 @@ web/
 
 **No Backend Changes Required:**
 - Existing `/v1/trigs` endpoint supports all needed features
-- Physical type filtering: `?physical_types=Pillar,FBM`
+- Type filtering: `?types=HOTINE,FBM` or `?categories=PILLAR,FBM`
 - Distance queries: `?lat=54.5&lon=-2.0&max_km=50`
 - Exclude found: `?exclude_found=true` (with authentication)
 
@@ -165,8 +165,8 @@ web/
 
 1. **User Log Color Mode**: Currently uses grey for all trigpoints due to lack of batch log status API
 2. **Tile Server URLs**: OS Landranger and OS Digital require configuration (not included in repo)
-3. **Icon Coverage**: Only 4 physical types have specific icons (Pillar, FBM, Passive, Intersection)
-   - Other types (Bolt, Active Station, Other) fall back to Pillar icon
+3. **Icon Coverage**: Icons are selected based on category code (PILLAR, FBM, SURVEY_MARK, INTERSECTED)
+   - Other categories fall back to appropriate default icons
 4. **Heatmap Click**: Heatmap mode doesn't support clicking individual trigpoints
 5. **Marker Limit**: No hard limit on marker rendering (relies on user choosing appropriate zoom/filters)
 
@@ -179,7 +179,7 @@ web/
 - [x] Base map components built
 - [x] Detail map integrated into trigpoint pages
 - [x] Exploration map route created
-- [x] Filters working (physical type, exclude found)
+- [x] Filters working (type/category, exclude found)
 - [x] Tileset switching functional
 - [x] Icon color modes switchable
 - [x] Location button requests permission

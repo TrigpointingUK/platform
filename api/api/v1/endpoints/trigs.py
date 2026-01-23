@@ -34,7 +34,7 @@ from api.crud import trig as trig_crud
 from api.crud import trigstats as trigstats_crud
 from api.models.server import Server
 from api.models.trig import Trig
-from api.models.trig_type import TrigType, TrigTypeGroup
+from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog, User
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.trig import (
@@ -275,12 +275,12 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
             Trig.wgs_lat,
             Trig.wgs_long,
             TrigType.name.label("type_name"),
-            TrigTypeGroup.code.label("group_code"),
-            TrigTypeGroup.name.label("group_name"),
-            TrigTypeGroup.description.label("group_description"),
+            TrigCategory.code.label("category_code"),
+            TrigCategory.name.label("category_name"),
+            TrigCategory.description.label("category_description"),
         )
         .join(TrigType, Trig.type_id == TrigType.id)
-        .join(TrigTypeGroup, TrigType.group_id == TrigTypeGroup.id)
+        .join(TrigCategory, TrigType.category_id == TrigCategory.id)
         .filter(Trig.status_id < 90)  # Exclude soft-deleted records
     )
 
@@ -289,36 +289,36 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
 
     rows = query.all()
 
-    # Group results by group_code
-    groups_data: dict[str, dict[str, Any]] = {}
+    # Group results by category_code
+    categories_data: dict[str, dict[str, Any]] = {}
     unmapped_trigs: list[dict[str, Any]] = []
 
     for row in rows:
-        group_code = row.group_code
+        category_code = row.category_code
 
-        # Check if this group is in our known list
-        if group_code not in KNOWN_GROUP_CODES:
+        # Check if this category is in our known list
+        if category_code not in KNOWN_GROUP_CODES:
             unmapped_trigs.append(
                 {
                     "id": row.id,
                     "name": row.name,
-                    "group_code": group_code,
-                    "group_name": row.group_name,
+                    "category_code": category_code,
+                    "category_name": row.category_name,
                 }
             )
             continue
 
-        # Initialise group if not seen before
-        if group_code not in groups_data:
-            groups_data[group_code] = {
+        # Initialise category if not seen before
+        if category_code not in categories_data:
+            categories_data[category_code] = {
                 "type": "FeatureCollection",
-                "name": row.group_name,
-                "description": row.group_description or "",
+                "name": row.category_name,
+                "description": row.category_description or "",
                 "features": [],
             }
 
-        # Add feature to group
-        groups_data[group_code]["features"].append(
+        # Add feature to category
+        categories_data[category_code]["features"].append(
             {
                 "type": "Feature",
                 "geometry": {
@@ -330,30 +330,30 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
                     "name": row.name,
                     "condition": row.condition,
                     "osgb_gridref": row.osgb_gridref,
-                    "physical_type": row.type_name,  # From trig_type.name
+                    "type_name": row.type_name,
                 },
             }
         )
 
-    # Build result with groups in consistent order
+    # Build result with categories in consistent order
     result: dict[str, Any] = {}
     for code in KNOWN_GROUP_CODES:
-        if code in groups_data:
-            result[code] = groups_data[code]
+        if code in categories_data:
+            result[code] = categories_data[code]
 
-    # Add warning if any trigs were in unmapped groups
+    # Add warning if any trigs were in unmapped categories
     if unmapped_trigs:
-        # Group unmapped trigs by their group for the warning
-        unmapped_by_group: dict[str, int] = {}
+        # Group unmapped trigs by their category for the warning
+        unmapped_by_category: dict[str, int] = {}
         for trig in unmapped_trigs:
-            key = f"{trig['group_code']} ({trig['group_name']})"
-            unmapped_by_group[key] = unmapped_by_group.get(key, 0) + 1
+            key = f"{trig['category_code']} ({trig['category_name']})"
+            unmapped_by_category[key] = unmapped_by_category.get(key, 0) + 1
 
         result["_warning"] = {
             "message": "⚠️ Some trigpoints not displayed",
-            "reason": "Trigpoints belong to groups not in the standard filter set",
+            "reason": "Trigpoints belong to categories not in the standard filter set",
             "unmapped_count": len(unmapped_trigs),
-            "unmapped_groups": unmapped_by_group,
+            "unmapped_categories": unmapped_by_category,
             "sample_trigs": unmapped_trigs[:5],  # First 5 as examples
         }
 
@@ -598,7 +598,7 @@ def export_trigs_geojson(
     Export trigpoints in GeoJSON format for map display, grouped by status.
 
     Returns FeatureCollections for each status level (Pillar, Major mark, Minor mark, etc.).
-    Each feature contains id, name, condition, osgb_gridref, and physical_type in properties.
+    Each feature contains id, name, condition, osgb_gridref, and type_name in properties.
 
     Excludes soft-deleted records (status >= 90).
 
@@ -723,6 +723,14 @@ def _get_trig_cached(
     # Build minimal response
     minimal_data = TrigMinimal.model_validate(trig).model_dump()
 
+    # Add type information from relationship
+    if trig.trig_type:
+        minimal_data["type_code"] = trig.trig_type.code
+        minimal_data["type_name"] = trig.trig_type.name
+        if trig.trig_type.category:
+            minimal_data["category_code"] = trig.trig_type.category.code
+            minimal_data["category_name"] = trig.trig_type.category.name
+
     # Add grid system and country classification
     if trig.wgs_lat is not None and trig.wgs_long is not None:
         grid_system, _, country_name = get_country_info_for_point(
@@ -831,6 +839,14 @@ def get_trig_by_waypoint(
 
     minimal_data = TrigMinimal.model_validate(trig).model_dump()
 
+    # Add type information from relationship
+    if trig.trig_type:
+        minimal_data["type_code"] = trig.trig_type.code
+        minimal_data["type_name"] = trig.trig_type.name
+        if trig.trig_type.category:
+            minimal_data["category_code"] = trig.trig_type.category.code
+            minimal_data["category_name"] = trig.trig_type.category.name
+
     # Add grid system and country classification
     if trig.wgs_lat is not None and trig.wgs_long is not None:
         grid_system, _, country_name = get_country_info_for_point(
@@ -859,15 +875,12 @@ def list_trigs(
         None, ge=0, description="Max distance from centre (km)"
     ),
     order: Optional[str] = Query(None, description="id | name | distance"),
-    physical_types: Optional[str] = Query(
-        None, description="Comma-separated physical types to include (legacy)"
-    ),
     types: Optional[str] = Query(
         None, description="Comma-separated type codes to include (e.g., 'HOTINE,FBM')"
     ),
-    groups: Optional[str] = Query(
+    categories: Optional[str] = Query(
         None,
-        description="Comma-separated group codes to include (e.g., 'PILLAR,FBM')",
+        description="Comma-separated category codes to include (e.g., 'PILLAR,FBM')",
     ),
     exclude_found: Optional[bool] = Query(
         False, description="Exclude trigpoints already logged by authenticated user"
@@ -888,9 +901,8 @@ def list_trigs(
     Filtered collection endpoint for trigs returning envelope with items, pagination, links.
 
     Filters:
-    - physical_types: Filter by physical type (legacy, e.g., "Pillar,Bolt,FBM")
     - types: Filter by type code (e.g., "HOTINE,FBM,BOLT")
-    - groups: Filter by group code (e.g., "PILLAR,FBM,SURVEY_MARK")
+    - categories: Filter by category code (e.g., "PILLAR,FBM,SURVEY_MARK")
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
     - only_found: Include only trigpoints the user has logged (requires authentication)
     - area_id: Filter to trigpoints within a specific geographic area
@@ -903,22 +915,15 @@ def list_trigs(
         search_type = "nearby" if (lat and lon and max_km) else "general"
         metrics.record_trig_search(search_type)
 
-    # Parse physical types (legacy)
-    physical_types_list = None
-    if physical_types:
-        physical_types_list = [
-            pt.strip() for pt in physical_types.split(",") if pt.strip()
-        ]
-
-    # Parse type codes (new system)
+    # Parse type codes
     type_codes_list = None
     if types:
         type_codes_list = [t.strip() for t in types.split(",") if t.strip()]
 
-    # Parse group codes (new system)
-    group_codes_list = None
-    if groups:
-        group_codes_list = [g.strip() for g in groups.split(",") if g.strip()]
+    # Parse category codes (new system)
+    category_codes_list = None
+    if categories:
+        category_codes_list = [c.strip() for c in categories.split(",") if c.strip()]
 
     # Get user ID for exclude_found filter
     exclude_found_by_user_id = None
@@ -940,9 +945,8 @@ def list_trigs(
         center_lon=lon,
         max_km=max_km,
         order=order,
-        physical_types=physical_types_list,
         type_codes=type_codes_list,
-        group_codes=group_codes_list,
+        category_codes=category_codes_list,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status_id >= 90
@@ -956,9 +960,8 @@ def list_trigs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        physical_types=physical_types_list,
         type_codes=type_codes_list,
-        group_codes=group_codes_list,
+        category_codes=category_codes_list,
         exclude_found_by_user_id=exclude_found_by_user_id,
         only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status_id >= 90
@@ -973,9 +976,9 @@ def list_trigs(
         if trig.trig_type:
             data["type_code"] = trig.trig_type.code
             data["type_name"] = trig.trig_type.name
-            if trig.trig_type.group:
-                data["group_code"] = trig.trig_type.group.code
-                data["group_name"] = trig.trig_type.group.name
+            if trig.trig_type.category:
+                data["category_code"] = trig.trig_type.category.code
+                data["category_name"] = trig.trig_type.category.name
         items_serialized.append(data)
 
     # Compute distance_km for returned page only (cheap), matching SQL formula
@@ -1002,12 +1005,10 @@ def list_trigs(
         params.append(f"max_km={max_km}")
     if order:
         params.append(f"order={order}")
-    if physical_types:
-        params.append(f"physical_types={physical_types}")
     if types:
         params.append(f"types={types}")
-    if groups:
-        params.append(f"groups={groups}")
+    if categories:
+        params.append(f"categories={categories}")
     if exclude_found:
         params.append("exclude_found=true")
     if only_found:

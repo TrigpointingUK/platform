@@ -68,9 +68,6 @@ class Trig(Base):
     user_added = Column(SmallInteger, nullable=False, default=0)
     current_use = Column(String(25), nullable=False)  # e.g., "Passive station"
     historic_use = Column(String(30), nullable=False)  # e.g., "Primary"
-    physical_type = Column(
-        String(25), nullable=False
-    )  # e.g., "Pillar" (legacy, to be removed)
     condition = Column(CHAR(1), nullable=False)  # G=Good, etc.
 
     # Relationship to trig_type

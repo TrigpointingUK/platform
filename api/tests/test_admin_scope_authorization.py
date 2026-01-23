@@ -48,10 +48,10 @@ def other_user(db: Session):
 
 
 @pytest.fixture
-def other_users_log(db: Session, other_user):
+def other_users_log(db: Session, other_user, test_trig):
     """Create a log owned by other_user."""
     log = TLog(
-        trig_id=1,
+        trig_id=test_trig.id,
         user_id=other_user.id,
         comment="Test log",
         condition="G",

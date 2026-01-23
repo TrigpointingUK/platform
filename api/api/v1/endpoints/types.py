@@ -1,5 +1,5 @@
 """
-Trig type endpoints for type and group queries.
+Trig type endpoints for type and category queries.
 """
 
 from typing import cast
@@ -11,10 +11,10 @@ from api.api.deps import get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
 from api.crud import trig_type as trig_type_crud
 from api.schemas.trig_type import (
-    TrigTypeGroupResponse,
-    TrigTypeGroupWithTypes,
+    TrigCategoryResponse,
+    TrigCategoryWithTypes,
     TrigTypeResponse,
-    TrigTypeWithGroup,
+    TrigTypeWithCategory,
 )
 from api.utils.cache_decorator import cached
 
@@ -22,108 +22,110 @@ router = APIRouter()
 
 
 @router.get(
-    "/groups",
-    response_model=list[TrigTypeGroupWithTypes],
+    "/categories",
+    response_model=list[TrigCategoryWithTypes],
     openapi_extra=openapi_lifecycle(
-        "beta", note="List all trig type groups with types"
+        "beta", note="List all trig type categories with types"
     ),
 )
 @cached(
-    resource_type="trig_type_groups", ttl=86400
+    resource_type="trig_type_categories", ttl=86400
 )  # 24 hours - types don't change often
-def list_type_groups(
+def list_type_categories(
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
 ):
     """
-    List all trig type groups with their nested types.
+    List all trig type categories with their nested types.
 
-    Groups are ordered by sort_order (used for threshold-based filtering).
-    Types within each group are also ordered by their sort_order.
+    Categories are ordered by sort_order (used for threshold-based filtering).
+    Types within each category are also ordered by their sort_order.
 
     This endpoint is useful for building filter UIs where users can
-    select which types/groups of trigpoints to display.
+    select which types/categories of trigpoints to display.
     """
-    groups = trig_type_crud.get_groups_with_types(db)
+    categories = trig_type_crud.get_categories_with_types(db)
 
     result = []
-    for g in groups:
-        group_data = TrigTypeGroupResponse.model_validate(g).model_dump()
-        group_data["types"] = [
+    for c in categories:
+        category_data = TrigCategoryResponse.model_validate(c).model_dump()
+        category_data["types"] = [
             TrigTypeResponse.model_validate(t)
-            for t in sorted(g.types, key=lambda x: x.sort_order)
+            for t in sorted(c.types, key=lambda x: x.sort_order)
         ]
-        result.append(TrigTypeGroupWithTypes.model_validate(group_data))
+        result.append(TrigCategoryWithTypes.model_validate(category_data))
     return result
 
 
 @router.get(
-    "/groups/{code}",
-    response_model=TrigTypeGroupWithTypes,
-    openapi_extra=openapi_lifecycle("beta", note="Get a specific type group by code"),
+    "/categories/{code}",
+    response_model=TrigCategoryWithTypes,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Get a specific type category by code"
+    ),
 )
-@cached(resource_type="trig_type_group", ttl=86400)
-def get_type_group(
+@cached(resource_type="trig_type_category", ttl=86400)
+def get_type_category(
     code: str,
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
 ):
     """
-    Get a specific trig type group by its code.
+    Get a specific trig type category by its code.
 
     The code is case-insensitive (e.g., "pillar", "PILLAR", "Pillar" all work).
     """
-    group = trig_type_crud.get_group_by_code(db, code)
-    if not group:
-        raise HTTPException(status_code=404, detail=f"Type group '{code}' not found")
+    category = trig_type_crud.get_category_by_code(db, code)
+    if not category:
+        raise HTTPException(status_code=404, detail=f"Type category '{code}' not found")
 
-    types = trig_type_crud.get_types_by_group_id(db, cast(int, group.id))
+    types = trig_type_crud.get_types_by_category_id(db, cast(int, category.id))
 
-    group_data = TrigTypeGroupResponse.model_validate(group).model_dump()
-    group_data["types"] = [TrigTypeResponse.model_validate(t) for t in types]
-    return TrigTypeGroupWithTypes.model_validate(group_data)
+    category_data = TrigCategoryResponse.model_validate(category).model_dump()
+    category_data["types"] = [TrigTypeResponse.model_validate(t) for t in types]
+    return TrigCategoryWithTypes.model_validate(category_data)
 
 
 @router.get(
     "",
-    response_model=list[TrigTypeWithGroup],
+    response_model=list[TrigTypeWithCategory],
     openapi_extra=openapi_lifecycle("beta", note="List all trig types"),
 )
 @cached(resource_type="trig_types", ttl=86400)
 def list_types(
-    group: str | None = Query(
-        None, description="Filter by group code (case-insensitive)"
+    category: str | None = Query(
+        None, description="Filter by category code (case-insensitive)"
     ),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
 ):
     """
-    List all trig types with their parent group information.
+    List all trig types with their parent category information.
 
-    Optionally filter by group code. Types are ordered by group sort_order,
-    then by type sort_order within each group.
+    Optionally filter by category code. Types are ordered by category sort_order,
+    then by type sort_order within each category.
     """
-    if group:
-        group_obj = trig_type_crud.get_group_by_code(db, group)
-        if not group_obj:
+    if category:
+        category_obj = trig_type_crud.get_category_by_code(db, category)
+        if not category_obj:
             raise HTTPException(
-                status_code=404, detail=f"Type group '{group}' not found"
+                status_code=404, detail=f"Type category '{category}' not found"
             )
-        types = trig_type_crud.get_types_by_group_id(db, cast(int, group_obj.id))
+        types = trig_type_crud.get_types_by_category_id(db, cast(int, category_obj.id))
     else:
         types = trig_type_crud.get_all_types(db)
 
     result = []
     for t in types:
         type_data = TrigTypeResponse.model_validate(t).model_dump()
-        type_data["group"] = TrigTypeGroupResponse.model_validate(t.group)
-        result.append(TrigTypeWithGroup.model_validate(type_data))
+        type_data["category"] = TrigCategoryResponse.model_validate(t.category)
+        result.append(TrigTypeWithCategory.model_validate(type_data))
     return result
 
 
 @router.get(
     "/{code}",
-    response_model=TrigTypeWithGroup,
+    response_model=TrigTypeWithCategory,
     openapi_extra=openapi_lifecycle("beta", note="Get a specific type by code"),
 )
 @cached(resource_type="trig_type", ttl=86400)
@@ -142,5 +144,5 @@ def get_type(
         raise HTTPException(status_code=404, detail=f"Type '{code}' not found")
 
     type_data = TrigTypeResponse.model_validate(trig_type).model_dump()
-    type_data["group"] = TrigTypeGroupResponse.model_validate(trig_type.group)
-    return TrigTypeWithGroup.model_validate(type_data)
+    type_data["category"] = TrigCategoryResponse.model_validate(trig_type.category)
+    return TrigTypeWithCategory.model_validate(type_data)

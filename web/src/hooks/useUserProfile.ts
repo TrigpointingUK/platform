@@ -4,10 +4,23 @@ import { authenticatedGet, authenticatedPatch, type GetAccessTokenSilently } fro
 
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
+interface TypeCount {
+  type_code: string;
+  type_name: string;
+  count: number;
+}
+
+interface CategoryTypeBreakdown {
+  category_code: string;
+  category_name: string;
+  sort_order: number;
+  types: TypeCount[];
+}
+
 interface UserBreakdown {
   by_current_use: Record<string, number>;
   by_historic_use: Record<string, number>;
-  by_physical_type: Record<string, number>;
+  by_type: CategoryTypeBreakdown[];
   by_condition: Record<string, number>;
 }
 
@@ -31,7 +44,7 @@ interface UIPrefs {
   map_link_gridref?: MapLinkOption;
   map_link_wgs?: MapLinkOption;
   map_link_thumbnail?: MapLinkOption;
-  default_groups?: string[]; // List of trig_type_group.code values (e.g., ["PILLAR", "FBM"])
+  default_categories?: string[]; // List of trig_category.code values (e.g., ["PILLAR", "FBM"])
 }
 
 interface UserPrefs {

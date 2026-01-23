@@ -55,8 +55,8 @@ class TrigTypeInfo(BaseModel):
 
     code: str = Field(..., description="Type code (e.g., HOTINE, FBM)")
     name: str = Field(..., description="Type display name")
-    group_code: Optional[str] = Field(None, description="Parent group code")
-    group_name: Optional[str] = Field(None, description="Parent group name")
+    category_code: Optional[str] = Field(None, description="Parent category code")
+    category_name: Optional[str] = Field(None, description="Parent category name")
 
 
 class TrigMinimal(BaseModel):
@@ -67,14 +67,13 @@ class TrigMinimal(BaseModel):
     name: str = Field(..., description="Trigpoint name")
 
     # Public basic classification/identity
-    physical_type: str = Field(..., description="Physical type (e.g., Pillar) - legacy")
     condition: str = Field(..., description="Condition code")
 
-    # New type system
+    # Type system
     type_code: Optional[str] = Field(None, description="Type code (e.g., HOTINE, FBM)")
     type_name: Optional[str] = Field(None, description="Type display name")
-    group_code: Optional[str] = Field(None, description="Type group code")
-    group_name: Optional[str] = Field(None, description="Type group display name")
+    category_code: Optional[str] = Field(None, description="Type category code")
+    category_name: Optional[str] = Field(None, description="Type category display name")
 
     # Coordinates and grid ref
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")

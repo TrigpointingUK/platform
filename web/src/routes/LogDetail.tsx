@@ -7,6 +7,7 @@ import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 import LogCard from "../components/logs/LogCard";
 import LogForm from "../components/logs/LogForm";
+import TrigInfoSection from "../components/trig/TrigInfoSection";
 import { useLogDetail } from "../hooks/useLogDetail";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useUpdateLog } from "../hooks/useUpdateLog";
@@ -42,13 +43,11 @@ export default function LogDetail() {
   const { data: userProfile } = useUserProfile("me");
   const showTrigCondition = userProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
 
-  // Fetch trig details to get latitude/longitude for location picker
-  // Only fetch if we have a log and are in editing mode
-  const shouldFetchTrig = !!log && isEditing;
+  // Fetch trig details to display trig info section and for location picker when editing
   const {
     data: trig,
     isLoading: isTrigLoading,
-  } = useTrigDetail(shouldFetchTrig ? log.trig_id : undefined);
+  } = useTrigDetail(log?.trig_id);
 
   const updateLogMutation = useUpdateLog(logIdNum!);
   const deleteLogMutation = useDeleteLog(logIdNum!, log?.trig_id || 0);
@@ -183,20 +182,6 @@ export default function LogDetail() {
     );
   }
 
-  // If we're editing but trig data isn't loaded yet, show spinner
-  if (isEditing && !trig) {
-    return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <Spinner size="lg" />
-            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading trigpoint data...</p>
-          </Card>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
@@ -210,11 +195,14 @@ export default function LogDetail() {
           </button>
         </div>
 
+        {/* Trig Info Section - show if trig data is loaded */}
+        {trig && <TrigInfoSection trig={trig} />}
+
         {/* Edit/View Toggle */}
         {!isEditing ? (
           <>
             {/* Read-only view */}
-            <LogCard log={log} showTrigCondition={showTrigCondition} />
+            <LogCard log={log} showTrigCondition={showTrigCondition} showTrigInfo={false} />
             
             {/* Edit and Delete buttons - only show if user owns this log */}
             {isOwner && (

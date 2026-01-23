@@ -1,6 +1,7 @@
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { LogSearchResult } from "../../../hooks/useSearchResults";
 import { highlightText } from "../../../lib/textHighlight";
+import { useConditionInfo } from "../../../hooks/useConditionInfo";
 import Card from "../../ui/Card";
 import StarRating from "../../ui/StarRating";
 
@@ -8,32 +9,11 @@ interface LogResultItemProps {
   item: LogSearchResult;
 }
 
-// Helper function to get condition icon and label
-function getConditionInfo(code: string): { icon: string; label: string } {
-  const conditions: Record<string, { icon: string; label: string }> = {
-    Z: { icon: "c_unknown.png", label: "Not Logged" },
-    N: { icon: "c_possiblymissing.png", label: "Couldn't Find" },
-    G: { icon: "c_good.png", label: "Good" },
-    S: { icon: "c_slightlydamaged.png", label: "Slightly Damaged" },
-    C: { icon: "c_slightlydamaged.png", label: "Converted" },
-    D: { icon: "c_damaged.png", label: "Damaged" },
-    R: { icon: "c_toppled.png", label: "Remains" },
-    T: { icon: "c_toppled.png", label: "Toppled" },
-    M: { icon: "c_toppled.png", label: "Moved" },
-    Q: { icon: "c_possiblymissing.png", label: "Possibly Missing" },
-    X: { icon: "c_definitelymissing.png", label: "Destroyed" },
-    V: { icon: "c_unreachablebutvisible.png", label: "Unreachable but Visible" },
-    P: { icon: "c_unknown.png", label: "Inaccessible" },
-    U: { icon: "c_unknown.png", label: "Unknown" },
-    "-": { icon: "c_nolog.png", label: "Not Visited" },
-  };
-  return conditions[code] || { icon: "c_unknown.png", label: code };
-}
-
 export function LogResultItem({ item }: LogResultItemProps) {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const navigate = useNavigate();
+  const { getConditionInfo } = useConditionInfo();
 
   const conditionInfo = getConditionInfo(item.condition);
   const formattedDate = new Date(item.date).toLocaleDateString("en-GB", {
@@ -127,4 +107,3 @@ export function LogResultItem({ item }: LogResultItemProps) {
     </Card>
   );
 }
-

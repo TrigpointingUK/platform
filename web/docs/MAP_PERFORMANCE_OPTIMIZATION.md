@@ -6,7 +6,7 @@ Initial implementation had severe performance issues:
 - 5+ minute page load time
 - Re-fetching all 25k+ trigpoints on every pan/scroll
 - Sequential API requests (slow)
-- API-side physical type filtering (cache invalidation on every toggle)
+- API-side type/category filtering (cache invalidation on every toggle)
 
 ## Solution Implemented
 
@@ -43,23 +43,24 @@ await Promise.all(fetchPromises);
 
 **Result:** Pan/scroll in heatmap mode is INSTANT (no re-fetch)
 
-### 3. Client-Side Physical Type Filtering
+### 3. Client-Side Type/Category Filtering
 
-**Before:** API filtered by physical_types, re-fetch on every toggle
+**Before:** API filtered by types/categories, re-fetch on every toggle
 **After:** Download all types once, filter in browser with `useMemo`
 
 **Benefits:**
 - **Instant filter toggling** - no network delay
-- **Better caching** - one dataset instead of 128 combinations
+- **Better caching** - one dataset instead of many combinations
 - **Simpler state** - fewer API variations to cache
 
 **Implementation:**
 ```typescript
 const trigpoints = useMemo(() => {
   return allTrigsData.filter(trig => 
-    selectedPhysicalTypes.includes(trig.physical_type)
+    selectedTypes.includes(trig.type_code) || 
+    selectedCategories.includes(trig.category_code)
   );
-}, [allTrigsData, selectedPhysicalTypes]);
+}, [allTrigsData, selectedTypes, selectedCategories]);
 ```
 
 ### 4. Progress Indicator
@@ -90,7 +91,7 @@ const trigpoints = useMemo(() => {
 
 | Action | Before | After | Improvement |
 |--------|--------|-------|-------------|
-| Physical type toggle | ~5 minutes | Instant | ∞ faster |
+| Type/Category toggle | ~5 minutes | Instant | ∞ faster |
 | Exclude found toggle | ~5 minutes | ~3-5 seconds | 60-100x faster |
 
 ## Technical Details
@@ -140,13 +141,13 @@ Combine batches → ~12,000 trigpoints
   ↓
 Store in sessionStorage
   ↓
-Filter client-side by physical_types
+Filter client-side by types/categories
   ↓
 Render heatmap with filtered points
   ↓
 User pans/scrolls → Use cached data (instant)
   ↓
-User toggles physical type → Re-filter cached data (instant)
+User toggles type/category → Re-filter cached data (instant)
 ```
 
 ## Future Optimizations
@@ -168,7 +169,7 @@ Test cases to verify:
 - [ ] Progress updates from 0% → 100%
 - [ ] Heatmap appears after load completes
 - [ ] Pan/scroll doesn't trigger re-fetch (check Network tab)
-- [ ] Physical type toggle is instant
+- [ ] Type/Category toggle is instant
 - [ ] Exclude found toggle re-fetches (changes cache key)
 - [ ] Zoom in/out transitions smoothly
 - [ ] SessionStorage contains cached data
@@ -203,14 +204,14 @@ Monitor performance in production:
 - ✅ Initial load < 10 seconds
 - ✅ Pan/scroll instant in heatmap mode
 - ✅ Pan/scroll < 3 seconds in marker mode
-- ✅ Filter toggle instant (physical types)
+- ✅ Filter toggle instant (types/categories)
 - ✅ Progress feedback during load
 - ✅ No performance degradation on mobile
 
 ## Notes
 
-- Physical type filtering now happens client-side only
-- `physical_types` API parameter is NO LONGER used
+- Type/category filtering now happens client-side only
+- `types` and `categories` API parameters are still available but filtering is done client-side for better performance
 - All filtering is done with `Array.filter()` in the component
 - SessionStorage cache persists across page refreshes within the same session
 - Cache automatically invalidates when changing excludeFound filter

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
@@ -9,7 +9,8 @@ import LinkedCoordinates from "../../components/admin/LinkedCoordinates";
 import RichTextEditor from "../../components/ui/RichTextEditor";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
-import { useTrigTypeGroups } from "../../hooks/useTrigTypes";
+import { useTrigCategories } from "../../hooks/useTrigTypes";
+import { useConditions } from "../../hooks/useConditions";
 import {
   fetchTrigForEdit,
   fetchStatuses,
@@ -23,7 +24,9 @@ const ADMIN_AUTH_PARAMS = {
   scope: "openid profile email api:write api:read-pii offline_access api:admin",
 };
 
-const CONDITION_OPTIONS = [
+// Fallback condition options for when API data is loading
+const FALLBACK_CONDITION_OPTIONS = [
+  { value: "U", label: "Unknown" },
   { value: "G", label: "Good" },
   { value: "S", label: "Slightly damaged" },
   { value: "C", label: "Converted" },
@@ -65,8 +68,17 @@ export default function TrigEdit() {
   const [statuses, setStatuses] = useState<StatusRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch trig type groups for the dropdown
-  const { data: typeGroups, isLoading: isLoadingTypes } = useTrigTypeGroups();
+  // Fetch trig type categories for the dropdown
+  const { data: typeCategories, isLoading: isLoadingTypes } = useTrigCategories();
+
+  // Fetch condition options from API
+  const { data: apiConditions } = useConditions();
+  const conditionOptions = useMemo(() => {
+    if (!apiConditions || apiConditions.length === 0) {
+      return FALLBACK_CONDITION_OPTIONS;
+    }
+    return apiConditions.map((c) => ({ value: c.code, label: c.name }));
+  }, [apiConditions]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -221,9 +233,9 @@ export default function TrigEdit() {
       );
 
       setSaveSuccess(true);
-      // Redirect back to list after short delay
+      // Redirect to trigpoint detail page after short delay
       setTimeout(() => {
-        navigate("/admin/needs-attention");
+        navigate(`/trigs/${trigId}`);
       }, 1500);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save changes");
@@ -368,9 +380,9 @@ export default function TrigEdit() {
                   {isLoadingTypes ? (
                     <option value="">Loading types...</option>
                   ) : (
-                    typeGroups?.map((group) => (
-                      <optgroup key={group.id} label={group.name}>
-                        {group.types.map((type) => (
+                    typeCategories?.map((category) => (
+                      <optgroup key={category.id} label={category.name}>
+                        {category.types.map((type) => (
                           <option key={type.id} value={type.id}>
                             {type.name}
                           </option>
@@ -400,7 +412,7 @@ export default function TrigEdit() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Current Use
+                  Recent Use
                 </label>
                 <select
                   value={currentUse}
@@ -441,7 +453,7 @@ export default function TrigEdit() {
                   onChange={(e) => setCondition(e.target.value)}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
                 >
-                  {CONDITION_OPTIONS.map((opt) => (
+                  {conditionOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -463,7 +475,7 @@ export default function TrigEdit() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Station Number (Deprecated)
+                  Station Number
                 </label>
                 <input
                   type="text"
@@ -662,11 +674,9 @@ export default function TrigEdit() {
                 "Update"
               )}
             </Button>
-            <Link to="/admin/needs-attention">
-              <Button type="button" variant="secondary">
-                Back to Admin
-              </Button>
-            </Link>
+            <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
+              Cancel
+            </Button>
           </div>
         </form>
       </div>

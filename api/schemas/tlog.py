@@ -42,7 +42,11 @@ class TLogResponse(TLogBase):
     trig_lat: Optional[float] = None
     trig_lon: Optional[float] = None
     trig_condition: Optional[str] = None  # Curated condition of the trigpoint
-    trig_physical_type: Optional[str] = None  # Physical type (e.g. "Pillar", "Bolt")
+    # Type system fields
+    trig_type_code: Optional[str] = None  # Type code (e.g., "HOTINE", "FBM")
+    trig_type_name: Optional[str] = None  # Type display name (e.g., "Hotine Pillar")
+    trig_category_code: Optional[str] = None  # Category code (e.g., "PILLAR")
+    trig_category_name: Optional[str] = None  # Category display name (e.g., "Pillar")
     location_distance_m: Optional[float] = (
         None  # Distance from log location to trig location
     )

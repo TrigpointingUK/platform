@@ -1,5 +1,7 @@
 [run]
-source = app
+source = api
+parallel = true
+concurrency = multiprocessing
 omit =
     */tests/*
     */test_*.py

@@ -1,23 +1,25 @@
 from .area import Area, AreaType
 from .attr import Attr, AttrSet, AttrSetAttrVal, AttrSource, AttrVal
+from .condition import Condition
 from .location import Postcode, Town
 from .server import Server
 from .status import Status
 from .tphoto import TPhoto
 from .trig import Trig
-from .trig_type import TrigType, TrigTypeGroup
+from .trig_type import TrigCategory, TrigType
 from .user import TLog, TPhotoVote, User
 
 __all__ = [
     "Area",
     "AreaType",
+    "Condition",
     "User",
     "TLog",
     "TPhotoVote",
     "Status",
     "Trig",
+    "TrigCategory",
     "TrigType",
-    "TrigTypeGroup",
     "TPhoto",
     "Server",
     "Town",

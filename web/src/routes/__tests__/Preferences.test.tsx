@@ -29,7 +29,7 @@ const mockUserProfile = {
     distance_ind: 'K',
     public_ind: 'Y',
     ui_prefs: {
-      default_groups: ['PILLAR', 'FBM'],
+      default_categories: ['PILLAR', 'FBM'],
     },
   },
 };
@@ -69,8 +69,8 @@ describe('Preferences', () => {
     mockUpdateUserProfile.mockResolvedValue({});
   });
 
-  describe('group toggles rendering', () => {
-    it('should render all 6 group toggle buttons', () => {
+  describe('category toggles rendering', () => {
+    it('should render all 6 category toggle buttons', () => {
       render(<Preferences />, { wrapper: createWrapper() });
 
       // Look for all toggle buttons by their aria-label pattern
@@ -82,10 +82,10 @@ describe('Preferences', () => {
       expect(screen.getByLabelText(/Other/)).toBeInTheDocument();
     });
 
-    it('should show selected state for user\'s default groups', () => {
+    it('should show selected state for user\'s default categories', () => {
       render(<Preferences />, { wrapper: createWrapper() });
 
-      // PILLAR and FBM are in default_groups
+      // PILLAR and FBM are in default_categories
       const pillarButton = screen.getByLabelText(/Deselect Pillar/);
       const fbmButton = screen.getByLabelText(/Deselect FBM/);
       
@@ -93,18 +93,18 @@ describe('Preferences', () => {
       expect(fbmButton).toHaveAttribute('aria-pressed', 'true');
     });
 
-    it('should show unselected state for non-default groups', () => {
+    it('should show unselected state for non-default categories', () => {
       render(<Preferences />, { wrapper: createWrapper() });
 
-      // SURVEY_MARK is not in default_groups
+      // SURVEY_MARK is not in default_categories
       const surveyMarkButton = screen.getByLabelText(/Select Survey mark/);
       
       expect(surveyMarkButton).toHaveAttribute('aria-pressed', 'false');
     });
   });
 
-  describe('group toggle interaction', () => {
-    it('should call updateUserProfile when group is toggled', async () => {
+  describe('category toggle interaction', () => {
+    it('should call updateUserProfile when category is toggled', async () => {
       render(<Preferences />, { wrapper: createWrapper() });
 
       // Click to deselect PILLAR
@@ -115,13 +115,13 @@ describe('Preferences', () => {
         expect(mockUpdateUserProfile).toHaveBeenCalled();
       });
 
-      // Should be called with new groups array (without PILLAR)
+      // Should be called with new categories array (without PILLAR)
       const callArgs = mockUpdateUserProfile.mock.calls[0][0];
-      expect(callArgs.ui_prefs.default_groups).not.toContain('PILLAR');
-      expect(callArgs.ui_prefs.default_groups).toContain('FBM');
+      expect(callArgs.ui_prefs.default_categories).not.toContain('PILLAR');
+      expect(callArgs.ui_prefs.default_categories).toContain('FBM');
     });
 
-    it('should add group when unselected group is toggled', async () => {
+    it('should add category when unselected category is toggled', async () => {
       render(<Preferences />, { wrapper: createWrapper() });
 
       // Click to select SURVEY_MARK
@@ -132,11 +132,11 @@ describe('Preferences', () => {
         expect(mockUpdateUserProfile).toHaveBeenCalled();
       });
 
-      // Should include SURVEY_MARK in new groups
+      // Should include SURVEY_MARK in new categories
       const callArgs = mockUpdateUserProfile.mock.calls[0][0];
-      expect(callArgs.ui_prefs.default_groups).toContain('SURVEY_MARK');
-      expect(callArgs.ui_prefs.default_groups).toContain('PILLAR');
-      expect(callArgs.ui_prefs.default_groups).toContain('FBM');
+      expect(callArgs.ui_prefs.default_categories).toContain('SURVEY_MARK');
+      expect(callArgs.ui_prefs.default_categories).toContain('PILLAR');
+      expect(callArgs.ui_prefs.default_categories).toContain('FBM');
     });
   });
 
@@ -190,8 +190,8 @@ describe('Preferences', () => {
   });
 
   describe('prevent empty selection', () => {
-    it('should not allow deselecting last group', async () => {
-      // Mock user with only one group selected
+    it('should not allow deselecting last category', async () => {
+      // Mock user with only one category selected
       const { useUserProfile } = await import('../../hooks/useUserProfile');
       vi.mocked(useUserProfile).mockReturnValue({
         data: {
@@ -199,7 +199,7 @@ describe('Preferences', () => {
           prefs: {
             ...mockUserProfile.prefs,
             ui_prefs: {
-              default_groups: ['PILLAR'], // Only one group
+              default_categories: ['PILLAR'], // Only one category
             },
           },
         },
@@ -209,12 +209,12 @@ describe('Preferences', () => {
 
       render(<Preferences />, { wrapper: createWrapper() });
 
-      // Try to deselect PILLAR (the only selected group)
+      // Try to deselect PILLAR (the only selected category)
       const pillarButton = screen.getByLabelText(/Deselect Pillar/);
       fireEvent.click(pillarButton);
 
       // updateUserProfile should NOT be called
-      // Because the handler prevents deselecting the last group
+      // Because the handler prevents deselecting the last category
       // Note: This test checks that at least we don't crash
       // The actual validation happens in the component
     });

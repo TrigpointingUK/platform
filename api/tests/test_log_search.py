@@ -14,15 +14,15 @@ from api.crud import tlog as tlog_crud
 from api.models.user import TLog
 
 
-def test_search_logs_by_text(db: Session):
+def test_search_logs_by_text(db: Session, test_user, test_trig):
     """Test searching logs by text substring."""
     # Use unique prefix to isolate test data
     prefix = f"TEXT_SEARCH_{uuid.uuid4().hex[:8]}"
 
     # Create test logs with different comments containing unique prefix
     log1 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 1),
         time=time(12, 0, 0),
         fb_number="S1234",
@@ -33,8 +33,8 @@ def test_search_logs_by_text(db: Session):
         source="W",
     )
     log2 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 2),
         time=time(13, 0, 0),
         fb_number="S1235",
@@ -45,8 +45,8 @@ def test_search_logs_by_text(db: Session):
         source="W",
     )
     log3 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 3),
         time=time(14, 0, 0),
         fb_number="S1236",
@@ -77,15 +77,15 @@ def test_search_logs_by_text(db: Session):
     assert len(nonexistent_results) == 0
 
 
-def test_count_logs_by_text(db: Session):
+def test_count_logs_by_text(db: Session, test_user, test_trig):
     """Test counting logs by text substring."""
     # Use unique prefix to isolate test data
     prefix = f"COUNT_TEXT_{uuid.uuid4().hex[:8]}"
 
     # Create test logs
     log1 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 1),
         time=time(12, 0, 0),
         fb_number="S1234",
@@ -96,8 +96,8 @@ def test_count_logs_by_text(db: Session):
         source="W",
     )
     log2 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 2),
         time=time(13, 0, 0),
         fb_number="S1235",
@@ -120,15 +120,15 @@ def test_count_logs_by_text(db: Session):
     assert count == 0
 
 
-def test_search_logs_by_regex(db: Session):
+def test_search_logs_by_regex(db: Session, test_user, test_trig):
     """Test searching logs by regex pattern."""
     # Use unique prefix to isolate test data
     prefix = f"REGEX_SEARCH_{uuid.uuid4().hex[:8]}"
 
     # Create test logs
     log1 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 1),
         time=time(12, 0, 0),
         fb_number="S1234",
@@ -139,8 +139,8 @@ def test_search_logs_by_regex(db: Session):
         source="W",
     )
     log2 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 2),
         time=time(13, 0, 0),
         fb_number="S1235",
@@ -151,8 +151,8 @@ def test_search_logs_by_regex(db: Session):
         source="W",
     )
     log3 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 3),
         time=time(14, 0, 0),
         fb_number="S1236",
@@ -176,15 +176,15 @@ def test_search_logs_by_regex(db: Session):
     assert len(results) == 0
 
 
-def test_count_logs_by_regex(db: Session):
+def test_count_logs_by_regex(db: Session, test_user, test_trig):
     """Test counting logs by regex pattern."""
     # Use unique prefix to isolate test data
     prefix = f"COUNT_REGEX_{uuid.uuid4().hex[:8]}"
 
     # Create test logs
     log1 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 1),
         time=time(12, 0, 0),
         fb_number="S1234",
@@ -195,8 +195,8 @@ def test_count_logs_by_regex(db: Session):
         source="W",
     )
     log2 = TLog(
-        trig_id=1,
-        user_id=1,
+        trig_id=test_trig.id,
+        user_id=test_user.id,
         date=date(2024, 1, 2),
         time=time(13, 0, 0),
         fb_number="S1235",
@@ -219,7 +219,7 @@ def test_count_logs_by_regex(db: Session):
     assert count == 0
 
 
-def test_search_logs_pagination(db: Session):
+def test_search_logs_pagination(db: Session, test_user, test_trig):
     """Test pagination in log search."""
     # Use unique prefix to isolate test data
     prefix = f"PAGINATION_{uuid.uuid4().hex[:8]}"
@@ -228,8 +228,8 @@ def test_search_logs_pagination(db: Session):
     logs = []
     for i in range(25):
         log = TLog(
-            trig_id=1,
-            user_id=1,
+            trig_id=test_trig.id,
+            user_id=test_user.id,
             date=date(2024, 1, 1),
             time=time(12, 0, 0),
             fb_number=f"S{1000 + i}",

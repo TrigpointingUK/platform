@@ -7,6 +7,8 @@ from fastapi import APIRouter
 from api.api.v1.endpoints import (
     admin,
     areas,
+    condition_admin,
+    conditions,
     coordinates,
     debug,
     downloads,
@@ -16,9 +18,11 @@ from api.api.v1.endpoints import (
     maps,
     photos,
     stats,
+    status_admin,
     tiles,
     trigs,
     types,
+    types_admin,
     users,
 )
 
@@ -41,3 +45,13 @@ api_router.include_router(
     coordinates.router, prefix="/coordinates", tags=["coordinates"]
 )
 api_router.include_router(types.router, prefix="/types", tags=["type"])
+api_router.include_router(conditions.router, prefix="/conditions", tags=["condition"])
+api_router.include_router(
+    types_admin.router, prefix="/admin/types", tags=["admin-types"]
+)
+api_router.include_router(
+    status_admin.router, prefix="/admin/status", tags=["admin-status"]
+)
+api_router.include_router(
+    condition_admin.router, prefix="/admin/condition", tags=["admin-condition"]
+)

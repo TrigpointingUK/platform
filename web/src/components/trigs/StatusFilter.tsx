@@ -4,8 +4,8 @@ interface StatusFilterProps {
   visibleStatuses?: number[]; // Only show these statuses
 }
 
-// Trigpoint type groups with icons
-// Maps to trig_type_group table: code and name from database
+// Trigpoint type categories with icons
+// Maps to trig_category table: code and name from database
 // sort_order values: PILLAR=10, FBM=20, SURVEY_MARK=30, INTERSECTED=40, ACTIVE=50, OTHER=60
 const STATUS_LEVELS = [
   {

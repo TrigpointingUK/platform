@@ -1,7 +1,7 @@
 """
 Tests for trig CRUD filtering operations.
 
-Tests the group_codes, type_codes, and user log filtering functionality
+Tests the category_codes, type_codes, and user log filtering functionality
 in list_trigs_filtered and count_trigs_filtered.
 """
 
@@ -10,74 +10,82 @@ from datetime import date, time
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.crud.trig import (
+    _get_type_ids_for_categories,
     _get_type_ids_for_codes,
-    _get_type_ids_for_groups,
     count_trigs_filtered,
     list_trigs_filtered,
 )
 from api.models.trig import Trig
-from api.models.trig_type import TrigType, TrigTypeGroup
+from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog, User
 
 
 @pytest.fixture
 def seed_trig_types(db: Session):
-    """Seed trig_type_group and trig_type tables for testing.
+    """Seed trig_category and trig_type tables for testing.
 
-    Creates two groups (PILLAR and FBM) with types in each.
+    Creates two categories (PILLAR and FBM) with types in each.
     Uses unique IDs based on UUID to avoid conflicts with parallel tests.
     """
     # Generate unique base ID to avoid conflicts
     # sort_order is SmallInteger (max 32767), so use smaller range
     base_id = abs(hash(uuid.uuid4().hex[:8])) % 20000 + 10000
 
-    # Create groups
-    pillar_group = TrigTypeGroup(
+    # Get unique sort_order values to avoid conflicts - find max and add small offsets
+    max_cat_order = db.query(
+        func.coalesce(func.max(TrigCategory.sort_order), 0)
+    ).scalar()
+    cat_sort_1 = max_cat_order + 1
+    cat_sort_2 = max_cat_order + 2
+
+    # Create categories
+    pillar_category = TrigCategory(
         code=f"PILLAR_{base_id}",
         name="Pillar",
         description="Trig pillars",
-        sort_order=1,
+        sort_order=cat_sort_1,
     )
-    fbm_group = TrigTypeGroup(
+    fbm_category = TrigCategory(
         code=f"FBM_{base_id}",
         name="FBM",
-        description="Flush bracket marks",
-        sort_order=2,
+        description="Fundamental benchmark",
+        sort_order=cat_sort_2,
     )
-    db.add_all([pillar_group, fbm_group])
+    db.add_all([pillar_category, fbm_category])
     db.flush()
 
-    # Create types within each group
+    # Create types within each category
     hotine_type = TrigType(
-        group_id=pillar_group.id,
+        category_id=pillar_category.id,
         code=f"HOTINE_{base_id}",
         name="Hotine Pillar",
         description="Standard Hotine pillar",
         sort_order=1,
     )
     vanessa_type = TrigType(
-        group_id=pillar_group.id,
+        category_id=pillar_category.id,
         code=f"VANESSA_{base_id}",
         name="Vanessa Pillar",
         description="Vanessa style pillar",
         sort_order=2,
     )
     fbm_type = TrigType(
-        group_id=fbm_group.id,
+        category_id=fbm_category.id,
         code=f"FBM_MARK_{base_id}",
         name="Flush Bracket",
-        description="Flush bracket mark",
+        description="Fundamental benchmark",
         sort_order=1,
     )
     db.add_all([hotine_type, vanessa_type, fbm_type])
     db.flush()
 
     return {
-        "pillar_group": pillar_group,
-        "fbm_group": fbm_group,
+        "pillar_category": pillar_category,
+        "fbm_category": fbm_category,
         "hotine_type": hotine_type,
         "vanessa_type": vanessa_type,
         "fbm_type": fbm_type,
@@ -112,7 +120,6 @@ def seed_trigs_with_types(db: Session, seed_trig_types):
             type_id=type_obj.id,
             current_use="Passive station",
             historic_use="Primary",
-            physical_type="Pillar" if "Pillar" in type_obj.name else "FBM",
             wgs_lat=Decimal("51.5") + Decimal(str(i * 0.01)),
             wgs_long=Decimal("-0.1") + Decimal(str(i * 0.01)),
             wgs_height=100,
@@ -186,62 +193,62 @@ class TestGetTypeIdsForCodes:
         assert types["hotine_type"].id in result
 
 
-class TestGetTypeIdsForGroups:
-    """Tests for _get_type_ids_for_groups helper function."""
+class TestGetTypeIdsForCategories:
+    """Tests for _get_type_ids_for_categories helper function."""
 
-    def test_returns_all_types_in_group(self, db: Session, seed_trig_types):
-        """Helper returns all type IDs in a group."""
+    def test_returns_all_types_in_category(self, db: Session, seed_trig_types):
+        """Helper returns all type IDs in a category."""
         types = seed_trig_types
-        pillar_code = types["pillar_group"].code
+        pillar_code = types["pillar_category"].code
 
-        result = _get_type_ids_for_groups(db, [pillar_code])
+        result = _get_type_ids_for_categories(db, [pillar_code])
 
-        # Pillar group has hotine and vanessa types
+        # Pillar category has hotine and vanessa types
         assert types["hotine_type"].id in result
         assert types["vanessa_type"].id in result
         # FBM type should not be included
         assert types["fbm_type"].id not in result
 
-    def test_returns_types_from_multiple_groups(self, db: Session, seed_trig_types):
-        """Helper returns type IDs from multiple groups."""
+    def test_returns_types_from_multiple_categories(self, db: Session, seed_trig_types):
+        """Helper returns type IDs from multiple categories."""
         types = seed_trig_types
-        codes = [types["pillar_group"].code, types["fbm_group"].code]
+        codes = [types["pillar_category"].code, types["fbm_category"].code]
 
-        result = _get_type_ids_for_groups(db, codes)
+        result = _get_type_ids_for_categories(db, codes)
 
         assert types["hotine_type"].id in result
         assert types["vanessa_type"].id in result
         assert types["fbm_type"].id in result
         assert len(result) == 3
 
-    def test_returns_empty_for_unknown_groups(self, db: Session, seed_trig_types):
-        """Returns empty list for unknown group codes."""
-        result = _get_type_ids_for_groups(db, ["NONEXISTENT_GROUP_XYZ"])
+    def test_returns_empty_for_unknown_categories(self, db: Session, seed_trig_types):
+        """Returns empty list for unknown category codes."""
+        result = _get_type_ids_for_categories(db, ["NONEXISTENT_CATEGORY_XYZ"])
 
         assert result == []
 
     def test_case_insensitive(self, db: Session, seed_trig_types):
-        """Group code matching is case-insensitive."""
+        """Category code matching is case-insensitive."""
         types = seed_trig_types
-        pillar_code = types["pillar_group"].code.lower()
+        pillar_code = types["pillar_category"].code.lower()
 
-        result = _get_type_ids_for_groups(db, [pillar_code])
+        result = _get_type_ids_for_categories(db, [pillar_code])
 
         assert types["hotine_type"].id in result
         assert types["vanessa_type"].id in result
 
 
-class TestListTrigsFilteredByGroup:
-    """Tests for list_trigs_filtered with group_codes parameter."""
+class TestListTrigsFilteredByCategory:
+    """Tests for list_trigs_filtered with category_codes parameter."""
 
-    def test_filters_by_single_group(self, db: Session, seed_trigs_with_types):
-        """Filters trigs by single group code."""
+    def test_filters_by_single_category(self, db: Session, seed_trigs_with_types):
+        """Filters trigs by single category code."""
         data = seed_trigs_with_types
-        pillar_code = data["pillar_group"].code
+        pillar_code = data["pillar_category"].code
 
-        result = list_trigs_filtered(db, group_codes=[pillar_code], limit=100)
+        result = list_trigs_filtered(db, category_codes=[pillar_code], limit=100)
 
-        # Should include trigs with hotine and vanessa types (pillar group)
+        # Should include trigs with hotine and vanessa types (pillar category)
         trig_ids = [t.id for t in result]
         pillar_trig_ids = [
             t.id
@@ -252,22 +259,22 @@ class TestListTrigsFilteredByGroup:
         for pid in pillar_trig_ids:
             assert pid in trig_ids
 
-    def test_filters_by_multiple_groups(self, db: Session, seed_trigs_with_types):
-        """Filters trigs by multiple group codes."""
+    def test_filters_by_multiple_categories(self, db: Session, seed_trigs_with_types):
+        """Filters trigs by multiple category codes."""
         data = seed_trigs_with_types
-        codes = [data["pillar_group"].code, data["fbm_group"].code]
+        codes = [data["pillar_category"].code, data["fbm_category"].code]
 
-        result = list_trigs_filtered(db, group_codes=codes, limit=100)
+        result = list_trigs_filtered(db, category_codes=codes, limit=100)
 
         # Should include all 5 seeded trigs
         trig_ids = [t.id for t in result]
         for trig in data["trigs"]:
             assert trig.id in trig_ids
 
-    def test_unknown_group_returns_empty(self, db: Session, seed_trigs_with_types):
-        """Unknown group code returns empty result."""
+    def test_unknown_category_returns_empty(self, db: Session, seed_trigs_with_types):
+        """Unknown category code returns empty result."""
         result = list_trigs_filtered(
-            db, group_codes=["NONEXISTENT_GROUP_XYZ"], limit=100
+            db, category_codes=["NONEXISTENT_CATEGORY_XYZ"], limit=100
         )
 
         assert len(result) == 0
@@ -299,16 +306,16 @@ class TestListTrigsFilteredByTypeCode:
             assert trig.type_id in [data["hotine_type"].id, data["vanessa_type"].id]
 
 
-class TestCountTrigsFilteredByGroup:
-    """Tests for count_trigs_filtered with group_codes parameter."""
+class TestCountTrigsFilteredByCategory:
+    """Tests for count_trigs_filtered with category_codes parameter."""
 
     def test_count_matches_list(self, db: Session, seed_trigs_with_types):
         """Count matches the number of items from list query."""
         data = seed_trigs_with_types
-        pillar_code = data["pillar_group"].code
+        pillar_code = data["pillar_category"].code
 
-        list_result = list_trigs_filtered(db, group_codes=[pillar_code], limit=100)
-        count_result = count_trigs_filtered(db, group_codes=[pillar_code])
+        list_result = list_trigs_filtered(db, category_codes=[pillar_code], limit=100)
+        count_result = count_trigs_filtered(db, category_codes=[pillar_code])
 
         # Count should be at least the number we seeded (may include other test data)
         assert count_result >= len(
@@ -320,9 +327,9 @@ class TestCountTrigsFilteredByGroup:
         )
         assert count_result == len(list_result)
 
-    def test_unknown_group_returns_zero(self, db: Session, seed_trigs_with_types):
-        """Unknown group code returns zero count."""
-        count = count_trigs_filtered(db, group_codes=["NONEXISTENT_GROUP_XYZ"])
+    def test_unknown_category_returns_zero(self, db: Session, seed_trigs_with_types):
+        """Unknown category code returns zero count."""
+        count = count_trigs_filtered(db, category_codes=["NONEXISTENT_CATEGORY_XYZ"])
 
         assert count == 0
 
@@ -383,13 +390,13 @@ class TestListTrigsExcludeFoundByUser:
         """NOT EXISTS filter excludes trigs the user has logged."""
         data = seed_user_with_logs
         user_id = data["user"].id
-        pillar_code = data["pillar_group"].code
+        pillar_code = data["pillar_category"].code
 
-        # Filter by our seeded group to isolate test data
+        # Filter by our seeded category to isolate test data
         result = list_trigs_filtered(
             db,
             exclude_found_by_user_id=user_id,
-            group_codes=[pillar_code],
+            category_codes=[pillar_code],
             limit=1000,
         )
 
@@ -407,7 +414,7 @@ class TestListTrigsExcludeFoundByUser:
     def test_returns_all_if_user_has_no_logs(self, db: Session, seed_trigs_with_types):
         """Returns all trigs if user has no log entries."""
         data = seed_trigs_with_types
-        pillar_code = data["pillar_group"].code
+        pillar_code = data["pillar_category"].code
 
         # Create a user with no logs
         user = User(
@@ -420,14 +427,14 @@ class TestListTrigsExcludeFoundByUser:
         db.add(user)
         db.flush()
 
-        # Get all trigs (no exclusion) - filter to our seeded group
-        all_trigs = list_trigs_filtered(db, group_codes=[pillar_code], limit=1000)
+        # Get all trigs (no exclusion) - filter to our seeded category
+        all_trigs = list_trigs_filtered(db, category_codes=[pillar_code], limit=1000)
 
         # Get trigs with exclusion for user with no logs
         filtered_trigs = list_trigs_filtered(
             db,
             exclude_found_by_user_id=int(user.id),
-            group_codes=[pillar_code],
+            category_codes=[pillar_code],
             limit=1000,
         )
 
@@ -485,12 +492,12 @@ class TestCountTrigsExcludeFoundByUser:
         """Count respects exclude_found_by_user_id filter."""
         data = seed_user_with_logs
         user_id = data["user"].id
-        pillar_code = data["pillar_group"].code
+        pillar_code = data["pillar_category"].code
 
-        # Get counts - filter to our seeded group to isolate test data
-        all_count = count_trigs_filtered(db, group_codes=[pillar_code])
+        # Get counts - filter to our seeded category to isolate test data
+        all_count = count_trigs_filtered(db, category_codes=[pillar_code])
         filtered_count = count_trigs_filtered(
-            db, exclude_found_by_user_id=user_id, group_codes=[pillar_code]
+            db, exclude_found_by_user_id=user_id, category_codes=[pillar_code]
         )
 
         # Filtered count should be less by number of logged trigs
@@ -501,17 +508,17 @@ class TestCountTrigsExcludeFoundByUser:
         """Count matches the list result for exclude_found filter."""
         data = seed_user_with_logs
         user_id = data["user"].id
-        pillar_code = data["pillar_group"].code
+        pillar_code = data["pillar_category"].code
 
-        # Filter to our seeded group to isolate test data
+        # Filter to our seeded category to isolate test data
         list_result = list_trigs_filtered(
             db,
             exclude_found_by_user_id=user_id,
-            group_codes=[pillar_code],
+            category_codes=[pillar_code],
             limit=10000,
         )
         count_result = count_trigs_filtered(
-            db, exclude_found_by_user_id=user_id, group_codes=[pillar_code]
+            db, exclude_found_by_user_id=user_id, category_codes=[pillar_code]
         )
 
         assert count_result == len(list_result)

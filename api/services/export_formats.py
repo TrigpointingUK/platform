@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from sqlalchemy.orm import Session
+
 from api.models.trig import Trig
 
 _KMZ_ICONS_DIR = Path(__file__).resolve().parents[1] / "assets" / "kmz" / "icons"
@@ -20,18 +22,43 @@ _KMZ_ICON_FAMILIES = ("pillar", "fbm", "passive", "intersected")
 _KMZ_ICON_COLOURS = ("green", "yellow", "red", "grey")
 
 
-def _get_group_info(trig: Trig) -> tuple[str, str]:
+def _get_category_info(trig: Trig) -> tuple[str, str]:
     """
-    Get group code and name from a trig's type relationship.
+    Get category code and name from a trig's type relationship.
 
-    Returns (group_code, group_name) tuple, defaulting to ("", "") if not available.
+    Returns (category_code, category_name) tuple, defaulting to ("", "") if not available.
     """
-    if trig.trig_type and trig.trig_type.group:
+    if trig.trig_type and trig.trig_type.category:
         return (
-            str(trig.trig_type.group.code or ""),
-            str(trig.trig_type.group.name or ""),
+            str(trig.trig_type.category.code or ""),
+            str(trig.trig_type.category.name or ""),
         )
     return ("", "")
+
+
+def _get_type_info(trig: Trig) -> tuple[str, str]:
+    """
+    Get type code and name from a trig's type relationship.
+
+    Returns (type_code, type_name) tuple, defaulting to ("", "") if not available.
+    """
+    if trig.trig_type:
+        return (
+            str(trig.trig_type.code or ""),
+            str(trig.trig_type.name or ""),
+        )
+    return ("", "")
+
+
+def _get_type_name(trig: Trig) -> str:
+    """
+    Get the type name from a trig's type relationship.
+
+    Returns the type name if available, otherwise an empty string.
+    """
+    if trig.trig_type and trig.trig_type.name:
+        return str(trig.trig_type.name)
+    return ""
 
 
 def trigs_to_csv(
@@ -55,10 +82,11 @@ def trigs_to_csv(
         "id",
         "waypoint",
         "name",
-        "physical_type",
         "condition",
-        "group_code",
-        "group_name",
+        "type_code",
+        "type_name",
+        "category_code",
+        "category_name",
         "wgs_lat",
         "wgs_long",
         "wgs_height",
@@ -81,15 +109,17 @@ def trigs_to_csv(
     writer.writeheader()
 
     for trig in trigs:
-        group_code, group_name = _get_group_info(trig)
+        type_code, type_name = _get_type_info(trig)
+        category_code, category_name = _get_category_info(trig)
         row = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
-            "physical_type": trig.physical_type,
             "condition": trig.condition,
-            "group_code": group_code,
-            "group_name": group_name,
+            "type_code": type_code,
+            "type_name": type_name,
+            "category_code": category_code,
+            "category_name": category_name,
             "wgs_lat": float(trig.wgs_lat),
             "wgs_long": float(trig.wgs_long),
             "wgs_height": trig.wgs_height,
@@ -140,15 +170,17 @@ def trigs_to_geojson(
     features = []
 
     for trig in trigs:
-        group_code, group_name = _get_group_info(trig)
+        type_code, type_name = _get_type_info(trig)
+        category_code, category_name = _get_category_info(trig)
         properties = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
-            "physical_type": trig.physical_type,
             "condition": trig.condition,
-            "group_code": group_code,
-            "group_name": group_name,
+            "type_code": type_code,
+            "type_name": type_name,
+            "category_code": category_code,
+            "category_name": category_name,
             "osgb_gridref": trig.osgb_gridref,
             "county": trig.county,
             "town": trig.town,
@@ -228,8 +260,9 @@ def trigs_to_gpx(
 
     for trig in trigs:
         # Build description
+        type_name = _get_type_name(trig)
         desc_parts = [
-            f"Type: {trig.physical_type}",
+            f"Type: {type_name}",
             f"Grid Ref: {trig.osgb_gridref}",
             f"Condition: {trig.condition}",
         ]
@@ -264,7 +297,7 @@ def trigs_to_gpx(
         lines.append("      <text>View on TrigpointingUK</text>")
         lines.append("    </link>")
         lines.append("    <sym>Triangle</sym>")
-        lines.append(f"    <type>{escape_xml(str(trig.physical_type))}</type>")
+        lines.append(f"    <type>{escape_xml(type_name)}</type>")
         lines.append("  </wpt>")
 
     lines.append("</gpx>")
@@ -324,13 +357,14 @@ def trigs_to_kml(
     ]
 
     for trig in trigs:
-        group_code, group_name = _get_group_info(trig)
+        type_name = _get_type_name(trig)
+        category_code, category_name = _get_category_info(trig)
 
         # Build description HTML
         desc_lines = [
             "<![CDATA[",
-            f"<b>Type:</b> {escape_xml(str(trig.physical_type))}<br/>",
-            f"<b>Group:</b> {escape_xml(group_name)}<br/>",
+            f"<b>Type:</b> {escape_xml(type_name)}<br/>",
+            f"<b>Category:</b> {escape_xml(category_name)}<br/>",
             f"<b>Grid Ref:</b> {escape_xml(str(trig.osgb_gridref))}<br/>",
             f"<b>Condition:</b> {escape_xml(str(trig.condition))}<br/>",
         ]
@@ -375,14 +409,90 @@ def trigs_to_kml(
     return "\n".join(lines)
 
 
+def _build_condition_colour_maps(
+    db: Optional[Session],
+) -> tuple[dict[str, str], dict[str, str]]:
+    """
+    Build condition code to colour mappings from the database.
+
+    Returns:
+        (trig_colour_map, log_colour_map) - dicts mapping condition code to colour name
+    """
+    # Fallback maps if db not available
+    fallback_trig = {
+        "G": "green",
+        "S": "green",
+        "C": "yellow",
+        "D": "yellow",
+        "R": "yellow",
+        "T": "yellow",
+        "M": "yellow",
+        "V": "yellow",
+        "Q": "red",
+        "X": "red",
+        "N": "red",
+        "P": "grey",
+        "U": "grey",
+        "Z": "grey",
+    }
+    fallback_log = fallback_trig.copy()
+
+    if not db:
+        return fallback_trig, fallback_log
+
+    try:
+        from api.crud.condition import get_all_conditions
+
+        conditions = get_all_conditions(db)
+        if not conditions:
+            return fallback_trig, fallback_log
+
+        trig_map: dict[str, str] = {}
+        log_map: dict[str, str] = {}
+
+        for c in conditions:
+            code = str(c.code).upper()
+            # Map trig_colour to our 4 colour names
+            trig_colour = (c.trig_colour or "").lower()
+            if trig_colour in ("green", "lime"):
+                trig_map[code] = "green"
+            elif trig_colour in ("yellow", "orange", "amber"):
+                trig_map[code] = "yellow"
+            elif trig_colour in ("red", "maroon"):
+                trig_map[code] = "red"
+            else:
+                trig_map[code] = "grey"
+
+            # Map log_colour to our 4 colour names
+            log_colour = (c.log_colour or "").lower()
+            if log_colour in ("green", "lime"):
+                log_map[code] = "green"
+            elif log_colour in ("yellow", "orange", "amber"):
+                log_map[code] = "yellow"
+            elif log_colour in ("red", "maroon"):
+                log_map[code] = "red"
+            else:
+                log_map[code] = "grey"
+
+        return trig_map, log_map
+    except Exception:
+        return fallback_trig, fallback_log
+
+
 def trigs_to_kmz(
     trigs: list[Trig],
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
+    db: Optional[Session] = None,
 ) -> bytes:
     """
     Convert trigpoints to a KMZ (zipped KML + embedded icons).
 
     This is intended for Google Earth / Google My Maps exploration.
+
+    Args:
+        trigs: List of Trig objects
+        user_logs: Optional mapping of trig_id to user's log data
+        db: Optional database session for condition lookups
 
     Notes:
     - OS map thumbnails are NOT embedded (licence restriction); description HTML links to an API URL.
@@ -392,6 +502,8 @@ def trigs_to_kmz(
         with special case: blank/NULL/'Z' -> green; 'P'/'U' -> red; 'N' -> red
     - Icon families are restricted to: pillar, fbm, passive, intersected.
     """
+    # Build colour maps from database (or use fallbacks)
+    trig_colour_map, log_colour_map = _build_condition_colour_maps(db)
 
     # ---- helpers ---------------------------------------------------------
     def _escape_xml(text: str) -> str:
@@ -433,14 +545,14 @@ def trigs_to_kmz(
     def _trig_url(trig_id: int) -> str:
         return f"{_site_base_domain()}/trigs/{trig_id}"
 
-    def _icon_family_from_physical_type(physical_type: str, group_name: str) -> str:
+    def _icon_family_from_type_name(type_name: str, category_name: str) -> str:
         """
-        Map `physical_type` to one of the 4 KMZ icon families.
+        Map type_name to one of the 4 KMZ icon families.
 
-        This mapping intentionally absorbs many physical types into `passive`.
+        This mapping intentionally absorbs many type names into `passive`.
         """
-        pt = (physical_type or "").strip().lower()
-        gn = (group_name or "").strip().lower()
+        pt = (type_name or "").strip().lower()
+        gn = (category_name or "").strip().lower()
 
         # Strong group fallbacks
         if gn == "pillar":
@@ -462,30 +574,9 @@ def trigs_to_kmz(
         # Everything else is treated as passive (bolts, berntsens, blocks, etc.)
         return "passive"
 
-    _CONDITION_MODE_COLOUR = {
-        # Green
-        "G": "green",
-        "S": "green",
-        # Yellow
-        "C": "yellow",
-        "D": "yellow",
-        "R": "yellow",
-        "T": "yellow",
-        "M": "yellow",
-        "V": "yellow",
-        # Red
-        "Q": "red",
-        "X": "red",
-        "N": "red",
-        # Grey
-        "P": "grey",
-        "U": "grey",
-        "Z": "grey",
-    }
-
     def _colour_condition_mode(condition: str) -> str:
         code = (condition or "").strip().upper()
-        return _CONDITION_MODE_COLOUR.get(code, "grey")
+        return trig_colour_map.get(code, "grey")
 
     def _colour_mylog_mode(log_data: Optional[dict[str, Any]]) -> str:
         # Not logged by the user at all
@@ -502,7 +593,8 @@ def trigs_to_kmz(
         if code in {"P", "U"}:
             return "red"
 
-        return _colour_condition_mode(code)
+        # Use log_colour_map for logged conditions
+        return log_colour_map.get(code, "grey")
 
     def _style_map_id(family: str, colour: str) -> str:
         return f"sm_{family}_{colour}"
@@ -522,16 +614,16 @@ def trigs_to_kmz(
             )
         return sorted(_KMZ_ICONS_DIR.glob("mapicon_*.png"))
 
-    def _kml_group_folder_name(trig: Trig) -> str:
-        """Get group name for folder organization."""
-        _, group_name = _get_group_info(trig)
-        return group_name.strip() if group_name else "Unknown"
+    def _kml_category_folder_name(trig: Trig) -> str:
+        """Get category name for folder organization."""
+        _, category_name = _get_category_info(trig)
+        return category_name.strip() if category_name else "Unknown"
 
     def _condition_description(code: str) -> str:
         # Definitive wording comes from the wiki (mirrored by our mapping helper).
         from api.utils.condition_mapping import get_condition_description
 
-        return get_condition_description(code)
+        return get_condition_description(code, db)
 
     def _log_condition_description(log_data: Optional[dict[str, Any]]) -> str:
         """
@@ -591,46 +683,40 @@ def trigs_to_kmz(
 
     # ---- group trigs into folders ----------------------------------------
     # Folder hierarchy:
-    #   Level 1: category (aka group_name)
-    #   Level 2: physical_type
+    #   Level 1: category (category_name)
+    #   Level 2: type_name (from trig_type.name)
     grouped: dict[str, dict[str, list[Trig]]] = {}
     for trig in trigs:
-        category = _kml_group_folder_name(trig)
-        physical_type_folder = (
-            str(getattr(trig, "physical_type", "")).strip() or "Unknown"
-        )
-        grouped.setdefault(category, {}).setdefault(physical_type_folder, []).append(
-            trig
-        )
+        category = _kml_category_folder_name(trig)
+        type_folder = _get_type_name(trig) or "Unknown"
+        grouped.setdefault(category, {}).setdefault(type_folder, []).append(trig)
 
     # Stable folder ordering: alphabetical by group name
     group_order = sorted(grouped.keys())
 
     for group_folder in group_order:
-        physical_types = grouped.get(group_folder, {})
-        if not physical_types:
+        types_in_group = grouped.get(group_folder, {})
+        if not types_in_group:
             continue
 
         kml_lines.append("    <Folder>")
         kml_lines.append(f"      <name>{_escape_xml(group_folder)}</name>")
 
-        for physical_type_folder in sorted(physical_types.keys()):
-            pts = physical_types.get(physical_type_folder, [])
-            if not pts:
+        for type_folder in sorted(types_in_group.keys()):
+            trigs_in_type = types_in_group.get(type_folder, [])
+            if not trigs_in_type:
                 continue
 
             kml_lines.append("      <Folder>")
-            kml_lines.append(
-                f"        <name>{_escape_xml(physical_type_folder)}</name>"
-            )
+            kml_lines.append(f"        <name>{_escape_xml(type_folder)}</name>")
 
-            for trig in pts:
+            for trig in trigs_in_type:
                 trig_id = int(trig.id)
                 waypoint = str(trig.waypoint)
                 name = str(trig.name)
-                physical_type = str(trig.physical_type)
-                group_code, group_name = _get_group_info(trig)
-                family = _icon_family_from_physical_type(physical_type, group_name)
+                type_name = _get_type_name(trig)
+                category_code, category_name = _get_category_info(trig)
+                family = _icon_family_from_type_name(type_name, category_name)
 
                 if user_logs is None:
                     colour = _colour_condition_mode(str(getattr(trig, "condition", "")))
@@ -654,7 +740,7 @@ def trigs_to_kmz(
                                 f'<b><a href="{_escape_xml(_trig_url(trig_id))}">'
                                 f"{_escape_xml(waypoint)} – {_escape_xml(name)}</a></b><br/>"
                             ),
-                            # f"<b>Type:</b> {_escape_xml(physical_type)}<br/>",
+                            # f"<b>Type:</b> {_escape_xml(type_name)}<br/>",
                             # f"<b>Category:</b> {_escape_xml(status_name)}<br/>",
                             # f"<b>Grid ref:</b> {_escape_xml(str(trig.osgb_gridref))}<br/>",
                             # f"<b>Condition:</b> {_escape_xml(condition_desc)}<br/>",
@@ -688,9 +774,9 @@ def trigs_to_kmz(
                 ext: dict[str, Any] = {
                     "waypoint": waypoint,
                     "name": name,
-                    "group_code": group_code,
-                    "group_name": group_name,
-                    "physical_type": physical_type,
+                    "category_code": category_code,
+                    "category_name": category_name,
+                    "type_name": type_name,
                     # Descriptive string per wiki, not letter code.
                     "condition": condition_desc,
                     "osgb_gridref": str(getattr(trig, "osgb_gridref", "")),

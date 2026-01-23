@@ -230,6 +230,7 @@ export function useAdminAuth(): UseAdminAuthResult {
       checkInitiatedRef.current = false;
       setIsActivelyChecking(false);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasAdminScope intentionally omitted to prevent re-checking loops
   }, [
     shouldCheckScope,
     getAccessTokenSilently,

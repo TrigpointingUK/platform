@@ -2,10 +2,26 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LogCard from '../LogCard';
 
-const renderWithRouter = (component: React.ReactElement) => {
-  return render(<BrowserRouter>{component}</BrowserRouter>);
+// Create a test query client
+const createTestQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+const renderWithProviders = (component: React.ReactElement) => {
+  const queryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>{component}</BrowserRouter>
+    </QueryClientProvider>
+  );
 };
 
 describe('LogCard', () => {
@@ -21,29 +37,29 @@ describe('LogCard', () => {
   };
 
   it('should render trig ID as TP format', () => {
-    renderWithRouter(<LogCard log={mockLog} />);
+    renderWithProviders(<LogCard log={mockLog} />);
     expect(screen.getByText('TP12345')).toBeInTheDocument();
   });
 
   it('should render trig name when provided', () => {
-    renderWithRouter(<LogCard log={mockLog} trigName="Whitchurch Hill" />);
+    renderWithProviders(<LogCard log={mockLog} trigName="Whitchurch Hill" />);
     expect(screen.getByText('Whitchurch Hill')).toBeInTheDocument();
     // TP12345 should still be shown alongside the trig name
     expect(screen.getByText('TP12345')).toBeInTheDocument();
   });
 
   it('should render user information', () => {
-    renderWithRouter(<LogCard log={mockLog} userName="John Doe" />);
+    renderWithProviders(<LogCard log={mockLog} userName="John Doe" />);
     expect(screen.getByText('John Doe')).toBeInTheDocument();
   });
 
   it('should render default user ID when no username provided', () => {
-    renderWithRouter(<LogCard log={mockLog} />);
+    renderWithProviders(<LogCard log={mockLog} />);
     expect(screen.getByText(/User #100/)).toBeInTheDocument();
   });
 
   it('should render condition icon with hover text', () => {
-    renderWithRouter(<LogCard log={mockLog} />);
+    renderWithProviders(<LogCard log={mockLog} />);
     // The condition is now displayed as an icon with title attribute
     const conditionIcon = screen.getByTitle('Good');
     expect(conditionIcon).toBeInTheDocument();
@@ -51,30 +67,30 @@ describe('LogCard', () => {
   });
 
   it('should render score out of 10', () => {
-    renderWithRouter(<LogCard log={mockLog} />);
+    renderWithProviders(<LogCard log={mockLog} />);
     // Score is 4, displayed as stars with a title attribute of "4/10"
     const starContainer = screen.getByTitle('4/10');
     expect(starContainer).toBeInTheDocument();
   });
 
   it('should render formatted date', () => {
-    renderWithRouter(<LogCard log={mockLog} />);
+    renderWithProviders(<LogCard log={mockLog} />);
     expect(screen.getByText('15 Jan 2024')).toBeInTheDocument();
   });
 
   it('should render time', () => {
-    renderWithRouter(<LogCard log={mockLog} />);
+    renderWithProviders(<LogCard log={mockLog} />);
     expect(screen.getByText('14:30')).toBeInTheDocument();
   });
 
   it('should render comment when present', () => {
-    renderWithRouter(<LogCard log={mockLog} />);
+    renderWithProviders(<LogCard log={mockLog} />);
     expect(screen.getByText('Great condition, easy to find')).toBeInTheDocument();
   });
 
   it('should not render comment section when comment is empty', () => {
     const logWithoutComment = { ...mockLog, comment: '' };
-    renderWithRouter(<LogCard log={logWithoutComment} />);
+    renderWithProviders(<LogCard log={logWithoutComment} />);
     expect(screen.queryByText('Great condition, easy to find')).not.toBeInTheDocument();
   });
 
@@ -118,7 +134,7 @@ describe('LogCard', () => {
         },
       ],
     };
-    renderWithRouter(<LogCard log={logWithPhotos} />);
+    renderWithProviders(<LogCard log={logWithPhotos} />);
     
     const images = screen.getAllByRole('img');
     // 1 condition icon + 2 photos = 3 images total
@@ -149,7 +165,7 @@ describe('LogCard', () => {
     }));
     
     const logWithManyPhotos = { ...mockLog, photos };
-    renderWithRouter(<LogCard log={logWithManyPhotos} />);
+    renderWithProviders(<LogCard log={logWithManyPhotos} />);
     
     expect(screen.getByText('+5')).toBeInTheDocument();
   });
@@ -167,7 +183,7 @@ describe('LogCard', () => {
     ];
 
     conditions.forEach(({ code, label, icon }) => {
-      const { unmount } = renderWithRouter(
+      const { unmount } = renderWithProviders(
         <LogCard log={{ ...mockLog, condition: code }} />
       );
       const conditionIcon = screen.getByTitle(label);
@@ -178,7 +194,7 @@ describe('LogCard', () => {
   });
 
   it('should render links to trig and user pages', () => {
-    renderWithRouter(<LogCard log={mockLog} />);
+    renderWithProviders(<LogCard log={mockLog} />);
     
     const links = screen.getAllByRole('link');
     const trigLink = links.find(link => link.getAttribute('href') === '/trigs/12345');
@@ -186,6 +202,34 @@ describe('LogCard', () => {
     
     expect(trigLink).toBeInTheDocument();
     expect(userLink).toBeInTheDocument();
+  });
+
+  it('should hide trig info when showTrigInfo is false', () => {
+    renderWithProviders(<LogCard log={mockLog} showTrigInfo={false} />);
+    
+    // Trig ID should not be rendered
+    expect(screen.queryByText('TP12345')).not.toBeInTheDocument();
+    
+    // Trig link should not exist
+    const links = screen.getAllByRole('link');
+    const trigLink = links.find(link => link.getAttribute('href') === '/trigs/12345');
+    expect(trigLink).toBeUndefined();
+    
+    // User link should still exist
+    const userLink = links.find(link => link.getAttribute('href') === '/profile/100');
+    expect(userLink).toBeInTheDocument();
+  });
+
+  it('should show trig info by default', () => {
+    renderWithProviders(<LogCard log={mockLog} />);
+    
+    // Trig ID should be rendered
+    expect(screen.getByText('TP12345')).toBeInTheDocument();
+    
+    // Trig link should exist
+    const links = screen.getAllByRole('link');
+    const trigLink = links.find(link => link.getAttribute('href') === '/trigs/12345');
+    expect(trigLink).toBeInTheDocument();
   });
 });
 

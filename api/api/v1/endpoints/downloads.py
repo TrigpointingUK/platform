@@ -95,9 +95,9 @@ def download_trigs(
         "csv", description="Output format (csv, geojson, kml, kmz, gpx)"
     ),
     # Filters (reusing existing list_trigs patterns)
-    groups: Optional[str] = Query(
+    categories: Optional[str] = Query(
         None,
-        description="Comma-separated group codes to filter by (e.g., 'PILLAR,FBM')",
+        description="Comma-separated category codes to filter by (e.g., 'PILLAR,FBM')",
     ),
     area_id: Optional[int] = Query(
         None, description="Filter to trigpoints within the specified area"
@@ -160,10 +160,12 @@ def download_trigs(
         )
         raise HTTPException(status_code=429, detail=error_message)
 
-    # Parse groups from comma-separated string
-    parsed_groups: Optional[list[str]] = None
-    if groups:
-        parsed_groups = [g.strip().upper() for g in groups.split(",") if g.strip()]
+    # Parse categories from comma-separated string
+    parsed_categories: Optional[list[str]] = None
+    if categories:
+        parsed_categories = [
+            c.strip().upper() for c in categories.split(",") if c.strip()
+        ]
 
     # Mutually exclusive filters
     if only_found and exclude_found:
@@ -182,7 +184,7 @@ def download_trigs(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        group_codes=parsed_groups,
+        category_codes=parsed_categories,
         exclude_found_by_user_id=user_id if exclude_found else None,
         only_found_by_user_id=user_id if only_found else None,
         exclude_soft_deleted=True,
@@ -227,7 +229,7 @@ def download_trigs(
         media_type = "application/gpx+xml"
 
     elif format == "kmz":
-        content = trigs_to_kmz(trigs, user_logs)
+        content = trigs_to_kmz(trigs, user_logs, db=db)
         filename = f"trigpoints_{timestamp}.kmz"
         media_type = "application/vnd.google-earth.kmz"
 
@@ -253,9 +255,9 @@ def download_trigs(
     openapi_extra=openapi_lifecycle("beta", note="Preview count before download"),
 )
 def download_trigs_count(
-    groups: Optional[str] = Query(
+    categories: Optional[str] = Query(
         None,
-        description="Comma-separated group codes to filter by (e.g., 'PILLAR,FBM')",
+        description="Comma-separated category codes to filter by (e.g., 'PILLAR,FBM')",
     ),
     area_id: Optional[int] = Query(
         None, description="Filter to trigpoints within the specified area"
@@ -286,10 +288,12 @@ def download_trigs_count(
 
     Use this endpoint to preview the size of a download before requesting it.
     """
-    # Parse groups from comma-separated string
-    parsed_groups: Optional[list[str]] = None
-    if groups:
-        parsed_groups = [g.strip().upper() for g in groups.split(",") if g.strip()]
+    # Parse categories from comma-separated string
+    parsed_categories: Optional[list[str]] = None
+    if categories:
+        parsed_categories = [
+            c.strip().upper() for c in categories.split(",") if c.strip()
+        ]
 
     user_id = int(current_user.id)
 
@@ -306,7 +310,7 @@ def download_trigs_count(
         center_lat=lat,
         center_lon=lon,
         max_km=max_km,
-        group_codes=parsed_groups,
+        category_codes=parsed_categories,
         exclude_found_by_user_id=user_id if exclude_found else None,
         only_found_by_user_id=user_id if only_found else None,
         exclude_soft_deleted=True,

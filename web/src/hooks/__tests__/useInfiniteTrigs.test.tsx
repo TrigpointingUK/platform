@@ -43,25 +43,27 @@ const mockTrigsResponse = {
       id: 1,
       waypoint: 'TP0001',
       name: 'Test Trig 1',
-      physical_type: 'Pillar',
       condition: 'G',
       wgs_lat: '51.5',
       wgs_long: '-0.1',
       osgb_gridref: 'TQ 30000 80000',
-      group_code: 'PILLAR',
-      group_name: 'Pillar',
+      type_code: 'PILLAR',
+      type_name: 'Pillar',
+      category_code: 'PILLAR',
+      category_name: 'Pillar',
     },
     {
       id: 2,
       waypoint: 'TP0002',
       name: 'Test Trig 2',
-      physical_type: 'FBM',
       condition: 'G',
       wgs_lat: '51.6',
       wgs_long: '-0.2',
       osgb_gridref: 'TQ 30100 80100',
-      group_code: 'FBM',
-      group_name: 'FBM',
+      type_code: 'FBM',
+      type_name: 'FBM',
+      category_code: 'FBM',
+      category_name: 'FBM',
     },
   ],
   pagination: {
@@ -116,8 +118,8 @@ describe('useInfiniteTrigs', () => {
     });
   });
 
-  describe('groups parameter', () => {
-    it('should send groups param when statusIds provided', async () => {
+  describe('categories parameter', () => {
+    it('should send categories param when statusIds provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockTrigsResponse,
@@ -136,10 +138,10 @@ describe('useInfiniteTrigs', () => {
       await waitFor(() => expect(mockFetch).toHaveBeenCalled());
 
       const fetchCall = mockFetch.mock.calls[0][0] as string;
-      expect(fetchCall).toContain('groups=PILLAR%2CFBM');
+      expect(fetchCall).toContain('categories=PILLAR%2CFBM');
     });
 
-    it('should convert all status IDs to group codes', async () => {
+    it('should convert all status IDs to category codes', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockTrigsResponse,
@@ -159,7 +161,7 @@ describe('useInfiniteTrigs', () => {
 
       const fetchCall = mockFetch.mock.calls[0][0] as string;
       // URL-encoded comma is %2C
-      expect(fetchCall).toContain('groups=');
+      expect(fetchCall).toContain('categories=');
       expect(fetchCall).toContain('PILLAR');
       expect(fetchCall).toContain('FBM');
       expect(fetchCall).toContain('SURVEY_MARK');
@@ -168,7 +170,7 @@ describe('useInfiniteTrigs', () => {
       expect(fetchCall).toContain('OTHER');
     });
 
-    it('should not send groups param when statusIds is empty', async () => {
+    it('should not send categories param when statusIds is empty', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockTrigsResponse,
@@ -187,7 +189,7 @@ describe('useInfiniteTrigs', () => {
       await waitFor(() => expect(mockFetch).toHaveBeenCalled());
 
       const fetchCall = mockFetch.mock.calls[0][0] as string;
-      expect(fetchCall).not.toContain('groups=');
+      expect(fetchCall).not.toContain('categories=');
     });
   });
 

@@ -12,7 +12,7 @@ from api.models.tphoto import TPhoto
 from api.models.user import TLog, User
 
 
-def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
+def seed_user_and_tlog(db: Session, trig_id: int) -> tuple[User, TLog]:
     import uuid
 
     unique_name = f"photouser_{uuid.uuid4().hex[:6]}"
@@ -28,7 +28,7 @@ def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
         auth0_user_id=f"auth0|{uuid.uuid4().hex[:8]}",
     )
     tlog = TLog(
-        trig_id=1,
+        trig_id=trig_id,
         user_id=None,  # Will set after user is saved
         date=datetime(2023, 1, 1).date(),
         time=datetime(2023, 1, 1).time(),
@@ -82,8 +82,8 @@ def create_sample_photo(db: Session, tlog_id: int) -> TPhoto:
     return photo
 
 
-def test_get_photo(client: TestClient, db: Session):
-    _, tlog = seed_user_and_tlog(db)
+def test_get_photo(client: TestClient, db: Session, test_trig):
+    _, tlog = seed_user_and_tlog(db, test_trig.id)
     photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
     resp = client.get(f"{settings.API_V1_STR}/photos/{photo.id}")
@@ -93,8 +93,8 @@ def test_get_photo(client: TestClient, db: Session):
     assert body["caption"] == "Test Photo"
 
 
-def test_update_photo(client: TestClient, db: Session):
-    user, tlog = seed_user_and_tlog(db)
+def test_update_photo(client: TestClient, db: Session, test_trig):
+    user, tlog = seed_user_and_tlog(db, test_trig.id)
     photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
     headers = {"Authorization": f"Bearer auth0_user_{user.id}"}
@@ -110,8 +110,8 @@ def test_update_photo(client: TestClient, db: Session):
     assert body["type"] == "F"
 
 
-def test_delete_photo_soft(client: TestClient, db: Session):
-    user, tlog = seed_user_and_tlog(db)
+def test_delete_photo_soft(client: TestClient, db: Session, test_trig):
+    user, tlog = seed_user_and_tlog(db, test_trig.id)
     photo = create_sample_photo(db, tlog_id=int(tlog.id))
 
     headers = {"Authorization": f"Bearer auth0_user_{user.id}"}

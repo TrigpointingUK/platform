@@ -13,8 +13,8 @@ import {
 } from "../hooks/useUserProfile";
 import { MAP_LINK_OPTIONS, MAP_LINK_DEFAULTS } from "../lib/mapLinks";
 
-// Trigpoint type groups - matches trig_type_group table
-const TYPE_GROUPS = [
+// Trigpoint type categories - matches trig_category table
+const TYPE_CATEGORIES = [
   {
     code: "PILLAR",
     name: "Pillar",
@@ -53,8 +53,8 @@ const TYPE_GROUPS = [
   },
 ];
 
-// Default groups for new users (Pillar and FBM only)
-const DEFAULT_GROUPS = ["PILLAR", "FBM"];
+// Default categories for new users (Pillar and FBM only)
+const DEFAULT_CATEGORIES = ["PILLAR", "FBM"];
 
 export default function Preferences() {
   const queryClient = useQueryClient();
@@ -107,17 +107,17 @@ export default function Preferences() {
     }
   };
 
-  // Get current groups from server state
-  const currentGroups = user?.prefs?.ui_prefs?.default_groups ?? DEFAULT_GROUPS;
+  // Get current categories from server state
+  const currentCategories = user?.prefs?.ui_prefs?.default_categories ?? DEFAULT_CATEGORIES;
 
-  const handleGroupToggle = useCallback(async (groupCode: string) => {
-    const newGroups = currentGroups.includes(groupCode)
-      ? currentGroups.filter((g: string) => g !== groupCode)
-      : [...currentGroups, groupCode];
+  const handleCategoryToggle = useCallback(async (categoryCode: string) => {
+    const newCategories = currentCategories.includes(categoryCode)
+      ? currentCategories.filter((c: string) => c !== categoryCode)
+      : [...currentCategories, categoryCode];
     
-    // Don't allow deselecting all groups
-    if (newGroups.length === 0) {
-      toast.error("You must have at least one group selected");
+    // Don't allow deselecting all categories
+    if (newCategories.length === 0) {
+      toast.error("You must have at least one category selected");
       return;
     }
     
@@ -131,7 +131,7 @@ export default function Preferences() {
           ...old.prefs!,
           ui_prefs: {
             ...old.prefs?.ui_prefs,
-            default_groups: newGroups,
+            default_categories: newCategories,
           },
         },
       };
@@ -139,19 +139,19 @@ export default function Preferences() {
     
     try {
       await updateUserProfile(
-        { ui_prefs: { default_groups: newGroups } } as unknown as Partial<UserProfile>,
+        { ui_prefs: { default_categories: newCategories } } as unknown as Partial<UserProfile>,
         getAccessTokenSilently,
       );
       // Success - no need to do anything, cache is already updated
     } catch (error) {
       // Rollback on failure by restoring previous data
-      console.error("Failed to update default_groups:", error);
+      console.error("Failed to update default_categories:", error);
       toast.error("Failed to update preference");
       if (previousData) {
         queryClient.setQueryData(["user", "profile", "me"], previousData);
       }
     }
-  }, [currentGroups, getAccessTokenSilently, queryClient]);
+  }, [currentCategories, getAccessTokenSilently, queryClient]);
 
   if (isLoading) {
     return (
@@ -200,7 +200,7 @@ export default function Preferences() {
 
         <Card className="mb-6">
           <div className="grid grid-cols-1 gap-6">
-            {/* Default Trigpoint Groups */}
+            {/* Default Trigpoint Categories */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Default Trigpoint Types
@@ -210,13 +210,13 @@ export default function Preferences() {
                 Click to toggle each type on or off.
               </p>
               <div className="flex flex-wrap gap-3">
-                {TYPE_GROUPS.map((group) => {
-                  const isSelected = currentGroups.includes(group.code);
+                {TYPE_CATEGORIES.map((category) => {
+                  const isSelected = currentCategories.includes(category.code);
                   return (
                     <button
-                      key={group.code}
+                      key={category.code}
                       type="button"
-                      onClick={() => handleGroupToggle(group.code)}
+                      onClick={() => handleCategoryToggle(category.code)}
                       className={`
                         inline-flex flex-col items-center justify-center
                         w-16 p-2 rounded-lg
@@ -228,17 +228,17 @@ export default function Preferences() {
                         }
                         focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-trig-green-500
                       `}
-                      title={`${group.name}: ${group.description}`}
-                      aria-label={`${isSelected ? "Deselect" : "Select"} ${group.name}`}
+                      title={`${category.name}: ${category.description}`}
+                      aria-label={`${isSelected ? "Deselect" : "Select"} ${category.name}`}
                       aria-pressed={isSelected}
                     >
                       <img
-                        src={group.icon}
-                        alt={group.name}
+                        src={category.icon}
+                        alt={category.name}
                         className={`w-8 h-8 object-contain ${isSelected ? "" : "opacity-50"}`}
                       />
                       <span className={`text-xs mt-1 ${isSelected ? "text-white font-medium" : "text-gray-600 dark:text-gray-300"}`}>
-                        {group.name}
+                        {category.name}
                       </span>
                     </button>
                   );
