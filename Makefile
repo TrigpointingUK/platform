@@ -191,7 +191,7 @@ type-check: ## Run type checking
 
 security: ## Run security checks
 	bandit -r api --skip B101 --exclude api/tests
-	pip-audit -r requirements.txt
+	pip-audit -r requirements.txt --ignore-vuln CVE-2026-0994  # protobuf - no fix available yet
 
 # Database migrations with Alembic
 migration-create: ## Create a new migration (usage: make migration-create MSG="description")
