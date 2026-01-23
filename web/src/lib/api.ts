@@ -310,6 +310,8 @@ export interface TrigDetails {
   current_use: string;
   historic_use: string;
   wgs_height: number | null;
+  osgb_eastings: number | null;
+  osgb_northings: number | null;
   osgb_height: number | null;
   postcode: string;
   county: string;
@@ -352,6 +354,8 @@ export interface Trig {
   type_code?: string;
   /** Type display name (e.g., Hotine Pillar, Flush Bracket Mark) */
   type_name?: string;
+  /** Wiki URL for this type (use for linking to wiki) */
+  type_wiki_url?: string;
   /** Category code (e.g., PILLAR, FBM, SURVEY_MARK) */
   category_code?: string;
   /** Category display name (e.g., Pillar, FBM, Survey mark) */

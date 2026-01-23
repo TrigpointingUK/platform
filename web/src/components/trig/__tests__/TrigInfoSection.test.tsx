@@ -55,6 +55,8 @@ const createMockTrig = (overrides = {}) => ({
   details: {
     osgb_height: 100,
     wgs_height: 100.5,
+    osgb_eastings: 530034.1234,
+    osgb_northings: 179382.5678,
     postcode: 'SW1A 1AA',
     current_use: 'None',
     historic_use: 'Triangulation',
@@ -146,14 +148,25 @@ describe('TrigInfoSection', () => {
     expect(postcodeLink).toHaveAttribute('href', 'https://www.google.co.uk/maps/search/SW1A%201AA');
   });
 
-  it('should render type name with wiki link', () => {
+  it('should render type name with wiki link (fallback to name-based URL)', () => {
     const mockTrig = createMockTrig();
     renderWithProviders(<TrigInfoSection trig={mockTrig} />);
     
     expect(screen.getByText(/Type:/i)).toBeInTheDocument();
     // When category_code != type_code, shows "Category · Type"
     const typeLink = screen.getByRole('link', { name: 'Pillar · Hotine Pillar' });
+    // Falls back to name-based URL when type_wiki_url is not provided
     expect(typeLink).toHaveAttribute('href', 'https://wiki.trigpointing.uk/Hotine_Pillar');
+  });
+
+  it('should use type_wiki_url when provided', () => {
+    const mockTrig = createMockTrig({
+      type_wiki_url: 'https://wiki.trigpointing.uk/Custom_Wiki_Page',
+    });
+    renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+    
+    const typeLink = screen.getByRole('link', { name: 'Pillar · Hotine Pillar' });
+    expect(typeLink).toHaveAttribute('href', 'https://wiki.trigpointing.uk/Custom_Wiki_Page');
   });
 
   it('should render condition badge', () => {

@@ -149,6 +149,15 @@ export default function TrigInfoSection({
               )}
             </div>
 
+            {trig.details?.osgb_eastings != null && trig.details?.osgb_northings != null && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  OSGB36:
+                </span>{" "}
+                {Number(trig.details.osgb_eastings).toFixed(4)}, {Number(trig.details.osgb_northings).toFixed(4)}
+              </div>
+            )}
+
             {trig.details?.osgb_height != null && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">
@@ -184,10 +193,14 @@ export default function TrigInfoSection({
                     : `${trig.category_name} · ${trig.type_name}`
                   : "Unknown";
                 
-                // Link using type_name for wiki URL
-                return trig.type_name && shouldHaveWikiLink(trig.type_name) ? (
+                // Use type_wiki_url if available, otherwise fall back to name-based URL
+                const wikiUrl = trig.type_wiki_url?.trim() 
+                  ? trig.type_wiki_url 
+                  : (trig.type_name ? getWikiUrl(trig.type_name) : null);
+                
+                return wikiUrl && trig.type_name && shouldHaveWikiLink(trig.type_name) ? (
                   <a
-                    href={getWikiUrl(trig.type_name)}
+                    href={wikiUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-trig-green-600 hover:underline"

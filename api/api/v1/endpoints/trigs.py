@@ -40,6 +40,7 @@ from api.schemas.tphoto import TPhotoResponse
 from api.schemas.trig import (
     TrigAttrsData,
     TrigDetails,
+    TrigExport,
     TrigMinimal,
 )
 from api.schemas.trig import TrigStats as TrigStatsSchema
@@ -115,9 +116,9 @@ def _generate_export_data(db: Session) -> dict:
         limit=50000,  # Large enough for all trigs
     )
 
-    # Serialize minimally with mode='json' to properly handle Decimal fields
+    # Serialize with TrigExport (5dp coords for Android app compatibility)
     items_serialized = [
-        TrigMinimal.model_validate(i).model_dump(mode="json") for i in items
+        TrigExport.model_validate(i).model_dump(mode="json") for i in items
     ]
 
     return {
@@ -727,6 +728,7 @@ def _get_trig_cached(
     if trig.trig_type:
         minimal_data["type_code"] = trig.trig_type.code
         minimal_data["type_name"] = trig.trig_type.name
+        minimal_data["type_wiki_url"] = trig.trig_type.wiki_url or None
         if trig.trig_type.category:
             minimal_data["category_code"] = trig.trig_type.category.code
             minimal_data["category_name"] = trig.trig_type.category.name
@@ -843,6 +845,7 @@ def get_trig_by_waypoint(
     if trig.trig_type:
         minimal_data["type_code"] = trig.trig_type.code
         minimal_data["type_name"] = trig.trig_type.name
+        minimal_data["type_wiki_url"] = trig.trig_type.wiki_url or None
         if trig.trig_type.category:
             minimal_data["category_code"] = trig.trig_type.category.code
             minimal_data["category_name"] = trig.trig_type.category.name
