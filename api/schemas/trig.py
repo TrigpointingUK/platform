@@ -60,7 +60,7 @@ class TrigTypeInfo(BaseModel):
 
 
 class TrigMinimal(BaseModel):
-    """Minimal trig response for /trig/{id} and /export (Android app)."""
+    """Minimal trig response for /trig/{id} endpoints."""
 
     id: int = Field(..., description="Trigpoint ID")
     waypoint: str = Field(..., description="Waypoint code (e.g., TP0001)")
@@ -72,6 +72,7 @@ class TrigMinimal(BaseModel):
     # Type system
     type_code: Optional[str] = Field(None, description="Type code (e.g., HOTINE, FBM)")
     type_name: Optional[str] = Field(None, description="Type display name")
+    type_wiki_url: Optional[str] = Field(None, description="Wiki URL for this type")
     category_code: Optional[str] = Field(None, description="Type category code")
     category_name: Optional[str] = Field(None, description="Type category display name")
 
@@ -95,6 +96,37 @@ class TrigMinimal(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("wgs_lat", "wgs_long")
+    def serialize_coords_8dp(self, value: Decimal) -> float:
+        """Serialize coordinates with full 8dp precision."""
+        return round(float(value), 8)
+
+
+class TrigExport(BaseModel):
+    """Trig response for /export endpoint (Android app compatibility).
+
+    Separate from TrigMinimal to use 5dp coordinate serialization for
+    backward compatibility with Android app.
+    """
+
+    id: int = Field(..., description="Trigpoint ID")
+    waypoint: str = Field(..., description="Waypoint code (e.g., TP0001)")
+    name: str = Field(..., description="Trigpoint name")
+    condition: str = Field(..., description="Condition code")
+    type_code: Optional[str] = Field(None, description="Type code (e.g., HOTINE, FBM)")
+    type_name: Optional[str] = Field(None, description="Type display name")
+    type_wiki_url: Optional[str] = Field(None, description="Wiki URL for this type")
+    category_code: Optional[str] = Field(None, description="Type category code")
+    category_name: Optional[str] = Field(None, description="Type category display name")
+    wgs_lat: Decimal = Field(..., description="WGS84 latitude")
+    wgs_long: Decimal = Field(..., description="WGS84 longitude")
+    osgb_gridref: str = Field(..., description="Grid reference (OSGB or Irish format)")
+    grid_system: Optional[str] = Field(None, description="Grid system: 'gb' or 'ie'")
+    country_name: Optional[str] = Field(None, description="Country name")
+    distance_km: Optional[float] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("wgs_lat", "wgs_long")
     def serialize_coords_5dp(self, value: Decimal) -> float:
         """Round to 5dp for backward compatibility with Android app."""
         return round(float(value), 5)
@@ -106,6 +138,8 @@ class TrigDetails(BaseModel):
     current_use: Optional[str] = None
     historic_use: Optional[str] = None
     wgs_height: Optional[Decimal] = None
+    osgb_eastings: Optional[Decimal] = None
+    osgb_northings: Optional[Decimal] = None
     osgb_height: Optional[Decimal] = None
     postcode: Optional[str] = None
     county: Optional[str] = None
@@ -130,6 +164,11 @@ class TrigDetails(BaseModel):
     def serialize_height(self, value: Optional[Decimal]) -> Optional[float]:
         """Serialize height as float for JSON output."""
         return float(value) if value is not None else None
+
+    @field_serializer("osgb_eastings", "osgb_northings")
+    def serialize_coords_4dp(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize coordinates with 4dp precision."""
+        return round(float(value), 4) if value is not None else None
 
 
 class TrigStats(BaseModel):
