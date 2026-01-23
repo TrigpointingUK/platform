@@ -1491,3 +1491,91 @@ export async function fetchPublicConditionByCode(
   return response.json();
 }
 
+// ============================================================================
+// OS Net Comparison Types and Functions (admin)
+// ============================================================================
+
+export interface OSNetStationData {
+  code?: string;
+  easting?: number;
+  northing?: number;
+  gridref?: string;
+  height?: number;
+  lat_dms?: string;
+  lon_dms?: string;
+}
+
+export interface DBStationData {
+  trig_id?: number;
+  waypoint?: string;
+  name?: string;
+  stn_number_active?: string;
+  easting?: number;
+  northing?: number;
+  gridref?: string;
+  height?: number;
+}
+
+export interface StationDifference {
+  station_code: string;
+  difference_type: 
+    | "new_in_osnet" 
+    | "missing_from_osnet" 
+    | "coordinate_mismatch" 
+    | "unmatched_db"
+    | "destroyed_not_in_db"
+    | "legacy_not_in_db";
+  description: string;
+  osnet_data?: OSNetStationData;
+  db_data?: DBStationData;
+  distance_metres?: number;
+  osnet_section?: number;
+  osnet_section_name?: string;
+}
+
+export interface OSNetComparisonResponse {
+  osnet_count: number;
+  osnet_current_count: number;
+  osnet_legacy_count: number;
+  osnet_destroyed_count: number;
+  db_count: number;
+  matched_count: number;
+  differences: StationDifference[];
+  osnet_fetch_time: string;
+  changelog_entries: string[];
+  new_in_osnet_count: number;
+  missing_from_osnet_count: number;
+  coordinate_mismatch_count: number;
+  unmatched_db_count: number;
+  destroyed_not_in_db_count: number;
+  legacy_not_in_db_count: number;
+}
+
+/**
+ * Fetch OS Net comparison data (admin)
+ */
+export async function fetchOSNetComparison(
+  token: string,
+  forceRefresh: boolean = false
+): Promise<OSNetComparisonResponse> {
+  const params = forceRefresh ? "?force_refresh=true" : "";
+  return apiGet<OSNetComparisonResponse>(`/v1/admin/osnet/comparison${params}`, token);
+}
+
+/**
+ * Clear OS Net cache (admin)
+ */
+export async function clearOSNetCache(token: string): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/osnet/cache/clear`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
