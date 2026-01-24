@@ -29,6 +29,7 @@ from api.crud import area as area_crud
 from api.crud import tlog as tlog_crud
 from api.crud import tphoto as tphoto_crud
 from api.crud import user as user_crud
+from api.models.condition import Condition
 from api.models.server import Server
 from api.models.tphoto import TPhoto
 from api.models.trig import Trig
@@ -1831,3 +1832,80 @@ def get_user_map(
         raise HTTPException(status_code=500, detail=f"Server configuration error: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error rendering user map: {e}")
+
+
+@router.get(
+    "/{user_id}/log-timeline",
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Lightweight timeline data for animated map visualisation. "
+        "Returns coordinates, dates, and colours sorted chronologically.",
+    ),
+)
+@cached(
+    resource_type="user",
+    ttl=7200,
+    resource_id_param="user_id",
+    subresource="log-timeline",
+)  # 2 hours - invalidated by log CRUD operations
+def get_user_log_timeline(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Get lightweight log timeline data for animated map visualisation.
+
+    Returns an array of {lat, lon, date, colour} tuples sorted by date ascending.
+    The colour field is derived from the condition table's log_colour field.
+
+    This endpoint is optimised for minimal payload size to support client-side
+    rendering of animated user activity maps.
+    """
+    # Verify user exists
+    user = user_crud.get_user_by_id(db, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Query logs with trig coordinates and condition colour
+    # Join: TLog -> Trig (for coordinates) -> Condition (for log_colour)
+    logs = (
+        db.query(
+            Trig.wgs_lat,
+            Trig.wgs_long,
+            TLog.date,
+            Condition.log_colour,
+        )
+        .select_from(TLog)
+        .join(Trig, TLog.trig_id == Trig.id)
+        .outerjoin(Condition, TLog.condition == Condition.code)
+        .filter(TLog.user_id == user_id)
+        .filter(Trig.wgs_lat.isnot(None))
+        .filter(Trig.wgs_long.isnot(None))
+        .order_by(TLog.date.asc(), TLog.id.asc())
+        .all()
+    )
+
+    # Build lightweight response
+    result = []
+    for log in logs:
+        # Normalise colour: green, yellow, red, or grey
+        raw_colour = (log.log_colour or "").lower()
+        if raw_colour in ("green", "lime"):
+            colour = "green"
+        elif raw_colour in ("yellow", "orange", "amber"):
+            colour = "yellow"
+        elif raw_colour in ("red", "maroon"):
+            colour = "red"
+        else:
+            colour = "grey"
+
+        result.append(
+            {
+                "lat": float(log.wgs_lat),
+                "lon": float(log.wgs_long),
+                "date": log.date.isoformat() if log.date else None,
+                "colour": colour,
+            }
+        )
+
+    return result

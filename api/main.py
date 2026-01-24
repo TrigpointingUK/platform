@@ -127,6 +127,7 @@ def custom_openapi():
         f"{settings.API_V1_STR}/users/{{user_id}}",
         f"{settings.API_V1_STR}/users/{{user_id}}/badge",
         f"{settings.API_V1_STR}/users/{{user_id}}/logs",
+        f"{settings.API_V1_STR}/users/{{user_id}}/log-timeline",
         f"{settings.API_V1_STR}/users/{{user_id}}/map",
         f"{settings.API_V1_STR}/users/{{user_id}}/photos",
         f"{settings.API_V1_STR}/logs",
