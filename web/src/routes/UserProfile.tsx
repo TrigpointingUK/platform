@@ -9,6 +9,7 @@ import Spinner from "../components/ui/Spinner";
 import EditableField from "../components/ui/EditableField";
 import LogList from "../components/logs/LogList";
 import AreaBreakdown from "../components/profile/AreaBreakdown";
+import AnimatedUserMap from "../components/profile/AnimatedUserMap";
 import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
@@ -279,14 +280,9 @@ export default function UserProfile() {
               )}
             </div>
 
-            {/* Right column: Map and Badge stacked on large screens, side by side on medium */}
-            <div className="flex flex-col md:flex-row xl:flex-col gap-6 xl:w-72 flex-shrink-0 md:items-start">
-              <img 
-                src={`${apiBase}/v1/users/${displayUserId}/map?height=500`}
-                alt={`${user.name}'s trig map`}
-                className="rounded-lg border border-gray-200 dark:border-gray-600 w-full h-auto"
-                loading="lazy"
-              />
+            {/* Right column: Animated Map and Badge */}
+            <div className="flex flex-col gap-6 xl:w-auto flex-shrink-0">
+              <AnimatedUserMap userId={displayUserId} height={400} autoPlay />
               <div className="flex justify-center items-center w-full">
                 <img 
                   src={`${apiBase}/v1/users/${displayUserId}/badge`}
