@@ -27,7 +27,24 @@ import {
   MAP_DIMENSIONS,
   getLogColourHex,
 } from "../../lib/mapCalibration";
+import { useTheme } from "../../hooks/useTheme";
 import Spinner from "../ui/Spinner";
+
+/** Map colour schemes for light and dark modes */
+const MAP_COLOURS = {
+  light: {
+    sea: "#ffffff",
+    land: "#d9d2ca", // 25% warm grey
+    coastline: "#a0998f", // Subtle dark coastline
+    coastlineWidth: 1,
+  },
+  dark: {
+    sea: "#1f2937", // gray-800
+    land: "#374151", // gray-700
+    coastline: "#4b5563", // gray-600
+    coastlineWidth: 0.5,
+  },
+};
 
 interface AnimatedUserMapProps {
   userId: number | string;
@@ -75,6 +92,10 @@ export default function AnimatedUserMap({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapImageRef = useRef<HTMLImageElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Theme
+  const { resolvedTheme } = useTheme();
+  const mapColours = MAP_COLOURS[resolvedTheme];
 
   // State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -168,6 +189,33 @@ export default function AnimatedUserMap({
     }
   }, [soundEnabled]);
 
+  // Create coloured version of map on an offscreen canvas
+  const createColouredMap = useCallback(
+    (
+      image: HTMLImageElement,
+      width: number,
+      height: number,
+      colour: string
+    ): HTMLCanvasElement => {
+      const offscreen = document.createElement("canvas");
+      offscreen.width = width;
+      offscreen.height = height;
+      const offCtx = offscreen.getContext("2d");
+      if (!offCtx) return offscreen;
+
+      // Draw the map image
+      offCtx.drawImage(image, 0, 0, width, height);
+
+      // Use source-in to recolour just the opaque pixels
+      offCtx.globalCompositeOperation = "source-in";
+      offCtx.fillStyle = colour;
+      offCtx.fillRect(0, 0, width, height);
+
+      return offscreen;
+    },
+    []
+  );
+
   // Draw the map and dots
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -176,9 +224,36 @@ export default function AnimatedUserMap({
 
     if (!canvas || !ctx || !mapImage) return;
 
-    // Clear and draw map background
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
+    // Clear canvas and fill with sea colour
+    ctx.fillStyle = mapColours.sea;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw coastline (slightly expanded map in coastline colour)
+    if (mapColours.coastlineWidth > 0) {
+      const coastlineMap = createColouredMap(
+        mapImage,
+        canvas.width,
+        canvas.height,
+        mapColours.coastline
+      );
+      const expand = mapColours.coastlineWidth * 2;
+      ctx.drawImage(
+        coastlineMap,
+        -expand / 2,
+        -expand / 2,
+        canvas.width + expand,
+        canvas.height + expand
+      );
+    }
+
+    // Draw land on top
+    const landMap = createColouredMap(
+      mapImage,
+      canvas.width,
+      canvas.height,
+      mapColours.land
+    );
+    ctx.drawImage(landMap, 0, 0);
 
     const now = Date.now();
 
@@ -224,14 +299,14 @@ export default function AnimatedUserMap({
     });
 
     ctx.globalAlpha = 1;
-  }, [displayedDots]);
+  }, [displayedDots, mapColours, createColouredMap]);
 
-  // Redraw when dots change
+  // Redraw when dots change or theme changes
   useEffect(() => {
     if (mapLoaded) {
       draw();
     }
-  }, [draw, mapLoaded, displayedDots]);
+  }, [draw, mapLoaded, displayedDots, mapColours]);
 
   // Animation loop - process next batch of logs
   const processNextBatch = useCallback(() => {

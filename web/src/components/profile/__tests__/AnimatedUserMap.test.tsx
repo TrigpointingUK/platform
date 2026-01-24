@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AnimatedUserMap from "../AnimatedUserMap";
+import { ThemeProvider } from "../../../contexts/ThemeContext";
 import type { ReactNode } from "react";
 
 // Mock the useUserLogTimeline hook
@@ -26,6 +27,7 @@ const mockCanvasContext = {
   restore: vi.fn(),
   fillStyle: "",
   globalAlpha: 1,
+  globalCompositeOperation: "source-over",
 };
 
 // Mock HTMLCanvasElement.getContext
@@ -59,7 +61,9 @@ const createWrapper = () => {
     },
   });
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
   );
 };
 
