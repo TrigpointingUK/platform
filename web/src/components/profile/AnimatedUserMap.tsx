@@ -106,6 +106,29 @@ export default function AnimatedUserMap({
   const [displayedDots, setDisplayedDots] = useState<DisplayedDot[]>([]);
   const [currentDate, setCurrentDate] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [overlaysVisible, setOverlaysVisible] = useState(true);
+  const overlayFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Start overlay fade timer (3s delay, then fade to invisible)
+  const startOverlayFade = useCallback(() => {
+    // Clear any existing timer
+    if (overlayFadeTimerRef.current) {
+      clearTimeout(overlayFadeTimerRef.current);
+    }
+    // Start new timer - 3 second delay before fade begins
+    overlayFadeTimerRef.current = setTimeout(() => {
+      setOverlaysVisible(false);
+    }, 3000);
+  }, []);
+
+  // Cancel overlay fade and show overlays
+  const cancelOverlayFade = useCallback(() => {
+    if (overlayFadeTimerRef.current) {
+      clearTimeout(overlayFadeTimerRef.current);
+      overlayFadeTimerRef.current = null;
+    }
+    setOverlaysVisible(true);
+  }, []);
 
   // Fetch timeline data
   const { data: timeline, isLoading, error } = useUserLogTimeline(userId);
@@ -365,6 +388,19 @@ export default function AnimatedUserMap({
     return () => clearTimeout(timeoutId);
   }, [isPlaying, currentIndex, orderedDates.length, speed, processNextBatch]);
 
+  // Trigger overlay fade when sequence completes
+  useEffect(() => {
+    if (isComplete) {
+      startOverlayFade();
+    }
+    return () => {
+      // Cleanup timer on unmount
+      if (overlayFadeTimerRef.current) {
+        clearTimeout(overlayFadeTimerRef.current);
+      }
+    };
+  }, [isComplete, startOverlayFade]);
+
   // Continuous redraw for pulse animations
   useEffect(() => {
     if (!mapLoaded) return;
@@ -403,6 +439,7 @@ export default function AnimatedUserMap({
 
   // Handlers
   const handlePlayPause = () => {
+    cancelOverlayFade(); // Show overlays when user interacts
     if (isComplete) {
       // Reset and play
       setDisplayedDots([]);
@@ -416,6 +453,7 @@ export default function AnimatedUserMap({
   };
 
   const handleReplay = () => {
+    cancelOverlayFade(); // Show overlays when user interacts
     setDisplayedDots([]);
     setCurrentIndex(0);
     setCurrentDate(null);
@@ -636,8 +674,10 @@ export default function AnimatedUserMap({
   const skipToEnd = useCallback(() => {
     if (orderedDates.length > 0) {
       jumpToIndex(orderedDates.length - 1);
+      // Trigger overlay fade after skipping to end
+      startOverlayFade();
     }
-  }, [orderedDates, jumpToIndex]);
+  }, [orderedDates, jumpToIndex, startOverlayFade]);
 
   // Loading state
   if (isLoading) {
@@ -695,13 +735,19 @@ export default function AnimatedUserMap({
 
       {/* Year/Month overlay */}
       {currentYearMonth && (
-        <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 rounded-md font-mono text-2xl font-bold">
+        <div
+          className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 rounded-md font-mono text-2xl font-bold transition-opacity duration-[2000ms]"
+          style={{ opacity: overlaysVisible ? 1 : 0 }}
+        >
           {currentYearMonth}
         </div>
       )}
 
       {/* Stats overlay */}
-      <div className="absolute top-3 right-3 bg-black/60 text-white px-3 py-1 rounded-md text-sm">
+      <div
+        className="absolute top-3 right-3 bg-black/60 text-white px-3 py-1 rounded-md text-sm transition-opacity duration-[2000ms]"
+        style={{ opacity: overlaysVisible ? 1 : 0 }}
+      >
         <span className="font-bold">{displayedDots.length}</span>
         <span className="text-gray-300"> / {timeline.length} logs</span>
       </div>
