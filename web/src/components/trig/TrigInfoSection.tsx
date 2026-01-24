@@ -154,7 +154,7 @@ export default function TrigInfoSection({
                 <span className="font-semibold text-gray-700 dark:text-gray-300">
                   OSGB36:
                 </span>{" "}
-                {Number(trig.details.osgb_eastings).toFixed(4)}, {Number(trig.details.osgb_northings).toFixed(4)}
+                {Number(trig.details.osgb_eastings).toFixed(3)}, {Number(trig.details.osgb_northings).toFixed(3)}
               </div>
             )}
 

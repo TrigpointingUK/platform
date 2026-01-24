@@ -53,7 +53,17 @@ def invalidate_patterns(patterns: List[str]) -> int:
     # Use batched deletion - single scan for all patterns
     total_deleted = cache_delete_patterns_batched(prefixed_patterns)
 
-    if total_deleted > 0:
+    if total_deleted < 0:
+        logger.warning(
+            json.dumps(
+                {
+                    "event": "cache_invalidation_failed",
+                    "patterns": prefixed_patterns,
+                    "reason": "Redis connection unavailable",
+                }
+            )
+        )
+    else:
         logger.info(
             json.dumps(
                 {
