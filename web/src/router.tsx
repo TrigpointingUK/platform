@@ -32,6 +32,7 @@ const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
 const AdminStatusAdmin = lazy(() => import("./routes/admin/StatusAdmin"));
 const AdminConditionAdmin = lazy(() => import("./routes/admin/ConditionAdmin"));
 const AdminOSNetComparison = lazy(() => import("./routes/admin/OSNetComparison"));
+const SurveyTimeline = lazy(() => import("./routes/SurveyTimeline"));
 
 // Redirect component for old /trig/ URLs
 function TrigRedirect() {
@@ -237,6 +238,15 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <Attributions />
+        </Suspense>
+      ),
+    },
+    // Experimental routes
+    {
+      path: "/experiment/survey-timeline",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <SurveyTimeline />
         </Suspense>
       ),
     },

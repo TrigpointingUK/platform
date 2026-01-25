@@ -12,6 +12,7 @@ from api.api.v1.endpoints import (
     coordinates,
     debug,
     downloads,
+    experiment,
     legacy,
     locations,
     logs,
@@ -59,3 +60,4 @@ api_router.include_router(
 api_router.include_router(
     osnet_admin.router, prefix="/admin/osnet", tags=["admin-osnet"]
 )
+api_router.include_router(experiment.router, prefix="/experiment", tags=["experiment"])
