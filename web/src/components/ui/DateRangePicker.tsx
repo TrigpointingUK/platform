@@ -206,6 +206,7 @@ function DateRangePicker({
                 disabled={maxValue ? { after: maxValue } : undefined}
                 showOutsideDays={false}
                 hideNavigation
+                weekStartsOn={1}
                 classNames={{
                   // v9 class names
                   months: "flex gap-4",
