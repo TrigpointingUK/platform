@@ -27,18 +27,18 @@ def get_site_stats(db: Session = Depends(get_db)):
     Get site-wide statistics.
 
     Returns:
-    - total_trigs: Total number of trigpoints
-    - total_members: Number of active members (users with at least one log or photo)
-    - total_logs: Total number of visit logs
-    - total_photos: Total number of photos
+    - total_trigs: Total number of trigpoints (approximate)
+    - total_members: Number of active members (exact count from user_activity_summary)
+    - total_logs: Total number of visit logs (approximate)
+    - total_photos: Total number of photos (exact)
     - recent_logs_7d: Number of logs in last 7 days
     - recent_users_30d: Number of users joined in last 30 days
 
-    This endpoint is expensive to compute, so results are cached in Redis for 60 minutes.
-    Cache is automatically invalidated when logs, photos, or users are created.
+    Results are cached in Redis for 1 hour. Cache is automatically invalidated
+    when logs, photos, or users are created.
 
-    Performance: Uses optimized PostgreSQL pg_class statistics for fast approximate counts
-    instead of slow COUNT(*) queries for better performance on large tables.
+    Performance: Uses pg_class statistics for large tables (trigs, logs) and
+    exact counts for smaller tables (members, photos) where accuracy matters.
     """
     # Calculate date thresholds once
     seven_days_ago = datetime.now() - timedelta(days=7)
@@ -57,11 +57,13 @@ def get_site_stats(db: Session = Depends(get_db)):
                  WHERE relname = 'trig' AND n.nspname = current_schema()) as total_trigs,
                 (SELECT reltuples::bigint FROM pg_class c
                  JOIN pg_namespace n ON c.relnamespace = n.oid
-                 WHERE relname = 'user_activity_summary' AND n.nspname = current_schema()) as total_members,
-                (SELECT reltuples::bigint FROM pg_class c
-                 JOIN pg_namespace n ON c.relnamespace = n.oid
                  WHERE relname = 'tlog' AND n.nspname = current_schema()) as total_logs
             """)).first()
+
+        # Use exact count for members (small table, needs to match /users page)
+        total_members = db.execute(
+            text("SELECT COUNT(*) FROM user_activity_summary")
+        ).scalar()
 
         # For photos, we need exact count due to deleted_ind filter, but optimize it
         total_photos = db.execute(
@@ -83,18 +85,16 @@ def get_site_stats(db: Session = Depends(get_db)):
             "total_trigs": (
                 int(approx_stats[0]) if approx_stats and approx_stats[0] else 0
             ),
-            "total_members": (
-                int(approx_stats[1]) if approx_stats and approx_stats[1] else 0
-            ),
+            "total_members": int(total_members) if total_members else 0,
             "total_logs": (
-                int(approx_stats[2]) if approx_stats and approx_stats[2] else 0
+                int(approx_stats[1]) if approx_stats and approx_stats[1] else 0
             ),
             "total_photos": int(total_photos) if total_photos else 0,
             "recent_logs_7d": int(recent_logs_7d) if recent_logs_7d else 0,
             "recent_users_30d": int(recent_users_30d) if recent_users_30d else 0,
         }
 
-        logger.debug(f"Site stats computed using optimized pg_class approach: {result}")
+        logger.debug(f"Site stats computed using optimized queries: {result}")
 
     except Exception as e:
         # Fallback to standard COUNT queries if pg_class fails (e.g., on MySQL or in tests)
