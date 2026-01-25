@@ -118,6 +118,9 @@ class TrigExport(BaseModel):
     type_name: Optional[str] = Field(None, description="Type display name")
     category_code: Optional[str] = Field(None, description="Type category code")
     category_name: Optional[str] = Field(None, description="Type category display name")
+    physical_type: Optional[str] = Field(
+        None, description="Legacy physical type (e.g., Pillar, Bolt)"
+    )
     current_use: Optional[str] = Field(
         None, description="Current use (e.g., Passive station)"
     )

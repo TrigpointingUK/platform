@@ -140,6 +140,11 @@ class Trig(Base):
             return self.trig_type.category.name
         return None
 
+    @property
+    def physical_type(self) -> str | None:
+        """Legacy physical type from the trig_type relationship."""
+        return self.trig_type.legacy_physical_type if self.trig_type else None
+
     # OSGB coordinates (4dp for 0.1mm precision)
     osgb_eastings: Any = Column(DECIMAL(10, 4), nullable=False)  # Eastings
     osgb_northings: Any = Column(

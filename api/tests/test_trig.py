@@ -739,6 +739,7 @@ def test_trig_export_schema_populates_type_fields(db: Session):
         name="Hotine Pillar",
         description="Standard Hotine pillar",
         wiki_url="https://wiki.example.com/hotine",
+        legacy_physical_type="Pillar",
         sort_order=1,
     )
     db.add(trig_type)
@@ -784,6 +785,7 @@ def test_trig_export_schema_populates_type_fields(db: Session):
     assert trig.type_wiki_url == "https://wiki.example.com/hotine"
     assert trig.category_code == f"PILLAR_{base_id}"
     assert trig.category_name == "Pillar"
+    assert trig.physical_type == "Pillar"
 
     # Verify TrigExport schema correctly serializes the fields it includes
     export_data = TrigExport.model_validate(trig)
@@ -791,6 +793,7 @@ def test_trig_export_schema_populates_type_fields(db: Session):
     assert export_data.type_name == "Hotine Pillar"
     assert export_data.category_code == f"PILLAR_{base_id}"
     assert export_data.category_name == "Pillar"
+    assert export_data.physical_type == "Pillar"
 
     # Also verify the model_dump output
     export_dict = export_data.model_dump(mode="json")
@@ -798,6 +801,7 @@ def test_trig_export_schema_populates_type_fields(db: Session):
     assert export_dict["type_name"] == "Hotine Pillar"
     assert export_dict["category_code"] == f"PILLAR_{base_id}"
     assert export_dict["category_name"] == "Pillar"
+    assert export_dict["physical_type"] == "Pillar"
     # Verify removed fields are not present
     assert "type_wiki_url" not in export_dict
     assert "grid_system" not in export_dict
@@ -851,6 +855,7 @@ def test_trig_export_schema_handles_null_type(db: Session):
     assert trig.type_wiki_url is None
     assert trig.category_code is None
     assert trig.category_name is None
+    assert trig.physical_type is None
 
     # Verify TrigExport schema correctly handles null values
     export_data = TrigExport.model_validate(trig)
@@ -858,3 +863,4 @@ def test_trig_export_schema_handles_null_type(db: Session):
     assert export_data.type_name is None
     assert export_data.category_code is None
     assert export_data.category_name is None
+    assert export_data.physical_type is None
