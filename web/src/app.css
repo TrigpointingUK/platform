@@ -69,7 +69,10 @@
   .bg-trig-green-900 { background-color: var(--color-trig-green-900); }
   .bg-trig-green-950 { background-color: var(--color-trig-green-950); }
   .bg-trig-green-980 { background-color: var(--color-trig-green-980); }
+  .dark\:bg-trig-green-950:where(.dark, .dark *) { background-color: var(--color-trig-green-950); }
   .dark\:bg-trig-green-980:where(.dark, .dark *) { background-color: var(--color-trig-green-980); }
+  .dark\:text-gray-100:where(.dark, .dark *) { color: #f3f4f6; }
+  .dark\:text-white:where(.dark, .dark *) { color: #ffffff; }
   
   .hover\:bg-trig-green-50:hover { background-color: var(--color-trig-green-50); }
   .hover\:bg-trig-green-100:hover { background-color: var(--color-trig-green-100); }
@@ -94,6 +97,8 @@
   .border-trig-green-800 { border-color: var(--color-trig-green-800); }
   .border-trig-green-900 { border-color: var(--color-trig-green-900); }
   .border-trig-green-950 { border-color: var(--color-trig-green-950); }
+  .dark\:border-trig-green-600:where(.dark, .dark *) { border-color: var(--color-trig-green-600); }
+  .dark\:border-trig-green-700:where(.dark, .dark *) { border-color: var(--color-trig-green-700); }
 
   /* Hide scrollbar while maintaining scroll functionality */
   .scrollbar-hide {
@@ -266,5 +271,19 @@ html, body, #root {
 
 .dark ::-webkit-scrollbar-corner {
   background: #1f2937;
+}
+
+/* Counter-clockwise spin animation */
+@keyframes spin-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.animate-spin-ccw {
+  animation: spin-ccw 1s linear infinite;
 }
 

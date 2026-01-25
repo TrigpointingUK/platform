@@ -23,6 +23,10 @@ interface LogFormProps {
   onSubmit: (data: LogCreateInput | LogUpdateInput) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
+  /** If provided, this is a draft log being created - enables photo uploads */
+  draftLogId?: number;
+  /** Hide the form title (when parent component provides its own heading) */
+  hideTitle?: boolean;
 }
 
 export default function LogForm({
@@ -36,6 +40,8 @@ export default function LogForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  draftLogId,
+  hideTitle = false,
 }: LogFormProps) {
   // Get current time in HH:MM:SS format
   const getCurrentTime = () => {
@@ -69,8 +75,10 @@ export default function LogForm({
   const [showDistanceWarning, setShowDistanceWarning] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState<Partial<LogCreateInput> | null>(null);
 
-  // Fetch photos for existing logs
-  const { data: photos = [] } = useLogPhotos(existingLog?.id);
+  // Fetch photos for existing logs or draft logs
+  // Use the draft log ID if provided, otherwise use existing log ID
+  const photoLogId = existingLog?.id ?? draftLogId;
+  const { data: photos = [] } = useLogPhotos(photoLogId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,12 +232,17 @@ export default function LogForm({
   };
 
   return (
-    <Card>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {!hideTitle && (
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
           {existingLog ? "Edit Log" : "Log This Trig"}
         </h2>
+      )}
 
+      {/* Section 1: Log Details */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Visit Details</h3>
+        
         {/* Date and Time */}
         <DateTimeEditor
           date={formData.date}
@@ -265,7 +278,7 @@ export default function LogForm({
           </label>
           
           <div className="flex flex-col gap-2">
-            {/* Location Input Textbox */}
+            {/* Location Input Row */}
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
@@ -291,65 +304,64 @@ export default function LogForm({
                 placeholder="Distance"
                 className="w-full sm:w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
               />
+            </div>
               
-              {/* Buttons - kept together on small screens */}
-              <div className="flex gap-2 flex-shrink-0">
-                <LocationPicker
-                  onLocationSelected={(location) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      osgb_gridref: location.gridRef,
-                      osgb_eastings: location.eastings,
-                      osgb_northings: location.northings,
-                    }));
-                    setLocationSet(true);
-                    setLocationInput(location.gridRef);
-                    
-                    // Calculate distance using lat/lon if available, otherwise use API
-                    if (location.lat !== undefined && location.lon !== undefined) {
-                      const distance = calculateDistance(
-                        location.lat,
-                        location.lon,
-                        trigLatitude,
-                        trigLongitude
-                      );
-                      setDistanceFromTrig(distance);
-                    } else {
-                      // Use API to convert grid coordinates (supports both OSGB and Irish Grid)
-                      calculateDistanceFromGrid(
-                        location.eastings,
-                        location.northings,
-                        location.gridSystem ?? 'gb'
-                      );
-                    }
-                  }}
-                  maxAccuracy={10}
-                  trigLatitude={trigLatitude}
-                  trigLongitude={trigLongitude}
-                  maxDistance={25}
-                />
-                
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={!locationSet}
-                  onClick={() => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      osgb_gridref: trigGridRef,
-                      osgb_eastings: trigEastings,
-                      osgb_northings: trigNorthings,
-                    }));
-                    setLocationSet(false);
-                    setLocationInput("");
-                    setLocationError("");
-                    setDistanceFromTrig(null);
-                  }}
-                  className="flex-shrink-0"
-                >
-                  🗑️ Clear Location
-                </Button>
-              </div>
+            {/* Location Buttons Row */}
+            <div className="flex flex-wrap gap-2">
+              <LocationPicker
+                onLocationSelected={(location) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    osgb_gridref: location.gridRef,
+                    osgb_eastings: location.eastings,
+                    osgb_northings: location.northings,
+                  }));
+                  setLocationSet(true);
+                  setLocationInput(location.gridRef);
+                  
+                  // Calculate distance using lat/lon if available, otherwise use API
+                  if (location.lat !== undefined && location.lon !== undefined) {
+                    const distance = calculateDistance(
+                      location.lat,
+                      location.lon,
+                      trigLatitude,
+                      trigLongitude
+                    );
+                    setDistanceFromTrig(distance);
+                  } else {
+                    // Use API to convert grid coordinates (supports both OSGB and Irish Grid)
+                    calculateDistanceFromGrid(
+                      location.eastings,
+                      location.northings,
+                      location.gridSystem ?? 'gb'
+                    );
+                  }
+                }}
+                maxAccuracy={10}
+                trigLatitude={trigLatitude}
+                trigLongitude={trigLongitude}
+                maxDistance={25}
+              />
+              
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!locationSet}
+                onClick={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    osgb_gridref: trigGridRef,
+                    osgb_eastings: trigEastings,
+                    osgb_northings: trigNorthings,
+                  }));
+                  setLocationSet(false);
+                  setLocationInput("");
+                  setLocationError("");
+                  setDistanceFromTrig(null);
+                }}
+              >
+                🗑️ Clear
+              </Button>
             </div>
             
             {/* Validation Error */}
@@ -437,28 +449,28 @@ export default function LogForm({
             placeholder="Describe your visit..."
           />
         </div>
+      </div>
 
-        {/* Photo Management - Only show for existing logs */}
-        {existingLog ? (
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <PhotoManager
-              logId={existingLog.id}
-              photos={photos}
-              isEditing={true}
-            />
-          </div>
+      {/* Section 2: Photo Management */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+        {(existingLog || draftLogId) ? (
+          <PhotoManager
+            logId={existingLog?.id ?? draftLogId!}
+            photos={photos}
+            isEditing={true}
+          />
         ) : (
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                <strong>Note:</strong> Save your log first, then you can add photos by editing it.
-              </p>
-            </div>
+          <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              <strong>Note:</strong> Save your log first, then you can add photos by editing it.
+            </p>
           </div>
         )}
+      </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4">
+      {/* Section 3: Action Buttons */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+        <div className="flex gap-3">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
@@ -471,12 +483,12 @@ export default function LogForm({
               "Create Log"
             )}
           </Button>
-          <Button type="button" onClick={onCancel} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>
         </div>
-      </form>
-    </Card>
+      </div>
+    </form>
   );
 }
 

@@ -475,10 +475,53 @@ def create_log(
     request: Request,
     response: Response,
     trig_id: int = Query(..., description="Parent trig ID"),
-    payload: TLogCreate = Body(...),
+    draft: bool = Query(
+        False, description="Create as draft for photo uploads before publishing"
+    ),
+    payload: Optional[TLogCreate] = Body(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """
+    Create a new log entry.
+
+    If draft=true, creates a minimal draft log that can have photos attached
+    before being published. The payload is optional for drafts.
+
+    If draft=false (default), creates a published log immediately. The payload
+    is required.
+    """
+    # Get client IP address (normalized for varchar(15) storage)
+    from api.utils.ip_address import get_client_ip_normalized
+
+    raw_ip = get_client_ip(request)
+    client_ip = get_client_ip_normalized(raw_ip)
+
+    if draft:
+        # Check for existing draft for this user/trig - return it if found
+        existing_draft = tlog_crud.get_user_draft_for_trig(
+            db, user_id=int(current_user.id), trig_id=trig_id
+        )
+        if existing_draft:
+            response.status_code = 200
+            return TLogResponse.model_validate(existing_draft)
+
+        # Create a new draft
+        log = tlog_crud.create_draft_log(
+            db,
+            trig_id=trig_id,
+            user_id=int(current_user.id),
+            ip_addr=client_ip,
+        )
+        return TLogResponse.model_validate(log)
+
+    # Non-draft: payload is required
+    if payload is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Request body is required for non-draft log creation",
+        )
+
     # Check for duplicate log (same user, trig, date)
     # If a duplicate exists, return it with 200 OK for idempotent behaviour.
     # This handles retries from mobile apps in poor connectivity where the
@@ -490,12 +533,6 @@ def create_log(
         response.status_code = 200
         return TLogResponse.model_validate(existing)
 
-    # Get client IP address (normalized for varchar(15) storage)
-    from api.utils.ip_address import get_client_ip_normalized
-
-    raw_ip = get_client_ip(request)
-    client_ip = get_client_ip_normalized(raw_ip)
-
     # Add ip_addr to the payload data
     log_data = payload.model_dump()
     log_data["ip_addr"] = client_ip
@@ -504,6 +541,66 @@ def create_log(
         db, trig_id=trig_id, user_id=int(current_user.id), values=log_data
     )
     return TLogResponse.model_validate(log)
+
+
+@router.post(
+    "/{log_id}/publish",
+    response_model=TLogResponse,
+    openapi_extra={
+        **openapi_lifecycle("beta"),
+        "security": [{"OAuth2": []}],
+    },
+)
+def publish_log(
+    log_id: int,
+    payload: TLogCreate = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Publish a draft log with full data.
+
+    This endpoint converts a draft log (status='D') to a published log (status='P')
+    by setting all the required fields from the payload.
+
+    Only the owner of the draft can publish it.
+    """
+    existing = tlog_crud.get_log_by_id(db, log_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    # Verify it's a draft
+    if existing.status != "D":
+        raise HTTPException(status_code=400, detail="Log is not a draft")
+
+    # Verify ownership
+    if int(existing.user_id) != int(current_user.id):
+        raise HTTPException(status_code=403, detail="Not your draft")
+
+    # Check for duplicate on target date
+    duplicate = tlog_crud.get_existing_log_for_user_trig_date(
+        db,
+        user_id=int(current_user.id),
+        trig_id=int(existing.trig_id),
+        date=payload.date,
+    )
+    if duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "You already have a log for this trigpoint on this date",
+                "existing_log_id": int(duplicate.id),
+            },
+        )
+
+    # Publish the draft
+    published = tlog_crud.publish_draft_log(
+        db, log_id=log_id, updates=payload.model_dump()
+    )
+    if not published:
+        raise HTTPException(status_code=404, detail="Failed to publish draft")
+
+    return TLogResponse.model_validate(published)
 
 
 @router.patch(

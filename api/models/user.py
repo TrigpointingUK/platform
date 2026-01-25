@@ -117,6 +117,8 @@ class TLog(Base):
     score = Column(SmallInteger, nullable=True)  # Nullable for PostgreSQL compatibility
     ip_addr = Column(String(15), nullable=True)  # Nullable for PostgreSQL compatibility
     source = Column(CHAR(1), nullable=True)  # Nullable for PostgreSQL compatibility
+    # Status: 'P' = Published (default), 'D' = Draft
+    status = Column(CHAR(1), nullable=False, default="P", index=True)
     upd_timestamp = Column(
         DateTime, nullable=True
     )  # Nullable for PostgreSQL compatibility

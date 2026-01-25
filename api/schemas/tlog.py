@@ -33,6 +33,8 @@ class TLogBase(BaseModel):
     source: Optional[str] = Field(
         default=None, min_length=1, max_length=1
     )  # Nullable for PostgreSQL compatibility
+    # Status: 'P' = Published (default), 'D' = Draft
+    status: str = Field(default="P", min_length=1, max_length=1)
 
 
 class TLogResponse(TLogBase):

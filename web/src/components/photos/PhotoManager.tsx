@@ -4,7 +4,7 @@ import { useUploadPhoto, useUpdatePhoto, useDeletePhoto, useRotatePhoto } from "
 import { useUserProfile } from "../../hooks/useUserProfile";
 import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
-import { Trash2, RotateCw, Edit2, X, Check, Upload } from "lucide-react";
+import { Trash2, RotateCw, RotateCcw, Edit2, X, Check, Upload } from "lucide-react";
 
 interface PhotoManagerProps {
   logId: number | undefined;
@@ -45,6 +45,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
   }, [defaultLicense]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploadForm, setShowUploadForm] = useState(false);
+  const [rotatingPhoto, setRotatingPhoto] = useState<{ id: number; direction: "cw" | "ccw" } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = useUploadPhoto(logId!);
@@ -141,12 +142,15 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
     }
   };
 
-  const handleRotate = async (photoId: number, angle: number) => {
+  const handleRotate = async (photoId: number, angle: number, direction: "cw" | "ccw") => {
+    setRotatingPhoto({ id: photoId, direction });
     try {
       await rotateMutation.mutateAsync({ photoId, angle });
     } catch (error) {
       console.error("Failed to rotate photo:", error);
       alert("Failed to rotate photo. Please try again.");
+    } finally {
+      setRotatingPhoto(null);
     }
   };
 
@@ -177,7 +181,7 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
         {isEditing && logId && (
           <Button
             type="button"
-            variant="outline"
+            variant="primary"
             size="sm"
             onClick={() => fileInputRef.current?.click()}
             disabled={showUploadForm || uploadMutation.isPending}
@@ -338,12 +342,35 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
                   <div className="absolute top-2 right-2 flex gap-1">
                     <button
                       type="button"
-                      onClick={() => handleRotate(photo.id, 90)}
-                      disabled={rotateMutation.isPending}
-                      className="p-1.5 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 rounded shadow-sm"
+                      onClick={() => handleRotate(photo.id, 270, "ccw")}
+                      disabled={rotatingPhoto?.id === photo.id}
+                      className="p-1.5 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 rounded shadow-sm disabled:opacity-50"
+                      title="Rotate 90° counter-clockwise"
+                    >
+                      <RotateCcw 
+                        size={16} 
+                        className={`text-gray-700 dark:text-gray-300 ${
+                          rotatingPhoto?.id === photo.id && rotatingPhoto?.direction === "ccw" 
+                            ? "animate-spin-ccw" 
+                            : ""
+                        }`} 
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRotate(photo.id, 90, "cw")}
+                      disabled={rotatingPhoto?.id === photo.id}
+                      className="p-1.5 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 rounded shadow-sm disabled:opacity-50"
                       title="Rotate 90° clockwise"
                     >
-                      <RotateCw size={16} className="text-gray-700 dark:text-gray-300" />
+                      <RotateCw 
+                        size={16} 
+                        className={`text-gray-700 dark:text-gray-300 ${
+                          rotatingPhoto?.id === photo.id && rotatingPhoto?.direction === "cw" 
+                            ? "animate-spin" 
+                            : ""
+                        }`} 
+                      />
                     </button>
                     <button
                       type="button"

@@ -240,10 +240,15 @@ def setup_test_tables(setup_worker_schema):
                 text("CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public")
             )
 
-        # Drop and recreate postcodes table to ensure schema is up to date
+        # Drop and recreate tables to ensure schema is up to date
         # (create_all doesn't add new columns to existing tables)
         with engine.begin() as connection:
             connection.execute(text("DROP TABLE IF EXISTS postcodes CASCADE"))
+            # Drop tphotovote, tphoto and tlog to pick up status column added for draft logs
+            # and ensure foreign key constraints are current
+            connection.execute(text("DROP TABLE IF EXISTS tphotovote CASCADE"))
+            connection.execute(text("DROP TABLE IF EXISTS tphoto CASCADE"))
+            connection.execute(text("DROP TABLE IF EXISTS tlog CASCADE"))
 
         Base.metadata.create_all(bind=engine)
         with engine.begin() as connection:

@@ -79,12 +79,14 @@ def get_global_mean_score(db: Session) -> Decimal:
             )
 
     # Cache miss - query database
+    # Only include published logs (exclude drafts)
     result = (
         db.query(
             func.sum(TLog.score),
             func.count(TLog.score),
         )
         .filter(TLog.score.isnot(None))
+        .filter(TLog.status == "P")
         .first()
     )
 
@@ -147,6 +149,7 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
     found_conditions = get_found_condition_codes(db)
 
     # Use SQL aggregates for efficient calculation - single query for all stats
+    # Only include published logs (exclude drafts)
     log_stats = (
         db.query(
             func.count(TLog.id).label("logged_count"),
@@ -163,6 +166,7 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
             ).label("found_last"),
         )
         .filter(TLog.trig_id == trig_id)
+        .filter(TLog.status == "P")  # Only published logs
         .first()
     )
 
@@ -196,11 +200,12 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
     found_count = log_stats.found_count or 0
     found_last = log_stats.found_last
 
-    # Query photo count
+    # Query photo count (only from published logs)
     photo_count = (
         db.query(func.count(TPhoto.id))
         .join(TLog, TPhoto.tlog_id == TLog.id)
         .filter(TLog.trig_id == trig_id, TPhoto.deleted_ind != "Y")
+        .filter(TLog.status == "P")  # Only published logs
         .scalar()
         or 0
     )

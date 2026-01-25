@@ -6,8 +6,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../../../contexts/ThemeContext";
 
 // Mock the hooks
-vi.mock("../../hooks/useLogPhotos", () => ({
-  useLogPhotos: () => ({ data: [] }),
+vi.mock("../../../hooks/useLogPhotos", () => ({
+  useLogPhotos: () => ({ data: [], isLoading: false }),
+}));
+
+// Mock PhotoManager to avoid complex setup
+vi.mock("../../photos/PhotoManager", () => ({
+  default: ({ logId, isEditing }: { logId: number; isEditing: boolean }) => (
+    <div data-testid="photo-manager" data-log-id={logId} data-is-editing={isEditing}>
+      PhotoManager Mock
+    </div>
+  ),
 }));
 
 // Mock the API module to avoid network calls
@@ -200,12 +209,151 @@ describe("LogForm - Location Input", () => {
       expect(locationInput.value).toBe("TL 137 055");
     });
     
-    // Click clear button
-    const clearButton = screen.getByText(/Clear Location/i);
+    // Click clear button - now shortened to just "Clear"
+    const clearButton = screen.getByText(/Clear$/i);
     fireEvent.click(clearButton);
     
     await waitFor(() => {
       expect(locationInput.value).toBe("");
     });
+  });
+});
+
+describe("LogForm - Title and Structure", () => {
+  const defaultProps = {
+    trigGridRef: "TL 137 055",
+    trigEastings: 513700,
+    trigNorthings: 205500,
+    trigLatitude: 52.0,
+    trigLongitude: -1.0,
+    onSubmit: vi.fn(),
+    onCancel: vi.fn(),
+    isSubmitting: false,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should show title by default for new logs", () => {
+    render(<LogForm {...defaultProps} />, { wrapper: createWrapper() });
+    
+    expect(screen.getByText("Log This Trig")).toBeInTheDocument();
+  });
+
+  it("should show 'Edit Log' title when existingLog is provided", () => {
+    const existingLog = {
+      id: 123,
+      trig_id: 456,
+      user_id: 1,
+      date: "2024-06-15",
+      time: "14:30:00",
+      condition: "G",
+      comment: "Test log",
+      score: 8,
+      osgb_eastings: 513700,
+      osgb_northings: 205500,
+      osgb_gridref: "TL 137 055",
+      fb_number: "",
+      source: "W",
+      status: "P",
+    };
+
+    render(<LogForm {...defaultProps} existingLog={existingLog} />, { wrapper: createWrapper() });
+    
+    expect(screen.getByText("Edit Log")).toBeInTheDocument();
+  });
+
+  it("should hide title when hideTitle prop is true", () => {
+    render(<LogForm {...defaultProps} hideTitle />, { wrapper: createWrapper() });
+    
+    expect(screen.queryByText("Log This Trig")).not.toBeInTheDocument();
+    expect(screen.queryByText("Edit Log")).not.toBeInTheDocument();
+  });
+
+  it("should render three distinct sections", () => {
+    render(<LogForm {...defaultProps} draftLogId={123} />, { wrapper: createWrapper() });
+    
+    // Check for Visit Details section header
+    expect(screen.getByText("Visit Details")).toBeInTheDocument();
+    
+    // Check for form elements in the details section (use getAllByText for labels that may appear multiple times)
+    expect(screen.getAllByText(/Date/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Condition/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Score/i).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/Comment/i)).toBeInTheDocument();
+    
+    // Check for action buttons
+    expect(screen.getByText("Create Log")).toBeInTheDocument();
+    expect(screen.getByText("Cancel")).toBeInTheDocument();
+  });
+
+  it("should show PhotoManager when draftLogId is provided", () => {
+    render(<LogForm {...defaultProps} draftLogId={123} />, { wrapper: createWrapper() });
+    
+    const photoManager = screen.getByTestId("photo-manager");
+    expect(photoManager).toBeInTheDocument();
+    expect(photoManager).toHaveAttribute("data-log-id", "123");
+    expect(photoManager).toHaveAttribute("data-is-editing", "true");
+  });
+
+  it("should show PhotoManager when existingLog is provided", () => {
+    const existingLog = {
+      id: 456,
+      trig_id: 789,
+      user_id: 1,
+      date: "2024-06-15",
+      time: "14:30:00",
+      condition: "G",
+      comment: "Test log",
+      score: 8,
+      osgb_eastings: 513700,
+      osgb_northings: 205500,
+      osgb_gridref: "TL 137 055",
+      fb_number: "",
+      source: "W",
+      status: "P",
+    };
+
+    render(<LogForm {...defaultProps} existingLog={existingLog} />, { wrapper: createWrapper() });
+    
+    const photoManager = screen.getByTestId("photo-manager");
+    expect(photoManager).toBeInTheDocument();
+    expect(photoManager).toHaveAttribute("data-log-id", "456");
+  });
+
+  it("should show note about photos when no draftLogId or existingLog", () => {
+    render(<LogForm {...defaultProps} />, { wrapper: createWrapper() });
+    
+    expect(screen.getByText(/Save your log first/i)).toBeInTheDocument();
+  });
+
+  it("should show Update Log button when editing existing log", () => {
+    const existingLog = {
+      id: 123,
+      trig_id: 456,
+      user_id: 1,
+      date: "2024-06-15",
+      time: "14:30:00",
+      condition: "G",
+      comment: "Test log",
+      score: 8,
+      osgb_eastings: 513700,
+      osgb_northings: 205500,
+      osgb_gridref: "TL 137 055",
+      fb_number: "",
+      source: "W",
+      status: "P",
+    };
+
+    render(<LogForm {...defaultProps} existingLog={existingLog} />, { wrapper: createWrapper() });
+    
+    expect(screen.getByText("Update Log")).toBeInTheDocument();
+  });
+
+  it("should show Create Log button for new logs", () => {
+    render(<LogForm {...defaultProps} />, { wrapper: createWrapper() });
+    
+    expect(screen.getByText("Create Log")).toBeInTheDocument();
   });
 });
