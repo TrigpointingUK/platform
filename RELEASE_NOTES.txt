@@ -18,17 +18,23 @@ Fixed the forum's Attachments tab. You can now upload photos / screenshots and i
 
 
 
-xx Jan 2026
+25 Jan 2026
 ===========
 
 Better support for counties:
 Added 1991 counties to the area list
 Added breakdown by county (and country, OS map etc) to profile page
 
-More granular physical types
-(Will need to wait for android app update and rollout before progressing further)
+Updated "Log this trig" tile
+Photos can now be added when entering logs, rather than only being available on the log edit screen
+Photos can be rotated prior to submission, or from within the log edit screen
 
-Updated profile map
+More granular physical types
+For now, expect clumsy repetition, such as 'Active station · Active Station'
+Over time this will become a two-tier 'Intersected · Flagstaff', 'Pillar · Vanessa' etc
+However the Android app needs to be updated before I can roll this out any further
+
+Updated profile map:
 
 Misc:
 Avoid repetition of trigpoint details on log lists

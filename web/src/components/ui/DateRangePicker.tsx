@@ -206,6 +206,7 @@ function DateRangePicker({
                 disabled={maxValue ? { after: maxValue } : undefined}
                 showOutsideDays={false}
                 hideNavigation
+                weekStartsOn={1}
                 classNames={{
                   // v9 class names
                   months: "flex gap-4",
@@ -218,7 +219,7 @@ function DateRangePicker({
                   weeks: "flex flex-col",
                   week: "flex w-full mt-1",
                   day: cx(
-                    "relative p-0 text-center text-sm text-gray-900 dark:text-gray-100",
+                    "relative p-0 text-center text-sm text-gray-900 dark:text-gray-100 w-10",
                     "focus-within:relative focus-within:z-20"
                   ),
                   day_button: cx(
