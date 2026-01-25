@@ -95,7 +95,7 @@ describe("UsersPage", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: /Trigpointing members/i })
+      screen.getByRole("heading", { name: /The TrigpointingUK Community/i })
     ).toBeInTheDocument();
     
     // Names appear in both mobile and desktop layouts

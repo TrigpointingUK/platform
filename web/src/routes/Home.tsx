@@ -76,8 +76,8 @@ function SiteStatsSection() {
       isImage: true,
     },
     {
-      label: "Registered Users",
-      value: stats.total_users.toLocaleString(),
+      label: "Members",
+      value: stats.total_members.toLocaleString(),
       icon: "/icons/links.png",
       color: "text-blue-600",
       link: "/users",

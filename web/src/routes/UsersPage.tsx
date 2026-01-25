@@ -155,7 +155,7 @@ export default function UsersPage() {
             Community
           </p>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Trigpointing members
+            The TrigpointingUK Community
           </h1>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl">
             Browse the people behind the logs. Sort by trigpoints, photos, or

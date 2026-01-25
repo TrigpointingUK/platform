@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 interface SiteStats {
   total_trigs: number;
-  total_users: number;
+  total_members: number;
   total_logs: number;
   total_photos: number;
   recent_logs_7d: number;

@@ -16,7 +16,7 @@ def test_site_stats_endpoint(client: TestClient, db):
 
     # Verify all required fields are present
     assert "total_trigs" in data
-    assert "total_users" in data
+    assert "total_members" in data
     assert "total_logs" in data
     assert "total_photos" in data
     assert "recent_logs_7d" in data

@@ -28,7 +28,7 @@ def get_site_stats(db: Session = Depends(get_db)):
 
     Returns:
     - total_trigs: Total number of trigpoints
-    - total_users: Total number of registered users
+    - total_members: Number of active members (users with at least one log or photo)
     - total_logs: Total number of visit logs
     - total_photos: Total number of photos
     - recent_logs_7d: Number of logs in last 7 days
@@ -57,7 +57,7 @@ def get_site_stats(db: Session = Depends(get_db)):
                  WHERE relname = 'trig' AND n.nspname = current_schema()) as total_trigs,
                 (SELECT reltuples::bigint FROM pg_class c
                  JOIN pg_namespace n ON c.relnamespace = n.oid
-                 WHERE relname = 'user' AND n.nspname = current_schema()) as total_users,
+                 WHERE relname = 'user_activity_summary' AND n.nspname = current_schema()) as total_members,
                 (SELECT reltuples::bigint FROM pg_class c
                  JOIN pg_namespace n ON c.relnamespace = n.oid
                  WHERE relname = 'tlog' AND n.nspname = current_schema()) as total_logs
@@ -83,7 +83,7 @@ def get_site_stats(db: Session = Depends(get_db)):
             "total_trigs": (
                 int(approx_stats[0]) if approx_stats and approx_stats[0] else 0
             ),
-            "total_users": (
+            "total_members": (
                 int(approx_stats[1]) if approx_stats and approx_stats[1] else 0
             ),
             "total_logs": (
@@ -103,7 +103,9 @@ def get_site_stats(db: Session = Depends(get_db)):
         )
 
         total_trigs = db.query(Trig).count()
-        total_users = db.query(User).count()
+        total_members = db.execute(
+            text("SELECT COUNT(*) FROM user_activity_summary")
+        ).scalar()
         total_logs = db.query(TLog).count()
         total_photos = db.query(TPhoto).filter(TPhoto.deleted_ind != "Y").count()
 
@@ -116,7 +118,7 @@ def get_site_stats(db: Session = Depends(get_db)):
 
         result = {
             "total_trigs": total_trigs,
-            "total_users": total_users,
+            "total_members": total_members if total_members else 0,
             "total_logs": total_logs,
             "total_photos": total_photos,
             "recent_logs_7d": recent_logs_7d,
