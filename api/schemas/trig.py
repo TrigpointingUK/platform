@@ -106,6 +106,8 @@ class TrigExport(BaseModel):
 
     Separate from TrigMinimal to use 5dp coordinate serialization for
     backward compatibility with Android app.
+
+    Minimal fields only - Android app uses its own hardcoded groupings.
     """
 
     id: int = Field(..., description="Trigpoint ID")
@@ -114,15 +116,17 @@ class TrigExport(BaseModel):
     condition: str = Field(..., description="Condition code")
     type_code: Optional[str] = Field(None, description="Type code (e.g., HOTINE, FBM)")
     type_name: Optional[str] = Field(None, description="Type display name")
-    type_wiki_url: Optional[str] = Field(None, description="Wiki URL for this type")
     category_code: Optional[str] = Field(None, description="Type category code")
     category_name: Optional[str] = Field(None, description="Type category display name")
+    current_use: Optional[str] = Field(
+        None, description="Current use (e.g., Passive station)"
+    )
+    historic_use: Optional[str] = Field(
+        None, description="Historic use (e.g., Primary)"
+    )
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")
     wgs_long: Decimal = Field(..., description="WGS84 longitude")
     osgb_gridref: str = Field(..., description="Grid reference (OSGB or Irish format)")
-    grid_system: Optional[str] = Field(None, description="Grid system: 'gb' or 'ie'")
-    country_name: Optional[str] = Field(None, description="Country name")
-    distance_km: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 

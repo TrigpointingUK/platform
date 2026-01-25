@@ -110,6 +110,36 @@ class Trig(Base):
             return float(ST_X(self.location))
         return float(self.wgs_long)
 
+    # Type system properties - expose relationship data for Pydantic serialization
+    @property
+    def type_code(self) -> str | None:
+        """Type code from the trig_type relationship."""
+        return self.trig_type.code if self.trig_type else None
+
+    @property
+    def type_name(self) -> str | None:
+        """Type display name from the trig_type relationship."""
+        return self.trig_type.name if self.trig_type else None
+
+    @property
+    def type_wiki_url(self) -> str | None:
+        """Wiki URL from the trig_type relationship."""
+        return self.trig_type.wiki_url if self.trig_type else None
+
+    @property
+    def category_code(self) -> str | None:
+        """Category code from the trig_type.category relationship."""
+        if self.trig_type and self.trig_type.category:
+            return self.trig_type.category.code
+        return None
+
+    @property
+    def category_name(self) -> str | None:
+        """Category display name from the trig_type.category relationship."""
+        if self.trig_type and self.trig_type.category:
+            return self.trig_type.category.name
+        return None
+
     # OSGB coordinates (4dp for 0.1mm precision)
     osgb_eastings: Any = Column(DECIMAL(10, 4), nullable=False)  # Eastings
     osgb_northings: Any = Column(

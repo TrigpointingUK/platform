@@ -2,16 +2,20 @@
 Tests for trig endpoints.
 """
 
+import uuid
 from datetime import date, time
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.core.config import settings
 from api.models.attr import Attr, AttrSet, AttrSetAttrVal, AttrSource, AttrVal
 from api.models.trig import Trig
+from api.models.trig_type import TrigCategory, TrigType
 from api.models.trigstats import TrigStats
+from api.schemas.trig import TrigExport
 
 
 def test_get_trig_success_minimal(client: TestClient, db: Session):
@@ -698,3 +702,159 @@ def test_get_trig_stats_never_logged_returns_null_for_logged_dates(
         "found_last should be null when found_count is 0, "
         f"but got: {data['stats']['found_last']}"
     )
+
+
+def test_trig_export_schema_populates_type_fields(db: Session):
+    """
+    Test that the TrigExport schema correctly populates type_code, type_name,
+    category_code, and category_name from the trig_type relationship.
+
+    This verifies the fix for the /v1/trigs/export endpoint returning null
+    for type fields.
+    """
+    # Generate unique identifiers to avoid conflicts
+    base_id = abs(hash(uuid.uuid4().hex[:8])) % 20000 + 10000
+    waypoint = f"TP{uuid.uuid4().hex[:6]}"[:8]
+
+    # Get unique sort_order values
+    max_cat_order = db.query(
+        func.coalesce(func.max(TrigCategory.sort_order), 0)
+    ).scalar()
+
+    # Create category
+    category = TrigCategory(
+        code=f"PILLAR_{base_id}",
+        name="Pillar",
+        description="Trig pillars",
+        wiki_url="https://wiki.example.com/pillar",
+        sort_order=max_cat_order + 1,
+    )
+    db.add(category)
+    db.flush()
+
+    # Create type
+    trig_type = TrigType(
+        category_id=category.id,
+        code=f"HOTINE_{base_id}",
+        name="Hotine Pillar",
+        description="Standard Hotine pillar",
+        wiki_url="https://wiki.example.com/hotine",
+        sort_order=1,
+    )
+    db.add(trig_type)
+    db.flush()
+
+    # Create trig with type_id set
+    trig = Trig(
+        waypoint=waypoint,
+        name="Type Test Trig",
+        type_id=trig_type.id,
+        status_id=10,
+        user_added=0,
+        current_use="Passive station",
+        historic_use="Primary",
+        wgs_lat=Decimal("51.50000"),
+        wgs_long=Decimal("-0.12500"),
+        wgs_height=100,
+        osgb_eastings=530000,
+        osgb_northings=180000,
+        osgb_gridref="TQ 30000 80000",
+        osgb_height=95,
+        fb_number="S9999",
+        stn_number="TYPE01",
+        permission_ind="Y",
+        condition="G",
+        postcode=None,
+        county="London",
+        town="Westminster",
+        needs_attention=0,
+        attention_comment="",
+        crt_date=date(2023, 1, 1),
+        crt_time=time(12, 0, 0),
+        crt_user_id=None,
+        crt_ip_addr="127.0.0.1",
+    )
+    db.add(trig)
+    db.commit()
+    db.refresh(trig)
+
+    # Verify the model properties work correctly
+    assert trig.type_code == f"HOTINE_{base_id}"
+    assert trig.type_name == "Hotine Pillar"
+    assert trig.type_wiki_url == "https://wiki.example.com/hotine"
+    assert trig.category_code == f"PILLAR_{base_id}"
+    assert trig.category_name == "Pillar"
+
+    # Verify TrigExport schema correctly serializes the fields it includes
+    export_data = TrigExport.model_validate(trig)
+    assert export_data.type_code == f"HOTINE_{base_id}"
+    assert export_data.type_name == "Hotine Pillar"
+    assert export_data.category_code == f"PILLAR_{base_id}"
+    assert export_data.category_name == "Pillar"
+
+    # Also verify the model_dump output
+    export_dict = export_data.model_dump(mode="json")
+    assert export_dict["type_code"] == f"HOTINE_{base_id}"
+    assert export_dict["type_name"] == "Hotine Pillar"
+    assert export_dict["category_code"] == f"PILLAR_{base_id}"
+    assert export_dict["category_name"] == "Pillar"
+    # Verify removed fields are not present
+    assert "type_wiki_url" not in export_dict
+    assert "grid_system" not in export_dict
+    assert "country_name" not in export_dict
+    assert "distance_km" not in export_dict
+
+
+def test_trig_export_schema_handles_null_type(db: Session):
+    """
+    Test that TrigExport schema handles trigs without a type_id gracefully.
+    """
+    waypoint = f"TP{uuid.uuid4().hex[:6]}"[:8]
+
+    # Create trig without type_id
+    trig = Trig(
+        waypoint=waypoint,
+        name="No Type Trig",
+        type_id=None,  # No type assigned
+        status_id=10,
+        user_added=0,
+        current_use="Passive station",
+        historic_use="Primary",
+        wgs_lat=Decimal("51.50000"),
+        wgs_long=Decimal("-0.12500"),
+        wgs_height=100,
+        osgb_eastings=530000,
+        osgb_northings=180000,
+        osgb_gridref="TQ 30000 80000",
+        osgb_height=95,
+        fb_number="S9998",
+        stn_number="NOTYPE",
+        permission_ind="Y",
+        condition="G",
+        postcode=None,
+        county="London",
+        town="Westminster",
+        needs_attention=0,
+        attention_comment="",
+        crt_date=date(2023, 1, 1),
+        crt_time=time(12, 0, 0),
+        crt_user_id=None,
+        crt_ip_addr="127.0.0.1",
+    )
+    db.add(trig)
+    db.commit()
+    db.refresh(trig)
+
+    # Verify the model properties return None
+    assert trig.type_code is None
+    assert trig.type_name is None
+    assert trig.type_wiki_url is None
+    assert trig.category_code is None
+    assert trig.category_name is None
+
+    # Verify TrigExport schema correctly handles null values
+    export_data = TrigExport.model_validate(trig)
+    assert export_data.type_code is None
+    assert export_data.type_name is None
+    assert export_data.category_code is None
+    assert export_data.category_name is None

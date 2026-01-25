@@ -103,17 +103,21 @@ def _get_max_trig_timestamp(db: Session) -> Optional[datetime]:
     return result
 
 
-def _generate_export_data(db: Session) -> dict:
+def _generate_export_data(db: Session, limit: Optional[int] = None) -> dict:
     """
     Generate the expensive export data for /export endpoint.
 
     Only called when data actually changed based on timestamp check.
+
+    Args:
+        db: Database session
+        limit: Optional limit on number of results (for testing only)
     """
     # Get all trigs (no pagination, no filters)
     items = trig_crud.list_trigs_filtered(
         db,
         skip=0,
-        limit=50000,  # Large enough for all trigs
+        limit=limit if limit is not None else 50000,  # Large enough for all trigs
     )
 
     # Serialize with TrigExport (5dp coords for Android app compatibility)
@@ -134,6 +138,7 @@ def _generate_export_data(db: Session) -> dict:
 )
 def export_trigs(
     request: FastAPIRequest,
+    limit: Optional[int] = Query(None, description="Limit results (for testing only)"),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
 ):
@@ -148,8 +153,9 @@ def export_trigs(
     - Serves stale content while a refresh is in progress
     - Supports ETag for HTTP 304 responses
     """
+    params = {"limit": limit} if limit is not None else None
     cache_key = generate_cache_key(
-        resource_type="trigs", subresource="export", version="v1"
+        resource_type="trigs", subresource="export", params=params, version="v1"
     )
     lock_key = f"{cache_key}:lock"
 
@@ -167,7 +173,7 @@ def export_trigs(
             lock_key=lock_key,
             db=db,
             generator_fn=_generate_export_payload,
-            limit=None,
+            limit=limit,
             log_label="Export cache miss",
         )
         cached_value, cached_timestamp, legacy_last_validation = (
@@ -178,7 +184,7 @@ def export_trigs(
         cache_status = "MISS"
 
     if cached_value is None:
-        payload = _generate_export_data(db)
+        payload = _generate_export_data(db, limit)
         timestamp_str = _current_timestamp_str(db)
         etag = _build_etag(timestamp_str)
         from fastapi.responses import JSONResponse
@@ -203,7 +209,7 @@ def export_trigs(
             cached_entry=cached_entry,
             db=db,
             generator_fn=_generate_export_payload,
-            limit=None,
+            limit=limit,
             log_label="Export cache",
             metadata=metadata,
         )
@@ -412,8 +418,7 @@ def _extract_cached_payload(
 
 
 def _generate_export_payload(db: Session, limit: Optional[int] = None) -> dict:
-    # limit parameter kept for API symmetry; not used for export payload
-    return _generate_export_data(db)
+    return _generate_export_data(db, limit)
 
 
 def _generate_geojson_payload(db: Session, limit: Optional[int] = None) -> dict:
