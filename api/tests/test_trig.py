@@ -794,6 +794,7 @@ def test_trig_export_schema_populates_type_fields(db: Session):
     assert export_data.category_code == f"PILLAR_{base_id}"
     assert export_data.category_name == "Pillar"
     assert export_data.physical_type == "Pillar"
+    assert export_data.fb_number == "S9999"
 
     # Also verify the model_dump output
     export_dict = export_data.model_dump(mode="json")
@@ -802,6 +803,7 @@ def test_trig_export_schema_populates_type_fields(db: Session):
     assert export_dict["category_code"] == f"PILLAR_{base_id}"
     assert export_dict["category_name"] == "Pillar"
     assert export_dict["physical_type"] == "Pillar"
+    assert export_dict["fb_number"] == "S9999"
     # Verify removed fields are not present
     assert "type_wiki_url" not in export_dict
     assert "grid_system" not in export_dict
@@ -857,10 +859,12 @@ def test_trig_export_schema_handles_null_type(db: Session):
     assert trig.category_name is None
     assert trig.physical_type is None
 
-    # Verify TrigExport schema correctly handles null values
+    # Verify TrigExport schema correctly handles null values for type fields
     export_data = TrigExport.model_validate(trig)
     assert export_data.type_code is None
     assert export_data.type_name is None
     assert export_data.category_code is None
     assert export_data.category_name is None
     assert export_data.physical_type is None
+    # fb_number should still be populated even without a type
+    assert export_data.fb_number == "S9998"

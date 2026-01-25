@@ -130,6 +130,7 @@ class TrigExport(BaseModel):
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")
     wgs_long: Decimal = Field(..., description="WGS84 longitude")
     osgb_gridref: str = Field(..., description="Grid reference (OSGB or Irish format)")
+    fb_number: Optional[str] = Field(None, description="Flush bracket number")
 
     model_config = ConfigDict(from_attributes=True)
 
