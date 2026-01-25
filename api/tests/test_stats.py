@@ -5,10 +5,14 @@ Tests for site statistics endpoint.
 from fastapi.testclient import TestClient
 
 from api.core.config import settings
+from api.services.cache_service import cache_delete_pattern
 
 
 def test_site_stats_endpoint(client: TestClient, db):
     """Test /v1/stats/site endpoint returns all required statistics."""
+    # Clear the cache to ensure we hit the actual code path for coverage
+    cache_delete_pattern("stats:*")
+
     response = client.get(f"{settings.API_V1_STR}/stats/site")
     assert response.status_code == 200
 
