@@ -98,11 +98,15 @@ def get_existing_log_for_user_trig_date(
     date: DateType,
     exclude_log_id: Optional[int] = None,
 ) -> Optional[TLog]:
-    """Check if user already has a log for this trig on this date."""
+    """Check if user already has a published log for this trig on this date.
+
+    Only checks published logs (status='P'), not drafts.
+    """
     q = db.query(TLog).filter(
         TLog.user_id == user_id,
         TLog.trig_id == trig_id,
         TLog.date == date,
+        TLog.status == "P",  # Only check published logs
     )
     if exclude_log_id:
         q = q.filter(TLog.id != exclude_log_id)
@@ -126,10 +130,15 @@ def list_logs_filtered(
     to_date: Optional[DateType] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
+    include_drafts: bool = False,
 ) -> List[TLog]:
     from api.crud.trig import _get_type_ids_for_categories
 
     q = db.query(TLog)
+
+    # By default, exclude draft logs from listings
+    if not include_drafts:
+        q = q.filter(TLog.status == "P")
 
     # Join to trig table if we need to filter by trig properties
     needs_trig_join = (
@@ -247,10 +256,15 @@ def count_logs_filtered(
     to_date: Optional[DateType] = None,
     exclude_found_by_user_id: Optional[int] = None,
     only_found_by_user_id: Optional[int] = None,
+    include_drafts: bool = False,
 ) -> int:
     from api.crud.trig import _get_type_ids_for_categories
 
     q = db.query(func.count(TLog.id))
+
+    # By default, exclude draft logs from counts
+    if not include_drafts:
+        q = q.filter(TLog.status == "P")
 
     # Join to trig table if we need to filter by trig properties
     needs_trig_join = (
@@ -950,3 +964,175 @@ def delete_duplicate_log(db: Session, log_id: int) -> bool:
     invalidate_log_caches(trig_id=trig_id, user_id=user_id, log_id=log_id)
 
     return True
+
+
+# ============================================================================
+# Draft Log Functions
+# ============================================================================
+
+
+def create_draft_log(
+    db: Session,
+    *,
+    trig_id: int,
+    user_id: int,
+    ip_addr: Optional[str] = None,
+) -> TLog:
+    """Create a minimal draft log record for photo uploads.
+
+    Draft logs have status='D' and minimal required fields.
+    They are not visible in normal listings until published.
+
+    Args:
+        db: Database session
+        trig_id: ID of the trigpoint
+        user_id: ID of the user creating the draft
+        ip_addr: Optional IP address of the client
+
+    Returns:
+        The created draft TLog record
+    """
+    log = TLog(
+        trig_id=trig_id,
+        user_id=user_id,
+        status="D",
+        ip_addr=ip_addr,
+        source="W",  # Web source
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+
+    # Note: We don't invalidate caches or update trigstats for drafts
+    # since they're not visible in normal listings
+
+    return log
+
+
+def get_user_draft_for_trig(
+    db: Session,
+    *,
+    user_id: int,
+    trig_id: int,
+) -> Optional[TLog]:
+    """Check if user has an existing draft for this trig.
+
+    Args:
+        db: Database session
+        user_id: ID of the user
+        trig_id: ID of the trigpoint
+
+    Returns:
+        The draft TLog if found, None otherwise
+    """
+    return (
+        db.query(TLog)
+        .filter(
+            TLog.user_id == user_id,
+            TLog.trig_id == trig_id,
+            TLog.status == "D",
+        )
+        .first()
+    )
+
+
+def publish_draft_log(
+    db: Session,
+    *,
+    log_id: int,
+    updates: dict,
+) -> Optional[TLog]:
+    """Publish a draft log by updating its status and setting all fields.
+
+    Args:
+        db: Database session
+        log_id: ID of the draft log to publish
+        updates: Dictionary of field values to set (from TLogCreate)
+
+    Returns:
+        The published TLog if successful, None if not found or not a draft
+    """
+    log = db.query(TLog).filter(TLog.id == log_id).first()
+    if not log:
+        return None
+
+    # Verify it's a draft
+    if log.status != "D":
+        return None
+
+    # Update all fields from the payload
+    for key, value in updates.items():
+        if hasattr(log, key) and key not in ("trig_id", "user_id", "status"):
+            setattr(log, key, value)
+
+    # Set status to published
+    log.status = "P"  # type: ignore[assignment]
+
+    db.add(log)
+
+    # Check if trig condition should be updated based on log condition
+    tlog_condition = updates.get("condition")
+    if tlog_condition and log.trig_id:
+        maybe_update_trig_condition(
+            db, trig_id=int(log.trig_id), tlog_condition=tlog_condition
+        )
+
+    db.commit()
+    db.refresh(log)
+
+    # Now that it's published, invalidate caches and update stats
+    if log.trig_id and log.user_id:
+        invalidate_log_caches(
+            trig_id=int(log.trig_id),
+            user_id=int(log.user_id),
+            log_id=log_id,
+        )
+        _get_trigstats_crud().update_trigstats(db, int(log.trig_id))
+
+    return log
+
+
+def delete_abandoned_drafts(
+    db: Session,
+    *,
+    older_than_hours: int = 24,
+) -> int:
+    """Delete draft logs older than the specified threshold.
+
+    This is typically called by a scheduled job to clean up abandoned drafts.
+    Photos attached to the draft are soft-deleted first.
+
+    Args:
+        db: Database session
+        older_than_hours: Delete drafts older than this many hours
+
+    Returns:
+        Count of drafts deleted
+    """
+    from datetime import datetime, timedelta
+
+    cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
+
+    # Find all abandoned drafts
+    drafts = (
+        db.query(TLog)
+        .filter(
+            TLog.status == "D",
+            TLog.upd_timestamp < cutoff,
+        )
+        .all()
+    )
+
+    count = 0
+    for draft in drafts:
+        # Soft-delete any photos attached to this draft
+        soft_delete_photos_for_log(db, log_id=int(draft.id))
+
+        # Hard-delete the draft
+        db.delete(draft)
+        count += 1
+
+    if count > 0:
+        db.commit()
+
+    return count

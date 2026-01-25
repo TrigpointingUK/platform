@@ -384,6 +384,8 @@ export interface Log {
   comment: string;
   score: number;
   source: string;
+  // Status: 'P' = Published (default), 'D' = Draft
+  status?: string;
   location_distance_m?: number;
   photos?: Photo[];
 }

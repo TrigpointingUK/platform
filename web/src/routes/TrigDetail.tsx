@@ -17,9 +17,11 @@ import { useTrigLogs } from "../hooks/useTrigLogs";
 import { useUserTrigLogs } from "../hooks/useUserTrigLogs";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUserProfile } from "../hooks/useUserProfile";
-import { useCreateLog } from "../hooks/useCreateLog";
+import { useCreateDraftLog } from "../hooks/useCreateDraftLog";
+import { usePublishLog } from "../hooks/usePublishLog";
+import { useCancelDraftLog } from "../hooks/useCancelDraftLog";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
-import { LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
+import { Log, LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
 
 export default function TrigDetail() {
   const { trigId } = useParams<{ trigId: string }>();
@@ -28,6 +30,9 @@ export default function TrigDetail() {
   const { isAuthenticated, loginWithRedirect, user } = useAuth0();
   const [showLogForm, setShowLogForm] = useState(false);
   const [duplicateLogId, setDuplicateLogId] = useState<number | null>(null);
+  // Draft log state - holds the draft log while user is filling in the form
+  const [draftLog, setDraftLog] = useState<Log | null>(null);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
 
   // Check if user has admin role
   const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
@@ -64,7 +69,10 @@ export default function TrigDetail() {
     isLoading: isUserLogsLoading,
   } = useUserTrigLogs(trigIdNum!, currentUser?.id);
 
-  const createLogMutation = useCreateLog(trigIdNum!);
+  // Draft log mutations
+  const createDraftMutation = useCreateDraftLog(trigIdNum!);
+  const publishMutation = usePublishLog(draftLog?.id ?? 0, trigIdNum!);
+  const cancelDraftMutation = useCancelDraftLog(draftLog?.id, trigIdNum!);
 
   // Intersection observer for infinite scroll
   const { ref: loadMoreRef, inView } = useInView({
@@ -82,37 +90,62 @@ export default function TrigDetail() {
   // Flatten all pages into a single array
   const allLogs = logsData?.pages.flatMap((page) => page.items) || [];
 
-  const handleLogThisTrig = () => {
+  const handleLogThisTrig = async () => {
     if (!isAuthenticated) {
       loginWithRedirect({
         appState: { returnTo: window.location.pathname },
       });
       return;
     }
-    setShowLogForm(true);
+
+    // Create a draft log first so photos can be uploaded
+    setIsCreatingDraft(true);
+    try {
+      const draft = await createDraftMutation.mutateAsync();
+      setDraftLog(draft);
+      setShowLogForm(true);
+    } catch (error) {
+      console.error("Failed to create draft log:", error);
+      // Show error to user
+      alert("Failed to start log creation. Please try again.");
+    } finally {
+      setIsCreatingDraft(false);
+    }
   };
 
   const handleLogSubmit = async (data: LogCreateInput | LogUpdateInput) => {
+    if (!draftLog) {
+      console.error("No draft log to publish");
+      return;
+    }
+
     try {
-      const newLog = await createLogMutation.mutateAsync(data as LogCreateInput);
+      // Publish the draft log with the form data
+      const publishedLog = await publishMutation.mutateAsync(data as LogCreateInput);
       setShowLogForm(false);
-      // Navigate to the new log
-      navigate(`/logs/${newLog.id}`);
+      setDraftLog(null);
+      // Navigate to the published log
+      navigate(`/logs/${publishedLog.id}`);
     } catch (error) {
       if (error instanceof DuplicateLogError) {
         // Show the duplicate log modal
         setDuplicateLogId(error.existingLogId);
         return;
       }
-      console.error("Failed to create log:", error);
+      console.error("Failed to publish log:", error);
       throw error;
     }
   };
 
   const handleDuplicateLogView = () => {
     if (duplicateLogId) {
+      // Cancel the draft since user is viewing existing log
+      if (draftLog) {
+        cancelDraftMutation.mutate();
+      }
       setShowLogForm(false);
       setDuplicateLogId(null);
+      setDraftLog(null);
       navigate(`/logs/${duplicateLogId}`);
     }
   };
@@ -121,8 +154,18 @@ export default function TrigDetail() {
     setDuplicateLogId(null);
   };
 
-  const handleLogCancel = () => {
+  const handleLogCancel = async () => {
+    // Cancel the draft log if one exists
+    if (draftLog) {
+      try {
+        await cancelDraftMutation.mutateAsync();
+      } catch (error) {
+        console.error("Failed to cancel draft:", error);
+        // Continue anyway - the draft will be cleaned up by the scheduled job
+      }
+    }
     setShowLogForm(false);
+    setDraftLog(null);
   };
 
   if (!trigIdNum) {
@@ -183,27 +226,17 @@ export default function TrigDetail() {
         <TrigInfoSection trig={trig} />
 
         {/* Interactive Map and Official Data */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className={`grid grid-cols-1 gap-6 mb-6 ${trig.attrs && trig.attrs.length > 0 ? 'lg:grid-cols-2' : ''}`}>
           <Card className="p-0 overflow-hidden">
             <TrigDetailMap trig={trig} />
           </Card>
 
-          {trig.attrs && trig.attrs.length > 0 ? (
+          {trig.attrs && trig.attrs.length > 0 && (
             <Card>
               <h2 className="text-xl font-semibold text-trig-green-600 mb-4">
                 Official Data
               </h2>
               <OfficialDataSection attrs={trig.attrs} />
-            </Card>
-          ) : (
-            <Card className="bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600">
-              <div className="text-center py-12">
-                <div className="text-4xl mb-3">📋</div>
-                <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                  Official Data
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400">No official data available</p>
-              </div>
             </Card>
           )}
         </div>
@@ -318,8 +351,19 @@ export default function TrigDetail() {
         {/* Log This Trig Section */}
         {!showLogForm && (
           <div className="my-8 flex flex-wrap gap-3">
-            <Button onClick={handleLogThisTrig} className="w-full md:w-auto">
-              📝 {userLogs && userLogs.length > 0 ? "Log This Trig Again" : "Log This Trig"}
+            <Button 
+              onClick={handleLogThisTrig} 
+              className="w-full md:w-auto"
+              disabled={isCreatingDraft}
+            >
+              {isCreatingDraft ? (
+                <span className="flex items-center gap-2">
+                  <Spinner size="sm" />
+                  Starting...
+                </span>
+              ) : (
+                <>📝 {userLogs && userLogs.length > 0 ? "Log This Trig Again" : "Log This Trig"}</>
+              )}
             </Button>
             {hasAdminRole && (
               <Link to={`/admin/trigs/${trigId}/edit`}>
@@ -332,7 +376,10 @@ export default function TrigDetail() {
         )}
 
         {showLogForm && (
-          <div className="my-8">
+          <div className="my-8 bg-trig-green-200 dark:bg-trig-green-950 border-2 border-trig-green-400 dark:border-trig-green-700 rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-bold text-trig-green-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+              <span>📝</span> Log Your Visit
+            </h2>
             <LogForm
               trigGridRef={trig.osgb_gridref}
               trigEastings={parseInt(trig.osgb_gridref.substring(2, 7))} // Simplified - would need proper conversion
@@ -342,7 +389,9 @@ export default function TrigDetail() {
               defaultCondition={trig.condition}
               onSubmit={handleLogSubmit}
               onCancel={handleLogCancel}
-              isSubmitting={createLogMutation.isPending}
+              isSubmitting={publishMutation.isPending}
+              draftLogId={draftLog?.id}
+              hideTitle
             />
           </div>
         )}
