@@ -77,6 +77,8 @@ export interface BaseMapProps {
   scrollWheelZoom?: boolean;
   /** Whether to allow user interaction (dragging, zooming, etc.) (default: true) */
   interactive?: boolean;
+  /** Whether to enable tile preloading beyond viewport (default: true) */
+  enableTilePreloader?: boolean;
 }
 
 /**

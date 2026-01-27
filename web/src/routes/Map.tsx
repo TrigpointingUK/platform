@@ -81,6 +81,9 @@ const USER_LOG_ICON_COLORS: IconColor[] = ["green", "yellow", "red"];
 
 /**
  * Component to track map viewport changes
+ * 
+ * Uses debounced updates during dragging so overlays update while the user
+ * is still dragging (not just when they release the mouse button).
  */
 function MapViewportTracker({
   onBoundsChange,
@@ -94,6 +97,8 @@ function MapViewportTracker({
   const map = useMap();
 
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const updateViewport = () => {
       const bounds = map.getBounds();
       onBoundsChange({
@@ -107,14 +112,23 @@ function MapViewportTracker({
       onCenterChange(center.lat, center.lng);
     };
 
+    const debouncedUpdate = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updateViewport, 50); // 50ms debounce during drag
+    };
+
     // Initial viewport
     updateViewport();
 
-    // Listen to map movements
+    // Fire debounced updates during dragging
+    map.on("move", debouncedUpdate);
+    // Immediate update when drag/zoom ends
     map.on("moveend", updateViewport);
     map.on("zoomend", updateViewport);
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      map.off("move", debouncedUpdate);
       map.off("moveend", updateViewport);
       map.off("zoomend", updateViewport);
     };
@@ -415,21 +429,35 @@ export default function Map() {
   }, [colorFilteredTrigpoints]);
 
   // Filter trigpoints by viewport bounds for performance
+  // Expand bounds by 20% in each direction so markers are pre-rendered
+  // beyond the viewport edge for smoother panning experience
+  const expandedBounds = useMemo(() => {
+    if (!mapBounds) return null;
+    const latBuffer = (mapBounds.north - mapBounds.south) * 0.5;
+    const lngBuffer = (mapBounds.east - mapBounds.west) * 0.5;
+    return {
+      north: mapBounds.north + latBuffer,
+      south: mapBounds.south - latBuffer,
+      east: mapBounds.east + lngBuffer,
+      west: mapBounds.west - lngBuffer,
+    };
+  }, [mapBounds]);
+
   const visibleTrigpoints = useMemo(() => {
-    if (!mapBounds) return colorFilteredTrigpoints;
+    if (!expandedBounds) return colorFilteredTrigpoints;
 
     return colorFilteredTrigpoints.filter((trig) => {
       const lat = parseFloat(trig.wgs_lat);
       const lon = parseFloat(trig.wgs_long);
 
       return (
-        lat >= mapBounds.south &&
-        lat <= mapBounds.north &&
-        lon >= mapBounds.west &&
-        lon <= mapBounds.east
+        lat >= expandedBounds.south &&
+        lat <= expandedBounds.north &&
+        lon >= expandedBounds.west &&
+        lon <= expandedBounds.east
       );
     });
-  }, [colorFilteredTrigpoints, mapBounds]);
+  }, [colorFilteredTrigpoints, expandedBounds]);
 
   // Determine whether to show markers or heatmap based on visible trigpoint count
   const shouldShowHeatmap = useMemo(() => {

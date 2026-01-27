@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { MapContainer, TileLayer, useMap, ScaleControl } from "react-leaflet";
-import { getTileLayer, MAP_CONFIG } from "../../lib/mapConfig";
+import { getTileLayer, MAP_CONFIG, type TileLayer as TileLayerType } from "../../lib/mapConfig";
 import { getCRS } from "../../lib/projections";
 import type { BaseMapProps } from "./types";
 
@@ -44,6 +44,121 @@ function MapReadyNotifier({ onMapReady }: { onMapReady?: (map: L.Map) => void })
 }
 
 /**
+ * Component to pre-fetch tiles in a buffer zone around the current viewport.
+ * 
+ * This loads tiles into the browser cache before they're needed, reducing
+ * whitespace during panning. Works by creating Image objects that fetch
+ * tile URLs - the browser caches them automatically.
+ */
+function TilePreloader({ tileLayer, bufferTiles = 3 }: { tileLayer: TileLayerType; bufferTiles?: number }) {
+  const map = useMap();
+  const preloadedTilesRef = useRef<Set<string>>(new Set());
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Convert lat/lng to tile coordinates
+  const latLngToTile = useCallback((lat: number, lng: number, zoom: number) => {
+    const n = Math.pow(2, zoom);
+    const x = Math.floor((lng + 180) / 360 * n);
+    const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+    return { x, y };
+  }, []);
+
+  // Build tile URL from template
+  const getTileUrl = useCallback((x: number, y: number, z: number) => {
+    let url = tileLayer.urlTemplate
+      .replace('{x}', String(x))
+      .replace('{y}', String(y))
+      .replace('{z}', String(z));
+    
+    // Handle subdomains
+    if (tileLayer.subdomains && tileLayer.subdomains.length > 0) {
+      const subdomain = tileLayer.subdomains[(x + y) % tileLayer.subdomains.length];
+      url = url.replace('{s}', subdomain);
+    }
+    
+    return url;
+  }, [tileLayer.urlTemplate, tileLayer.subdomains]);
+
+  // Pre-fetch tiles around the current viewport
+  const preloadTiles = useCallback(() => {
+    const bounds = map.getBounds();
+    const zoom = Math.floor(map.getZoom());
+    
+    // Skip if using non-standard CRS (tile calculations differ)
+    if (tileLayer.crs && tileLayer.crs !== 'EPSG:3857') {
+      return;
+    }
+    
+    // Get tile coordinates for viewport corners
+    const nw = latLngToTile(bounds.getNorth(), bounds.getWest(), zoom);
+    const se = latLngToTile(bounds.getSouth(), bounds.getEast(), zoom);
+    
+    // Calculate tile range with buffer
+    const minX = nw.x - bufferTiles;
+    const maxX = se.x + bufferTiles;
+    const minY = nw.y - bufferTiles;
+    const maxY = se.y + bufferTiles;
+    
+    // Pre-fetch tiles
+    for (let x = minX; x <= maxX; x++) {
+      for (let y = minY; y <= maxY; y++) {
+        const tileKey = `${zoom}/${x}/${y}`;
+        
+        // Skip if already preloaded
+        if (preloadedTilesRef.current.has(tileKey)) {
+          continue;
+        }
+        
+        // Mark as preloaded
+        preloadedTilesRef.current.add(tileKey);
+        
+        // Create an image to fetch the tile into browser cache
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = getTileUrl(x, y, zoom);
+      }
+    }
+    
+    // Limit cache size to prevent memory bloat (keep last ~1000 tiles)
+    if (preloadedTilesRef.current.size > 1000) {
+      const entries = Array.from(preloadedTilesRef.current);
+      preloadedTilesRef.current = new Set(entries.slice(-500));
+    }
+  }, [map, tileLayer.crs, latLngToTile, bufferTiles, getTileUrl]);
+
+  // Debounced preload on map movement
+  useEffect(() => {
+    const debouncedPreload = () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(preloadTiles, 200);
+    };
+
+    // Initial preload
+    preloadTiles();
+
+    // Preload on movement
+    map.on('moveend', debouncedPreload);
+    map.on('zoomend', () => {
+      // Clear cache on zoom change since tile coordinates change
+      preloadedTilesRef.current.clear();
+      preloadTiles();
+    });
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      map.off('moveend', debouncedPreload);
+      map.off('zoomend');
+    };
+  }, [map, preloadTiles]);
+
+  return null;
+}
+
+/**
  * Base map component using Leaflet
  * 
  * @stable - This component provides the foundation for all map displays.
@@ -76,6 +191,7 @@ export default function BaseMap({
   className = "",
   scrollWheelZoom = true,
   interactive = true,
+  enableTilePreloader = false,
 }: BaseMapProps) {
   const tileLayer = getTileLayer(tileLayerId);
   
@@ -119,9 +235,13 @@ export default function BaseMap({
           {...(tileLayer.subdomains ? { subdomains: tileLayer.subdomains } : {})}
           tileSize={tileLayer.tileSize || 256}
           crossOrigin="anonymous"
+          keepBuffer={10}
+          updateWhenIdle={false}
+          updateInterval={50}
         />
         
         <TileLayerUpdater tileLayerId={tileLayerId} minZoom={minZoom} maxZoom={maxZoom} />
+        {enableTilePreloader && <TilePreloader tileLayer={tileLayer} bufferTiles={3} />}
         {onMapReady && <MapReadyNotifier onMapReady={onMapReady} />}
         
         {/* Scale bar at bottom left */}
