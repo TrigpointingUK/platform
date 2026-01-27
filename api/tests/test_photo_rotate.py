@@ -55,7 +55,6 @@ def seed_user_and_tlog(db: Session) -> tuple[User, TLog]:
         fb_number=f"FB{unique_suffix[:4]}",
         stn_number=f"STN{unique_suffix[:4]}",
         permission_ind="Y",
-        county="Testshire",
         town="Testtown",
         needs_attention=0,
         attention_comment="",

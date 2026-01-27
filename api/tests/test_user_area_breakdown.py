@@ -4,8 +4,8 @@ Tests for user area breakdown endpoint and CRUD functions.
 Tests the area breakdown feature that shows user log counts grouped by area
 for a specific area type (e.g., counties).
 
-Note: Tests that require the trig_area_mv materialized view will be skipped
-if the MV does not exist in the test database.
+Note: Tests that require the trig_area table will be skipped
+if the table does not exist in the test database.
 """
 
 import uuid
@@ -22,12 +22,12 @@ from api.models.trig import Trig
 from api.models.user import TLog, User
 
 
-def _mv_exists(db: Session) -> bool:
-    """Check if trig_area_mv materialized view exists."""
+def _trig_area_exists(db: Session) -> bool:
+    """Check if trig_area table exists."""
     try:
         result = db.execute(
             text(
-                "SELECT EXISTS (SELECT 1 FROM pg_matviews WHERE matviewname = 'trig_area_mv')"
+                "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'trig_area')"
             )
         ).scalar()
         return bool(result)
@@ -35,16 +35,15 @@ def _mv_exists(db: Session) -> bool:
         return False
 
 
-def _create_test_mv(db: Session) -> None:
-    """Create a minimal test version of the materialized view if it doesn't exist."""
-    if _mv_exists(db):
+def _create_test_trig_area(db: Session) -> None:
+    """Create a minimal test version of the trig_area table if it doesn't exist."""
+    if _trig_area_exists(db):
         return
 
-    # Create a simple table to simulate the MV for testing
-    # (Not a real materialized view, but has the same schema)
+    # Create the trig_area table for testing (no FKs for test simplicity)
     try:
         db.execute(text("""
-                CREATE TABLE IF NOT EXISTS trig_area_mv (
+                CREATE TABLE IF NOT EXISTS trig_area (
                     trig_id INTEGER NOT NULL,
                     area_id INTEGER NOT NULL,
                     area_type_id INTEGER NOT NULL,
@@ -54,7 +53,7 @@ def _create_test_mv(db: Session) -> None:
             """))
         db.execute(
             text(
-                "CREATE INDEX IF NOT EXISTS ix_trig_area_mv_area_type_code ON trig_area_mv (area_type_code)"
+                "CREATE INDEX IF NOT EXISTS ix_trig_area_area_type_code ON trig_area (area_type_code)"
             )
         )
         db.commit()
@@ -72,10 +71,10 @@ def area_breakdown_test_data(db: Session):
     - 3 areas (2 counties, 1 region)
     - 2 trigs (one in each county)
     - 1 user with logs for both trigs
-    - Materialized view entries for trig-area mapping
+    - trig_area table entries for trig-area mapping
     """
-    # Ensure the MV table exists (create if needed)
-    _create_test_mv(db)
+    # Ensure the trig_area table exists (create if needed)
+    _create_test_trig_area(db)
 
     unique_suffix = uuid.uuid4().hex[:6]
     base_id = abs(hash(unique_suffix)) % 20000 + 30000
@@ -189,14 +188,14 @@ def area_breakdown_test_data(db: Session):
                 id, waypoint, name, fb_number, stn_number, status_id, user_added,
                 current_use, historic_use, wgs_lat, wgs_long, wgs_height,
                 osgb_eastings, osgb_northings, osgb_gridref, osgb_height,
-                condition, county, town, permission_ind, needs_attention,
+                condition, town, permission_ind, needs_attention,
                 attention_comment, crt_date, crt_time, crt_ip_addr, location
             )
             VALUES (
                 :id, :waypoint, :name, :fb_number, :stn_number, :status_id, :user_added,
                 :current_use, :historic_use, :wgs_lat, :wgs_long, :wgs_height,
                 :osgb_eastings, :osgb_northings, :osgb_gridref, :osgb_height,
-                :condition, :county, :town, :permission_ind, :needs_attention,
+                :condition, :town, :permission_ind, :needs_attention,
                 :attention_comment, :crt_date, :crt_time, :crt_ip_addr,
                 ST_GeogFromText('SRID=4326;POINT(-0.1 51.5)')
             )
@@ -219,7 +218,6 @@ def area_breakdown_test_data(db: Session):
             "osgb_gridref": "TQ 30000 80000",
             "osgb_height": 95,
             "condition": "G",
-            "county": "London",
             "town": "Westminster",
             "permission_ind": "Y",
             "needs_attention": 0,
@@ -237,14 +235,14 @@ def area_breakdown_test_data(db: Session):
                 id, waypoint, name, fb_number, stn_number, status_id, user_added,
                 current_use, historic_use, wgs_lat, wgs_long, wgs_height,
                 osgb_eastings, osgb_northings, osgb_gridref, osgb_height,
-                condition, county, town, permission_ind, needs_attention,
+                condition, town, permission_ind, needs_attention,
                 attention_comment, crt_date, crt_time, crt_ip_addr, location
             )
             VALUES (
                 :id, :waypoint, :name, :fb_number, :stn_number, :status_id, :user_added,
                 :current_use, :historic_use, :wgs_lat, :wgs_long, :wgs_height,
                 :osgb_eastings, :osgb_northings, :osgb_gridref, :osgb_height,
-                :condition, :county, :town, :permission_ind, :needs_attention,
+                :condition, :town, :permission_ind, :needs_attention,
                 :attention_comment, :crt_date, :crt_time, :crt_ip_addr,
                 ST_GeogFromText('SRID=4326;POINT(-2.2 53.5)')
             )
@@ -267,7 +265,6 @@ def area_breakdown_test_data(db: Session):
             "osgb_gridref": "SJ 84000 98000",
             "osgb_height": 145,
             "condition": "G",
-            "county": "Greater Manchester",
             "town": "Manchester",
             "permission_ind": "Y",
             "needs_attention": 0,
@@ -287,10 +284,10 @@ def area_breakdown_test_data(db: Session):
     assert london_trig is not None
     assert manchester_trig is not None
 
-    # Insert into trig_area_mv (table or materialized view)
+    # Insert into trig_area table
     db.execute(
         text("""
-            INSERT INTO trig_area_mv (trig_id, area_id, area_type_id, area_type_code)
+            INSERT INTO trig_area (trig_id, area_id, area_type_id, area_type_code)
             VALUES
                 (:london_trig_id, :london_area_id, :county_type_id, :county_code),
                 (:london_trig_id, :england_area_id, :region_type_id, :region_code),
@@ -359,9 +356,9 @@ def area_breakdown_test_data(db: Session):
         db.delete(log)
     db.flush()
 
-    # Remove MV/table entries
+    # Remove trig_area table entries
     db.execute(
-        text("DELETE FROM trig_area_mv WHERE trig_id IN (:t1, :t2)"),
+        text("DELETE FROM trig_area WHERE trig_id IN (:t1, :t2)"),
         {"t1": london_trig.id, "t2": manchester_trig.id},
     )
 

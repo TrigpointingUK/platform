@@ -77,7 +77,6 @@ def photo_test_data(db):
         osgb_northings=180000,
         osgb_gridref="TQ 30000 80000",
         osgb_height=100,
-        county="TestCounty",
         town="TestTown",
         permission_ind="Y",
         needs_attention=0,

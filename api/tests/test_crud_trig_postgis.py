@@ -78,7 +78,6 @@ def seed_trigs_with_locations(db: Session):
             osgb_gridref=f"TQ {30000 + i * 10000} 80000",
             osgb_height=95,
             condition="G",
-            county="London",
             town="Westminster",
             permission_ind="Y",
             needs_attention=0,

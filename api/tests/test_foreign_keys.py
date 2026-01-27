@@ -61,7 +61,6 @@ def _create_trig(db: Session) -> Trig:
         stn_number="TEST123",
         permission_ind="Y",
         postcode=None,
-        county="London",
         town="Westminster",
         needs_attention=0,
         attention_comment="",

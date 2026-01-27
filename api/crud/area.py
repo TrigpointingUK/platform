@@ -14,9 +14,10 @@ from sqlalchemy.orm import Session
 from api.models.area import Area, AreaType
 from api.models.user import TLog
 
-# Reference to the trig_area_mv materialized view for efficient trig-to-area lookups
-TRIG_AREA_MV = sa.table(
-    "trig_area_mv",
+# Reference to the trig_area table for efficient trig-to-area lookups
+# (Previously a materialized view, now a table with triggers for incremental updates)
+TRIG_AREA = sa.table(
+    "trig_area",
     sa.column("trig_id", sa.Integer),
     sa.column("area_id", sa.Integer),
     sa.column("area_type_id", sa.Integer),
@@ -248,7 +249,7 @@ def get_user_log_counts_by_area(
     """
     Get user's log counts grouped by area for a specific area type.
 
-    Uses the trig_area_mv materialized view for efficient trig-to-area lookups
+    Uses the trig_area table for efficient trig-to-area lookups
     (precomputed spatial containment). Counts distinct trigpoints (not individual
     logs) for each area.
 
@@ -262,22 +263,22 @@ def get_user_log_counts_by_area(
         Format: [{"area_name": str, "count": int}, ...]
     """
     if _is_sqlite(db):
-        # SQLite doesn't support the materialized view - return empty list for tests
+        # SQLite doesn't support the trig_area table - return empty list for tests
         return []
 
-    # Query: join user's logged trigs with areas via the materialized view
-    # trig_area_mv already has area_type_code so we can filter directly
+    # Query: join user's logged trigs with areas via the trig_area table
+    # trig_area has area_type_code so we can filter directly
     query = (
         db.query(
             Area.name.label("area_name"),
             func.count(func.distinct(TLog.trig_id)).label("trig_count"),
         )
         .select_from(TLog)
-        .join(TRIG_AREA_MV, TRIG_AREA_MV.c.trig_id == TLog.trig_id)
-        .join(Area, Area.id == TRIG_AREA_MV.c.area_id)
+        .join(TRIG_AREA, TRIG_AREA.c.trig_id == TLog.trig_id)
+        .join(Area, Area.id == TRIG_AREA.c.area_id)
         .filter(
             TLog.user_id == user_id,
-            TRIG_AREA_MV.c.area_type_code == area_type_code,
+            TRIG_AREA.c.area_type_code == area_type_code,
         )
         .group_by(Area.name)
         .order_by(func.count(func.distinct(TLog.trig_id)).desc())
@@ -289,3 +290,49 @@ def get_user_log_counts_by_area(
         {"area_name": str(row.area_name), "count": int(row.trig_count)}
         for row in results
     ]
+
+
+# Area type ID for county_1991 (UK Counties 1991)
+COUNTY_1991_AREA_TYPE_ID = 7
+
+
+def get_county_name_for_trig(db: Session, trig_id: int) -> Optional[str]:
+    """
+    Get the county name for a trigpoint from the trig_area table.
+
+    Uses area_type_id = 7 (county_1991) to find the county.
+
+    Args:
+        db: Database session
+        trig_id: Trig ID to look up
+
+    Returns:
+        County name string, or None if not found
+    """
+    if _is_sqlite(db):
+        # SQLite doesn't have the trig_area table - return None for tests
+        return None
+
+    # Check if trig_area table exists before querying
+    try:
+        from typing import Any, cast
+
+        from sqlalchemy import inspect
+
+        inspector = cast(Any, inspect(db.bind))
+        if "trig_area" not in inspector.get_table_names():
+            return None
+    except Exception:
+        return None
+
+    result = (
+        db.query(Area.name)
+        .join(TRIG_AREA, TRIG_AREA.c.area_id == Area.id)
+        .filter(
+            TRIG_AREA.c.trig_id == trig_id,
+            TRIG_AREA.c.area_type_id == COUNTY_1991_AREA_TYPE_ID,
+        )
+        .first()
+    )
+
+    return str(result[0]) if result else None

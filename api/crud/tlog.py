@@ -166,10 +166,10 @@ def list_logs_filtered(
             # No matching categories, return empty
             q = q.filter(Trig.id == -1)
 
-    # Filter by area using trig_area_mv materialized view
+    # Filter by area using trig_area table
     if area_id is not None and not _is_sqlite(db):
         area_subquery = text(
-            "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
+            "SELECT trig_id FROM trig_area WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         q = q.filter(Trig.id.in_(area_subquery))
 
@@ -292,10 +292,10 @@ def count_logs_filtered(
             # No matching categories, return 0
             return 0
 
-    # Filter by area using trig_area_mv materialized view
+    # Filter by area using trig_area table
     if area_id is not None and not _is_sqlite(db):
         area_subquery = text(
-            "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
+            "SELECT trig_id FROM trig_area WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         q = q.filter(Trig.id.in_(area_subquery))
 

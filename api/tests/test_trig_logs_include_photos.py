@@ -40,7 +40,6 @@ def _ensure_trig(db: Session, trig_id: int) -> None:
             stn_number="TEST123",
             permission_ind="Y",
             postcode=None,
-            county="London",
             town="Westminster",
             needs_attention=0,
             attention_comment="",
