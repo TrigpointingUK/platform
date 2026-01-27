@@ -44,6 +44,44 @@ function MapReadyNotifier({ onMapReady }: { onMapReady?: (map: L.Map) => void })
 }
 
 /**
+ * Component to dynamically enable/disable map interaction
+ * 
+ * MapContainer only reads interactive props on mount, so this component
+ * allows toggling interaction after the map is created.
+ */
+function InteractionController({ 
+  interactive, 
+  scrollWheelZoom = true 
+}: { 
+  interactive: boolean; 
+  scrollWheelZoom?: boolean;
+}) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (interactive) {
+      map.dragging.enable();
+      map.touchZoom.enable();
+      map.doubleClickZoom.enable();
+      map.boxZoom.enable();
+      map.keyboard.enable();
+      if (scrollWheelZoom) {
+        map.scrollWheelZoom.enable();
+      }
+    } else {
+      map.dragging.disable();
+      map.touchZoom.disable();
+      map.doubleClickZoom.disable();
+      map.boxZoom.disable();
+      map.keyboard.disable();
+      map.scrollWheelZoom.disable();
+    }
+  }, [map, interactive, scrollWheelZoom]);
+  
+  return null;
+}
+
+/**
  * Component to pre-fetch tiles in a buffer zone around the current viewport.
  * 
  * This loads tiles into the browser cache before they're needed, reducing
@@ -208,7 +246,7 @@ export default function BaseMap({
   const mapKey = tileLayer.crs || 'EPSG:3857';
   
   return (
-    <div className={`relative ${className}`} style={{ height: heightStyle }}>
+    <div className={`relative select-none ${className}`} style={{ height: heightStyle }}>
       <MapContainer
         key={mapKey}
         center={center}
@@ -241,6 +279,7 @@ export default function BaseMap({
         />
         
         <TileLayerUpdater tileLayerId={tileLayerId} minZoom={minZoom} maxZoom={maxZoom} />
+        <InteractionController interactive={interactive} scrollWheelZoom={scrollWheelZoom} />
         {enableTilePreloader && <TilePreloader tileLayer={tileLayer} bufferTiles={3} />}
         {onMapReady && <MapReadyNotifier onMapReady={onMapReady} />}
         
