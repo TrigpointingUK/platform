@@ -204,7 +204,8 @@ class TestCreateTrigAdmin:
         )
 
         assert trig.id is not None
-        assert trig.waypoint == waypoint
+        # Waypoint is always derived from ID (TP + ID padded to 4 digits)
+        assert trig.waypoint == f"TP{trig.id:04d}"
         assert trig.name == "Test Creation Trig"
         assert trig.fb_number == "FB999"
         assert trig.stn_number == "STN999"

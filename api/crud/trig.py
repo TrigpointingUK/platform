@@ -529,7 +529,7 @@ def create_trig_admin(
     now = datetime.utcnow()
 
     trig = Trig(
-        waypoint=waypoint,
+        waypoint="TEMP",  # Will be set from ID after flush
         # Basic fields from trig_data
         name=trig_data["name"],
         fb_number=trig_data.get("fb_number", ""),
@@ -575,6 +575,11 @@ def create_trig_admin(
     )
 
     db.add(trig)
+    db.flush()  # Get the assigned ID
+
+    # Waypoint is always TP + ID (padded to minimum 4 digits)
+    trig.waypoint = f"TP{trig.id:04d}"  # type: ignore[assignment]
+
     db.commit()
     db.refresh(trig)
     return trig
