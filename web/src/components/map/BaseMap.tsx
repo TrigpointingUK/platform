@@ -59,22 +59,25 @@ function InteractionController({
   const map = useMap();
   
   useEffect(() => {
+    // Guard against missing handlers (e.g. in test environment)
+    if (!map.dragging) return;
+    
     if (interactive) {
       map.dragging.enable();
-      map.touchZoom.enable();
-      map.doubleClickZoom.enable();
-      map.boxZoom.enable();
-      map.keyboard.enable();
+      map.touchZoom?.enable();
+      map.doubleClickZoom?.enable();
+      map.boxZoom?.enable();
+      map.keyboard?.enable();
       if (scrollWheelZoom) {
-        map.scrollWheelZoom.enable();
+        map.scrollWheelZoom?.enable();
       }
     } else {
       map.dragging.disable();
-      map.touchZoom.disable();
-      map.doubleClickZoom.disable();
-      map.boxZoom.disable();
-      map.keyboard.disable();
-      map.scrollWheelZoom.disable();
+      map.touchZoom?.disable();
+      map.doubleClickZoom?.disable();
+      map.boxZoom?.disable();
+      map.keyboard?.disable();
+      map.scrollWheelZoom?.disable();
     }
   }, [map, interactive, scrollWheelZoom]);
   

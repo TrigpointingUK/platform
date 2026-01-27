@@ -33,6 +33,12 @@ vi.mock('react-leaflet', () => ({
     invalidateSize: vi.fn(),
     getZoom: vi.fn().mockReturnValue(14),
     setZoom: vi.fn(),
+    dragging: { enable: vi.fn(), disable: vi.fn() },
+    touchZoom: { enable: vi.fn(), disable: vi.fn() },
+    doubleClickZoom: { enable: vi.fn(), disable: vi.fn() },
+    boxZoom: { enable: vi.fn(), disable: vi.fn() },
+    keyboard: { enable: vi.fn(), disable: vi.fn() },
+    scrollWheelZoom: { enable: vi.fn(), disable: vi.fn() },
   }),
   ScaleControl: () => <div data-testid="scale-control" />,
 }));
