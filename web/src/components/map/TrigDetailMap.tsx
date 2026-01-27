@@ -35,10 +35,11 @@ export default function TrigDetailMap({
   // Always use condition mode for detail maps (simpler UX)
   const colorMode: IconColorMode = 'condition';
   
-  const center: [number, number] = [
+  // Memoize center to avoid recreating array on every render
+  const center = useMemo<[number, number]>(() => [
     typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat,
     typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long) : trig.wgs_long,
-  ];
+  ], [trig.wgs_lat, trig.wgs_long]);
   
   // Adjust zoom level based on projection
   // EPSG:27700 has different zoom levels than EPSG:3857

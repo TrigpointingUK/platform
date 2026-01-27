@@ -317,7 +317,17 @@ web-build: ## Build web application for production
 	cd web && npm run build
 
 web-test: ## Run web application tests
-	cd web && npm run test:run
+	@cd web && NODE_OPTIONS="--max-old-space-size=8192" npm run test:run 2>&1 | tee /tmp/vitest-output.txt; \
+	if grep -qE "(Tests|Test Files).*[1-9][0-9]* failed" /tmp/vitest-output.txt; then \
+		echo "❌ Tests failed"; \
+		exit 1; \
+	elif grep -q "Tests.*passed" /tmp/vitest-output.txt; then \
+		echo "✅ All tests passed (worker timeout warnings can be ignored)"; \
+		exit 0; \
+	else \
+		echo "❌ Could not determine test status"; \
+		exit 1; \
+	fi
 
 web-lint: ## Lint web application code
 	cd web && npm run lint

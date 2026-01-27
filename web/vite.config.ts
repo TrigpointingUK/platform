@@ -60,6 +60,18 @@ export default defineConfig({
     // Reduce test output noise
     reporters: ['dot'],
     silent: true, // Suppress console.log output from tests
+    // Use threads pool (more memory efficient than forks)
+    pool: 'threads',
+    // Increase timeouts to avoid worker termination issues
+    testTimeout: 30000,
+    hookTimeout: 30000,
+    teardownTimeout: 10000,
+    // Fix react-router ES module resolution issue
+    server: {
+      deps: {
+        inline: ['react-router'],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
