@@ -104,9 +104,9 @@ def calculate_distances(
     except (ValueError, TypeError):
         return (None, None)
 
-    # Check if Irish grid
+    # Check if Irish grid (single letter followed by space, e.g., "O 12345")
     gridref = str(trig.osgb_gridref) if trig.osgb_gridref else ""
-    is_irish_grid = gridref and gridref[0] in ("I", "J")
+    is_irish_grid = len(gridref) >= 2 and gridref[1] == " "
 
     # Calculate dist_wgs_osgb
     if not is_irish_grid:
@@ -122,7 +122,9 @@ def calculate_distances(
                 (transformed_e - trig_eastings) ** 2
                 + (transformed_n - trig_northings) ** 2
             )
-            dist_wgs_osgb = Decimal(str(round(distance, 4)))
+            # Cap at 100km - larger values indicate bad data
+            if distance <= 100000:
+                dist_wgs_osgb = Decimal(str(round(distance, 4)))
 
         except Exception:
             pass
@@ -136,7 +138,9 @@ def calculate_distances(
                 (trig_eastings - attr_eastings) ** 2
                 + (trig_northings - attr_northings) ** 2
             )
-            dist_osgb_osgb = Decimal(str(round(distance, 4)))
+            # Cap at 100km - larger values indicate bad data
+            if distance <= 100000:
+                dist_osgb_osgb = Decimal(str(round(distance, 4)))
         except Exception:
             pass
 
@@ -260,6 +264,7 @@ def main():
                 except Exception as e:
                     batch_errors += 1
                     print(f"  ERROR trig_id={trig_id}: {e}")
+                    db.rollback()  # Reset transaction state after error
 
             if args.execute and batch_updated > 0:
                 db.commit()

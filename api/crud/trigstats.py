@@ -134,8 +134,9 @@ def calculate_coordinate_distances(
 
     # Calculate dist_wgs_osgb: WGS84 -> OSTN15 -> compare with trig.osgb*
     # Only for GB trigs (Irish grid uses different transformation)
+    # Irish grid uses single letter (e.g., "O 12345"), GB uses two (e.g., "TQ 12345")
     gridref = str(trig.osgb_gridref) if trig.osgb_gridref else ""
-    is_irish_grid = gridref and gridref[0] in ("I", "J")  # Irish grid refs
+    is_irish_grid = len(gridref) >= 2 and gridref[1] == " "
 
     if not is_irish_grid:
         try:
