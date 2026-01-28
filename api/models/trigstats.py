@@ -35,6 +35,12 @@ class TrigStats(Base):
     score_mean: Any = Column(DECIMAL(5, 2), nullable=False)
     score_baysian: Any = Column(DECIMAL(5, 2), nullable=False)
 
+    # Coordinate discrepancy monitoring (nullable - populated incrementally)
+    # Distance in metres between WGS84->OSTN15 and stored OSGB coords
+    dist_wgs_osgb: Any = Column(DECIMAL(10, 4), nullable=True)
+    # Distance in metres between trig.osgb* and attrval OSGB coords (attr_id 4,5)
+    dist_osgb_osgb: Any = Column(DECIMAL(10, 4), nullable=True)
+
     # Audit
     upd_timestamp = Column(TIMESTAMP, nullable=True)
 

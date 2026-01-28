@@ -1605,3 +1605,89 @@ export async function clearOSNetCache(token: string): Promise<void> {
   }
 }
 
+// ============================================================================
+// Experiment Endpoints
+// ============================================================================
+
+/**
+ * Coordinate discrepancy item for experiments page
+ */
+export interface CoordinateDiscrepancyItem {
+  trig_id: number;
+  waypoint: string;
+  name: string;
+  condition: string;
+  condition_name: string;
+  condition_icon: string;
+  dist_wgs_osgb: number | null;
+  dist_osgb_osgb: number | null;
+}
+
+/**
+ * Paginated response for coordinate discrepancies
+ */
+export interface CoordinateDiscrepancyResponse {
+  items: CoordinateDiscrepancyItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+/**
+ * Sort field options for coordinate discrepancies
+ */
+export type CoordinateDiscrepancySortField =
+  | "waypoint"
+  | "name"
+  | "dist_wgs_osgb"
+  | "dist_osgb_osgb";
+
+/**
+ * Filter options for 'Moved' condition trigpoints
+ */
+export type MovedFilter = "all" | "exclude_moved" | "only_moved";
+
+/**
+ * Fetch coordinate discrepancies for experiments page
+ */
+export async function fetchCoordinateDiscrepancies(params: {
+  page?: number;
+  per_page?: number;
+  sort_by?: CoordinateDiscrepancySortField;
+  sort_order?: "asc" | "desc";
+  min_dist_wgs_osgb?: number;
+  min_dist_osgb_osgb?: number;
+  exclude_irish?: boolean;
+  moved_filter?: MovedFilter;
+}): Promise<CoordinateDiscrepancyResponse> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const queryParams = new URLSearchParams();
+
+  if (params.page !== undefined) queryParams.set("page", params.page.toString());
+  if (params.per_page !== undefined)
+    queryParams.set("per_page", params.per_page.toString());
+  if (params.sort_by !== undefined) queryParams.set("sort_by", params.sort_by);
+  if (params.sort_order !== undefined)
+    queryParams.set("sort_order", params.sort_order);
+  if (params.min_dist_wgs_osgb !== undefined)
+    queryParams.set("min_dist_wgs_osgb", params.min_dist_wgs_osgb.toString());
+  if (params.min_dist_osgb_osgb !== undefined)
+    queryParams.set("min_dist_osgb_osgb", params.min_dist_osgb_osgb.toString());
+  if (params.exclude_irish !== undefined)
+    queryParams.set("exclude_irish", params.exclude_irish.toString());
+  if (params.moved_filter !== undefined)
+    queryParams.set("moved_filter", params.moved_filter);
+
+  const response = await fetch(
+    `${apiBase}/v1/experiment/coordinate-discrepancies?${queryParams.toString()}`
+  );
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+
+  return response.json();
+}
+
