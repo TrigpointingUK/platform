@@ -15,6 +15,19 @@ from api.models.area import Area
 from api.models.trig import Trig
 from api.models.user import TLog
 
+# Import update_trigstats_distances lazily to avoid circular imports
+_trigstats_crud = None
+
+
+def _get_trigstats_crud():
+    """Lazy import of trigstats CRUD module to avoid circular dependencies."""
+    global _trigstats_crud
+    if _trigstats_crud is None:
+        from api.crud import trigstats as ts_crud
+
+        _trigstats_crud = ts_crud
+    return _trigstats_crud
+
 
 def _is_sqlite(db: Session) -> bool:
     """Check if the database is SQLite."""
@@ -482,6 +495,10 @@ def update_trig_admin(
 
     db.commit()
     db.refresh(trig)
+
+    # Update trigstats distance columns (coordinates may have changed)
+    _get_trigstats_crud().update_trigstats_distances(db, trig_id)
+
     return trig
 
 
@@ -599,4 +616,8 @@ def create_trig_admin(
 
     db.commit()
     db.refresh(trig)
+
+    # Create trigstats row with coordinate distances
+    _get_trigstats_crud().update_trigstats_distances(db, int(trig.id))
+
     return trig

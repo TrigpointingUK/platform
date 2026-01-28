@@ -2,10 +2,11 @@
 CRUD operations for trigstats table.
 """
 
+import math
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Tuple
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,7 @@ from api.core.config import settings
 from api.core.logging import get_logger
 from api.crud.condition import get_found_condition_codes
 from api.models.tphoto import TPhoto
+from api.models.trig import Trig
 from api.models.trigstats import TrigStats
 from api.models.user import TLog
 from api.services.cache_service import get_redis_client
@@ -21,6 +23,163 @@ logger = get_logger(__name__)
 
 # Redis key for global mean score cache (follows fastapi:{environment}: pattern)
 GLOBAL_MEAN_TTL_SECONDS = 86400  # 24 hours
+
+# Attribute IDs for OSGB coordinates in attrval table
+ATTR_ID_EASTINGS = 4
+ATTR_ID_NORTHINGS = 5
+
+
+def _calculate_euclidean_distance(e1: float, n1: float, e2: float, n2: float) -> float:
+    """Calculate 2D Euclidean distance between two points in metres."""
+    return math.sqrt((e2 - e1) ** 2 + (n2 - n1) ** 2)
+
+
+def _get_attrval_osgb_coords(
+    db: Session, trig_id: int
+) -> Optional[Tuple[float, float]]:
+    """
+    Get OSGB coordinates from attrval table for a trigpoint.
+
+    Queries the attrval table via attrset_attrval and attrset to find
+    eastings (attr_id=4) and northings (attr_id=5) for the given trig.
+
+    Args:
+        db: Database session
+        trig_id: Trigpoint ID
+
+    Returns:
+        Tuple of (eastings, northings) or None if not found
+    """
+    # Query to get attrval coords for this trig
+    # attr_id=4 is eastings, attr_id=5 is northings
+    result = db.execute(
+        text("""
+            SELECT av.attr_id, av.value_double
+            FROM attrval av
+            INNER JOIN attrset_attrval aa ON aa.attrval_id = av.id
+            INNER JOIN attrset s ON aa.attrset_id = s.id
+            WHERE s.trig_id = :trig_id
+            AND av.attr_id IN (:attr_eastings, :attr_northings)
+            """),
+        {
+            "trig_id": trig_id,
+            "attr_eastings": ATTR_ID_EASTINGS,
+            "attr_northings": ATTR_ID_NORTHINGS,
+        },
+    ).fetchall()
+
+    if not result or len(result) < 2:
+        return None
+
+    eastings = None
+    northings = None
+
+    for row in result:
+        attr_id = row[0]
+        value = row[1]
+        if value is None:
+            continue
+        try:
+            coord_value = float(value)
+            if attr_id == ATTR_ID_EASTINGS:
+                eastings = coord_value
+            elif attr_id == ATTR_ID_NORTHINGS:
+                northings = coord_value
+        except (ValueError, TypeError):
+            continue
+
+    if eastings is None or northings is None:
+        return None
+
+    return (eastings, northings)
+
+
+def calculate_coordinate_distances(
+    db: Session, trig_id: int
+) -> Tuple[Optional[Decimal], Optional[Decimal]]:
+    """
+    Calculate coordinate discrepancy distances for a trigpoint.
+
+    Returns two distances:
+    1. dist_wgs_osgb: Distance between WGS84 coords (transformed via OSTN15)
+       and the stored OSGB coords in trig table
+    2. dist_osgb_osgb: Distance between trig.osgb* coords and attrval OSGB coords
+
+    Args:
+        db: Database session
+        trig_id: Trigpoint ID
+
+    Returns:
+        Tuple of (dist_wgs_osgb, dist_osgb_osgb), each may be None if
+        calculation is not possible (e.g., missing data, Irish grid)
+    """
+    # Get the trig record
+    trig = db.query(Trig).filter(Trig.id == trig_id).first()
+    if not trig:
+        return (None, None)
+
+    dist_wgs_osgb: Optional[Decimal] = None
+    dist_osgb_osgb: Optional[Decimal] = None
+
+    # Get stored OSGB coords from trig table
+    try:
+        trig_eastings = float(trig.osgb_eastings)
+        trig_northings = float(trig.osgb_northings)
+    except (ValueError, TypeError):
+        logger.warning(
+            "Cannot parse trig OSGB coords",
+            extra={"trig_id": trig_id},
+        )
+        return (None, None)
+
+    # Calculate dist_wgs_osgb: WGS84 -> OSTN15 -> compare with trig.osgb*
+    # Only for GB trigs (Irish grid uses different transformation)
+    gridref = str(trig.osgb_gridref) if trig.osgb_gridref else ""
+    is_irish_grid = gridref and gridref[0] in ("I", "J")  # Irish grid refs
+
+    if not is_irish_grid:
+        try:
+            from api.services.coordinate_service import convert_wgs84_to_osgb
+
+            wgs_lat = float(trig.wgs_lat)
+            wgs_lon = float(trig.wgs_long)
+
+            # Transform WGS84 to OSGB via OSTN15
+            transformed_e, transformed_n, _ = convert_wgs84_to_osgb(wgs_lon, wgs_lat)
+
+            # Calculate Euclidean distance
+            distance = _calculate_euclidean_distance(
+                transformed_e, transformed_n, trig_eastings, trig_northings
+            )
+            # Cap at 100km - larger values indicate bad data (or test fixtures)
+            # DECIMAL(10,4) can only store up to 999999.9999
+            if distance <= 100000:
+                dist_wgs_osgb = Decimal(str(round(distance, 4)))
+
+        except Exception as e:
+            logger.warning(
+                "Failed to calculate dist_wgs_osgb",
+                extra={"trig_id": trig_id, "error": str(e)},
+            )
+
+    # Calculate dist_osgb_osgb: trig.osgb* vs attrval coords
+    attrval_coords = _get_attrval_osgb_coords(db, trig_id)
+    if attrval_coords:
+        attr_eastings, attr_northings = attrval_coords
+        try:
+            distance = _calculate_euclidean_distance(
+                trig_eastings, trig_northings, attr_eastings, attr_northings
+            )
+            # Cap at 100km - larger values indicate bad data (or test fixtures)
+            if distance <= 100000:
+                dist_osgb_osgb = Decimal(str(round(distance, 4)))
+        except Exception as e:
+            logger.warning(
+                "Failed to calculate dist_osgb_osgb",
+                extra={"trig_id": trig_id, "error": str(e)},
+            )
+
+    return (dist_wgs_osgb, dist_osgb_osgb)
 
 
 def _get_global_mean_cache_key() -> str:
@@ -242,6 +401,12 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
     else:
         score_baysian = Decimal("0")
 
+    # Calculate coordinate discrepancy distances
+    dist_wgs_osgb, dist_osgb_osgb = calculate_coordinate_distances(db, trig_id)
+
+    t3b = time.time()
+    logger.info(f"update_trigstats: coordinate distances took {t3b - t3:.3f}s")
+
     # Upsert the trigstats row using PostgreSQL ON CONFLICT
     # Date columns are nullable - use NULL for "never logged/found"
     stmt = pg_insert(TrigStats).values(
@@ -254,6 +419,8 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
         photo_count=photo_count,
         score_mean=round(score_mean, 2),
         score_baysian=round(score_baysian, 2),
+        dist_wgs_osgb=dist_wgs_osgb,
+        dist_osgb_osgb=dist_osgb_osgb,
     )
 
     stmt = stmt.on_conflict_do_update(
@@ -267,6 +434,8 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
             "photo_count": stmt.excluded.photo_count,
             "score_mean": stmt.excluded.score_mean,
             "score_baysian": stmt.excluded.score_baysian,
+            "dist_wgs_osgb": stmt.excluded.dist_wgs_osgb,
+            "dist_osgb_osgb": stmt.excluded.dist_osgb_osgb,
         },
     )
 
@@ -291,3 +460,70 @@ def update_trigstats(db: Session, trig_id: int) -> Optional[TrigStats]:
     )
 
     return get_trigstats_by_id(db, trig_id)
+
+
+def update_trigstats_distances(db: Session, trig_id: int) -> None:
+    """
+    Update only the coordinate distance columns for a trigpoint.
+
+    Called when a trig is created or updated (coordinates may have changed).
+    If a trigstats row exists, updates only the distance columns.
+    If no trigstats row exists, creates one with zeros for stats and the
+    calculated distances.
+
+    Args:
+        db: Database session
+        trig_id: Trigpoint ID
+    """
+    # Calculate coordinate distances
+    dist_wgs_osgb, dist_osgb_osgb = calculate_coordinate_distances(db, trig_id)
+
+    # Check if trigstats row exists
+    existing = db.query(TrigStats).filter(TrigStats.id == trig_id).first()
+
+    if existing:
+        # Update only distance columns
+        existing.dist_wgs_osgb = dist_wgs_osgb  # type: ignore
+        existing.dist_osgb_osgb = dist_osgb_osgb  # type: ignore
+        db.commit()
+        logger.debug(
+            "Updated trigstats distances",
+            extra={
+                "trig_id": trig_id,
+                "dist_wgs_osgb": str(dist_wgs_osgb) if dist_wgs_osgb else None,
+                "dist_osgb_osgb": str(dist_osgb_osgb) if dist_osgb_osgb else None,
+            },
+        )
+    else:
+        # Create trigstats row with zero stats but calculated distances
+        stmt = pg_insert(TrigStats).values(
+            id=trig_id,
+            logged_first=None,
+            logged_last=None,
+            logged_count=0,
+            found_last=None,
+            found_count=0,
+            photo_count=0,
+            score_mean=Decimal("0"),
+            score_baysian=Decimal("0"),
+            dist_wgs_osgb=dist_wgs_osgb,
+            dist_osgb_osgb=dist_osgb_osgb,
+        )
+        # Use ON CONFLICT in case of race condition
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["id"],
+            set_={
+                "dist_wgs_osgb": stmt.excluded.dist_wgs_osgb,
+                "dist_osgb_osgb": stmt.excluded.dist_osgb_osgb,
+            },
+        )
+        db.execute(stmt)
+        db.commit()
+        logger.debug(
+            "Created trigstats row with distances",
+            extra={
+                "trig_id": trig_id,
+                "dist_wgs_osgb": str(dist_wgs_osgb) if dist_wgs_osgb else None,
+                "dist_osgb_osgb": str(dist_osgb_osgb) if dist_osgb_osgb else None,
+            },
+        )

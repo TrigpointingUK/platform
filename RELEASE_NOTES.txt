@@ -44,3 +44,11 @@ Added page for adding new trigs
 Added maintenance pages for type hierarchy, condition and status
 Added comparison between T:UK and OS Net active station data
 
+
+xx Feb 2026
+
+Main map scrolls more smoothly, with better caching and faster update of markers
+Small map now has lock icon allowing it to be panned
+County in trig details page now obtained from official shapefiles
+Fixed waypoints for new trigs
+Animated map of OSGB36 timeline
