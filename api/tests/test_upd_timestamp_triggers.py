@@ -56,7 +56,6 @@ def _create_trig(db: Session) -> Trig:
         osgb_gridref="TQ 30000 80000",
         osgb_height=95,
         postcode=None,
-        county="Testshire",
         town="Testville",
         permission_ind="Y",
         needs_attention=0,

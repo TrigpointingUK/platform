@@ -127,6 +127,25 @@ if [[ "$current_branch" == "main" || "$current_branch" == "develop" ]]; then
         fi
     fi
 
+    # Run Web checks if needed
+    if [[ "$run_web_checks" == true ]]; then
+        echo "🌐 Running Web CI checks (required for $current_branch with web/ changes)..."
+        # Use make targets which have proper error handling for vitest worker issues
+        if make web-lint && make web-type-check && make web-test; then
+            echo "✅ Web CI checks passed!"
+        else
+            echo "❌ Web CI checks FAILED for protected branch '$current_branch'"
+            echo ""
+            echo "🔧 Required fixes before push:"
+            echo "  1. make web-lint      # Fix linting errors"
+            echo "  2. make web-type-check # Fix TypeScript errors"
+            echo "  3. make web-test      # Fix failing tests"
+            echo ""
+            echo "🚫 PUSH BLOCKED until all Web checks pass"
+            exit 1
+        fi
+    fi
+
     # Additional check for main branch
     if [[ "$current_branch" == "main" ]]; then
         echo "⚠️  WARNING: Direct push to main branch detected!"
@@ -179,6 +198,19 @@ else
         else
             echo "❌ Terraform files need formatting!"
             echo "💡 Run: make format"
+            exit 1
+        fi
+    fi
+
+    # Run Web checks if needed
+    if [[ "$run_web_checks" == true ]]; then
+        echo "🌐 Running Web CI checks..."
+        # Use make targets which have proper error handling
+        if make web-lint && make web-type-check && make web-test; then
+            echo "✅ Web CI checks passed!"
+        else
+            echo "❌ Web CI checks failed!"
+            echo "💡 Fix issues and run: make web-lint && make web-type-check && make web-test"
             exit 1
         fi
     fi

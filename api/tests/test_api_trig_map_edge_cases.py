@@ -39,7 +39,6 @@ def create_test_trig(
         permission_ind="Y",
         condition="G",
         postcode=None,
-        county="London",
         town="Westminster",
         needs_attention=0,
         attention_comment="",

@@ -27,6 +27,7 @@ from api.api.deps import get_current_user_optional, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
 from api.core.logging import get_logger
 from api.core.metrics import get_metrics_collector
+from api.crud import area as area_crud
 from api.crud import attr as attr_crud
 from api.crud import tlog as tlog_crud
 from api.crud import tphoto as tphoto_crud
@@ -763,6 +764,10 @@ def _get_trig_cached(
             )
         if "details" in tokens:
             details_obj = TrigDetails.model_validate(trig)
+            # Override county with value from trig_area table (area_type_id=7 = county_1991)
+            county_name = area_crud.get_county_name_for_trig(db, trig_id)
+            if county_name:
+                details_obj.county = county_name
         if "stats" in tokens:
             stats = trigstats_crud.get_trigstats_by_id(db, trig_id=trig_id)
             if stats:

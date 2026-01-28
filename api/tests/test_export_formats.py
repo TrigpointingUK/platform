@@ -19,7 +19,6 @@ def _make_mock_trig(
     wgs_long: float = -0.1278,
     wgs_height: int = 100,
     osgb_gridref: str = "TQ 30000 80000",
-    county: str = "Greater London",
     fb_number: str = "S1234",
     type_code: str = "PILLAR",
     type_name: str = "Pillar",
@@ -37,7 +36,7 @@ def _make_mock_trig(
     mock_trig.wgs_long = wgs_long
     mock_trig.wgs_height = wgs_height
     mock_trig.osgb_gridref = osgb_gridref
-    mock_trig.county = county
+    # Note: county is now derived from trig_area table, passed via county_names dict
     mock_trig.fb_number = fb_number
 
     # Mock trig_type and category relationships

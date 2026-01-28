@@ -76,7 +76,6 @@ def existing_trigs(db: Session, test_user):
             osgb_northings=180000,
             osgb_gridref="TQ 30000 80000",
             osgb_height=0,
-            county="",
             town="",
             permission_ind="Y",
             needs_attention=0,
@@ -268,8 +267,8 @@ class TestCreateTrigAdmin:
         assert trig.admin_timestamp is not None
         assert trig.admin_ip_addr == "10.0.0.1"
 
-    def test_sets_county_and_town_to_empty(self, db: Session, admin_user):
-        """Test that county and town are set to empty strings (deprecated fields)."""
+    def test_sets_town_to_empty(self, db: Session, admin_user):
+        """Test that town is set to empty string (deprecated field)."""
         waypoint = f"TP{uuid.uuid4().hex[:6]}"
         trig_data = {
             "name": "Deprecated Fields Test",
@@ -288,7 +287,7 @@ class TestCreateTrigAdmin:
             trig_data=trig_data,
         )
 
-        assert trig.county == ""
+        # Note: county is now derived from trig_area table
         assert trig.town == ""
 
 

@@ -53,7 +53,6 @@ def create_test_trig(db: Session, condition: str) -> Trig:
         permission_ind="Y",
         condition=condition,
         postcode=None,
-        county="London",
         town="Westminster",
         needs_attention=0,
         attention_comment="",

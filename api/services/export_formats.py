@@ -13,6 +13,8 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from api.crud.area import COUNTY_1991_AREA_TYPE_ID, TRIG_AREA
+from api.models.area import Area
 from api.models.trig import Trig
 
 _KMZ_ICONS_DIR = Path(__file__).resolve().parents[1] / "assets" / "kmz" / "icons"
@@ -20,6 +22,48 @@ _KMZ_ICONS_DIR = Path(__file__).resolve().parents[1] / "assets" / "kmz" / "icons
 # Icon families supported by KMZ export (matches available `mapicon_*.png` assets)
 _KMZ_ICON_FAMILIES = ("pillar", "fbm", "passive", "intersected")
 _KMZ_ICON_COLOURS = ("green", "yellow", "red", "grey")
+
+
+def get_county_names_for_trigs(db: Session, trig_ids: list[int]) -> dict[int, str]:
+    """
+    Batch-fetch county names for a list of trigpoints.
+
+    Uses the trig_area table with area_type_id = 7 (county_1991).
+
+    Args:
+        db: Database session
+        trig_ids: List of trig IDs to look up
+
+    Returns:
+        Dict mapping trig_id to county name
+    """
+    if not trig_ids:
+        return {}
+
+    # Check if trig_area table exists before querying
+    try:
+        from typing import Any, cast
+
+        from sqlalchemy import inspect
+
+        inspector = cast(Any, inspect(db.bind))
+        if "trig_area" not in inspector.get_table_names():
+            return {}
+    except Exception:
+        return {}
+
+    # Query the trig_area table joined with area
+    results = (
+        db.query(TRIG_AREA.c.trig_id, Area.name)
+        .join(Area, Area.id == TRIG_AREA.c.area_id)
+        .filter(
+            TRIG_AREA.c.trig_id.in_(trig_ids),
+            TRIG_AREA.c.area_type_id == COUNTY_1991_AREA_TYPE_ID,
+        )
+        .all()
+    )
+
+    return {int(row[0]): str(row[1]) for row in results}
 
 
 def _get_category_info(trig: Trig) -> tuple[str, str]:
@@ -64,6 +108,7 @@ def _get_type_name(trig: Trig) -> str:
 def trigs_to_csv(
     trigs: list[Trig],
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
+    county_names: Optional[dict[int, str]] = None,
 ) -> str:
     """
     Convert trigpoints to CSV format.
@@ -71,6 +116,7 @@ def trigs_to_csv(
     Args:
         trigs: List of Trig objects
         user_logs: Optional mapping of trig_id to user's log data
+        county_names: Optional mapping of trig_id to county name (from trig_area)
 
     Returns:
         CSV string
@@ -131,7 +177,7 @@ def trigs_to_csv(
             "osgb_height": (
                 float(trig.osgb_height) if trig.osgb_height is not None else None
             ),
-            "county": trig.county,
+            "county": county_names.get(int(trig.id), "") if county_names else "",
             "town": trig.town,
             "fb_number": trig.fb_number,
             "current_use": trig.current_use,
@@ -160,6 +206,7 @@ def trigs_to_csv(
 def trigs_to_geojson(
     trigs: list[Trig],
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
+    county_names: Optional[dict[int, str]] = None,
 ) -> dict:
     """
     Convert trigpoints to GeoJSON FeatureCollection format.
@@ -167,6 +214,7 @@ def trigs_to_geojson(
     Args:
         trigs: List of Trig objects
         user_logs: Optional mapping of trig_id to user's log data
+        county_names: Optional mapping of trig_id to county name (from trig_area)
 
     Returns:
         GeoJSON dict
@@ -186,7 +234,7 @@ def trigs_to_geojson(
             "category_code": category_code,
             "category_name": category_name,
             "osgb_gridref": trig.osgb_gridref,
-            "county": trig.county,
+            "county": county_names.get(int(trig.id), "") if county_names else "",
             "town": trig.town,
             "fb_number": trig.fb_number,
         }
@@ -313,6 +361,7 @@ def trigs_to_gpx(
 def trigs_to_kml(
     trigs: list[Trig],
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
+    county_names: Optional[dict[int, str]] = None,
 ) -> str:
     """
     Convert trigpoints to KML format.
@@ -322,6 +371,7 @@ def trigs_to_kml(
     Args:
         trigs: List of Trig objects
         user_logs: Optional mapping of trig_id to user's log data
+        county_names: Optional mapping of trig_id to county name (from trig_area)
 
     Returns:
         KML XML string
@@ -373,8 +423,9 @@ def trigs_to_kml(
             f"<b>Grid Ref:</b> {escape_xml(str(trig.osgb_gridref))}<br/>",
             f"<b>Condition:</b> {escape_xml(str(trig.condition))}<br/>",
         ]
-        if trig.county:
-            desc_lines.append(f"<b>County:</b> {escape_xml(str(trig.county))}<br/>")
+        county = county_names.get(int(trig.id), "") if county_names else ""
+        if county:
+            desc_lines.append(f"<b>County:</b> {escape_xml(county)}<br/>")
         if trig.fb_number:
             desc_lines.append(
                 f"<b>FB Number:</b> {escape_xml(str(trig.fb_number))}<br/>"
@@ -489,6 +540,7 @@ def trigs_to_kmz(
     trigs: list[Trig],
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
     db: Optional[Session] = None,
+    county_names: Optional[dict[int, str]] = None,
 ) -> bytes:
     """
     Convert trigpoints to a KMZ (zipped KML + embedded icons).
@@ -499,6 +551,7 @@ def trigs_to_kmz(
         trigs: List of Trig objects
         user_logs: Optional mapping of trig_id to user's log data
         db: Optional database session for condition lookups
+        county_names: Optional mapping of trig_id to county name (from trig_area)
 
     Notes:
     - OS map thumbnails are NOT embedded (licence restriction); description HTML links to an API URL.

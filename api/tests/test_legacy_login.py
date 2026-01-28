@@ -543,7 +543,6 @@ class TestLegacyLoginIncludes:
             osgb_gridref="SK 00000 00000",
             osgb_height=100,
             postcode=None,
-            county="Test County",
             town="Test Town",
             permission_ind="Y",
             needs_attention=0,

@@ -117,8 +117,8 @@ class TestUserLogsFilteringEndpointParams:
     ):
         """Test that all filter parameters (except area_id) can be combined.
 
-        Note: area_id is not tested here as it requires the trig_area_mv
-        materialized view which isn't present in the test database.
+        Note: area_id is not tested here as it requires the trig_area
+        table which isn't present in the test database.
         """
         user_id = _get_test_user_id(db)
         resp = client.get(
@@ -190,8 +190,8 @@ class TestUserLogsFilteringLinks:
     ):
         """Test that pagination links include all filter parameters.
 
-        Note: area_id is not tested here as it requires the trig_area_mv
-        materialized view which isn't present in the test database.
+        Note: area_id is not tested here as it requires the trig_area
+        table which isn't present in the test database.
         """
         user_id = _get_test_user_id(db)
         resp = client.get(

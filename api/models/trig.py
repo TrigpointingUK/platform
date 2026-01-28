@@ -161,7 +161,7 @@ class Trig(Base):
         ForeignKey("postcodes.code", ondelete="SET NULL"),
         nullable=True,
     )  # Nearest postcode (FK to postcodes table, NULL if >5km away)
-    county = Column(String(20), nullable=False)  # County
+    # Note: county is now derived from trig_area join (area_type_id=7 = county_1991)
     town = Column(String(50), nullable=False)  # Town/area
 
     # Administrative fields

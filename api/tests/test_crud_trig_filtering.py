@@ -128,7 +128,6 @@ def seed_trigs_with_types(db: Session, seed_trig_types):
             osgb_gridref=f"TQ {30000 + i * 1000} 80000",
             osgb_height=95,
             condition="G",
-            county="London",
             town="Westminster",
             permission_ind="Y",
             needs_attention=0,

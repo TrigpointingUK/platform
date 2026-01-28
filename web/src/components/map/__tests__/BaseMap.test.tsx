@@ -12,6 +12,12 @@ const mockMapInstance = {
   setMaxZoom: vi.fn(),
   invalidateSize: vi.fn(),
   getZoom: vi.fn().mockReturnValue(7),
+  dragging: { enable: vi.fn(), disable: vi.fn() },
+  touchZoom: { enable: vi.fn(), disable: vi.fn() },
+  doubleClickZoom: { enable: vi.fn(), disable: vi.fn() },
+  boxZoom: { enable: vi.fn(), disable: vi.fn() },
+  keyboard: { enable: vi.fn(), disable: vi.fn() },
+  scrollWheelZoom: { enable: vi.fn(), disable: vi.fn() },
 };
 
 vi.mock('react-leaflet', () => ({

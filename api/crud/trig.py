@@ -7,9 +7,11 @@ from typing import List, Optional
 
 from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
-from sqlalchemy import Float, cast, false, func
+from sqlalchemy import Float, cast, false, func, select
 from sqlalchemy.orm import Session
 
+from api.crud.area import COUNTY_1991_AREA_TYPE_ID, TRIG_AREA
+from api.models.area import Area
 from api.models.trig import Trig
 from api.models.user import TLog
 
@@ -17,6 +19,21 @@ from api.models.user import TLog
 def _is_sqlite(db: Session) -> bool:
     """Check if the database is SQLite."""
     return db.bind.dialect.name == "sqlite"  # type: ignore[union-attr]
+
+
+def _trig_area_table_exists(db: Session) -> bool:
+    """Check if the trig_area table exists in the database."""
+    if _is_sqlite(db):
+        return False
+    try:
+        from typing import Any, cast
+
+        from sqlalchemy import inspect
+
+        inspector = cast(Any, inspect(db.bind))
+        return "trig_area" in inspector.get_table_names()
+    except Exception:
+        return False
 
 
 def _get_type_ids_for_codes(db: Session, type_codes: List[str]) -> List[int]:
@@ -68,24 +85,6 @@ def get_trig_by_waypoint(db: Session, waypoint: str) -> Optional[Trig]:
         Trig object or None if not found
     """
     return db.query(Trig).filter(Trig.waypoint == waypoint).first()
-
-
-def get_trigs_by_county(
-    db: Session, county: str, skip: int = 0, limit: int = 100
-) -> list[Trig]:
-    """
-    Get trigpoints by county.
-
-    Args:
-        db: Database session
-        county: County name
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-
-    Returns:
-        List of Trig objects
-    """
-    return db.query(Trig).filter(Trig.county == county).offset(skip).limit(limit).all()
 
 
 def search_trigs_by_name(
@@ -149,13 +148,13 @@ def list_trigs_filtered(
     if exclude_soft_deleted:
         query = query.filter(Trig.status_id < 90)
 
-    # Filter by area using trig_area_mv materialized view
+    # Filter by area using trig_area table
     if area_id is not None and not _is_sqlite(db):
         from sqlalchemy import text
 
         # Subquery to get trig_ids in the specified area
         area_subquery = text(
-            "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
+            "SELECT trig_id FROM trig_area WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
 
@@ -198,8 +197,17 @@ def list_trigs_filtered(
 
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
-    if county:
-        query = query.filter(Trig.county == county)
+    if county and _trig_area_table_exists(db):
+        # Filter by county using trig_area join (area_type_id=7 = county_1991)
+        county_subquery = (
+            select(TRIG_AREA.c.trig_id)
+            .join(Area, Area.id == TRIG_AREA.c.area_id)
+            .where(
+                TRIG_AREA.c.area_type_id == COUNTY_1991_AREA_TYPE_ID,
+                Area.name == county,
+            )
+        )
+        query = query.filter(Trig.id.in_(county_subquery))
 
     if center_lat is not None and center_lon is not None:
         # Use PostGIS for distance calculation (location column is now populated)
@@ -286,13 +294,13 @@ def count_trigs_filtered(
     if exclude_soft_deleted:
         query = query.filter(Trig.status_id < 90)
 
-    # Filter by area using trig_area_mv materialized view
+    # Filter by area using trig_area table
     if area_id is not None and not _is_sqlite(db):
         from sqlalchemy import text
 
         # Subquery to get trig_ids in the specified area
         area_subquery = text(
-            "SELECT trig_id FROM trig_area_mv WHERE area_id = :area_id"
+            "SELECT trig_id FROM trig_area WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
 
@@ -334,8 +342,17 @@ def count_trigs_filtered(
 
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
-    if county:
-        query = query.filter(Trig.county == county)
+    if county and _trig_area_table_exists(db):
+        # Filter by county using trig_area join (area_type_id=7 = county_1991)
+        county_subquery = (
+            select(TRIG_AREA.c.trig_id)
+            .join(Area, Area.id == TRIG_AREA.c.area_id)
+            .where(
+                TRIG_AREA.c.area_type_id == COUNTY_1991_AREA_TYPE_ID,
+                Area.name == county,
+            )
+        )
+        query = query.filter(Trig.id.in_(county_subquery))
 
     # Apply geo-distance filtering when max_km is specified
     # Note: Unlike list_trigs_filtered which also calculates distance for ordering,
@@ -553,7 +570,7 @@ def create_trig_admin(
         osgb_gridref=trig_data.get("osgb_gridref", ""),
         osgb_height=trig_data.get("osgb_height"),
         # Location (deprecated, use defaults)
-        county="",
+        # county is now derived from trig_area table
         town="",
         postcode=trig_data.get("postcode"),  # Auto-computed by endpoint
         # PostGIS location (set by endpoint if PostgreSQL)

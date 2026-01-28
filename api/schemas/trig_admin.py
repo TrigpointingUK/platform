@@ -58,7 +58,7 @@ class TrigAdminDetail(BaseModel):
     osgb_gridref: Optional[str] = ""
     osgb_height: Optional[Decimal] = None
     postcode: Optional[str] = ""
-    county: Optional[str] = ""
+    # Note: county is now derived from trig_area join in the /trigs endpoint
     town: Optional[str] = ""
     needs_attention: int
     attention_comment: Optional[str] = ""

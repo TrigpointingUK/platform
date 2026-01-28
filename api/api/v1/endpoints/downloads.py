@@ -21,6 +21,7 @@ from api.models.trig import Trig
 from api.models.user import TLog, User
 from api.services.download_limits import get_download_rate_limiter
 from api.services.export_formats import (
+    get_county_names_for_trigs,
     trigs_to_csv,
     trigs_to_geojson,
     trigs_to_gpx,
@@ -202,24 +203,28 @@ def download_trigs(
     if include_my_logs and user_id:
         user_logs = _get_user_logs_map(db, user_id)
 
+    # Batch-fetch county names for all trigs (from trig_area table)
+    trig_ids = [int(t.id) for t in trigs]
+    county_names = get_county_names_for_trigs(db, trig_ids)
+
     # Generate output in requested format
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     content: str | bytes
 
     if format == "csv":
-        content = trigs_to_csv(trigs, user_logs)
+        content = trigs_to_csv(trigs, user_logs, county_names)
         filename = f"trigpoints_{timestamp}.csv"
         media_type = "text/csv"
 
     elif format == "geojson":
         import json
 
-        content = json.dumps(trigs_to_geojson(trigs, user_logs), indent=2)
+        content = json.dumps(trigs_to_geojson(trigs, user_logs, county_names), indent=2)
         filename = f"trigpoints_{timestamp}.geojson"
         media_type = "application/geo+json"
 
     elif format == "kml":
-        content = trigs_to_kml(trigs, user_logs)
+        content = trigs_to_kml(trigs, user_logs, county_names)
         filename = f"trigpoints_{timestamp}.kml"
         media_type = "application/vnd.google-earth.kml+xml"
 
@@ -229,7 +234,7 @@ def download_trigs(
         media_type = "application/gpx+xml"
 
     elif format == "kmz":
-        content = trigs_to_kmz(trigs, user_logs, db=db)
+        content = trigs_to_kmz(trigs, user_logs, db=db, county_names=county_names)
         filename = f"trigpoints_{timestamp}.kmz"
         media_type = "application/vnd.google-earth.kmz"
 

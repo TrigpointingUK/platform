@@ -55,7 +55,6 @@ def location_search_data(db):
         osgb_northings=180000,
         osgb_gridref="TQ 30000 80000",
         osgb_height=100,
-        county="London",
         town="Westminster",
         permission_ind="Y",
         needs_attention=0,

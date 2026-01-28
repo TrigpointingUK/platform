@@ -16,6 +16,10 @@ interface HeatmapLayerProps {
  * Heatmap layer for displaying trigpoint density
  * 
  * Used when there are too many trigpoints to render as individual markers.
+ * 
+ * Note: The heatmap canvas only redraws on moveend (when dragging stops).
+ * This is a limitation of leaflet.heat - the canvas is positioned via CSS
+ * transforms during pan, so forcing redraws mid-pan causes misalignment.
  */
 export default function HeatmapLayer({
   trigpoints,

@@ -487,7 +487,7 @@ def make_trig(db, test_user):
             osgb_gridref=overrides.pop("osgb_gridref", "TQ 00000 00000"),
             osgb_height=overrides.pop("osgb_height", 0),
             postcode=overrides.pop("postcode", None),
-            county=overrides.pop("county", "Testshire"),
+            # Note: county is now derived from trig_area table
             town=overrides.pop("town", "Testtown"),
             permission_ind=overrides.pop("permission_ind", "Y"),
             needs_attention=overrides.pop("needs_attention", 0),

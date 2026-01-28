@@ -53,7 +53,6 @@ def seed_test_data(db: Session) -> tuple[User, TLog, TPhoto]:
         fb_number=f"FB{unique_suffix[:4]}",
         stn_number=f"STN{unique_suffix[:4]}",
         permission_ind="Y",
-        county="Testshire",
         town="Testtown",
         needs_attention=0,
         attention_comment="",
