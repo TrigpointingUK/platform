@@ -176,23 +176,26 @@ function TilePreloader({ tileLayer, bufferTiles = 3 }: { tileLayer: TileLayerTyp
       debounceTimerRef.current = setTimeout(preloadTiles, 200);
     };
 
+    // Handler for zoom changes - needs to be stored for proper cleanup
+    const handleZoomEnd = () => {
+      // Clear cache on zoom change since tile coordinates change
+      preloadedTilesRef.current.clear();
+      preloadTiles();
+    };
+
     // Initial preload
     preloadTiles();
 
     // Preload on movement
     map.on('moveend', debouncedPreload);
-    map.on('zoomend', () => {
-      // Clear cache on zoom change since tile coordinates change
-      preloadedTilesRef.current.clear();
-      preloadTiles();
-    });
+    map.on('zoomend', handleZoomEnd);
 
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
       map.off('moveend', debouncedPreload);
-      map.off('zoomend');
+      map.off('zoomend', handleZoomEnd);
     };
   }, [map, preloadTiles]);
 

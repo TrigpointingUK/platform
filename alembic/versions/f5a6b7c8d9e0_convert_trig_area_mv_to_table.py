@@ -212,14 +212,25 @@ def downgrade() -> None:
     op.execute(sa.text("DROP FUNCTION IF EXISTS trig_location_changed()"))
     op.execute(sa.text("DROP FUNCTION IF EXISTS refresh_trig_areas(INTEGER)"))
 
-    # 2. Recreate the materialized view from the table data
-    logger.info("Recreating trig_area_mv materialized view...")
+    # 2. Recreate the materialized view with the ORIGINAL spatial query
+    # (Must use the spatial join query, not SELECT FROM trig_area, because
+    # we're about to drop trig_area and the pg_cron refresh job needs a
+    # valid underlying query)
+    logger.info("Recreating trig_area_mv materialized view with spatial query...")
     op.execute(
         sa.text(
             """
         CREATE MATERIALIZED VIEW trig_area_mv AS
-        SELECT trig_id, area_id, area_type_id, area_type_code
-        FROM trig_area
+        SELECT 
+            t.id AS trig_id,
+            a.id AS area_id,
+            at.id AS area_type_id,
+            at.code AS area_type_code
+        FROM trig t
+        CROSS JOIN area a
+        JOIN area_type at ON a.area_type_id = at.id
+        WHERE t.location IS NOT NULL
+          AND ST_Covers(a.boundary::geometry, t.location::geometry)
         WITH DATA
         """
         )
