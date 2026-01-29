@@ -16,12 +16,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from api.crud.user import create_user
-from api.main import app
+from api.main import app  # noqa: F401 - needed for client fixture
 from api.models.trig import Trig
 from api.models.user import TLog
-
-client = TestClient(app)
-
 
 # ============================================================================
 # Fixtures
@@ -157,15 +154,19 @@ class TestMoveTrigToLogLocation:
     """Tests for the move trig to log location endpoint."""
 
     def test_move_trig_to_log_location_success(
-        self, db: Session, test_trig, test_log_with_location, admin_user
+        self,
+        client: TestClient,
+        db: Session,
+        test_trig,
+        test_log_with_location,
+        admin_user,
     ):
         """Test successfully moving a trig to a log's location."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             response = client.post(
@@ -191,14 +192,15 @@ class TestMoveTrigToLogLocation:
             # Check needs_attention was NOT changed
             assert data["needs_attention"] == 0
 
-    def test_move_trig_to_log_location_not_found_trig(self, db: Session, admin_user):
+    def test_move_trig_to_log_location_not_found_trig(
+        self, client: TestClient, db: Session, admin_user
+    ):
         """Test moving a non-existent trig."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             response = client.post(
@@ -210,15 +212,14 @@ class TestMoveTrigToLogLocation:
             assert "Trigpoint not found" in response.json()["detail"]
 
     def test_move_trig_to_log_location_not_found_log(
-        self, db: Session, test_trig, admin_user
+        self, client: TestClient, db: Session, test_trig, admin_user
     ):
         """Test moving to a non-existent log."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             response = client.post(
@@ -230,7 +231,7 @@ class TestMoveTrigToLogLocation:
             assert "Log not found" in response.json()["detail"]
 
     def test_move_trig_to_log_wrong_trig(
-        self, db: Session, test_trig, test_user, admin_user
+        self, client: TestClient, db: Session, test_trig, test_user, admin_user
     ):
         """Test moving with a log that belongs to a different trig."""
         # Create another trig
@@ -282,8 +283,7 @@ class TestMoveTrigToLogLocation:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             # Try to move test_trig using other_log (which belongs to other_trig)
@@ -296,15 +296,19 @@ class TestMoveTrigToLogLocation:
             assert "does not belong to trig" in response.json()["detail"]
 
     def test_move_trig_to_log_no_location(
-        self, db: Session, test_trig, test_log_without_location, admin_user
+        self,
+        client: TestClient,
+        db: Session,
+        test_trig,
+        test_log_without_location,
+        admin_user,
     ):
         """Test moving with a log that has no location data."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             response = client.post(
@@ -325,15 +329,19 @@ class TestSetTrigConditionFromLog:
     """Tests for the set trig condition from log endpoint."""
 
     def test_set_condition_success(
-        self, db: Session, test_trig, test_log_with_location, admin_user
+        self,
+        client: TestClient,
+        db: Session,
+        test_trig,
+        test_log_with_location,
+        admin_user,
     ):
         """Test successfully setting a trig's condition from a log."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             # Trig starts with 'G', log has 'D'
@@ -359,14 +367,15 @@ class TestSetTrigConditionFromLog:
             # Check needs_attention was NOT changed
             assert data["needs_attention"] == 0
 
-    def test_set_condition_not_found_trig(self, db: Session, admin_user):
+    def test_set_condition_not_found_trig(
+        self, client: TestClient, db: Session, admin_user
+    ):
         """Test setting condition for a non-existent trig."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             response = client.post(
@@ -377,14 +386,15 @@ class TestSetTrigConditionFromLog:
             assert response.status_code == 404
             assert "Trigpoint not found" in response.json()["detail"]
 
-    def test_set_condition_not_found_log(self, db: Session, test_trig, admin_user):
+    def test_set_condition_not_found_log(
+        self, client: TestClient, db: Session, test_trig, admin_user
+    ):
         """Test setting condition from a non-existent log."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             response = client.post(
@@ -396,7 +406,7 @@ class TestSetTrigConditionFromLog:
             assert "Log not found" in response.json()["detail"]
 
     def test_set_condition_wrong_trig(
-        self, db: Session, test_trig, test_user, admin_user
+        self, client: TestClient, db: Session, test_trig, test_user, admin_user
     ):
         """Test setting condition with a log that belongs to a different trig."""
         # Create another trig
@@ -445,8 +455,7 @@ class TestSetTrigConditionFromLog:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             # Try to set test_trig condition using other_log
@@ -459,15 +468,19 @@ class TestSetTrigConditionFromLog:
             assert "does not belong to trig" in response.json()["detail"]
 
     def test_set_condition_log_no_condition(
-        self, db: Session, test_trig, test_log_without_condition, admin_user
+        self,
+        client: TestClient,
+        db: Session,
+        test_trig,
+        test_log_without_condition,
+        admin_user,
     ):
         """Test setting condition from a log that has no condition."""
         with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
             mock.return_value = {
                 "token_type": "auth0",
                 "auth0_user_id": admin_user.auth0_user_id,
-                "sub": admin_user.auth0_user_id,
-                "scope": "api:write api:admin",
+                "permissions": ["api:admin"],
             }
 
             response = client.post(
