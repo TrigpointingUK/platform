@@ -804,6 +804,37 @@ export async function createTrigAdmin(
 }
 
 /**
+ * Move a trigpoint's location to match a log's location (admin only)
+ * Sets condition to 'M' and updates wgs_*, osgb_*, and location fields
+ */
+export async function moveTrigToLogLocation(
+  trigId: number,
+  logId: number,
+  token: string
+): Promise<TrigAdminDetail> {
+  return apiPost<TrigAdminDetail>(
+    `/v1/admin/trigs/${trigId}/move-to-log/${logId}`,
+    {},
+    token
+  );
+}
+
+/**
+ * Set a trigpoint's condition to match a log's condition (admin only)
+ */
+export async function setTrigConditionFromLog(
+  trigId: number,
+  logId: number,
+  token: string
+): Promise<TrigAdminDetail> {
+  return apiPost<TrigAdminDetail>(
+    `/v1/admin/trigs/${trigId}/set-condition-from-log/${logId}`,
+    {},
+    token
+  );
+}
+
+/**
  * Get all status records for dropdowns
  */
 export async function fetchStatuses(token: string): Promise<StatusRecord[]> {
