@@ -338,7 +338,36 @@ export default function TrigInfoSection({
                   <span className="font-semibold text-gray-700 dark:text-gray-300">
                     Grid reference{trig.details.original_grid_system === 'ie' ? ' (Irish)' : ''}:
                   </span>{" "}
-                  {trig.details.original_osgb_gridref}
+                  {trig.details.original_wgs_lat != null && trig.details.original_wgs_long != null ? (
+                    isInternalMapLink(mapLinkGridref) ? (
+                      <Link
+                        to={getTrigpointingUKMapPath({
+                          trigId: trigIdNum,
+                          wgsLat: Number(trig.details.original_wgs_lat),
+                          wgsLong: Number(trig.details.original_wgs_long),
+                        })}
+                        className="text-trig-green-600 hover:underline"
+                      >
+                        {trig.details.original_osgb_gridref}
+                      </Link>
+                    ) : (
+                      <a
+                        href={generateMapUrl(mapLinkGridref, {
+                          trigId: trigIdNum,
+                          wgsLat: Number(trig.details.original_wgs_lat),
+                          wgsLong: Number(trig.details.original_wgs_long),
+                          gridSystem: trig.details.original_grid_system as 'gb' | 'ie' | null,
+                        }) || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-trig-green-600 hover:underline"
+                      >
+                        {trig.details.original_osgb_gridref}
+                      </a>
+                    )
+                  ) : (
+                    trig.details.original_osgb_gridref
+                  )}
                 </div>
                 {trig.details.original_wgs_lat != null && trig.details.original_wgs_long != null && (
                   <>
@@ -346,7 +375,32 @@ export default function TrigInfoSection({
                       <span className="font-semibold text-gray-700 dark:text-gray-300">
                         WGS coordinates:
                       </span>{" "}
-                      {Number(trig.details.original_wgs_lat).toFixed(7)}, {Number(trig.details.original_wgs_long).toFixed(7)}
+                      {isInternalMapLink(mapLinkWgs) ? (
+                        <Link
+                          to={getTrigpointingUKMapPath({
+                            trigId: trigIdNum,
+                            wgsLat: Number(trig.details.original_wgs_lat),
+                            wgsLong: Number(trig.details.original_wgs_long),
+                          })}
+                          className="text-trig-green-600 hover:underline"
+                        >
+                          {Number(trig.details.original_wgs_lat).toFixed(7)}, {Number(trig.details.original_wgs_long).toFixed(7)}
+                        </Link>
+                      ) : (
+                        <a
+                          href={generateMapUrl(mapLinkWgs, {
+                            trigId: trigIdNum,
+                            wgsLat: Number(trig.details.original_wgs_lat),
+                            wgsLong: Number(trig.details.original_wgs_long),
+                            gridSystem: trig.details.original_grid_system as 'gb' | 'ie' | null,
+                          }) || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-trig-green-600 hover:underline"
+                        >
+                          {Number(trig.details.original_wgs_lat).toFixed(7)}, {Number(trig.details.original_wgs_long).toFixed(7)}
+                        </a>
+                      )}
                     </div>
                     <div className="md:col-span-2 flex items-center gap-2">
                       <span className="font-semibold text-gray-700 dark:text-gray-300">
