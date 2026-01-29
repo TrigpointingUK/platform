@@ -255,22 +255,25 @@ class TestAdminTrigOriginalLocation:
         """Test that GET /admin/trigs/{id} returns original location fields."""
         trig = test_trig_with_original_location
 
-        # Mock admin authentication
-        with patch("api.api.v1.endpoints.admin.require_admin") as mock_admin:
-            mock_admin.return_value = lambda: admin_user
+        # Mock admin authentication using the standard pattern for this codebase
+        with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
+            mock.return_value = {
+                "token_type": "auth0",
+                "auth0_user_id": admin_user.auth0_user_id,
+                "permissions": ["api:admin"],
+            }
 
             response = client.get(
                 f"/v1/admin/trigs/{trig.id}",
                 headers={"Authorization": "Bearer test-token"},
             )
 
-            # May get 401 in test without proper auth setup, but schema is what we're testing
-            if response.status_code == 200:
-                data = response.json()
-                assert "original_wgs_lat" in data
-                assert "original_wgs_long" in data
-                assert "original_osgb_gridref" in data
-                assert "original_provenance" in data
+            assert response.status_code == 200
+            data = response.json()
+            assert "original_wgs_lat" in data
+            assert "original_wgs_long" in data
+            assert "original_osgb_gridref" in data
+            assert "original_provenance" in data
 
     def test_original_location_serialization(self, test_trig_with_original_location):
         """Test that original location fields are properly serialized."""
