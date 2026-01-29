@@ -110,6 +110,20 @@ export default function TrigEdit() {
   const [action, setAction] = useState<"solved" | "revisit" | "cant_fix">("revisit");
   const [adminComment, setAdminComment] = useState("");
 
+  // Original location fields
+  const [originalWgsLat, setOriginalWgsLat] = useState<string>("");
+  const [originalWgsLong, setOriginalWgsLong] = useState<string>("");
+  const [originalOsgbEastings, setOriginalOsgbEastings] = useState<string>("");
+  const [originalOsgbNorthings, setOriginalOsgbNorthings] = useState<string>("");
+  const [originalOsgbGridref, setOriginalOsgbGridref] = useState<string>("");
+  const [originalGridSystem, setOriginalGridSystem] = useState<string>("");
+  const [originalProvenance, setOriginalProvenance] = useState<string>("");
+  const [originalWgsHeight, setOriginalWgsHeight] = useState<string>("");
+  const [originalOsgbHeight, setOriginalOsgbHeight] = useState<string>("");
+
+  // Key to force LinkedCoordinates re-mount when restoring from original
+  const [coordinatesKey, setCoordinatesKey] = useState(0);
+
   useEffect(() => {
     if (!hasAdminRole || !hasAdminScope || !trigId) {
       return;
@@ -156,6 +170,16 @@ export default function TrigEdit() {
           setOsgbGridref(trigData.osgb_gridref);
           setOsgbHeight(trigData.osgb_height);
           setLegalMessage(trigData.legal_message || "");
+          // Original location fields
+          setOriginalWgsLat(trigData.original_wgs_lat !== null ? Number(trigData.original_wgs_lat).toFixed(8) : "");
+          setOriginalWgsLong(trigData.original_wgs_long !== null ? Number(trigData.original_wgs_long).toFixed(8) : "");
+          setOriginalOsgbEastings(trigData.original_osgb_eastings !== null ? String(trigData.original_osgb_eastings) : "");
+          setOriginalOsgbNorthings(trigData.original_osgb_northings !== null ? String(trigData.original_osgb_northings) : "");
+          setOriginalOsgbGridref(trigData.original_osgb_gridref || "");
+          setOriginalGridSystem(trigData.original_grid_system || "");
+          setOriginalProvenance(trigData.original_provenance || "");
+          setOriginalWgsHeight(trigData.original_wgs_height !== null ? String(trigData.original_wgs_height) : "");
+          setOriginalOsgbHeight(trigData.original_osgb_height !== null ? String(trigData.original_osgb_height) : "");
         }
       } catch (err) {
         if (!cancelled) {
@@ -226,6 +250,15 @@ export default function TrigEdit() {
           osgb_northings: osgbNorthings,
           osgb_gridref: osgbGridref,
           osgb_height: osgbHeight,
+          original_wgs_lat: originalWgsLat || null,
+          original_wgs_long: originalWgsLong || null,
+          original_osgb_eastings: originalOsgbEastings || null,
+          original_osgb_northings: originalOsgbNorthings || null,
+          original_osgb_gridref: originalOsgbGridref || null,
+          original_grid_system: originalGridSystem || null,
+          original_provenance: originalProvenance || null,
+          original_wgs_height: originalWgsHeight || null,
+          original_osgb_height: originalOsgbHeight || null,
           legal_message: legalMessage || null,
           action,
           admin_comment: adminComment,
@@ -529,6 +562,7 @@ export default function TrigEdit() {
               Coordinates
             </h2>
             <LinkedCoordinates
+              key={coordinatesKey}
               wgsLat={wgsLat}
               wgsLong={wgsLong}
               wgsHeight={wgsHeight}
@@ -540,6 +574,86 @@ export default function TrigEdit() {
               onWgsChange={handleWgsChange}
               onOsgbChange={handleOsgbChange}
             />
+          </Card>
+
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                Original OS Location
+              </h2>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  // Copy original coordinates to current
+                  if (originalWgsLat) setWgsLat(originalWgsLat);
+                  if (originalWgsLong) setWgsLong(originalWgsLong);
+                  if (originalOsgbEastings) setOsgbEastings(parseFloat(originalOsgbEastings));
+                  if (originalOsgbNorthings) setOsgbNorthings(parseFloat(originalOsgbNorthings));
+                  if (originalOsgbGridref) setOsgbGridref(originalOsgbGridref);
+                  if (originalWgsHeight) setWgsHeight(parseFloat(originalWgsHeight));
+                  if (originalOsgbHeight) setOsgbHeight(parseFloat(originalOsgbHeight));
+                  // Force LinkedCoordinates to re-mount with new values
+                  setCoordinatesKey(k => k + 1);
+                }}
+                disabled={!originalWgsLat || !originalWgsLong}
+              >
+                Restore from Original
+              </Button>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              The official OS-published location. Use &quot;Restore from Original&quot; to copy these values to the current coordinates above.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Grid Reference:</span>{" "}
+                <span className="text-gray-600 dark:text-gray-400 font-mono">
+                  {originalOsgbGridref || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Grid System:</span>{" "}
+                <span className="text-gray-600 dark:text-gray-400">
+                  {originalGridSystem === "gb" ? "British National Grid" : originalGridSystem === "ie" ? "Irish Grid" : "—"}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">WGS84:</span>{" "}
+                <span className="text-gray-600 dark:text-gray-400 font-mono">
+                  {originalWgsLat && originalWgsLong ? `${originalWgsLat}, ${originalWgsLong}` : "—"}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Eastings:</span>{" "}
+                <span className="text-gray-600 dark:text-gray-400 font-mono">
+                  {originalOsgbEastings || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Northings:</span>{" "}
+                <span className="text-gray-600 dark:text-gray-400 font-mono">
+                  {originalOsgbNorthings || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">WGS84 Height:</span>{" "}
+                <span className="text-gray-600 dark:text-gray-400 font-mono">
+                  {originalWgsHeight ? `${originalWgsHeight}m` : "—"}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">OSGB Height:</span>{" "}
+                <span className="text-gray-600 dark:text-gray-400 font-mono">
+                  {originalOsgbHeight ? `${originalOsgbHeight}m` : "—"}
+                </span>
+              </div>
+              <div className="md:col-span-2 lg:col-span-3">
+                <span className="font-medium text-gray-700 dark:text-gray-300">Provenance:</span>{" "}
+                <span className="text-gray-600 dark:text-gray-400">
+                  {originalProvenance || "—"}
+                </span>
+              </div>
+            </div>
           </Card>
 
           <Card>

@@ -192,5 +192,39 @@ class Trig(Base):
         Text, nullable=True
     )  # Optional legal/access message displayed on detail page (HTML)
 
+    # Original location columns - official OS-published location
+    # Base columns (wgs_*, osgb_*) store current/actual location
+    # These columns store the original OS coordinates (may differ if trig has moved)
+    original_wgs_lat: Any = Column(
+        DECIMAL(11, 8), nullable=True
+    )  # Official OS WGS84 latitude
+    original_wgs_long: Any = Column(
+        DECIMAL(12, 8), nullable=True
+    )  # Official OS WGS84 longitude
+    original_osgb_eastings: Any = Column(
+        DECIMAL(10, 4), nullable=True
+    )  # Official OS grid eastings
+    original_osgb_northings: Any = Column(
+        DECIMAL(11, 4), nullable=True
+    )  # Official OS grid northings
+    original_osgb_gridref = Column(
+        String(14), nullable=True
+    )  # Official OS grid reference
+    original_grid_system = Column(CHAR(2), nullable=True)  # Grid system: 'gb' or 'ie'
+    original_location = Column(
+        Geography(geometry_type="POINT", srid=4326) if not _IS_SQLITE else String(100),
+        nullable=True,
+        index=(True if not _IS_SQLITE else False),
+    )  # PostGIS point for original location spatial queries
+    original_provenance = Column(
+        Text, nullable=True
+    )  # Notes for data cleansing tracking
+    original_wgs_height: Any = Column(
+        DECIMAL(8, 4), nullable=True
+    )  # Official OS WGS84 height in metres
+    original_osgb_height: Any = Column(
+        DECIMAL(8, 4), nullable=True
+    )  # Official OS OSGB height in metres
+
     def __repr__(self):
         return f"<Trig(id={self.id}, waypoint='{self.waypoint}', name='{self.name}')>"

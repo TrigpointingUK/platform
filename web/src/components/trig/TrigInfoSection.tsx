@@ -2,11 +2,13 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
+import DirectionArrow from "../ui/DirectionArrow";
 import { Trig } from "../../lib/api";
 import { useAreasContaining, type Area } from "../../hooks/useAreasContaining";
 import { useUserProfile, type MapLinkOption } from "../../hooks/useUserProfile";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
 import { generateMapUrl, getTrigpointingUKMapPath, isInternalMapLink, MAP_LINK_DEFAULTS } from "../../lib/mapLinks";
+import { calculateDistance, calculateBearing } from "../../lib/coordinates";
 
 interface TrigInfoSectionProps {
   trig: Trig;
@@ -325,8 +327,60 @@ export default function TrigInfoSection({
             )}
           </div>
 
+          {/* Original OS Location - shown when condition is 'M' (Moved) */}
+          {trig.condition === 'M' && trig.details?.original_osgb_gridref && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Original OS Location
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    Grid reference{trig.details.original_grid_system === 'ie' ? ' (Irish)' : ''}:
+                  </span>{" "}
+                  {trig.details.original_osgb_gridref}
+                </div>
+                {trig.details.original_wgs_lat != null && trig.details.original_wgs_long != null && (
+                  <>
+                    <div>
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
+                        WGS coordinates:
+                      </span>{" "}
+                      {Number(trig.details.original_wgs_lat).toFixed(7)}, {Number(trig.details.original_wgs_long).toFixed(7)}
+                    </div>
+                    <div className="md:col-span-2 flex items-center gap-2">
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
+                        Distance from original:
+                      </span>{" "}
+                      {(() => {
+                        const distanceMetres = calculateDistance(
+                          Number(trig.details.original_wgs_lat),
+                          Number(trig.details.original_wgs_long),
+                          Number(trig.wgs_lat),
+                          Number(trig.wgs_long)
+                        );
+                        const bearing = calculateBearing(
+                          Number(trig.details.original_wgs_lat),
+                          Number(trig.details.original_wgs_long),
+                          Number(trig.wgs_lat),
+                          Number(trig.wgs_long)
+                        );
+                        return (
+                          <>
+                            <span>{distanceMetres < 1000 ? `${Math.round(distanceMetres)}m` : `${(distanceMetres / 1000).toFixed(2)}km`}</span>
+                            <DirectionArrow bearing={bearing} size={14} />
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Map Links */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
                 <Link

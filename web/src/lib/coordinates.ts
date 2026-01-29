@@ -1,4 +1,32 @@
 /**
+ * Calculate bearing from one WGS84 coordinate to another
+ * Returns bearing in degrees (0 = North, 90 = East, etc.)
+ */
+export function calculateBearing(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const toDegrees = (radians: number) => (radians * 180) / Math.PI;
+
+  const dLon = toRadians(lon2 - lon1);
+  const lat1Rad = toRadians(lat1);
+  const lat2Rad = toRadians(lat2);
+
+  const y = Math.sin(dLon) * Math.cos(lat2Rad);
+  const x =
+    Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+    Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+
+  const bearing = toDegrees(Math.atan2(y, x));
+
+  // Normalize to 0-360 degrees
+  return (bearing + 360) % 360;
+}
+
+/**
  * Calculate distance between two WGS84 coordinates using Haversine formula
  * Returns distance in meters
  */
