@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
@@ -111,21 +111,24 @@ export default function Experiments() {
 
   // Parse URL parameters with defaults
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
-  const sortField = ((): CoordinateDiscrepancySortField => {
+  const sortField = useMemo((): CoordinateDiscrepancySortField => {
     const param = searchParams.get("sort");
     return VALID_SORT_FIELDS.includes(param as CoordinateDiscrepancySortField)
       ? (param as CoordinateDiscrepancySortField)
       : "dist_wgs_osgb";
-  })();
+  }, [searchParams]);
   const sortOrder: SortOrder = searchParams.get("order") === "asc" ? "asc" : "desc";
-  const sort: SortState = { field: sortField, order: sortOrder };
+  const sort: SortState = useMemo(
+    () => ({ field: sortField, order: sortOrder }),
+    [sortField, sortOrder]
+  );
   const excludeIrish = searchParams.get("excludeIrish") === "true";
-  const movedFilter: MovedFilter = ((): MovedFilter => {
+  const movedFilter: MovedFilter = useMemo((): MovedFilter => {
     const param = searchParams.get("moved");
     return VALID_MOVED_FILTERS.includes(param as MovedFilter)
       ? (param as MovedFilter)
       : "all";
-  })();
+  }, [searchParams]);
 
   // Helper to update URL params while preserving other params
   const updateParams = useCallback(
