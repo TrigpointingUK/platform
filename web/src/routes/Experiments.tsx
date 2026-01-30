@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
@@ -88,20 +88,105 @@ function getDistanceColourClass(value: number | null): string {
   return "text-red-600 dark:text-red-400";
 }
 
+// Valid sort fields for validation
+const VALID_SORT_FIELDS: CoordinateDiscrepancySortField[] = [
+  "waypoint",
+  "name",
+  "dist_wgs_osgb",
+  "dist_osgb_osgb",
+  "dist_wgs_original",
+];
+
+// Valid moved filter values
+const VALID_MOVED_FILTERS: MovedFilter[] = ["all", "exclude_moved", "only_moved"];
+
 export default function Experiments() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<CoordinateDiscrepancyItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [sort, setSort] = useState<SortState>({
-    field: "dist_wgs_osgb",
-    order: "desc",
-  });
-  const [excludeIrish, setExcludeIrish] = useState(false);
-  const [movedFilter, setMovedFilter] = useState<MovedFilter>("all");
   const perPage = 50;
+
+  // Parse URL parameters with defaults
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+  const sortField = useMemo((): CoordinateDiscrepancySortField => {
+    const param = searchParams.get("sort");
+    return VALID_SORT_FIELDS.includes(param as CoordinateDiscrepancySortField)
+      ? (param as CoordinateDiscrepancySortField)
+      : "dist_wgs_osgb";
+  }, [searchParams]);
+  const sortOrder: SortOrder = searchParams.get("order") === "asc" ? "asc" : "desc";
+  const sort: SortState = useMemo(
+    () => ({ field: sortField, order: sortOrder }),
+    [sortField, sortOrder]
+  );
+  const excludeIrish = searchParams.get("excludeIrish") === "true";
+  const movedFilter: MovedFilter = useMemo((): MovedFilter => {
+    const param = searchParams.get("moved");
+    return VALID_MOVED_FILTERS.includes(param as MovedFilter)
+      ? (param as MovedFilter)
+      : "all";
+  }, [searchParams]);
+
+  // Helper to update URL params while preserving other params
+  const updateParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        for (const [key, value] of Object.entries(updates)) {
+          if (value === null) {
+            newParams.delete(key);
+          } else {
+            newParams.set(key, value);
+          }
+        }
+        return newParams;
+      });
+    },
+    [setSearchParams]
+  );
+
+  const setPage = useCallback(
+    (newPage: number | ((prev: number) => number)) => {
+      const resolvedPage = typeof newPage === "function" ? newPage(page) : newPage;
+      updateParams({ page: resolvedPage === 1 ? null : String(resolvedPage) });
+    },
+    [page, updateParams]
+  );
+
+  const setSort = useCallback(
+    (newSort: SortState | ((prev: SortState) => SortState)) => {
+      const resolvedSort = typeof newSort === "function" ? newSort(sort) : newSort;
+      updateParams({
+        sort: resolvedSort.field === "dist_wgs_osgb" ? null : resolvedSort.field,
+        order: resolvedSort.order === "desc" ? null : resolvedSort.order,
+        page: null, // Reset page when sorting changes
+      });
+    },
+    [sort, updateParams]
+  );
+
+  const setExcludeIrish = useCallback(
+    (value: boolean) => {
+      updateParams({
+        excludeIrish: value ? "true" : null,
+        page: null, // Reset page when filter changes
+      });
+    },
+    [updateParams]
+  );
+
+  const setMovedFilter = useCallback(
+    (value: MovedFilter) => {
+      updateParams({
+        moved: value === "all" ? null : value,
+        page: null, // Reset page when filter changes
+      });
+    },
+    [updateParams]
+  );
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -136,7 +221,7 @@ export default function Experiments() {
       field,
       order: prev.field === field && prev.order === "desc" ? "asc" : "desc",
     }));
-    setPage(1); // Reset to first page when sorting changes
+    // Note: page reset is handled in setSort
   };
 
   return (
@@ -195,10 +280,7 @@ export default function Experiments() {
                   type="button"
                   role="switch"
                   aria-checked={excludeIrish}
-                  onClick={() => {
-                    setExcludeIrish(!excludeIrish);
-                    setPage(1);
-                  }}
+                  onClick={() => setExcludeIrish(!excludeIrish)}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-trig-green-500 focus:ring-offset-2 ${
                     excludeIrish
                       ? "bg-trig-green-600"
@@ -221,10 +303,7 @@ export default function Experiments() {
                 <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
                   <button
                     type="button"
-                    onClick={() => {
-                      setMovedFilter("exclude_moved");
-                      setPage(1);
-                    }}
+                    onClick={() => setMovedFilter("exclude_moved")}
                     className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                       movedFilter === "exclude_moved"
                         ? "bg-trig-green-600 text-white"
@@ -235,10 +314,7 @@ export default function Experiments() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setMovedFilter("all");
-                      setPage(1);
-                    }}
+                    onClick={() => setMovedFilter("all")}
                     className={`px-3 py-1.5 text-sm font-medium border-x border-gray-300 dark:border-gray-600 transition-colors ${
                       movedFilter === "all"
                         ? "bg-trig-green-600 text-white"
@@ -249,10 +325,7 @@ export default function Experiments() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setMovedFilter("only_moved");
-                      setPage(1);
-                    }}
+                    onClick={() => setMovedFilter("only_moved")}
                     className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                       movedFilter === "only_moved"
                         ? "bg-trig-green-600 text-white"

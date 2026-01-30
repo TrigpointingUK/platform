@@ -686,24 +686,6 @@ export interface TrigAdminUpdate {
   osgb_gridref: string;
   /** OSGB height in metres (4dp precision, 0.1mm) */
   osgb_height: number | null;
-  /** Original OS WGS84 latitude */
-  original_wgs_lat: number | string | null;
-  /** Original OS WGS84 longitude */
-  original_wgs_long: number | string | null;
-  /** Original OS grid eastings */
-  original_osgb_eastings: number | string | null;
-  /** Original OS grid northings */
-  original_osgb_northings: number | string | null;
-  /** Original OS grid reference */
-  original_osgb_gridref: string | null;
-  /** Grid system for original location: 'gb' or 'ie' */
-  original_grid_system: string | null;
-  /** Notes for data cleansing tracking */
-  original_provenance: string | null;
-  /** Original OS WGS84 height in metres */
-  original_wgs_height: number | string | null;
-  /** Original OS OSGB height in metres */
-  original_osgb_height: number | string | null;
   legal_message: string | null;
   action: "solved" | "revisit" | "cant_fix";
   admin_comment: string;

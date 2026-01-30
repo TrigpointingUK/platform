@@ -876,16 +876,7 @@ def update_trig_admin(
         "needs_attention": needs_attention_value,
         "attention_comment": updated_attention_comment,
         "legal_message": update_data.legal_message,  # NULL clears the message
-        # Original location fields - official OS-published location
-        "original_wgs_lat": update_data.original_wgs_lat,
-        "original_wgs_long": update_data.original_wgs_long,
-        "original_osgb_eastings": update_data.original_osgb_eastings,
-        "original_osgb_northings": update_data.original_osgb_northings,
-        "original_osgb_gridref": update_data.original_osgb_gridref,
-        "original_grid_system": update_data.original_grid_system,
-        "original_provenance": update_data.original_provenance,
-        "original_wgs_height": update_data.original_wgs_height,
-        "original_osgb_height": update_data.original_osgb_height,
+        # Note: original_* fields are read-only and not updatable via API
     }
 
     # Update PostGIS location from WGS84 coordinates (PostgreSQL only)
@@ -896,16 +887,6 @@ def update_trig_admin(
         updates["location"] = ST_SetSRID(
             ST_MakePoint(float(update_data.wgs_long), float(update_data.wgs_lat)), 4326
         )
-
-        # Update original_location if original coordinates are provided
-        if update_data.original_wgs_lat and update_data.original_wgs_long:
-            updates["original_location"] = ST_SetSRID(
-                ST_MakePoint(
-                    float(update_data.original_wgs_long),
-                    float(update_data.original_wgs_lat),
-                ),
-                4326,
-            )
 
     # Update with admin tracking (stores admin_* fields on trig table)
     updated_trig = trig_crud.update_trig_admin(
@@ -960,7 +941,7 @@ def move_trig_to_log_location(
 
     Requires `api:admin` scope.
     """
-    from api.utils.geodesy import osgb_to_wgs84
+    from api.services.coordinate_service import convert_osgb_to_wgs84
 
     # Get the trig
     trig = trig_crud.get_trig_by_id(db, trig_id)
@@ -992,8 +973,10 @@ def move_trig_to_log_location(
     raw_ip = request.client.host if request.client else "unknown"
     client_ip = get_client_ip_normalized(raw_ip)
 
-    # Convert log's OSGB to WGS84
-    wgs_lat, wgs_long = osgb_to_wgs84(int(log.osgb_eastings), int(log.osgb_northings))
+    # Convert log's OSGB to WGS84 using OSTN15 for accuracy
+    wgs_long, wgs_lat, _ = convert_osgb_to_wgs84(
+        float(log.osgb_eastings), float(log.osgb_northings)
+    )
 
     # Format timestamp for attention_comment
     timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
