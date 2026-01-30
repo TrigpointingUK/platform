@@ -941,7 +941,7 @@ def move_trig_to_log_location(
 
     Requires `api:admin` scope.
     """
-    from api.utils.geodesy import osgb_to_wgs84
+    from api.services.coordinate_service import convert_osgb_to_wgs84
 
     # Get the trig
     trig = trig_crud.get_trig_by_id(db, trig_id)
@@ -973,8 +973,10 @@ def move_trig_to_log_location(
     raw_ip = request.client.host if request.client else "unknown"
     client_ip = get_client_ip_normalized(raw_ip)
 
-    # Convert log's OSGB to WGS84
-    wgs_lat, wgs_long = osgb_to_wgs84(int(log.osgb_eastings), int(log.osgb_northings))
+    # Convert log's OSGB to WGS84 using OSTN15 for accuracy
+    wgs_long, wgs_lat, _ = convert_osgb_to_wgs84(
+        float(log.osgb_eastings), float(log.osgb_northings)
+    )
 
     # Format timestamp for attention_comment
     timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
