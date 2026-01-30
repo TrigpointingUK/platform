@@ -3,8 +3,8 @@ Tests for original location fields in trig model and admin operations.
 
 Tests cover:
 - Original location columns in Trig model
-- Original location fields in admin detail response
-- Original location fields in admin update
+- Original location fields in admin detail response (read-only)
+- Verification that original fields are excluded from admin update schema
 - Coordinate discrepancy distance calculation
 """
 
@@ -223,22 +223,28 @@ class TestOriginalLocationSchemas:
         assert "original_grid_system" in properties
         assert "original_provenance" in properties
 
-    def test_trig_admin_update_schema_includes_original_fields(self):
-        """Test that TrigAdminUpdate schema includes original location fields."""
+    def test_trig_admin_update_schema_excludes_original_fields(self):
+        """Test that TrigAdminUpdate schema excludes original location fields.
+
+        Original location fields are read-only and should only be modified via
+        bulk data loads, migrations, or direct SQL. They are intentionally
+        excluded from the admin update API.
+        """
         from api.schemas.trig_admin import TrigAdminUpdate
 
         schema = TrigAdminUpdate.model_json_schema()
         properties = schema["properties"]
 
-        assert "original_wgs_lat" in properties
-        assert "original_wgs_long" in properties
-        assert "original_wgs_height" in properties
-        assert "original_osgb_eastings" in properties
-        assert "original_osgb_northings" in properties
-        assert "original_osgb_gridref" in properties
-        assert "original_osgb_height" in properties
-        assert "original_grid_system" in properties
-        assert "original_provenance" in properties
+        # Original fields should NOT be in the update schema
+        assert "original_wgs_lat" not in properties
+        assert "original_wgs_long" not in properties
+        assert "original_wgs_height" not in properties
+        assert "original_osgb_eastings" not in properties
+        assert "original_osgb_northings" not in properties
+        assert "original_osgb_gridref" not in properties
+        assert "original_osgb_height" not in properties
+        assert "original_grid_system" not in properties
+        assert "original_provenance" not in properties
 
 
 # ============================================================================
