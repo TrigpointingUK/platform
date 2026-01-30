@@ -876,6 +876,16 @@ def update_trig_admin(
         "needs_attention": needs_attention_value,
         "attention_comment": updated_attention_comment,
         "legal_message": update_data.legal_message,  # NULL clears the message
+        # Original location fields - official OS-published location
+        "original_wgs_lat": update_data.original_wgs_lat,
+        "original_wgs_long": update_data.original_wgs_long,
+        "original_osgb_eastings": update_data.original_osgb_eastings,
+        "original_osgb_northings": update_data.original_osgb_northings,
+        "original_osgb_gridref": update_data.original_osgb_gridref,
+        "original_grid_system": update_data.original_grid_system,
+        "original_provenance": update_data.original_provenance,
+        "original_wgs_height": update_data.original_wgs_height,
+        "original_osgb_height": update_data.original_osgb_height,
     }
 
     # Update PostGIS location from WGS84 coordinates (PostgreSQL only)
@@ -886,6 +896,16 @@ def update_trig_admin(
         updates["location"] = ST_SetSRID(
             ST_MakePoint(float(update_data.wgs_long), float(update_data.wgs_lat)), 4326
         )
+
+        # Update original_location if original coordinates are provided
+        if update_data.original_wgs_lat and update_data.original_wgs_long:
+            updates["original_location"] = ST_SetSRID(
+                ST_MakePoint(
+                    float(update_data.original_wgs_long),
+                    float(update_data.original_wgs_lat),
+                ),
+                4326,
+            )
 
     # Update with admin tracking (stores admin_* fields on trig table)
     updated_trig = trig_crud.update_trig_admin(
@@ -906,6 +926,230 @@ def update_trig_admin(
                 "admin_user_id": int(admin_user.id),
                 "action": update_data.action,
                 "needs_attention": needs_attention_value,
+            }
+        )
+    )
+
+    return TrigAdminDetail.model_validate(updated_trig)
+
+
+@router.post(
+    "/trigs/{trig_id}/move-to-log/{log_id}",
+    response_model=TrigAdminDetail,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Move a trigpoint's location to match a log's location and set condition to 'M'.",
+    ),
+)
+def move_trig_to_log_location(
+    trig_id: int,
+    log_id: int,
+    request: Request,
+    admin_user: User = Depends(ADMIN_SCOPE_DEPENDENCY),
+    db: Session = Depends(get_db),
+) -> TrigAdminDetail:
+    """
+    Move a trigpoint's location to match a log's location.
+
+    This endpoint:
+    - Copies the log's OSGB coordinates to the trig's wgs_*, osgb_*, and location fields
+    - Converts OSGB to WGS84 for the wgs_* fields
+    - Sets the trig's condition to 'M' (Moved)
+    - Appends a note to attention_comment history
+    - Does NOT modify needs_attention flag
+
+    Requires `api:admin` scope.
+    """
+    from api.utils.geodesy import osgb_to_wgs84
+
+    # Get the trig
+    trig = trig_crud.get_trig_by_id(db, trig_id)
+    if not trig:
+        raise HTTPException(status_code=404, detail="Trigpoint not found")
+
+    # Get the log
+    log = tlog_crud.get_log_by_id(db, log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    # Verify the log belongs to this trig
+    if log.trig_id != trig_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Log {log_id} does not belong to trig {trig_id}",
+        )
+
+    # Check the log has location data
+    if log.osgb_eastings is None or log.osgb_northings is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Log does not have location coordinates",
+        )
+
+    # Get client IP address
+    from api.utils.ip_address import get_client_ip_normalized
+
+    raw_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip_normalized(raw_ip)
+
+    # Convert log's OSGB to WGS84
+    wgs_lat, wgs_long = osgb_to_wgs84(int(log.osgb_eastings), int(log.osgb_northings))
+
+    # Format timestamp for attention_comment
+    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    new_comment = (
+        f"{timestamp_str} - {admin_user.name} - {admin_user.email} - "
+        f"MOVED: Location updated from log #{log_id} ({log.osgb_gridref})"
+    )
+    updated_attention_comment = (
+        f"{new_comment}\n\n{trig.attention_comment}"
+        if trig.attention_comment
+        else new_comment
+    )
+
+    # Auto-set postcode based on new coordinates
+    postcode_result = location_crud.find_nearest_postcode(
+        db, wgs_lat, wgs_long, max_distance_m=5000.0
+    )
+    nearest_postcode = postcode_result[0] if postcode_result else None
+
+    # Prepare updates
+    updates: dict = {
+        "wgs_lat": wgs_lat,
+        "wgs_long": wgs_long,
+        "osgb_eastings": log.osgb_eastings,
+        "osgb_northings": log.osgb_northings,
+        "osgb_gridref": log.osgb_gridref or "",
+        "condition": "M",
+        "postcode": nearest_postcode,
+        "attention_comment": updated_attention_comment,
+    }
+
+    # Update PostGIS location (PostgreSQL only)
+    if db.bind and db.bind.dialect.name != "sqlite":  # type: ignore[union-attr]
+        from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
+
+        updates["location"] = ST_SetSRID(ST_MakePoint(wgs_long, wgs_lat), 4326)
+
+    # Update with admin tracking
+    updated_trig = trig_crud.update_trig_admin(
+        db, trig_id, int(admin_user.id), client_ip, updates
+    )
+
+    if not updated_trig:
+        raise HTTPException(status_code=500, detail="Failed to update trigpoint")
+
+    # Invalidate caches
+    invalidate_trig_caches(trig_id)
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_move_trig_to_log",
+                "trig_id": trig_id,
+                "log_id": log_id,
+                "admin_user_id": int(admin_user.id),
+                "new_gridref": log.osgb_gridref,
+            }
+        )
+    )
+
+    return TrigAdminDetail.model_validate(updated_trig)
+
+
+@router.post(
+    "/trigs/{trig_id}/set-condition-from-log/{log_id}",
+    response_model=TrigAdminDetail,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Set a trigpoint's condition to match a log's condition.",
+    ),
+)
+def set_trig_condition_from_log(
+    trig_id: int,
+    log_id: int,
+    request: Request,
+    admin_user: User = Depends(ADMIN_SCOPE_DEPENDENCY),
+    db: Session = Depends(get_db),
+) -> TrigAdminDetail:
+    """
+    Set a trigpoint's condition to match a log's condition.
+
+    This endpoint:
+    - Copies the log's condition code to the trig's condition field
+    - Appends a note to attention_comment history
+    - Does NOT modify needs_attention flag
+
+    Requires `api:admin` scope.
+    """
+    # Get the trig
+    trig = trig_crud.get_trig_by_id(db, trig_id)
+    if not trig:
+        raise HTTPException(status_code=404, detail="Trigpoint not found")
+
+    # Get the log
+    log = tlog_crud.get_log_by_id(db, log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    # Verify the log belongs to this trig
+    if log.trig_id != trig_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Log {log_id} does not belong to trig {trig_id}",
+        )
+
+    # Check the log has a condition
+    if not log.condition:
+        raise HTTPException(
+            status_code=400,
+            detail="Log does not have a condition set",
+        )
+
+    # Get client IP address
+    from api.utils.ip_address import get_client_ip_normalized
+
+    raw_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip_normalized(raw_ip)
+
+    # Format timestamp for attention_comment
+    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    new_comment = (
+        f"{timestamp_str} - {admin_user.name} - {admin_user.email} - "
+        f"CONDITION: Updated from log #{log_id} ('{trig.condition}' -> '{log.condition}')"
+    )
+    updated_attention_comment = (
+        f"{new_comment}\n\n{trig.attention_comment}"
+        if trig.attention_comment
+        else new_comment
+    )
+
+    # Prepare updates
+    updates: dict = {
+        "condition": log.condition,
+        "attention_comment": updated_attention_comment,
+    }
+
+    # Update with admin tracking
+    updated_trig = trig_crud.update_trig_admin(
+        db, trig_id, int(admin_user.id), client_ip, updates
+    )
+
+    if not updated_trig:
+        raise HTTPException(status_code=500, detail="Failed to update trigpoint")
+
+    # Invalidate caches
+    invalidate_trig_caches(trig_id)
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_set_trig_condition_from_log",
+                "trig_id": trig_id,
+                "log_id": log_id,
+                "admin_user_id": int(admin_user.id),
+                "old_condition": trig.condition,
+                "new_condition": log.condition,
             }
         )
     )

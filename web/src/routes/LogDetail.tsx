@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useQueryClient } from "@tanstack/react-query";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
@@ -15,17 +16,30 @@ import { useDeleteLog } from "../hooks/useDeleteLog";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
-import { LogUpdateInput, DuplicateLogError } from "../lib/api";
+import { useAdminAuth } from "../hooks/useAdminAuth";
+import {
+  LogUpdateInput,
+  DuplicateLogError,
+  moveTrigToLogLocation,
+  setTrigConditionFromLog,
+} from "../lib/api";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
   const logIdNum = logId ? parseInt(logId, 10) : null;
-  const { user: auth0User } = useAuth0();
+  const { user: auth0User, getAccessTokenSilently } = useAuth0();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [duplicateLogId, setDuplicateLogId] = useState<number | null>(null);
+
+  // Admin action states
+  const [showMoveConfirm, setShowMoveConfirm] = useState(false);
+  const [showSetConditionConfirm, setShowSetConditionConfirm] = useState(false);
+  const [adminActionPending, setAdminActionPending] = useState(false);
+  const [adminActionError, setAdminActionError] = useState<string | null>(null);
 
   const {
     data: log,
@@ -52,8 +66,64 @@ export default function LogDetail() {
   const updateLogMutation = useUpdateLog(logIdNum!);
   const deleteLogMutation = useDeleteLog(logIdNum!, log?.trig_id || 0);
 
+  // Check admin role for admin buttons
+  const { hasAdminRole } = useAdminAuth();
+
   // Check if the current user is the owner of this log
   const isOwner = !!currentUser && !!log && currentUser.id === log.user_id;
+
+  // Admin action handlers
+  const handleMoveTrigToLocation = async () => {
+    if (!log || !log.trig_id) return;
+    setAdminActionPending(true);
+    setAdminActionError(null);
+    try {
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          scope: "openid profile email api:write api:read-pii api:admin",
+        },
+      });
+      await moveTrigToLogLocation(log.trig_id, log.id, token);
+      // Invalidate caches to refresh data
+      queryClient.invalidateQueries({ queryKey: ["trig", log.trig_id] });
+      queryClient.invalidateQueries({ queryKey: ["log", log.id] });
+      setShowMoveConfirm(false);
+    } catch (err) {
+      console.error("Failed to move trig:", err);
+      setAdminActionError(
+        err instanceof Error ? err.message : "Failed to move trig to log location"
+      );
+    } finally {
+      setAdminActionPending(false);
+    }
+  };
+
+  const handleSetTrigCondition = async () => {
+    if (!log || !log.trig_id) return;
+    setAdminActionPending(true);
+    setAdminActionError(null);
+    try {
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          scope: "openid profile email api:write api:read-pii api:admin",
+        },
+      });
+      await setTrigConditionFromLog(log.trig_id, log.id, token);
+      // Invalidate caches to refresh data
+      queryClient.invalidateQueries({ queryKey: ["trig", log.trig_id] });
+      queryClient.invalidateQueries({ queryKey: ["log", log.id] });
+      setShowSetConditionConfirm(false);
+    } catch (err) {
+      console.error("Failed to set condition:", err);
+      setAdminActionError(
+        err instanceof Error ? err.message : "Failed to set trig condition from log"
+      );
+    } finally {
+      setAdminActionPending(false);
+    }
+  };
 
   const handleEdit = () => {
     if (!auth0User) {
@@ -219,6 +289,53 @@ export default function LogDetail() {
               </div>
             )}
 
+            {/* Admin buttons - only show if user has admin role */}
+            {hasAdminRole && log && (
+              <Card className="mt-4">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  Admin Actions
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <Link to={`/admin/trigs/${log.trig_id}/edit`}>
+                    <Button variant="secondary" size="sm">
+                      ✏️ Edit Trig
+                    </Button>
+                  </Link>
+                  <span
+                    title={
+                      !log.osgb_eastings || !log.osgb_northings
+                        ? "Log has no location data"
+                        : undefined
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowMoveConfirm(true)}
+                      disabled={!log.osgb_eastings || !log.osgb_northings}
+                    >
+                      📍 Move Trig to This Location
+                    </Button>
+                  </span>
+                  <span title={!log.condition ? "Log has no condition" : undefined}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowSetConditionConfirm(true)}
+                      disabled={!log.condition}
+                    >
+                      🔄 Set Trig to This Condition
+                    </Button>
+                  </span>
+                </div>
+                {adminActionError && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {adminActionError}
+                  </p>
+                )}
+              </Card>
+            )}
+
             {/* Delete confirmation modal */}
             {showDeleteConfirm && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -242,6 +359,86 @@ export default function LogDetail() {
                       variant="danger"
                     >
                       {deleteLogMutation.isPending ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Move trig confirmation modal */}
+            {showMoveConfirm && log && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <Card className="max-w-md mx-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    Move Trig to This Location?
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    This will update the trigpoint&apos;s location to match this log&apos;s coordinates:
+                  </p>
+                  <p className="text-gray-800 dark:text-gray-200 font-mono text-sm mb-4">
+                    {log.osgb_gridref}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    The trig&apos;s condition will be set to &apos;Moved&apos; (M).
+                  </p>
+                  {adminActionError && (
+                    <p className="text-red-600 dark:text-red-400 mb-4 text-sm">
+                      {adminActionError}
+                    </p>
+                  )}
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowMoveConfirm(false);
+                        setAdminActionError(null);
+                      }}
+                      disabled={adminActionPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleMoveTrigToLocation}
+                      disabled={adminActionPending}
+                    >
+                      {adminActionPending ? "Moving..." : "Move Trig"}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Set condition confirmation modal */}
+            {showSetConditionConfirm && log && trig && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <Card className="max-w-md mx-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    Set Trig Condition?
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    This will update the trigpoint&apos;s condition from &apos;{trig.condition}&apos; to &apos;{log.condition}&apos;.
+                  </p>
+                  {adminActionError && (
+                    <p className="text-red-600 dark:text-red-400 mb-4 text-sm">
+                      {adminActionError}
+                    </p>
+                  )}
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowSetConditionConfirm(false);
+                        setAdminActionError(null);
+                      }}
+                      disabled={adminActionPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSetTrigCondition}
+                      disabled={adminActionPending}
+                    >
+                      {adminActionPending ? "Updating..." : "Set Condition"}
                     </Button>
                   </div>
                 </Card>

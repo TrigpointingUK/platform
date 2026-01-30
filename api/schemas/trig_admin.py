@@ -67,6 +67,35 @@ class TrigAdminDetail(BaseModel):
         None, description="Optional legal/access message (HTML)"
     )
 
+    # Original location fields - official OS-published location
+    original_wgs_lat: Optional[Decimal] = Field(
+        None, description="Official OS WGS84 latitude"
+    )
+    original_wgs_long: Optional[Decimal] = Field(
+        None, description="Official OS WGS84 longitude"
+    )
+    original_osgb_eastings: Optional[Decimal] = Field(
+        None, description="Official OS grid eastings"
+    )
+    original_osgb_northings: Optional[Decimal] = Field(
+        None, description="Official OS grid northings"
+    )
+    original_osgb_gridref: Optional[str] = Field(
+        None, description="Official OS grid reference"
+    )
+    original_grid_system: Optional[str] = Field(
+        None, description="Grid system for original location: 'gb' or 'ie'"
+    )
+    original_provenance: Optional[str] = Field(
+        None, description="Notes for data cleansing tracking"
+    )
+    original_wgs_height: Optional[Decimal] = Field(
+        None, description="Official OS WGS84 height in metres"
+    )
+    original_osgb_height: Optional[Decimal] = Field(
+        None, description="Official OS OSGB height in metres"
+    )
+
     @field_serializer("wgs_lat", "wgs_long")
     def serialize_wgs_coords(self, value: Decimal) -> float:
         """Serialize WGS84 coordinates as float."""
@@ -80,6 +109,25 @@ class TrigAdminDetail(BaseModel):
     @field_serializer("wgs_height", "osgb_height")
     def serialize_height(self, value: Optional[Decimal]) -> Optional[float]:
         """Serialize height as float."""
+        return float(value) if value is not None else None
+
+    @field_serializer("original_wgs_lat", "original_wgs_long")
+    def serialize_original_wgs_coords(
+        self, value: Optional[Decimal]
+    ) -> Optional[float]:
+        """Serialize original WGS84 coordinates as float."""
+        return float(value) if value is not None else None
+
+    @field_serializer("original_wgs_height", "original_osgb_height")
+    def serialize_original_height(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize original height as float."""
+        return float(value) if value is not None else None
+
+    @field_serializer("original_osgb_eastings", "original_osgb_northings")
+    def serialize_original_osgb_coords(
+        self, value: Optional[Decimal]
+    ) -> Optional[float]:
+        """Serialize original OSGB coordinates as float."""
         return float(value) if value is not None else None
 
 
@@ -114,6 +162,35 @@ class TrigAdminUpdate(BaseModel):
     osgb_northings: Decimal = Field(..., ge=0)
     osgb_gridref: Optional[str] = Field(default="", max_length=14)
     osgb_height: Optional[Decimal] = None
+
+    # Original location fields - official OS-published location
+    original_wgs_lat: Optional[Decimal] = Field(
+        default=None, ge=-90, le=90, description="Official OS WGS84 latitude"
+    )
+    original_wgs_long: Optional[Decimal] = Field(
+        default=None, ge=-180, le=180, description="Official OS WGS84 longitude"
+    )
+    original_osgb_eastings: Optional[Decimal] = Field(
+        default=None, ge=0, description="Official OS grid eastings"
+    )
+    original_osgb_northings: Optional[Decimal] = Field(
+        default=None, ge=0, description="Official OS grid northings"
+    )
+    original_osgb_gridref: Optional[str] = Field(
+        default=None, max_length=14, description="Official OS grid reference"
+    )
+    original_grid_system: Optional[str] = Field(
+        default=None, max_length=2, description="Grid system: 'gb' or 'ie'"
+    )
+    original_provenance: Optional[str] = Field(
+        default=None, description="Notes for data cleansing tracking"
+    )
+    original_wgs_height: Optional[Decimal] = Field(
+        default=None, description="Official OS WGS84 height in metres"
+    )
+    original_osgb_height: Optional[Decimal] = Field(
+        default=None, description="Official OS OSGB height in metres"
+    )
 
     # Legal/access information
     legal_message: Optional[str] = Field(

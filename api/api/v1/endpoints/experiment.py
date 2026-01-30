@@ -28,6 +28,7 @@ class CoordinateDiscrepancySortField(str, Enum):
     name = "name"
     dist_wgs_osgb = "dist_wgs_osgb"
     dist_osgb_osgb = "dist_osgb_osgb"
+    dist_wgs_original = "dist_wgs_original"
 
 
 class MovedFilter(str, Enum):
@@ -49,6 +50,9 @@ class CoordinateDiscrepancyItem(BaseModel):
     condition_icon: str
     dist_wgs_osgb: Optional[float] = None
     dist_osgb_osgb: Optional[float] = None
+    dist_wgs_original: Optional[float] = (
+        None  # Distance between wgs_* and original_wgs_*
+    )
 
 
 class CoordinateDiscrepancyResponse(BaseModel):
@@ -201,7 +205,15 @@ def get_coordinate_discrepancies(
     - condition_icon: Icon filename for condition
     - dist_wgs_osgb: Distance (m) between WGS84->OSTN15 and stored OSGB coords
     - dist_osgb_osgb: Distance (m) between trig.osgb* and attrval OSGB coords
+    - dist_wgs_original: Distance (m) between current WGS84 and original WGS84 coords
     """
+    from geoalchemy2.functions import ST_Distance
+
+    # Calculate distance between current and original WGS coordinates using PostGIS
+    dist_wgs_original = ST_Distance(Trig.location, Trig.original_location).label(
+        "dist_wgs_original"
+    )
+
     # Build query joining trig, trigstats, and condition
     query = (
         db.query(
@@ -213,6 +225,7 @@ def get_coordinate_discrepancies(
             Condition.icon_file,
             TrigStats.dist_wgs_osgb,
             TrigStats.dist_osgb_osgb,
+            dist_wgs_original,
         )
         .outerjoin(TrigStats, Trig.id == TrigStats.id)
         .outerjoin(Condition, Trig.condition == Condition.code)
@@ -244,6 +257,7 @@ def get_coordinate_discrepancies(
         CoordinateDiscrepancySortField.name: Trig.name,
         CoordinateDiscrepancySortField.dist_wgs_osgb: TrigStats.dist_wgs_osgb,
         CoordinateDiscrepancySortField.dist_osgb_osgb: TrigStats.dist_osgb_osgb,
+        CoordinateDiscrepancySortField.dist_wgs_original: dist_wgs_original,
     }
     sort_column = sort_column_map[sort_by]
 
@@ -271,6 +285,7 @@ def get_coordinate_discrepancies(
                 condition_icon=row[5] or "c_unknown.png",
                 dist_wgs_osgb=float(row[6]) if row[6] is not None else None,
                 dist_osgb_osgb=float(row[7]) if row[7] is not None else None,
+                dist_wgs_original=float(row[8]) if row[8] is not None else None,
             )
         )
 

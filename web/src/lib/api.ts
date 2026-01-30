@@ -322,6 +322,24 @@ export interface TrigDetails {
   legal_message?: string | null;
   stn_number_passive?: string;
   stn_number_osgb36?: string;
+  /** Original OS WGS84 latitude */
+  original_wgs_lat?: number | null;
+  /** Original OS WGS84 longitude */
+  original_wgs_long?: number | null;
+  /** Original OS grid eastings */
+  original_osgb_eastings?: number | null;
+  /** Original OS grid northings */
+  original_osgb_northings?: number | null;
+  /** Original OS grid reference */
+  original_osgb_gridref?: string | null;
+  /** Grid system for original location: 'gb' or 'ie' */
+  original_grid_system?: string | null;
+  /** Notes for data cleansing tracking */
+  original_provenance?: string | null;
+  /** Original OS WGS84 height in metres */
+  original_wgs_height?: number | null;
+  /** Original OS OSGB height in metres */
+  original_osgb_height?: number | null;
 }
 
 export interface TrigStats {
@@ -623,6 +641,24 @@ export interface TrigAdminDetail {
   attention_comment: string;
   upd_timestamp?: string;
   legal_message: string | null;
+  /** Original OS WGS84 latitude */
+  original_wgs_lat: number | null;
+  /** Original OS WGS84 longitude */
+  original_wgs_long: number | null;
+  /** Original OS grid eastings */
+  original_osgb_eastings: number | null;
+  /** Original OS grid northings */
+  original_osgb_northings: number | null;
+  /** Original OS grid reference */
+  original_osgb_gridref: string | null;
+  /** Grid system for original location: 'gb' or 'ie' */
+  original_grid_system: string | null;
+  /** Notes for data cleansing tracking */
+  original_provenance: string | null;
+  /** Original OS WGS84 height in metres */
+  original_wgs_height: number | null;
+  /** Original OS OSGB height in metres */
+  original_osgb_height: number | null;
 }
 
 export interface TrigAdminUpdate {
@@ -650,6 +686,24 @@ export interface TrigAdminUpdate {
   osgb_gridref: string;
   /** OSGB height in metres (4dp precision, 0.1mm) */
   osgb_height: number | null;
+  /** Original OS WGS84 latitude */
+  original_wgs_lat: number | string | null;
+  /** Original OS WGS84 longitude */
+  original_wgs_long: number | string | null;
+  /** Original OS grid eastings */
+  original_osgb_eastings: number | string | null;
+  /** Original OS grid northings */
+  original_osgb_northings: number | string | null;
+  /** Original OS grid reference */
+  original_osgb_gridref: string | null;
+  /** Grid system for original location: 'gb' or 'ie' */
+  original_grid_system: string | null;
+  /** Notes for data cleansing tracking */
+  original_provenance: string | null;
+  /** Original OS WGS84 height in metres */
+  original_wgs_height: number | string | null;
+  /** Original OS OSGB height in metres */
+  original_osgb_height: number | string | null;
   legal_message: string | null;
   action: "solved" | "revisit" | "cant_fix";
   admin_comment: string;
@@ -747,6 +801,37 @@ export async function createTrigAdmin(
   token: string
 ): Promise<TrigAdminDetail> {
   return apiPost<TrigAdminDetail>(`/v1/admin/trigs`, data, token);
+}
+
+/**
+ * Move a trigpoint's location to match a log's location (admin only)
+ * Sets condition to 'M' and updates wgs_*, osgb_*, and location fields
+ */
+export async function moveTrigToLogLocation(
+  trigId: number,
+  logId: number,
+  token: string
+): Promise<TrigAdminDetail> {
+  return apiPost<TrigAdminDetail>(
+    `/v1/admin/trigs/${trigId}/move-to-log/${logId}`,
+    {},
+    token
+  );
+}
+
+/**
+ * Set a trigpoint's condition to match a log's condition (admin only)
+ */
+export async function setTrigConditionFromLog(
+  trigId: number,
+  logId: number,
+  token: string
+): Promise<TrigAdminDetail> {
+  return apiPost<TrigAdminDetail>(
+    `/v1/admin/trigs/${trigId}/set-condition-from-log/${logId}`,
+    {},
+    token
+  );
 }
 
 /**
@@ -1621,6 +1706,8 @@ export interface CoordinateDiscrepancyItem {
   condition_icon: string;
   dist_wgs_osgb: number | null;
   dist_osgb_osgb: number | null;
+  /** Distance between current WGS84 and original WGS84 coordinates */
+  dist_wgs_original: number | null;
 }
 
 /**
@@ -1641,7 +1728,8 @@ export type CoordinateDiscrepancySortField =
   | "waypoint"
   | "name"
   | "dist_wgs_osgb"
-  | "dist_osgb_osgb";
+  | "dist_osgb_osgb"
+  | "dist_wgs_original";
 
 /**
  * Filter options for 'Moved' condition trigpoints

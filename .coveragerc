@@ -1,7 +1,7 @@
 [run]
 source = api
 parallel = true
-concurrency = multiprocessing
+concurrency = thread
 omit =
     */tests/*
     */test_*.py
@@ -43,4 +43,3 @@ directory = htmlcov
 
 [xml]
 output = coverage.xml
-

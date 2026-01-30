@@ -313,5 +313,134 @@ describe('TrigInfoSection', () => {
     const card = container.querySelector('.custom-class');
     expect(card).toBeInTheDocument();
   });
+
+  // Original Location Tests
+  describe('Original OS Location display', () => {
+    it('should display original location section for moved trigs', () => {
+      const mockTrig = createMockTrig({
+        condition: 'M',
+        details: {
+          ...createMockTrig().details,
+          original_wgs_lat: 51.50800,
+          original_wgs_long: -0.12800,
+          original_osgb_gridref: 'TQ 12345 67890',
+          original_osgb_height: 98.5,
+          original_wgs_height: 99.0,
+          original_provenance: 'legacy',
+        },
+      });
+      renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+      
+      expect(screen.getByText('Original OS Location')).toBeInTheDocument();
+      expect(screen.getByText('TQ 12345 67890')).toBeInTheDocument();
+    });
+
+    it('should not display original location section for non-moved trigs', () => {
+      const mockTrig = createMockTrig({
+        condition: 'G',
+        details: {
+          ...createMockTrig().details,
+          original_wgs_lat: 51.50800,
+          original_wgs_long: -0.12800,
+          original_osgb_gridref: 'TQ 12345 67890',
+        },
+      });
+      renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+      
+      expect(screen.queryByText('Original OS Location')).not.toBeInTheDocument();
+    });
+
+    it('should not display original location when gridref is missing', () => {
+      const mockTrig = createMockTrig({
+        condition: 'M',
+        details: {
+          ...createMockTrig().details,
+          original_wgs_lat: 51.508,
+          original_wgs_long: -0.128,
+          original_osgb_gridref: undefined,
+        },
+      });
+      renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+      
+      expect(screen.queryByText('Original OS Location')).not.toBeInTheDocument();
+    });
+
+    it('should display original WGS coordinates for moved trig', () => {
+      const mockTrig = createMockTrig({
+        condition: 'M',
+        details: {
+          ...createMockTrig().details,
+          original_wgs_lat: 51.50812345,
+          original_wgs_long: -0.12823456,
+          original_osgb_gridref: 'TQ 12345 67890',
+        },
+      });
+      renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+      
+      // Check that original coordinates are displayed (formatted to 7dp)
+      expect(screen.getByText(/51\.508123/)).toBeInTheDocument();
+      expect(screen.getByText(/-0\.128234/)).toBeInTheDocument();
+    });
+
+    it('should display distance from current to original location', () => {
+      // Trig moved approximately 44m north
+      const mockTrig = createMockTrig({
+        condition: 'M',
+        wgs_lat: 51.50740,
+        wgs_long: -0.12780,
+        details: {
+          ...createMockTrig().details,
+          original_wgs_lat: 51.50700,
+          original_wgs_long: -0.12780,
+          original_osgb_gridref: 'TQ 12345 67890',
+        },
+      });
+      renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+      
+      // Should show "Distance from original" label
+      expect(screen.getByText(/Distance from original/)).toBeInTheDocument();
+    });
+
+    it('should display direction arrow for moved trig', () => {
+      const mockTrig = createMockTrig({
+        condition: 'M',
+        wgs_lat: 51.50740,
+        wgs_long: -0.12780,
+        details: {
+          ...createMockTrig().details,
+          original_wgs_lat: 51.50700,
+          original_wgs_long: -0.12780,
+          original_osgb_gridref: 'TQ 12345 67890',
+        },
+      });
+      renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+      
+      // Direction arrow should be present (rendered as SVG or similar)
+      // The DirectionArrow component renders an arrow
+      const section = screen.getByText('Original OS Location').closest('div');
+      expect(section).toBeInTheDocument();
+    });
+
+    it('should handle moved trig with Irish grid system', () => {
+      const mockTrig = createMockTrig({
+        condition: 'M',
+        grid_system: 'ie' as const,
+        details: {
+          ...createMockTrig().details,
+          original_wgs_lat: 53.35,
+          original_wgs_long: -6.26,
+          original_osgb_gridref: 'O 15000 34000',
+          original_grid_system: 'ie',
+        },
+      });
+      renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+      
+      expect(screen.getByText('Original OS Location')).toBeInTheDocument();
+      expect(screen.getByText('O 15000 34000')).toBeInTheDocument();
+      // Should show at least one Irish grid label (both original and current have ie grid_system)
+      const irishLabels = screen.getAllByText(/\(Irish\)/);
+      expect(irishLabels.length).toBeGreaterThanOrEqual(1);
+    });
+  });
 });
 

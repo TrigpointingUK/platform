@@ -161,6 +161,35 @@ class TrigDetails(BaseModel):
         None, description="Optional legal/access message (HTML)"
     )
 
+    # Original location fields - official OS-published location
+    original_wgs_lat: Optional[Decimal] = Field(
+        None, description="Official OS WGS84 latitude"
+    )
+    original_wgs_long: Optional[Decimal] = Field(
+        None, description="Official OS WGS84 longitude"
+    )
+    original_osgb_eastings: Optional[Decimal] = Field(
+        None, description="Official OS grid eastings"
+    )
+    original_osgb_northings: Optional[Decimal] = Field(
+        None, description="Official OS grid northings"
+    )
+    original_osgb_gridref: Optional[str] = Field(
+        None, description="Official OS grid reference"
+    )
+    original_grid_system: Optional[str] = Field(
+        None, description="Grid system for original location: 'gb' or 'ie'"
+    )
+    original_provenance: Optional[str] = Field(
+        None, description="Notes for data cleansing tracking"
+    )
+    original_wgs_height: Optional[Decimal] = Field(
+        None, description="Official OS WGS84 height in metres"
+    )
+    original_osgb_height: Optional[Decimal] = Field(
+        None, description="Official OS OSGB height in metres"
+    )
+
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("town")
@@ -177,6 +206,21 @@ class TrigDetails(BaseModel):
     def serialize_coords_4dp(self, value: Optional[Decimal]) -> Optional[float]:
         """Serialize coordinates with 4dp precision."""
         return round(float(value), 4) if value is not None else None
+
+    @field_serializer("original_wgs_lat", "original_wgs_long")
+    def serialize_original_wgs_8dp(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize original WGS84 coordinates with 8dp precision."""
+        return round(float(value), 8) if value is not None else None
+
+    @field_serializer("original_osgb_eastings", "original_osgb_northings")
+    def serialize_original_osgb_4dp(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize original grid coordinates with 4dp precision."""
+        return round(float(value), 4) if value is not None else None
+
+    @field_serializer("original_wgs_height", "original_osgb_height")
+    def serialize_original_height(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize original height as float for JSON output."""
+        return float(value) if value is not None else None
 
 
 class TrigStats(BaseModel):

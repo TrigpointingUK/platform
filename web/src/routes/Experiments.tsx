@@ -167,6 +167,12 @@ export default function Experiments() {
                   trig.osgb* vs attrval coords
                 </span>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">dist_wgs_original:</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  current vs original WGS84
+                </span>
+              </div>
             </div>
 
             {/* Colour scale legend */}
@@ -317,6 +323,14 @@ export default function Experiments() {
                             onSort={handleSort}
                           />
                         </th>
+                        <th className="text-right py-3 px-2">
+                          <SortableHeader
+                            field="dist_wgs_original"
+                            label="dist_wgs_original"
+                            currentSort={sort}
+                            onSort={handleSort}
+                          />
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -357,6 +371,13 @@ export default function Experiments() {
                             )}`}
                           >
                             {formatDistance(item.dist_osgb_osgb)}
+                          </td>
+                          <td
+                            className={`py-2 px-2 text-right font-mono ${getDistanceColourClass(
+                              item.dist_wgs_original
+                            )}`}
+                          >
+                            {formatDistance(item.dist_wgs_original)}
                           </td>
                         </tr>
                       ))}
