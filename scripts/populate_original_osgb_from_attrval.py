@@ -201,31 +201,34 @@ def get_attrval_osgb_data(
     # 3. Greatest height (descending, None sorted last)
     # 4. Highest attrset_id (descending) - handled after sort for ties
     def compare_attrsets(a: AttrValData, b: AttrValData) -> int:
-        """Compare two attrsets. Returns negative if a < b, positive if a > b."""
+        """Compare two attrsets. Returns negative if a should come first."""
         # 1. Compare dates (most recent first = descending)
         a_date = a.date if a.date else datetime.min
         b_date = b.date if b.date else datetime.min
         if a_date != b_date:
-            return 1 if a_date > b_date else -1
+            # More recent date should come first (negative return)
+            return -1 if a_date > b_date else 1
 
         # 2. Compare order (lowest first = ascending)
         a_order = a.order if a.order is not None else float("inf")
         b_order = b.order if b.order is not None else float("inf")
         if a_order != b_order:
+            # Lower order should come first (negative return)
             return -1 if a_order < b_order else 1
 
         # 3. Compare height (greatest first = descending)
         a_height = a.height if a.height is not None else float("-inf")
         b_height = b.height if b.height is not None else float("-inf")
         if a_height != b_height:
-            return 1 if a_height > b_height else -1
+            # Greater height should come first (negative return)
+            return -1 if a_height > b_height else 1
 
         # 4. All match - will use attrset_id as final tie-breaker
         return 0
 
     from functools import cmp_to_key
 
-    valid_attrsets.sort(key=cmp_to_key(compare_attrsets), reverse=True)
+    valid_attrsets.sort(key=cmp_to_key(compare_attrsets))
 
     # Check if top candidates have identical date, order, and height
     best = valid_attrsets[0]
