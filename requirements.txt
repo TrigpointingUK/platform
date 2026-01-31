@@ -5,7 +5,7 @@ sqlalchemy==2.0.46
 psycopg2-binary==2.9.11
 geoalchemy2==0.18.1
 cryptography==46.0.4
-PyJWT==2.10.1
+PyJWT==2.11.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.3.0
 crypt-r>=1.0  # Replacement for removed crypt module (Python 3.13+)
