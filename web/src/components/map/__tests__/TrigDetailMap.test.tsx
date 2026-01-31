@@ -1,3 +1,18 @@
+/**
+ * TrigDetailMap Tests
+ * 
+ * NOTE: These tests may fail with "Worker terminated due to reaching memory limit"
+ * when run in isolation (e.g., `npm test TrigDetailMap`). This is due to:
+ * - The proj4leaflet library being memory-heavy during module initialization
+ * - Node.js worker threads having a fixed heap limit that can't be configured with threads pool
+ * 
+ * The tests pass successfully when run as part of the full test suite because
+ * the modules are cached across tests, reducing memory pressure.
+ * 
+ * Switching to 'forks' pool would allow execArgv to increase memory, but causes
+ * significant slowdown of the overall test suite.
+ */
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
