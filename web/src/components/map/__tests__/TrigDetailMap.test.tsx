@@ -1,3 +1,18 @@
+/**
+ * TrigDetailMap Tests
+ * 
+ * NOTE: These tests may fail with "Worker terminated due to reaching memory limit"
+ * when run in isolation (e.g., `npm test TrigDetailMap`). This is due to:
+ * - The proj4leaflet library being memory-heavy during module initialization
+ * - Node.js worker threads having a fixed heap limit that can't be configured with threads pool
+ * 
+ * The tests pass successfully when run as part of the full test suite because
+ * the modules are cached across tests, reducing memory pressure.
+ * 
+ * Switching to 'forks' pool would allow execArgv to increase memory, but causes
+ * significant slowdown of the overall test suite.
+ */
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -444,6 +459,59 @@ describe('TrigDetailMap', () => {
     it('should work without optional props', () => {
       const trig = createMockTrig();
       expect(() => renderWithRouter(<TrigDetailMap trig={trig} />)).not.toThrow();
+    });
+  });
+
+  describe('Fullscreen Functionality', () => {
+    it('should render fullscreen toggle button', () => {
+      const trig = createMockTrig();
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const fullscreenButton = screen.getByRole('button', { name: /enter fullscreen/i });
+      expect(fullscreenButton).toBeInTheDocument();
+    });
+
+    it('should position fullscreen button below lock button', () => {
+      const trig = createMockTrig();
+      const { container } = renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      // Lock button is at top-[88px], fullscreen should be at top-[124px]
+      const lockWrapper = container.querySelector('.absolute.top-\\[88px\\]');
+      const fullscreenWrapper = container.querySelector('.absolute.top-\\[124px\\]');
+      
+      expect(lockWrapper).toBeInTheDocument();
+      expect(fullscreenWrapper).toBeInTheDocument();
+    });
+
+    it('should have correct aria-label on fullscreen button', () => {
+      const trig = createMockTrig();
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const fullscreenButton = screen.getByRole('button', { name: /enter fullscreen/i });
+      expect(fullscreenButton).toHaveAttribute('aria-label', 'Enter fullscreen');
+    });
+
+    it('should have correct title on fullscreen button', () => {
+      const trig = createMockTrig();
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const fullscreenButton = screen.getByRole('button', { name: /enter fullscreen/i });
+      expect(fullscreenButton).toHaveAttribute('title', 'Enter fullscreen');
+    });
+
+    it('should render fullscreen button with same styling as lock button', () => {
+      const trig = createMockTrig();
+      const { container } = renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      // Both buttons should have same width/height classes
+      const lockWrapper = container.querySelector('.absolute.top-\\[88px\\]');
+      const fullscreenWrapper = container.querySelector('.absolute.top-\\[124px\\]');
+      
+      const lockButton = lockWrapper?.querySelector('button');
+      const fullscreenButton = fullscreenWrapper?.querySelector('button');
+      
+      expect(lockButton).toHaveClass('w-[30px]', 'h-[30px]');
+      expect(fullscreenButton).toHaveClass('w-[30px]', 'h-[30px]');
     });
   });
 });

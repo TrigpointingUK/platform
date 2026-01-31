@@ -52,3 +52,8 @@ Small map now has lock icon allowing it to be panned
 County in trig details page now obtained from official shapefiles
 Fixed waypoints for new trigs
 Animated map of OSGB36 timeline
+Cleaned data for OSGB36 and moved trigpoints
+Added "Original location" field for moved trigpoints
+Small map on trig detail pages can now be expanded to fullscreen
+
+

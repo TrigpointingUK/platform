@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
-import { Lock, LockOpen } from "lucide-react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { Lock, LockOpen, Maximize2, Minimize2 } from "lucide-react";
 import type { Map as LeafletMap } from "leaflet";
 import BaseMap from "./BaseMap";
 import TrigMarker from "./TrigMarker";
@@ -32,6 +32,10 @@ export default function TrigDetailMap({
   // Map instance for resetting view when locking
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
   
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   // Always use condition mode for detail maps (simpler UX)
   const colorMode: IconColorMode = 'condition';
   
@@ -62,12 +66,61 @@ export default function TrigDetailMap({
     }
   }, [isLocked, mapInstance, center, zoomLevel]);
   
+  // Handle fullscreen toggle
+  const handleFullscreenToggle = useCallback(async () => {
+    if (!containerRef.current) return;
+    
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+        // Unlock map interaction when entering fullscreen for better UX
+        setIsLocked(false);
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Fullscreen toggle failed:', err);
+    }
+  }, []);
+  
+  // Listen for fullscreen changes (e.g., user pressing Escape)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isNowFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isNowFullscreen);
+      if (!isNowFullscreen) {
+        // Lock map and reset view when exiting fullscreen
+        setIsLocked(true);
+        if (mapInstance) {
+          setTimeout(() => {
+            mapInstance.invalidateSize();
+            mapInstance.setView(center, zoomLevel);
+          }, 100);
+        }
+      } else {
+        // Invalidate map size after entering fullscreen
+        if (mapInstance) {
+          setTimeout(() => mapInstance.invalidateSize(), 100);
+        }
+      }
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [mapInstance, center, zoomLevel]);
+  
   return (
-    <div className={`relative z-0 ${className}`}>
+    <div 
+      ref={containerRef}
+      className={`relative z-0 ${className} ${isFullscreen ? 'bg-black' : ''}`}
+    >
       <BaseMap
         center={center}
         zoom={zoomLevel}
-        height={height}
+        height={isFullscreen ? "100vh" : height}
         tileLayerId={tileLayerId}
         interactive={!isLocked}
         onMapReady={setMapInstance}
@@ -108,6 +161,23 @@ export default function TrigDetailMap({
           )}
         </button>
       </div>
+      
+      {/* Fullscreen toggle button */}
+      <div className="absolute top-[124px] left-[10px] z-[1001]">
+        <button
+          onClick={handleFullscreenToggle}
+          className="w-[30px] h-[30px] flex items-center justify-center rounded-sm border-2 shadow-md transition-colors bg-white border-gray-400 text-gray-600 hover:bg-gray-50"
+          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        >
+          {isFullscreen ? (
+            <Minimize2 className="w-4 h-4" />
+          ) : (
+            <Maximize2 className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+      
     </div>
   );
 }
