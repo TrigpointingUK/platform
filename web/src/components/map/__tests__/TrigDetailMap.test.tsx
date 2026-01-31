@@ -513,15 +513,5 @@ describe('TrigDetailMap', () => {
       expect(lockButton).toHaveClass('w-[30px]', 'h-[30px]');
       expect(fullscreenButton).toHaveClass('w-[30px]', 'h-[30px]');
     });
-
-    it('should include inline CSS keyframes for fade animation', () => {
-      const trig = createMockTrig();
-      const { container } = renderWithRouter(<TrigDetailMap trig={trig} />);
-      
-      // Check that the style tag with fadeOut keyframes is present
-      const styleTag = container.querySelector('style');
-      expect(styleTag).toBeInTheDocument();
-      expect(styleTag?.textContent).toContain('@keyframes fadeOut');
-    });
   });
 });

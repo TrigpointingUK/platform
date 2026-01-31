@@ -34,9 +34,7 @@ export default function TrigDetailMap({
   
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showFullscreenHint, setShowFullscreenHint] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const hintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Always use condition mode for detail maps (simpler UX)
   const colorMode: IconColorMode = 'condition';
@@ -78,16 +76,6 @@ export default function TrigDetailMap({
         setIsFullscreen(true);
         // Unlock map interaction when entering fullscreen for better UX
         setIsLocked(false);
-        // Show hint message
-        setShowFullscreenHint(true);
-        // Clear any existing timeout
-        if (hintTimeoutRef.current) {
-          clearTimeout(hintTimeoutRef.current);
-        }
-        // Hide hint after 2.5 seconds (includes fade time)
-        hintTimeoutRef.current = setTimeout(() => {
-          setShowFullscreenHint(false);
-        }, 2500);
       } else {
         await document.exitFullscreen();
       }
@@ -102,14 +90,13 @@ export default function TrigDetailMap({
       const isNowFullscreen = !!document.fullscreenElement;
       setIsFullscreen(isNowFullscreen);
       if (!isNowFullscreen) {
-        // Hide hint when exiting fullscreen
-        setShowFullscreenHint(false);
-        if (hintTimeoutRef.current) {
-          clearTimeout(hintTimeoutRef.current);
-        }
-        // Invalidate map size after exiting fullscreen
+        // Lock map and reset view when exiting fullscreen
+        setIsLocked(true);
         if (mapInstance) {
-          setTimeout(() => mapInstance.invalidateSize(), 100);
+          setTimeout(() => {
+            mapInstance.invalidateSize();
+            mapInstance.setView(center, zoomLevel);
+          }, 100);
         }
       } else {
         // Invalidate map size after entering fullscreen
@@ -122,11 +109,8 @@ export default function TrigDetailMap({
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      if (hintTimeoutRef.current) {
-        clearTimeout(hintTimeoutRef.current);
-      }
     };
-  }, [mapInstance]);
+  }, [mapInstance, center, zoomLevel]);
   
   return (
     <div 
@@ -194,25 +178,6 @@ export default function TrigDetailMap({
         </button>
       </div>
       
-      {/* Fullscreen hint message */}
-      {showFullscreenHint && (
-        <div 
-          className="absolute top-4 left-1/2 -translate-x-1/2 z-[1002] px-4 py-2 bg-black/75 text-white text-sm rounded-lg shadow-lg animate-fade-out"
-          style={{
-            animation: 'fadeOut 0.5s ease-out 2s forwards',
-          }}
-        >
-          Press ESC to leave fullscreen
-        </div>
-      )}
-      
-      {/* Inline keyframes for fade animation */}
-      <style>{`
-        @keyframes fadeOut {
-          from { opacity: 1; }
-          to { opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 }
