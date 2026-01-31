@@ -53,6 +53,7 @@ class AttrValData:
     northings: Optional[float] = None
     height: Optional[float] = None
     date: Optional[datetime] = None
+    order: Optional[int] = None
 
 
 def parse_date(date_str: str) -> Optional[datetime]:
@@ -106,20 +107,30 @@ def parse_float(value_str: str) -> Optional[float]:
         return None
 
 
-def get_attrval_osgb_data(db: Session, trig_id: int) -> Optional[AttrValData]:
+def get_attrval_osgb_data(
+    db: Session, trig_id: int, verbose: bool = False
+) -> Optional[AttrValData]:
     """
-    Get OSGB data from attrval for a trig, selecting the most recent attrset by date.
+    Get OSGB data from attrval for a trig, selecting the best attrset.
+
+    Selection priority (when multiple attrsets exist):
+    1. Most recent date
+    2. Lowest order value (if dates match)
+    3. Greatest height (if orders match)
+    4. Highest attrset_id (if heights match - with warning message)
 
     Args:
         db: Database session
         trig_id: Trig ID to query
+        verbose: Whether to print tie-breaker messages
 
     Returns:
-        AttrValData with the most recent coordinates, or None if no data found
+        AttrValData with the best coordinates, or None if no data found
     """
     ATTR_ID_EASTINGS = 4
     ATTR_ID_NORTHINGS = 5
     ATTR_ID_HEIGHT = 6
+    ATTR_ID_ORDER = 7
     ATTR_ID_DATE = 9
 
     # Query all relevant attrval rows for this trig
@@ -130,7 +141,7 @@ def get_attrval_osgb_data(db: Session, trig_id: int) -> Optional[AttrValData]:
             INNER JOIN attrset_attrval aa ON aa.attrval_id = av.id
             INNER JOIN attrset s ON aa.attrset_id = s.id
             WHERE s.trig_id = :trig_id
-            AND av.attr_id IN (:attr_eastings, :attr_northings, :attr_height, :attr_date)
+            AND av.attr_id IN (:attr_eastings, :attr_northings, :attr_height, :attr_order, :attr_date)
             ORDER BY s.id
         """),
         {
@@ -138,6 +149,7 @@ def get_attrval_osgb_data(db: Session, trig_id: int) -> Optional[AttrValData]:
             "attr_eastings": ATTR_ID_EASTINGS,
             "attr_northings": ATTR_ID_NORTHINGS,
             "attr_height": ATTR_ID_HEIGHT,
+            "attr_order": ATTR_ID_ORDER,
             "attr_date": ATTR_ID_DATE,
         },
     ).fetchall()
@@ -164,6 +176,9 @@ def get_attrval_osgb_data(db: Session, trig_id: int) -> Optional[AttrValData]:
             data.northings = parse_float(value_str)
         elif attr_id == ATTR_ID_HEIGHT:
             data.height = parse_float(value_str)
+        elif attr_id == ATTR_ID_ORDER:
+            parsed = parse_float(value_str)
+            data.order = int(parsed) if parsed is not None else None
         elif attr_id == ATTR_ID_DATE:
             data.date = parse_date(value_str)
 
@@ -177,17 +192,72 @@ def get_attrval_osgb_data(db: Session, trig_id: int) -> Optional[AttrValData]:
     if not valid_attrsets:
         return None
 
-    # Select the attrset with the most recent date
-    # If no dates, just take the first one
-    attrsets_with_dates = [data for data in valid_attrsets if data.date is not None]
-
-    if attrsets_with_dates:
-        # Sort by date descending, take most recent
-        attrsets_with_dates.sort(key=lambda x: x.date, reverse=True)
-        return attrsets_with_dates[0]
-    else:
-        # No dates - just return the first valid attrset
+    if len(valid_attrsets) == 1:
         return valid_attrsets[0]
+
+    # Sort by priority:
+    # 1. Most recent date (descending, None sorted last)
+    # 2. Lowest order (ascending, None sorted last)
+    # 3. Greatest height (descending, None sorted last)
+    # 4. Highest attrset_id (descending) - handled after sort for ties
+    def compare_attrsets(a: AttrValData, b: AttrValData) -> int:
+        """Compare two attrsets. Returns negative if a < b, positive if a > b."""
+        # 1. Compare dates (most recent first = descending)
+        a_date = a.date if a.date else datetime.min
+        b_date = b.date if b.date else datetime.min
+        if a_date != b_date:
+            return 1 if a_date > b_date else -1
+
+        # 2. Compare order (lowest first = ascending)
+        a_order = a.order if a.order is not None else float("inf")
+        b_order = b.order if b.order is not None else float("inf")
+        if a_order != b_order:
+            return -1 if a_order < b_order else 1
+
+        # 3. Compare height (greatest first = descending)
+        a_height = a.height if a.height is not None else float("-inf")
+        b_height = b.height if b.height is not None else float("-inf")
+        if a_height != b_height:
+            return 1 if a_height > b_height else -1
+
+        # 4. All match - will use attrset_id as final tie-breaker
+        return 0
+
+    from functools import cmp_to_key
+
+    valid_attrsets.sort(key=cmp_to_key(compare_attrsets), reverse=True)
+
+    # Check if top candidates have identical date, order, and height
+    best = valid_attrsets[0]
+    best_date = best.date if best.date else datetime.min
+    best_order = best.order if best.order is not None else float("inf")
+    best_height = best.height if best.height is not None else float("-inf")
+
+    # Find all attrsets that tie with the best on date/order/height
+    tied_attrsets = [best]
+    for candidate in valid_attrsets[1:]:
+        c_date = candidate.date if candidate.date else datetime.min
+        c_order = candidate.order if candidate.order is not None else float("inf")
+        c_height = candidate.height if candidate.height is not None else float("-inf")
+
+        if c_date == best_date and c_order == best_order and c_height == best_height:
+            tied_attrsets.append(candidate)
+        else:
+            # Since sorted, no more ties possible
+            break
+
+    if len(tied_attrsets) > 1:
+        # Multiple ties - choose highest attrset_id
+        tied_ids = [a.attrset_id for a in tied_attrsets]
+        best = max(tied_attrsets, key=lambda a: a.attrset_id)
+        if verbose:
+            print(
+                f"    WARNING trig_id={trig_id}: {len(tied_attrsets)} attrsets with "
+                f"identical date/order/height. Choosing attrset_id={best.attrset_id} "
+                f"(highest of {sorted(tied_ids)})"
+            )
+
+    return best
 
 
 def main():
@@ -292,7 +362,7 @@ def main():
             for trig_id in batch:
                 try:
                     # Get attrval data
-                    data = get_attrval_osgb_data(db, trig_id)
+                    data = get_attrval_osgb_data(db, trig_id, verbose=args.verbose)
 
                     if data is None:
                         batch_no_data += 1
