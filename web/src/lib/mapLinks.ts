@@ -119,8 +119,14 @@ export function generateMapUrl(
         return `https://maps.osi.ie/publicviewer/#V2,${wgsLat},${wgsLong},7`;
       }
       // Use Helmert transformation from WGS84
-      const osgb = wgs84ToOSGB(wgsLat, wgsLong);
-      return `https://streetmap.co.uk/grid/${osgb.eastings}_${osgb.northings}_115`;
+      // Wrap in try-catch for coordinates outside GB grid (e.g., Irish trigs with null gridSystem)
+      try {
+        const osgb = wgs84ToOSGB(wgsLat, wgsLong);
+        return `https://streetmap.co.uk/grid/${osgb.eastings}_${osgb.northings}_115`;
+      } catch {
+        // Coordinates outside GB grid - fall back to Google satellite
+        return `https://www.google.com/maps?q=${wgsLat},${wgsLong}&t=k&z=18`;
+      }
     }
 
     case 'osi_map':
