@@ -85,7 +85,6 @@ def main():
         WHERE condition = 'M'
           AND wgs_lat IS NOT NULL
           AND wgs_long IS NOT NULL
-          AND (original_grid_system = 'OS' OR original_grid_system IS NULL)
         ORDER BY id
     """)
 

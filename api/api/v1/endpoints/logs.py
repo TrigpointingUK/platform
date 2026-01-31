@@ -21,8 +21,9 @@ from api.models.user import TLog as TLogModel
 from api.models.user import User
 from api.schemas.tlog import TLogCreate, TLogResponse, TLogUpdate, TLogWithIncludes
 from api.schemas.tphoto import TPhotoResponse
+from api.services.coordinate_service import convert_osgb_to_wgs84
 from api.utils.cache_decorator import cached
-from api.utils.geodesy import haversine_distance, osgb_to_wgs84
+from api.utils.geodesy import haversine_distance
 from api.utils.url import join_url
 
 router = APIRouter()
@@ -139,9 +140,9 @@ def enrich_logs_with_names(
             trig_lon = trig_info.get("lon")
 
             if trig_lat is not None and trig_lon is not None:
-                # Convert log's OSGB coordinates to WGS84 using Helmert transformation
-                log_lat, log_lon = osgb_to_wgs84(
-                    int(log.osgb_eastings), int(log.osgb_northings)
+                # Convert log's OSGB coordinates to WGS84 using OSTN15 transformation
+                log_lon, log_lat, _ = convert_osgb_to_wgs84(
+                    float(log.osgb_eastings), float(log.osgb_northings)
                 )
 
                 # Calculate distance using Haversine formula
