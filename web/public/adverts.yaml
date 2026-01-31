@@ -38,3 +38,11 @@
   link: /photos
   startDate: null
   endDate: null
+
+- id: 6
+  title: Explore Experiments
+  text: Discover experimental data visualisations and analysis tools, including an animated survey timeline.
+  photo: /img/experiments.jpeg
+  link: /experiment
+  startDate: null
+  endDate: null

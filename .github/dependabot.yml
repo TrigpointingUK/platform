@@ -10,6 +10,7 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "develop" # PRs go to develop, not main
+    open-pull-requests-limit: 50
     groups:
       opentelemetry:
         patterns:
@@ -20,6 +21,7 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "develop"
+    open-pull-requests-limit: 50
     groups:
       react:
         patterns:
@@ -41,3 +43,4 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "develop"
+    open-pull-requests-limit: 50
