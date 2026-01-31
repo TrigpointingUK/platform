@@ -446,4 +446,67 @@ describe('TrigDetailMap', () => {
       expect(() => renderWithRouter(<TrigDetailMap trig={trig} />)).not.toThrow();
     });
   });
+
+  describe('Fullscreen Functionality', () => {
+    it('should render fullscreen toggle button', () => {
+      const trig = createMockTrig();
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const fullscreenButton = screen.getByRole('button', { name: /enter fullscreen/i });
+      expect(fullscreenButton).toBeInTheDocument();
+    });
+
+    it('should position fullscreen button below lock button', () => {
+      const trig = createMockTrig();
+      const { container } = renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      // Lock button is at top-[88px], fullscreen should be at top-[124px]
+      const lockWrapper = container.querySelector('.absolute.top-\\[88px\\]');
+      const fullscreenWrapper = container.querySelector('.absolute.top-\\[124px\\]');
+      
+      expect(lockWrapper).toBeInTheDocument();
+      expect(fullscreenWrapper).toBeInTheDocument();
+    });
+
+    it('should have correct aria-label on fullscreen button', () => {
+      const trig = createMockTrig();
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const fullscreenButton = screen.getByRole('button', { name: /enter fullscreen/i });
+      expect(fullscreenButton).toHaveAttribute('aria-label', 'Enter fullscreen');
+    });
+
+    it('should have correct title on fullscreen button', () => {
+      const trig = createMockTrig();
+      renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      const fullscreenButton = screen.getByRole('button', { name: /enter fullscreen/i });
+      expect(fullscreenButton).toHaveAttribute('title', 'Enter fullscreen');
+    });
+
+    it('should render fullscreen button with same styling as lock button', () => {
+      const trig = createMockTrig();
+      const { container } = renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      // Both buttons should have same width/height classes
+      const lockWrapper = container.querySelector('.absolute.top-\\[88px\\]');
+      const fullscreenWrapper = container.querySelector('.absolute.top-\\[124px\\]');
+      
+      const lockButton = lockWrapper?.querySelector('button');
+      const fullscreenButton = fullscreenWrapper?.querySelector('button');
+      
+      expect(lockButton).toHaveClass('w-[30px]', 'h-[30px]');
+      expect(fullscreenButton).toHaveClass('w-[30px]', 'h-[30px]');
+    });
+
+    it('should include inline CSS keyframes for fade animation', () => {
+      const trig = createMockTrig();
+      const { container } = renderWithRouter(<TrigDetailMap trig={trig} />);
+      
+      // Check that the style tag with fadeOut keyframes is present
+      const styleTag = container.querySelector('style');
+      expect(styleTag).toBeInTheDocument();
+      expect(styleTag?.textContent).toContain('@keyframes fadeOut');
+    });
+  });
 });
