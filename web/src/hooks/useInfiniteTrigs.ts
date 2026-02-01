@@ -61,21 +61,48 @@ export interface UseInfiniteTrigsOptions {
   lon?: number;
   statusIds?: number[]; // Status IDs to filter by (10, 20, 30, etc.)
   types?: string[]; // Type codes to filter by (e.g., ['HOTINE', 'FBM'])
+  historicUse?: string[]; // Historic use values to filter by
+  currentUse?: string[]; // Current use values to filter by
+  conditions?: string[]; // Trig condition codes to filter by (e.g., ['G', 'R'])
   showLogged?: boolean; // Show trigpoints logged by user (default: true)
   showNotLogged?: boolean; // Show trigpoints not logged by user (default: true)
+  loggedConditions?: string[]; // Show trigs logged with these conditions (e.g., ['G', 'R'])
   maxKm?: number;
-  areaId?: number; // Filter to trigpoints within a specific area
+  areaId?: number; // Filter to trigpoints within a specific area (single)
+  areaIds?: number[]; // Filter to trigpoints within any of the specified areas (multi)
   order?: string; // Sort order: distance | name | height | score (prefix with - for desc)
 }
 
 export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
-  const { lat, lon, statusIds, types, showLogged = true, showNotLogged = true, maxKm, areaId, order } = options;
+  const { lat, lon, statusIds, types, historicUse, currentUse, conditions, showLogged = true, showNotLogged = true, loggedConditions, maxKm, areaId, areaIds, order } = options;
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigsResponse>({
-    queryKey: ["trigs", "infinite", lat, lon, statusIds, types, showLogged, showNotLogged, maxKm, areaId, order],
+    queryKey: ["trigs", "infinite", lat, lon, statusIds, types, historicUse, currentUse, conditions, showLogged, showNotLogged, loggedConditions, maxKm, areaId, areaIds, order],
     enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
+      // Empty result to return when filter excludes everything
+      const emptyResult: TrigsResponse = {
+        items: [],
+        pagination: { total: 0, limit: 50, offset: 0, has_more: false },
+        links: { self: "", next: null, prev: null },
+      };
+      
+      // If any filter is an empty array, return empty results (user selected nothing)
+      if (types !== undefined && types.length === 0) {
+        return emptyResult;
+      }
+      if (historicUse !== undefined && historicUse.length === 0) {
+        return emptyResult;
+      }
+      if (currentUse !== undefined && currentUse.length === 0) {
+        return emptyResult;
+      }
+      if (conditions !== undefined && conditions.length === 0) {
+        return emptyResult;
+      }
+      // Note: areaIds empty array means "no filter" (all), not "none"
+      
       const skip = typeof pageParam === "number" ? pageParam : 0;
       const params = new URLSearchParams();
       
@@ -110,6 +137,21 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         params.append("types", types.join(","));
       }
       
+      // Historic use filter
+      if (historicUse && historicUse.length > 0) {
+        params.append("historic_use", historicUse.join(","));
+      }
+      
+      // Current use filter
+      if (currentUse && currentUse.length > 0) {
+        params.append("current_use", currentUse.join(","));
+      }
+      
+      // Trig condition filter
+      if (conditions && conditions.length > 0) {
+        params.append("conditions", conditions.join(","));
+      }
+      
       // Log filter: showLogged=false means exclude found, showNotLogged=false means only found
       if (!showLogged) {
         params.append("exclude_found", "true");
@@ -118,8 +160,15 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         params.append("only_found", "true");
       }
       
-      // Area filter
-      if (areaId !== undefined) {
+      // Logged conditions filter - show trigs logged with specific conditions
+      if (loggedConditions && loggedConditions.length > 0) {
+        params.append("logged_conditions", loggedConditions.join(","));
+      }
+      
+      // Area filter (single or multiple)
+      if (areaIds && areaIds.length > 0) {
+        params.append("area_ids", areaIds.join(","));
+      } else if (areaId !== undefined) {
         params.append("area_id", areaId.toString());
       }
       

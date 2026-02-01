@@ -160,6 +160,59 @@ def list_trigs_filtered(
     conditions: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
 ) -> list[Trig]:
+    """
+    List trigs with filters. Returns just Trig objects.
+
+    For distance information, use list_trigs_filtered_with_distance() instead.
+    """
+    results = list_trigs_filtered_with_distance(
+        db,
+        name=name,
+        county=county,
+        skip=skip,
+        limit=limit,
+        center_lat=center_lat,
+        center_lon=center_lon,
+        max_km=max_km,
+        order=order,
+        type_codes=type_codes,
+        category_codes=category_codes,
+        exclude_found_by_user_id=exclude_found_by_user_id,
+        only_found_by_user_id=only_found_by_user_id,
+        exclude_soft_deleted=exclude_soft_deleted,
+        area_id=area_id,
+        area_ids=area_ids,
+        historic_use=historic_use,
+        current_use=current_use,
+        conditions=conditions,
+        logged_conditions=logged_conditions,
+    )
+    return [trig for trig, _ in results]
+
+
+def list_trigs_filtered_with_distance(
+    db: Session,
+    *,
+    name: Optional[str] = None,
+    county: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
+    center_lat: Optional[float] = None,
+    center_lon: Optional[float] = None,
+    max_km: Optional[float] = None,
+    order: Optional[str] = None,
+    type_codes: Optional[List[str]] = None,
+    category_codes: Optional[List[str]] = None,
+    exclude_found_by_user_id: Optional[int] = None,
+    only_found_by_user_id: Optional[int] = None,
+    exclude_soft_deleted: bool = True,
+    area_id: Optional[int] = None,
+    area_ids: Optional[List[int]] = None,
+    historic_use: Optional[List[str]] = None,
+    current_use: Optional[List[str]] = None,
+    conditions: Optional[List[str]] = None,
+    logged_conditions: Optional[List[str]] = None,
+) -> list[tuple[Trig, Optional[float]]]:
     query = db.query(Trig)
 
     # Global filter: exclude soft-deleted records (status >= 90) unless explicitly requested
@@ -335,12 +388,15 @@ def list_trigs_filtered(
         # Default ordering when no center and no explicit order
         query = query.order_by(Trig.id.asc())
 
-    # Extract only the Trig objects if we added distance column
+    # Return results with distance if calculated
     if center_lat is not None and center_lon is not None:
         results = query.offset(skip).limit(limit).all()
-        return [row[0] for row in results]  # Extract Trig from (Trig, distance) tuples
+        # Return list of (Trig, distance_m) tuples
+        return [(row[0], row[1]) for row in results]
 
-    return query.offset(skip).limit(limit).all()
+    # No distance calculated - return (Trig, None) tuples for consistent interface
+    results = query.offset(skip).limit(limit).all()
+    return [(trig, None) for trig in results]
 
 
 def count_trigs_filtered(

@@ -29,7 +29,6 @@ import {
 // Import filter chips
 import {
   LocationChip,
-  CategoryChip,
   RadiusChip,
   HistoricUseChip,
   CurrentUseChip,
@@ -402,6 +401,27 @@ export default function TrigsV2() {
     return selectedTypes;
   }, [selectedTypes, allTypeCodes.length]);
 
+  // Only send historic use filter when not all values are selected
+  const historicUseFilter = useMemo(() => {
+    if (selectedHistoricUse.length === 0) return []; // Show nothing
+    if (selectedHistoricUse.length === allHistoricUseValues.length) return undefined; // Show all (no filter)
+    return selectedHistoricUse;
+  }, [selectedHistoricUse, allHistoricUseValues.length]);
+
+  // Only send current use filter when not all values are selected
+  const currentUseFilter = useMemo(() => {
+    if (selectedCurrentUse.length === 0) return []; // Show nothing
+    if (selectedCurrentUse.length === allCurrentUseValues.length) return undefined; // Show all (no filter)
+    return selectedCurrentUse;
+  }, [selectedCurrentUse, allCurrentUseValues.length]);
+
+  // Only send conditions filter when not all conditions are selected
+  const conditionsFilter = useMemo(() => {
+    if (selectedConditions.length === 0) return []; // Show nothing
+    if (selectedConditions.length === allConditionCodes.length) return undefined; // Show all (no filter)
+    return selectedConditions;
+  }, [selectedConditions, allConditionCodes.length]);
+
   const {
     data,
     fetchNextPage,
@@ -414,15 +434,15 @@ export default function TrigsV2() {
     lon: centerLon ?? undefined,
     statusIds: selectedCategories.length > 0 ? selectedCategories : undefined,
     types: typesFilter,
+    historicUse: historicUseFilter,
+    currentUse: currentUseFilter,
+    conditions: conditionsFilter,
     showLogged: selectedLoggedConditions.length > 0,
     showNotLogged,
+    loggedConditions: selectedLoggedConditions.length > 0 ? selectedLoggedConditions : undefined,
     maxKm: maxKm ?? undefined,
     order: orderParam,
-    // TODO: Wire up these filters once backend supports them:
-    // - historic_use
-    // - current_use
-    // - conditions
-    // - area_ids
+    areaIds: selectedAreaIds.length > 0 ? selectedAreaIds : undefined,
   });
 
   const allTrigs = data?.pages.flatMap((page) => page.items) || [];
@@ -458,10 +478,11 @@ export default function TrigsV2() {
   };
 
   // Count active filters (filters that are not at their default "all" state)
+  // Note: Location is not counted. Radius counts when it's not infinity (null).
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (selectedCategories.length !== ALL_CATEGORY_IDS.length) count++;
-    if (maxKm !== DEFAULT_MAX_KM) count++;
+    if (maxKm !== null) count++; // Count when radius is limited (not infinity)
     if (selectedHistoricUse.length !== allHistoricUseValues.length) count++;
     if (selectedCurrentUse.length !== allCurrentUseValues.length) count++;
     if (selectedConditions.length !== allConditionCodes.length) count++;
@@ -603,8 +624,7 @@ export default function TrigsV2() {
                 <AreaChip
                   selectedAreaIds={selectedAreaIds}
                   onToggleArea={handleToggleArea}
-                  onSelectAll={() => setSelectedAreaIds([])} // Empty = all (managed by chip)
-                  onSelectNone={() => setSelectedAreaIds([])}
+                  onClear={() => setSelectedAreaIds([])}
                   centerLat={centerLat}
                   centerLon={centerLon}
                   containingAreaId={null}
@@ -677,13 +697,6 @@ export default function TrigsV2() {
               
               {/* Alternative chips */}
               <div className="flex flex-wrap gap-2">
-                <CategoryChip
-                  selectedCategories={selectedCategories}
-                  onToggleCategory={handleToggleCategory}
-                  onSelectAll={() => setSelectedCategories(ALL_CATEGORY_IDS)}
-                  onSelectNone={() => setSelectedCategories([])}
-                />
-                
                 <HistoricCountyChip
                   selectedCountyIds={selectedCountyIds}
                   onToggleCounty={handleToggleCounty}

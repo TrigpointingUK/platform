@@ -9,7 +9,6 @@ import os
 import time
 from datetime import date as date_type
 from datetime import datetime
-from math import cos, radians, sqrt
 from typing import Any, Optional
 
 import numpy as np
@@ -999,7 +998,7 @@ def list_trigs(
             c.strip() for c in logged_conditions.split(",") if c.strip()
         ]
 
-    items = trig_crud.list_trigs_filtered(
+    items_with_distance = trig_crud.list_trigs_filtered_with_distance(
         db,
         name=name,
         county=county,
@@ -1021,6 +1020,9 @@ def list_trigs(
         conditions=conditions_list,
         logged_conditions=logged_conditions_list,
     )
+    # Unpack (Trig, distance_m) tuples - distance_m is from PostGIS ST_Distance
+    items = [trig for trig, _ in items_with_distance]
+    distances_m = {trig.id: dist_m for trig, dist_m in items_with_distance}
 
     total = trig_crud.count_trigs_filtered(
         db,
@@ -1069,16 +1071,11 @@ def list_trigs(
                 data["category_name"] = trig.trig_type.category.name
         # Add score from trigstats
         data["score"] = scores_map.get(int(trig.id))
+        # Add distance from PostGIS (meters -> km, rounded to 1 decimal)
+        dist_m = distances_m.get(trig.id)
+        if dist_m is not None:
+            data["distance_km"] = round(dist_m / 1000, 1)
         items_serialized.append(data)
-
-    # Compute distance_km for returned page only (cheap), matching SQL formula
-    if lat is not None and lon is not None:
-        deg_km = 111.32
-        cos_lat = cos(radians(lat))
-        for d in items_serialized:
-            dlat_km = (float(d["wgs_lat"]) - lat) * deg_km
-            dlon_km = (float(d["wgs_long"]) - lon) * deg_km * cos_lat
-            d["distance_km"] = round(sqrt(dlat_km * dlat_km + dlon_km * dlon_km), 1)
 
     has_more = (skip + len(items)) < total
     base = "/v1/trigs"

@@ -150,6 +150,7 @@ export function TypeChip({
       PILLAR: "/icons/t_pillar.png",
       FBM: "/icons/t_fbm.png",
       PASSIVE: "/icons/t_passive.png",
+      SURVEY_MARK: "/icons/t_passive.png",
       INTERSECTED: "/icons/t_intersected.png",
       ACTIVE: "/icons/t_active.png",
       OTHER: "/icons/t_other.svg",

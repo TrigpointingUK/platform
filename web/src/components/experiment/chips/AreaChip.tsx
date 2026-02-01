@@ -10,7 +10,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { MapIcon, SortAsc, Navigation, Loader2 } from "lucide-react";
-import { FilterChip, FilterListItem, FilterSelectionButtons } from "../FilterChip";
+import { FilterChip, FilterListItem } from "../FilterChip";
 import { useAreaTypes, useAreasByType, type Area } from "../../../hooks/useReferenceData";
 
 type SortMode = "name" | "distance";
@@ -18,8 +18,7 @@ type SortMode = "name" | "distance";
 export interface AreaChipProps {
   selectedAreaIds: number[];
   onToggleArea: (areaId: number) => void;
-  onSelectAll: () => void;
-  onSelectNone: () => void;
+  onClear: () => void;
   /** Current search location for distance sorting */
   centerLat?: number | null;
   centerLon?: number | null;
@@ -30,8 +29,7 @@ export interface AreaChipProps {
 export function AreaChip({
   selectedAreaIds,
   onToggleArea,
-  onSelectAll,
-  onSelectNone,
+  onClear,
   centerLat,
   centerLon,
   containingAreaId,
@@ -81,28 +79,25 @@ export function AreaChip({
 
   const selectedCount = selectedAreaIds.length;
   const selectedInType = (areas || []).filter((a) => selectedAreaIds.includes(a.id));
-  const totalInType = areas?.length || 0;
-  const allInTypeSelected = totalInType > 0 && selectedInType.length === totalInType;
 
+  // For area filter: empty = all (no filter), specific IDs = filter
   let summary: string;
   if (isLoadingTypes || isLoadingAreas) {
     summary = "Loading...";
   } else if (selectedCount === 0) {
-    summary = "None";
-  } else if (allInTypeSelected) {
-    summary = "All areas";
+    summary = "All"; // Empty array = no filter = all areas
   } else if (selectedInType.length === 1) {
     summary = selectedInType[0].name;
-  } else if (selectedInType.length > 1) {
+  } else if (selectedInType.length > 0) {
     summary = `${selectedInType.length} areas`;
   } else {
     summary = `${selectedCount} selected`;
   }
 
-  // Active when some (but not all) areas are selected
-  const isActive = selectedCount > 0 && !allInTypeSelected;
-  // Warning when nothing is selected (will result in empty list)
-  const isWarning = selectedCount === 0 && !isLoadingTypes && !isLoadingAreas;
+  // Active when any specific areas are selected (filtering is happening)
+  const isActive = selectedCount > 0;
+  // No warning state for area - empty means "all", not "none"
+  const isWarning = false;
 
   return (
     <FilterChip
@@ -111,7 +106,7 @@ export function AreaChip({
       isActive={isActive}
       isWarning={isWarning}
       clearable={isActive || isWarning}
-      onClear={onSelectAll}
+      onClear={onClear}
       popoverWidth="xl"
       icon={<MapIcon className="w-3.5 h-3.5" />}
     >
@@ -177,7 +172,19 @@ export function AreaChip({
             </div>
           </div>
 
-          <FilterSelectionButtons onSelectAll={onSelectAll} onSelectNone={onSelectNone} />
+          {/* Clear selection button - only show when areas are selected */}
+          {selectedAreaIds.length > 0 && (
+            <div className="flex gap-2 px-3 py-2 border-b border-[color:var(--color-border)]">
+              <button
+                type="button"
+                onClick={onClear}
+                className="px-2 py-1 text-xs font-medium text-trig-green-600 
+                           hover:bg-trig-green-50 dark:hover:bg-trig-green-900/20 rounded transition-colors"
+              >
+                Clear selection
+              </button>
+            </div>
+          )}
 
           {/* Area list */}
           {isLoadingAreas ? (
