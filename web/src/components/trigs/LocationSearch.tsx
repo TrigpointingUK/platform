@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Satellite } from "lucide-react";
 import { useLocationSearch } from "../../hooks/useLocationSearch";
 import { useDeviceLocation } from "../../hooks/useDeviceLocation";
 
@@ -14,6 +15,17 @@ interface LocationSearchProps {
   onSelectLocation: (lat: number, lon: number, name: string) => void;
   onClear?: () => void;
   defaultLocation?: { lat: number; lon: number; name: string };
+  autoFocus?: boolean;
+  selectOnFocus?: boolean;
+  inlineResults?: boolean;
+  dropdownClassName?: string;
+  dropdownMaxHeightClass?: string;
+  resultItemClassName?: string;
+  optimisticCurrentLocation?: boolean;
+  onRequestClose?: () => void;
+  clearButtonMode?: "clear" | "close";
+  /** Types to exclude from search results (e.g., ["user"]) */
+  excludeTypes?: string[];
 }
 
 function getLocationTypeIcon(type: string): string {
@@ -31,6 +43,16 @@ export function LocationSearch({
   onSelectLocation,
   onClear,
   defaultLocation,
+  autoFocus = false,
+  selectOnFocus = false,
+  inlineResults = false,
+  dropdownClassName = "bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg dark:shadow-gray-900/50",
+  dropdownMaxHeightClass = "max-h-96",
+  resultItemClassName = "w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0",
+  optimisticCurrentLocation = false,
+  onRequestClose,
+  clearButtonMode = "clear",
+  excludeTypes,
 }: LocationSearchProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -38,20 +60,25 @@ export function LocationSearch({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const { data: results, isLoading } = useLocationSearch(query, isOpen);
+  const { data: rawResults, isLoading } = useLocationSearch(query, isOpen);
+  
+  // Filter out excluded types if specified
+  const results = excludeTypes?.length 
+    ? rawResults?.filter(r => !excludeTypes.includes(r.type))
+    : rawResults;
   
   // Handle device location via callback (avoids useEffect sync)
   const handleDeviceLocationSuccess = useCallback((position: { lat: number; lon: number }) => {
     setSelectedLocation({
       lat: position.lat,
       lon: position.lon,
-      name: "Current Location",
+      name: "Current location",
     });
-    onSelectLocation(position.lat, position.lon, "Current Location");
+    onSelectLocation(position.lat, position.lon, "Current location");
     setIsOpen(false);
   }, [onSelectLocation]);
   
-  const { isLoading: isGettingLocation, requestLocation } = useDeviceLocation({
+  const { position, isLoading: isGettingLocation, requestLocation } = useDeviceLocation({
     onSuccess: handleDeviceLocationSuccess,
   });
 
@@ -67,6 +94,12 @@ export function LocationSearch({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [autoFocus]);
+
   const handleSelectResult = (result: LocationSearchResult) => {
     setSelectedLocation({
       lat: result.lat,
@@ -76,16 +109,36 @@ export function LocationSearch({
     onSelectLocation(result.lat, result.lon, result.name);
     setQuery("");
     setIsOpen(false);
+    onRequestClose?.();
   };
 
   const handleUseDeviceLocation = () => {
+    setIsOpen(false);
+    if (optimisticCurrentLocation) {
+      const fallbackLocation = position ?? defaultLocation;
+      if (fallbackLocation) {
+        setSelectedLocation({
+          lat: fallbackLocation.lat,
+          lon: fallbackLocation.lon,
+          name: "Current location",
+        });
+        onSelectLocation(fallbackLocation.lat, fallbackLocation.lon, "Current location");
+      }
+    }
+    onRequestClose?.();
     requestLocation();
   };
 
   const handleClear = () => {
+    if (clearButtonMode === "close") {
+      setIsOpen(false);
+      onRequestClose?.();
+      return;
+    }
     setSelectedLocation(undefined);
     setQuery("");
     setIsOpen(false);
+    onRequestClose?.();
     if (onClear) {
       onClear();
     }
@@ -104,7 +157,12 @@ export function LocationSearch({
               setSelectedLocation(undefined);
               setIsOpen(true);
             }}
-            onFocus={() => setIsOpen(true)}
+            onFocus={() => {
+              setIsOpen(true);
+              if (selectOnFocus && selectedLocation && inputRef.current) {
+                requestAnimationFrame(() => inputRef.current?.select());
+              }
+            }}
             placeholder="Search location, postcode, grid ref..."
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400"
             aria-label="Location search"
@@ -122,7 +180,7 @@ export function LocationSearch({
           title="Use current device location"
           aria-label="Use current device location"
         >
-          {isGettingLocation ? "..." : "📍"}
+          {isGettingLocation ? "..." : <Satellite className="w-4 h-4" aria-hidden="true" />}
         </button>
         
         {selectedLocation && (
@@ -142,7 +200,7 @@ export function LocationSearch({
       {isOpen && (query.length >= 2 || results) && (
         <div
           id="location-results"
-          className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg dark:shadow-gray-900/50 max-h-96 overflow-y-auto"
+          className={`${inlineResults ? "w-full mt-2" : "absolute z-10 w-full mt-1"} ${dropdownClassName} ${dropdownMaxHeightClass} overflow-y-auto`}
           role="listbox"
         >
           {isLoading && (
@@ -164,7 +222,7 @@ export function LocationSearch({
                   <button
                     type="button"
                     onClick={() => handleSelectResult(result)}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                    className={resultItemClassName}
                     role="option"
                     aria-selected={false}
                   >
