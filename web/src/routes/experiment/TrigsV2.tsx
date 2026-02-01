@@ -55,7 +55,7 @@ const DEFAULT_MAX_KM = 200;
 const ALL_COUNTY_IDS = HISTORIC_COUNTIES.map((county) => county.id);
 
 export default function TrigsV2() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
   
   // Fetch user profile to get preferences
@@ -119,9 +119,9 @@ export default function TrigsV2() {
 
   // Categories (status IDs: 10=Pillar, 20=FBM, etc.)
   const [selectedCategories, setSelectedCategories] = useState<number[]>(() => {
-    const statuses = searchParams.get("statuses");
-    if (statuses) return statuses.split(",").map(Number);
-    return [10, 20]; // Default to Pillar + FBM
+    const categories = searchParams.get("categories");
+    if (categories) return categories.split(",").map(Number).filter((n) => !isNaN(n));
+    return [...ALL_CATEGORY_IDS]; // Default to all categories
   });
 
   // Distance/radius
@@ -168,20 +168,34 @@ export default function TrigsV2() {
     
     filtersInitializedRef.current = true;
     
-    // Initialize all filters to "all" (unfiltered) state
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initializing state from async API data
-    setSelectedTypes(allTypeCodes);
+    // Check URL params for types filter
+    const typesParam = searchParams.get("types");
+    if (typesParam) {
+      const urlTypes = typesParam.split(",").filter((t) => allTypeCodes.includes(t));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initializing state from URL params
+      setSelectedTypes(urlTypes.length > 0 ? urlTypes : allTypeCodes);
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initializing state from async API data
+      setSelectedTypes(allTypeCodes);
+    }
+    
+    // Initialize other filters to "all" (unfiltered) state
     setSelectedConditions(allConditionCodes);
     setSelectedHistoricUse(allHistoricUseValues);
     setSelectedCurrentUse(allCurrentUseValues);
-  }, [categories, conditions, historicUseValues, currentUseValues, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
+  }, [categories, conditions, historicUseValues, currentUseValues, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues, searchParams]);
 
   // ==========================================================================
   // Sort State
   // ==========================================================================
   
-  const [sortKey, setSortKey] = useState<string>("distance");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortKey, setSortKey] = useState<string>(() => {
+    return searchParams.get("sort") || "distance";
+  });
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    const dir = searchParams.get("dir");
+    return dir === "desc" ? "desc" : "asc";
+  });
 
   const handleSort = useCallback((newSortKey: string, newDirection: SortDirection) => {
     setSortKey(newSortKey);
@@ -324,6 +338,55 @@ export default function TrigsV2() {
     setSelectedAreaIds([]); // Area chip manages its own "all" state
     setSelectedCountyIds([...ALL_COUNTY_IDS]);
   }, [allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
+
+  // ==========================================================================
+  // URL Parameter Sync
+  // ==========================================================================
+  
+  // Update URL when filter/sort state changes
+  useEffect(() => {
+    const params = new URLSearchParams();
+    
+    // Location
+    if (centerLat !== null) {
+      params.set("lat", centerLat.toFixed(5));
+    }
+    if (centerLon !== null) {
+      params.set("lon", centerLon.toFixed(5));
+    }
+    if (locationName) {
+      params.set("location", locationName);
+    }
+    
+    // Radius (only if not default)
+    if (maxKm !== null && maxKm !== DEFAULT_MAX_KM) {
+      params.set("maxKm", maxKm.toString());
+    }
+    
+    // Sort (only if not default)
+    if (sortKey !== "distance") {
+      params.set("sort", sortKey);
+    }
+    if (sortDirection !== "asc") {
+      params.set("dir", sortDirection);
+    }
+    
+    // Categories (only if not all selected)
+    if (selectedCategories.length > 0 && selectedCategories.length < ALL_CATEGORY_IDS.length) {
+      params.set("categories", selectedCategories.join(","));
+    }
+    
+    // Types (only if filtering and not all selected)
+    if (selectedTypes.length > 0 && selectedTypes.length < allTypeCodes.length) {
+      params.set("types", selectedTypes.join(","));
+    }
+    
+    // Update URL without triggering navigation
+    setSearchParams(params, { replace: true });
+  }, [
+    centerLat, centerLon, locationName, maxKm, sortKey, sortDirection,
+    selectedCategories, selectedTypes, allTypeCodes.length, setSearchParams
+  ]);
 
   // ==========================================================================
   // Data Fetching
