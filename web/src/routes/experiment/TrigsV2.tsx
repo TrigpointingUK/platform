@@ -445,11 +445,13 @@ export default function TrigsV2() {
               
               {/* Filter chips grid */}
               <div className="flex flex-wrap gap-2">
-                <CategoryChip
+                <TypeChip
+                  selectedTypes={selectedTypes}
                   selectedCategories={selectedCategories}
+                  onToggleType={handleToggleType}
                   onToggleCategory={handleToggleCategory}
-                  onSelectAll={() => setSelectedCategories(ALL_CATEGORY_IDS)}
-                  onSelectNone={() => setSelectedCategories([])}
+                  onSelectAll={() => setSelectedTypes([...ALL_TYPE_CODES])}
+                  onSelectNone={() => setSelectedTypes([])}
                 />
 
                 <HistoricUseChip
@@ -481,15 +483,6 @@ export default function TrigsV2() {
                   onSelectAllLogged={() => setSelectedLoggedConditions([...ALL_LOGGED_CONDITION_CODES])}
                   onSelectNoneLogged={() => setSelectedLoggedConditions([])}
                   isAuthenticated={isAuthenticated}
-                />
-                
-                <TypeChip
-                  selectedTypes={selectedTypes}
-                  selectedCategories={selectedCategories}
-                  onToggleType={handleToggleType}
-                  onToggleCategory={handleToggleCategory}
-                  onSelectAll={() => setSelectedTypes([...ALL_TYPE_CODES])}
-                  onSelectNone={() => setSelectedTypes([])}
                 />
                 
                 {/* Area chips */}
@@ -570,6 +563,13 @@ export default function TrigsV2() {
               
               {/* Alternative chips */}
               <div className="flex flex-wrap gap-2">
+                <CategoryChip
+                  selectedCategories={selectedCategories}
+                  onToggleCategory={handleToggleCategory}
+                  onSelectAll={() => setSelectedCategories(ALL_CATEGORY_IDS)}
+                  onSelectNone={() => setSelectedCategories([])}
+                />
+                
                 <HistoricCountyChip
                   selectedCountyIds={selectedCountyIds}
                   onToggleCounty={handleToggleCounty}
