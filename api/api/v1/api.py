@@ -19,6 +19,7 @@ from api.api.v1.endpoints import (
     maps,
     osnet_admin,
     photos,
+    reference,
     stats,
     status_admin,
     tiles,
@@ -48,6 +49,7 @@ api_router.include_router(
 )
 api_router.include_router(types.router, prefix="/types", tags=["type"])
 api_router.include_router(conditions.router, prefix="/conditions", tags=["condition"])
+api_router.include_router(reference.router, prefix="/reference", tags=["reference"])
 api_router.include_router(
     types_admin.router, prefix="/admin/types", tags=["admin-types"]
 )

@@ -2,20 +2,11 @@
  * CurrentUseChip - Filter chip for current/recent use of trigpoints
  * 
  * Values from trig.current_use column (e.g., "Passive station", "Active station")
- * Note: Despite the name "current_use", this is really about the most recent use.
  */
 
-import { Radio } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 import { FilterChip, FilterListItem, FilterSelectionButtons } from "../FilterChip";
-
-// Known current use values from the database
-export const CURRENT_USE_VALUES = [
-  { value: "Passive station", label: "Passive station" },
-  { value: "Active station", label: "Active station" },
-  { value: "None", label: "None" },
-  { value: "Unknown", label: "Unknown" },
-  { value: "", label: "(Not specified)" },
-];
+import { useCurrentUseValues, type ReferenceValue } from "../../../hooks/useReferenceData";
 
 export interface CurrentUseChipProps {
   selectedValues: string[];
@@ -30,16 +21,22 @@ export function CurrentUseChip({
   onSelectAll,
   onSelectNone,
 }: CurrentUseChipProps) {
+  const { data: values, isLoading, isError } = useCurrentUseValues();
+
   const selectedCount = selectedValues.length;
-  const totalCount = CURRENT_USE_VALUES.length;
+  const totalCount = values?.length || 0;
   
   let summary: string;
-  if (selectedCount === 0) {
+  if (isLoading) {
+    summary = "Loading...";
+  } else if (isError || !values) {
+    summary = "Error";
+  } else if (selectedCount === 0) {
     summary = "None";
   } else if (selectedCount === totalCount) {
     summary = "All";
   } else if (selectedCount === 1) {
-    const selected = CURRENT_USE_VALUES.find(v => selectedValues.includes(v.value));
+    const selected = values.find((v) => selectedValues.includes(v.value));
     summary = selected?.label || "1 selected";
   } else {
     summary = `${selectedCount} selected`;
@@ -48,7 +45,7 @@ export function CurrentUseChip({
   // Active when some (but not all) items are selected
   const isActive = selectedCount > 0 && selectedCount < totalCount;
   // Warning when nothing is selected (will result in empty list)
-  const isWarning = selectedCount === 0;
+  const isWarning = selectedCount === 0 && !isLoading;
 
   return (
     <FilterChip
@@ -59,22 +56,39 @@ export function CurrentUseChip({
       clearable={isActive || isWarning}
       onClear={onSelectAll}
       popoverWidth="md"
-      icon={<Radio className="w-3.5 h-3.5" />}
+      icon={<Clock className="w-3.5 h-3.5" />}
     >
-      <FilterSelectionButtons onSelectAll={onSelectAll} onSelectNone={onSelectNone} />
-      <div className="py-1">
-        {CURRENT_USE_VALUES.map((item) => (
-          <FilterListItem
-            key={item.value}
-            label={item.label}
-            checked={selectedValues.includes(item.value)}
-            onChange={() => onToggle(item.value)}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        </div>
+      ) : isError || !values ? (
+        <div className="px-3 py-4 text-sm text-red-600 dark:text-red-400">
+          Failed to load current use values. Please try again.
+        </div>
+      ) : (
+        <>
+          <FilterSelectionButtons onSelectAll={onSelectAll} onSelectNone={onSelectNone} />
+          <div className="py-1">
+            {values.map((item) => (
+              <FilterListItem
+                key={item.value}
+                label={item.label}
+                checked={selectedValues.includes(item.value)}
+                onChange={() => onToggle(item.value)}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </FilterChip>
   );
 }
 
-export default CurrentUseChip;
+// Helper to get all current use values
+export function getAllCurrentUseValues(values: ReferenceValue[] | undefined): string[] {
+  if (!values) return [];
+  return values.map((v) => v.value);
+}
 
+export default CurrentUseChip;

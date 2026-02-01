@@ -4,9 +4,6 @@
  * This is an experimental version of the /trigs page using a filter chips
  * approach instead of the traditional filter panel. The goal is to evaluate
  * whether this UX pattern works better for the variety of filters we need.
- * 
- * ⚠️ Note: This is experimental and uses mock data for some filters.
- * Not all filters are wired up to the backend yet.
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
@@ -21,9 +18,16 @@ import { useUserLoggedTrigs } from "../../hooks/useUserLoggedTrigs";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import type { UserLogStatus } from "../../lib/mapIcons";
 
-// Import all our filter chips
+// Import reference data hooks
 import {
+  useTrigCategories,
+  useConditions,
+  useHistoricUseValues,
+  useCurrentUseValues,
+} from "../../hooks/useReferenceData";
 
+// Import filter chips
+import {
   LocationChip,
   CategoryChip,
   RadiusChip,
@@ -36,12 +40,7 @@ import {
   HistoricCountyChip,
   SortChip,
   ALL_CATEGORY_IDS,
-  HISTORIC_USE_VALUES,
-  CURRENT_USE_VALUES,
-  CONDITION_VALUES,
-  ALL_TYPE_CODES,
   HISTORIC_COUNTIES,
-  MOCK_AREAS,
   ALL_LOGGED_CONDITION_CODES,
   type SortDirection,
 } from "../../components/experiment/chips";
@@ -50,7 +49,9 @@ import {
 const DEFAULT_LAT = 53.2585;
 const DEFAULT_LON = -1.9106;
 const DEFAULT_LOCATION_NAME = "Buxton";
-const ALL_AREA_IDS = Object.values(MOCK_AREAS).flat().map((area) => area.id);
+const DEFAULT_MAX_KM = 200;
+
+// Get all county IDs for the historic county chip (still using mock data)
 const ALL_COUNTY_IDS = HISTORIC_COUNTIES.map((county) => county.id);
 
 export default function TrigsV2() {
@@ -65,6 +66,39 @@ export default function TrigsV2() {
 
   // Track if we've attempted to get user location
   const locationAttemptedRef = useRef(false);
+  
+  // Track if we've initialized filters from API data
+  const filtersInitializedRef = useRef(false);
+
+  // ==========================================================================
+  // Reference Data (from API)
+  // ==========================================================================
+  
+  const { data: categories } = useTrigCategories();
+  const { data: conditions } = useConditions();
+  const { data: historicUseValues } = useHistoricUseValues();
+  const { data: currentUseValues } = useCurrentUseValues();
+
+  // Computed "all" values from API data
+  const allTypeCodes = useMemo(() => {
+    if (!categories) return [];
+    return categories.flatMap((c) => c.types.map((t) => t.code));
+  }, [categories]);
+
+  const allConditionCodes = useMemo(() => {
+    if (!conditions) return [];
+    return conditions.map((c) => c.code);
+  }, [conditions]);
+
+  const allHistoricUseValues = useMemo(() => {
+    if (!historicUseValues) return [];
+    return historicUseValues.map((v) => v.value);
+  }, [historicUseValues]);
+
+  const allCurrentUseValues = useMemo(() => {
+    if (!currentUseValues) return [];
+    return currentUseValues.map((v) => v.value);
+  }, [currentUseValues]);
 
   // ==========================================================================
   // Filter State
@@ -91,26 +125,22 @@ export default function TrigsV2() {
   });
 
   // Distance/radius
-  const DEFAULT_MAX_KM = 200;
   const [maxKm, setMaxKm] = useState<number | null>(() => {
     const km = searchParams.get("maxKm");
     return km ? parseInt(km, 10) : DEFAULT_MAX_KM;
   });
 
-  // Historic use filter (from trig.historic_use)
-  const [selectedHistoricUse, setSelectedHistoricUse] = useState<string[]>(
-    () => HISTORIC_USE_VALUES.map((v) => v.value)
-  );
+  // Historic use filter - starts empty, populated when API data loads
+  const [selectedHistoricUse, setSelectedHistoricUse] = useState<string[]>([]);
 
-  // Current/recent use filter (from trig.current_use)
-  const [selectedCurrentUse, setSelectedCurrentUse] = useState<string[]>(
-    () => CURRENT_USE_VALUES.map((v) => v.value)
-  );
+  // Current/recent use filter - starts empty, populated when API data loads
+  const [selectedCurrentUse, setSelectedCurrentUse] = useState<string[]>([]);
 
-  // Condition filter
-  const [selectedConditions, setSelectedConditions] = useState<string[]>(
-    () => CONDITION_VALUES.map((v) => v.code)
-  );
+  // Condition filter - starts empty, populated when API data loads
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+
+  // Type filter - starts empty, populated when API data loads
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
   // My logs filter - now with individual conditions for logged trigs
   const [selectedLoggedConditions, setSelectedLoggedConditions] = useState<string[]>(
@@ -118,35 +148,38 @@ export default function TrigsV2() {
   );
   const [showNotLogged, setShowNotLogged] = useState<boolean>(true);
 
-  // Handlers for logged conditions
-  const handleToggleLoggedCondition = useCallback((code: string) => {
-    setSelectedLoggedConditions((prev) =>
-      prev.includes(code)
-        ? prev.filter((c) => c !== code)
-        : [...prev, code]
-    );
-  }, []);
+  // Area filter (for full area chip) - start with empty (will be managed by chip)
+  const [selectedAreaIds, setSelectedAreaIds] = useState<number[]>([]);
 
-  // Type filter (detailed types within categories)
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(
-    () => [...ALL_TYPE_CODES]
-  );
-
-  // Area filter (for full area chip) - start with all selected (unfiltered)
-  const [selectedAreaIds, setSelectedAreaIds] = useState<number[]>(
-    () => [...ALL_AREA_IDS]
-  );
-
-  // Historic county filter (for dedicated county chip) - start with all selected (unfiltered)
+  // Historic county filter (for dedicated county chip) - start with all selected
   const [selectedCountyIds, setSelectedCountyIds] = useState<number[]>(
     () => [...ALL_COUNTY_IDS]
   );
 
   // ==========================================================================
+  // Initialize filters when API data loads
+  // ==========================================================================
+  
+  useEffect(() => {
+    if (filtersInitializedRef.current) return;
+    
+    // Wait until all reference data is loaded
+    if (!categories || !conditions || !historicUseValues || !currentUseValues) return;
+    
+    filtersInitializedRef.current = true;
+    
+    // Initialize all filters to "all" (unfiltered) state
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initializing state from async API data
+    setSelectedTypes(allTypeCodes);
+    setSelectedConditions(allConditionCodes);
+    setSelectedHistoricUse(allHistoricUseValues);
+    setSelectedCurrentUse(allCurrentUseValues);
+  }, [categories, conditions, historicUseValues, currentUseValues, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
+
+  // ==========================================================================
   // Sort State
   // ==========================================================================
   
-  // Sort key: "distance" | "name" | "score" | "height"
   const [sortKey, setSortKey] = useState<string>("distance");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -241,6 +274,14 @@ export default function TrigsV2() {
     });
   }, []);
 
+  const handleToggleLoggedCondition = useCallback((code: string) => {
+    setSelectedLoggedConditions((prev) =>
+      prev.includes(code)
+        ? prev.filter((c) => c !== code)
+        : [...prev, code]
+    );
+  }, []);
+
   const handleToggleType = useCallback((typeCode: string) => {
     setSelectedTypes((prev) => {
       if (prev.includes(typeCode)) {
@@ -274,15 +315,15 @@ export default function TrigsV2() {
   const handleClearAllFilters = useCallback(() => {
     setSelectedCategories(ALL_CATEGORY_IDS);
     setMaxKm(DEFAULT_MAX_KM);
-    setSelectedHistoricUse(HISTORIC_USE_VALUES.map((v) => v.value));
-    setSelectedCurrentUse(CURRENT_USE_VALUES.map((v) => v.value));
-    setSelectedConditions(CONDITION_VALUES.map((v) => v.code));
+    setSelectedHistoricUse(allHistoricUseValues);
+    setSelectedCurrentUse(allCurrentUseValues);
+    setSelectedConditions(allConditionCodes);
     setSelectedLoggedConditions([...ALL_LOGGED_CONDITION_CODES]);
     setShowNotLogged(true);
-    setSelectedTypes([...ALL_TYPE_CODES]);
-    setSelectedAreaIds([...ALL_AREA_IDS]);
+    setSelectedTypes(allTypeCodes);
+    setSelectedAreaIds([]); // Area chip manages its own "all" state
     setSelectedCountyIds([...ALL_COUNTY_IDS]);
-  }, []);
+  }, [allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
 
   // ==========================================================================
   // Data Fetching
@@ -291,7 +332,13 @@ export default function TrigsV2() {
   // Build order string with direction prefix
   const orderParam = sortDirection === "desc" ? `-${sortKey}` : sortKey;
 
-  // For now, only use the filters that are supported by the existing API
+  // Only send types filter when not all types are selected
+  const typesFilter = useMemo(() => {
+    if (selectedTypes.length === 0) return []; // Show nothing
+    if (selectedTypes.length === allTypeCodes.length) return undefined; // Show all (no filter)
+    return selectedTypes;
+  }, [selectedTypes, allTypeCodes.length]);
+
   const {
     data,
     fetchNextPage,
@@ -303,12 +350,16 @@ export default function TrigsV2() {
     lat: centerLat ?? undefined,
     lon: centerLon ?? undefined,
     statusIds: selectedCategories.length > 0 ? selectedCategories : undefined,
+    types: typesFilter,
     showLogged: selectedLoggedConditions.length > 0,
     showNotLogged,
     maxKm: maxKm ?? undefined,
     order: orderParam,
-    // Note: historic_use, current_use, condition, type, area filters
-    // are NOT yet supported by the API - they'll need backend work
+    // TODO: Wire up these filters once backend supports them:
+    // - historic_use
+    // - current_use
+    // - conditions
+    // - area_ids
   });
 
   const allTrigs = data?.pages.flatMap((page) => page.items) || [];
@@ -347,19 +398,20 @@ export default function TrigsV2() {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (selectedCategories.length !== ALL_CATEGORY_IDS.length) count++;
-    if (maxKm !== null) count++;
-    if (selectedHistoricUse.length !== HISTORIC_USE_VALUES.length) count++;
-    if (selectedCurrentUse.length !== CURRENT_USE_VALUES.length) count++;
-    if (selectedConditions.length !== CONDITION_VALUES.length) count++;
+    if (maxKm !== DEFAULT_MAX_KM) count++;
+    if (selectedHistoricUse.length !== allHistoricUseValues.length) count++;
+    if (selectedCurrentUse.length !== allCurrentUseValues.length) count++;
+    if (selectedConditions.length !== allConditionCodes.length) count++;
     if (selectedLoggedConditions.length !== ALL_LOGGED_CONDITION_CODES.length || !showNotLogged) count++;
-    if (selectedTypes.length !== ALL_TYPE_CODES.length) count++;
-    if (selectedAreaIds.length !== ALL_AREA_IDS.length) count++;
+    if (selectedTypes.length !== allTypeCodes.length) count++;
+    if (selectedAreaIds.length > 0) count++; // Area is active when any specific areas selected
     if (selectedCountyIds.length !== ALL_COUNTY_IDS.length) count++;
     return count;
   }, [
     selectedCategories, maxKm, selectedHistoricUse, selectedCurrentUse,
     selectedConditions, selectedLoggedConditions, showNotLogged, selectedTypes,
-    selectedAreaIds, selectedCountyIds
+    selectedAreaIds, selectedCountyIds, allTypeCodes.length, allConditionCodes.length,
+    allHistoricUseValues.length, allCurrentUseValues.length
   ]);
 
   return (
@@ -385,8 +437,7 @@ export default function TrigsV2() {
           {/* Experiment notice */}
           <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
             <strong>This is an experimental page.</strong> We're testing a filter chips approach 
-            for the trigs browser. Not all filters are connected to the backend yet - some show 
-            mock data. <Link to="/experiment" className="underline hover:text-amber-600">View all experiments</Link>
+            for the trigs browser. <Link to="/experiment" className="underline hover:text-amber-600">View all experiments</Link>
           </div>
         </div>
 
@@ -450,28 +501,28 @@ export default function TrigsV2() {
                   selectedCategories={selectedCategories}
                   onToggleType={handleToggleType}
                   onToggleCategory={handleToggleCategory}
-                  onSelectAll={() => setSelectedTypes([...ALL_TYPE_CODES])}
+                  onSelectAll={() => setSelectedTypes([...allTypeCodes])}
                   onSelectNone={() => setSelectedTypes([])}
                 />
 
                 <HistoricUseChip
                   selectedValues={selectedHistoricUse}
                   onToggle={handleToggleHistoricUse}
-                  onSelectAll={() => setSelectedHistoricUse(HISTORIC_USE_VALUES.map((v) => v.value))}
+                  onSelectAll={() => setSelectedHistoricUse([...allHistoricUseValues])}
                   onSelectNone={() => setSelectedHistoricUse([])}
                 />
                 
                 <CurrentUseChip
                   selectedValues={selectedCurrentUse}
                   onToggle={handleToggleCurrentUse}
-                  onSelectAll={() => setSelectedCurrentUse(CURRENT_USE_VALUES.map((v) => v.value))}
+                  onSelectAll={() => setSelectedCurrentUse([...allCurrentUseValues])}
                   onSelectNone={() => setSelectedCurrentUse([])}
                 />
                 
                 <ConditionChip
                   selectedConditions={selectedConditions}
                   onToggle={handleToggleCondition}
-                  onSelectAll={() => setSelectedConditions(CONDITION_VALUES.map((v) => v.code))}
+                  onSelectAll={() => setSelectedConditions([...allConditionCodes])}
                   onSelectNone={() => setSelectedConditions([])}
                 />
                 
@@ -485,15 +536,15 @@ export default function TrigsV2() {
                   isAuthenticated={isAuthenticated}
                 />
                 
-                {/* Area chips */}
+                {/* Area chip */}
                 <AreaChip
                   selectedAreaIds={selectedAreaIds}
                   onToggleArea={handleToggleArea}
-                  onSelectAll={() => setSelectedAreaIds([...ALL_AREA_IDS])}
+                  onSelectAll={() => setSelectedAreaIds([])} // Empty = all (managed by chip)
                   onSelectNone={() => setSelectedAreaIds([])}
                   centerLat={centerLat}
                   centerLon={centerLon}
-                  containingAreaId={null} // Would come from API
+                  containingAreaId={null}
                 />
               </div>
             </div>
@@ -575,7 +626,7 @@ export default function TrigsV2() {
                   onToggleCounty={handleToggleCounty}
                   onSelectAll={() => setSelectedCountyIds([...ALL_COUNTY_IDS])}
                   onSelectNone={() => setSelectedCountyIds([])}
-                  containingCountyId={null} // Would come from API
+                  containingCountyId={null}
                 />
               </div>
             </div>
@@ -591,11 +642,6 @@ export default function TrigsV2() {
                     {locationName && ` near ${locationName}`}
                   </span>
                 )}
-              </div>
-              
-              {/* Backend filter warning */}
-              <div className="text-xs text-amber-600 dark:text-amber-400">
-                ⚠️ Some filters (historic use, condition, type, area) are not yet connected to backend
               </div>
             </div>
           </div>
@@ -663,4 +709,3 @@ export default function TrigsV2() {
     </Layout>
   );
 }
-

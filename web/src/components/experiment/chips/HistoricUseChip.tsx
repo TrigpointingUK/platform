@@ -4,20 +4,9 @@
  * Values from trig.historic_use column (e.g., "Primary", "Secondary", "3rd order", "Other")
  */
 
-import { History } from "lucide-react";
+import { History, Loader2 } from "lucide-react";
 import { FilterChip, FilterListItem, FilterSelectionButtons } from "../FilterChip";
-
-// Known historic use values from the database
-// These would ideally come from an API, but for now we'll hardcode the known values
-export const HISTORIC_USE_VALUES = [
-  { value: "Primary", label: "Primary" },
-  { value: "Secondary", label: "Secondary" },
-  { value: "3rd order", label: "3rd order" },
-  { value: "4th order", label: "4th order" },
-  { value: "Other", label: "Other" },
-  { value: "Unknown", label: "Unknown" },
-  { value: "", label: "(Not specified)" },
-];
+import { useHistoricUseValues, type ReferenceValue } from "../../../hooks/useReferenceData";
 
 export interface HistoricUseChipProps {
   selectedValues: string[];
@@ -32,16 +21,22 @@ export function HistoricUseChip({
   onSelectAll,
   onSelectNone,
 }: HistoricUseChipProps) {
+  const { data: values, isLoading, isError } = useHistoricUseValues();
+
   const selectedCount = selectedValues.length;
-  const totalCount = HISTORIC_USE_VALUES.length;
+  const totalCount = values?.length || 0;
   
   let summary: string;
-  if (selectedCount === 0) {
+  if (isLoading) {
+    summary = "Loading...";
+  } else if (isError || !values) {
+    summary = "Error";
+  } else if (selectedCount === 0) {
     summary = "None";
   } else if (selectedCount === totalCount) {
     summary = "All";
   } else if (selectedCount === 1) {
-    const selected = HISTORIC_USE_VALUES.find(v => selectedValues.includes(v.value));
+    const selected = values.find((v) => selectedValues.includes(v.value));
     summary = selected?.label || "1 selected";
   } else {
     summary = `${selectedCount} selected`;
@@ -50,7 +45,7 @@ export function HistoricUseChip({
   // Active when some (but not all) items are selected
   const isActive = selectedCount > 0 && selectedCount < totalCount;
   // Warning when nothing is selected (will result in empty list)
-  const isWarning = selectedCount === 0;
+  const isWarning = selectedCount === 0 && !isLoading;
 
   return (
     <FilterChip
@@ -63,20 +58,37 @@ export function HistoricUseChip({
       popoverWidth="md"
       icon={<History className="w-3.5 h-3.5" />}
     >
-      <FilterSelectionButtons onSelectAll={onSelectAll} onSelectNone={onSelectNone} />
-      <div className="py-1">
-        {HISTORIC_USE_VALUES.map((item) => (
-          <FilterListItem
-            key={item.value}
-            label={item.label}
-            checked={selectedValues.includes(item.value)}
-            onChange={() => onToggle(item.value)}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        </div>
+      ) : isError || !values ? (
+        <div className="px-3 py-4 text-sm text-red-600 dark:text-red-400">
+          Failed to load historic use values. Please try again.
+        </div>
+      ) : (
+        <>
+          <FilterSelectionButtons onSelectAll={onSelectAll} onSelectNone={onSelectNone} />
+          <div className="py-1">
+            {values.map((item) => (
+              <FilterListItem
+                key={item.value}
+                label={item.label}
+                checked={selectedValues.includes(item.value)}
+                onChange={() => onToggle(item.value)}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </FilterChip>
   );
 }
 
-export default HistoricUseChip;
+// Helper to get all historic use values
+export function getAllHistoricUseValues(values: ReferenceValue[] | undefined): string[] {
+  if (!values) return [];
+  return values.map((v) => v.value);
+}
 
+export default HistoricUseChip;

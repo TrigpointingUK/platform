@@ -58,6 +58,7 @@ export interface UseInfiniteTrigsOptions {
   lat?: number;
   lon?: number;
   statusIds?: number[]; // Status IDs to filter by (10, 20, 30, etc.)
+  types?: string[]; // Type codes to filter by (e.g., ['HOTINE', 'FBM'])
   showLogged?: boolean; // Show trigpoints logged by user (default: true)
   showNotLogged?: boolean; // Show trigpoints not logged by user (default: true)
   maxKm?: number;
@@ -66,11 +67,11 @@ export interface UseInfiniteTrigsOptions {
 }
 
 export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
-  const { lat, lon, statusIds, showLogged = true, showNotLogged = true, maxKm, areaId, order } = options;
+  const { lat, lon, statusIds, types, showLogged = true, showNotLogged = true, maxKm, areaId, order } = options;
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigsResponse>({
-    queryKey: ["trigs", "infinite", lat, lon, statusIds, showLogged, showNotLogged, maxKm, areaId, order],
+    queryKey: ["trigs", "infinite", lat, lon, statusIds, types, showLogged, showNotLogged, maxKm, areaId, order],
     enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
       const skip = typeof pageParam === "number" ? pageParam : 0;
@@ -100,6 +101,11 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
         if (categoryCodes.length > 0) {
           params.append("categories", categoryCodes.join(","));
         }
+      }
+      
+      // Type filter
+      if (types && types.length > 0) {
+        params.append("types", types.join(","));
       }
       
       // Log filter: showLogged=false means exclude found, showNotLogged=false means only found

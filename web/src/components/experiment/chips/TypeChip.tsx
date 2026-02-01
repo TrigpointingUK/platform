@@ -5,105 +5,24 @@
  * Toggling a category toggles all types within it.
  */
 
-import { useState } from "react";
-import { Tag, ChevronRight, ChevronDown } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Tag, ChevronRight, ChevronDown, Loader2 } from "lucide-react";
 import { FilterChip, FilterListItem, FilterSelectionButtons, FilterCheckbox } from "../FilterChip";
+import { useTrigCategories, type TrigCategory } from "../../../hooks/useReferenceData";
 
-// Type definitions grouped by category
-// In production, this would come from the /v1/types/categories API
-export interface TrigType {
-  code: string;
-  name: string;
-}
-
-export interface TrigCategory {
-  id: number;
-  code: string;
-  name: string;
-  icon: string;
-  types: TrigType[];
-}
-
-// Mock data matching the actual database structure
-export const TYPE_CATEGORIES: TrigCategory[] = [
-  {
-    id: 10,
-    code: "PILLAR",
-    name: "Pillar",
-    icon: "/icons/t_pillar.png",
-    types: [
-      { code: "HOTINE", name: "Hotine pillar" },
-      { code: "COLE", name: "Cole pillar" },
-      { code: "VANESSA", name: "Vanessa pillar" },
-      { code: "FBM_PILLAR", name: "FBM pillar" },
-      { code: "OTHER_PILLAR", name: "Other pillar" },
-    ],
-  },
-  {
-    id: 20,
-    code: "FBM",
-    name: "FBM",
-    icon: "/icons/t_fbm.png",
-    types: [
-      { code: "FLUSH_BRACKET", name: "Flush bracket" },
-      { code: "BOLT", name: "Bolt" },
-      { code: "RIVET", name: "Rivet" },
-      { code: "CUT", name: "Cut" },
-    ],
-  },
-  {
-    id: 30,
-    code: "SURVEY_MARK",
-    name: "Survey mark",
-    icon: "/icons/t_passive.png",
-    types: [
-      { code: "SURFACE_BLOCK", name: "Surface block" },
-      { code: "BURIED_BLOCK", name: "Buried block" },
-      { code: "PIPE", name: "Pipe" },
-    ],
-  },
-  {
-    id: 40,
-    code: "INTERSECTED",
-    name: "Intersected",
-    icon: "/icons/t_intersected.png",
-    types: [
-      { code: "CHURCH", name: "Church spire/tower" },
-      { code: "CHIMNEY", name: "Chimney" },
-      { code: "MAST", name: "Mast/tower" },
-      { code: "LIGHTHOUSE", name: "Lighthouse" },
-      { code: "OTHER_INTERSECTED", name: "Other intersected" },
-    ],
-  },
-  {
-    id: 50,
-    code: "ACTIVE",
-    name: "Active station",
-    icon: "/icons/t_active.png",
-    types: [
-      { code: "GNSS", name: "GNSS station" },
-      { code: "OSNET", name: "OS Net station" },
-    ],
-  },
-  {
-    id: 60,
-    code: "OTHER",
-    name: "Other",
-    icon: "/icons/t_other.svg",
-    types: [
-      { code: "CANNON", name: "Cannon" },
-      { code: "PLATFORM", name: "Platform" },
-      { code: "OTHER_OTHER", name: "Other" },
-    ],
-  },
-];
-
-// Get all type codes
-export const ALL_TYPE_CODES = TYPE_CATEGORIES.flatMap((c) => c.types.map((t) => t.code));
+// Status ID to category code mapping (for the main UI toggle buttons)
+const STATUS_ID_TO_CATEGORY_CODE: Record<number, string> = {
+  10: "PILLAR",
+  20: "FBM",
+  30: "PASSIVE",
+  40: "INTERSECTED",
+  50: "ACTIVE",
+  60: "OTHER",
+};
 
 export interface TypeChipProps {
   selectedTypes: string[];
-  selectedCategories: number[];
+  selectedCategories: number[]; // Status IDs for the main category buttons
   onToggleType: (typeCode: string) => void;
   onToggleCategory: (categoryId: number) => void;
   onSelectAll: () => void;
@@ -118,7 +37,14 @@ export function TypeChip({
   onSelectAll,
   onSelectNone,
 }: TypeChipProps) {
+  const { data: categories, isLoading, isError } = useTrigCategories();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  // Get all type codes from the loaded categories
+  const allTypeCodes = useMemo(() => {
+    if (!categories) return [];
+    return categories.flatMap((c) => c.types.map((t) => t.code));
+  }, [categories]);
 
   const toggleCategoryExpanded = (code: string) => {
     setExpandedCategories((prev) => {
@@ -133,16 +59,21 @@ export function TypeChip({
   };
 
   const selectedCount = selectedTypes.length;
-  const totalCount = ALL_TYPE_CODES.length;
+  const totalCount = allTypeCodes.length;
   
+  // Build summary text
   let summary: string;
-  if (selectedCount === 0) {
+  if (isLoading) {
+    summary = "Loading...";
+  } else if (isError || !categories) {
+    summary = "Error";
+  } else if (selectedCount === 0) {
     summary = "None";
   } else if (selectedCount === totalCount) {
     summary = "All";
   } else {
     // Check if any full categories are selected
-    const selectedCategoryNames = TYPE_CATEGORIES
+    const selectedCategoryNames = categories
       .filter((cat) => {
         const catTypeCodes = cat.types.map((t) => t.code);
         return catTypeCodes.every((code) => selectedTypes.includes(code));
@@ -159,7 +90,7 @@ export function TypeChip({
   // Active when some (but not all) items are selected
   const isActive = selectedCount > 0 && selectedCount < totalCount;
   // Warning when nothing is selected (will result in empty list)
-  const isWarning = selectedCount === 0;
+  const isWarning = selectedCount === 0 && !isLoading;
 
   // Check if a category is fully selected
   const isCategoryFullySelected = (category: TrigCategory): boolean => {
@@ -172,17 +103,28 @@ export function TypeChip({
     return selectedInCat.length > 0 && selectedInCat.length < category.types.length;
   };
 
+  // Find the status ID for a category code
+  const getStatusIdForCategory = (categoryCode: string): number | null => {
+    for (const [statusId, code] of Object.entries(STATUS_ID_TO_CATEGORY_CODE)) {
+      if (code === categoryCode) {
+        return parseInt(statusId, 10);
+      }
+    }
+    return null;
+  };
+
   // Handle toggling an entire category's types
   const handleCategoryToggle = (category: TrigCategory) => {
     const isFullySelected = isCategoryFullySelected(category);
-    const isCategorySelectedInMainUI = selectedCategories.includes(category.id);
+    const statusId = getStatusIdForCategory(category.code);
+    const isCategorySelectedInMainUI = statusId !== null && selectedCategories.includes(statusId);
     
     // Determine desired state: if fully selected, we want to deselect; otherwise select
     const wantSelected = !isFullySelected;
     
     // Only toggle the main category button if its state doesn't match what we want
-    if (wantSelected !== isCategorySelectedInMainUI) {
-      onToggleCategory(category.id);
+    if (statusId !== null && wantSelected !== isCategorySelectedInMainUI) {
+      onToggleCategory(statusId);
     }
     
     // Toggle all types in this category to match the desired state
@@ -198,6 +140,23 @@ export function TypeChip({
     });
   };
 
+  // Get icon path for a category
+  const getCategoryIcon = (category: TrigCategory): string => {
+    if (category.icon_file) {
+      return `/icons/${category.icon_file}`;
+    }
+    // Fallback icons based on category code
+    const iconMap: Record<string, string> = {
+      PILLAR: "/icons/t_pillar.png",
+      FBM: "/icons/t_fbm.png",
+      PASSIVE: "/icons/t_passive.png",
+      INTERSECTED: "/icons/t_intersected.png",
+      ACTIVE: "/icons/t_active.png",
+      OTHER: "/icons/t_other.svg",
+    };
+    return iconMap[category.code] || "/icons/t_other.svg";
+  };
+
   return (
     <FilterChip
       label="Type"
@@ -209,73 +168,90 @@ export function TypeChip({
       popoverWidth="lg"
       icon={<Tag className="w-3.5 h-3.5" />}
     >
-      <FilterSelectionButtons onSelectAll={onSelectAll} onSelectNone={onSelectNone} />
-      <div className="py-1">
-        {TYPE_CATEGORIES.map((category) => {
-          const isExpanded = expandedCategories.has(category.code);
-          const isFullySelected = isCategoryFullySelected(category);
-          const isPartial = isCategoryPartiallySelected(category);
-          
-          return (
-            <div key={category.code}>
-              {/* Category header */}
-            <div className="flex items-center px-3 py-2 hover:bg-trig-green-50 dark:hover:bg-gray-800">
-                {/* Expand/collapse button */}
-                <button
-                  type="button"
-                  onClick={() => toggleCategoryExpanded(category.code)}
-                  className="p-0.5 mr-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4" />
-                  )}
-                </button>
-                
-                {/* Category checkbox */}
-              <label className="flex items-center gap-2 cursor-pointer flex-1">
-                <FilterCheckbox
-                  checked={isFullySelected}
-                  indeterminate={isPartial}
-                  onChange={() => handleCategoryToggle(category)}
-                  ariaLabel={category.name}
-                />
-                  <img
-                    src={category.icon}
-                    alt=""
-                    className="w-5 h-5 object-contain"
-                  />
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                    {category.name}
-                  </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ({category.types.filter((t) => selectedTypes.includes(t.code)).length}/{category.types.length})
-                  </span>
-                </label>
-              </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        </div>
+      ) : isError || !categories ? (
+        <div className="px-3 py-4 text-sm text-red-600 dark:text-red-400">
+          Failed to load types. Please try again.
+        </div>
+      ) : (
+        <>
+          <FilterSelectionButtons onSelectAll={onSelectAll} onSelectNone={onSelectNone} />
+          <div className="py-1">
+            {categories.map((category) => {
+              const isExpanded = expandedCategories.has(category.code);
+              const isFullySelected = isCategoryFullySelected(category);
+              const isPartial = isCategoryPartiallySelected(category);
               
-              {/* Expanded types */}
-              {isExpanded && (
-                <div className="pl-4">
-                  {category.types.map((type) => (
-                    <FilterListItem
-                      key={type.code}
-                      label={type.name}
-                      checked={selectedTypes.includes(type.code)}
-                      onChange={() => onToggleType(type.code)}
-                      indented
-                    />
-                  ))}
+              return (
+                <div key={category.code}>
+                  {/* Category header */}
+                  <div className="flex items-center px-3 py-2 hover:bg-trig-green-50 dark:hover:bg-gray-800">
+                    {/* Expand/collapse button */}
+                    <button
+                      type="button"
+                      onClick={() => toggleCategoryExpanded(category.code)}
+                      className="p-0.5 mr-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                    </button>
+                    
+                    {/* Category checkbox */}
+                    <label className="flex items-center gap-2 cursor-pointer flex-1">
+                      <FilterCheckbox
+                        checked={isFullySelected}
+                        indeterminate={isPartial}
+                        onChange={() => handleCategoryToggle(category)}
+                        ariaLabel={category.name}
+                      />
+                      <img
+                        src={getCategoryIcon(category)}
+                        alt=""
+                        className="w-5 h-5 object-contain"
+                      />
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        {category.name}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({category.types.filter((t) => selectedTypes.includes(t.code)).length}/{category.types.length})
+                      </span>
+                    </label>
+                  </div>
+                  
+                  {/* Expanded types */}
+                  {isExpanded && (
+                    <div className="pl-4">
+                      {category.types.map((type) => (
+                        <FilterListItem
+                          key={type.code}
+                          label={type.name}
+                          checked={selectedTypes.includes(type.code)}
+                          onChange={() => onToggleType(type.code)}
+                          indented
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </FilterChip>
   );
 }
 
-export default TypeChip;
+// Helper to get all type codes - now needs to be called with categories data
+export function getAllTypeCodes(categories: TrigCategory[] | undefined): string[] {
+  if (!categories) return [];
+  return categories.flatMap((c) => c.types.map((t) => t.code));
+}
 
+export default TypeChip;
