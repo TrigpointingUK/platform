@@ -12,8 +12,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { FlaskConical, RotateCcw, Filter, ArrowUpDown, MapPin, SortAsc, Trophy, Mountain, HelpCircle } from "lucide-react";
-
+import { Filter, RotateCcw, FlaskConical, HelpCircle, ArrowUpDown, Mountain, Trophy, SortAsc, MapPin } from "lucide-react";
 import Layout from "../../components/layout/Layout";
 import Card from "../../components/ui/Card";
 import { TrigCard } from "../../components/trigs/TrigCard";
@@ -24,6 +23,7 @@ import type { UserLogStatus } from "../../lib/mapIcons";
 
 // Import all our filter chips
 import {
+
   LocationChip,
   CategoryChip,
   RadiusChip,
@@ -288,6 +288,9 @@ export default function TrigsV2() {
   // Data Fetching
   // ==========================================================================
 
+  // Build order string with direction prefix
+  const orderParam = sortDirection === "desc" ? `-${sortKey}` : sortKey;
+
   // For now, only use the filters that are supported by the existing API
   const {
     data,
@@ -303,6 +306,7 @@ export default function TrigsV2() {
     showLogged: selectedLoggedConditions.length > 0,
     showNotLogged,
     maxKm: maxKm ?? undefined,
+    order: orderParam,
     // Note: historic_use, current_use, condition, type, area filters
     // are NOT yet supported by the API - they'll need backend work
   });

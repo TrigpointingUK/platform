@@ -62,14 +62,15 @@ export interface UseInfiniteTrigsOptions {
   showNotLogged?: boolean; // Show trigpoints not logged by user (default: true)
   maxKm?: number;
   areaId?: number; // Filter to trigpoints within a specific area
+  order?: string; // Sort order: distance | name | height | score (prefix with - for desc)
 }
 
 export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
-  const { lat, lon, statusIds, showLogged = true, showNotLogged = true, maxKm, areaId } = options;
+  const { lat, lon, statusIds, showLogged = true, showNotLogged = true, maxKm, areaId, order } = options;
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigsResponse>({
-    queryKey: ["trigs", "infinite", lat, lon, statusIds, showLogged, showNotLogged, maxKm, areaId],
+    queryKey: ["trigs", "infinite", lat, lon, statusIds, showLogged, showNotLogged, maxKm, areaId, order],
     enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
       const skip = typeof pageParam === "number" ? pageParam : 0;
@@ -81,8 +82,11 @@ export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
       if (lat !== undefined && lon !== undefined) {
         params.append("lat", lat.toString());
         params.append("lon", lon.toString());
-        params.append("order", "distance");
       }
+      
+      // Set sort order - default to distance when coordinates available
+      const effectiveOrder = order || (lat !== undefined && lon !== undefined ? "distance" : "name");
+      params.append("order", effectiveOrder);
       
       if (maxKm !== undefined) {
         params.append("max_km", maxKm.toString());

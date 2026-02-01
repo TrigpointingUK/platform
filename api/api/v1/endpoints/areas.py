@@ -3,6 +3,7 @@ Area endpoints for geographic area queries.
 """
 
 from collections import defaultdict
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -120,6 +121,83 @@ def list_area_types(
             description=str(t.description) if t.description else None,
         )
         for t in types
+    ]
+
+
+@router.get(
+    "/by-type/{type_id}",
+    response_model=list[AreaResponse],
+    openapi_extra=openapi_lifecycle("beta", note="List all areas of a specific type"),
+)
+@cached(resource_type="areas_by_type", ttl=86400)
+def list_areas_by_type(
+    type_id: int,
+    lat: Optional[float] = Query(
+        None, description="Centre latitude for distance sorting"
+    ),
+    lon: Optional[float] = Query(
+        None, description="Centre longitude for distance sorting"
+    ),
+    order: str = Query(
+        "name", description="Sort order: name | distance (requires lat/lon)"
+    ),
+    _lc=lifecycle("beta"),
+    db: Session = Depends(get_db),
+):
+    """
+    List all areas of a specific type.
+
+    Returns areas ordered alphabetically by name, or by distance from a given point.
+    Distance sorting requires lat/lon parameters and uses the area centroid.
+
+    This is useful for populating area filter dropdowns in the UI.
+    """
+    from math import atan2, cos, radians, sin, sqrt
+
+    # Verify the area type exists
+    area_type = area_crud.get_area_type_by_id(db, type_id)
+    if area_type is None:
+        raise HTTPException(status_code=404, detail="Area type not found")
+
+    # Get all areas of this type (no pagination - typically <100 per type)
+    areas = area_crud.list_areas_by_type(db, area_type_id=type_id, skip=0, limit=1000)
+
+    # Sort by distance if requested and coordinates provided
+    if order == "distance" and lat is not None and lon is not None:
+
+        def haversine_distance(area):
+            """Calculate distance from center point to area centroid."""
+            if area.center_lat is None or area.center_lon is None:
+                return float("inf")
+            # Haversine formula
+            lat1, lon1 = radians(lat), radians(lon)
+            lat2, lon2 = radians(float(area.center_lat)), radians(
+                float(area.center_lon)
+            )
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+            c = 2 * atan2(sqrt(a), sqrt(1 - a))
+            return 6371 * c  # Earth radius in km
+
+        areas = sorted(areas, key=haversine_distance)
+
+    # Build response
+    area_type_response = AreaTypeResponse(
+        id=int(area_type.id),
+        code=str(area_type.code),
+        name=str(area_type.name),
+        description=str(area_type.description) if area_type.description else None,
+    )
+
+    return [
+        AreaResponse(
+            id=int(area.id),
+            name=str(area.name),
+            code=str(area.code) if area.code else None,
+            area_type=area_type_response,
+        )
+        for area in areas
     ]
 
 

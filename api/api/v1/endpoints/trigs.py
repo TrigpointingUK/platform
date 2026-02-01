@@ -887,7 +887,10 @@ def list_trigs(
     max_km: Optional[float] = Query(
         None, ge=0, description="Max distance from centre (km)"
     ),
-    order: Optional[str] = Query(None, description="id | name | distance"),
+    order: Optional[str] = Query(
+        None,
+        description="Sort order: id | name | distance | height | score (prefix with - for descending)",
+    ),
     types: Optional[str] = Query(
         None, description="Comma-separated type codes to include (e.g., 'HOTINE,FBM')"
     ),
@@ -904,6 +907,22 @@ def list_trigs(
     area_id: Optional[int] = Query(
         None, description="Filter to trigpoints within the specified area"
     ),
+    area_ids: Optional[str] = Query(
+        None, description="Comma-separated area IDs (multi-select)"
+    ),
+    historic_use: Optional[str] = Query(
+        None, description="Comma-separated historic use values to include"
+    ),
+    current_use: Optional[str] = Query(
+        None, description="Comma-separated current use values to include"
+    ),
+    conditions: Optional[str] = Query(
+        None, description="Comma-separated condition codes to include"
+    ),
+    logged_conditions: Optional[str] = Query(
+        None,
+        description="Comma-separated condition codes - show trigs logged by user with these conditions",
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     _lc=lifecycle("beta"),
@@ -919,6 +938,11 @@ def list_trigs(
     - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
     - only_found: Include only trigpoints the user has logged (requires authentication)
     - area_id: Filter to trigpoints within a specific geographic area
+    - area_ids: Filter to trigpoints within multiple areas (comma-separated)
+    - historic_use: Filter by historic use values (comma-separated)
+    - current_use: Filter by current use values (comma-separated)
+    - conditions: Filter by condition codes (comma-separated)
+    - logged_conditions: Filter by conditions user logged trigs with (comma-separated)
 
     Always excludes soft-deleted records (status_id >= 90).
     """
@@ -948,6 +972,33 @@ def list_trigs(
     if only_found and current_user:
         only_found_by_user_id = int(current_user.id)
 
+    # Parse area_ids (multi-select)
+    area_ids_list = None
+    if area_ids:
+        area_ids_list = [int(a.strip()) for a in area_ids.split(",") if a.strip()]
+
+    # Parse historic_use values
+    historic_use_list = None
+    if historic_use:
+        historic_use_list = [h.strip() for h in historic_use.split(",") if h.strip()]
+
+    # Parse current_use values
+    current_use_list = None
+    if current_use:
+        current_use_list = [c.strip() for c in current_use.split(",") if c.strip()]
+
+    # Parse condition codes
+    conditions_list = None
+    if conditions:
+        conditions_list = [c.strip() for c in conditions.split(",") if c.strip()]
+
+    # Parse logged_conditions codes
+    logged_conditions_list = None
+    if logged_conditions:
+        logged_conditions_list = [
+            c.strip() for c in logged_conditions.split(",") if c.strip()
+        ]
+
     items = trig_crud.list_trigs_filtered(
         db,
         name=name,
@@ -964,6 +1015,11 @@ def list_trigs(
         only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status_id >= 90
         area_id=area_id,
+        area_ids=area_ids_list,
+        historic_use=historic_use_list,
+        current_use=current_use_list,
+        conditions=conditions_list,
+        logged_conditions=logged_conditions_list,
     )
 
     total = trig_crud.count_trigs_filtered(
@@ -979,7 +1035,26 @@ def list_trigs(
         only_found_by_user_id=only_found_by_user_id,
         exclude_soft_deleted=True,  # Always exclude status_id >= 90
         area_id=area_id,
+        area_ids=area_ids_list,
+        historic_use=historic_use_list,
+        current_use=current_use_list,
+        conditions=conditions_list,
+        logged_conditions=logged_conditions_list,
     )
+
+    # Batch-fetch scores for all returned trigs
+    from api.models.trigstats import TrigStats
+
+    trig_ids = [int(t.id) for t in items]
+    scores_raw = (
+        db.query(TrigStats.id, TrigStats.score_baysian)
+        .filter(TrigStats.id.in_(trig_ids))
+        .all()
+    )
+    scores_map = {
+        int(s.id): float(s.score_baysian) if s.score_baysian else None
+        for s in scores_raw
+    }
 
     # serialise with type information
     items_serialized = []
@@ -992,6 +1067,8 @@ def list_trigs(
             if trig.trig_type.category:
                 data["category_code"] = trig.trig_type.category.code
                 data["category_name"] = trig.trig_type.category.name
+        # Add score from trigstats
+        data["score"] = scores_map.get(int(trig.id))
         items_serialized.append(data)
 
     # Compute distance_km for returned page only (cheap), matching SQL formula
@@ -1028,6 +1105,16 @@ def list_trigs(
         params.append("only_found=true")
     if area_id is not None:
         params.append(f"area_id={area_id}")
+    if area_ids:
+        params.append(f"area_ids={area_ids}")
+    if historic_use:
+        params.append(f"historic_use={historic_use}")
+    if current_use:
+        params.append(f"current_use={current_use}")
+    if conditions:
+        params.append(f"conditions={conditions}")
+    if logged_conditions:
+        params.append(f"logged_conditions={logged_conditions}")
     params.append(f"limit={limit}")
     # self link
     self_link = base + "?" + "&".join(params + [f"skip={skip}"])
