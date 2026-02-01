@@ -28,6 +28,8 @@ interface Trig {
   category_code?: string;
   category_name?: string;
   distance_km?: number;
+  wgs_height?: number;
+  score?: number;
 }
 
 interface TrigsResponse {
