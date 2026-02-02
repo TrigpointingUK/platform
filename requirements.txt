@@ -33,7 +33,7 @@ redis==7.1.0
 
 # Image processing
 Pillow==12.1.0
-numpy==2.4.1
+numpy==2.4.2
 onnxruntime==1.23.2
 
 # Geodesy - accurate coordinate transformations
