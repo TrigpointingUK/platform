@@ -79,6 +79,7 @@ class TrigMinimal(BaseModel):
     # Coordinates and grid ref
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")
     wgs_long: Decimal = Field(..., description="WGS84 longitude")
+    wgs_height: Optional[Decimal] = Field(None, description="WGS84 height in metres")
     osgb_gridref: str = Field(..., description="Grid reference (OSGB or Irish format)")
 
     # Grid system classification
@@ -92,6 +93,7 @@ class TrigMinimal(BaseModel):
     )
 
     distance_km: Optional[float] = None  # populated only when lat/lon provided
+    score: Optional[Decimal] = Field(None, description="Bayesian score from trigstats")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -99,6 +101,16 @@ class TrigMinimal(BaseModel):
     def serialize_coords_8dp(self, value: Decimal) -> float:
         """Serialize coordinates with full 8dp precision."""
         return round(float(value), 8)
+
+    @field_serializer("wgs_height")
+    def serialize_height(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize height as float for JSON output."""
+        return float(value) if value is not None else None
+
+    @field_serializer("score")
+    def serialize_score(self, value: Optional[Decimal]) -> Optional[float]:
+        """Serialize score as float with 2dp precision."""
+        return round(float(value), 2) if value is not None else None
 
 
 class TrigExport(BaseModel):

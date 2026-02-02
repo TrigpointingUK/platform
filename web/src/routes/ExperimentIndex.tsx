@@ -12,6 +12,7 @@ import {
   Calendar,
   ChevronRight,
   Sparkles,
+  Filter,
 } from "lucide-react";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
@@ -70,6 +71,14 @@ function ExperimentCard({
 
 export default function ExperimentIndex() {
   const experiments = [
+    {
+      to: "/experiment/trigs-v2",
+      icon: <Filter className="w-6 h-6" />,
+      title: "Trigs Browser v2 (Filter Chips)",
+      description:
+        "An experimental redesign of the trigpoints browser using a filter chips UI pattern. Adds new filters for historic use, condition, physical type, and improved area selection.",
+      tags: ["UX Experiment", "Filters", "New"],
+    },
     {
       to: "/experiment/survey-timeline",
       icon: <Calendar className="w-6 h-6" />,

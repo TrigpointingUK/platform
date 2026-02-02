@@ -16,6 +16,8 @@ interface Trig {
   category_code?: string;
   category_name?: string;
   distance_km?: number;
+  wgs_height?: number;
+  score?: number;
 }
 
 interface TrigCardProps {
@@ -204,6 +206,22 @@ export function TrigCard({
                   {trig.type_code === trig.category_code
                     ? trig.type_name
                     : `${trig.category_name} · ${trig.type_name}`}
+                </span>
+              </>
+            )}
+            {trig.wgs_height != null && (
+              <>
+                <span className="text-gray-400 dark:text-gray-500">•</span>
+                <span className="text-gray-500 dark:text-gray-400 text-xs" title="Height above sea level">
+                  {trig.wgs_height.toFixed(0)}m
+                </span>
+              </>
+            )}
+            {trig.score != null && (
+              <>
+                <span className="text-gray-400 dark:text-gray-500">•</span>
+                <span className="text-amber-600 dark:text-amber-400 text-xs font-medium" title="Trigpoint score">
+                  ★ {trig.score.toFixed(1)}
                 </span>
               </>
             )}

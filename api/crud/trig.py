@@ -154,14 +154,72 @@ def list_trigs_filtered(
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
     area_id: Optional[int] = None,
+    area_ids: Optional[List[int]] = None,
+    historic_use: Optional[List[str]] = None,
+    current_use: Optional[List[str]] = None,
+    conditions: Optional[List[str]] = None,
+    logged_conditions: Optional[List[str]] = None,
 ) -> list[Trig]:
+    """
+    List trigs with filters. Returns just Trig objects.
+
+    For distance information, use list_trigs_filtered_with_distance() instead.
+    """
+    results = list_trigs_filtered_with_distance(
+        db,
+        name=name,
+        county=county,
+        skip=skip,
+        limit=limit,
+        center_lat=center_lat,
+        center_lon=center_lon,
+        max_km=max_km,
+        order=order,
+        type_codes=type_codes,
+        category_codes=category_codes,
+        exclude_found_by_user_id=exclude_found_by_user_id,
+        only_found_by_user_id=only_found_by_user_id,
+        exclude_soft_deleted=exclude_soft_deleted,
+        area_id=area_id,
+        area_ids=area_ids,
+        historic_use=historic_use,
+        current_use=current_use,
+        conditions=conditions,
+        logged_conditions=logged_conditions,
+    )
+    return [trig for trig, _ in results]
+
+
+def list_trigs_filtered_with_distance(
+    db: Session,
+    *,
+    name: Optional[str] = None,
+    county: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
+    center_lat: Optional[float] = None,
+    center_lon: Optional[float] = None,
+    max_km: Optional[float] = None,
+    order: Optional[str] = None,
+    type_codes: Optional[List[str]] = None,
+    category_codes: Optional[List[str]] = None,
+    exclude_found_by_user_id: Optional[int] = None,
+    only_found_by_user_id: Optional[int] = None,
+    exclude_soft_deleted: bool = True,
+    area_id: Optional[int] = None,
+    area_ids: Optional[List[int]] = None,
+    historic_use: Optional[List[str]] = None,
+    current_use: Optional[List[str]] = None,
+    conditions: Optional[List[str]] = None,
+    logged_conditions: Optional[List[str]] = None,
+) -> list[tuple[Trig, Optional[float]]]:
     query = db.query(Trig)
 
     # Global filter: exclude soft-deleted records (status >= 90) unless explicitly requested
     if exclude_soft_deleted:
         query = query.filter(Trig.status_id < 90)
 
-    # Filter by area using trig_area table
+    # Filter by area using trig_area table (single area_id - legacy support)
     if area_id is not None and not _is_sqlite(db):
         from sqlalchemy import text
 
@@ -170,6 +228,27 @@ def list_trigs_filtered(
             "SELECT trig_id FROM trig_area WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
+
+    # Filter by multiple areas (area_ids - new multi-select support)
+    if area_ids and not _is_sqlite(db):
+        from sqlalchemy import bindparam, text
+
+        area_ids_subquery = text(
+            "SELECT trig_id FROM trig_area WHERE area_id = ANY(:area_ids)"
+        ).bindparams(bindparam("area_ids", value=area_ids))
+        query = query.filter(Trig.id.in_(area_ids_subquery))
+
+    # Filter by historic use values
+    if historic_use:
+        query = query.filter(Trig.historic_use.in_(historic_use))
+
+    # Filter by current use values
+    if current_use:
+        query = query.filter(Trig.current_use.in_(current_use))
+
+    # Filter by condition codes
+    if conditions:
+        query = query.filter(Trig.condition.in_(conditions))
 
     # Filter by type codes
     if type_codes:
@@ -207,6 +286,16 @@ def list_trigs_filtered(
             .exists()
         )
         query = query.filter(exists_subquery)
+
+    # Filter by logged conditions - show trigs where user logged with specific conditions
+    if logged_conditions and only_found_by_user_id is not None:
+        logged_cond_subquery = (
+            select(TLog.trig_id)
+            .where(TLog.user_id == only_found_by_user_id)
+            .where(TLog.condition.in_(logged_conditions))
+            .distinct()
+        )
+        query = query.filter(Trig.id.in_(logged_cond_subquery))
 
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
@@ -247,6 +336,8 @@ def list_trigs_filtered(
 
             if order in (None, "", "distance"):
                 query = query.order_by(distance_m)
+            elif order == "-distance":
+                query = query.order_by(distance_m.desc())
         else:
             # Fallback to haversine for SQLite (no PostGIS)
             lat1_rad = func.radians(center_lat)
@@ -271,19 +362,41 @@ def list_trigs_filtered(
 
             if order in (None, "", "distance"):
                 query = query.order_by(distance_m)
-    else:
-        # deterministic default
-        if order in (None, "", "id"):
-            query = query.order_by(Trig.id.asc())
-        elif order == "name":
-            query = query.order_by(Trig.name.asc())
+            elif order == "-distance":
+                query = query.order_by(distance_m.desc())
 
-    # Extract only the Trig objects if we added distance column
+    # Apply non-distance ordering options (work with or without center coordinates)
+    if order == "name":
+        query = query.order_by(Trig.name.asc())
+    elif order == "-name":
+        query = query.order_by(Trig.name.desc())
+    elif order == "height":
+        query = query.order_by(Trig.wgs_height.desc().nulls_last())
+    elif order == "-height":
+        query = query.order_by(Trig.wgs_height.asc().nulls_last())
+    elif order == "score":
+        from api.models.trigstats import TrigStats
+
+        query = query.outerjoin(TrigStats, TrigStats.id == Trig.id)
+        query = query.order_by(TrigStats.score_baysian.desc().nulls_last())
+    elif order == "-score":
+        from api.models.trigstats import TrigStats
+
+        query = query.outerjoin(TrigStats, TrigStats.id == Trig.id)
+        query = query.order_by(TrigStats.score_baysian.asc().nulls_last())
+    elif center_lat is None and center_lon is None and order in (None, "", "id"):
+        # Default ordering when no center and no explicit order
+        query = query.order_by(Trig.id.asc())
+
+    # Return results with distance if calculated
     if center_lat is not None and center_lon is not None:
         results = query.offset(skip).limit(limit).all()
-        return [row[0] for row in results]  # Extract Trig from (Trig, distance) tuples
+        # Return list of (Trig, distance_m) tuples
+        return [(row[0], row[1]) for row in results]
 
-    return query.offset(skip).limit(limit).all()
+    # No distance calculated - return (Trig, None) tuples for consistent interface
+    results = query.offset(skip).limit(limit).all()
+    return [(trig, None) for trig in results]
 
 
 def count_trigs_filtered(
@@ -300,6 +413,11 @@ def count_trigs_filtered(
     only_found_by_user_id: Optional[int] = None,
     exclude_soft_deleted: bool = True,
     area_id: Optional[int] = None,
+    area_ids: Optional[List[int]] = None,
+    historic_use: Optional[List[str]] = None,
+    current_use: Optional[List[str]] = None,
+    conditions: Optional[List[str]] = None,
+    logged_conditions: Optional[List[str]] = None,
 ) -> int:
     query = db.query(func.count(Trig.id))
 
@@ -307,7 +425,7 @@ def count_trigs_filtered(
     if exclude_soft_deleted:
         query = query.filter(Trig.status_id < 90)
 
-    # Filter by area using trig_area table
+    # Filter by area using trig_area table (single area_id - legacy support)
     if area_id is not None and not _is_sqlite(db):
         from sqlalchemy import text
 
@@ -316,6 +434,27 @@ def count_trigs_filtered(
             "SELECT trig_id FROM trig_area WHERE area_id = :area_id"
         ).bindparams(area_id=area_id)
         query = query.filter(Trig.id.in_(area_subquery))
+
+    # Filter by multiple areas (area_ids - new multi-select support)
+    if area_ids and not _is_sqlite(db):
+        from sqlalchemy import bindparam, text
+
+        area_ids_subquery = text(
+            "SELECT trig_id FROM trig_area WHERE area_id = ANY(:area_ids)"
+        ).bindparams(bindparam("area_ids", value=area_ids))
+        query = query.filter(Trig.id.in_(area_ids_subquery))
+
+    # Filter by historic use values
+    if historic_use:
+        query = query.filter(Trig.historic_use.in_(historic_use))
+
+    # Filter by current use values
+    if current_use:
+        query = query.filter(Trig.current_use.in_(current_use))
+
+    # Filter by condition codes
+    if conditions:
+        query = query.filter(Trig.condition.in_(conditions))
 
     # Filter by type codes
     if type_codes:
@@ -352,6 +491,16 @@ def count_trigs_filtered(
             .exists()
         )
         query = query.filter(exists_subquery)
+
+    # Filter by logged conditions - show trigs where user logged with specific conditions
+    if logged_conditions and only_found_by_user_id is not None:
+        logged_cond_subquery = (
+            select(TLog.trig_id)
+            .where(TLog.user_id == only_found_by_user_id)
+            .where(TLog.condition.in_(logged_conditions))
+            .distinct()
+        )
+        query = query.filter(Trig.id.in_(logged_cond_subquery))
 
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))

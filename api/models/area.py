@@ -9,7 +9,7 @@ to determine which areas contain a given trigpoint.
 import sys
 
 from geoalchemy2 import Geography
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy import DECIMAL, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from api.db.database import Base
@@ -82,6 +82,10 @@ class Area(Base):
 
     # Store additional shapefile attributes as JSON
     properties = Column(Text, nullable=True)
+
+    # Centroid coordinates for distance-based sorting
+    center_lat: Column[DECIMAL] = Column(DECIMAL(11, 8), nullable=True)  # Latitude
+    center_lon: Column[DECIMAL] = Column(DECIMAL(12, 8), nullable=True)  # Longitude
 
     # Relationships
     area_type = relationship("AreaType", back_populates="areas")
