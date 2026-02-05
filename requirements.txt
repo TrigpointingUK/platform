@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.32.5
-boto3==1.42.39
+boto3==1.42.40
 types-requests==2.32.4.20260107
 
 # Redis/ElastiCache for token caching
@@ -33,7 +33,7 @@ redis==7.1.0
 
 # Image processing
 Pillow==12.1.0
-numpy==2.4.1
+numpy==2.4.2
 onnxruntime==1.23.2
 
 # Geodesy - accurate coordinate transformations
