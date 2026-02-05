@@ -307,6 +307,18 @@ def calculate_distance(e1: float, n1: float, e2: float, n2: float) -> float:
     return ((e2 - e1) ** 2 + (n2 - n1) ** 2) ** 0.5
 
 
+def is_irish_gridref(gridref: str) -> bool:
+    """
+    Check if a grid reference is Irish Grid (as opposed to OSGB).
+
+    Irish grid references use a single letter followed by a space (e.g., "O 12345"),
+    while GB grid references use two letters (e.g., "TQ 12345").
+    """
+    if not gridref or len(gridref) < 2:
+        return False
+    return gridref[1] == " "
+
+
 def compare_osnet_with_db(
     db: Session,
     force_refresh: bool = False,
@@ -470,8 +482,13 @@ def compare_osnet_with_db(
             )
 
     # Check for DB stations not in any OS Net section
+    # Skip Irish trigpoints as OS Net only covers GB
     for stn_code, db_station in db_by_stn.items():
         if stn_code not in osnet_all_codes:
+            # Skip Irish trigpoints - OS Net only covers Great Britain
+            if is_irish_gridref(db_station.osgb_gridref):
+                continue
+
             differences.append(
                 StationDifference(
                     station_code=stn_code,
