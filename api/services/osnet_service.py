@@ -67,10 +67,10 @@ class ActiveStationDB:
     waypoint: str
     name: str
     stn_number_active: Optional[str]
-    osgb_eastings: int
-    osgb_northings: int
+    osgb_eastings: float
+    osgb_northings: float
     osgb_gridref: str
-    osgb_height: Optional[int]
+    osgb_height: Optional[float]
 
 
 @dataclass
@@ -290,10 +290,10 @@ def get_active_stations_from_db(db: Session) -> list[ActiveStationDB]:
             waypoint=str(t.waypoint),
             name=str(t.name),
             stn_number_active=str(t.stn_number_active) if t.stn_number_active else None,
-            osgb_eastings=int(t.osgb_eastings),
-            osgb_northings=int(t.osgb_northings),
+            osgb_eastings=float(t.osgb_eastings),
+            osgb_northings=float(t.osgb_northings),
             osgb_gridref=str(t.osgb_gridref),
-            osgb_height=int(t.osgb_height) if t.osgb_height else None,
+            osgb_height=float(t.osgb_height) if t.osgb_height else None,
         )
         for t in trigs
     ]

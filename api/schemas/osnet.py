@@ -38,10 +38,10 @@ class DBStationData(BaseModel):
     waypoint: Optional[str] = Field(None, description="Trigpoint waypoint code")
     name: Optional[str] = Field(None, description="Trigpoint name")
     stn_number_active: Optional[str] = Field(None, description="Active station number")
-    easting: Optional[int] = Field(None, description="OSGB36 easting")
-    northing: Optional[int] = Field(None, description="OSGB36 northing")
+    easting: Optional[float] = Field(None, description="OSGB36 easting")
+    northing: Optional[float] = Field(None, description="OSGB36 northing")
     gridref: Optional[str] = Field(None, description="OS grid reference")
-    height: Optional[int] = Field(None, description="Height in metres")
+    height: Optional[float] = Field(None, description="Height in metres")
 
 
 class StationDifferenceResponse(BaseModel):
