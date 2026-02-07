@@ -31,7 +31,7 @@ PILLAR_HEIGHT       = 1.219     # [D] 4'0" above ground
 PILLAR_TOP_HW       = 0.178     # [D] 1'2" / 2 — half-width at top
 PILLAR_BTM_HW       = 0.230     # [E] ~18" / 2 — half-width at base
 BEVEL_RADIUS        = 0.025     # [E] ~1" chamfer on vertical edges
-BEVEL_SEGMENTS      = 4         # arc segments per corner
+BEVEL_SEGMENTS      = 1         # 1 = flat 45° mitre, >1 = rounded arc
 
 # --- Centre Pipe ---
 CP_OUTER_R          = 0.038     # [E] 3" OD / 2
@@ -195,20 +195,33 @@ def make_frustum(name, btm_hw, top_hw, height, base_z=0.0,
         if bevel_r > 0 and bevel_r < hw:
             r = bevel_r
             verts = []
-            # Four corner centres, going counter-clockwise from +X +Y
-            centres = [
-                (hw - r,  hw - r),      # corner 0: +X +Y
-                (-(hw - r),  hw - r),    # corner 1: -X +Y
-                (-(hw - r), -(hw - r)),  # corner 2: -X -Y
-                (hw - r, -(hw - r)),     # corner 3: +X -Y
-            ]
-            for ci, (cx, cy) in enumerate(centres):
-                a0 = ci * math.pi / 2
-                for j in range(bevel_n):
-                    a = a0 + (math.pi / 2) * j / bevel_n
-                    x = cx + r * math.cos(a)
-                    y = cy + r * math.sin(a)
+            if bevel_n <= 1:
+                # Flat 45° chamfer — octagonal cross-section.
+                # Two vertices per corner: where the chamfer meets each
+                # adjacent face.  Going counter-clockwise.
+                pts = [
+                    ( hw,      hw - r),  ( hw - r,  hw),      # +X +Y
+                    (-hw + r,  hw),      (-hw,      hw - r),  # -X +Y
+                    (-hw,     -hw + r),  (-hw + r, -hw),      # -X -Y
+                    ( hw - r, -hw),      ( hw,     -hw + r),  # +X -Y
+                ]
+                for x, y in pts:
                     verts.append(bm.verts.new((x, y, z)))
+            else:
+                # Multi-segment rounded bevel (arc approximation)
+                centres = [
+                    (hw - r,  hw - r),      # corner 0: +X +Y
+                    (-(hw - r),  hw - r),    # corner 1: -X +Y
+                    (-(hw - r), -(hw - r)),  # corner 2: -X -Y
+                    (hw - r, -(hw - r)),     # corner 3: +X -Y
+                ]
+                for ci, (cx, cy) in enumerate(centres):
+                    a0 = ci * math.pi / 2
+                    for j in range(bevel_n):
+                        a = a0 + (math.pi / 2) * j / bevel_n
+                        x = cx + r * math.cos(a)
+                        y = cy + r * math.sin(a)
+                        verts.append(bm.verts.new((x, y, z)))
             return verts
         else:
             return [
