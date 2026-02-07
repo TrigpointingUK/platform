@@ -473,7 +473,8 @@ def build_upper_box(M):
 
 
 def build_concrete_fill(M):
-    """Concrete fill at the bottom of the upper wooden box."""
+    """Concrete fill at the bottom of the upper wooden box, with a recess
+    cut out for the upper centre mark so it isn't hidden in solid view."""
     print("  Concrete fill ...")
     s = (UB_HW - UB_WALL) * 2 - 0.004  # slightly smaller than box interior
     bpy.ops.mesh.primitive_cube_add(
@@ -483,6 +484,16 @@ def build_concrete_fill(M):
     f.scale = (s, s, FILL_HEIGHT)
     activate(f)
     bpy.ops.object.transform_apply(scale=True)
+
+    # Cut a cylindrical recess for the upper centre mark (embedded pillar + base)
+    dome_d = UCM_R * 2
+    recess_r = dome_d / 2 + 0.002           # slightly wider than the mark
+    recess_h = FILL_HEIGHT + 0.002           # full depth of fill
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=recess_r, depth=recess_h, vertices=32,
+        location=(0, 0, UB_BASE_Z + FILL_HEIGHT / 2))
+    boolean_cut(f, bpy.context.active_object)
+
     assign(f, M['concrete'])
     return f
 
