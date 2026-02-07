@@ -424,13 +424,19 @@ def build_sighting_tubes(M):
 
 
 def build_upper_box(M):
-    """Upper wooden box (bottomless, with lid) that holds the tube assembly."""
+    """Upper wooden box (bottomless, with lid) that holds the tube assembly.
+
+    Boolean operations are ordered so that all holes are cut while the box
+    is still a solid block — this gives the EXACT boolean solver clean,
+    thick geometry to work with and avoids silent failures when cutting
+    through thin walls.
+    """
     print("  Upper wooden box ...")
     outer = UB_HW
     h = UB_HEIGHT
     bz = UB_BASE_Z
 
-    # Outer shell
+    # Start with a solid block
     bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, bz + h / 2))
     box = bpy.context.active_object
     box.name = "UpperBox"
@@ -438,7 +444,32 @@ def build_upper_box(M):
     activate(box)
     bpy.ops.object.transform_apply(scale=True)
 
-    # Inner void — shifted down so lid (top) remains solid, bottom is open
+    # 1) Cut holes FIRST — while the box is still solid
+
+    # Centre-pipe hole through top
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=CP_OUTER_R + 0.003, depth=UB_WALL * 3,
+        vertices=32, location=(0, 0, bz + h))
+    boolean_cut(box, bpy.context.active_object)
+
+    # Sighting-tube holes through four walls
+    for dx, dy, rot in (
+        ( 1, 0, (0,  math.pi / 2, 0)),
+        (-1, 0, (0, -math.pi / 2, 0)),
+        ( 0, 1, (-math.pi / 2, 0, 0)),
+        ( 0,-1, ( math.pi / 2, 0, 0)),
+    ):
+        # Cutter spans the full box width — generous to ensure clean cut
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=ST_OUTER_R + 0.003, depth=outer * 3,
+            vertices=32, location=(dx * outer, dy * outer, ST_Z))
+        c = bpy.context.active_object
+        c.rotation_euler = rot
+        activate(c)
+        bpy.ops.object.transform_apply(rotation=True)
+        boolean_cut(box, c)
+
+    # 2) Hollow out the interior LAST
     inner = outer - UB_WALL
     void_h = h  # tall enough to extend below box bottom
     void_z = bz + h / 2 - UB_WALL  # top of void = bz + h - UB_WALL
@@ -448,26 +479,6 @@ def build_upper_box(M):
     activate(v)
     bpy.ops.object.transform_apply(scale=True)
     boolean_cut(box, v)
-
-    # Hole for centre pipe through lid
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=CP_OUTER_R + 0.003, depth=UB_WALL * 3,
-        vertices=32, location=(0, 0, bz + h))
-    boolean_cut(box, bpy.context.active_object)
-
-    # Holes for sighting tubes through four walls
-    for dx, dy, rot in (
-        ( 1, 0, (0,  math.pi / 2, 0)),
-        (-1, 0, (0, -math.pi / 2, 0)),
-        ( 0, 1, (-math.pi / 2, 0, 0)),
-        ( 0,-1, ( math.pi / 2, 0, 0)),
-    ):
-        bpy.ops.mesh.primitive_cylinder_add(
-            radius=ST_OUTER_R + 0.003, depth=UB_WALL * 4,
-            vertices=32, location=(dx * outer, dy * outer, ST_Z))
-        c = bpy.context.active_object
-        c.rotation_euler = rot
-        boolean_cut(box, c)
 
     assign(box, M['wood'])
     return box

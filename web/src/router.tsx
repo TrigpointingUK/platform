@@ -32,6 +32,7 @@ const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
 const AdminStatusAdmin = lazy(() => import("./routes/admin/StatusAdmin"));
 const AdminConditionAdmin = lazy(() => import("./routes/admin/ConditionAdmin"));
 const AdminOSNetComparison = lazy(() => import("./routes/admin/OSNetComparison"));
+const AdminIrelandImport = lazy(() => import("./routes/admin/IrelandImport"));
 const SurveyTimeline = lazy(() => import("./routes/SurveyTimeline"));
 const Experiments = lazy(() => import("./routes/Experiments"));
 const ExperimentIndex = lazy(() => import("./routes/ExperimentIndex"));
@@ -346,6 +347,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <AdminOSNetComparison />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/ireland-import",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminIrelandImport />
         </Suspense>
       ),
     },
