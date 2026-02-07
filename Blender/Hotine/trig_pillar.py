@@ -63,8 +63,8 @@ BASE_BTM_HW         = 0.457     # [D] 3'0" / 2
 BASE_HEIGHT         = 0.305     # [E] ~12" thick
 
 # --- Angle Irons ---
-AI_LEG              = 0.051     # [E] 2" × 2"
-AI_THICK            = 0.006     # [E] ¼"
+AI_LEG              = 0.038     # [E] 1½" × 1½"
+AI_THICK            = 0.005     # [E] 3/16"
 AI_TOTAL_H          = 0.600     # [E] total length spanning junction
 
 # --- Spider ---
@@ -97,7 +97,7 @@ FB_Z                = 0.813     # [E] centre height ~2'8" above base
 
 # --- Lower Wooden Box ---
 LB_HW               = 0.127     # [E] ~10" / 2
-LB_HEIGHT           = 0.152     # [E] ~6"
+LB_HEIGHT           = 0.102     # [E] ~4"
 LB_WALL             = 0.025     # [E] 1"
 
 # --- Lower Block ---
@@ -652,8 +652,8 @@ def build_angle_irons(M):
     l_offset = (AI_LEG - AI_THICK) / 2
 
     for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
-        # Random variations (~10%)
-        h = base_h * (1.0 + rng.uniform(-0.10, 0.10))
+        # Slight random variations (~3%) — imperfect but not wild
+        h = base_h * (1.0 + rng.uniform(-0.03, 0.03))
 
         # Tilt to follow pillar slope, with random wobble
         tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.10, 0.10))
