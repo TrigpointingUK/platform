@@ -487,26 +487,101 @@ def build_concrete_fill(M):
     return f
 
 
+def _union_into(target, piece):
+    """Boolean-union piece into target, removing piece afterwards."""
+    activate(target)
+    mod = target.modifiers.new("_bool", 'BOOLEAN')
+    mod.operation = 'UNION'
+    mod.object = piece
+    mod.solver = 'EXACT'
+    bpy.ops.object.modifier_apply(modifier="_bool")
+    bpy.data.objects.remove(piece, do_unlink=True)
+
+
 def build_upper_centre_mark(M):
-    """Small brass dome (upper centre mark) embedded in box concrete."""
+    """Upper centre mark — two stepped disks with sloping edges, a low dome,
+    a pencil-point, and a brass pillar + base cylinder embedded below.
+
+    All proportions are relative to the overall dome diameter (UCM_R * 2).
+    """
     print("  Upper centre mark ...")
-    z = UB_BASE_Z + FILL_HEIGHT
+    z0 = UB_BASE_Z + FILL_HEIGHT           # top of concrete fill
+    dome_d = UCM_R * 2                      # overall diameter (32 mm)
+
+    # ── Above the concrete surface ──────────────────────────────
+
+    # Lower step — truncated cone (sloping edge, wider at bottom)
+    ls_btm_r = dome_d / 2                   # full diameter
+    ls_top_r = dome_d / 2 * 0.88            # slight inward slope
+    ls_h = 0.005                             # 5 mm
+    bpy.ops.mesh.primitive_cone_add(
+        radius1=ls_btm_r, radius2=ls_top_r,
+        depth=ls_h, vertices=32,
+        location=(0, 0, z0 + ls_h / 2))
+    mark = bpy.context.active_object
+    mark.name = "UpperCentreMark"
+
+    # Upper step — smaller truncated cone
+    us_btm_r = dome_d / 2 * 0.70
+    us_top_r = dome_d / 2 * 0.60
+    us_h = 0.004                             # 4 mm
+    z_us = z0 + ls_h + us_h / 2
+    bpy.ops.mesh.primitive_cone_add(
+        radius1=us_btm_r, radius2=us_top_r,
+        depth=us_h, vertices=32,
+        location=(0, 0, z_us))
+    _union_into(mark, bpy.context.active_object)
+
+    # Flat rounded dome — 80% of upper step diameter, 8 mm tall
+    fd_r = us_top_r * 0.80
+    fd_h = 0.008
+    z_fd = z0 + ls_h + us_h
     bpy.ops.mesh.primitive_uv_sphere_add(
-        radius=UCM_R, segments=32, ring_count=16, location=(0, 0, z))
-    o = bpy.context.active_object
-    o.name = "UpperCentreMark"
-    o.scale.z = UCM_H / UCM_R
-    activate(o)
+        radius=fd_r, segments=32, ring_count=16,
+        location=(0, 0, z_fd))
+    dome = bpy.context.active_object
+    dome.scale.z = fd_h / fd_r
+    activate(dome)
     bpy.ops.object.transform_apply(scale=True)
-
-    # Remove bottom half to make a dome
+    # Cut the bottom half
     bpy.ops.mesh.primitive_cube_add(
-        size=UCM_R * 4, location=(0, 0, z - UCM_R * 2))
-    boolean_cut(o, bpy.context.active_object)
+        size=fd_r * 4, location=(0, 0, z_fd - fd_r * 2))
+    boolean_cut(dome, bpy.context.active_object)
+    _union_into(mark, dome)
 
-    assign(o, M['brass'])
-    smooth(o)
-    return o
+    # Point — pencil-tip cone, 5 mm diameter, 8 mm tall
+    pt_btm_r = 0.005 / 2                    # 2.5 mm radius
+    pt_h = 0.008
+    z_pt = z_fd + fd_h + pt_h / 2
+    bpy.ops.mesh.primitive_cone_add(
+        radius1=pt_btm_r, radius2=0,
+        depth=pt_h, vertices=16,
+        location=(0, 0, z_pt))
+    _union_into(mark, bpy.context.active_object)
+
+    # ── Below the concrete surface (embedded) ───────────────────
+
+    # Brass pillar — 40% of dome diameter, height 150% of dome diameter
+    pil_r = dome_d * 0.40 / 2
+    pil_h = dome_d * 1.50
+    z_pil = z0 - pil_h / 2
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=pil_r, depth=pil_h, vertices=32,
+        location=(0, 0, z_pil))
+    _union_into(mark, bpy.context.active_object)
+
+    # Base cylinder — 130% of pillar diameter, 15% of pillar height
+    base_r = pil_r * 1.30
+    base_h = pil_h * 0.15
+    z_base = z0 - pil_h - base_h / 2
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=base_r, depth=base_h, vertices=32,
+        location=(0, 0, z_base))
+    _union_into(mark, bpy.context.active_object)
+
+    assign(mark, M['brass'])
+    smooth(mark)
+    return mark
 
 
 def build_spider(M):
