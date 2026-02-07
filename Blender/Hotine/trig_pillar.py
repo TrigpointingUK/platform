@@ -42,7 +42,7 @@ CP_PROTRUDE_TOP     = 0.050     # [E] protrusion above pillar top
 ST_OUTER_R          = 0.025     # [E] 2" OD / 2
 ST_INNER_R          = 0.022     # [E] ~1.75" ID / 2
 ST_TILT             = math.radians(2)   # [E] 2° drainage tilt
-ST_Z                = 0.152     # [E] centre height 6" above pillar base
+ST_Z                = 0.090     # [E] centre height ~3.5" above pillar base
 
 # --- Upper Wooden Box (internal) ---
 UB_HW               = 0.127     # [E] ~10" outer / 2
@@ -322,23 +322,37 @@ def pillar_hw_at(z):
 # =====================================================================
 
 def build_pillar(M):
-    """Main concrete pillar body with holes for centre pipe and sighting tubes."""
+    """Main concrete pillar body with holes for centre pipe and sighting tubes.
+
+    Boolean voids are sized to cut only through the concrete portions of the
+    pillar — they stop at the upper wooden box boundary so that no stray
+    cylindrical geometry extends into the box interior.
+    """
     print("  Pillar body ...")
     pillar = make_frustum(
         "Pillar", PILLAR_BTM_HW, PILLAR_TOP_HW, PILLAR_HEIGHT,
         base_z=0, bevel_r=BEVEL_RADIUS, bevel_n=BEVEL_SEGMENTS)
 
-    # --- Cut centre-pipe channel ---
+    # --- Cut centre-pipe channel (only through concrete above the box lid) ---
+    lid_z = UB_BASE_Z + UB_HEIGHT
+    cp_void_len = PILLAR_HEIGHT - lid_z + 0.02
+    cp_void_z = (lid_z - 0.01 + PILLAR_HEIGHT + 0.01) / 2
     bpy.ops.mesh.primitive_cylinder_add(
         radius=CP_OUTER_R + 0.001,
-        depth=PILLAR_HEIGHT + 0.10,
+        depth=cp_void_len,
         vertices=32,
-        location=(0, 0, PILLAR_HEIGHT / 2))
+        location=(0, 0, cp_void_z))
     boolean_cut(pillar, bpy.context.active_object)
 
-    # --- Cut sighting-tube holes (one per face) ---
+    # --- Cut sighting-tube holes (only through concrete wall, not into box) ---
     cut_r = ST_OUTER_R + 0.001
-    cut_len = PILLAR_BTM_HW * 3  # generous length for clean cut
+    hw = pillar_hw_at(ST_Z)
+    # Each void runs from just inside the box outer wall to past the pillar face
+    void_inner = UB_HW - 0.005
+    void_outer = hw + 0.010
+    void_len = void_outer - void_inner
+    void_mid = (void_inner + void_outer) / 2
+
     for dx, dy, rot in (
         ( 1,  0, (0,  math.pi / 2, 0)),   # +X face (East)
         (-1,  0, (0, -math.pi / 2, 0)),   # -X face (West)
@@ -346,8 +360,8 @@ def build_pillar(M):
         ( 0, -1, ( math.pi / 2, 0, 0)),   # -Y face (South)
     ):
         bpy.ops.mesh.primitive_cylinder_add(
-            radius=cut_r, depth=cut_len, vertices=32,
-            location=(0, 0, ST_Z))
+            radius=cut_r, depth=void_len, vertices=32,
+            location=(dx * void_mid, dy * void_mid, ST_Z))
         c = bpy.context.active_object
         c.rotation_euler = rot
         boolean_cut(pillar, c)
@@ -652,12 +666,12 @@ def build_angle_irons(M):
     l_offset = (AI_LEG - AI_THICK) / 2
 
     for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
-        # Slight random variations (~3%) — imperfect but not wild
-        h = base_h * (1.0 + rng.uniform(-0.03, 0.03))
+        # Slight random variations — tops and bottoms within ~30mm of each other
+        h = base_h + rng.uniform(-0.012, 0.012)   # ±12mm absolute
 
-        # Tilt to follow pillar slope, with random wobble
-        tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.10, 0.10))
-        tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.10, 0.10))
+        # Tilt to follow pillar slope, with slight random wobble (±5%)
+        tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.05, 0.05))
+        tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.05, 0.05))
 
         # Leg 1: extends in X, offset toward the corner in Y
         bpy.ops.mesh.primitive_cube_add(
@@ -687,9 +701,9 @@ def build_angle_irons(M):
         # Re-centre origin on the L-shape geometry
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
 
-        # Final position (with small random offset) and rotation
-        cx = sx * (hw_mid - AI_LEG / 2) + rng.uniform(-0.005, 0.005)
-        cy = sy * (hw_mid - AI_LEG / 2) + rng.uniform(-0.005, 0.005)
+        # Final position (with very small random offset) and rotation
+        cx = sx * (hw_mid - AI_LEG / 2) + rng.uniform(-0.002, 0.002)
+        cy = sy * (hw_mid - AI_LEG / 2) + rng.uniform(-0.002, 0.002)
         cz = bz + h / 2
 
         leg1.location = (cx, cy, cz)
