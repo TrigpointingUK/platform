@@ -347,9 +347,11 @@ def build_pillar(M):
     # --- Cut sighting-tube holes through concrete (into box interior) ---
     cut_r = ST_OUTER_R + 0.001
     hw = pillar_hw_at(ST_Z)
-    # Each void runs from just past the box INNER wall to past the pillar face,
-    # so no solid concrete blocks the view through the sighting tubes.
-    void_inner = UB_HW - UB_WALL - 0.005
+    # The void must extend inward past the most extreme tube inner end.
+    # Tubes protrude up to 25 mm past the box inner wall (box_inner - 0.025),
+    # so we extend the void a further 15 mm beyond that to be safe.
+    max_protrude = 0.025
+    void_inner = (UB_HW - UB_WALL) - max_protrude - 0.015
     void_outer = hw + 0.010
     void_len = void_outer - void_inner
     void_mid = (void_inner + void_outer) / 2
@@ -983,6 +985,16 @@ def setup_scene():
     fill_obj.location = (-2, 3, 2)
     fill_obj.rotation_euler = (
         math.radians(55), 0, math.radians(-130))
+
+    # Point light at the East sighting hole — illuminates the box interior
+    # when looking through the sighting tubes
+    sh_data = bpy.data.lights.new("SightingHoleLight", 'POINT')
+    sh_data.energy = 5
+    sh_data.shadow_soft_size = 0.02
+    sh_obj = bpy.data.objects.new("SightingHoleLight", sh_data)
+    bpy.context.collection.objects.link(sh_obj)
+    sh_hw = PILLAR_BTM_HW + (PILLAR_TOP_HW - PILLAR_BTM_HW) * (ST_Z / PILLAR_HEIGHT)
+    sh_obj.location = (sh_hw + 0.05, 0, ST_Z)
 
     # Render engine
     try:
