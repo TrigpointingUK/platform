@@ -42,7 +42,7 @@ CP_PROTRUDE_TOP     = 0.050     # [E] protrusion above pillar top
 ST_OUTER_R          = 0.025     # [E] 2" OD / 2
 ST_INNER_R          = 0.022     # [E] ~1.75" ID / 2
 ST_TILT             = math.radians(2)   # [E] 2° drainage tilt
-ST_Z                = 0.090     # [E] centre height ~3.5" above pillar base
+ST_Z                = 0.107     # [E] aimed at top of dome / base of spike
 
 # --- Upper Wooden Box (internal) ---
 UB_HW               = 0.127     # [E] ~10" outer / 2
@@ -513,7 +513,7 @@ def build_upper_centre_mark(M):
     # Lower step — truncated cone (sloping edge, wider at bottom)
     ls_btm_r = dome_d / 2                   # full diameter
     ls_top_r = dome_d / 2 * 0.88            # slight inward slope
-    ls_h = 0.005                             # 5 mm
+    ls_h = 0.0025                            # 2.5 mm
     bpy.ops.mesh.primitive_cone_add(
         radius1=ls_btm_r, radius2=ls_top_r,
         depth=ls_h, vertices=32,
@@ -524,7 +524,7 @@ def build_upper_centre_mark(M):
     # Upper step — smaller truncated cone
     us_btm_r = dome_d / 2 * 0.70
     us_top_r = dome_d / 2 * 0.60
-    us_h = 0.004                             # 4 mm
+    us_h = 0.002                             # 2 mm
     z_us = z0 + ls_h + us_h / 2
     bpy.ops.mesh.primitive_cone_add(
         radius1=us_btm_r, radius2=us_top_r,
@@ -532,24 +532,25 @@ def build_upper_centre_mark(M):
         location=(0, 0, z_us))
     _union_into(mark, bpy.context.active_object)
 
-    # Flat rounded dome — 80% of upper step diameter, 8 mm tall
+    # Flat rounded dome — 80% of upper step diameter, ~2.7 mm tall (⅓ of 8 mm)
     fd_r = us_top_r * 0.80
-    fd_h = 0.008
+    fd_h = 0.0027
     z_fd = z0 + ls_h + us_h
     bpy.ops.mesh.primitive_uv_sphere_add(
         radius=fd_r, segments=32, ring_count=16,
         location=(0, 0, z_fd))
-    dome = bpy.context.active_object
-    dome.scale.z = fd_h / fd_r
-    activate(dome)
+    dome_obj = bpy.context.active_object
+    dome_obj.scale.z = fd_h / fd_r
+    activate(dome_obj)
     bpy.ops.object.transform_apply(scale=True)
     # Cut the bottom half
     bpy.ops.mesh.primitive_cube_add(
         size=fd_r * 4, location=(0, 0, z_fd - fd_r * 2))
-    boolean_cut(dome, bpy.context.active_object)
-    _union_into(mark, dome)
+    boolean_cut(dome_obj, bpy.context.active_object)
+    _union_into(mark, dome_obj)
 
     # Point — pencil-tip cone, 5 mm diameter, 8 mm tall
+    # (kept as a separate object to avoid boolean-union artefacts at this scale)
     pt_btm_r = 0.005 / 2                    # 2.5 mm radius
     pt_h = 0.008
     z_pt = z_fd + fd_h + pt_h / 2
@@ -557,7 +558,10 @@ def build_upper_centre_mark(M):
         radius1=pt_btm_r, radius2=0,
         depth=pt_h, vertices=16,
         location=(0, 0, z_pt))
-    _union_into(mark, bpy.context.active_object)
+    spike = bpy.context.active_object
+    spike.name = "UpperCentreMark_Spike"
+    assign(spike, M['brass'])
+    smooth(spike)
 
     # ── Below the concrete surface (embedded) ───────────────────
 
@@ -741,12 +745,12 @@ def build_angle_irons(M):
     l_offset = (AI_LEG - AI_THICK) / 2
 
     for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
-        # Slight random variations — tops and bottoms within ~30mm of each other
-        h = base_h + rng.uniform(-0.012, 0.012)   # ±12mm absolute
+        # Very slight random variations — tops and bottoms within ~15mm
+        h = base_h + rng.uniform(-0.005, 0.005)   # ±5mm absolute
 
-        # Tilt to follow pillar slope, with slight random wobble (±5%)
-        tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.05, 0.05))
-        tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.05, 0.05))
+        # Tilt to follow pillar slope, with tiny random wobble (±2%)
+        tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.02, 0.02))
+        tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.02, 0.02))
 
         # Leg 1: extends in X, offset toward the corner in Y
         bpy.ops.mesh.primitive_cube_add(
