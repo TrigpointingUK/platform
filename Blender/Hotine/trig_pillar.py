@@ -1,0 +1,765 @@
+"""
+Ordnance Survey Trig Point (Hotine Pillar) — Blender 4.3 Model Generator
+=========================================================================
+
+Generates a complete parametric 3D model of a standard OS triangulation
+pillar with all internal and external components.
+
+Usage:
+    Open in Blender's Text Editor (Scripting tab) and click "Run Script"
+    or from the command line:
+        blender --python trig_pillar.py
+
+Dimensions marked [D] are from the OS specification diagram (Fig 2.2).
+Dimensions marked [E] are estimated from proportions / photographs.
+All measurements are in metres.
+"""
+
+import bpy
+import bmesh
+import math
+from mathutils import Vector
+
+
+# =====================================================================
+# MEASUREMENTS
+# =====================================================================
+
+# --- Main Pillar ---
+PILLAR_HEIGHT       = 1.219     # [D] 4'0" above ground
+PILLAR_TOP_HW       = 0.178     # [D] 1'2" / 2 — half-width at top
+PILLAR_BTM_HW       = 0.230     # [E] ~18" / 2 — half-width at base
+BEVEL_RADIUS        = 0.025     # [E] ~1" chamfer on vertical edges
+BEVEL_SEGMENTS      = 4         # arc segments per corner
+
+# --- Centre Pipe ---
+CP_OUTER_R          = 0.038     # [E] 3" OD / 2
+CP_INNER_R          = 0.032     # [E] ~2.5" ID / 2
+CP_PROTRUDE_TOP     = 0.050     # [E] protrusion above pillar top
+
+# --- Sighting Tubes ---
+ST_OUTER_R          = 0.025     # [E] 2" OD / 2
+ST_INNER_R          = 0.022     # [E] ~1.75" ID / 2
+ST_TILT             = math.radians(2)   # [E] 2° drainage tilt
+ST_Z                = 0.152     # [E] centre height 6" above pillar base
+
+# --- Upper Wooden Box (internal) ---
+UB_HW               = 0.127     # [E] ~10" outer / 2
+UB_HEIGHT           = 0.203     # [E] ~8"
+UB_WALL             = 0.025     # [E] ~1" timber
+UB_BASE_Z           = 0.050     # [E] bottom of box above pillar base
+
+# --- Concrete Fill in Upper Box ---
+FILL_HEIGHT         = 0.100     # [E] fills to near sighting tube level
+
+# --- Upper Centre Mark ---
+UCM_R               = 0.016     # [E] ~1.25" dia / 2
+UCM_H               = 0.012     # [E] dome height
+
+# --- Base Slab (Foundation) ---
+BASE_TOP_HW         = 0.305     # [D] 2'0" / 2
+BASE_BTM_HW         = 0.457     # [D] 3'0" / 2
+BASE_HEIGHT         = 0.305     # [E] ~12" thick
+
+# --- Angle Irons ---
+AI_LEG              = 0.051     # [E] 2" × 2"
+AI_THICK            = 0.006     # [E] ¼"
+AI_TOTAL_H          = 0.600     # [E] total length spanning junction
+
+# --- Spider ---
+SPIDER_OUTER_R      = 0.076     # [E] ~6" dia / 2
+SPIDER_ANNULUS_R    = 0.044     # [E] ~3.5" dia / 2
+SPIDER_HOLE_R       = 0.022     # [E] threaded hole ~1.75" dia / 2
+SPIDER_THICK        = 0.010     # [E] ~3/8"
+SPIDER_ARM_W        = 0.025     # [E] arm width ~1"
+
+# --- Brass Loops ---
+LOOP_WIRE_R         = 0.003     # [E] ¼" wire / 2
+LOOP_H              = 0.020     # [E] ~¾" standing height
+LOOP_W              = 0.016     # [E] ~⅝" width
+LOOP_RECESS         = 0.006     # [D] ¼" sunk below spider
+
+# --- Plug ---
+PLUG_OUTER_R        = 0.022     # [E] matches spider hole
+PLUG_INNER_R        = 0.016     # [E] inner thread
+PLUG_H              = 0.016     # [E] ~⅝"
+
+# --- Inner Plug ---
+IPLUG_R             = 0.016     # [E] matches plug inner
+IPLUG_H             = 0.022     # [E] ~⅞"
+
+# --- Flush Bracket ---
+FB_W                = 0.102     # [E] ~4" wide
+FB_H                = 0.127     # [E] ~5" tall
+FB_D                = 0.010     # [E] ~3/8" deep
+FB_Z                = 0.813     # [E] centre height ~2'8" above base
+
+# --- Lower Wooden Box ---
+LB_HW               = 0.127     # [E] ~10" / 2
+LB_HEIGHT           = 0.152     # [E] ~6"
+LB_WALL             = 0.025     # [E] 1"
+
+# --- Lower Block ---
+LBLOCK_HW           = 0.152     # [D] 1'0" / 2
+LBLOCK_H            = 0.305     # [E] ~12"
+
+# --- Lower Centre Mark ---
+LCM_R               = 0.016     # [E] same as upper
+LCM_H               = 0.012     # [E] dome height
+
+
+# =====================================================================
+# UTILITY FUNCTIONS
+# =====================================================================
+
+def clear_scene():
+    """Delete everything in the scene."""
+    if bpy.data.objects:
+        bpy.ops.object.select_all(action='SELECT')
+        bpy.ops.object.delete(use_global=False)
+    # Purge orphan data
+    for attr in ('meshes', 'materials', 'cameras', 'lights', 'curves'):
+        data_block = getattr(bpy.data, attr)
+        for item in list(data_block):
+            if item.users == 0:
+                data_block.remove(item)
+
+
+def make_material(name, rgb, metallic=0.0, roughness=0.5):
+    """Create a Principled BSDF material."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    bsdf = m.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
+    bsdf.inputs["Metallic"].default_value = metallic
+    bsdf.inputs["Roughness"].default_value = roughness
+    return m
+
+
+def assign(obj, material):
+    """Assign material to object, replacing any existing."""
+    obj.data.materials.clear()
+    obj.data.materials.append(material)
+
+
+def activate(obj):
+    """Deselect all, then select and activate obj."""
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+
+
+def smooth(obj):
+    """Apply angle-based smooth shading."""
+    activate(obj)
+    try:
+        bpy.ops.object.shade_smooth_by_angle()
+    except (AttributeError, RuntimeError):
+        bpy.ops.object.shade_smooth()
+
+
+def boolean_cut(target, cutter, operation='DIFFERENCE'):
+    """Apply a boolean modifier to target using cutter, then remove cutter."""
+    activate(target)
+    mod = target.modifiers.new("_bool", 'BOOLEAN')
+    mod.operation = operation
+    mod.object = cutter
+    mod.solver = 'EXACT'
+    bpy.ops.object.modifier_apply(modifier="_bool")
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
+
+def make_frustum(name, btm_hw, top_hw, height, base_z=0.0,
+                 bevel_r=0.0, bevel_n=4):
+    """
+    Create a tapered square prism (frustum).
+
+    If bevel_r > 0 the four vertical edges get rounded corners
+    with bevel_n arc segments each.  Origin is at the centre of
+    the bottom face.
+
+    Parameters
+    ----------
+    btm_hw : float   — half-width at the bottom (z = base_z)
+    top_hw : float   — half-width at the top   (z = base_z + height)
+    height : float   — height of the frustum
+    base_z : float   — Z coordinate of the bottom face
+    bevel_r : float  — radius of the rounded vertical edges
+    bevel_n : int    — number of arc segments per corner
+    """
+    bm = bmesh.new()
+
+    def ring(hw, z):
+        """Create a ring of verts for one horizontal cross-section."""
+        if bevel_r > 0 and bevel_r < hw:
+            r = bevel_r
+            verts = []
+            # Four corner centres, going counter-clockwise from +X +Y
+            centres = [
+                (hw - r,  hw - r),      # corner 0: +X +Y
+                (-(hw - r),  hw - r),    # corner 1: -X +Y
+                (-(hw - r), -(hw - r)),  # corner 2: -X -Y
+                (hw - r, -(hw - r)),     # corner 3: +X -Y
+            ]
+            for ci, (cx, cy) in enumerate(centres):
+                a0 = ci * math.pi / 2
+                for j in range(bevel_n):
+                    a = a0 + (math.pi / 2) * j / bevel_n
+                    x = cx + r * math.cos(a)
+                    y = cy + r * math.sin(a)
+                    verts.append(bm.verts.new((x, y, z)))
+            return verts
+        else:
+            return [
+                bm.verts.new((hw,  hw, z)),
+                bm.verts.new((-hw,  hw, z)),
+                bm.verts.new((-hw, -hw, z)),
+                bm.verts.new((hw, -hw, z)),
+            ]
+
+    bv = ring(btm_hw, base_z)
+    tv = ring(top_hw, base_z + height)
+    n = len(bv)
+
+    # Bottom face — reversed so normal points -Z (downward)
+    bm.faces.new(bv[::-1])
+    # Top face — normal points +Z (upward)
+    bm.faces.new(tv)
+    # Side quads
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new([bv[i], bv[j], tv[j], tv[i]])
+
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bpy.context.view_layer.objects.active = obj
+    return obj
+
+
+def make_tube(name, outer_r, inner_r, depth, loc=(0, 0, 0), segs=32):
+    """Create a tube (hollow cylinder) by boolean-subtracting an inner void."""
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=outer_r, depth=depth, vertices=segs, location=loc)
+    obj = bpy.context.active_object
+    obj.name = name
+
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=inner_r, depth=depth + 0.004, vertices=segs, location=loc)
+    void = bpy.context.active_object
+    void.name = "_void"
+
+    boolean_cut(obj, void)
+    return obj
+
+
+def pillar_hw_at(z):
+    """Interpolate pillar half-width at height z above base."""
+    t = max(0.0, min(1.0, z / PILLAR_HEIGHT))
+    return PILLAR_BTM_HW + (PILLAR_TOP_HW - PILLAR_BTM_HW) * t
+
+
+# =====================================================================
+# COMPONENT BUILDERS
+# =====================================================================
+
+def build_pillar(M):
+    """Main concrete pillar body with holes for centre pipe and sighting tubes."""
+    print("  Pillar body ...")
+    pillar = make_frustum(
+        "Pillar", PILLAR_BTM_HW, PILLAR_TOP_HW, PILLAR_HEIGHT,
+        base_z=0, bevel_r=BEVEL_RADIUS, bevel_n=BEVEL_SEGMENTS)
+
+    # --- Cut centre-pipe channel ---
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=CP_OUTER_R + 0.001,
+        depth=PILLAR_HEIGHT + 0.10,
+        vertices=32,
+        location=(0, 0, PILLAR_HEIGHT / 2))
+    boolean_cut(pillar, bpy.context.active_object)
+
+    # --- Cut sighting-tube holes (one per face) ---
+    cut_r = ST_OUTER_R + 0.001
+    cut_len = PILLAR_BTM_HW * 3  # generous length for clean cut
+    for dx, dy, rot in (
+        ( 1,  0, (0,  math.pi / 2, 0)),   # +X face (East)
+        (-1,  0, (0, -math.pi / 2, 0)),   # -X face (West)
+        ( 0,  1, (-math.pi / 2, 0, 0)),   # +Y face (North)
+        ( 0, -1, ( math.pi / 2, 0, 0)),   # -Y face (South)
+    ):
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=cut_r, depth=cut_len, vertices=32,
+            location=(0, 0, ST_Z))
+        c = bpy.context.active_object
+        c.rotation_euler = rot
+        boolean_cut(pillar, c)
+
+    assign(pillar, M['concrete'])
+    return pillar
+
+
+def build_centre_pipe(M):
+    """Vertical steel tube through the pillar centre."""
+    print("  Centre pipe ...")
+    total_h = PILLAR_HEIGHT + CP_PROTRUDE_TOP + 0.050
+    z_centre = (PILLAR_HEIGHT + CP_PROTRUDE_TOP) / 2 - 0.025
+    pipe = make_tube("CentrePipe", CP_OUTER_R, CP_INNER_R,
+                     total_h, loc=(0, 0, z_centre))
+    assign(pipe, M['steel'])
+    smooth(pipe)
+    return pipe
+
+
+def build_sighting_tubes(M):
+    """Four slightly-angled sighting tubes."""
+    print("  Sighting tubes ...")
+    hw = pillar_hw_at(ST_Z)
+    inner_end = UB_HW - UB_WALL           # inner box boundary
+    outer_end = hw + 0.005                 # just past pillar face
+    tube_len = outer_end - inner_end + 0.02
+    mid = (inner_end + outer_end) / 2
+    a = ST_TILT
+
+    specs = [
+        ("ST_East",  ( mid, 0, ST_Z), (0,  math.pi / 2 + a, 0)),
+        ("ST_West",  (-mid, 0, ST_Z), (0, -(math.pi / 2 + a), 0)),
+        ("ST_North", (0,  mid, ST_Z), (-(math.pi / 2 + a), 0, 0)),
+        ("ST_South", (0, -mid, ST_Z), ( (math.pi / 2 + a), 0, 0)),
+    ]
+    tubes = []
+    for name, loc, rot in specs:
+        t = make_tube(name, ST_OUTER_R, ST_INNER_R, tube_len, loc=loc)
+        t.rotation_euler = rot
+        assign(t, M['steel'])
+        smooth(t)
+        tubes.append(t)
+    return tubes
+
+
+def build_upper_box(M):
+    """Upper wooden box (bottomless, with lid) that holds the tube assembly."""
+    print("  Upper wooden box ...")
+    outer = UB_HW
+    h = UB_HEIGHT
+    bz = UB_BASE_Z
+
+    # Outer shell
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, bz + h / 2))
+    box = bpy.context.active_object
+    box.name = "UpperBox"
+    box.scale = (outer * 2, outer * 2, h)
+    activate(box)
+    bpy.ops.object.transform_apply(scale=True)
+
+    # Inner void — shifted down so lid (top) remains solid, bottom is open
+    inner = outer - UB_WALL
+    void_h = h  # tall enough to extend below box bottom
+    void_z = bz + h / 2 - UB_WALL  # top of void = bz + h - UB_WALL
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, void_z))
+    v = bpy.context.active_object
+    v.scale = (inner * 2, inner * 2, void_h)
+    activate(v)
+    bpy.ops.object.transform_apply(scale=True)
+    boolean_cut(box, v)
+
+    # Hole for centre pipe through lid
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=CP_OUTER_R + 0.003, depth=UB_WALL * 3,
+        vertices=32, location=(0, 0, bz + h))
+    boolean_cut(box, bpy.context.active_object)
+
+    # Holes for sighting tubes through four walls
+    for dx, dy, rot in (
+        ( 1, 0, (0,  math.pi / 2, 0)),
+        (-1, 0, (0, -math.pi / 2, 0)),
+        ( 0, 1, (-math.pi / 2, 0, 0)),
+        ( 0,-1, ( math.pi / 2, 0, 0)),
+    ):
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=ST_OUTER_R + 0.003, depth=UB_WALL * 4,
+            vertices=32, location=(dx * outer, dy * outer, ST_Z))
+        c = bpy.context.active_object
+        c.rotation_euler = rot
+        boolean_cut(box, c)
+
+    assign(box, M['wood'])
+    return box
+
+
+def build_concrete_fill(M):
+    """Concrete fill at the bottom of the upper wooden box."""
+    print("  Concrete fill ...")
+    s = (UB_HW - UB_WALL) * 2 - 0.004  # slightly smaller than box interior
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, 0, UB_BASE_Z + FILL_HEIGHT / 2))
+    f = bpy.context.active_object
+    f.name = "ConcreteFill"
+    f.scale = (s, s, FILL_HEIGHT)
+    activate(f)
+    bpy.ops.object.transform_apply(scale=True)
+    assign(f, M['concrete'])
+    return f
+
+
+def build_upper_centre_mark(M):
+    """Small brass dome (upper centre mark) embedded in box concrete."""
+    print("  Upper centre mark ...")
+    z = UB_BASE_Z + FILL_HEIGHT
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=UCM_R, segments=32, ring_count=16, location=(0, 0, z))
+    o = bpy.context.active_object
+    o.name = "UpperCentreMark"
+    o.scale.z = UCM_H / UCM_R
+    activate(o)
+    bpy.ops.object.transform_apply(scale=True)
+
+    # Remove bottom half to make a dome
+    bpy.ops.mesh.primitive_cube_add(
+        size=UCM_R * 4, location=(0, 0, z - UCM_R * 2))
+    boolean_cut(o, bpy.context.active_object)
+
+    assign(o, M['brass'])
+    smooth(o)
+    return o
+
+
+def build_spider(M):
+    """Brass spider fitting at the top of the pillar."""
+    print("  Spider ...")
+    zt = PILLAR_HEIGHT
+    zmid = zt - SPIDER_THICK / 2
+
+    # Central annulus disc
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=SPIDER_ANNULUS_R, depth=SPIDER_THICK,
+        vertices=64, location=(0, 0, zmid))
+    spider = bpy.context.active_object
+    spider.name = "Spider"
+
+    # Cut centre hole
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=SPIDER_HOLE_R, depth=SPIDER_THICK + 0.004,
+        vertices=32, location=(0, 0, zmid))
+    boolean_cut(spider, bpy.context.active_object)
+
+    # Three arms at 120° intervals (first arm points toward +Y / North)
+    for i in range(3):
+        angle = math.radians(90 + i * 120)
+        arm_len = SPIDER_OUTER_R - SPIDER_ANNULUS_R + 0.005
+        dist = SPIDER_ANNULUS_R + arm_len / 2 - 0.003
+        cx = dist * math.cos(angle)
+        cy = dist * math.sin(angle)
+
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(cx, cy, zmid))
+        arm = bpy.context.active_object
+        arm.scale = (arm_len, SPIDER_ARM_W, SPIDER_THICK)
+        arm.rotation_euler.z = angle
+        activate(arm)
+        bpy.ops.object.transform_apply(scale=True, rotation=True)
+
+        # Union arm to spider body
+        activate(spider)
+        mod = spider.modifiers.new("_bool", 'BOOLEAN')
+        mod.operation = 'UNION'
+        mod.object = arm
+        mod.solver = 'EXACT'
+        bpy.ops.object.modifier_apply(modifier="_bool")
+        bpy.data.objects.remove(arm, do_unlink=True)
+
+    assign(spider, M['brass'])
+    return spider
+
+
+def build_brass_loops(M):
+    """Three brass loops set into the pillar top between spider arms."""
+    print("  Brass loops ...")
+    zt = PILLAR_HEIGHT - LOOP_RECESS
+    loops = []
+    for i in range(3):
+        # Between spider arms (offset 60° from arm positions)
+        angle = math.radians(90 + 60 + i * 120)
+        r = SPIDER_ANNULUS_R + 0.012
+        cx = r * math.cos(angle)
+        cy = r * math.sin(angle)
+
+        bpy.ops.mesh.primitive_torus_add(
+            major_radius=LOOP_W / 2, minor_radius=LOOP_WIRE_R,
+            major_segments=24, minor_segments=8,
+            location=(cx, cy, zt))
+        lp = bpy.context.active_object
+        lp.name = f"BrassLoop_{i}"
+        lp.scale.z = LOOP_H / LOOP_W
+        lp.rotation_euler.z = angle
+        activate(lp)
+        bpy.ops.object.transform_apply(scale=True, rotation=True)
+
+        # Remove bottom half (below surface)
+        bpy.ops.mesh.primitive_cube_add(
+            size=LOOP_W * 4, location=(cx, cy, zt - LOOP_W * 2))
+        boolean_cut(lp, bpy.context.active_object)
+
+        assign(lp, M['brass'])
+        smooth(lp)
+        loops.append(lp)
+    return loops
+
+
+def build_plug(M):
+    """Brass plug and inner plug in the spider's central hole."""
+    print("  Plug & inner plug ...")
+    zt = PILLAR_HEIGHT
+
+    # Outer plug (annulus)
+    plug = make_tube("Plug", PLUG_OUTER_R, PLUG_INNER_R, PLUG_H,
+                     loc=(0, 0, zt - PLUG_H / 2))
+    assign(plug, M['brass'])
+    smooth(plug)
+
+    # Inner plug (solid cylinder)
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=IPLUG_R, depth=IPLUG_H, vertices=32,
+        location=(0, 0, zt - IPLUG_H / 2))
+    ip = bpy.context.active_object
+    ip.name = "InnerPlug"
+    assign(ip, M['brass'])
+    smooth(ip)
+
+    return plug, ip
+
+
+def build_flush_bracket(M):
+    """Simplified flush bracket on one pillar face (+Y / North)."""
+    print("  Flush bracket ...")
+    hw = pillar_hw_at(FB_Z)
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, hw + FB_D / 2 - 0.001, FB_Z))
+    fb = bpy.context.active_object
+    fb.name = "FlushBracket"
+    fb.scale = (FB_W, FB_D, FB_H)
+    activate(fb)
+    bpy.ops.object.transform_apply(scale=True)
+    assign(fb, M['brass'])
+    return fb
+
+
+def build_base_slab(M):
+    """Concrete foundation base (tapered — wider at the bottom)."""
+    print("  Base slab ...")
+    base = make_frustum(
+        "BaseSlab", BASE_BTM_HW, BASE_TOP_HW, BASE_HEIGHT,
+        base_z=-BASE_HEIGHT)
+    assign(base, M['concrete'])
+    return base
+
+
+def build_angle_irons(M):
+    """Four angle-iron ties connecting pillar to base."""
+    print("  Angle irons ...")
+    irons = []
+    hw = PILLAR_BTM_HW
+    bz = -BASE_HEIGHT + 0.05    # start near base bottom
+    h = AI_TOTAL_H
+
+    for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
+        cx = sx * (hw - AI_LEG / 2 - 0.005)
+        cy = sy * (hw - AI_LEG / 2 - 0.005)
+        cz = bz + h / 2
+
+        # Vertical leg of L
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(cx, cy, cz))
+        leg1 = bpy.context.active_object
+        leg1.scale = (AI_THICK, AI_LEG, h)
+        activate(leg1)
+        bpy.ops.object.transform_apply(scale=True)
+
+        # Horizontal leg of L
+        ox = sx * (AI_LEG / 2 - AI_THICK / 2)
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(cx + ox, cy, cz))
+        leg2 = bpy.context.active_object
+        leg2.scale = (AI_LEG, AI_THICK, h)
+        activate(leg2)
+        bpy.ops.object.transform_apply(scale=True)
+
+        # Union the two legs
+        activate(leg1)
+        mod = leg1.modifiers.new("_bool", 'BOOLEAN')
+        mod.operation = 'UNION'
+        mod.object = leg2
+        mod.solver = 'EXACT'
+        bpy.ops.object.modifier_apply(modifier="_bool")
+        bpy.data.objects.remove(leg2, do_unlink=True)
+
+        leg1.name = f"AngleIron_{i}"
+        assign(leg1, M['steel'])
+        irons.append(leg1)
+    return irons
+
+
+def build_lower_box(M):
+    """Lower wooden box (protective cover) beneath the base slab."""
+    print("  Lower wooden box ...")
+    zt = -BASE_HEIGHT
+    h = LB_HEIGHT
+
+    # Outer shell
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, zt - h / 2))
+    box = bpy.context.active_object
+    box.name = "LowerBox"
+    box.scale = (LB_HW * 2, LB_HW * 2, h)
+    activate(box)
+    bpy.ops.object.transform_apply(scale=True)
+
+    # Inner void
+    inner = LB_HW - LB_WALL
+    inner_h = h - LB_WALL * 2
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, 0, zt - h / 2))
+    v = bpy.context.active_object
+    v.scale = (inner * 2, inner * 2, inner_h)
+    activate(v)
+    bpy.ops.object.transform_apply(scale=True)
+    boolean_cut(box, v)
+
+    assign(box, M['wood'])
+    return box
+
+
+def build_lower_block(M):
+    """Lower concrete block beneath the lower wooden box."""
+    print("  Lower block ...")
+    zt = -BASE_HEIGHT - LB_HEIGHT
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, 0, zt - LBLOCK_H / 2))
+    blk = bpy.context.active_object
+    blk.name = "LowerBlock"
+    blk.scale = (LBLOCK_HW * 2, LBLOCK_HW * 2, LBLOCK_H)
+    activate(blk)
+    bpy.ops.object.transform_apply(scale=True)
+    assign(blk, M['concrete'])
+    return blk
+
+
+def build_lower_centre_mark(M):
+    """Brass dome on top of the lower block."""
+    print("  Lower centre mark ...")
+    z = -BASE_HEIGHT - LB_HEIGHT
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        radius=LCM_R, segments=32, ring_count=16, location=(0, 0, z))
+    o = bpy.context.active_object
+    o.name = "LowerCentreMark"
+    o.scale.z = LCM_H / LCM_R
+    activate(o)
+    bpy.ops.object.transform_apply(scale=True)
+
+    # Remove bottom half
+    bpy.ops.mesh.primitive_cube_add(
+        size=LCM_R * 4, location=(0, 0, z - LCM_R * 2))
+    boolean_cut(o, bpy.context.active_object)
+
+    assign(o, M['brass'])
+    smooth(o)
+    return o
+
+
+# =====================================================================
+# SCENE SETUP
+# =====================================================================
+
+def setup_scene():
+    """Add camera, lights, and configure render settings."""
+    # Camera — positioned to see the full pillar
+    cam_data = bpy.data.cameras.new("Camera")
+    cam_data.lens = 50
+    cam_obj = bpy.data.objects.new("Camera", cam_data)
+    bpy.context.collection.objects.link(cam_obj)
+    cam_obj.location = (2.0, -2.0, 1.0)
+    cam_obj.rotation_euler = (math.radians(72), 0, math.radians(45))
+    bpy.context.scene.camera = cam_obj
+
+    # Sun light
+    sun_data = bpy.data.lights.new("Sun", 'SUN')
+    sun_data.energy = 3
+    sun_obj = bpy.data.objects.new("Sun", sun_data)
+    bpy.context.collection.objects.link(sun_obj)
+    sun_obj.rotation_euler = (
+        math.radians(40), math.radians(15), math.radians(30))
+
+    # Fill light
+    fill_data = bpy.data.lights.new("Fill", 'AREA')
+    fill_data.energy = 50
+    fill_data.size = 2.0
+    fill_obj = bpy.data.objects.new("Fill", fill_data)
+    bpy.context.collection.objects.link(fill_obj)
+    fill_obj.location = (-2, 3, 2)
+    fill_obj.rotation_euler = (
+        math.radians(55), 0, math.radians(-130))
+
+    # Render engine
+    try:
+        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    except TypeError:
+        bpy.context.scene.render.engine = 'BLENDER_EEVEE'
+    bpy.context.scene.render.resolution_x = 1920
+    bpy.context.scene.render.resolution_y = 1080
+
+    # Switch viewport to Material Preview (only works in GUI mode)
+    try:
+        for area in bpy.context.screen.areas:
+            if area.type == 'VIEW_3D':
+                for space in area.spaces:
+                    if space.type == 'VIEW_3D':
+                        space.shading.type = 'MATERIAL'
+                        break
+    except (AttributeError, RuntimeError):
+        pass  # headless mode
+
+
+# =====================================================================
+# MAIN
+# =====================================================================
+
+def main():
+    print("\n=== OS Trig Point (Hotine Pillar) Generator ===\n")
+    clear_scene()
+
+    # Materials
+    M = {
+        'concrete': make_material("Concrete", (0.65, 0.63, 0.60), 0.0, 0.85),
+        'steel':    make_material("Steel",    (0.40, 0.42, 0.44), 0.9, 0.30),
+        'brass':    make_material("Brass",    (0.78, 0.62, 0.20), 0.9, 0.25),
+        'wood':     make_material("Wood",     (0.45, 0.30, 0.15), 0.0, 0.80),
+    }
+
+    # Build all components
+    build_pillar(M)
+    build_centre_pipe(M)
+    build_sighting_tubes(M)
+    build_upper_box(M)
+    build_concrete_fill(M)
+    build_upper_centre_mark(M)
+    build_spider(M)
+    build_plug(M)
+    build_brass_loops(M)
+    build_flush_bracket(M)
+    build_base_slab(M)
+    build_angle_irons(M)
+    build_lower_box(M)
+    build_lower_block(M)
+    build_lower_centre_mark(M)
+
+    # Scene
+    setup_scene()
+
+    bpy.ops.object.select_all(action='DESELECT')
+    n = len(bpy.data.objects)
+    print(f"\nDone — {n} objects created.")
+    print("Tip: hide the Pillar object in the Outliner to see internal components.\n")
+
+
+if __name__ == "__main__":
+    main()
+
