@@ -27,9 +27,9 @@ from mathutils import Vector
 # =====================================================================
 
 # --- Main Pillar ---
-PILLAR_HEIGHT       = 1.219     # [D] 4'0" above ground
-PILLAR_TOP_HW       = 0.178     # [D] 1'2" / 2 — half-width at top
-PILLAR_BTM_HW       = 0.230     # [E] ~18" / 2 — half-width at base
+PILLAR_HEIGHT       = 1.190     # [D] 119 cm above ground
+PILLAR_TOP_HW       = 0.180     # [D] 36 cm / 2 — half-width at top
+PILLAR_BTM_HW       = 0.305     # [D] 61 cm / 2 — half-width at base
 BEVEL_RADIUS        = 0.025     # [E] ~1" chamfer on vertical edges
 BEVEL_SEGMENTS      = 1         # 1 = flat 45° mitre, >1 = rounded arc
 
@@ -549,17 +549,28 @@ def build_upper_centre_mark(M):
     boolean_cut(dome_obj, bpy.context.active_object)
     _union_into(mark, dome_obj)
 
-    # Point — pencil-tip cone, 5 mm diameter, 8 mm tall
+    # Point — 5 mm diameter rod with 45° cone tip
     # (kept as a separate object to avoid boolean-union artefacts at this scale)
-    pt_btm_r = 0.005 / 2                    # 2.5 mm radius
-    pt_h = 0.008
-    z_pt = z_fd + fd_h + pt_h / 2
-    bpy.ops.mesh.primitive_cone_add(
-        radius1=pt_btm_r, radius2=0,
-        depth=pt_h, vertices=16,
-        location=(0, 0, z_pt))
+    pt_r = 0.005 / 2                        # 2.5 mm radius
+    rod_h = 0.005                            # 5 mm cylinder
+    cone_h = pt_r                            # 2.5 mm (45° → height = radius)
+    z_rod = z_fd + fd_h + rod_h / 2
+    z_cone = z_fd + fd_h + rod_h + cone_h / 2
+
+    # Cylinder (rod portion)
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=pt_r, depth=rod_h, vertices=16,
+        location=(0, 0, z_rod))
     spike = bpy.context.active_object
     spike.name = "UpperCentreMark_Spike"
+
+    # Cone tip
+    bpy.ops.mesh.primitive_cone_add(
+        radius1=pt_r, radius2=0,
+        depth=cone_h, vertices=16,
+        location=(0, 0, z_cone))
+    _union_into(spike, bpy.context.active_object)
+
     assign(spike, M['brass'])
     smooth(spike)
 
@@ -745,12 +756,12 @@ def build_angle_irons(M):
     l_offset = (AI_LEG - AI_THICK) / 2
 
     for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
-        # Very slight random variations — tops and bottoms within ~15mm
-        h = base_h + rng.uniform(-0.005, 0.005)   # ±5mm absolute
+        # All irons are exactly the same length
+        h = base_h
 
-        # Tilt to follow pillar slope, with tiny random wobble (±2%)
-        tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.02, 0.02))
-        tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.02, 0.02))
+        # Tilt to follow pillar slope, with tiny random wobble (±1%)
+        tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.01, 0.01))
+        tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.01, 0.01))
 
         # Leg 1: extends in X, offset toward the corner in Y
         bpy.ops.mesh.primitive_cube_add(
@@ -780,9 +791,9 @@ def build_angle_irons(M):
         # Re-centre origin on the L-shape geometry
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
 
-        # Final position (with very small random offset) and rotation
-        cx = sx * (hw_mid - AI_LEG / 2) + rng.uniform(-0.002, 0.002)
-        cy = sy * (hw_mid - AI_LEG / 2) + rng.uniform(-0.002, 0.002)
+        # Final position (with tiny random offset) and rotation
+        cx = sx * (hw_mid - AI_LEG / 2) + rng.uniform(-0.001, 0.001)
+        cy = sy * (hw_mid - AI_LEG / 2) + rng.uniform(-0.001, 0.001)
         cz = bz + h / 2
 
         leg1.location = (cx, cy, cz)
