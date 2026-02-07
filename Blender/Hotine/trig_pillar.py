@@ -344,11 +344,12 @@ def build_pillar(M):
         location=(0, 0, cp_void_z))
     boolean_cut(pillar, bpy.context.active_object)
 
-    # --- Cut sighting-tube holes (only through concrete wall, not into box) ---
+    # --- Cut sighting-tube holes through concrete (into box interior) ---
     cut_r = ST_OUTER_R + 0.001
     hw = pillar_hw_at(ST_Z)
-    # Each void runs from just inside the box outer wall to past the pillar face
-    void_inner = UB_HW - 0.005
+    # Each void runs from just past the box INNER wall to past the pillar face,
+    # so no solid concrete blocks the view through the sighting tubes.
+    void_inner = UB_HW - UB_WALL - 0.005
     void_outer = hw + 0.010
     void_len = void_outer - void_inner
     void_mid = (void_inner + void_outer) / 2
