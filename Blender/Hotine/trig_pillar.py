@@ -48,7 +48,7 @@ ST_Z                = 0.152     # [E] centre height 6" above pillar base
 UB_HW               = 0.127     # [E] ~10" outer / 2
 UB_HEIGHT           = 0.203     # [E] ~8"
 UB_WALL             = 0.025     # [E] ~1" timber
-UB_BASE_Z           = 0.050     # [E] bottom of box above pillar base
+UB_BASE_Z           = 0.000     # box base sits on top of the base slab
 
 # --- Concrete Fill in Upper Box ---
 FILL_HEIGHT         = 0.100     # [E] fills to near sighting tube level
@@ -344,10 +344,17 @@ def build_pillar(M):
 
 
 def build_centre_pipe(M):
-    """Vertical steel tube through the pillar centre."""
+    """Vertical steel tube — from above the pillar top down to just inside the box lid."""
     print("  Centre pipe ...")
-    total_h = PILLAR_HEIGHT + CP_PROTRUDE_TOP + 0.050
-    z_centre = (PILLAR_HEIGHT + CP_PROTRUDE_TOP) / 2 - 0.025
+    # Top of pipe: protrudes above pillar
+    z_top = PILLAR_HEIGHT + CP_PROTRUDE_TOP
+    # Bottom of pipe: protrudes a small, slightly random amount below the box lid
+    lid_inner_z = UB_BASE_Z + UB_HEIGHT - UB_WALL
+    protrude = 0.020 + random.Random(70).uniform(-0.008, 0.008)
+    z_btm = lid_inner_z - protrude
+
+    total_h = z_top - z_btm
+    z_centre = (z_top + z_btm) / 2
     pipe = make_tube("CentrePipe", CP_OUTER_R, CP_INNER_R,
                      total_h, loc=(0, 0, z_centre))
     assign(pipe, M['steel'])
@@ -356,23 +363,30 @@ def build_centre_pipe(M):
 
 
 def build_sighting_tubes(M):
-    """Four slightly-angled sighting tubes."""
+    """Four slightly-angled sighting tubes — each protrudes a slightly different
+    amount into the box interior, suggesting rough hand-assembly."""
     print("  Sighting tubes ...")
+    rng = random.Random(55)
     hw = pillar_hw_at(ST_Z)
-    inner_end = UB_HW - UB_WALL           # inner box boundary
+    box_inner = UB_HW - UB_WALL           # inner box wall distance from centre
     outer_end = hw + 0.005                 # just past pillar face
-    tube_len = outer_end - inner_end + 0.02
-    mid = (inner_end + outer_end) / 2
     a = ST_TILT
 
-    specs = [
-        ("ST_East",  ( mid, 0, ST_Z), (0,  math.pi / 2 + a, 0)),
-        ("ST_West",  (-mid, 0, ST_Z), (0, -(math.pi / 2 + a), 0)),
-        ("ST_North", (0,  mid, ST_Z), (-(math.pi / 2 + a), 0, 0)),
-        ("ST_South", (0, -mid, ST_Z), ( (math.pi / 2 + a), 0, 0)),
+    directions = [
+        ("ST_East",  ( 1, 0), (0,  math.pi / 2 + a, 0)),
+        ("ST_West",  (-1, 0), (0, -(math.pi / 2 + a), 0)),
+        ("ST_North", (0,  1), (-(math.pi / 2 + a), 0, 0)),
+        ("ST_South", (0, -1), ( (math.pi / 2 + a), 0, 0)),
     ]
     tubes = []
-    for name, loc, rot in specs:
+    for name, (dx, dy), rot in directions:
+        # Each tube protrudes a slightly different amount past the inner box wall
+        protrude = 0.015 + rng.uniform(-0.008, 0.010)
+        inner_end = box_inner - protrude
+        tube_len = outer_end - inner_end
+        mid = (inner_end + outer_end) / 2
+
+        loc = (dx * mid, dy * mid, ST_Z)
         t = make_tube(name, ST_OUTER_R, ST_INNER_R, tube_len, loc=loc)
         t.rotation_euler = rot
         assign(t, M['steel'])
@@ -604,30 +618,47 @@ def build_base_slab(M):
 
 
 def build_angle_irons(M):
-    """Four angle-iron ties connecting pillar to base."""
+    """Four angle irons — roughly parallel to pillar taper, placed halfway
+    between pillar edges and box edges, with ~10% random variation in
+    length and angle to suggest hand-placement."""
     print("  Angle irons ...")
+    rng = random.Random(99)
     irons = []
-    hw = PILLAR_BTM_HW
-    bz = -BASE_HEIGHT + 0.05    # start near base bottom
-    h = AI_TOTAL_H
+
+    # Halfway between pillar corners and box corners
+    hw_mid = (PILLAR_BTM_HW + UB_HW) / 2
+
+    # Base tilt angle to follow the pillar's tapered sides
+    base_tilt = math.atan2(PILLAR_BTM_HW - PILLAR_TOP_HW, PILLAR_HEIGHT)
+
+    # Vertical span: from inside the base up into the pillar
+    bz = -BASE_HEIGHT + 0.05
+    base_h = AI_TOTAL_H
+
+    # L-profile offset: distance from L's centre to each leg's centreline
+    l_offset = (AI_LEG - AI_THICK) / 2
 
     for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
-        cx = sx * (hw - AI_LEG / 2 - 0.005)
-        cy = sy * (hw - AI_LEG / 2 - 0.005)
-        cz = bz + h / 2
+        # Random variations (~10%)
+        h = base_h * (1.0 + rng.uniform(-0.10, 0.10))
 
-        # Vertical leg of L
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(cx, cy, cz))
+        # Tilt to follow pillar slope, with random wobble
+        tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.10, 0.10))
+        tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.10, 0.10))
+
+        # Leg 1: extends in X, offset toward the corner in Y
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(0, sy * l_offset, 0))
         leg1 = bpy.context.active_object
-        leg1.scale = (AI_THICK, AI_LEG, h)
+        leg1.scale = (AI_LEG, AI_THICK, h)
         activate(leg1)
         bpy.ops.object.transform_apply(scale=True)
 
-        # Horizontal leg of L
-        ox = sx * (AI_LEG / 2 - AI_THICK / 2)
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(cx + ox, cy, cz))
+        # Leg 2: extends in Y, offset toward the corner in X
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(sx * l_offset, 0, 0))
         leg2 = bpy.context.active_object
-        leg2.scale = (AI_LEG, AI_THICK, h)
+        leg2.scale = (AI_THICK, AI_LEG, h)
         activate(leg2)
         bpy.ops.object.transform_apply(scale=True)
 
@@ -639,6 +670,17 @@ def build_angle_irons(M):
         mod.solver = 'EXACT'
         bpy.ops.object.modifier_apply(modifier="_bool")
         bpy.data.objects.remove(leg2, do_unlink=True)
+
+        # Re-centre origin on the L-shape geometry
+        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
+
+        # Final position (with small random offset) and rotation
+        cx = sx * (hw_mid - AI_LEG / 2) + rng.uniform(-0.005, 0.005)
+        cy = sy * (hw_mid - AI_LEG / 2) + rng.uniform(-0.005, 0.005)
+        cz = bz + h / 2
+
+        leg1.location = (cx, cy, cz)
+        leg1.rotation_euler = (tilt_x, tilt_y, 0)
 
         leg1.name = f"AngleIron_{i}"
         assign(leg1, M['steel'])
