@@ -18,6 +18,7 @@ All measurements are in metres.
 import bpy
 import bmesh
 import math
+import random
 from mathutils import Vector
 
 
@@ -57,7 +58,7 @@ UCM_R               = 0.016     # [E] ~1.25" dia / 2
 UCM_H               = 0.012     # [E] dome height
 
 # --- Base Slab (Foundation) ---
-BASE_TOP_HW         = 0.305     # [D] 2'0" / 2
+BASE_TOP_HW         = 0.380     # [E] ~2'6" / 2 — wider overhang around pillar
 BASE_BTM_HW         = 0.457     # [D] 3'0" / 2
 BASE_HEIGHT         = 0.305     # [E] ~12" thick
 
@@ -254,6 +255,47 @@ def make_tube(name, outer_r, inner_r, depth, loc=(0, 0, 0), segs=32):
 
     boolean_cut(obj, void)
     return obj
+
+
+def subdivide_mesh(obj, cuts=3):
+    """Subdivide all edges of a mesh to add geometry for roughness."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=cuts)
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
+def roughen_mesh(obj, amount, seed=42, protect_top=True, protect_bottom=False):
+    """
+    Add random displacement to mesh vertices to simulate rough concrete.
+
+    Vertices on the top face (and optionally bottom) are kept in place
+    so the surface remains flat where concrete was poured / levelled.
+    """
+    rng = random.Random(seed)
+
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+
+    max_z = max(v.co.z for v in bm.verts)
+    min_z = min(v.co.z for v in bm.verts)
+    eps = 0.0005
+
+    for v in bm.verts:
+        if protect_top and abs(v.co.z - max_z) < eps:
+            continue
+        if protect_bottom and abs(v.co.z - min_z) < eps:
+            continue
+        v.co.x += rng.uniform(-amount, amount)
+        v.co.y += rng.uniform(-amount, amount)
+        v.co.z += rng.uniform(-amount, amount)
+
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
 
 
 def pillar_hw_at(z):
@@ -547,11 +589,16 @@ def build_flush_bracket(M):
 
 
 def build_base_slab(M):
-    """Concrete foundation base (tapered — wider at the bottom)."""
+    """Concrete foundation base — rough-sided to suggest a hand-dug hole, flat on top."""
     print("  Base slab ...")
     base = make_frustum(
         "BaseSlab", BASE_BTM_HW, BASE_TOP_HW, BASE_HEIGHT,
         base_z=-BASE_HEIGHT)
+
+    # Subdivide to add geometry, then roughen sides and bottom
+    subdivide_mesh(base, cuts=3)
+    roughen_mesh(base, amount=0.020, seed=123, protect_top=True)
+
     assign(base, M['concrete'])
     return base
 
@@ -600,7 +647,7 @@ def build_angle_irons(M):
 
 
 def build_lower_box(M):
-    """Lower wooden box (protective cover) beneath the base slab."""
+    """Lower wooden box — open-bottomed cover (4 sides + top, no base)."""
     print("  Lower wooden box ...")
     zt = -BASE_HEIGHT
     h = LB_HEIGHT
@@ -613,13 +660,12 @@ def build_lower_box(M):
     activate(box)
     bpy.ops.object.transform_apply(scale=True)
 
-    # Inner void
+    # Inner void — shifted down so lid (top) stays solid, bottom is open
     inner = LB_HW - LB_WALL
-    inner_h = h - LB_WALL * 2
-    bpy.ops.mesh.primitive_cube_add(
-        size=1, location=(0, 0, zt - h / 2))
+    void_z = zt - h / 2 - LB_WALL   # top of void = zt - LB_WALL (leaves lid)
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, void_z))
     v = bpy.context.active_object
-    v.scale = (inner * 2, inner * 2, inner_h)
+    v.scale = (inner * 2, inner * 2, h)  # extends below box bottom
     activate(v)
     bpy.ops.object.transform_apply(scale=True)
     boolean_cut(box, v)
@@ -629,7 +675,7 @@ def build_lower_box(M):
 
 
 def build_lower_block(M):
-    """Lower concrete block beneath the lower wooden box."""
+    """Lower concrete block — rough-sided to suggest a hand-dug hole, flat on top."""
     print("  Lower block ...")
     zt = -BASE_HEIGHT - LB_HEIGHT
     bpy.ops.mesh.primitive_cube_add(
@@ -639,30 +685,88 @@ def build_lower_block(M):
     blk.scale = (LBLOCK_HW * 2, LBLOCK_HW * 2, LBLOCK_H)
     activate(blk)
     bpy.ops.object.transform_apply(scale=True)
+
+    # Subdivide to add geometry, then roughen sides and bottom
+    subdivide_mesh(blk, cuts=3)
+    roughen_mesh(blk, amount=0.015, seed=42, protect_top=True)
+
     assign(blk, M['concrete'])
     return blk
 
 
 def build_lower_centre_mark(M):
-    """Brass dome on top of the lower block."""
+    """Brass centre mark: dome + tapered stalk + base disk.
+
+    Proportions are relative to dome diameter (dome_dia):
+      - Stalk height:      1.0  × dome_dia
+      - Stalk top width:   0.25 × dome_dia
+      - Stalk bottom width: 0.35 × dome_dia
+      - Disk diameter:     0.5  × dome_dia
+      - Disk height:       0.2  × dome_dia
+    """
     print("  Lower centre mark ...")
-    z = -BASE_HEIGHT - LB_HEIGHT
+    z_top = -BASE_HEIGHT - LB_HEIGHT       # top of lower block
+    dome_dia = LCM_R * 2                   # full dome diameter
+
+    # --- Dome (top) ---
     bpy.ops.mesh.primitive_uv_sphere_add(
-        radius=LCM_R, segments=32, ring_count=16, location=(0, 0, z))
-    o = bpy.context.active_object
-    o.name = "LowerCentreMark"
-    o.scale.z = LCM_H / LCM_R
-    activate(o)
+        radius=LCM_R, segments=32, ring_count=16, location=(0, 0, z_top))
+    mark = bpy.context.active_object
+    mark.name = "LowerCentreMark"
+    mark.scale.z = LCM_H / LCM_R
+    activate(mark)
     bpy.ops.object.transform_apply(scale=True)
 
-    # Remove bottom half
+    # Cut bottom half to make a dome
     bpy.ops.mesh.primitive_cube_add(
-        size=LCM_R * 4, location=(0, 0, z - LCM_R * 2))
-    boolean_cut(o, bpy.context.active_object)
+        size=LCM_R * 4, location=(0, 0, z_top - LCM_R * 2))
+    boolean_cut(mark, bpy.context.active_object)
 
-    assign(o, M['brass'])
-    smooth(o)
-    return o
+    # --- Stalk (tapered cylinder below dome) ---
+    stalk_h = dome_dia                             # height = dome diameter
+    stalk_top_r = 0.25 * dome_dia / 2             # 0.25× dome dia as radius
+    stalk_btm_r = 0.35 * dome_dia / 2             # 0.35× dome dia as radius
+    stalk_z = z_top - stalk_h / 2                  # centre of stalk
+
+    bpy.ops.mesh.primitive_cone_add(
+        radius1=stalk_btm_r, radius2=stalk_top_r,
+        depth=stalk_h, vertices=32,
+        location=(0, 0, stalk_z))
+    stalk = bpy.context.active_object
+    stalk.name = "_lcm_stalk"
+
+    # Union stalk to dome
+    activate(mark)
+    mod = mark.modifiers.new("_bool", 'BOOLEAN')
+    mod.operation = 'UNION'
+    mod.object = stalk
+    mod.solver = 'EXACT'
+    bpy.ops.object.modifier_apply(modifier="_bool")
+    bpy.data.objects.remove(stalk, do_unlink=True)
+
+    # --- Base disk ---
+    disk_r = 0.5 * dome_dia / 2                   # 0.5× dome dia as radius
+    disk_h = 0.2 * dome_dia                        # 0.2× dome dia
+    disk_z = z_top - stalk_h - disk_h / 2          # sits below stalk
+
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=disk_r, depth=disk_h, vertices=32,
+        location=(0, 0, disk_z))
+    disk = bpy.context.active_object
+    disk.name = "_lcm_disk"
+
+    # Union disk to dome+stalk
+    activate(mark)
+    mod = mark.modifiers.new("_bool", 'BOOLEAN')
+    mod.operation = 'UNION'
+    mod.object = disk
+    mod.solver = 'EXACT'
+    bpy.ops.object.modifier_apply(modifier="_bool")
+    bpy.data.objects.remove(disk, do_unlink=True)
+
+    assign(mark, M['brass'])
+    smooth(mark)
+    return mark
 
 
 # =====================================================================
