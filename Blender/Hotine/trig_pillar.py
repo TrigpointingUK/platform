@@ -68,11 +68,15 @@ AI_THICK            = 0.005     # [E] 3/16"
 AI_TOTAL_H          = 0.600     # [E] total length spanning junction
 
 # --- Spider ---
-SPIDER_OUTER_R      = 0.076     # [E] ~6" dia / 2
-SPIDER_ANNULUS_R    = 0.044     # [E] ~3.5" dia / 2
-SPIDER_HOLE_R       = 0.022     # [E] threaded hole ~1.75" dia / 2
-SPIDER_THICK        = 0.010     # [E] ~3/8"
-SPIDER_ARM_W        = 0.025     # [E] arm width ~1"
+SPIDER_ANNULUS_INNER_R = 0.0465  # [D] 93 mm inner dia / 2
+SPIDER_ANNULUS_OUTER_R = 0.065   # [D] 130 mm outer dia / 2
+SPIDER_INNER_BEVEL     = 0.003   # [D] 3 mm 45° bevel to top (inner edge)
+SPIDER_OUTER_BEVEL     = 0.001   # [D] 1 mm bevel to top (outer edge)
+SPIDER_THICK           = 0.010   # [E] ~3/8"
+SPIDER_ARM_LEN         = 0.115   # [D] 115 mm from inner dia of annulus
+SPIDER_ARM_W           = 0.030   # [D] 30 mm
+SPIDER_GROOVE_W        = 0.010   # [D] 10 mm wide, 90° V-groove
+SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
 
 # --- Brass Loops ---
 LOOP_WIRE_R         = 0.003     # [E] ¼" wire / 2
@@ -734,50 +738,226 @@ def build_upper_centre_mark(M):
 
 
 def build_spider(M):
-    """Brass spider fitting at the top of the pillar."""
+    """Brass spider fitting at the top of the pillar.
+
+    Three-armed spider with central annulus ring.  The annulus has bevelled
+    top edges (inner 45° × 3 mm, outer 45° × 1 mm).  Each arm carries a
+    90° V-groove down its centre.  Arm-to-annulus junctions have rounded
+    fillets (20 mm radius).
+    """
     print("  Spider ...")
+
+    # ── Local shortcuts ───────────────────────────────────────────
+    inner_r = SPIDER_ANNULUS_INNER_R
+    outer_r = SPIDER_ANNULUS_OUTER_R
+    thick   = SPIDER_THICK
+    arm_hw  = SPIDER_ARM_W / 2
+    tip_r   = inner_r + SPIDER_ARM_LEN      # arm tip radius from centre
+    fr      = SPIDER_FILLET_R
+    ib      = SPIDER_INNER_BEVEL
+    obv     = SPIDER_OUTER_BEVEL
+    gw      = SPIDER_GROOVE_W / 2            # groove half-width
+    gd      = gw                             # groove depth (90° → depth = half-width)
+
     zt = PILLAR_HEIGHT
-    zmid = zt - SPIDER_THICK / 2
+    zb = zt - thick
+    zm = zt - thick / 2
 
-    # Central annulus disc
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=SPIDER_ANNULUS_R, depth=SPIDER_THICK,
-        vertices=64, location=(0, 0, zmid))
-    spider = bpy.context.active_object
-    spider.name = "Spider"
+    arm_angles = [math.radians(90 + i * 120) for i in range(3)]
 
-    # Cut centre hole
+    # ── Fillet geometry (local frame: arm along +Y) ───────────────
+    fc_x    = arm_hw + fr                           # fillet centre X (right side)
+    fc_dist = outer_r + fr                          # distance from origin to fillet centre
+    fc_y    = math.sqrt(fc_dist**2 - fc_x**2)      # fillet centre Y
+
+    # Right-side tangent on annulus outer circle
+    t_ann_x = outer_r * fc_x / fc_dist
+    t_ann_y = outer_r * fc_y / fc_dist
+
+    # Right fillet arc angles (measured from right fillet centre)
+    fa_ann = math.atan2(t_ann_y - fc_y, t_ann_x - fc_x)
+    fa_arm = math.pi                                # toward arm tangent
+    if fa_ann < fa_arm:                             # ensure short (clockwise) arc
+        fa_ann += 2 * math.pi
+
+    # Left fillet arc angles (from left fillet centre at (-fc_x, fc_y))
+    fl_arm = 0.0                                    # toward arm tangent
+    fl_ann = math.atan2(t_ann_y - fc_y, fc_x - t_ann_x)
+
+    FILLET_N = 8       # segments per fillet arc
+    ARC_N    = 12      # segments per annulus arc between arms
+
+    # ── Build outer boundary (counter-clockwise) ─────────────────
+    outline = []
+
+    for ai in range(3):
+        theta = arm_angles[ai]
+        rot   = theta - math.pi / 2
+        cr, sr = math.cos(rot), math.sin(rot)
+
+        def xf(lx, ly, _c=cr, _s=sr):
+            """Transform from local arm frame to global XY."""
+            return (lx * _c - ly * _s, lx * _s + ly * _c)
+
+        # Right fillet: annulus tangent → arm tangent
+        for j in range(FILLET_N + 1):
+            t = j / FILLET_N
+            a = fa_ann + t * (fa_arm - fa_ann)
+            outline.append(xf(fc_x + fr * math.cos(a),
+                              fc_y + fr * math.sin(a)))
+
+        # Right arm side → tip
+        outline.append(xf(arm_hw, tip_r))
+
+        # Arm tip (right → left)
+        outline.append(xf(-arm_hw, tip_r))
+
+        # Left fillet: arm tangent → annulus tangent
+        for j in range(FILLET_N + 1):
+            t = j / FILLET_N
+            a = fl_arm + t * (fl_ann - fl_arm)
+            outline.append(xf(-fc_x + fr * math.cos(a),
+                              fc_y + fr * math.sin(a)))
+
+        # Annulus arc to next arm's right fillet
+        lt    = xf(-t_ann_x, t_ann_y)
+        ang_s = math.atan2(lt[1], lt[0])
+
+        ni    = (ai + 1) % 3
+        nrot  = arm_angles[ni] - math.pi / 2
+        nc, ns = math.cos(nrot), math.sin(nrot)
+        rt    = (t_ann_x * nc - t_ann_y * ns,
+                 t_ann_x * ns + t_ann_y * nc)
+        ang_e = math.atan2(rt[1], rt[0])
+
+        while ang_e <= ang_s:
+            ang_e += 2 * math.pi
+
+        for j in range(1, ARC_N):
+            t = j / ARC_N
+            a = ang_s + t * (ang_e - ang_s)
+            outline.append((outer_r * math.cos(a), outer_r * math.sin(a)))
+
+    # Deduplicate consecutive near-coincident vertices
+    cleaned = [outline[0]]
+    for pt in outline[1:]:
+        if math.hypot(pt[0] - cleaned[-1][0], pt[1] - cleaned[-1][1]) > 1e-6:
+            cleaned.append(pt)
+    if math.hypot(cleaned[0][0] - cleaned[-1][0],
+                  cleaned[0][1] - cleaned[-1][1]) < 1e-6:
+        cleaned.pop()
+    outline = cleaned
+
+    # ── Compute outward normals for outer bevel offset ────────────
+    # The 1 mm bevel runs around the entire outside edge (annulus arcs,
+    # fillets, arm sides, and arm tips).  We build it directly into the
+    # mesh by insetting the top ring from the outline.
+    n = len(outline)
+    normals = []
+    for i in range(n):
+        px, py = outline[(i - 1) % n]
+        cx, cy = outline[i]
+        qx, qy = outline[(i + 1) % n]
+        # Edge vectors
+        e1x, e1y = cx - px, cy - py
+        e2x, e2y = qx - cx, qy - cy
+        # Outward normals (90° CW rotation for CCW polygon)
+        n1x, n1y = e1y, -e1x
+        n2x, n2y = e2y, -e2x
+        # Normalise each
+        len1 = math.hypot(n1x, n1y)
+        len2 = math.hypot(n2x, n2y)
+        if len1 > 1e-9:
+            n1x /= len1; n1y /= len1
+        if len2 > 1e-9:
+            n2x /= len2; n2y /= len2
+        # Average and normalise
+        ax, ay = n1x + n2x, n1y + n2y
+        alen = math.hypot(ax, ay)
+        if alen > 1e-9:
+            ax /= alen; ay /= alen
+        normals.append((ax, ay))
+
+    # ── Create 3D spider body (solid, no inner hole yet) ──────────
+    # Three vertex rings: bottom (at outer edge), bevel (outer edge,
+    # 1 mm below top), and top (inset 1 mm from outer edge).
+    # This builds the 45° outer bevel directly into the mesh so it
+    # follows the full perimeter including arms and fillets.
+    bm = bmesh.new()
+
+    bot = [bm.verts.new((x, y, zb)) for x, y in outline]
+    bev = [bm.verts.new((x, y, zt - obv)) for x, y in outline]
+    top = [bm.verts.new((x - obv * nx, y - obv * ny, zt))
+           for (x, y), (nx, ny) in zip(outline, normals)]
+
+    bm.faces.new(bot[::-1])          # bottom face (normal ↓)
+    bm.faces.new(top)                # top face    (normal ↑)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new([bot[i], bot[j], bev[j], bev[i]])    # side (vertical)
+        bm.faces.new([bev[i], bev[j], top[j], top[i]])    # bevel (angled)
+
+    # Triangulate for reliable booleans on this complex outline
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+
+    mesh = bpy.data.meshes.new("Spider")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    spider = bpy.data.objects.new("Spider", mesh)
+    bpy.context.collection.objects.link(spider)
+    activate(spider)
+
+    # ── Centre hole ───────────────────────────────────────────────
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=SPIDER_HOLE_R, depth=SPIDER_THICK + 0.004,
-        vertices=32, location=(0, 0, zmid))
+        radius=inner_r, depth=thick + 0.004,
+        vertices=64, location=(0, 0, zm))
     boolean_cut(spider, bpy.context.active_object)
 
-    # Three arms at 120° intervals (first arm points toward +Y / North)
-    for i in range(3):
-        angle = math.radians(90 + i * 120)
-        arm_len = SPIDER_OUTER_R - SPIDER_ANNULUS_R + 0.005
-        dist = SPIDER_ANNULUS_R + arm_len / 2 - 0.003
-        cx = dist * math.cos(angle)
-        cy = dist * math.sin(angle)
+    # ── Inner bevel (45° × 3 mm on top of inner edge) ────────────
+    bevel_h = ib + 0.001
+    bpy.ops.mesh.primitive_cone_add(
+        radius1=inner_r,
+        radius2=inner_r + ib + 0.001,
+        depth=bevel_h,
+        vertices=64,
+        location=(0, 0, zt - ib + bevel_h / 2))
+    boolean_cut(spider, bpy.context.active_object)
 
-        bpy.ops.mesh.primitive_cube_add(
-            size=1, location=(cx, cy, zmid))
-        arm = bpy.context.active_object
-        arm.scale = (arm_len, SPIDER_ARM_W, SPIDER_THICK)
-        arm.rotation_euler.z = angle
-        activate(arm)
-        bpy.ops.object.transform_apply(scale=True, rotation=True)
+    # ── V-grooves (90°, 10 mm wide) on each arm ──────────────────
+    for ai in range(3):
+        rot = arm_angles[ai] - math.pi / 2
 
-        # Union arm to spider body
-        activate(spider)
-        mod = spider.modifiers.new("_bool", 'BOOLEAN')
-        mod.operation = 'UNION'
-        mod.object = arm
-        mod.solver = 'EXACT'
-        bpy.ops.object.modifier_apply(modifier="_bool")
-        bpy.data.objects.remove(arm, do_unlink=True)
+        bm3 = bmesh.new()
+        y0 = inner_r - 0.005
+        y1 = tip_r + 0.005
+        gv = [
+            bm3.verts.new((-gw, y0, zt + 0.001)),   # 0 top-left  near
+            bm3.verts.new(( gw, y0, zt + 0.001)),   # 1 top-right near
+            bm3.verts.new(( 0,  y0, zt - gd)),      # 2 bottom    near
+            bm3.verts.new((-gw, y1, zt + 0.001)),   # 3 top-left  far
+            bm3.verts.new(( gw, y1, zt + 0.001)),   # 4 top-right far
+            bm3.verts.new(( 0,  y1, zt - gd)),      # 5 bottom    far
+        ]
+        bm3.faces.new([gv[2], gv[1], gv[0]])          # near triangle
+        bm3.faces.new([gv[3], gv[4], gv[5]])          # far triangle
+        bm3.faces.new([gv[0], gv[1], gv[4], gv[3]])   # top quad
+        bm3.faces.new([gv[1], gv[2], gv[5], gv[4]])   # right quad
+        bm3.faces.new([gv[2], gv[0], gv[3], gv[5]])   # left quad
+
+        mesh3 = bpy.data.meshes.new("_groove")
+        bm3.to_mesh(mesh3)
+        bm3.free()
+
+        groove = bpy.data.objects.new("_groove", mesh3)
+        bpy.context.collection.objects.link(groove)
+        groove.rotation_euler.z = rot
+        activate(groove)
+        bpy.ops.object.transform_apply(rotation=True)
+        boolean_cut(spider, groove)
 
     assign(spider, M['brass'])
+    smooth(spider)
     return spider
 
 
@@ -789,7 +969,7 @@ def build_brass_loops(M):
     for i in range(3):
         # Between spider arms (offset 60° from arm positions)
         angle = math.radians(90 + 60 + i * 120)
-        r = SPIDER_ANNULUS_R + 0.012
+        r = SPIDER_ANNULUS_OUTER_R + 0.012
         cx = r * math.cos(angle)
         cy = r * math.sin(angle)
 
