@@ -18,6 +18,7 @@ All measurements are in metres.
 import bpy
 import bmesh
 import math
+import os
 import random
 from mathutils import Vector
 
@@ -3068,7 +3069,7 @@ def setup_camera_animation():
     TOTAL_FRAMES = 900
     ORBIT_R      = 2.5       # metres from pillar centre
     ORBIT_Z      = 1.5       # orbit altitude
-    ORBIT_STEPS  = 24        # keyframes per full revolution (every 15°)
+    ORBIT_STEPS  = 72        # keyframes per full revolution (every 5°)
     LENS_MM      = 35        # focal length — 35 mm for dramatic perspective
     CLIP_START   = 0.001     # 1 mm — needed for sighting tube close-ups
     # ─────────────────────────────────────────────────────────────
@@ -3206,6 +3207,92 @@ def setup_camera_animation():
     print(f"      {F_THR_END}–{F_PULL_END}:  Pull back to 3/4 view")
     print(f"      {F_PULL_END}–{TOTAL_FRAMES}:  Hold final composition")
 
+    # ── Smooth keyframe handles ──────────────────────────────────
+    # AUTO_CLAMPED prevents overshoot at segment boundaries while
+    # still giving smooth curves.
+    for obj in (cam, target):
+        if obj.animation_data and obj.animation_data.action:
+            for fc in obj.animation_data.action.fcurves:
+                for kp in fc.keyframe_points:
+                    kp.handle_left_type = 'AUTO_CLAMPED'
+                    kp.handle_right_type = 'AUTO_CLAMPED'
+
+
+def setup_final_render():
+    """Configure Cycles GPU rendering for high-quality output.
+
+    Renders to a PNG image sequence in a 'frames/' subdirectory next
+    to this script.  Use the companion render.sh script to render
+    headlessly and assemble the video with FFmpeg.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    SAMPLES       — Cycles samples per pixel (higher = cleaner, slower)
+    RESOLUTION    — output resolution (width, height)
+    USE_DENOISER  — enable AI denoising (highly recommended)
+    """
+    print("  Render settings ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    SAMPLES      = 256
+    RESOLUTION   = (1920, 1080)
+    USE_DENOISER = True
+    # ─────────────────────────────────────────────────────────────
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    # ── Cycles engine with GPU ───────────────────────────────────
+    render.engine = 'CYCLES'
+    scene.cycles.device = 'GPU'
+    scene.cycles.samples = SAMPLES
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = 0.01
+
+    # Enable CUDA device(s)
+    prefs = bpy.context.preferences.addons['cycles'].preferences
+    prefs.compute_device_type = 'CUDA'
+    prefs.get_devices()
+    for device in prefs.devices:
+        device.use = True    # enable all available GPUs + CPU
+
+    # ── Denoiser ─────────────────────────────────────────────────
+    if USE_DENOISER:
+        scene.cycles.use_denoising = True
+        scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+
+    # ── Resolution ───────────────────────────────────────────────
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    # ── Output: PNG image sequence ───────────────────────────────
+    # Determine output directory relative to this script
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        script_dir = os.getcwd()
+
+    frames_dir = os.path.join(script_dir, "frames", "")
+    os.makedirs(frames_dir, exist_ok=True)
+
+    render.filepath = frames_dir
+    render.image_settings.file_format = 'PNG'
+    render.image_settings.color_mode = 'RGB'
+    render.image_settings.color_depth = '8'
+    render.use_overwrite = False          # skip already-rendered frames
+    render.use_file_extension = True
+
+    # ── Performance ──────────────────────────────────────────────
+    render.use_persistent_data = True     # keep BVH between frames
+    scene.cycles.tile_size = 256          # good for GPU
+
+    print(f"    Engine:     Cycles (GPU/CUDA)")
+    print(f"    Samples:    {SAMPLES} (adaptive, denoised)")
+    print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]}")
+    print(f"    Output:     {frames_dir}")
+    print(f"    Overwrite:  off (resume-safe)")
+
 
 # =====================================================================
 # MAIN
@@ -3273,11 +3360,14 @@ def main():
     build_lower_centre_mark(M)
     build_terrain(M)
 
-    # Scene (lights, render settings)
+    # Scene (lights, viewport settings)
     setup_scene()
 
     # Camera flythrough trajectory
     setup_camera_animation()
+
+    # High-quality render settings (Cycles GPU, PNG sequence)
+    setup_final_render()
 
     bpy.ops.object.select_all(action='DESELECT')
     n = len(bpy.data.objects)
