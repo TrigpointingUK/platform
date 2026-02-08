@@ -3249,12 +3249,23 @@ def setup_final_render():
     scene.cycles.use_adaptive_sampling = True
     scene.cycles.adaptive_threshold = 0.01
 
-    # Enable CUDA device(s)
+    # Prefer OptiX (fastest on RTX), fall back to CUDA
     prefs = bpy.context.preferences.addons['cycles'].preferences
-    prefs.compute_device_type = 'CUDA'
-    prefs.get_devices()
+    gpu_type = 'CPU'
+    for dt in ('OPTIX', 'CUDA'):
+        try:
+            prefs.compute_device_type = dt
+            prefs.get_devices()
+            gpus = [d for d in prefs.devices if d.type != 'CPU']
+            if gpus:
+                gpu_type = dt
+                break
+        except Exception:
+            continue
+
+    # Enable all available devices (GPUs + CPU fallback)
     for device in prefs.devices:
-        device.use = True    # enable all available GPUs + CPU
+        device.use = True
 
     # ── Denoiser ─────────────────────────────────────────────────
     denoiser_name = "none"
@@ -3273,6 +3284,14 @@ def setup_final_render():
             scene.cycles.use_denoising = False
             scene.cycles.samples = max(SAMPLES, 512)
             denoiser_name = "none (samples raised to 512)"
+
+    # ── Light path optimisation ─────────────────────────────────
+    scene.cycles.max_bounces = 8
+    scene.cycles.diffuse_bounces = 4
+    scene.cycles.glossy_bounces = 4
+    scene.cycles.transmission_bounces = 8
+    scene.cycles.transparent_max_bounces = 8
+    scene.cycles.sample_clamp_indirect = 10.0    # reduce fireflies
 
     # ── Resolution ───────────────────────────────────────────────
     render.resolution_x = RESOLUTION[0]
@@ -3298,9 +3317,12 @@ def setup_final_render():
 
     # ── Performance ──────────────────────────────────────────────
     render.use_persistent_data = True     # keep BVH between frames
-    scene.cycles.tile_size = 256          # good for GPU
+    if gpu_type == 'OPTIX':
+        scene.cycles.tile_size = 2048     # OptiX works best with large tiles
+    else:
+        scene.cycles.tile_size = 256      # good for CUDA
 
-    print(f"    Engine:     Cycles (GPU/CUDA)")
+    print(f"    Engine:     Cycles ({gpu_type})")
     print(f"    Samples:    {scene.cycles.samples} (adaptive)")
     print(f"    Denoiser:   {denoiser_name}")
     print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]}")

@@ -22,6 +22,18 @@ FRAMES_DIR="${SCRIPT_DIR}/frames"
 OUTPUT="${SCRIPT_DIR}/trig_flythrough.mp4"
 FPS=30
 
+# ── Locate Blender ─────────────────────────────────────────────
+# Prefer the official Blender (which includes OIDN denoiser) over
+# the Ubuntu-packaged version which lacks it.
+OFFICIAL_BLENDER="${SCRIPT_DIR}/../blender-4.3.2-linux-x64/blender"
+if [ -x "${OFFICIAL_BLENDER}" ]; then
+    BLENDER="${OFFICIAL_BLENDER}"
+    echo "  Using official Blender: ${BLENDER}"
+else
+    BLENDER="blender"
+    echo "  Using system Blender (OIDN may not be available)"
+fi
+
 # ── Parse arguments ──────────────────────────────────────────────
 ASSEMBLE_ONLY=false
 PREVIEW=false
@@ -43,7 +55,7 @@ if [ "$ASSEMBLE_ONLY" = false ]; then
     echo "============================================="
 
     RENDER_ARGS=(
-        blender --background
+        "${BLENDER}" --background
         --python "${BLEND_SCRIPT}"
     )
 

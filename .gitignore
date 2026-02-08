@@ -164,3 +164,9 @@ docker-compose.override.yml
 
 locust/
 test_gw*.db
+
+# Blender
+Blender/blender-*/
+Blender/Hotine/frames/
+Blender/Hotine/render.log
+Blender/Hotine/*.mp4
