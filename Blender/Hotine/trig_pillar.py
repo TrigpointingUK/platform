@@ -385,8 +385,20 @@ def build_pillar(M):
         "Pillar", PILLAR_BTM_HW, PILLAR_TOP_HW, PILLAR_HEIGHT,
         base_z=0, bevel_r=BEVEL_RADIUS, bevel_n=BEVEL_SEGMENTS)
 
-    # --- Centre-pipe channel (pillar top → box top face) ---
+    # --- Rectangular void for the upper wooden box ---
+    # The box sits inside the pillar; the concrete must have a matching
+    # cavity so the box, cavity air, and concrete are distinct volumes.
     box_top_z = UB_BASE_Z + UB_HEIGHT
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(
+        0, 0, UB_BASE_Z + UB_HEIGHT / 2))
+    v = bpy.context.active_object
+    # Slightly larger than the box outer dimensions for a clean cut
+    v.scale = (UB_HW * 2 + 0.001, UB_HW * 2 + 0.001, UB_HEIGHT + 0.001)
+    activate(v)
+    bpy.ops.object.transform_apply(scale=True)
+    boolean_cut(pillar, v, solver='FAST')
+
+    # --- Centre-pipe channel (pillar top → box top face) ---
     cp_void_len = PILLAR_HEIGHT - box_top_z + 0.002
     cp_void_z = (box_top_z - 0.001 + PILLAR_HEIGHT + 0.001) / 2
     bpy.ops.mesh.primitive_cylinder_add(
