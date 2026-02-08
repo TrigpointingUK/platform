@@ -3257,9 +3257,22 @@ def setup_final_render():
         device.use = True    # enable all available GPUs + CPU
 
     # ── Denoiser ─────────────────────────────────────────────────
+    denoiser_name = "none"
     if USE_DENOISER:
         scene.cycles.use_denoising = True
-        scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+        # Try denoisers in preference order
+        for dn in ('OPENIMAGEDENOISE', 'OPTIX'):
+            try:
+                scene.cycles.denoiser = dn
+                denoiser_name = dn
+                break
+            except TypeError:
+                continue
+        else:
+            # No denoiser available — compensate with more samples
+            scene.cycles.use_denoising = False
+            scene.cycles.samples = max(SAMPLES, 512)
+            denoiser_name = "none (samples raised to 512)"
 
     # ── Resolution ───────────────────────────────────────────────
     render.resolution_x = RESOLUTION[0]
@@ -3288,7 +3301,8 @@ def setup_final_render():
     scene.cycles.tile_size = 256          # good for GPU
 
     print(f"    Engine:     Cycles (GPU/CUDA)")
-    print(f"    Samples:    {SAMPLES} (adaptive, denoised)")
+    print(f"    Samples:    {scene.cycles.samples} (adaptive)")
+    print(f"    Denoiser:   {denoiser_name}")
     print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]}")
     print(f"    Output:     {frames_dir}")
     print(f"    Overwrite:  off (resume-safe)")
