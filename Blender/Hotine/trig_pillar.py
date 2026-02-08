@@ -1039,9 +1039,11 @@ def build_brass_loops(M):
     plane radially aligned (passing through the pillar centre axis).
     The top of the wire is 3 mm below the pillar surface.
 
-    A round-bottomed recess (40 × 15 × 15 mm) is carved into the
-    concrete so the upper portion of the loop and part of the inner
-    hole are exposed; the bottom and sides remain embedded.
+    A round-bottomed recess (40 × 15 × 15 mm) with stadium plan shape
+    and chamfered top edges is carved into the concrete.  The recess long
+    axis runs tangentially (across the loop).  The upper portion of the
+    loop and part of the inner hole are exposed; the bottom and sides
+    remain embedded.
     """
     print("  Brass loops ...")
 
@@ -1056,22 +1058,19 @@ def build_brass_loops(M):
     # Loop centre Z: top of wire = surface - LOOP_DEPTH
     z_loop = z_surf - LOOP_DEPTH - R - r          # PILLAR_HEIGHT - 0.020
 
-    r_pos = LOOP_POS_R                            # 120 mm from centre
-    pillar = bpy.data.objects['Pillar']
-    loops = []
+    r_pos   = LOOP_POS_R                          # 120 mm from centre
+    pillar  = bpy.data.objects['Pillar']
+    loops   = []
 
-    # Pre-compute the U-shaped recess cross-section (Y, Z in local frame).
-    # Length along local X, width along Y, depth along -Z, top at Z=0.
-    straight_h = rd - hw                          # 7.5 mm straight walls
-    SEMI_N = 12
-    profile = []
-    profile.append(( hw,  0))                     # top right
-    profile.append(( hw, -straight_h))            # right wall → semicircle
-    for j in range(1, SEMI_N):                    # semicircle (right → left)
-        a = j * (-math.pi / SEMI_N)              # 0 → -π around the bottom
-        profile.append((hw * math.cos(a), -straight_h + hw * math.sin(a)))
-    profile.append((-hw, -straight_h))            # left wall bottom
-    profile.append((-hw,  0))                     # top left
+    # Recess geometry parameters
+    # Local frame: length along X (tangential), width along Y (radial),
+    #              depth along -Z, surface at Z = 0.
+    chamfer     = 0.002                           # 2 mm top-edge chamfer
+    wall_h      = rd - hw - chamfer               # 5.5 mm straight walls
+    half_str    = (rl - rw) / 2                   # 12.5 mm half straight
+    SEMI_N      = 8                               # semicircle depth segments
+    CAP_N       = 6                               # end-cap taper slices
+    EPS         = 0.001                           # overshoot above surface
 
     for i in range(3):
         # Between spider arms (offset 60° from arm positions)
@@ -1097,21 +1096,68 @@ def build_brass_loops(M):
         smooth(lp)
         loops.append(lp)
 
-        # ── Recess carved from pillar (single bmesh cutter) ──────
-        # U-shaped cross-section extruded along the radial direction.
+        # ── Recess cutter (stadium plan, U-bottom, chamfered top) ─
+        # Built as a sequence of cross-section rings along X that taper
+        # to rounded end caps (following a semicircular plan outline).
         bm_r = bmesh.new()
-        np = len(profile)
-        half_l = rl / 2
+        rings = []
 
-        front = [bm_r.verts.new((- half_l, y, z)) for y, z in profile]
-        back  = [bm_r.verts.new((  half_l, y, z)) for y, z in profile]
+        def _add_ring(x, hw_loc):
+            """Append a U-profile ring at position x with given half-width."""
+            ch = min(chamfer, hw_loc * 0.4)
+            pts = []
+            pts.append(( hw_loc + ch,  EPS))              # chamfer top R
+            pts.append(( hw_loc,      -ch))                # chamfer btm R
+            pts.append(( hw_loc,      -(ch + wall_h)))     # wall btm R
+            for j in range(1, SEMI_N):                     # semicircle
+                a = j * (-math.pi / SEMI_N)
+                pts.append((hw_loc * math.cos(a),
+                            -(ch + wall_h) + hw_loc * math.sin(a)))
+            pts.append((-hw_loc,      -(ch + wall_h)))     # wall btm L
+            pts.append((-hw_loc,      -ch))                # chamfer btm L
+            pts.append((-(hw_loc + ch), EPS))              # chamfer top L
+            ring = [bm_r.verts.new((x, y, z)) for y, z in pts]
+            rings.append(ring)
 
-        bm_r.faces.new(front[::-1])               # front cap
-        bm_r.faces.new(back)                      # back cap
-        for k in range(np):
-            m = (k + 1) % np
-            bm_r.faces.new([front[k], front[m], back[m], back[k]])
+        # Left end cap (far end first → centre)
+        for k in range(CAP_N, 0, -1):
+            dx = hw * k / CAP_N
+            hw_loc = math.sqrt(max(0, hw**2 - dx**2))
+            if hw_loc < 0.0005:
+                continue
+            _add_ring(-(half_str + dx), hw_loc)
 
+        # Straight section ends
+        _add_ring(-half_str, hw)
+        _add_ring( half_str, hw)
+
+        # Right end cap (centre → far end)
+        for k in range(1, CAP_N + 1):
+            dx = hw * k / CAP_N
+            hw_loc = math.sqrt(max(0, hw**2 - dx**2))
+            if hw_loc < 0.0005:
+                continue
+            _add_ring(half_str + dx, hw_loc)
+
+        nr  = len(rings)
+        npv = len(rings[0])
+
+        # Side quads between adjacent rings
+        for s in range(nr - 1):
+            for v in range(npv - 1):
+                bm_r.faces.new([rings[s][v],   rings[s][v + 1],
+                                rings[s+1][v + 1], rings[s+1][v]])
+
+        # End-cap faces (close the left and right ends)
+        bm_r.faces.new(rings[0])
+        bm_r.faces.new(rings[-1][::-1])
+
+        # Top face (stadium outline at z = EPS)
+        top = [ring[0] for ring in rings]
+        top += [ring[-1] for ring in reversed(rings)]
+        bm_r.faces.new(top)
+
+        # Ensure outward normals, then triangulate for boolean
         bmesh.ops.recalc_face_normals(bm_r, faces=bm_r.faces[:])
         bmesh.ops.triangulate(bm_r, faces=bm_r.faces[:])
 
@@ -1121,9 +1167,9 @@ def build_brass_loops(M):
 
         recess = bpy.data.objects.new(f"_recess_{i}", mesh_r)
         bpy.context.collection.objects.link(recess)
-        # Position at pillar surface, rotate radially
+        # Position at surface; rotate so length runs tangentially (+90°)
         recess.location = (cx, cy, z_surf)
-        recess.rotation_euler.z = angle
+        recess.rotation_euler.z = angle + math.pi / 2
         activate(recess)
         bpy.ops.object.transform_apply(location=True, rotation=True)
         boolean_cut(pillar, recess)
