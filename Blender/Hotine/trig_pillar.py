@@ -2004,6 +2004,127 @@ def build_plug(M):
     return plug, ip
 
 
+def build_plug_text(M):
+    """Embossed text around the plug upper ring.
+
+    'TRIANGULATION STATION' across the top semicircle and
+    'ORDNANCE SURVEY' across the bottom, matching the casting on
+    real OS triangulation station plugs.
+
+    The text is created flat, converted to mesh, then each vertex is
+    warped around a circular arc using trigonometry.  This avoids any
+    reliance on Blender's text-on-curve feature and works reliably
+    across all Blender versions.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    TEXT_R         — baseline radius from pillar centre (default: 0.032)
+    EMBOSS         — text relief height above surface (default: 0.0005)
+    FONT_SIZE      — character cap height (default: 0.0045)
+    RESOLUTION     — curve resolution for text conversion (default: 4)
+    TOP_SPAN_DEG   — angular span of top text (default: 155°)
+    BTM_SPAN_DEG   — angular span of bottom text (default: 130°)
+    """
+    print("  Plug text ...")
+
+    TEXT_R       = 0.032     # midpoint of the upper ring annulus
+    EMBOSS       = 0.0020    # 2.0 mm engraving depth below surface
+    OVERSHOOT    = 0.002     # cutter extends this far above surface
+    FONT_SIZE    = 0.0045    # character height
+    RESOLUTION   = 4         # text mesh resolution (lower = fewer verts)
+    TOP_SPAN_DEG = 155
+    BTM_SPAN_DEG = 130
+
+    z_shelf = PILLAR_HEIGHT - SPIDER_THICK / 2
+    z_top   = z_shelf + PLUG_UPPER_H
+
+    plug = bpy.data.objects['Plug']
+
+    # (body, centre_angle°, arc_span°)
+    #   Letter tops face away from centre (standard for OS plugs).
+    #   Both texts read clockwise when viewed from above.
+    texts = [
+        ("TRIANGULATION STATION", 90,  TOP_SPAN_DEG),
+        ("ORDNANCE SURVEY",       270, BTM_SPAN_DEG),
+    ]
+
+    for body, centre_deg, span_deg in texts:
+        centre_rad = math.radians(centre_deg)
+        span_rad   = math.radians(span_deg)
+
+        # ── Create text object ────────────────────────────────────
+        bpy.ops.object.text_add(location=(0, 0, 0))
+        tobj = bpy.context.active_object
+        tobj.data.body = body
+        tobj.data.size = FONT_SIZE
+        tobj.data.align_x = 'CENTER'
+        tobj.data.align_y = 'CENTER'
+        tobj.data.extrude = EMBOSS + OVERSHOOT
+        tobj.data.resolution_u = RESOLUTION
+        tobj.name = f"_plugtext_{body[:4]}"
+
+        # Convert font object to mesh
+        activate(tobj)
+        bpy.ops.object.convert(target='MESH')
+
+        # ── Warp vertices around a circular arc ───────────────────
+        bm = bmesh.new()
+        bm.from_mesh(tobj.data)
+
+        # Find the horizontal extent of the flat text
+        xs = [v.co.x for v in bm.verts]
+        x_min, x_max = min(xs), max(xs)
+        x_mid  = (x_min + x_max) / 2
+        x_span = x_max - x_min
+
+        if x_span > 1e-6:
+            for v in bm.verts:
+                # t: normalised position along string (−0.5 → +0.5)
+                t = (v.co.x - x_mid) / x_span
+
+                # Angular position — both texts read clockwise from above
+                angle = centre_rad - t * span_rad
+
+                # Radial position — character height maps to radial offset
+                r = TEXT_R + v.co.y   # tops of letters face outward
+
+                v.co.x = r * math.cos(angle)
+                v.co.y = r * math.sin(angle)
+                # Engraved: cutter starts OVERSHOOT above the surface and
+                # extends downward by EMBOSS into the plug body.
+                # v.co.z ranges from 0 to (EMBOSS + OVERSHOOT) after
+                # extrusion — we flip so top is above, base below.
+                # Top of cutter:  z_top + OVERSHOOT  (above surface)
+                # Base of cutter: z_top - EMBOSS     (below surface)
+                v.co.z = (z_top + OVERSHOOT) - v.co.z
+
+        # Merge nearly-coincident verts produced by the warp, then
+        # ensure manifold normals — both critical for a clean boolean.
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
+        bm.to_mesh(tobj.data)
+        bm.free()
+        tobj.data.update()
+
+        # Boolean-cut the text into the plug (EXACT solver)
+        boolean_cut(plug, tobj)
+
+    # ── Fix shading after boolean cuts ──────────────────────────────
+    # The booleans leave stale custom-split-normal data and break the
+    # smooth-by-angle shading that was applied earlier in build_plug().
+    # Clear it all and re-apply.
+    activate(plug)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    try:
+        bpy.ops.mesh.customdata_custom_splitnormals_clear()
+    except RuntimeError:
+        pass  # no custom split normals to clear
+    bpy.ops.object.mode_set(mode='OBJECT')
+    smooth(plug)
+
+
 def build_fixings(M):
     """Steel machine screws and anti-rotation peg.
 
@@ -2639,6 +2760,7 @@ def main():
     boolean_cut(bpy.data.objects['Pillar'], cavity)
 
     build_plug(M)
+    build_plug_text(M)
     build_fixings(M)
     build_brass_loops(M)
     build_flush_bracket(M)
