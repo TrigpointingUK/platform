@@ -159,13 +159,17 @@ def smooth(obj):
         bpy.ops.object.shade_smooth()
 
 
-def boolean_cut(target, cutter, operation='DIFFERENCE'):
-    """Apply a boolean modifier to target using cutter, then remove cutter."""
+def boolean_cut(target, cutter, operation='DIFFERENCE', solver='EXACT'):
+    """Apply a boolean modifier to target using cutter, then remove cutter.
+
+    Use solver='FAST' for cuts where EXACT fails silently (e.g. cylindrical
+    holes through complex geometry).
+    """
     activate(target)
     mod = target.modifiers.new("_bool", 'BOOLEAN')
     mod.operation = operation
     mod.object = cutter
-    mod.solver = 'EXACT'
+    mod.solver = solver
     bpy.ops.object.modifier_apply(modifier="_bool")
     bpy.data.objects.remove(cutter, do_unlink=True)
 
@@ -376,21 +380,20 @@ def build_pillar(M):
     cp_void_len = PILLAR_HEIGHT - lid_z + 0.02
     cp_void_z = (lid_z - 0.01 + PILLAR_HEIGHT + 0.01) / 2
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=CP_OUTER_R + 0.001,
+        radius=CP_OUTER_R + 0.005,
         depth=cp_void_len,
         vertices=32,
         location=(0, 0, cp_void_z))
-    boolean_cut(pillar, bpy.context.active_object)
+    boolean_cut(pillar, bpy.context.active_object, solver='FAST')
 
-    # --- Cut sighting-tube holes through concrete (into box interior) ---
-    cut_r = ST_OUTER_R + 0.001
+    # --- Cut sighting-tube channels through concrete ---
+    # Use generous radius (3× clearance) and FAST solver for reliability.
+    # The channel runs from well inside the box interior to past the pillar face.
+    cut_r = ST_OUTER_R + 0.005          # 5 mm clearance around the tube
     hw = pillar_hw_at(ST_Z)
-    # The void must extend inward past the most extreme tube inner end.
-    # Tubes protrude up to 25 mm past the box inner wall (box_inner - 0.025),
-    # so we extend the void a further 15 mm beyond that to be safe.
     max_protrude = 0.025
     void_inner = (UB_HW - UB_WALL) - max_protrude - 0.015
-    void_outer = hw + 0.010
+    void_outer = hw + 0.015             # extend well past pillar face
     void_len = void_outer - void_inner
     void_mid = (void_inner + void_outer) / 2
 
@@ -405,7 +408,9 @@ def build_pillar(M):
             location=(dx * void_mid, dy * void_mid, ST_Z))
         c = bpy.context.active_object
         c.rotation_euler = rot
-        boolean_cut(pillar, c)
+        activate(c)
+        bpy.ops.object.transform_apply(rotation=True)
+        boolean_cut(pillar, c, solver='FAST')
 
     assign(pillar, M['concrete'])
     return pillar
@@ -486,30 +491,30 @@ def build_upper_box(M):
 
     # 1) Cut holes FIRST — while the box is still solid
 
-    # Centre-pipe hole through top
+    # Centre-pipe hole through top — FAST solver for reliability
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=CP_OUTER_R + 0.003, depth=UB_WALL * 3,
+        radius=CP_OUTER_R + 0.005, depth=UB_WALL * 3,
         vertices=32, location=(0, 0, bz + h))
-    boolean_cut(box, bpy.context.active_object)
+    boolean_cut(box, bpy.context.active_object, solver='FAST')
 
-    # Sighting-tube holes through four walls
+    # Sighting-tube holes through four walls — FAST solver for reliability
     for dx, dy, rot in (
         ( 1, 0, (0,  math.pi / 2, 0)),
         (-1, 0, (0, -math.pi / 2, 0)),
         ( 0, 1, (-math.pi / 2, 0, 0)),
         ( 0,-1, ( math.pi / 2, 0, 0)),
     ):
-        # Cutter spans the full box width — generous to ensure clean cut
+        # Very generous cutter: 5 mm clearance, spans full box width
         bpy.ops.mesh.primitive_cylinder_add(
-            radius=ST_OUTER_R + 0.003, depth=outer * 3,
+            radius=ST_OUTER_R + 0.005, depth=outer * 3,
             vertices=32, location=(dx * outer, dy * outer, ST_Z))
         c = bpy.context.active_object
         c.rotation_euler = rot
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
-        boolean_cut(box, c)
+        boolean_cut(box, c, solver='FAST')
 
-    # 2) Hollow out the interior LAST
+    # 2) Hollow out the interior LAST — FAST solver for reliability
     inner = outer - UB_WALL
     void_h = h  # tall enough to extend below box bottom
     void_z = bz + h / 2 - UB_WALL  # top of void = bz + h - UB_WALL
@@ -518,7 +523,7 @@ def build_upper_box(M):
     v.scale = (inner * 2, inner * 2, void_h)
     activate(v)
     bpy.ops.object.transform_apply(scale=True)
-    boolean_cut(box, v)
+    boolean_cut(box, v, solver='FAST')
 
     assign(box, M['wood'])
     return box
