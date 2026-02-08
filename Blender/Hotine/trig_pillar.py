@@ -82,10 +82,12 @@ SPIDER_GROOVE_W        = 0.010   # [D] 10 mm wide, 90° V-groove
 SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
 
 # --- Brass Loops ---
-LOOP_WIRE_R         = 0.003     # [E] ¼" wire / 2
-LOOP_H              = 0.020     # [E] ~¾" standing height
-LOOP_W              = 0.016     # [E] ~⅝" width
-LOOP_RECESS         = 0.006     # [D] ¼" sunk below spider
+LOOP_R              = 0.015     # [D] 30 mm loop dia / 2
+LOOP_WIRE_R         = 0.002     # [D] 4 mm wire dia / 2
+LOOP_DEPTH          = 0.003     # [D] top of loop 3 mm below pillar surface
+LOOP_RECESS_L       = 0.040     # [D] 40 mm recess length (radial)
+LOOP_RECESS_W       = 0.015     # [D] 15 mm recess width (tangential)
+LOOP_RECESS_D       = 0.015     # [D] 15 mm recess depth
 
 # --- Plug ---
 PLUG_UPPER_R        = 0.046     # [D] 92 mm upper ring dia / 2
@@ -126,7 +128,7 @@ PEG_OVERHANG        = 0.010     # [D] 10 mm outside plug annulus
 FB_W                = 0.102     # [E] ~4" wide
 FB_H                = 0.127     # [E] ~5" tall
 FB_D                = 0.010     # [E] ~3/8" deep
-FB_Z                = 0.813     # [E] centre height ~2'8" above base
+FB_Z                = 0.313     # [E] centre height ~2'8" above base
 
 # --- Lower Wooden Box ---
 LB_HW               = 0.127     # [E] ~10" / 2
@@ -1030,36 +1032,84 @@ def build_spider(M):
 
 
 def build_brass_loops(M):
-    """Three brass loops set into the pillar top between spider arms."""
+    """Three brass loops embedded in the pillar top, with carved recesses.
+
+    Each loop is a 30 mm torus (4 mm wire) standing vertically with its
+    plane radially aligned (passing through the pillar centre axis).
+    The top of the wire is 3 mm below the pillar surface.
+
+    A round-bottomed recess (40 × 15 × 15 mm) is carved into the
+    concrete so the upper portion of the loop and part of the inner
+    hole are exposed; the bottom and sides remain embedded.
+    """
     print("  Brass loops ...")
-    zt = PILLAR_HEIGHT - LOOP_RECESS
+
+    R       = LOOP_R                              # major radius (15 mm)
+    r       = LOOP_WIRE_R                         # wire radius (2 mm)
+    rl      = LOOP_RECESS_L                       # recess length (40 mm)
+    rw      = LOOP_RECESS_W                       # recess width  (15 mm)
+    rd      = LOOP_RECESS_D                       # recess depth  (15 mm)
+    z_surf  = PILLAR_HEIGHT                       # pillar surface
+
+    # Loop centre Z: top of wire = surface - LOOP_DEPTH
+    z_loop = z_surf - LOOP_DEPTH - R - r          # PILLAR_HEIGHT - 0.020
+
+    r_pos = SPIDER_ANNULUS_OUTER_R + 0.012        # radial distance from centre
+    pillar = bpy.data.objects['Pillar']
     loops = []
+
     for i in range(3):
         # Between spider arms (offset 60° from arm positions)
         angle = math.radians(90 + 60 + i * 120)
-        r = SPIDER_ANNULUS_OUTER_R + 0.012
-        cx = r * math.cos(angle)
-        cy = r * math.sin(angle)
+        cx = r_pos * math.cos(angle)
+        cy = r_pos * math.sin(angle)
 
+        # ── Brass loop (torus standing vertically) ────────────────
         bpy.ops.mesh.primitive_torus_add(
-            major_radius=LOOP_W / 2, minor_radius=LOOP_WIRE_R,
-            major_segments=24, minor_segments=8,
-            location=(cx, cy, zt))
+            major_radius=R, minor_radius=r,
+            major_segments=32, minor_segments=12,
+            location=(cx, cy, z_loop))
         lp = bpy.context.active_object
         lp.name = f"BrassLoop_{i}"
-        lp.scale.z = LOOP_H / LOOP_W
-        lp.rotation_euler.z = angle
-        activate(lp)
-        bpy.ops.object.transform_apply(scale=True, rotation=True)
 
-        # Remove bottom half (below surface)
-        bpy.ops.mesh.primitive_cube_add(
-            size=LOOP_W * 4, location=(cx, cy, zt - LOOP_W * 2))
-        boolean_cut(lp, bpy.context.active_object)
+        # Stand upright with plane passing through Z axis:
+        # Rx(90°) tilts ring into XZ plane, Rz(angle) aligns radially.
+        lp.rotation_euler = (math.pi / 2, 0, angle)
+        activate(lp)
+        bpy.ops.object.transform_apply(rotation=True)
 
         assign(lp, M['brass'])
         smooth(lp)
         loops.append(lp)
+
+        # ── Recess carved from pillar ─────────────────────────────
+        # U-shaped cross-section: flat walls + semicircular bottom.
+        # Built as a rectangular box (upper portion) plus a horizontal
+        # cylinder (rounded bottom).
+        box_h = rd - rw / 2       # straight wall depth (7.5 mm)
+
+        # Box (upper rectangular portion)
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(cx, cy, z_surf - box_h / 2))
+        box = bpy.context.active_object
+        box.scale = (rl, rw, box_h)
+        box.rotation_euler.z = angle
+        activate(box)
+        bpy.ops.object.transform_apply(scale=True, rotation=True)
+        boolean_cut(pillar, box, solver='FAST')
+
+        # Cylinder (rounded bottom, axis along radial direction)
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=rw / 2, depth=rl,
+            vertices=24,
+            location=(cx, cy, z_surf - box_h))
+        cyl = bpy.context.active_object
+        # Lay along radial: Ry(90°) then Rz(angle)
+        cyl.rotation_euler = (0, math.pi / 2, angle)
+        activate(cyl)
+        bpy.ops.object.transform_apply(rotation=True)
+        boolean_cut(pillar, cyl, solver='FAST')
+
     return loops
 
 
