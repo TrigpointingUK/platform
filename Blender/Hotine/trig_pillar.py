@@ -396,35 +396,34 @@ def build_pillar(M):
     boolean_cut(pillar, bpy.context.active_object, solver='FAST')
 
     # --- Cut sighting-tube channels clean through the pillar ---
-    # All channel cylinders and bevel cones are joined into ONE cutter
-    # object, then a SINGLE boolean removes them all at once.  This is
-    # far more reliable than sequential booleans on increasingly complex
-    # geometry — which was causing the South channel to silently fail.
+    # Tight-fit cylindrical channels (concrete right up to the tubes),
+    # with a conical bevel at each face where the hole meets the surface.
+    # Y-axis (North↔South) is cut first on the cleanest geometry.
+    # boolean_cut recalculates normals after each operation so subsequent
+    # cuts have consistent geometry to work with.
     chan_r = ST_OUTER_R + 0.0005        # ½ mm clearance — snug fit
     hw = pillar_hw_at(ST_Z)
     full_len = (hw + 0.015) * 2         # spans full pillar width + margin
 
-    parts = []   # collect all cutter meshes, join at the end
+    # Y-axis channel (North ↔ South) — cut first on clean frustum
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=chan_r, depth=full_len, vertices=32,
+        location=(0, 0, ST_Z))
+    c = bpy.context.active_object
+    c.rotation_euler = (math.pi / 2, 0, 0)
+    activate(c)
+    bpy.ops.object.transform_apply(rotation=True)
+    boolean_cut(pillar, c, solver='FAST')
 
     # X-axis channel (East ↔ West)
     bpy.ops.mesh.primitive_cylinder_add(
         radius=chan_r, depth=full_len, vertices=32,
         location=(0, 0, ST_Z))
-    c_ew = bpy.context.active_object
-    c_ew.rotation_euler = (0, math.pi / 2, 0)
-    activate(c_ew)
+    c = bpy.context.active_object
+    c.rotation_euler = (0, math.pi / 2, 0)
+    activate(c)
     bpy.ops.object.transform_apply(rotation=True)
-    parts.append(c_ew)
-
-    # Y-axis channel (North ↔ South)
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=chan_r, depth=full_len, vertices=32,
-        location=(0, 0, ST_Z))
-    c_ns = bpy.context.active_object
-    c_ns.rotation_euler = (math.pi / 2, 0, 0)
-    activate(c_ns)
-    bpy.ops.object.transform_apply(rotation=True)
-    parts.append(c_ns)
+    boolean_cut(pillar, c, solver='FAST')
 
     # Bevelled entrance at each sighting hole — a conical chamfer from
     # the flat pillar face down to the tube edge, ~8 mm deep.
@@ -433,10 +432,10 @@ def build_pillar(M):
     bevel_depth = 0.008                  # 8 mm into the face
 
     for face_x, face_y, ry, rx in (
+        (0, -hw, 0, -math.pi / 2),      # -Y (South) — first
+        (0, +hw, 0, +math.pi / 2),      # +Y (North)
         (+hw, 0, -math.pi / 2, 0),      # +X (East)
         (-hw, 0, +math.pi / 2, 0),      # -X (West)
-        (0, +hw, 0, +math.pi / 2),      # +Y (North)
-        (0, -hw, 0, -math.pi / 2),      # -Y (South)
     ):
         bpy.ops.mesh.primitive_cone_add(
             radius1=bevel_face_r, radius2=bevel_inner_r,
@@ -449,15 +448,7 @@ def build_pillar(M):
         shift_x = -face_x / hw * bevel_depth / 2 if face_x != 0 else 0
         shift_y = -face_y / hw * bevel_depth / 2 if face_y != 0 else 0
         c.location = (face_x + shift_x, face_y + shift_y, ST_Z)
-        parts.append(c)
-
-    # Join all cutter parts into one object, then one boolean
-    activate(parts[0])
-    for p in parts[1:]:
-        p.select_set(True)
-    bpy.ops.object.join()
-    combined = bpy.context.active_object
-    boolean_cut(pillar, combined, solver='FAST')
+        boolean_cut(pillar, c, solver='FAST')
 
     assign(pillar, M['concrete'])
     return pillar
@@ -544,15 +535,13 @@ def build_upper_box(M):
         vertices=32, location=(0, 0, bz + h))
     boolean_cut(box, bpy.context.active_object, solver='FAST')
 
-    # Sighting-tube holes through four walls — all joined into one cutter
-    # for a single boolean (sequential booleans on thin-walled geometry
-    # can silently fail for later cuts).
-    st_cutters = []
+    # Sighting-tube holes through four walls — South first so it gets
+    # the cleanest geometry.  Normals are recalculated after each cut.
     for dx, dy, rot in (
-        ( 1, 0, (0,  math.pi / 2, 0)),
-        (-1, 0, (0, -math.pi / 2, 0)),
-        ( 0, 1, (-math.pi / 2, 0, 0)),
-        ( 0,-1, ( math.pi / 2, 0, 0)),
+        ( 0,-1, ( math.pi / 2, 0, 0)),   # South first
+        ( 0, 1, (-math.pi / 2, 0, 0)),   # North
+        ( 1, 0, (0,  math.pi / 2, 0)),   # East
+        (-1, 0, (0, -math.pi / 2, 0)),   # West
     ):
         bpy.ops.mesh.primitive_cylinder_add(
             radius=ST_OUTER_R + 0.005, depth=outer * 3,
@@ -561,13 +550,7 @@ def build_upper_box(M):
         c.rotation_euler = rot
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
-        st_cutters.append(c)
-
-    activate(st_cutters[0])
-    for c in st_cutters[1:]:
-        c.select_set(True)
-    bpy.ops.object.join()
-    boolean_cut(box, bpy.context.active_object, solver='FAST')
+        boolean_cut(box, c, solver='FAST')
 
     # 2) Hollow out the interior LAST — FAST solver for reliability
     inner = outer - UB_WALL
