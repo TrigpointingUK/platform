@@ -1065,9 +1065,9 @@ def build_brass_loops(M):
     # Recess geometry parameters
     # Local frame: length along X (tangential), width along Y (radial),
     #              depth along -Z, surface at Z = 0.
-    chamfer     = 0.002                           # 2 mm top-edge chamfer
-    wall_h      = rd - hw - chamfer               # 5.5 mm straight walls
+    cham_r      = 0.010                           # 10 mm nominal rounded chamfer
     half_str    = (rl - rw) / 2                   # 12.5 mm half straight
+    CHAM_N      = 6                               # quarter-circle chamfer segments
     SEMI_N      = 8                               # semicircle depth segments
     CAP_N       = 6                               # end-cap taper slices
     EPS         = 0.001                           # overshoot above surface
@@ -1096,26 +1096,45 @@ def build_brass_loops(M):
         smooth(lp)
         loops.append(lp)
 
-        # ── Recess cutter (stadium plan, U-bottom, chamfered top) ─
-        # Built as a sequence of cross-section rings along X that taper
-        # to rounded end caps (following a semicircular plan outline).
+        # ── Recess cutter (stadium plan, rounded profile) ────────
+        # Cross-section: quarter-circle chamfer at top flowing into
+        # semicircular trough at bottom, with straight walls between
+        # (when depth allows).  Chamfer radius is capped at hw_loc so
+        # at full width (7.5 mm) the chamfer and semicircle merge
+        # seamlessly — one continuous smooth curve, no flat walls.
         bm_r = bmesh.new()
         rings = []
 
         def _add_ring(x, hw_loc):
-            """Append a U-profile ring at position x with given half-width."""
-            ch = min(chamfer, hw_loc * 0.4)
+            """Append a rounded-profile ring at position x."""
+            cr = min(cham_r, hw_loc)              # cap chamfer at ring width
+            wh = rd - hw_loc - cr                 # wall height (may be 0)
             pts = []
-            pts.append(( hw_loc + ch,  EPS))              # chamfer top R
-            pts.append(( hw_loc,      -ch))                # chamfer btm R
-            pts.append(( hw_loc,      -(ch + wall_h)))     # wall btm R
-            for j in range(1, SEMI_N):                     # semicircle
+            # — Above surface, right
+            pts.append((hw_loc + cr, EPS))
+            # — Right chamfer arc (quarter circle, surface → wall)
+            #   Centre at (hw_loc + cr, -cr)
+            for j in range(1, CHAM_N + 1):
+                theta = math.pi / 2 + j * (math.pi / 2) / CHAM_N
+                pts.append(((hw_loc + cr) + cr * math.cos(theta),
+                            -cr + cr * math.sin(theta)))
+            # — Wall bottom right
+            pts.append((hw_loc, -(cr + wh)))
+            # — Semicircle bottom (right → left)
+            for j in range(1, SEMI_N):
                 a = j * (-math.pi / SEMI_N)
                 pts.append((hw_loc * math.cos(a),
-                            -(ch + wall_h) + hw_loc * math.sin(a)))
-            pts.append((-hw_loc,      -(ch + wall_h)))     # wall btm L
-            pts.append((-hw_loc,      -ch))                # chamfer btm L
-            pts.append((-(hw_loc + ch), EPS))              # chamfer top L
+                            -(cr + wh) + hw_loc * math.sin(a)))
+            # — Wall bottom left
+            pts.append((-hw_loc, -(cr + wh)))
+            # — Left chamfer arc (quarter circle, wall → surface)
+            #   Centre at (-(hw_loc + cr), -cr)
+            for j in range(1, CHAM_N + 1):
+                theta = j * (math.pi / 2) / CHAM_N
+                pts.append((-(hw_loc + cr) + cr * math.cos(theta),
+                            -cr + cr * math.sin(theta)))
+            # — Above surface, left
+            pts.append((-(hw_loc + cr), EPS))
             ring = [bm_r.verts.new((x, y, z)) for y, z in pts]
             rings.append(ring)
 
