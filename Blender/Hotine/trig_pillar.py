@@ -407,6 +407,668 @@ def pillar_hw_at(z):
 
 
 # =====================================================================
+# PROCEDURAL MATERIAL BUILDERS
+# =====================================================================
+#
+# Each function below creates a full PBR material using Blender's shader
+# nodes.  All texturing is procedural — resolution-independent and seamless
+# on any geometry, no UV unwrapping needed.
+#
+# HOW TO TUNE MATERIALS
+# ---------------------
+# 1. Run the script to generate the model with default settings.
+# 2. Select an object (e.g. the Pillar) and open the Shader Editor.
+# 3. You'll see the node graph.  Ctrl+Shift+Click any node to preview
+#    its output in the viewport (requires the Node Wrangler add-on).
+# 4. To adjust:
+#    - Edit the TUNEABLE PARAMETER values in the function below and
+#      re-run the script, OR
+#    - Adjust values directly in the Shader Editor (faster for
+#      interactive tuning, but changes won't persist across re-runs).
+# 5. Use Material Preview or Rendered viewport shading (Z key) to see
+#    results in real time.
+#
+# NOISE TEXTURE CONTROLS
+# ----------------------
+# Scale       — pattern size (smaller value = LARGER features)
+# Detail      — number of fractal octaves (more = finer grain)
+# Roughness   — contribution of smaller octaves (0 = smooth, 1 = grainy)
+# Distortion  — warps the pattern (0 = regular, higher = organic)
+#
+# COLORRAMP TIPS
+# --------------
+# The ColorRamp node maps a 0–1 value to a colour gradient.
+# - Moving stops CLOSER together = sharper transition
+# - Moving stops FURTHER apart   = softer blend
+# - The LEFT stop's POSITION sets "where does the effect begin"
+# - The RIGHT stop's POSITION sets "where is the effect at full strength"
+
+def _new_node(tree, node_type, location=(0, 0), label=""):
+    """Helper: create a shader node at the given position with optional label."""
+    n = tree.nodes.new(node_type)
+    n.location = location
+    if label:
+        n.label = label
+    return n
+
+
+def make_concrete_material():
+    """Weathered concrete with patchy whitewash and rain staining.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    Whitewash layer:
+      WHITEWASH_COVERAGE  (0.0–1.0)  How much whitewash remains.
+                                      0.0 = bare concrete, 1.0 = fully painted.
+                                      Default: 0.35
+      WHITEWASH_EDGE      (0.0–0.5)  Transition softness at paint edges.
+                                      0.0 = crisp paint chips, 0.5 = very soft.
+                                      Default: 0.15
+      WHITEWASH_SCALE     (float)    Pattern size for paint patches.
+                                      Smaller = larger patches.
+                                      Default: 3.0
+      WHITEWASH_COLOUR    (R,G,B)    The whitewash paint colour.
+                                      Default: (0.85, 0.83, 0.78)
+
+    Concrete base:
+      CONCRETE_COLOUR     (R,G,B)    Exposed concrete colour.
+                                      Default: (0.52, 0.48, 0.43)
+
+    Rain staining:
+      STAIN_STRENGTH      (0.0–1.0)  Max darkening from rain streaks.
+                                      0.0 = no staining, 0.5 = very dark.
+                                      Default: 0.25
+      STAIN_SCALE         (float)    Width/frequency of streaks.
+                                      Higher = narrower, more frequent.
+                                      Default: 4.0
+      STAIN_STRETCH       (float)    Vertical elongation of streaks.
+                                      Higher = longer continuous vertical streaks.
+                                      Default: 8.0
+
+    Surface texture:
+      ROUGHNESS_BASE      (0.0–1.0)  Average surface roughness.
+                                      Default: 0.85
+      ROUGHNESS_VAR       (0.0–0.3)  Roughness variation (±).
+                                      Default: 0.10
+      BUMP_STRENGTH       (0.0–2.0)  Fine surface bump intensity.
+                                      Default: 0.15
+      BUMP_SCALE          (float)    Bump detail scale.
+                                      Default: 25.0
+    """
+    # ── Tuneable values (edit these) ──────────────────────────────
+    WHITEWASH_COVERAGE = 0.35
+    WHITEWASH_EDGE     = 0.15
+    WHITEWASH_SCALE    = 3.0
+    WHITEWASH_COLOUR   = (0.85, 0.83, 0.78)
+    CONCRETE_COLOUR    = (0.52, 0.48, 0.43)
+    STAIN_STRENGTH     = 0.25
+    STAIN_SCALE        = 4.0
+    STAIN_STRETCH      = 8.0
+    ROUGHNESS_BASE     = 0.85
+    ROUGHNESS_VAR      = 0.10
+    BUMP_STRENGTH      = 0.03
+    BUMP_SCALE         = 80.0
+
+    mat = bpy.data.materials.new("Concrete")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    # Node column X positions (left → right)
+    C = [-1200, -900, -600, -300, 0, 300]
+
+    # ── Texture coordinates ───────────────────────────────────────
+    tex_coord = _new_node(tree, 'ShaderNodeTexCoord', (C[0], 300))
+    mapping = _new_node(tree, 'ShaderNodeMapping', (C[1], 300),
+                        "Base Mapping")
+
+    # ── Whitewash patchiness ──────────────────────────────────────
+    # A large-scale 3D noise determines where whitewash remains.
+    noise_ww = _new_node(tree, 'ShaderNodeTexNoise', (C[1], 0),
+                         "Whitewash Pattern")
+    noise_ww.inputs['Scale'].default_value = WHITEWASH_SCALE
+    noise_ww.inputs['Detail'].default_value = 6.0
+    noise_ww.inputs['Roughness'].default_value = 0.6
+
+    # Threshold: the coverage parameter sets where the paint/concrete
+    # boundary falls.  Inverted so higher coverage = more whitewash.
+    ramp_ww = _new_node(tree, 'ShaderNodeValToRGB', (C[2], 0),
+                        "Whitewash Threshold")
+    threshold = 1.0 - WHITEWASH_COVERAGE
+    lo = max(0.001, threshold - WHITEWASH_EDGE)
+    hi = min(0.999, threshold + WHITEWASH_EDGE)
+    ramp_ww.color_ramp.elements[0].position = lo
+    ramp_ww.color_ramp.elements[1].position = hi
+
+    # Mix: factor=0 → concrete (A), factor=1 → whitewash (B)
+    mix_ww = _new_node(tree, 'ShaderNodeMix', (C[3], 0),
+                       "Concrete ↔ Whitewash")
+    mix_ww.data_type = 'RGBA'
+    mix_ww.inputs[6].default_value = (*CONCRETE_COLOUR, 1.0)    # A
+    mix_ww.inputs[7].default_value = (*WHITEWASH_COLOUR, 1.0)   # B
+
+    # ── Rain staining ─────────────────────────────────────────────
+    # Noise stretched vertically to create long vertical streaks from
+    # water runoff.  Applied as a darkening multiply over the base.
+    mapping_st = _new_node(tree, 'ShaderNodeMapping', (C[1], -300),
+                           "Stain Stretch")
+    mapping_st.inputs['Scale'].default_value = (
+        STAIN_SCALE, STAIN_SCALE, STAIN_SCALE / STAIN_STRETCH)
+
+    noise_st = _new_node(tree, 'ShaderNodeTexNoise', (C[2], -300),
+                         "Rain Stain")
+    noise_st.inputs['Scale'].default_value = 1.0   # controlled by mapping
+    noise_st.inputs['Detail'].default_value = 4.0
+    noise_st.inputs['Roughness'].default_value = 0.5
+
+    # Ramp outputs white (clean) to grey (stained).  The grey value
+    # is used as a multiply factor: 1.0 = no change, <1.0 = darker.
+    ramp_st = _new_node(tree, 'ShaderNodeValToRGB', (C[3], -300),
+                        "Stain Darkness")
+    ramp_st.color_ramp.elements[0].position = 0.4
+    ramp_st.color_ramp.elements[0].color = (1, 1, 1, 1)
+    ramp_st.color_ramp.elements[1].position = 0.7
+    sv = 1.0 - STAIN_STRENGTH
+    ramp_st.color_ramp.elements[1].color = (sv, sv, sv, 1)
+
+    # Multiply blend: result = base × stain_grey
+    mix_st = _new_node(tree, 'ShaderNodeMix', (C[4], -100),
+                       "Apply Stain")
+    mix_st.data_type = 'RGBA'
+    mix_st.blend_type = 'MULTIPLY'
+    mix_st.inputs[0].default_value = 1.0                         # factor
+
+    # ── Roughness variation ───────────────────────────────────────
+    noise_rgh = _new_node(tree, 'ShaderNodeTexNoise', (C[2], -550),
+                          "Roughness Noise")
+    noise_rgh.inputs['Scale'].default_value = 12.0
+    noise_rgh.inputs['Detail'].default_value = 3.0
+
+    map_rng = _new_node(tree, 'ShaderNodeMapRange', (C[3], -550),
+                        "Roughness Range")
+    map_rng.inputs['From Min'].default_value = 0.0
+    map_rng.inputs['From Max'].default_value = 1.0
+    map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
+    map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
+
+    # ── Bump map (fine surface texture) ───────────────────────────
+    voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[2], -750),
+                        "Surface Texture")
+    voronoi.inputs['Scale'].default_value = BUMP_SCALE
+    voronoi.voronoi_dimensions = '3D'
+
+    bump = _new_node(tree, 'ShaderNodeBump', (C[4], -650), "Bump")
+    bump.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── Principled BSDF & output ──────────────────────────────────
+    bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[5], 0))
+    bsdf.inputs['Metallic'].default_value = 0.0
+
+    output = _new_node(tree, 'ShaderNodeOutputMaterial', (C[5] + 300, 0))
+
+    # ── Link everything together ──────────────────────────────────
+    L = tree.links
+    # Coordinate chains
+    L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_ww.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_rgh.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], voronoi.inputs['Vector'])
+    L.new(tex_coord.outputs['Object'], mapping_st.inputs['Vector'])
+    L.new(mapping_st.outputs['Vector'], noise_st.inputs['Vector'])
+
+    # Whitewash: noise → ramp → mix factor
+    L.new(noise_ww.outputs['Fac'], ramp_ww.inputs['Fac'])
+    L.new(ramp_ww.outputs['Color'], mix_ww.inputs[0])           # factor
+    L.new(mix_ww.outputs[2], mix_st.inputs[6])                  # → stain A
+
+    # Rain stain: noise → ramp → multiply B
+    L.new(noise_st.outputs['Fac'], ramp_st.inputs['Fac'])
+    L.new(ramp_st.outputs['Color'], mix_st.inputs[7])           # → stain B
+
+    # Final colour → BSDF
+    L.new(mix_st.outputs[2], bsdf.inputs['Base Color'])
+
+    # Roughness
+    L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
+    L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
+
+    # Bump
+    L.new(voronoi.outputs['Distance'], bump.inputs['Height'])
+    L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+
+    # Output
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
+def make_brass_material():
+    """Aged, tarnished brass — dull brown with patina variation.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    Colour:
+      BASE_COLOUR      (R,G,B)    Main tarnished brass colour.
+                                    Default: (0.25, 0.18, 0.06)
+      PATINA_COLOUR    (R,G,B)    Darker patina in sheltered areas.
+                                    Default: (0.10, 0.09, 0.03)
+      PATINA_AMOUNT    (0.0–1.0)  How much patina variation.
+                                    0.0 = uniform, 1.0 = heavily varied.
+                                    Default: 0.40
+      PATINA_SCALE     (float)    Patina pattern size.
+                                    Default: 8.0
+
+    Surface:
+      METALLIC         (0.0–1.0)  Metallicness (tarnish reduces this).
+                                    Default: 0.55
+      ROUGHNESS_BASE   (0.0–1.0)  Average roughness (dull surface).
+                                    Default: 0.65
+      ROUGHNESS_VAR    (0.0–0.3)  Roughness variation.
+                                    Default: 0.15
+      BUMP_STRENGTH    (0.0–2.0)  Surface wear bump intensity.
+                                    Default: 0.10
+      BUMP_SCALE       (float)    Bump detail scale.
+                                    Default: 30.0
+    """
+    # ── Tuneable values ───────────────────────────────────────────
+    BASE_COLOUR    = (0.25, 0.18, 0.06)
+    PATINA_COLOUR  = (0.10, 0.09, 0.03)
+    PATINA_AMOUNT  = 0.40
+    PATINA_SCALE   = 8.0
+    METALLIC       = 0.55
+    ROUGHNESS_BASE = 0.50
+    ROUGHNESS_VAR  = 0.05
+    BUMP_STRENGTH  = 0.02
+    BUMP_SCALE     = 50.0
+
+    mat = bpy.data.materials.new("Brass")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    C = [-1000, -700, -400, -100, 200]
+
+    tex_coord = _new_node(tree, 'ShaderNodeTexCoord', (C[0], 200))
+    mapping = _new_node(tree, 'ShaderNodeMapping', (C[1], 200))
+
+    # ── Patina distribution ───────────────────────────────────────
+    noise_pat = _new_node(tree, 'ShaderNodeTexNoise', (C[1], 0),
+                          "Patina Pattern")
+    noise_pat.inputs['Scale'].default_value = PATINA_SCALE
+    noise_pat.inputs['Detail'].default_value = 5.0
+    noise_pat.inputs['Roughness'].default_value = 0.7
+
+    ramp_pat = _new_node(tree, 'ShaderNodeValToRGB', (C[2], 0),
+                         "Patina Threshold")
+    lo = max(0.001, PATINA_AMOUNT - 0.10)
+    hi = min(0.999, PATINA_AMOUNT + 0.10)
+    ramp_pat.color_ramp.elements[0].position = lo
+    ramp_pat.color_ramp.elements[1].position = hi
+
+    mix_col = _new_node(tree, 'ShaderNodeMix', (C[3], 0),
+                        "Base ↔ Patina")
+    mix_col.data_type = 'RGBA'
+    mix_col.inputs[6].default_value = (*BASE_COLOUR, 1.0)       # A
+    mix_col.inputs[7].default_value = (*PATINA_COLOUR, 1.0)     # B
+
+    # ── Roughness variation ───────────────────────────────────────
+    noise_rgh = _new_node(tree, 'ShaderNodeTexNoise', (C[1], -300),
+                          "Roughness Noise")
+    noise_rgh.inputs['Scale'].default_value = 15.0
+    noise_rgh.inputs['Detail'].default_value = 3.0
+
+    map_rng = _new_node(tree, 'ShaderNodeMapRange', (C[2], -300),
+                        "Roughness Range")
+    map_rng.inputs['From Min'].default_value = 0.0
+    map_rng.inputs['From Max'].default_value = 1.0
+    map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
+    map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
+
+    # ── Bump ──────────────────────────────────────────────────────
+    voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[1], -500),
+                        "Surface Wear")
+    voronoi.inputs['Scale'].default_value = BUMP_SCALE
+    voronoi.voronoi_dimensions = '3D'
+
+    bump = _new_node(tree, 'ShaderNodeBump', (C[3], -400), "Bump")
+    bump.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── BSDF ──────────────────────────────────────────────────────
+    bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[4], 0))
+    bsdf.inputs['Metallic'].default_value = METALLIC
+
+    output = _new_node(tree, 'ShaderNodeOutputMaterial', (C[4] + 300, 0))
+
+    # ── Links ─────────────────────────────────────────────────────
+    L = tree.links
+    L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_pat.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_rgh.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], voronoi.inputs['Vector'])
+
+    L.new(noise_pat.outputs['Fac'], ramp_pat.inputs['Fac'])
+    L.new(ramp_pat.outputs['Color'], mix_col.inputs[0])
+    L.new(mix_col.outputs[2], bsdf.inputs['Base Color'])
+
+    L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
+    L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
+
+    L.new(voronoi.outputs['Distance'], bump.inputs['Height'])
+    L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
+def make_rusted_steel_material():
+    """Severely rusted steel — heavy orange/brown rust with pitting.
+
+    Used for sighting tubes and centre pipe which are exposed to the
+    elements and badly corroded.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    Colour:
+      RUST_COLOUR_A    (R,G,B)    Primary rust (orange).
+                                    Default: (0.45, 0.18, 0.04)
+      RUST_COLOUR_B    (R,G,B)    Secondary rust (dark brown).
+                                    Default: (0.20, 0.08, 0.02)
+      RUST_SCALE       (float)    Rust pattern scale.
+                                    Default: 6.0
+
+    Surface:
+      ROUGHNESS        (0.0–1.0)  Very rough for corroded metal.
+                                    Default: 0.95
+      BUMP_STRENGTH    (0.0–2.0)  Pitting/flaking bump intensity.
+                                    Default: 0.50
+      BUMP_SCALE       (float)    Pitting detail scale.
+                                    Default: 20.0
+    """
+    # ── Tuneable values ───────────────────────────────────────────
+    RUST_COLOUR_A  = (0.14, 0.06, 0.02)
+    RUST_COLOUR_B  = (0.07, 0.03, 0.01)
+    RUST_SCALE     = 6.0
+    ROUGHNESS      = 0.95
+    BUMP_STRENGTH  = 0.50
+    BUMP_SCALE     = 20.0
+
+    mat = bpy.data.materials.new("RustedSteel")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    C = [-1000, -700, -400, -100, 200]
+
+    tex_coord = _new_node(tree, 'ShaderNodeTexCoord', (C[0], 200))
+    mapping = _new_node(tree, 'ShaderNodeMapping', (C[1], 200))
+
+    # ── Rust colour variation ─────────────────────────────────────
+    # Noise mixes between orange and dark brown rust.
+    noise_rust = _new_node(tree, 'ShaderNodeTexNoise', (C[1], 0),
+                           "Rust Pattern")
+    noise_rust.inputs['Scale'].default_value = RUST_SCALE
+    noise_rust.inputs['Detail'].default_value = 8.0
+    noise_rust.inputs['Roughness'].default_value = 0.7
+
+    mix_col = _new_node(tree, 'ShaderNodeMix', (C[2], 0), "Rust Colour")
+    mix_col.data_type = 'RGBA'
+    mix_col.inputs[6].default_value = (*RUST_COLOUR_A, 1.0)     # A
+    mix_col.inputs[7].default_value = (*RUST_COLOUR_B, 1.0)     # B
+
+    # ── Bump — Voronoi for pitting ────────────────────────────────
+    voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[1], -300),
+                        "Pitting")
+    voronoi.inputs['Scale'].default_value = BUMP_SCALE
+    voronoi.voronoi_dimensions = '3D'
+
+    bump = _new_node(tree, 'ShaderNodeBump', (C[2], -300), "Bump")
+    bump.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── BSDF — rust is not metallic ──────────────────────────────
+    bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[3], 0))
+    bsdf.inputs['Metallic'].default_value = 0.0
+    bsdf.inputs['Roughness'].default_value = ROUGHNESS
+
+    output = _new_node(tree, 'ShaderNodeOutputMaterial', (C[3] + 300, 0))
+
+    # ── Links ─────────────────────────────────────────────────────
+    L = tree.links
+    L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_rust.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], voronoi.inputs['Vector'])
+
+    L.new(noise_rust.outputs['Fac'], mix_col.inputs[0])
+    L.new(mix_col.outputs[2], bsdf.inputs['Base Color'])
+
+    L.new(voronoi.outputs['Distance'], bump.inputs['Height'])
+    L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
+def make_aged_steel_material():
+    """Aged steel with surface grime — dark grey, still metallic.
+
+    Used for screws and pegs which are somewhat protected from weather
+    but still show age and dirt.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    Colour:
+      BASE_COLOUR      (R,G,B)    Dark grey steel base.
+                                    Default: (0.12, 0.12, 0.13)
+      GRIME_COLOUR     (R,G,B)    Dark brown grime/dirt.
+                                    Default: (0.06, 0.04, 0.03)
+      GRIME_AMOUNT     (0.0–1.0)  How much grime coverage.
+                                    Default: 0.30
+      GRIME_SCALE      (float)    Grime pattern scale.
+                                    Default: 10.0
+
+    Surface:
+      METALLIC         (0.0–1.0)  Metallicness.
+                                    Default: 0.70
+      ROUGHNESS        (0.0–1.0)  Surface roughness.
+                                    Default: 0.55
+      BUMP_STRENGTH    (0.0–2.0)  Surface texture bump.
+                                    Default: 0.08
+    """
+    # ── Tuneable values ───────────────────────────────────────────
+    BASE_COLOUR    = (0.12, 0.12, 0.13)
+    GRIME_COLOUR   = (0.06, 0.04, 0.03)
+    GRIME_AMOUNT   = 0.30
+    GRIME_SCALE    = 10.0
+    METALLIC       = 0.70
+    ROUGHNESS      = 0.55
+    BUMP_STRENGTH  = 0.08
+
+    mat = bpy.data.materials.new("AgedSteel")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    C = [-1000, -700, -400, -100, 200]
+
+    tex_coord = _new_node(tree, 'ShaderNodeTexCoord', (C[0], 200))
+    mapping = _new_node(tree, 'ShaderNodeMapping', (C[1], 200))
+
+    # ── Grime distribution ────────────────────────────────────────
+    noise = _new_node(tree, 'ShaderNodeTexNoise', (C[1], 0),
+                      "Grime Pattern")
+    noise.inputs['Scale'].default_value = GRIME_SCALE
+    noise.inputs['Detail'].default_value = 5.0
+
+    ramp = _new_node(tree, 'ShaderNodeValToRGB', (C[2], 0),
+                     "Grime Threshold")
+    lo = max(0.001, GRIME_AMOUNT - 0.10)
+    hi = min(0.999, GRIME_AMOUNT + 0.10)
+    ramp.color_ramp.elements[0].position = lo
+    ramp.color_ramp.elements[1].position = hi
+
+    mix_col = _new_node(tree, 'ShaderNodeMix', (C[3], 0),
+                        "Base ↔ Grime")
+    mix_col.data_type = 'RGBA'
+    mix_col.inputs[6].default_value = (*BASE_COLOUR, 1.0)       # A
+    mix_col.inputs[7].default_value = (*GRIME_COLOUR, 1.0)      # B
+
+    # ── Bump ──────────────────────────────────────────────────────
+    voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[1], -300),
+                        "Surface Texture")
+    voronoi.inputs['Scale'].default_value = 40.0
+    voronoi.voronoi_dimensions = '3D'
+
+    bump = _new_node(tree, 'ShaderNodeBump', (C[2], -300), "Bump")
+    bump.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── BSDF ──────────────────────────────────────────────────────
+    bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[4], 0))
+    bsdf.inputs['Metallic'].default_value = METALLIC
+    bsdf.inputs['Roughness'].default_value = ROUGHNESS
+
+    output = _new_node(tree, 'ShaderNodeOutputMaterial', (C[4] + 300, 0))
+
+    # ── Links ─────────────────────────────────────────────────────
+    L = tree.links
+    L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], voronoi.inputs['Vector'])
+
+    L.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+    L.new(ramp.outputs['Color'], mix_col.inputs[0])
+    L.new(mix_col.outputs[2], bsdf.inputs['Base Color'])
+
+    L.new(voronoi.outputs['Distance'], bump.inputs['Height'])
+    L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
+def make_wood_material():
+    """Weathered, stained wood showing early rot.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    Colour:
+      BASE_COLOUR        (R,G,B)    Dark stained wood base.
+                                      Default: (0.15, 0.08, 0.03)
+      GRAIN_COLOUR       (R,G,B)    Lighter grain bands.
+                                      Default: (0.22, 0.13, 0.05)
+      ROT_COLOUR         (R,G,B)    Dark rot/decay patches.
+                                      Default: (0.04, 0.03, 0.02)
+
+    Pattern:
+      GRAIN_SCALE        (float)    Wood grain scale.
+                                      Default: 15.0
+      GRAIN_DISTORTION   (float)    How wavy/organic the grain is.
+                                      Default: 4.0
+      ROT_AMOUNT         (0.0–1.0)  How much rot coverage.
+                                      0.0 = no rot, 1.0 = fully decayed.
+                                      Default: 0.20
+      ROT_SCALE          (float)    Rot patch pattern scale.
+                                      Default: 5.0
+
+    Surface:
+      ROUGHNESS          (0.0–1.0)  Surface roughness.
+                                      Default: 0.90
+      BUMP_STRENGTH      (0.0–2.0)  Grain/rot bump intensity.
+                                      Default: 0.20
+    """
+    # ── Tuneable values ───────────────────────────────────────────
+    BASE_COLOUR      = (0.15, 0.08, 0.03)
+    GRAIN_COLOUR     = (0.22, 0.13, 0.05)
+    ROT_COLOUR       = (0.04, 0.03, 0.02)
+    GRAIN_SCALE      = 15.0
+    GRAIN_DISTORTION = 4.0
+    ROT_AMOUNT       = 0.20
+    ROT_SCALE        = 5.0
+    ROUGHNESS        = 0.90
+    BUMP_STRENGTH    = 0.20
+
+    mat = bpy.data.materials.new("Wood")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    C = [-1000, -700, -400, -100, 200]
+
+    tex_coord = _new_node(tree, 'ShaderNodeTexCoord', (C[0], 200))
+    mapping = _new_node(tree, 'ShaderNodeMapping', (C[1], 200))
+
+    # ── Wood grain ────────────────────────────────────────────────
+    # Wave texture produces banded stripes; distortion makes them organic.
+    wave = _new_node(tree, 'ShaderNodeTexWave', (C[1], 0), "Wood Grain")
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'Z'
+    wave.wave_profile = 'SAW'
+    wave.inputs['Scale'].default_value = GRAIN_SCALE
+    wave.inputs['Distortion'].default_value = GRAIN_DISTORTION
+    wave.inputs['Detail'].default_value = 3.0
+    wave.inputs['Detail Scale'].default_value = 1.0
+
+    mix_grain = _new_node(tree, 'ShaderNodeMix', (C[2], 0),
+                          "Grain Colour")
+    mix_grain.data_type = 'RGBA'
+    mix_grain.inputs[6].default_value = (*BASE_COLOUR, 1.0)     # A
+    mix_grain.inputs[7].default_value = (*GRAIN_COLOUR, 1.0)    # B
+
+    # ── Rot patches ───────────────────────────────────────────────
+    noise_rot = _new_node(tree, 'ShaderNodeTexNoise', (C[1], -300),
+                          "Rot Pattern")
+    noise_rot.inputs['Scale'].default_value = ROT_SCALE
+    noise_rot.inputs['Detail'].default_value = 4.0
+    noise_rot.inputs['Roughness'].default_value = 0.8
+
+    ramp_rot = _new_node(tree, 'ShaderNodeValToRGB', (C[2], -300),
+                         "Rot Threshold")
+    lo = max(0.001, ROT_AMOUNT - 0.08)
+    hi = min(0.999, ROT_AMOUNT + 0.08)
+    ramp_rot.color_ramp.elements[0].position = lo
+    ramp_rot.color_ramp.elements[1].position = hi
+
+    mix_rot = _new_node(tree, 'ShaderNodeMix', (C[3], 0), "Apply Rot")
+    mix_rot.data_type = 'RGBA'
+    mix_rot.inputs[7].default_value = (*ROT_COLOUR, 1.0)        # B
+
+    # ── Bump from grain ───────────────────────────────────────────
+    bump = _new_node(tree, 'ShaderNodeBump', (C[3], -300), "Bump")
+    bump.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── BSDF ──────────────────────────────────────────────────────
+    bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[4], 0))
+    bsdf.inputs['Metallic'].default_value = 0.0
+    bsdf.inputs['Roughness'].default_value = ROUGHNESS
+
+    output = _new_node(tree, 'ShaderNodeOutputMaterial', (C[4] + 300, 0))
+
+    # ── Links ─────────────────────────────────────────────────────
+    L = tree.links
+    L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], wave.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_rot.inputs['Vector'])
+
+    # Grain → rot overlay
+    L.new(wave.outputs['Fac'], mix_grain.inputs[0])
+    L.new(mix_grain.outputs[2], mix_rot.inputs[6])               # → rot A
+    L.new(noise_rot.outputs['Fac'], ramp_rot.inputs['Fac'])
+    L.new(ramp_rot.outputs['Color'], mix_rot.inputs[0])          # rot factor
+
+    # Final colour
+    L.new(mix_rot.outputs[2], bsdf.inputs['Base Color'])
+
+    # Bump from grain pattern
+    L.new(wave.outputs['Fac'], bump.inputs['Height'])
+    L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
+# =====================================================================
 # COMPONENT BUILDERS
 # =====================================================================
 
@@ -519,7 +1181,7 @@ def build_centre_pipe(M):
     z_centre = (z_top + z_btm) / 2
     pipe = make_tube("CentrePipe", CP_OUTER_R, CP_INNER_R,
                      total_h, loc=(0, 0, z_centre))
-    assign(pipe, M['steel'])
+    assign(pipe, M['rusted_steel'])
     smooth(pipe)
     return pipe
 
@@ -548,7 +1210,7 @@ def build_sighting_tubes(M):
         loc = (dx * mid, dy * mid, ST_Z)
         t = make_tube(name, ST_OUTER_R, ST_INNER_R, tube_len, loc=loc)
         t.rotation_euler = rot
-        assign(t, M['steel'])
+        assign(t, M['rusted_steel'])
         smooth(t)
         tubes.append(t)
     return tubes
@@ -1388,7 +2050,7 @@ def build_fixings(M):
             location=(sx, sy, z_head_top - SCREW_SOCKET_DEPTH / 2))
         boolean_cut(screw, bpy.context.active_object)
 
-        assign(screw, M['steel'])
+        assign(screw, M['aged_steel'])
         smooth(screw)
 
     # ── Anti-rotation peg ─────────────────────────────────────────
@@ -1418,7 +2080,7 @@ def build_fixings(M):
     activate(peg)
     bpy.ops.object.transform_apply(rotation=True)
 
-    assign(peg, M['steel'])
+    assign(peg, M['aged_steel'])
     smooth(peg)
 
 
@@ -1731,7 +2393,7 @@ def build_angle_irons(M):
 
         iron.location = (cx, cy, cz)
         iron.rotation_euler = (tilt_x, tilt_y, 0)
-        assign(iron, M['steel'])
+        assign(iron, M['rusted_steel'])
         irons.append(iron)
 
     return irons
@@ -1931,12 +2593,13 @@ def main():
     print("\n=== OS Trig Point (Hotine Pillar) Generator ===\n")
     clear_scene()
 
-    # Materials
+    # Materials — procedural PBR (see PROCEDURAL MATERIAL BUILDERS section)
     M = {
-        'concrete': make_material("Concrete", (0.65, 0.63, 0.60), 0.0, 0.85),
-        'steel':    make_material("Steel",    (0.40, 0.42, 0.44), 0.9, 0.30),
-        'brass':    make_material("Brass",    (0.78, 0.62, 0.20), 0.9, 0.25),
-        'wood':     make_material("Wood",     (0.45, 0.30, 0.15), 0.0, 0.80),
+        'concrete':     make_concrete_material(),
+        'brass':        make_brass_material(),
+        'rusted_steel': make_rusted_steel_material(),
+        'aged_steel':   make_aged_steel_material(),
+        'wood':         make_wood_material(),
     }
 
     # Build all components
