@@ -1068,6 +1068,198 @@ def make_wood_material():
     return mat
 
 
+def make_terrain_material():
+    """Layered terrain: bedrock → soil → grass, blended by world-space Z.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    BEDROCK_Z / SOIL_Z       — Z heights of layer boundaries
+    TRANSITION               — blending width at each boundary (metres)
+    *_COLOUR_A / _COLOUR_B   — base / variation colours for each layer
+    *_ROUGHNESS              — surface roughness per layer
+    *_SCALE                  — procedural texture scale per layer
+    GRASS_BUMP               — strength of grassy lumpiness
+    """
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    # Ground surface sits 80% up the base slab
+    GROUND_Z       = -BASE_HEIGHT + 0.80 * BASE_HEIGHT
+    BEDROCK_Z      = -(BASE_HEIGHT + LB_HEIGHT + LBLOCK_H * 0.80)
+    SOIL_Z         = GROUND_Z - 0.01   # grass begins just below ground surface
+    TRANSITION     = 0.04        # 4 cm blend between layers
+
+    BEDROCK_COL_A  = (0.35, 0.33, 0.30)    # pale grey stone
+    BEDROCK_COL_B  = (0.22, 0.20, 0.18)    # darker crevice
+    BEDROCK_ROUGH  = 0.95
+    BEDROCK_SCALE  = 4.0
+
+    SOIL_COL_A     = (0.18, 0.12, 0.06)    # rich brown earth
+    SOIL_COL_B     = (0.12, 0.08, 0.04)    # darker variation
+    SOIL_ROUGH     = 0.98
+    SOIL_SCALE     = 6.0
+
+    GRASS_COL_A    = (0.12, 0.22, 0.04)    # mid green
+    GRASS_COL_B    = (0.08, 0.15, 0.03)    # darker tufts
+    GRASS_COL_DRY  = (0.20, 0.18, 0.06)    # dry / bare patches
+    GRASS_ROUGH    = 0.90
+    GRASS_SCALE    = 8.0
+    GRASS_BUMP     = 0.08
+    GRASS_DRY_AMT  = 0.20                  # proportion of dry patches
+    # ─────────────────────────────────────────────────────────────
+
+    mat = bpy.data.materials.new("Terrain")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    N = lambda t, loc, lbl="": _new_node(tree, t, loc, lbl)
+    L = tree.links
+
+    # ── Coordinates ──────────────────────────────────────────────
+    tex_coord = N('ShaderNodeTexCoord', (-1400, 0), "Tex Coord")
+    # Use Object coordinates so the Z height is in world space
+    sep_xyz   = N('ShaderNodeSeparateXYZ', (-1200, 0), "Separate XYZ")
+    L.new(tex_coord.outputs['Object'], sep_xyz.inputs['Vector'])
+
+    # ── Layer masks from Z height ────────────────────────────────
+    # Bedrock → Soil transition
+    cr_bs = N('ShaderNodeValToRGB', (-900, 200), "Bedrock→Soil")
+    cr_bs.color_ramp.elements[0].position = 0.0
+    cr_bs.color_ramp.elements[1].position = 1.0
+    # Map: Z = BEDROCK_Z → 0 (bedrock), Z = BEDROCK_Z + TRANSITION → 1 (soil)
+    map_bs = N('ShaderNodeMapRange', (-1050, 200), "Map Bedrock→Soil")
+    map_bs.inputs['From Min'].default_value = BEDROCK_Z
+    map_bs.inputs['From Max'].default_value = BEDROCK_Z + TRANSITION
+    map_bs.inputs['To Min'].default_value = 0.0
+    map_bs.inputs['To Max'].default_value = 1.0
+    map_bs.clamp = True
+    L.new(sep_xyz.outputs['Z'], map_bs.inputs['Value'])
+
+    # Soil → Grass transition
+    map_sg = N('ShaderNodeMapRange', (-1050, -100), "Map Soil→Grass")
+    map_sg.inputs['From Min'].default_value = SOIL_Z
+    map_sg.inputs['From Max'].default_value = SOIL_Z + TRANSITION
+    map_sg.inputs['To Min'].default_value = 0.0
+    map_sg.inputs['To Max'].default_value = 1.0
+    map_sg.clamp = True
+    L.new(sep_xyz.outputs['Z'], map_sg.inputs['Value'])
+
+    # ── Bedrock colour ───────────────────────────────────────────
+    rock_noise = N('ShaderNodeTexNoise', (-700, 500), "Rock Noise")
+    rock_noise.inputs['Scale'].default_value = BEDROCK_SCALE
+    rock_noise.inputs['Detail'].default_value = 8.0
+    rock_noise.inputs['Roughness'].default_value = 0.7
+    L.new(tex_coord.outputs['Object'], rock_noise.inputs['Vector'])
+
+    rock_cr = N('ShaderNodeValToRGB', (-500, 500), "Rock Colour")
+    rock_cr.color_ramp.elements[0].position = 0.35
+    rock_cr.color_ramp.elements[0].color = (*BEDROCK_COL_B, 1)
+    rock_cr.color_ramp.elements[1].position = 0.65
+    rock_cr.color_ramp.elements[1].color = (*BEDROCK_COL_A, 1)
+    L.new(rock_noise.outputs['Fac'], rock_cr.inputs['Fac'])
+
+    # ── Soil colour ──────────────────────────────────────────────
+    soil_noise = N('ShaderNodeTexNoise', (-700, 200), "Soil Noise")
+    soil_noise.inputs['Scale'].default_value = SOIL_SCALE
+    soil_noise.inputs['Detail'].default_value = 6.0
+    soil_noise.inputs['Roughness'].default_value = 0.6
+    L.new(tex_coord.outputs['Object'], soil_noise.inputs['Vector'])
+
+    soil_cr = N('ShaderNodeValToRGB', (-500, 200), "Soil Colour")
+    soil_cr.color_ramp.elements[0].position = 0.40
+    soil_cr.color_ramp.elements[0].color = (*SOIL_COL_B, 1)
+    soil_cr.color_ramp.elements[1].position = 0.60
+    soil_cr.color_ramp.elements[1].color = (*SOIL_COL_A, 1)
+    L.new(soil_noise.outputs['Fac'], soil_cr.inputs['Fac'])
+
+    # ── Grass colour (with dry patches) ──────────────────────────
+    grass_noise = N('ShaderNodeTexNoise', (-700, -100), "Grass Noise")
+    grass_noise.inputs['Scale'].default_value = GRASS_SCALE
+    grass_noise.inputs['Detail'].default_value = 6.0
+    grass_noise.inputs['Roughness'].default_value = 0.5
+    L.new(tex_coord.outputs['Object'], grass_noise.inputs['Vector'])
+
+    grass_cr = N('ShaderNodeValToRGB', (-500, -100), "Grass Colour")
+    grass_cr.color_ramp.elements[0].position = 0.40
+    grass_cr.color_ramp.elements[0].color = (*GRASS_COL_B, 1)
+    grass_cr.color_ramp.elements[1].position = 0.60
+    grass_cr.color_ramp.elements[1].color = (*GRASS_COL_A, 1)
+    L.new(grass_noise.outputs['Fac'], grass_cr.inputs['Fac'])
+
+    # Dry patch overlay
+    dry_noise = N('ShaderNodeTexNoise', (-700, -350), "Dry Noise")
+    dry_noise.inputs['Scale'].default_value = 3.0
+    dry_noise.inputs['Detail'].default_value = 4.0
+    L.new(tex_coord.outputs['Object'], dry_noise.inputs['Vector'])
+
+    dry_cr = N('ShaderNodeValToRGB', (-500, -350), "Dry Mask")
+    dry_cr.color_ramp.elements[0].position = 1.0 - GRASS_DRY_AMT
+    dry_cr.color_ramp.elements[1].position = 1.0
+    L.new(dry_noise.outputs['Fac'], dry_cr.inputs['Fac'])
+
+    grass_mix = N('ShaderNodeMixRGB', (-300, -200), "Grass + Dry")
+    grass_mix.blend_type = 'MIX'
+    grass_mix.inputs[0].default_value = 1.0   # use dry mask as factor
+    L.new(dry_cr.outputs['Color'], grass_mix.inputs['Fac'])
+    L.new(grass_cr.outputs['Color'], grass_mix.inputs['Color1'])
+    grass_mix.inputs['Color2'].default_value = (*GRASS_COL_DRY, 1)
+
+    # ── Combine layers: bedrock → soil → grass ───────────────────
+    mix_bs = N('ShaderNodeMixRGB', (-100, 300), "Bedrock→Soil Mix")
+    mix_bs.blend_type = 'MIX'
+    L.new(map_bs.outputs['Result'], mix_bs.inputs['Fac'])
+    L.new(rock_cr.outputs['Color'], mix_bs.inputs['Color1'])
+    L.new(soil_cr.outputs['Color'], mix_bs.inputs['Color2'])
+
+    mix_sg = N('ShaderNodeMixRGB', (100, 100), "→Grass Mix")
+    mix_sg.blend_type = 'MIX'
+    L.new(map_sg.outputs['Result'], mix_sg.inputs['Fac'])
+    L.new(mix_bs.outputs['Color'], mix_sg.inputs['Color1'])
+    L.new(grass_mix.outputs['Color'], mix_sg.inputs['Color2'])
+
+    # ── Roughness: blend per layer (bedrock → soil → grass) ─────
+    rough_bs = N('ShaderNodeMixRGB', (-100, -200), "Rough B→S")
+    rough_bs.blend_type = 'MIX'
+    L.new(map_bs.outputs['Result'], rough_bs.inputs['Fac'])
+    rough_bs.inputs['Color1'].default_value = (BEDROCK_ROUGH, BEDROCK_ROUGH, BEDROCK_ROUGH, 1)
+    rough_bs.inputs['Color2'].default_value = (SOIL_ROUGH, SOIL_ROUGH, SOIL_ROUGH, 1)
+
+    rough_final = N('ShaderNodeMixRGB', (100, -200), "Rough →G")
+    rough_final.blend_type = 'MIX'
+    L.new(map_sg.outputs['Result'], rough_final.inputs['Fac'])
+    L.new(rough_bs.outputs['Color'], rough_final.inputs['Color1'])
+    rough_final.inputs['Color2'].default_value = (GRASS_ROUGH, GRASS_ROUGH, GRASS_ROUGH, 1)
+
+    # ── Bump: grassy lumpiness on top layer ──────────────────────
+    bump_noise = N('ShaderNodeTexNoise', (-300, -500), "Grass Bump Noise")
+    bump_noise.inputs['Scale'].default_value = 30.0
+    bump_noise.inputs['Detail'].default_value = 8.0
+    bump_noise.inputs['Roughness'].default_value = 0.6
+    L.new(tex_coord.outputs['Object'], bump_noise.inputs['Vector'])
+
+    bump_mul = N('ShaderNodeMath', (-100, -500), "Bump × Grass Mask")
+    bump_mul.operation = 'MULTIPLY'
+    L.new(bump_noise.outputs['Fac'], bump_mul.inputs[0])
+    L.new(map_sg.outputs['Result'], bump_mul.inputs[1])
+
+    bump = N('ShaderNodeBump', (100, -500), "Bump")
+    bump.inputs['Strength'].default_value = GRASS_BUMP
+    L.new(bump_mul.outputs['Value'], bump.inputs['Height'])
+
+    # ── BSDF ─────────────────────────────────────────────────────
+    bsdf = N('ShaderNodeBsdfPrincipled', (400, 100), "Terrain BSDF")
+    L.new(mix_sg.outputs['Color'], bsdf.inputs['Base Color'])
+    # Feed the R channel of the blended roughness colour into Roughness
+    sep_rough = N('ShaderNodeSeparateColor', (250, -200), "Sep Rough")
+    L.new(rough_final.outputs['Color'], sep_rough.inputs['Color'])
+    L.new(sep_rough.outputs['Red'], bsdf.inputs['Roughness'])
+    L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+
+    output = N('ShaderNodeOutputMaterial', (700, 100))
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
 # =====================================================================
 # COMPONENT BUILDERS
 # =====================================================================
@@ -2643,6 +2835,146 @@ def build_lower_centre_mark(M):
     return mark
 
 
+def build_terrain(M):
+    """Layered terrain: dome-shaped hilltop with bedrock, soil, and grass.
+
+    The terrain is a solid volume extending from the grass surface down
+    past the lower block.  During the X-ray phase, making it transparent
+    reveals the underground structure (base slab, lower box, lower block)
+    embedded in the soil and bedrock.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    TERRAIN_RADIUS   — radius of the terrain disc (metres)
+    TERRAIN_DEPTH    — how far below z=0 the terrain extends
+    GRID_SUBDIVS     — mesh resolution (higher = smoother undulation)
+    DOME_HEIGHT      — height drop from centre to edge
+    NOISE_STRENGTH   — amplitude of surface undulation
+    NOISE_SCALE      — spatial frequency of undulation
+    NOISE_OCTAVES    — fractal detail layers
+    """
+    print("  Terrain ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    TERRAIN_RADIUS = 5.0          # 10 m across — fills the frame
+    GRID_SUBDIVS   = 80           # vertex spacing ~12.5 cm
+    DOME_HEIGHT    = 0.25         # gentle 25 cm dome
+    NOISE_STRENGTH = 0.04         # ±4 cm undulation
+    NOISE_SCALE    = 1.5          # spatial frequency
+    NOISE_OCTAVES  = 4            # fractal layers
+    CUT_MARGIN     = 0.005        # 5 mm gap between terrain and base slab
+    # ─────────────────────────────────────────────────────────────
+
+    # ── Derived vertical positions ───────────────────────────────
+    # Ground surface: 80% up the base slab
+    GROUND_Z = -BASE_HEIGHT + 0.80 * BASE_HEIGHT   # ≈ -0.061 m
+
+    # Bedrock surface: 15% up the lower block
+    lb_top = -(BASE_HEIGHT + LB_HEIGHT)             # top of lower block
+    BEDROCK_Z = lb_top - LBLOCK_H + 0.20 * LBLOCK_H  # 20% up the lower block
+
+    TERRAIN_DEPTH = GROUND_Z - BEDROCK_Z            # ≈ 0.605 m
+
+    # ── Create subdivided grid at ground surface ─────────────────
+    bpy.ops.mesh.primitive_grid_add(
+        x_subdivisions=GRID_SUBDIVS,
+        y_subdivisions=GRID_SUBDIVS,
+        size=TERRAIN_RADIUS * 2,
+        location=(0, 0, GROUND_Z))
+    terrain = bpy.context.active_object
+    terrain.name = "Terrain"
+
+    # ── Displace top surface: dome + coherent noise ──────────────
+    bm = bmesh.new()
+    bm.from_mesh(terrain.data)
+
+    # Simple multi-octave coherent noise using summed sine waves.
+    # Each octave uses a different direction vector, giving organic
+    # variation without needing external noise libraries.
+    def terrain_noise(x, y):
+        value = 0.0
+        freq = NOISE_SCALE
+        amp = NOISE_STRENGTH
+        for i in range(NOISE_OCTAVES):
+            # Golden-angle separated direction vectors
+            angle = i * 2.399      # ~137.5° in radians
+            dx = math.cos(angle)
+            dy = math.sin(angle)
+            value += amp * math.sin(freq * (dx * x + dy * y) + i * 7.3)
+            freq *= 2.0
+            amp *= 0.5
+        return value
+
+    for v in bm.verts:
+        r = math.sqrt(v.co.x ** 2 + v.co.y ** 2)
+        t = min(r / TERRAIN_RADIUS, 1.0)
+
+        # Parabolic dome: highest at centre, drops DOME_HEIGHT at edge
+        dome = -DOME_HEIGHT * t * t
+
+        # Coherent noise for natural undulation
+        noise_val = terrain_noise(v.co.x, v.co.y)
+
+        # Protect the area immediately around the base slab from big
+        # undulations — blend noise to zero near the centre
+        slab_fade = max(0.0, min(1.0,
+            (r - BASE_TOP_HW * 1.5) / (BASE_TOP_HW * 0.5)))
+
+        v.co.z = dome + noise_val * slab_fade
+
+    bm.to_mesh(terrain.data)
+    bm.free()
+    terrain.data.update()
+
+    # ── Solidify downward to create volume ───────────────────────
+    activate(terrain)
+    mod = terrain.modifiers.new("Solidify", 'SOLIDIFY')
+    mod.thickness = TERRAIN_DEPTH
+    mod.offset = -1.0      # extrude entirely downward from top surface
+    bpy.ops.object.modifier_apply(modifier="Solidify")
+
+    # ── Trim to a circle (remove corner vertices) ────────────────
+    bm = bmesh.new()
+    bm.from_mesh(terrain.data)
+    bm.verts.ensure_lookup_table()
+
+    # Tag vertices outside the radius on the TOP surface for removal.
+    # After solidify, top surface verts are at the displaced Z,
+    # bottom verts are TERRAIN_DEPTH below.  We dissolve columns
+    # whose XY distance exceeds the radius.
+    to_remove = []
+    for v in bm.verts:
+        r = math.sqrt(v.co.x ** 2 + v.co.y ** 2)
+        if r > TERRAIN_RADIUS * 0.98:     # slight inset for clean edge
+            to_remove.append(v)
+
+    if to_remove:
+        bmesh.ops.delete(bm, geom=to_remove, context='VERTS')
+
+    bm.to_mesh(terrain.data)
+    bm.free()
+    terrain.data.update()
+
+    # ── Boolean cut for the base slab ────────────────────────────
+    # Only cut the hole where the base slab actually sits — from
+    # above the ground surface down to the slab bottom.  Below
+    # that, the terrain remains solid (soil/bedrock wrapping around
+    # the lower box and lower block).
+    cut_top_z  = GROUND_Z + 0.05             # above surface for clean cut
+    cut_btm_z  = -BASE_HEIGHT - 0.01         # just below slab bottom
+    cut_height = cut_top_z - cut_btm_z
+    hw_top = BASE_TOP_HW + CUT_MARGIN        # slab width at top
+    hw_btm = BASE_BTM_HW + CUT_MARGIN        # slab width at bottom
+    cutter = make_frustum(
+        "_terrain_cut", hw_btm, hw_top, cut_height,
+        base_z=cut_btm_z)
+    boolean_cut(terrain, cutter)
+
+    assign(terrain, M['terrain'])
+    smooth(terrain)
+    return terrain
+
+
 # =====================================================================
 # SCENE SETUP
 # =====================================================================
@@ -2721,6 +3053,7 @@ def main():
         'rusted_steel': make_rusted_steel_material(),
         'aged_steel':   make_aged_steel_material(),
         'wood':         make_wood_material(),
+        'terrain':      make_terrain_material(),
     }
 
     # Build all components
@@ -2769,6 +3102,7 @@ def main():
     build_lower_box(M)
     build_lower_block(M)
     build_lower_centre_mark(M)
+    build_terrain(M)
 
     # Scene
     setup_scene()
