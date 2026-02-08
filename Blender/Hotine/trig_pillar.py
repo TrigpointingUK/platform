@@ -130,7 +130,7 @@ FB_W                = 0.100     # [D] 100 mm wide
 FB_H                = 0.180     # [D] 180 mm high
 FB_D                = 0.008     # [D] plate thickness behind beading
 FB_BEAD_R           = 0.005     # [D] 5 mm semicircular beading radius
-FB_SETBACK          = 0.008     # [D] 8 mm set back from pillar face at top
+FB_SETBACK          = 0.023     # [D] bead peak ~10 mm behind pillar face at top
 FB_BTM_Z            = 0.172     # [D] 30 mm above sighting tube top edge
 
 # --- Lower Wooden Box ---
@@ -1558,48 +1558,71 @@ def build_flush_bracket(M):
     smooth(bead)
 
     # ── Recess in pillar ──────────────────────────────────────
+    # The recess is a pocket + 45° chamfer on all four sides.
+    # Built as a 12-vertex solid:
+    #   4 back verts   (pocket back, inner outline)
+    #   4 inner verts  (bracket level, inner outline)
+    #   4 outer verts  (pillar face, expanded by 45° chamfer)
     pillar = bpy.data.objects['Pillar']
 
-    bead_front = front_y + br                     # outermost beading Y
-    face_bot   = pillar_hw_at(z_bot)
+    bead_ext = br + 0.001                         # beading outline + clearance
+    inner_y  = front_y + br + 0.001               # just past beading peak
 
-    gap_top = face_top - bead_front               # ~3 mm
-    gap_bot = face_bot - bead_front               # larger due to taper
+    # Inner outline (matches bracket beading)
+    ixl = -(hw + bead_ext)
+    ixr =  (hw + bead_ext)
+    izb =  z_bot - bead_ext
+    izt =  z_top + bead_ext
 
-    eps = 0.002
-    cham_top      = gap_top
-    cham_bot      = gap_bot
-    cham_side_top = gap_top
-    cham_side_bot = gap_bot
+    # Gap from beading to pillar face (depth of chamfer)
+    gap_top = max(0.001, pillar_hw_at(z_top) - inner_y)
+    gap_bot = max(0.001, pillar_hw_at(z_bot) - inner_y)
+
+    # Outer outline (at pillar face, expanded by gap = 45° chamfer)
+    ozt = izt + gap_top
+    ozb = izb - gap_bot
+    oxl_t = ixl - gap_top                         # sides narrower at top
+    oxr_t = ixr + gap_top
+    oxl_b = ixl - gap_bot                         # sides wider at bottom
+    oxr_b = ixr + gap_bot
+
+    eps     = 0.002
+    y_back  = plate_y - eps
+    # Outer Y must extend past pillar face at each height
+    oy_top  = pillar_hw_at(ozt) + eps
+    oy_bot  = pillar_hw_at(ozb) + eps
 
     bm_c = bmesh.new()
 
-    zt = z_top + cham_top + eps
-    zb = z_bot - cham_bot - eps
-    xl_t = -(hw + cham_side_top + eps)
-    xr_t =  (hw + cham_side_top + eps)
-    xl_b = -(hw + cham_side_bot + eps)
-    xr_b =  (hw + cham_side_bot + eps)
-    y_back    = plate_y - eps
-    y_front_t = face_top + eps
-    y_front_b = face_bot + eps
+    # Back pocket vertices (at y = plate_y - eps, inner outline)
+    b_tl = bm_c.verts.new((ixl, y_back, izt))
+    b_tr = bm_c.verts.new((ixr, y_back, izt))
+    b_br = bm_c.verts.new((ixr, y_back, izb))
+    b_bl = bm_c.verts.new((ixl, y_back, izb))
 
-    cv = [
-        bm_c.verts.new((xl_t, y_back,    zt)),   # 0
-        bm_c.verts.new((xr_t, y_back,    zt)),   # 1
-        bm_c.verts.new((xr_t, y_front_t, zt)),   # 2
-        bm_c.verts.new((xl_t, y_front_t, zt)),   # 3
-        bm_c.verts.new((xl_b, y_back,    zb)),   # 4
-        bm_c.verts.new((xr_b, y_back,    zb)),   # 5
-        bm_c.verts.new((xr_b, y_front_b, zb)),   # 6
-        bm_c.verts.new((xl_b, y_front_b, zb)),   # 7
-    ]
-    bm_c.faces.new([cv[0], cv[1], cv[2], cv[3]])
-    bm_c.faces.new([cv[4], cv[7], cv[6], cv[5]])
-    bm_c.faces.new([cv[0], cv[3], cv[7], cv[4]])
-    bm_c.faces.new([cv[1], cv[5], cv[6], cv[2]])
-    bm_c.faces.new([cv[0], cv[4], cv[5], cv[1]])
-    bm_c.faces.new([cv[3], cv[2], cv[6], cv[7]])
+    # Inner front vertices (at bracket level, inner outline)
+    i_tl = bm_c.verts.new((ixl, inner_y, izt))
+    i_tr = bm_c.verts.new((ixr, inner_y, izt))
+    i_br = bm_c.verts.new((ixr, inner_y, izb))
+    i_bl = bm_c.verts.new((ixl, inner_y, izb))
+
+    # Outer front vertices (at pillar face, expanded outline)
+    o_tl = bm_c.verts.new((oxl_t, oy_top, ozt))
+    o_tr = bm_c.verts.new((oxr_t, oy_top, ozt))
+    o_br = bm_c.verts.new((oxr_b, oy_bot, ozb))
+    o_bl = bm_c.verts.new((oxl_b, oy_bot, ozb))
+
+    # 10 faces forming the closed solid
+    bm_c.faces.new([b_tl, b_tr, b_br, b_bl])     # back
+    bm_c.faces.new([b_tl, b_tr, i_tr, i_tl])     # pocket top
+    bm_c.faces.new([b_bl, b_br, i_br, i_bl])     # pocket bottom
+    bm_c.faces.new([b_tl, i_tl, i_bl, b_bl])     # pocket left
+    bm_c.faces.new([b_tr, b_br, i_br, i_tr])     # pocket right
+    bm_c.faces.new([i_tl, i_tr, o_tr, o_tl])     # chamfer top (45°)
+    bm_c.faces.new([i_bl, i_br, o_br, o_bl])     # chamfer bottom (45°)
+    bm_c.faces.new([i_tl, o_tl, o_bl, i_bl])     # chamfer left (45°)
+    bm_c.faces.new([i_tr, i_br, o_br, o_tr])     # chamfer right (45°)
+    bm_c.faces.new([o_tl, o_tr, o_br, o_bl])     # front
 
     bmesh.ops.recalc_face_normals(bm_c, faces=bm_c.faces[:])
     bmesh.ops.triangulate(bm_c, faces=bm_c.faces[:])
