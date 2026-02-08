@@ -47,11 +47,11 @@ ST_Z                = 0.107     # [E] aimed at top of dome / base of spike
 # --- Upper Wooden Box (internal) ---
 UB_HW               = 0.127     # [E] ~10" outer / 2
 UB_HEIGHT           = 0.203     # [E] ~8"
-UB_WALL             = 0.025     # [E] ~1" timber
+UB_WALL             = 0.015     # 15 mm timber
 UB_BASE_Z           = 0.000     # box base sits on top of the base slab
 
 # --- Concrete Fill in Upper Box ---
-FILL_HEIGHT         = 0.100     # [E] fills to near sighting tube level
+FILL_HEIGHT         = 0.076     # [E] top 5 mm below bottom of sighting-tube holes
 
 # --- Upper Centre Mark ---
 UCM_R               = 0.016     # [E] ~1.25" dia / 2
@@ -373,69 +373,67 @@ def pillar_hw_at(z):
 # =====================================================================
 
 def build_pillar(M):
-    """Main concrete pillar body with holes for centre pipe and sighting tubes.
+    """Main concrete pillar body with channels for centre pipe and sighting tubes.
 
-    Boolean voids are sized to cut only through the concrete portions of the
-    pillar — they stop at the upper wooden box boundary so that no stray
-    cylindrical geometry extends into the box interior.
+    The centre-pipe channel runs from the pillar top to the box top face.
+    The four sighting-tube channels each run from one pillar face inward to
+    the box outer face — they do NOT extend into the box interior.  The
+    concrete is bounded by the tube surfaces and the box wall.
     """
     print("  Pillar body ...")
     pillar = make_frustum(
         "Pillar", PILLAR_BTM_HW, PILLAR_TOP_HW, PILLAR_HEIGHT,
         base_z=0, bevel_r=BEVEL_RADIUS, bevel_n=BEVEL_SEGMENTS)
 
-    # --- Cut centre-pipe channel (only through concrete above the box lid) ---
-    lid_z = UB_BASE_Z + UB_HEIGHT
-    cp_void_len = PILLAR_HEIGHT - lid_z + 0.02
-    cp_void_z = (lid_z - 0.01 + PILLAR_HEIGHT + 0.01) / 2
+    # --- Centre-pipe channel (pillar top → box top face) ---
+    box_top_z = UB_BASE_Z + UB_HEIGHT
+    cp_void_len = PILLAR_HEIGHT - box_top_z + 0.002
+    cp_void_z = (box_top_z - 0.001 + PILLAR_HEIGHT + 0.001) / 2
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=CP_OUTER_R + 0.005,
+        radius=CP_OUTER_R + 0.001,      # 1 mm clearance — tight fit
         depth=cp_void_len,
         vertices=32,
         location=(0, 0, cp_void_z))
     boolean_cut(pillar, bpy.context.active_object, solver='FAST')
 
-    # --- Cut sighting-tube channels clean through the pillar ---
-    # Tight-fit cylindrical channels (concrete right up to the tubes),
-    # with a conical bevel at each face where the hole meets the surface.
-    # Y-axis (North↔South) is cut first on the cleanest geometry.
-    # boolean_cut recalculates normals after each operation so subsequent
-    # cuts have consistent geometry to work with.
-    chan_r = ST_OUTER_R + 0.0005        # ½ mm clearance — snug fit
+    # --- Four sighting-tube channels (pillar face → box outer face) ---
+    # Each is a separate cylinder that stops at the box wall — concrete
+    # does NOT extend into the box interior.
+    chan_r = ST_OUTER_R + 0.001         # 1 mm clearance — tight fit
     hw = pillar_hw_at(ST_Z)
-    full_len = (hw + 0.015) * 2         # spans full pillar width + margin
+    box_face = UB_HW                    # box outer face distance from centre
 
-    # Y-axis channel (North ↔ South) — cut first on clean frustum
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=chan_r, depth=full_len, vertices=32,
-        location=(0, 0, ST_Z))
-    c = bpy.context.active_object
-    c.rotation_euler = (math.pi / 2, 0, 0)
-    activate(c)
-    bpy.ops.object.transform_apply(rotation=True)
-    boolean_cut(pillar, c, solver='FAST')
+    # Channel spans from 2 mm inside the box wall to 5 mm past the pillar face
+    chan_inner = box_face - 0.002
+    chan_outer = hw + 0.005
+    chan_len = chan_outer - chan_inner
+    chan_mid = (chan_outer + chan_inner) / 2
 
-    # X-axis channel (East ↔ West)
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=chan_r, depth=full_len, vertices=32,
-        location=(0, 0, ST_Z))
-    c = bpy.context.active_object
-    c.rotation_euler = (0, math.pi / 2, 0)
-    activate(c)
-    bpy.ops.object.transform_apply(rotation=True)
-    boolean_cut(pillar, c, solver='FAST')
+    for dx, dy, ry, rx in (
+        (0, -1, 0, -math.pi / 2),      # South
+        (0, +1, 0, +math.pi / 2),      # North
+        (+1, 0, -math.pi / 2, 0),      # East
+        (-1, 0, +math.pi / 2, 0),      # West
+    ):
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=chan_r, depth=chan_len, vertices=32,
+            location=(dx * chan_mid, dy * chan_mid, ST_Z))
+        c = bpy.context.active_object
+        c.rotation_euler = (rx, ry, 0)
+        activate(c)
+        bpy.ops.object.transform_apply(rotation=True)
+        boolean_cut(pillar, c, solver='FAST')
 
-    # Bevelled entrance at each sighting hole — a conical chamfer from
-    # the flat pillar face down to the tube edge, ~8 mm deep.
+    # Bevelled entrance at each sighting hole — conical chamfer, 8 mm deep
     bevel_face_r = ST_OUTER_R + 0.012   # wider at the pillar surface
-    bevel_inner_r = chan_r               # matches channel at the inner end
-    bevel_depth = 0.008                  # 8 mm into the face
+    bevel_inner_r = chan_r               # matches channel
+    bevel_depth = 0.008
 
     for face_x, face_y, ry, rx in (
-        (0, -hw, 0, -math.pi / 2),      # -Y (South) — first
-        (0, +hw, 0, +math.pi / 2),      # +Y (North)
-        (+hw, 0, -math.pi / 2, 0),      # +X (East)
-        (-hw, 0, +math.pi / 2, 0),      # -X (West)
+        (0, -hw, 0, -math.pi / 2),      # South
+        (0, +hw, 0, +math.pi / 2),      # North
+        (+hw, 0, -math.pi / 2, 0),      # East
+        (-hw, 0, +math.pi / 2, 0),      # West
     ):
         bpy.ops.mesh.primitive_cone_add(
             radius1=bevel_face_r, radius2=bevel_inner_r,
@@ -474,13 +472,13 @@ def build_centre_pipe(M):
 
 
 def build_sighting_tubes(M):
-    """Four slightly-angled sighting tubes — each protrudes a slightly different
-    amount into the box interior, suggesting rough hand-assembly."""
+    """Four sighting tubes extending from 5 mm inside the pillar face,
+    through the box wall, and 10 mm into the box cavity."""
     print("  Sighting tubes ...")
-    rng = random.Random(55)
     hw = pillar_hw_at(ST_Z)
     box_inner = UB_HW - UB_WALL           # inner box wall distance from centre
     outer_end = hw - 0.005                 # 5 mm inside pillar face
+    inner_end = box_inner - 0.010          # 10 mm into box cavity
     a = ST_TILT
 
     directions = [
@@ -491,9 +489,6 @@ def build_sighting_tubes(M):
     ]
     tubes = []
     for name, (dx, dy), rot in directions:
-        # Each tube protrudes a slightly different amount past the inner box wall
-        protrude = 0.015 + rng.uniform(-0.008, 0.010)
-        inner_end = box_inner - protrude
         tube_len = outer_end - inner_end
         mid = (inner_end + outer_end) / 2
 
@@ -507,61 +502,85 @@ def build_sighting_tubes(M):
 
 
 def build_upper_box(M):
-    """Upper wooden box (bottomless, with lid) that holds the tube assembly.
+    """Upper wooden box — 5-sided (4 walls + top, open bottom), 15 mm thick.
 
-    Boolean operations are ordered so that all holes are cut while the box
-    is still a solid block — this gives the EXACT boolean solver clean,
-    thick geometry to work with and avoids silent failures when cutting
-    through thin walls.
+    Built directly with bmesh for clean, predictable geometry.  Circular
+    holes for the centre pipe and four sighting tubes are then cut with
+    boolean operations through the flat walls.
     """
     print("  Upper wooden box ...")
-    outer = UB_HW
-    h = UB_HEIGHT
-    bz = UB_BASE_Z
+    ow = UB_HW                          # outer half-width
+    iw = UB_HW - UB_WALL               # inner half-width
+    bz = UB_BASE_Z                      # bottom of box
+    tz = UB_BASE_Z + UB_HEIGHT          # top of box (outer)
+    iz = tz - UB_WALL                   # ceiling (inner)
 
-    # Start with a solid block
-    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, bz + h / 2))
-    box = bpy.context.active_object
-    box.name = "UpperBox"
-    box.scale = (outer * 2, outer * 2, h)
+    bm = bmesh.new()
+
+    # 16 vertices — outer shell and inner shell
+    ot = [bm.verts.new(v) for v in [
+        (-ow, -ow, tz), ( ow, -ow, tz), ( ow,  ow, tz), (-ow,  ow, tz)]]
+    ob = [bm.verts.new(v) for v in [
+        (-ow, -ow, bz), ( ow, -ow, bz), ( ow,  ow, bz), (-ow,  ow, bz)]]
+    it_ = [bm.verts.new(v) for v in [
+        (-iw, -iw, iz), ( iw, -iw, iz), ( iw,  iw, iz), (-iw,  iw, iz)]]
+    ib = [bm.verts.new(v) for v in [
+        (-iw, -iw, bz), ( iw, -iw, bz), ( iw,  iw, bz), (-iw,  iw, bz)]]
+
+    # Top face (+Z)
+    bm.faces.new([ot[0], ot[1], ot[2], ot[3]])
+    # Ceiling (-Z, looking down into cavity)
+    bm.faces.new([it_[3], it_[2], it_[1], it_[0]])
+    # 4 outer sides
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new([ob[i], ob[j], ot[j], ot[i]])
+    # 4 inner sides (normals point into cavity)
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new([ib[j], ib[i], it_[i], it_[j]])
+    # 4 bottom rim faces (normals -Z)
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new([ob[j], ob[i], ib[i], ib[j]])
+
+    mesh = bpy.data.meshes.new("UpperBox")
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+
+    box = bpy.data.objects.new("UpperBox", mesh)
+    bpy.context.collection.objects.link(box)
     activate(box)
-    bpy.ops.object.transform_apply(scale=True)
 
-    # 1) Cut holes FIRST — while the box is still solid
+    # Ensure consistent outward-facing normals
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.normals_make_consistent(inside=False)
+    bpy.ops.object.mode_set(mode='OBJECT')
 
-    # Centre-pipe hole through top — FAST solver for reliability
+    # --- Cut pipe holes through flat walls ---
+    # Centre-pipe hole through top wall
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=CP_OUTER_R + 0.005, depth=UB_WALL * 3,
-        vertices=32, location=(0, 0, bz + h))
+        radius=CP_OUTER_R + 0.001, depth=UB_WALL * 3,
+        vertices=32, location=(0, 0, tz))
     boolean_cut(box, bpy.context.active_object, solver='FAST')
 
-    # Sighting-tube holes through four walls — South first so it gets
-    # the cleanest geometry.  Normals are recalculated after each cut.
+    # Sighting-tube holes through four side walls
     for dx, dy, rot in (
-        ( 0,-1, ( math.pi / 2, 0, 0)),   # South first
-        ( 0, 1, (-math.pi / 2, 0, 0)),   # North
-        ( 1, 0, (0,  math.pi / 2, 0)),   # East
-        (-1, 0, (0, -math.pi / 2, 0)),   # West
+        ( 0, -1, ( math.pi / 2, 0, 0)),
+        ( 0,  1, (-math.pi / 2, 0, 0)),
+        ( 1,  0, (0,  math.pi / 2, 0)),
+        (-1,  0, (0, -math.pi / 2, 0)),
     ):
         bpy.ops.mesh.primitive_cylinder_add(
-            radius=ST_OUTER_R + 0.005, depth=outer * 3,
-            vertices=32, location=(dx * outer, dy * outer, ST_Z))
+            radius=ST_OUTER_R + 0.001, depth=UB_WALL * 3,
+            vertices=32, location=(dx * ow, dy * ow, ST_Z))
         c = bpy.context.active_object
         c.rotation_euler = rot
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
         boolean_cut(box, c, solver='FAST')
-
-    # 2) Hollow out the interior LAST — FAST solver for reliability
-    inner = outer - UB_WALL
-    void_h = h  # tall enough to extend below box bottom
-    void_z = bz + h / 2 - UB_WALL  # top of void = bz + h - UB_WALL
-    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, void_z))
-    v = bpy.context.active_object
-    v.scale = (inner * 2, inner * 2, void_h)
-    activate(v)
-    bpy.ops.object.transform_apply(scale=True)
-    boolean_cut(box, v, solver='FAST')
 
     assign(box, M['wood'])
     return box
