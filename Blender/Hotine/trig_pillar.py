@@ -1605,15 +1605,21 @@ def main():
     build_upper_centre_mark(M)
     build_spider(M)
 
-    # Cut spider-shaped void from the pillar top so the concrete
-    # flows around the spider arms, grooves, fillets, and annulus.
-    print("  Cutting spider void from pillar ...")
-    spider = bpy.data.objects['Spider']
-    activate(spider)
-    bpy.ops.object.duplicate()
-    cutter = bpy.context.active_object
-    cutter.name = "_spider_void"
-    boolean_cut(bpy.data.objects['Pillar'], cutter, solver='FAST')
+    # Remove all pillar material above the spider underside so the
+    # pillar has a flat top and the spider sits on top of it.  This
+    # avoids concrete filling the V-grooves, bore, and other voids.
+    print("  Flattening pillar top at spider underside ...")
+    spider_base_z = PILLAR_HEIGHT - SPIDER_THICK
+    slab_h = SPIDER_THICK + 0.002
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, 0, spider_base_z + slab_h / 2))
+    slab = bpy.context.active_object
+    slab.scale = (PILLAR_BTM_HW * 2 + 0.01,
+                  PILLAR_BTM_HW * 2 + 0.01,
+                  slab_h)
+    activate(slab)
+    bpy.ops.object.transform_apply(scale=True)
+    boolean_cut(bpy.data.objects['Pillar'], slab, solver='FAST')
 
     build_plug(M)
     build_fixings(M)
