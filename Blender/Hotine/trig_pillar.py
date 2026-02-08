@@ -3038,6 +3038,175 @@ def setup_scene():
         pass  # headless mode
 
 
+def setup_camera_animation():
+    """Flythrough camera: descend → orbit → sighting-hole pass → pull back.
+
+    The camera uses a Track To constraint pointed at an animated empty
+    ("CameraTarget"), so it always faces the action.  Both the camera
+    and the target have keyframed locations defining the trajectory.
+
+    Segment map (30 fps):
+      1–120     Fly down from high above
+      120–480   Full 360° orbit around the pillar
+      480–600   Approach the east sighting hole
+      600–690   Fly through the sighting tube
+      690–810   Pull back to a 3/4 view
+      810–900   Hold the final composition
+
+    TUNEABLE PARAMETERS
+    -------------------
+    ORBIT_R / ORBIT_Z   — orbit radius and height
+    LENS_MM             — camera focal length (lower = wider / more dramatic)
+    FPS / TOTAL_FRAMES  — animation timing
+    Individual keyframe positions can be adjusted in the code or
+    interactively in Blender's Graph Editor after running.
+    """
+    print("  Camera animation ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    FPS          = 30
+    TOTAL_FRAMES = 900
+    ORBIT_R      = 2.5       # metres from pillar centre
+    ORBIT_Z      = 1.5       # orbit altitude
+    ORBIT_STEPS  = 24        # keyframes per full revolution (every 15°)
+    LENS_MM      = 35        # focal length — 35 mm for dramatic perspective
+    CLIP_START   = 0.001     # 1 mm — needed for sighting tube close-ups
+    # ─────────────────────────────────────────────────────────────
+
+    # ── Frame boundaries ─────────────────────────────────────────
+    F_FLY_END   = 120        # end of fly-down
+    F_ORB_END   = 480        # end of orbit
+    F_APP_END   = 600        # end of approach
+    F_THR_END   = 690        # end of flythrough
+    F_PULL_END  = 810        # end of pull-back
+    # 810–900 = hold
+
+    # ── Derived positions ────────────────────────────────────────
+    TARGET_MID = (0, 0, PILLAR_HEIGHT * 0.5)  # general look-at point
+    SH_Z       = ST_Z                          # sighting hole height
+
+    # ── Remove any existing camera ───────────────────────────────
+    for name in ("Camera", "FlyCamera"):
+        old = bpy.data.objects.get(name)
+        if old:
+            bpy.data.objects.remove(old, do_unlink=True)
+
+    # ── Create camera ────────────────────────────────────────────
+    cam_data = bpy.data.cameras.new("FlyCamera")
+    cam_data.lens = LENS_MM
+    cam_data.clip_start = CLIP_START
+    cam = bpy.data.objects.new("FlyCamera", cam_data)
+    bpy.context.collection.objects.link(cam)
+    bpy.context.scene.camera = cam
+
+    # ── Create look-at target (animated empty) ───────────────────
+    target = bpy.data.objects.new("CameraTarget", None)
+    target.empty_display_type = 'PLAIN_AXES'
+    target.empty_display_size = 0.1
+    bpy.context.collection.objects.link(target)
+
+    # Track To constraint — camera always faces the target
+    track = cam.constraints.new('TRACK_TO')
+    track.target = target
+    track.track_axis = 'TRACK_NEGATIVE_Z'
+    track.up_axis = 'UP_Y'
+
+    # ── Timeline settings ────────────────────────────────────────
+    scene = bpy.context.scene
+    scene.render.fps = FPS
+    scene.frame_start = 1
+    scene.frame_end = TOTAL_FRAMES
+
+    # ── Keyframe helper ──────────────────────────────────────────
+    def kf(obj, frame, loc):
+        """Insert a location keyframe."""
+        obj.location = loc
+        obj.keyframe_insert(data_path="location", frame=int(round(frame)))
+
+    # =================================================================
+    # SEGMENT 1 — Fly down from above  (frames 1 → 120)
+    # =================================================================
+    # Start high up to the south-east, descend to orbit entry (east).
+    kf(cam, 1,                  (2.0, -3.0, 8.0))
+    kf(cam, F_FLY_END * 0.5,   (2.5, -1.0, 4.0))
+    kf(cam, F_FLY_END,         (ORBIT_R, 0, ORBIT_Z))
+
+    # Target: look at mid-pillar throughout the descent
+    kf(target, 1,          TARGET_MID)
+    kf(target, F_FLY_END,  TARGET_MID)
+
+    # =================================================================
+    # SEGMENT 2 — 360° orbit  (frames 120 → 480)
+    # =================================================================
+    # Counter-clockwise from east (+X).  Keyframes every 15° for a
+    # smooth Bézier-interpolated circle.
+    orbit_dur = F_ORB_END - F_FLY_END          # 360 frames
+    for i in range(ORBIT_STEPS + 1):
+        angle = math.radians(i * 360.0 / ORBIT_STEPS)
+        x = ORBIT_R * math.cos(angle)
+        y = ORBIT_R * math.sin(angle)
+        f = F_FLY_END + i * orbit_dur / ORBIT_STEPS
+        kf(cam, f, (x, y, ORBIT_Z))
+
+    kf(target, F_ORB_END, TARGET_MID)
+
+    # =================================================================
+    # SEGMENT 3 — Approach east sighting hole  (frames 480 → 600)
+    # =================================================================
+    # Camera descends from orbit altitude to sighting-hole height,
+    # closing in on the east face.
+    f_app_mid = (F_ORB_END + F_APP_END) // 2     # frame 540
+    kf(cam, f_app_mid, (1.2, 0, 0.5))
+    kf(cam, F_APP_END, (0.6, 0, SH_Z))
+
+    # Target shifts to look straight through the sighting hole
+    kf(target, f_app_mid, (0, 0, 0.3))
+    kf(target, F_APP_END, (-3.0, 0, SH_Z))
+
+    # =================================================================
+    # SEGMENT 4 — Fly through the sighting tube  (frames 600 → 690)
+    # =================================================================
+    # Straight-line flight along the X axis at sighting-hole height.
+    # The tube inner diameter is 44 mm — Blender's camera is a point
+    # so it fits, and the 1 mm clip distance captures the tube walls.
+    f_thr_mid = (F_APP_END + F_THR_END) // 2     # frame 645
+    kf(cam, f_thr_mid, (0, 0, SH_Z))
+    kf(cam, F_THR_END, (-0.6, 0, SH_Z))
+
+    kf(target, F_THR_END, (-3.0, 0, SH_Z))
+
+    # =================================================================
+    # SEGMENT 5 — Pull back to 3/4 view  (frames 690 → 810)
+    # =================================================================
+    # Camera retreats south-west and rises, while the target
+    # transitions back to mid-pillar for a classic 3/4 composition.
+    f_pull_mid = (F_THR_END + F_PULL_END) // 2    # frame 750
+    kf(cam, f_pull_mid, (-2.0, -1.5, 0.8))
+    kf(cam, F_PULL_END, (-3.0, -2.5, 1.5))
+
+    kf(target, f_pull_mid, (-0.5, 0, 0.4))
+    kf(target, F_PULL_END, TARGET_MID)
+
+    # =================================================================
+    # SEGMENT 6 — Hold final view  (frames 810 → 900)
+    # =================================================================
+    kf(cam, TOTAL_FRAMES, (-3.0, -2.5, 1.5))
+    kf(target, TOTAL_FRAMES, TARGET_MID)
+
+    # ── Summary ──────────────────────────────────────────────────
+    dur = TOTAL_FRAMES / FPS
+    print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
+    print(f"    Orbit: r={ORBIT_R} m, z={ORBIT_Z} m, {ORBIT_STEPS} steps")
+    print(f"    Lens: {LENS_MM} mm, clip: {CLIP_START*1000:.0f} mm")
+    print("    Segments:")
+    print(f"      1–{F_FLY_END}:    Fly down")
+    print(f"      {F_FLY_END}–{F_ORB_END}:  360° orbit")
+    print(f"      {F_ORB_END}–{F_APP_END}:  Approach sighting hole")
+    print(f"      {F_APP_END}–{F_THR_END}:  Fly through sighting tube")
+    print(f"      {F_THR_END}–{F_PULL_END}:  Pull back to 3/4 view")
+    print(f"      {F_PULL_END}–{TOTAL_FRAMES}:  Hold final composition")
+
+
 # =====================================================================
 # MAIN
 # =====================================================================
@@ -3104,13 +3273,17 @@ def main():
     build_lower_centre_mark(M)
     build_terrain(M)
 
-    # Scene
+    # Scene (lights, render settings)
     setup_scene()
+
+    # Camera flythrough trajectory
+    setup_camera_animation()
 
     bpy.ops.object.select_all(action='DESELECT')
     n = len(bpy.data.objects)
     print(f"\nDone — {n} objects created.")
-    print("Tip: hide the Pillar object in the Outliner to see internal components.\n")
+    print("Tip: Press Space in the Timeline to preview the camera flythrough.")
+    print("     Press Numpad-0 to toggle the camera view.\n")
 
 
 if __name__ == "__main__":
