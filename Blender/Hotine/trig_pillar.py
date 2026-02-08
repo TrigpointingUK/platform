@@ -1068,7 +1068,7 @@ def build_brass_loops(M):
     profile.append(( hw,  0))                     # top right
     profile.append(( hw, -straight_h))            # right wall → semicircle
     for j in range(1, SEMI_N):                    # semicircle (right → left)
-        a = -math.pi / 2 + j * (-math.pi / SEMI_N)
+        a = j * (-math.pi / SEMI_N)              # 0 → -π around the bottom
         profile.append((hw * math.cos(a), -straight_h + hw * math.sin(a)))
     profile.append((-hw, -straight_h))            # left wall bottom
     profile.append((-hw,  0))                     # top left
@@ -1112,6 +1112,7 @@ def build_brass_loops(M):
             m = (k + 1) % np
             bm_r.faces.new([front[k], front[m], back[m], back[k]])
 
+        bmesh.ops.recalc_face_normals(bm_r, faces=bm_r.faces[:])
         bmesh.ops.triangulate(bm_r, faces=bm_r.faces[:])
 
         mesh_r = bpy.data.meshes.new(f"_recess_{i}")
