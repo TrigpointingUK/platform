@@ -838,73 +838,86 @@ def build_base_slab(M):
 
 
 def build_angle_irons(M):
-    """Four angle irons — roughly parallel to pillar taper, placed halfway
-    between pillar edges and box edges, with ~10% random variation in
-    length and angle to suggest hand-placement."""
+    """Four angle irons spanning the pillar-to-base-slab junction.
+
+    L-profile built directly with bmesh (no boolean union) for completely
+    predictable geometry.  All four are exactly the same length with Z
+    placements differing by ~10 mm.
+    """
     print("  Angle irons ...")
     rng = random.Random(99)
     irons = []
 
-    # Halfway between pillar corners and box corners
     hw_mid = (PILLAR_BTM_HW + UB_HW) / 2
-
-    # Base tilt angle to follow the pillar's tapered sides
     base_tilt = math.atan2(PILLAR_BTM_HW - PILLAR_TOP_HW, PILLAR_HEIGHT)
+    h = AI_TOTAL_H
+    bz = -BASE_HEIGHT + 0.05          # starts above base slab bottom
 
-    # Vertical span: from inside the base up into the pillar
-    bz = -BASE_HEIGHT + 0.05
-    base_h = AI_TOTAL_H
+    leg = AI_LEG
+    t = AI_THICK
+    half = leg / 2
 
-    # L-profile offset: distance from L's centre to each leg's centreline
-    l_offset = (AI_LEG - AI_THICK) / 2
+    # Standard L cross-section centred on bounding-box centre.
+    # Inner corner faces (+X, +Y).
+    profile = [
+        (-half,     -half),
+        ( half,     -half),
+        ( half,     -half + t),
+        (-half + t, -half + t),
+        (-half + t,  half),
+        (-half,      half),
+    ]
 
     for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
-        # All irons are exactly the same length
-        h = base_h
-
-        # Tilt to follow pillar slope, with tiny random wobble (±1%)
+        z_jitter = rng.uniform(-0.005, 0.005)     # ±5 mm → ~10 mm spread
         tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.01, 0.01))
         tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.01, 0.01))
 
-        # Leg 1: extends in X, offset toward the corner in Y
-        bpy.ops.mesh.primitive_cube_add(
-            size=1, location=(0, sy * l_offset, 0))
-        leg1 = bpy.context.active_object
-        leg1.scale = (AI_LEG, AI_THICK, h)
-        activate(leg1)
-        bpy.ops.object.transform_apply(scale=True)
+        # Build L-shape with bmesh — flip profile to orient inner corner
+        # toward (sx, sy) so it grips the pillar edge.
+        bm = bmesh.new()
+        top_verts = []
+        btm_verts = []
+        for px, py in profile:
+            x, y = px * sx, py * sy
+            top_verts.append(bm.verts.new((x, y,  h / 2)))
+            btm_verts.append(bm.verts.new((x, y, -h / 2)))
 
-        # Leg 2: extends in Y, offset toward the corner in X
-        bpy.ops.mesh.primitive_cube_add(
-            size=1, location=(sx * l_offset, 0, 0))
-        leg2 = bpy.context.active_object
-        leg2.scale = (AI_THICK, AI_LEG, h)
-        activate(leg2)
-        bpy.ops.object.transform_apply(scale=True)
+        n = len(profile)
+        # When sx*sy < 0, one axis flip reverses the winding
+        rev = (sx * sy < 0)
 
-        # Union the two legs
-        activate(leg1)
-        mod = leg1.modifiers.new("_bool", 'BOOLEAN')
-        mod.operation = 'UNION'
-        mod.object = leg2
-        mod.solver = 'EXACT'
-        bpy.ops.object.modifier_apply(modifier="_bool")
-        bpy.data.objects.remove(leg2, do_unlink=True)
+        # Top face (+Z normal)
+        bm.faces.new(top_verts[::-1] if rev else top_verts)
+        # Bottom face (-Z normal)
+        bm.faces.new(btm_verts if rev else btm_verts[::-1])
+        # Side faces
+        for j in range(n):
+            k = (j + 1) % n
+            if rev:
+                bm.faces.new([top_verts[k], top_verts[j],
+                              btm_verts[j], btm_verts[k]])
+            else:
+                bm.faces.new([top_verts[j], top_verts[k],
+                              btm_verts[k], btm_verts[j]])
 
-        # Re-centre origin on the L-shape geometry
-        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
+        mesh = bpy.data.meshes.new(f"AngleIron_{i}")
+        bm.to_mesh(mesh)
+        bm.free()
+        mesh.update()
 
-        # Final position (with tiny random offset) and rotation
-        cx = sx * (hw_mid - AI_LEG / 2) + rng.uniform(-0.001, 0.001)
-        cy = sy * (hw_mid - AI_LEG / 2) + rng.uniform(-0.001, 0.001)
-        cz = bz + h / 2
+        iron = bpy.data.objects.new(f"AngleIron_{i}", mesh)
+        bpy.context.collection.objects.link(iron)
 
-        leg1.location = (cx, cy, cz)
-        leg1.rotation_euler = (tilt_x, tilt_y, 0)
+        cx = sx * (hw_mid - leg / 2)
+        cy = sy * (hw_mid - leg / 2)
+        cz = bz + h / 2 + z_jitter
 
-        leg1.name = f"AngleIron_{i}"
-        assign(leg1, M['steel'])
-        irons.append(leg1)
+        iron.location = (cx, cy, cz)
+        iron.rotation_euler = (tilt_x, tilt_y, 0)
+        assign(iron, M['steel'])
+        irons.append(iron)
+
     return irons
 
 
