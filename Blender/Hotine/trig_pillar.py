@@ -164,6 +164,9 @@ def boolean_cut(target, cutter, operation='DIFFERENCE', solver='EXACT'):
 
     Use solver='FAST' for cuts where EXACT fails silently (e.g. cylindrical
     holes through complex geometry).
+
+    After applying, normals are recalculated so that subsequent booleans
+    on the same target mesh have clean, consistent geometry to work with.
     """
     activate(target)
     mod = target.modifiers.new("_bool", 'BOOLEAN')
@@ -172,6 +175,12 @@ def boolean_cut(target, cutter, operation='DIFFERENCE', solver='EXACT'):
     mod.solver = solver
     bpy.ops.object.modifier_apply(modifier="_bool")
     bpy.data.objects.remove(cutter, do_unlink=True)
+
+    # Recalculate normals for reliability of any subsequent booleans
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.normals_make_consistent(inside=False)
+    bpy.ops.object.mode_set(mode='OBJECT')
 
 
 def make_frustum(name, btm_hw, top_hw, height, base_z=0.0,
@@ -387,31 +396,35 @@ def build_pillar(M):
     boolean_cut(pillar, bpy.context.active_object, solver='FAST')
 
     # --- Cut sighting-tube channels clean through the pillar ---
-    # Tight-fit cylindrical channels (concrete right up to the tubes),
-    # with a conical bevel at each face where the hole meets the surface.
+    # All channel cylinders and bevel cones are joined into ONE cutter
+    # object, then a SINGLE boolean removes them all at once.  This is
+    # far more reliable than sequential booleans on increasingly complex
+    # geometry — which was causing the South channel to silently fail.
     chan_r = ST_OUTER_R + 0.0005        # ½ mm clearance — snug fit
     hw = pillar_hw_at(ST_Z)
     full_len = (hw + 0.015) * 2         # spans full pillar width + margin
+
+    parts = []   # collect all cutter meshes, join at the end
 
     # X-axis channel (East ↔ West)
     bpy.ops.mesh.primitive_cylinder_add(
         radius=chan_r, depth=full_len, vertices=32,
         location=(0, 0, ST_Z))
-    c = bpy.context.active_object
-    c.rotation_euler = (0, math.pi / 2, 0)
-    activate(c)
+    c_ew = bpy.context.active_object
+    c_ew.rotation_euler = (0, math.pi / 2, 0)
+    activate(c_ew)
     bpy.ops.object.transform_apply(rotation=True)
-    boolean_cut(pillar, c, solver='FAST')
+    parts.append(c_ew)
 
     # Y-axis channel (North ↔ South)
     bpy.ops.mesh.primitive_cylinder_add(
         radius=chan_r, depth=full_len, vertices=32,
         location=(0, 0, ST_Z))
-    c = bpy.context.active_object
-    c.rotation_euler = (math.pi / 2, 0, 0)
-    activate(c)
+    c_ns = bpy.context.active_object
+    c_ns.rotation_euler = (math.pi / 2, 0, 0)
+    activate(c_ns)
     bpy.ops.object.transform_apply(rotation=True)
-    boolean_cut(pillar, c, solver='FAST')
+    parts.append(c_ns)
 
     # Bevelled entrance at each sighting hole — a conical chamfer from
     # the flat pillar face down to the tube edge, ~8 mm deep.
@@ -425,8 +438,6 @@ def build_pillar(M):
         (0, +hw, 0, +math.pi / 2),      # +Y (North)
         (0, -hw, 0, -math.pi / 2),      # -Y (South)
     ):
-        # Cone: radius1 (bottom / larger) ends up at the face,
-        # radius2 (top / smaller) goes inward.
         bpy.ops.mesh.primitive_cone_add(
             radius1=bevel_face_r, radius2=bevel_inner_r,
             depth=bevel_depth, vertices=32,
@@ -435,11 +446,18 @@ def build_pillar(M):
         c.rotation_euler = (rx, ry, 0)
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
-        # Shift inward by half the depth so the wide end sits at the face
         shift_x = -face_x / hw * bevel_depth / 2 if face_x != 0 else 0
         shift_y = -face_y / hw * bevel_depth / 2 if face_y != 0 else 0
         c.location = (face_x + shift_x, face_y + shift_y, ST_Z)
-        boolean_cut(pillar, c, solver='FAST')
+        parts.append(c)
+
+    # Join all cutter parts into one object, then one boolean
+    activate(parts[0])
+    for p in parts[1:]:
+        p.select_set(True)
+    bpy.ops.object.join()
+    combined = bpy.context.active_object
+    boolean_cut(pillar, combined, solver='FAST')
 
     assign(pillar, M['concrete'])
     return pillar
@@ -526,14 +544,16 @@ def build_upper_box(M):
         vertices=32, location=(0, 0, bz + h))
     boolean_cut(box, bpy.context.active_object, solver='FAST')
 
-    # Sighting-tube holes through four walls — FAST solver for reliability
+    # Sighting-tube holes through four walls — all joined into one cutter
+    # for a single boolean (sequential booleans on thin-walled geometry
+    # can silently fail for later cuts).
+    st_cutters = []
     for dx, dy, rot in (
         ( 1, 0, (0,  math.pi / 2, 0)),
         (-1, 0, (0, -math.pi / 2, 0)),
         ( 0, 1, (-math.pi / 2, 0, 0)),
         ( 0,-1, ( math.pi / 2, 0, 0)),
     ):
-        # Very generous cutter: 5 mm clearance, spans full box width
         bpy.ops.mesh.primitive_cylinder_add(
             radius=ST_OUTER_R + 0.005, depth=outer * 3,
             vertices=32, location=(dx * outer, dy * outer, ST_Z))
@@ -541,7 +561,13 @@ def build_upper_box(M):
         c.rotation_euler = rot
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
-        boolean_cut(box, c, solver='FAST')
+        st_cutters.append(c)
+
+    activate(st_cutters[0])
+    for c in st_cutters[1:]:
+        c.select_set(True)
+    bpy.ops.object.join()
+    boolean_cut(box, bpy.context.active_object, solver='FAST')
 
     # 2) Hollow out the interior LAST — FAST solver for reliability
     inner = outer - UB_WALL
