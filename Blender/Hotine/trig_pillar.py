@@ -769,6 +769,94 @@ def build_upper_centre_mark(M):
     return mark
 
 
+def _spider_outline():
+    """Compute the 2D outer boundary of the spider (plan view).
+
+    Returns a list of (x, y) tuples tracing the outline counter-clockwise,
+    including annulus arcs, fillet curves, arm sides, and arm tips.
+
+    Used by build_spider() for the mesh and by main() for the pillar cavity.
+    """
+    outer_r = SPIDER_ANNULUS_OUTER_R
+    arm_hw  = SPIDER_ARM_W / 2
+    tip_r   = SPIDER_ANNULUS_INNER_R + SPIDER_ARM_LEN
+    fr      = SPIDER_FILLET_R
+
+    arm_angles = [math.radians(90 + i * 120) for i in range(3)]
+
+    # Fillet geometry (local frame: arm along +Y)
+    fc_x    = arm_hw + fr
+    fc_dist = outer_r + fr
+    fc_y    = math.sqrt(fc_dist**2 - fc_x**2)
+
+    t_ann_x = outer_r * fc_x / fc_dist
+    t_ann_y = outer_r * fc_y / fc_dist
+
+    fa_ann = math.atan2(t_ann_y - fc_y, t_ann_x - fc_x)
+    fa_arm = math.pi
+    if fa_ann < fa_arm:
+        fa_ann += 2 * math.pi
+
+    fl_arm = 0.0
+    fl_ann = math.atan2(t_ann_y - fc_y, fc_x - t_ann_x)
+
+    FILLET_N = 8
+    ARC_N    = 12
+
+    outline = []
+
+    for ai in range(3):
+        theta = arm_angles[ai]
+        rot   = theta - math.pi / 2
+        cr, sr = math.cos(rot), math.sin(rot)
+
+        def xf(lx, ly, _c=cr, _s=sr):
+            return (lx * _c - ly * _s, lx * _s + ly * _c)
+
+        for j in range(FILLET_N + 1):
+            t = j / FILLET_N
+            a = fa_ann + t * (fa_arm - fa_ann)
+            outline.append(xf(fc_x + fr * math.cos(a),
+                              fc_y + fr * math.sin(a)))
+
+        outline.append(xf(arm_hw, tip_r))
+        outline.append(xf(-arm_hw, tip_r))
+
+        for j in range(FILLET_N + 1):
+            t = j / FILLET_N
+            a = fl_arm + t * (fl_ann - fl_arm)
+            outline.append(xf(-fc_x + fr * math.cos(a),
+                              fc_y + fr * math.sin(a)))
+
+        lt    = xf(-t_ann_x, t_ann_y)
+        ang_s = math.atan2(lt[1], lt[0])
+
+        ni    = (ai + 1) % 3
+        nrot  = arm_angles[ni] - math.pi / 2
+        nc, ns = math.cos(nrot), math.sin(nrot)
+        rt    = (t_ann_x * nc - t_ann_y * ns,
+                 t_ann_x * ns + t_ann_y * nc)
+        ang_e = math.atan2(rt[1], rt[0])
+
+        while ang_e <= ang_s:
+            ang_e += 2 * math.pi
+
+        for j in range(1, ARC_N):
+            t = j / ARC_N
+            a = ang_s + t * (ang_e - ang_s)
+            outline.append((outer_r * math.cos(a), outer_r * math.sin(a)))
+
+    # Deduplicate consecutive near-coincident vertices
+    cleaned = [outline[0]]
+    for pt in outline[1:]:
+        if math.hypot(pt[0] - cleaned[-1][0], pt[1] - cleaned[-1][1]) > 1e-6:
+            cleaned.append(pt)
+    if math.hypot(cleaned[0][0] - cleaned[-1][0],
+                  cleaned[0][1] - cleaned[-1][1]) < 1e-6:
+        cleaned.pop()
+    return cleaned
+
+
 def build_spider(M):
     """Brass spider fitting at the top of the pillar.
 
@@ -801,88 +889,7 @@ def build_spider(M):
 
     arm_angles = [math.radians(90 + i * 120) for i in range(3)]
 
-    # ── Fillet geometry (local frame: arm along +Y) ───────────────
-    fc_x    = arm_hw + fr                           # fillet centre X (right side)
-    fc_dist = outer_r + fr                          # distance from origin to fillet centre
-    fc_y    = math.sqrt(fc_dist**2 - fc_x**2)      # fillet centre Y
-
-    # Right-side tangent on annulus outer circle
-    t_ann_x = outer_r * fc_x / fc_dist
-    t_ann_y = outer_r * fc_y / fc_dist
-
-    # Right fillet arc angles (measured from right fillet centre)
-    fa_ann = math.atan2(t_ann_y - fc_y, t_ann_x - fc_x)
-    fa_arm = math.pi                                # toward arm tangent
-    if fa_ann < fa_arm:                             # ensure short (clockwise) arc
-        fa_ann += 2 * math.pi
-
-    # Left fillet arc angles (from left fillet centre at (-fc_x, fc_y))
-    fl_arm = 0.0                                    # toward arm tangent
-    fl_ann = math.atan2(t_ann_y - fc_y, fc_x - t_ann_x)
-
-    FILLET_N = 8       # segments per fillet arc
-    ARC_N    = 12      # segments per annulus arc between arms
-
-    # ── Build outer boundary (counter-clockwise) ─────────────────
-    outline = []
-
-    for ai in range(3):
-        theta = arm_angles[ai]
-        rot   = theta - math.pi / 2
-        cr, sr = math.cos(rot), math.sin(rot)
-
-        def xf(lx, ly, _c=cr, _s=sr):
-            """Transform from local arm frame to global XY."""
-            return (lx * _c - ly * _s, lx * _s + ly * _c)
-
-        # Right fillet: annulus tangent → arm tangent
-        for j in range(FILLET_N + 1):
-            t = j / FILLET_N
-            a = fa_ann + t * (fa_arm - fa_ann)
-            outline.append(xf(fc_x + fr * math.cos(a),
-                              fc_y + fr * math.sin(a)))
-
-        # Right arm side → tip
-        outline.append(xf(arm_hw, tip_r))
-
-        # Arm tip (right → left)
-        outline.append(xf(-arm_hw, tip_r))
-
-        # Left fillet: arm tangent → annulus tangent
-        for j in range(FILLET_N + 1):
-            t = j / FILLET_N
-            a = fl_arm + t * (fl_ann - fl_arm)
-            outline.append(xf(-fc_x + fr * math.cos(a),
-                              fc_y + fr * math.sin(a)))
-
-        # Annulus arc to next arm's right fillet
-        lt    = xf(-t_ann_x, t_ann_y)
-        ang_s = math.atan2(lt[1], lt[0])
-
-        ni    = (ai + 1) % 3
-        nrot  = arm_angles[ni] - math.pi / 2
-        nc, ns = math.cos(nrot), math.sin(nrot)
-        rt    = (t_ann_x * nc - t_ann_y * ns,
-                 t_ann_x * ns + t_ann_y * nc)
-        ang_e = math.atan2(rt[1], rt[0])
-
-        while ang_e <= ang_s:
-            ang_e += 2 * math.pi
-
-        for j in range(1, ARC_N):
-            t = j / ARC_N
-            a = ang_s + t * (ang_e - ang_s)
-            outline.append((outer_r * math.cos(a), outer_r * math.sin(a)))
-
-    # Deduplicate consecutive near-coincident vertices
-    cleaned = [outline[0]]
-    for pt in outline[1:]:
-        if math.hypot(pt[0] - cleaned[-1][0], pt[1] - cleaned[-1][1]) > 1e-6:
-            cleaned.append(pt)
-    if math.hypot(cleaned[0][0] - cleaned[-1][0],
-                  cleaned[0][1] - cleaned[-1][1]) < 1e-6:
-        cleaned.pop()
-    outline = cleaned
+    outline = _spider_outline()
 
     # ── Compute outward normals for outer bevel offset ────────────
     # The 1 mm bevel runs around the entire outside edge (annulus arcs,
@@ -1605,21 +1612,32 @@ def main():
     build_upper_centre_mark(M)
     build_spider(M)
 
-    # Remove all pillar material above the spider underside so the
-    # pillar has a flat top and the spider sits on top of it.  This
-    # avoids concrete filling the V-grooves, bore, and other voids.
-    print("  Flattening pillar top at spider underside ...")
+    # Cut spider-footprint cavity from the pillar.  The spider is
+    # embedded in the pillar top; concrete rises to PILLAR_HEIGHT
+    # between the arms but is removed within the spider's outline
+    # (arms, annulus, fillets) so grooves, bore, etc. are air.
+    print("  Cutting spider cavity from pillar ...")
+    outline = _spider_outline()
     spider_base_z = PILLAR_HEIGHT - SPIDER_THICK
-    slab_h = SPIDER_THICK + 0.002
-    bpy.ops.mesh.primitive_cube_add(
-        size=1, location=(0, 0, spider_base_z + slab_h / 2))
-    slab = bpy.context.active_object
-    slab.scale = (PILLAR_BTM_HW * 2 + 0.01,
-                  PILLAR_BTM_HW * 2 + 0.01,
-                  slab_h)
-    activate(slab)
-    bpy.ops.object.transform_apply(scale=True)
-    boolean_cut(bpy.data.objects['Pillar'], slab, solver='FAST')
+    n = len(outline)
+
+    bm = bmesh.new()
+    bot = [bm.verts.new((x, y, spider_base_z - 0.001)) for x, y in outline]
+    top = [bm.verts.new((x, y, PILLAR_HEIGHT + 0.001)) for x, y in outline]
+    bm.faces.new(bot[::-1])
+    bm.faces.new(top)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new([bot[i], bot[j], top[j], top[i]])
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+
+    mesh_cut = bpy.data.meshes.new("_spider_cavity")
+    bm.to_mesh(mesh_cut)
+    bm.free()
+
+    cavity = bpy.data.objects.new("_spider_cavity", mesh_cut)
+    bpy.context.collection.objects.link(cavity)
+    boolean_cut(bpy.data.objects['Pillar'], cavity, solver='FAST')
 
     build_plug(M)
     build_fixings(M)
