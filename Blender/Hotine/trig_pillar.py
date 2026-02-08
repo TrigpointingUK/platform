@@ -431,9 +431,12 @@ def build_pillar(M):
     bpy.ops.object.transform_apply(scale=True)
     boolean_cut(pillar, v, solver='FAST')
 
-    # --- Centre-pipe channel (pillar top → box top face) ---
-    cp_void_len = PILLAR_HEIGHT - box_top_z + 0.002
-    cp_void_z = (box_top_z - 0.001 + PILLAR_HEIGHT + 0.001) / 2
+    # --- Centre-pipe channel (spider underside → box top face) ---
+    # The top 20 mm of the pillar is carved by the spider boolean later;
+    # the pipe channel only needs to reach the spider underside.
+    spider_base = PILLAR_HEIGHT - SPIDER_THICK
+    cp_void_len = spider_base - box_top_z + 0.002
+    cp_void_z = (box_top_z - 0.001 + spider_base + 0.001) / 2
     bpy.ops.mesh.primitive_cylinder_add(
         radius=CP_OUTER_R + 0.001,      # 1 mm clearance — tight fit
         depth=cp_void_len,
@@ -1601,6 +1604,17 @@ def main():
     build_concrete_fill(M)
     build_upper_centre_mark(M)
     build_spider(M)
+
+    # Cut spider-shaped void from the pillar top so the concrete
+    # flows around the spider arms, grooves, fillets, and annulus.
+    print("  Cutting spider void from pillar ...")
+    spider = bpy.data.objects['Spider']
+    activate(spider)
+    bpy.ops.object.duplicate()
+    cutter = bpy.context.active_object
+    cutter.name = "_spider_void"
+    boolean_cut(bpy.data.objects['Pillar'], cutter, solver='FAST')
+
     build_plug(M)
     build_fixings(M)
     build_brass_loops(M)
