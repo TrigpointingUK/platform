@@ -72,7 +72,10 @@ SPIDER_ANNULUS_INNER_R = 0.0465  # [D] 93 mm inner dia / 2
 SPIDER_ANNULUS_OUTER_R = 0.065   # [D] 130 mm outer dia / 2
 SPIDER_INNER_BEVEL     = 0.003   # [D] 3 mm 45° bevel to top (inner edge)
 SPIDER_OUTER_BEVEL     = 0.001   # [D] 1 mm bevel to top (outer edge)
-SPIDER_THICK           = 0.010   # [E] ~3/8"
+SPIDER_THICK           = 0.020   # [D] 20 mm
+SPIDER_LOWER_BORE_R    = 0.032   # [D] 64 mm lower bore dia / 2 (forms shelf)
+SPIDER_SCREW_R         = 0.0015  # [D] 3 mm threaded screwholes / 2
+SPIDER_SCREW_SPACING   = 0.077   # [D] 77 mm apart (diametrically opposite)
 SPIDER_ARM_LEN         = 0.115   # [D] 115 mm from inner dia of annulus
 SPIDER_ARM_W           = 0.030   # [D] 30 mm
 SPIDER_GROOVE_W        = 0.010   # [D] 10 mm wide, 90° V-groove
@@ -756,12 +759,16 @@ def build_spider(M):
     fr      = SPIDER_FILLET_R
     ib      = SPIDER_INNER_BEVEL
     obv     = SPIDER_OUTER_BEVEL
+    lower_r = SPIDER_LOWER_BORE_R
+    screw_r = SPIDER_SCREW_R
+    screw_d = SPIDER_SCREW_SPACING / 2       # screw distance from centre
     gw      = SPIDER_GROOVE_W / 2            # groove half-width
     gd      = gw                             # groove depth (90° → depth = half-width)
 
     zt = PILLAR_HEIGHT
     zb = zt - thick
     zm = zt - thick / 2
+    z_shelf = zb + thick / 2                 # shelf at spider mid-height
 
     arm_angles = [math.radians(90 + i * 120) for i in range(3)]
 
@@ -908,10 +915,21 @@ def build_spider(M):
     bpy.context.collection.objects.link(spider)
     activate(spider)
 
-    # ── Centre hole ───────────────────────────────────────────────
+    # ── Stepped centre bore ─────────────────────────────────────
+    # Upper half: 93 mm dia bore from shelf to top.
+    upper_h = thick / 2 + 0.002
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=inner_r, depth=thick + 0.004,
-        vertices=64, location=(0, 0, zm))
+        radius=inner_r, depth=upper_h,
+        vertices=64,
+        location=(0, 0, z_shelf + upper_h / 2))
+    boolean_cut(spider, bpy.context.active_object)
+
+    # Lower half: 64 mm dia bore from bottom to shelf (forms shelf).
+    lower_h = thick / 2 + 0.002
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=lower_r, depth=lower_h,
+        vertices=64,
+        location=(0, 0, z_shelf - lower_h / 2))
     boolean_cut(spider, bpy.context.active_object)
 
     # ── Inner bevel (45° × 3 mm on top of inner edge) ────────────
@@ -923,6 +941,20 @@ def build_spider(M):
         vertices=64,
         location=(0, 0, zt - ib + bevel_h / 2))
     boolean_cut(spider, bpy.context.active_object)
+
+    # ── Screwholes in shelf ──────────────────────────────────────
+    # Two 3 mm threaded holes drilled into the shelf, diametrically
+    # opposite, 77 mm apart (centre-to-centre).
+    screw_depth = thick / 2 + 0.002         # through lower half
+    for angle_deg in (0, 180):
+        a = math.radians(angle_deg)
+        sx = screw_d * math.cos(a)
+        sy = screw_d * math.sin(a)
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=screw_r, depth=screw_depth,
+            vertices=16,
+            location=(sx, sy, z_shelf - screw_depth / 2 + 0.001))
+        boolean_cut(spider, bpy.context.active_object)
 
     # ── V-grooves (90°, 10 mm wide) on each arm ──────────────────
     for ai in range(3):
