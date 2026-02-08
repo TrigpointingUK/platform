@@ -100,8 +100,13 @@ PLUG_HOLE_R         = 0.0045    # [D] 9 mm clearance holes in upper ring / 2
 PLUG_HOLE_SPACING   = 0.077     # [D] 77 mm apart (matches spider screwholes)
 
 # --- Inner Plug ---
-IPLUG_R             = 0.016     # [E] matches plug inner
-IPLUG_H             = 0.022     # [E] ~⅞"
+IPLUG_R             = 0.0189    # [D] ~37.8 mm dia / 2 (fraction under 38 mm)
+IPLUG_H             = 0.023     # [D] 23 mm thick
+IPLUG_BEVEL         = 0.001     # [D] 1 mm chamfer on top edge
+IPLUG_HOLE_R        = 0.003     # [D] 6 mm blind holes / 2
+IPLUG_CENTRE_DEPTH  = 0.016     # [D] centre hole 16 mm deep
+IPLUG_SIDE_DEPTH    = 0.008     # [D] side holes 8 mm deep
+IPLUG_SIDE_SPACING  = 0.027     # [D] side holes 27 mm apart
 
 # --- Flush Bracket ---
 FB_W                = 0.102     # [E] ~4" wide
@@ -1109,12 +1114,67 @@ def build_plug(M):
     assign(plug, M['brass'])
     smooth(plug)
 
-    # Inner plug (solid cylinder sitting inside the plug bore)
+    # ── Inner plug ─────────────────────────────────────────────────
+    # Solid cylinder (~37.8 mm dia) with 1 mm chamfer on top edge and
+    # three blind holes drilled into the bottom.  Sits inside the plug
+    # bore with its top flush with the plug top.
+    ip_r    = IPLUG_R
+    ip_h    = IPLUG_H
+    ip_bv   = IPLUG_BEVEL
+    z_ip_top = z_top
+    z_ip_bot = z_ip_top - ip_h
+    z_ip_mid = z_ip_top - ip_h / 2
+
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=IPLUG_R, depth=IPLUG_H, vertices=32,
-        location=(0, 0, z_top - IPLUG_H / 2))
+        radius=ip_r, depth=ip_h, vertices=64,
+        location=(0, 0, z_ip_mid))
     ip = bpy.context.active_object
     ip.name = "InnerPlug"
+
+    # Chamfer on top edge (1 mm, 45°) — revolved triangular cutter
+    eps = 0.0005
+    bm_c = bmesh.new()
+    cv = [
+        bm_c.verts.new((ip_r - ip_bv - eps, 0, z_ip_top + eps)),
+        bm_c.verts.new((ip_r + eps,          0, z_ip_top + eps)),
+        bm_c.verts.new((ip_r + eps,          0, z_ip_top - ip_bv - eps)),
+    ]
+    bm_c.faces.new(cv)
+    geom_c = bm_c.faces[:] + bm_c.edges[:] + bm_c.verts[:]
+    bmesh.ops.spin(bm_c, geom=geom_c,
+                   cent=(0, 0, 0), axis=(0, 0, 1),
+                   angle=2 * math.pi, steps=64)
+    bmesh.ops.remove_doubles(bm_c, verts=bm_c.verts, dist=0.0001)
+    mesh_c = bpy.data.meshes.new("_iplug_chamfer")
+    bm_c.to_mesh(mesh_c)
+    bm_c.free()
+
+    chamfer_cut = bpy.data.objects.new("_iplug_chamfer", mesh_c)
+    bpy.context.collection.objects.link(chamfer_cut)
+    boolean_cut(ip, chamfer_cut)
+
+    # Three blind holes drilled into the bottom face
+    bh_r = IPLUG_HOLE_R
+
+    # Centre hole — 6 mm dia, 16 mm deep
+    cd = IPLUG_CENTRE_DEPTH
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=bh_r, depth=cd + 0.002, vertices=16,
+        location=(0, 0, z_ip_bot + cd / 2))
+    boolean_cut(ip, bpy.context.active_object)
+
+    # Two side holes — 6 mm dia, 8 mm deep, 27 mm apart
+    sd = IPLUG_SIDE_DEPTH
+    side_d = IPLUG_SIDE_SPACING / 2
+    for angle_deg in (90, 270):
+        a = math.radians(angle_deg)
+        sx = side_d * math.cos(a)
+        sy = side_d * math.sin(a)
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=bh_r, depth=sd + 0.002, vertices=16,
+            location=(sx, sy, z_ip_bot + sd / 2))
+        boolean_cut(ip, bpy.context.active_object)
+
     assign(ip, M['brass'])
     smooth(ip)
 
