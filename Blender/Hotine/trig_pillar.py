@@ -387,16 +387,15 @@ def build_pillar(M):
     boolean_cut(pillar, bpy.context.active_object, solver='FAST')
 
     # --- Cut sighting-tube channels clean through the pillar ---
-    # Two full-width cylindrical channels (one per axis) centred at the
-    # pillar origin, so the view is clear from one sighting hole through
-    # the box interior to the opposite hole.  FAST solver for reliability.
-    cut_r = ST_OUTER_R + 0.005          # 5 mm clearance around tube
+    # Tight-fit cylindrical channels (concrete right up to the tubes),
+    # with a conical bevel at each face where the hole meets the surface.
+    chan_r = ST_OUTER_R + 0.0005        # ½ mm clearance — snug fit
     hw = pillar_hw_at(ST_Z)
     full_len = (hw + 0.015) * 2         # spans full pillar width + margin
 
     # X-axis channel (East ↔ West)
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=cut_r, depth=full_len, vertices=32,
+        radius=chan_r, depth=full_len, vertices=32,
         location=(0, 0, ST_Z))
     c = bpy.context.active_object
     c.rotation_euler = (0, math.pi / 2, 0)
@@ -406,13 +405,41 @@ def build_pillar(M):
 
     # Y-axis channel (North ↔ South)
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=cut_r, depth=full_len, vertices=32,
+        radius=chan_r, depth=full_len, vertices=32,
         location=(0, 0, ST_Z))
     c = bpy.context.active_object
     c.rotation_euler = (math.pi / 2, 0, 0)
     activate(c)
     bpy.ops.object.transform_apply(rotation=True)
     boolean_cut(pillar, c, solver='FAST')
+
+    # Bevelled entrance at each sighting hole — a conical chamfer from
+    # the flat pillar face down to the tube edge, ~8 mm deep.
+    bevel_face_r = ST_OUTER_R + 0.012   # wider at the pillar surface
+    bevel_inner_r = chan_r               # matches channel at the inner end
+    bevel_depth = 0.008                  # 8 mm into the face
+
+    for face_x, face_y, ry, rx in (
+        (+hw, 0, -math.pi / 2, 0),      # +X (East)
+        (-hw, 0, +math.pi / 2, 0),      # -X (West)
+        (0, +hw, 0, +math.pi / 2),      # +Y (North)
+        (0, -hw, 0, -math.pi / 2),      # -Y (South)
+    ):
+        # Cone: radius1 (bottom / larger) ends up at the face,
+        # radius2 (top / smaller) goes inward.
+        bpy.ops.mesh.primitive_cone_add(
+            radius1=bevel_face_r, radius2=bevel_inner_r,
+            depth=bevel_depth, vertices=32,
+            location=(face_x, face_y, ST_Z))
+        c = bpy.context.active_object
+        c.rotation_euler = (rx, ry, 0)
+        activate(c)
+        bpy.ops.object.transform_apply(rotation=True)
+        # Shift inward by half the depth so the wide end sits at the face
+        shift_x = -face_x / hw * bevel_depth / 2 if face_x != 0 else 0
+        shift_y = -face_y / hw * bevel_depth / 2 if face_y != 0 else 0
+        c.location = (face_x + shift_x, face_y + shift_y, ST_Z)
+        boolean_cut(pillar, c, solver='FAST')
 
     assign(pillar, M['concrete'])
     return pillar
@@ -444,7 +471,7 @@ def build_sighting_tubes(M):
     rng = random.Random(55)
     hw = pillar_hw_at(ST_Z)
     box_inner = UB_HW - UB_WALL           # inner box wall distance from centre
-    outer_end = hw + 0.005                 # just past pillar face
+    outer_end = hw - 0.005                 # 5 mm inside pillar face
     a = ST_TILT
 
     directions = [
