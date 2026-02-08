@@ -74,7 +74,7 @@ SPIDER_INNER_BEVEL     = 0.003   # [D] 3 mm 45° bevel to top (inner edge)
 SPIDER_OUTER_BEVEL     = 0.001   # [D] 1 mm bevel to top (outer edge)
 SPIDER_THICK           = 0.020   # [D] 20 mm
 SPIDER_LOWER_BORE_R    = 0.032   # [D] 64 mm lower bore dia / 2 (forms shelf)
-SPIDER_SCREW_R         = 0.0015  # [D] 3 mm threaded screwholes / 2
+SPIDER_SCREW_R         = 0.002   # [D] 4 mm threaded screwholes / 2
 SPIDER_SCREW_SPACING   = 0.077   # [D] 77 mm apart (diametrically opposite)
 SPIDER_ARM_LEN         = 0.115   # [D] 115 mm from inner dia of annulus
 SPIDER_ARM_W           = 0.030   # [D] 30 mm
@@ -88,9 +88,16 @@ LOOP_W              = 0.016     # [E] ~⅝" width
 LOOP_RECESS         = 0.006     # [D] ¼" sunk below spider
 
 # --- Plug ---
-PLUG_OUTER_R        = 0.022     # [E] matches spider hole
-PLUG_INNER_R        = 0.016     # [E] inner thread
-PLUG_H              = 0.016     # [E] ~⅝"
+PLUG_UPPER_R        = 0.046     # [D] 92 mm upper ring dia / 2
+PLUG_UPPER_H        = 0.006     # [D] 6 mm thick
+PLUG_UPPER_BEVEL    = 0.003     # [D] 3 mm 45° chamfer on top edge
+PLUG_MIDDLE_R       = 0.0319    # [D] ~63.8 mm dia / 2 (fraction under 64 mm)
+PLUG_MIDDLE_H       = 0.009     # [D] 9 mm thick
+PLUG_LOWER_R        = 0.023     # [D] 46 mm dia / 2
+PLUG_LOWER_H        = 0.009     # [D] 9 mm thick
+PLUG_BORE_R         = 0.019     # [D] 38 mm inner dia / 2
+PLUG_HOLE_R         = 0.0045    # [D] 9 mm clearance holes in upper ring / 2
+PLUG_HOLE_SPACING   = 0.077     # [D] 77 mm apart (matches spider screwholes)
 
 # --- Inner Plug ---
 IPLUG_R             = 0.016     # [E] matches plug inner
@@ -1028,20 +1035,84 @@ def build_brass_loops(M):
 
 
 def build_plug(M):
-    """Brass plug and inner plug in the spider's central hole."""
-    print("  Plug & inner plug ...")
-    zt = PILLAR_HEIGHT
+    """Brass plug that screws into the spider's stepped bore.
 
-    # Outer plug (annulus)
-    plug = make_tube("Plug", PLUG_OUTER_R, PLUG_INNER_R, PLUG_H,
-                     loc=(0, 0, zt - PLUG_H / 2))
+    Three stacked annular rings (upper, middle, lower) with a 38 mm
+    through-bore.  The upper ring has a 3 mm 45° chamfer on its top edge
+    and two 9 mm clearance holes for the spider shelf screws.
+
+    The base of the upper ring sits on the spider shelf, so the plug
+    top sits 4 mm below the pillar top.
+    """
+    print("  Plug & inner plug ...")
+
+    # Positioning — upper ring base sits on the spider shelf
+    z_shelf = PILLAR_HEIGHT - SPIDER_THICK / 2
+
+    bore_r  = PLUG_BORE_R
+    up_r    = PLUG_UPPER_R
+    mid_r   = PLUG_MIDDLE_R
+    low_r   = PLUG_LOWER_R
+    chm     = PLUG_UPPER_BEVEL
+
+    z_top     = z_shelf + PLUG_UPPER_H          # top of plug
+    z_mid_bot = z_shelf - PLUG_MIDDLE_H          # bottom of middle ring
+    z_bot     = z_mid_bot - PLUG_LOWER_H         # bottom of plug
+
+    # ── Stepped profile (XZ half-plane, spun 360° around Z) ──────
+    # Nine vertices trace the cross-section clockwise from top-inner.
+    bm = bmesh.new()
+    profile = [
+        (bore_r,        z_top),               # 0  top inner
+        (up_r - chm,    z_top),               # 1  top surface → chamfer
+        (up_r,          z_top - chm),         # 2  chamfer end (outer wall)
+        (up_r,          z_shelf),             # 3  upper ring outer, bottom
+        (mid_r,         z_shelf),             # 4  step to middle ring
+        (mid_r,         z_mid_bot),           # 5  middle ring outer, bottom
+        (low_r,         z_mid_bot),           # 6  step to lower ring
+        (low_r,         z_bot),               # 7  lower ring bottom outer
+        (bore_r,        z_bot),               # 8  lower ring bottom inner
+    ]
+
+    verts = [bm.verts.new((r, 0, z)) for r, z in profile]
+    bm.faces.new(verts)
+
+    geom = bm.faces[:] + bm.edges[:] + bm.verts[:]
+    bmesh.ops.spin(bm, geom=geom,
+                   cent=(0, 0, 0), axis=(0, 0, 1),
+                   angle=2 * math.pi, steps=64)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
+
+    mesh = bpy.data.meshes.new("Plug")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    plug = bpy.data.objects.new("Plug", mesh)
+    bpy.context.collection.objects.link(plug)
+    activate(plug)
+
+    # ── Clearance holes in the upper ring ────────────────────────
+    # Two 9 mm holes, 77 mm apart, aligned with the spider screwholes.
+    hole_r = PLUG_HOLE_R
+    hole_d = PLUG_HOLE_SPACING / 2              # distance from centre
+    hole_h = PLUG_UPPER_H + 0.004               # through the upper ring
+    for angle_deg in (0, 180):
+        a = math.radians(angle_deg)
+        hx = hole_d * math.cos(a)
+        hy = hole_d * math.sin(a)
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=hole_r, depth=hole_h,
+            vertices=24,
+            location=(hx, hy, z_shelf + PLUG_UPPER_H / 2))
+        boolean_cut(plug, bpy.context.active_object)
+
     assign(plug, M['brass'])
     smooth(plug)
 
-    # Inner plug (solid cylinder)
+    # Inner plug (solid cylinder sitting inside the plug bore)
     bpy.ops.mesh.primitive_cylinder_add(
         radius=IPLUG_R, depth=IPLUG_H, vertices=32,
-        location=(0, 0, zt - IPLUG_H / 2))
+        location=(0, 0, z_top - IPLUG_H / 2))
     ip = bpy.context.active_object
     ip.name = "InnerPlug"
     assign(ip, M['brass'])
