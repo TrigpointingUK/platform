@@ -96,6 +96,7 @@ PLUG_MIDDLE_H       = 0.009     # [D] 9 mm thick
 PLUG_LOWER_R        = 0.023     # [D] 46 mm dia / 2
 PLUG_LOWER_H        = 0.009     # [D] 9 mm thick
 PLUG_BORE_R         = 0.019     # [D] 38 mm inner dia / 2
+PLUG_BORE_BEVEL     = 0.001     # [D] 1 mm chamfer on top of bore (matches inner plug)
 PLUG_HOLE_R         = 0.0045    # [D] 9 mm clearance holes in upper ring / 2
 PLUG_HOLE_SPACING   = 0.077     # [D] 77 mm apart (matches spider screwholes)
 
@@ -1055,6 +1056,7 @@ def build_plug(M):
     z_shelf = PILLAR_HEIGHT - SPIDER_THICK / 2
 
     bore_r  = PLUG_BORE_R
+    bore_bv = PLUG_BORE_BEVEL
     up_r    = PLUG_UPPER_R
     mid_r   = PLUG_MIDDLE_R
     low_r   = PLUG_LOWER_R
@@ -1065,11 +1067,12 @@ def build_plug(M):
     z_bot     = z_mid_bot - PLUG_LOWER_H         # bottom of plug
 
     # ── Stepped profile (XZ half-plane, spun 360° around Z) ──────
-    # Nine vertices trace the cross-section clockwise from top-inner.
+    # Ten vertices trace the cross-section clockwise from top-inner.
     bm = bmesh.new()
     profile = [
-        (bore_r,        z_top),               # 0  top inner
-        (up_r - chm,    z_top),               # 1  top surface → chamfer
+        (bore_r,            z_top - bore_bv), # 0  bore wall, below inner chamfer
+        (bore_r + bore_bv,  z_top),           # 1  inner chamfer end (top surface)
+        (up_r - chm,        z_top),           # 2  top surface → outer chamfer
         (up_r,          z_top - chm),         # 2  chamfer end (outer wall)
         (up_r,          z_shelf),             # 3  upper ring outer, bottom
         (mid_r,         z_shelf),             # 4  step to middle ring
