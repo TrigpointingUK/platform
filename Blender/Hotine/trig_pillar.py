@@ -88,6 +88,7 @@ LOOP_DEPTH          = 0.003     # [D] top of loop 3 mm below pillar surface
 LOOP_RECESS_L       = 0.040     # [D] 40 mm recess length (radial)
 LOOP_RECESS_W       = 0.015     # [D] 15 mm recess width (tangential)
 LOOP_RECESS_D       = 0.015     # [D] 15 mm recess depth
+LOOP_POS_R          = 0.120     # [D] 120 mm from pillar centre
 
 # --- Plug ---
 PLUG_UPPER_R        = 0.046     # [D] 92 mm upper ring dia / 2
@@ -1049,14 +1050,28 @@ def build_brass_loops(M):
     rl      = LOOP_RECESS_L                       # recess length (40 mm)
     rw      = LOOP_RECESS_W                       # recess width  (15 mm)
     rd      = LOOP_RECESS_D                       # recess depth  (15 mm)
+    hw      = rw / 2                              # half width (7.5 mm)
     z_surf  = PILLAR_HEIGHT                       # pillar surface
 
     # Loop centre Z: top of wire = surface - LOOP_DEPTH
     z_loop = z_surf - LOOP_DEPTH - R - r          # PILLAR_HEIGHT - 0.020
 
-    r_pos = SPIDER_ANNULUS_OUTER_R + 0.012        # radial distance from centre
+    r_pos = LOOP_POS_R                            # 120 mm from centre
     pillar = bpy.data.objects['Pillar']
     loops = []
+
+    # Pre-compute the U-shaped recess cross-section (Y, Z in local frame).
+    # Length along local X, width along Y, depth along -Z, top at Z=0.
+    straight_h = rd - hw                          # 7.5 mm straight walls
+    SEMI_N = 12
+    profile = []
+    profile.append(( hw,  0))                     # top right
+    profile.append(( hw, -straight_h))            # right wall → semicircle
+    for j in range(1, SEMI_N):                    # semicircle (right → left)
+        a = -math.pi / 2 + j * (-math.pi / SEMI_N)
+        profile.append((hw * math.cos(a), -straight_h + hw * math.sin(a)))
+    profile.append((-hw, -straight_h))            # left wall bottom
+    profile.append((-hw,  0))                     # top left
 
     for i in range(3):
         # Between spider arms (offset 60° from arm positions)
@@ -1082,33 +1097,35 @@ def build_brass_loops(M):
         smooth(lp)
         loops.append(lp)
 
-        # ── Recess carved from pillar ─────────────────────────────
-        # U-shaped cross-section: flat walls + semicircular bottom.
-        # Built as a rectangular box (upper portion) plus a horizontal
-        # cylinder (rounded bottom).
-        box_h = rd - rw / 2       # straight wall depth (7.5 mm)
+        # ── Recess carved from pillar (single bmesh cutter) ──────
+        # U-shaped cross-section extruded along the radial direction.
+        bm_r = bmesh.new()
+        np = len(profile)
+        half_l = rl / 2
 
-        # Box (upper rectangular portion)
-        bpy.ops.mesh.primitive_cube_add(
-            size=1, location=(cx, cy, z_surf - box_h / 2))
-        box = bpy.context.active_object
-        box.scale = (rl, rw, box_h)
-        box.rotation_euler.z = angle
-        activate(box)
-        bpy.ops.object.transform_apply(scale=True, rotation=True)
-        boolean_cut(pillar, box, solver='FAST')
+        front = [bm_r.verts.new((- half_l, y, z)) for y, z in profile]
+        back  = [bm_r.verts.new((  half_l, y, z)) for y, z in profile]
 
-        # Cylinder (rounded bottom, axis along radial direction)
-        bpy.ops.mesh.primitive_cylinder_add(
-            radius=rw / 2, depth=rl,
-            vertices=24,
-            location=(cx, cy, z_surf - box_h))
-        cyl = bpy.context.active_object
-        # Lay along radial: Ry(90°) then Rz(angle)
-        cyl.rotation_euler = (0, math.pi / 2, angle)
-        activate(cyl)
-        bpy.ops.object.transform_apply(rotation=True)
-        boolean_cut(pillar, cyl, solver='FAST')
+        bm_r.faces.new(front[::-1])               # front cap
+        bm_r.faces.new(back)                      # back cap
+        for k in range(np):
+            m = (k + 1) % np
+            bm_r.faces.new([front[k], front[m], back[m], back[k]])
+
+        bmesh.ops.triangulate(bm_r, faces=bm_r.faces[:])
+
+        mesh_r = bpy.data.meshes.new(f"_recess_{i}")
+        bm_r.to_mesh(mesh_r)
+        bm_r.free()
+
+        recess = bpy.data.objects.new(f"_recess_{i}", mesh_r)
+        bpy.context.collection.objects.link(recess)
+        # Position at pillar surface, rotate radially
+        recess.location = (cx, cy, z_surf)
+        recess.rotation_euler.z = angle
+        activate(recess)
+        bpy.ops.object.transform_apply(location=True, rotation=True)
+        boolean_cut(pillar, recess)
 
     return loops
 
@@ -1687,7 +1704,7 @@ def main():
 
     cavity = bpy.data.objects.new("_spider_cavity", mesh_cut)
     bpy.context.collection.objects.link(cavity)
-    boolean_cut(bpy.data.objects['Pillar'], cavity, solver='FAST')
+    boolean_cut(bpy.data.objects['Pillar'], cavity)
 
     build_plug(M)
     build_fixings(M)
