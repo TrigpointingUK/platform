@@ -109,6 +109,19 @@ IPLUG_CENTRE_DEPTH  = 0.016     # [D] centre hole 16 mm deep
 IPLUG_SIDE_DEPTH    = 0.008     # [D] side holes 8 mm deep
 IPLUG_SIDE_SPACING  = 0.027     # [D] side holes 27 mm apart
 
+# --- Steel Fixings ---
+SCREW_SHAFT_R       = 0.00195   # [D] <4 mm shaft dia / 2
+SCREW_SHAFT_H       = 0.010     # [D] 10 mm long shaft
+SCREW_HEAD_R        = 0.0035    # [D] 7 mm head dia / 2
+SCREW_HEAD_H        = 0.005     # [D] 5 mm head height
+SCREW_SOCKET_R      = 0.0015    # [D] 3 mm allen socket dia / 2
+SCREW_SOCKET_DEPTH  = 0.003     # [D] 3 mm deep
+SCREW_SPACING       = 0.077     # [D] 77 mm apart (matches spider/plug)
+
+PEG_R               = 0.0015    # [D] 3 mm peg dia / 2
+PEG_LENGTH          = 0.030     # [D] 30 mm long
+PEG_OVERHANG        = 0.010     # [D] 10 mm outside plug annulus
+
 # --- Flush Bracket ---
 FB_W                = 0.102     # [E] ~4" wide
 FB_H                = 0.127     # [E] ~5" tall
@@ -1184,6 +1197,86 @@ def build_plug(M):
     return plug, ip
 
 
+def build_fixings(M):
+    """Steel machine screws and anti-rotation peg.
+
+    Two stylised allen bolts hold the plug to the spider shelf.  Each has
+    a <4 mm shaft threaded into the shelf, a 7 mm head sitting inside
+    the plug's clearance hole, and a 3 mm allen socket in the top.
+
+    A horizontal 3 mm peg passes through the bottom plug annulus into
+    the inner plug, preventing it from rotating.  The peg is perpendicular
+    to the line of the inner plug's blind holes (i.e. along the X axis).
+    """
+    print("  Steel fixings ...")
+
+    z_shelf = PILLAR_HEIGHT - SPIDER_THICK / 2
+
+    # ── Machine screws (stylised allen bolts) ─────────────────────
+    screw_d = SCREW_SPACING / 2                  # distance from centre
+    z_head_top = z_shelf + SCREW_HEAD_H
+
+    for angle_deg in (0, 180):
+        a = math.radians(angle_deg)
+        sx = screw_d * math.cos(a)
+        sy = screw_d * math.sin(a)
+
+        # Shaft — sits in the spider shelf hole
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=SCREW_SHAFT_R, depth=SCREW_SHAFT_H,
+            vertices=16,
+            location=(sx, sy, z_shelf - SCREW_SHAFT_H / 2))
+        screw = bpy.context.active_object
+        screw.name = f"Screw_{angle_deg}"
+
+        # Head — sits on the shelf inside the plug clearance hole
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=SCREW_HEAD_R, depth=SCREW_HEAD_H,
+            vertices=24,
+            location=(sx, sy, z_shelf + SCREW_HEAD_H / 2))
+        _union_into(screw, bpy.context.active_object)
+
+        # Allen socket — blind hole in top of head
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=SCREW_SOCKET_R, depth=SCREW_SOCKET_DEPTH + 0.001,
+            vertices=12,
+            location=(sx, sy, z_head_top - SCREW_SOCKET_DEPTH / 2))
+        boolean_cut(screw, bpy.context.active_object)
+
+        assign(screw, M['steel'])
+        smooth(screw)
+
+    # ── Anti-rotation peg ─────────────────────────────────────────
+    # Horizontal 3 mm steel peg through the bottom plug annulus,
+    # perpendicular to the inner plug's blind holes (which run along Y).
+    # 10 mm hangs outside the bottom annulus.
+    plug_low_r = PLUG_LOWER_R
+
+    # Z position: mid-height of overlap between bottom annulus and
+    # inner plug.  Bottom annulus: z_shelf-9 mm to z_shelf-18 mm.
+    # Inner plug bottom: z_shelf+6 mm - 23 mm = z_shelf-17 mm.
+    # Overlap: z_shelf-9 mm to z_shelf-17 mm → midpoint z_shelf-13 mm.
+    z_peg = z_shelf - 0.013
+
+    # Peg along +X: outer tip at plug_low_r + overhang
+    peg_outer_x = plug_low_r + PEG_OVERHANG
+    peg_inner_x = peg_outer_x - PEG_LENGTH
+    peg_cx = (peg_outer_x + peg_inner_x) / 2
+
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=PEG_R, depth=PEG_LENGTH,
+        vertices=16,
+        location=(peg_cx, 0, z_peg))
+    peg = bpy.context.active_object
+    peg.name = "AntiRotationPeg"
+    peg.rotation_euler.y = math.pi / 2       # rotate to lie along X
+    activate(peg)
+    bpy.ops.object.transform_apply(rotation=True)
+
+    assign(peg, M['steel'])
+    smooth(peg)
+
+
 def build_flush_bracket(M):
     """Simplified flush bracket on one pillar face (+Y / North)."""
     print("  Flush bracket ...")
@@ -1509,6 +1602,7 @@ def main():
     build_upper_centre_mark(M)
     build_spider(M)
     build_plug(M)
+    build_fixings(M)
     build_brass_loops(M)
     build_flush_bracket(M)
     build_base_slab(M)
