@@ -255,18 +255,56 @@ def make_frustum(name, btm_hw, top_hw, height, base_z=0.0,
 
 
 def make_tube(name, outer_r, inner_r, depth, loc=(0, 0, 0), segs=32):
-    """Create a tube (hollow cylinder) by boolean-subtracting an inner void."""
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=outer_r, depth=depth, vertices=segs, location=loc)
-    obj = bpy.context.active_object
-    obj.name = name
+    """Create a tube (hollow cylinder) using bmesh — no booleans needed.
 
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=inner_r, depth=depth + 0.004, vertices=segs, location=loc)
-    void = bpy.context.active_object
-    void.name = "_void"
+    Constructs four sets of quad faces directly:
+      outer wall, inner wall (bore), top annulus, bottom annulus.
+    The bore is guaranteed to be open.
+    """
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    half = depth / 2
 
-    boolean_cut(obj, void)
+    # Four vertex rings: top-outer, top-inner, bottom-outer, bottom-inner
+    rings = {}
+    for label, r, z in [
+        ('to', outer_r,  half),
+        ('ti', inner_r,  half),
+        ('bo', outer_r, -half),
+        ('bi', inner_r, -half),
+    ]:
+        verts = []
+        for i in range(segs):
+            angle = 2 * math.pi * i / segs
+            v = bm.verts.new((r * math.cos(angle), r * math.sin(angle), z))
+            verts.append(v)
+        rings[label] = verts
+
+    bm.verts.ensure_lookup_table()
+
+    for i in range(segs):
+        j = (i + 1) % segs
+        # Outer wall — normals point outward
+        bm.faces.new([rings['to'][i], rings['to'][j],
+                       rings['bo'][j], rings['bo'][i]])
+        # Inner wall (bore) — normals point inward (toward centre)
+        bm.faces.new([rings['ti'][j], rings['ti'][i],
+                       rings['bi'][i], rings['bi'][j]])
+        # Top annulus — normals point up
+        bm.faces.new([rings['to'][j], rings['to'][i],
+                       rings['ti'][i], rings['ti'][j]])
+        # Bottom annulus — normals point down
+        bm.faces.new([rings['bo'][i], rings['bo'][j],
+                       rings['bi'][j], rings['bi'][i]])
+
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.location = loc
+    activate(obj)
     return obj
 
 
