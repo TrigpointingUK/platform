@@ -36,7 +36,7 @@ BEVEL_SEGMENTS      = 1         # 1 = flat 45° mitre, >1 = rounded arc
 # --- Centre Pipe ---
 CP_OUTER_R          = 0.038     # [E] 3" OD / 2
 CP_INNER_R          = 0.032     # [E] ~2.5" ID / 2
-CP_PROTRUDE_TOP     = 0.050     # [E] protrusion above pillar top
+# (Centre pipe now ends at spider underside — no protrusion above pillar top)
 
 # --- Sighting Tubes ---
 ST_OUTER_R          = 0.025     # [E] 2" OD / 2
@@ -498,10 +498,10 @@ def build_pillar(M):
 
 
 def build_centre_pipe(M):
-    """Vertical steel tube — from above the pillar top down to just inside the box lid."""
+    """Vertical steel tube — from the spider underside down to just inside the box lid."""
     print("  Centre pipe ...")
-    # Top of pipe: protrudes above pillar
-    z_top = PILLAR_HEIGHT + CP_PROTRUDE_TOP
+    # Top of pipe: ends at the bottom surface of the spider
+    z_top = PILLAR_HEIGHT - SPIDER_THICK
     # Bottom of pipe: protrudes a small, slightly random amount below the box lid
     lid_inner_z = UB_BASE_Z + UB_HEIGHT - UB_WALL
     protrude = 0.020 + random.Random(70).uniform(-0.008, 0.008)
