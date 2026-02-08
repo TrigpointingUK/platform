@@ -496,12 +496,12 @@ def make_concrete_material():
                                       Default: 25.0
     """
     # ── Tuneable values (edit these) ──────────────────────────────
-    WHITEWASH_COVERAGE = 0.35
+    WHITEWASH_COVERAGE = 0.40
     WHITEWASH_EDGE     = 0.15
-    WHITEWASH_SCALE    = 3.0
-    WHITEWASH_COLOUR   = (0.85, 0.83, 0.78)
-    CONCRETE_COLOUR    = (0.52, 0.48, 0.43)
-    STAIN_STRENGTH     = 0.25
+    WHITEWASH_SCALE    = 5.0
+    WHITEWASH_COLOUR   = (0.45, 0.42, 0.37)
+    CONCRETE_COLOUR    = (0.30, 0.28, 0.23)
+    STAIN_STRENGTH     = 0.35
     STAIN_SCALE        = 4.0
     STAIN_STRETCH      = 8.0
     ROUGHNESS_BASE     = 0.85
