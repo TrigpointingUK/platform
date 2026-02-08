@@ -386,31 +386,33 @@ def build_pillar(M):
         location=(0, 0, cp_void_z))
     boolean_cut(pillar, bpy.context.active_object, solver='FAST')
 
-    # --- Cut sighting-tube channels through concrete ---
-    # Use axis-aligned BOX cutters instead of cylinders — cube-on-frustum
-    # booleans are far more reliable than cylinder-on-frustum.  The square
-    # channels are hidden behind the round tubes.
-    cut_half = ST_OUTER_R + 0.005       # 30 mm half-width (generous)
+    # --- Cut sighting-tube channels clean through the pillar ---
+    # Two full-width cylindrical channels (one per axis) centred at the
+    # pillar origin, so the view is clear from one sighting hole through
+    # the box interior to the opposite hole.  FAST solver for reliability.
+    cut_r = ST_OUTER_R + 0.005          # 5 mm clearance around tube
     hw = pillar_hw_at(ST_Z)
-    max_protrude = 0.025
-    void_inner = (UB_HW - UB_WALL) - max_protrude - 0.015
-    void_outer = hw + 0.015             # extend well past pillar face
-    void_len = void_outer - void_inner
-    void_mid = (void_inner + void_outer) / 2
+    full_len = (hw + 0.015) * 2         # spans full pillar width + margin
 
-    for dx, dy in (( 1, 0), (-1, 0), ( 0, 1), ( 0, -1)):
-        bpy.ops.mesh.primitive_cube_add(
-            size=1,
-            location=(dx * void_mid, dy * void_mid, ST_Z))
-        c = bpy.context.active_object
-        # Elongate along the axis pointing outward from the pillar face
-        if dx != 0:
-            c.scale = (void_len, cut_half * 2, cut_half * 2)
-        else:
-            c.scale = (cut_half * 2, void_len, cut_half * 2)
-        activate(c)
-        bpy.ops.object.transform_apply(scale=True)
-        boolean_cut(pillar, c, solver='FAST')
+    # X-axis channel (East ↔ West)
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=cut_r, depth=full_len, vertices=32,
+        location=(0, 0, ST_Z))
+    c = bpy.context.active_object
+    c.rotation_euler = (0, math.pi / 2, 0)
+    activate(c)
+    bpy.ops.object.transform_apply(rotation=True)
+    boolean_cut(pillar, c, solver='FAST')
+
+    # Y-axis channel (North ↔ South)
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=cut_r, depth=full_len, vertices=32,
+        location=(0, 0, ST_Z))
+    c = bpy.context.active_object
+    c.rotation_euler = (math.pi / 2, 0, 0)
+    activate(c)
+    bpy.ops.object.transform_apply(rotation=True)
+    boolean_cut(pillar, c, solver='FAST')
 
     assign(pillar, M['concrete'])
     return pillar
