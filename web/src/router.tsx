@@ -37,6 +37,7 @@ const SurveyTimeline = lazy(() => import("./routes/SurveyTimeline"));
 const Experiments = lazy(() => import("./routes/Experiments"));
 const ExperimentIndex = lazy(() => import("./routes/ExperimentIndex"));
 const TrigsV2 = lazy(() => import("./routes/experiment/TrigsV2"));
+const TrigModel = lazy(() => import("./routes/experiment/TrigModel"));
 
 // Redirect component for old /trig/ URLs
 function TrigRedirect() {
@@ -275,6 +276,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <TrigsV2 />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/experiment/3d-model",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <TrigModel />
         </Suspense>
       ),
     },
