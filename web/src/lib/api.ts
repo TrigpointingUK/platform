@@ -1673,6 +1673,151 @@ export async function clearOSNetCache(token: string): Promise<void> {
 }
 
 // ============================================================================
+// Ireland Import Comparison Types and Functions (admin)
+// ============================================================================
+
+export interface IrelandCSVRowData {
+  csv_row_index: number;
+  station_name: string;
+  osi_ni_no: string;
+  eastings: number;
+  northings: number;
+  height: number | null;
+  fb_sort: string;
+  fb_number: string;
+  date_built: string;
+  order: string;
+  dr: string;
+  grid_ref: string;
+  notes: string;
+}
+
+export interface IrelandDBTrigData {
+  trig_id: number;
+  waypoint: string;
+  name: string;
+  fb_number: string;
+  stn_number: string;
+  osgb_eastings: number;
+  osgb_northings: number;
+  osgb_gridref: string;
+  osgb_height: number | null;
+  condition: string;
+  historic_use: string;
+  current_use: string;
+  status_id: number;
+  type_id: number | null;
+  has_non_irish_gridref: boolean;
+  area_name: string;
+}
+
+export interface IrelandFieldDifference {
+  field_name: string;
+  csv_value: string | null;
+  db_value: string | null;
+}
+
+export interface IrelandComparisonItem {
+  category:
+    | "matched_identical"
+    | "matched_different"
+    | "ambiguous"
+    | "new_in_csv"
+    | "orphan_in_db";
+  csv_data: IrelandCSVRowData | null;
+  db_data: IrelandDBTrigData | null;
+  additional_db_matches: IrelandDBTrigData[];
+  differences: IrelandFieldDifference[];
+  distance_metres: number | null;
+  description: string;
+}
+
+export interface IrelandImportComparisonResponse {
+  csv_count: number;
+  db_irish_count: number;
+  matched_identical_count: number;
+  matched_different_count: number;
+  ambiguous_count: number;
+  new_in_csv_count: number;
+  orphan_in_db_count: number;
+  non_irish_gridref_count: number;
+  items: IrelandComparisonItem[];
+}
+
+/**
+ * Fetch Ireland import comparison data (admin)
+ */
+export async function fetchIrelandImportComparison(
+  token: string
+): Promise<IrelandImportComparisonResponse> {
+  return apiGet<IrelandImportComparisonResponse>(
+    "/v1/admin/ireland-import/comparison",
+    token
+  );
+}
+
+/**
+ * Apply Ireland25 CSV data to an existing trig (admin)
+ */
+export async function applyIrelandImportCSV(
+  token: string,
+  trigId: number,
+  csvRowIndex: number,
+  adminComment: string = "Ireland25 import: applied CSV data"
+): Promise<TrigAdminDetail> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(
+    `${apiBase}/v1/admin/ireland-import/apply/${trigId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        csv_row_index: csvRowIndex,
+        admin_comment: adminComment,
+      }),
+    }
+  );
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Create a new trig from Ireland25 CSV data (admin)
+ */
+export async function createTrigFromIrelandCSV(
+  token: string,
+  csvRowIndex: number,
+  adminComment: string = "Ireland25 import: created from CSV"
+): Promise<TrigAdminDetail> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(
+    `${apiBase}/v1/admin/ireland-import/create`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        csv_row_index: csvRowIndex,
+        admin_comment: adminComment,
+      }),
+    }
+  );
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+  return response.json();
+}
+
+// ============================================================================
 // Experiment Endpoints
 // ============================================================================
 

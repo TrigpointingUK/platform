@@ -1551,6 +1551,21 @@ export default function Admin() {
               Compare Stations →
             </a>
           </Card>
+
+          <Card>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
+              Ireland Import
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+              Compare Ireland25 CSV data with Irish trigpoints in the database.
+            </p>
+            <a
+              href="/admin/ireland-import"
+              className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
+            >
+              Compare Irish Trigs →
+            </a>
+          </Card>
         </div>
       </div>
     </Layout>

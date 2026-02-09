@@ -13,6 +13,7 @@ from api.api.v1.endpoints import (
     debug,
     downloads,
     experiment,
+    ireland_import_admin,
     legacy,
     locations,
     logs,
@@ -61,5 +62,10 @@ api_router.include_router(
 )
 api_router.include_router(
     osnet_admin.router, prefix="/admin/osnet", tags=["admin-osnet"]
+)
+api_router.include_router(
+    ireland_import_admin.router,
+    prefix="/admin/ireland-import",
+    tags=["admin-ireland-import"],
 )
 api_router.include_router(experiment.router, prefix="/experiment", tags=["experiment"])

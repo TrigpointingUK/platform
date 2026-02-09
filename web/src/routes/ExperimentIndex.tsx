@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Sparkles,
   Filter,
+  Box,
 } from "lucide-react";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
@@ -71,6 +72,14 @@ function ExperimentCard({
 
 export default function ExperimentIndex() {
   const experiments = [
+    {
+      to: "/experiment/3d-model",
+      icon: <Box className="w-6 h-6" />,
+      title: "3D Trig Pillar",
+      description:
+        "An interactive 3D model of a Hotine pillar. Rotate, zoom and pan to explore every detail.",
+      tags: ["3D", "Visualisation", "New"],
+    },
     {
       to: "/experiment/trigs-v2",
       icon: <Filter className="w-6 h-6" />,

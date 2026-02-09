@@ -35,7 +35,7 @@ const ADMIN_AUTH_PARAMS: { scope: string; audience?: string } = AUTH0_AUDIENCE
 // ============================================================================
 
 const DIFFERENCE_TYPE_CONFIG: Record<string, {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   colour: string;
   bgColour: string;
   borderColour: string;
@@ -275,7 +275,7 @@ function DifferenceCard({ difference }: DifferenceCardProps) {
 interface SummaryCardProps {
   title: string;
   count: number;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   colour: string;
   bgColour: string;
 }

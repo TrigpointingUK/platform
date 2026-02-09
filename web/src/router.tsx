@@ -32,10 +32,12 @@ const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
 const AdminStatusAdmin = lazy(() => import("./routes/admin/StatusAdmin"));
 const AdminConditionAdmin = lazy(() => import("./routes/admin/ConditionAdmin"));
 const AdminOSNetComparison = lazy(() => import("./routes/admin/OSNetComparison"));
+const AdminIrelandImport = lazy(() => import("./routes/admin/IrelandImport"));
 const SurveyTimeline = lazy(() => import("./routes/SurveyTimeline"));
 const Experiments = lazy(() => import("./routes/Experiments"));
 const ExperimentIndex = lazy(() => import("./routes/ExperimentIndex"));
 const TrigsV2 = lazy(() => import("./routes/experiment/TrigsV2"));
+const TrigModel = lazy(() => import("./routes/experiment/TrigModel"));
 
 // Redirect component for old /trig/ URLs
 function TrigRedirect() {
@@ -278,6 +280,14 @@ const router = createBrowserRouter(
       ),
     },
     {
+      path: "/experiment/3d-model",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <TrigModel />
+        </Suspense>
+      ),
+    },
+    {
       path: "/admin",
       element: (
         <Suspense fallback={<LoadingFallback />}>
@@ -346,6 +356,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <AdminOSNetComparison />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/admin/ireland-import",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminIrelandImport />
         </Suspense>
       ),
     },
