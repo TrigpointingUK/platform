@@ -201,8 +201,9 @@ def smooth(obj):
 def boolean_cut(target, cutter, operation='DIFFERENCE', solver='EXACT'):
     """Apply a boolean modifier to target using cutter, then remove cutter.
 
-    Use solver='FAST' for cuts where EXACT fails silently (e.g. cylindrical
-    holes through complex geometry).
+    The EXACT solver is used by default — it uses exact arithmetic and
+    produces clean, predictable geometry.  FAST is available as a fallback
+    but produces messier triangulation and potential artefacts.
 
     After applying, normals are recalculated so that subsequent booleans
     on the same target mesh have clean, consistent geometry to work with.
@@ -1289,7 +1290,7 @@ def build_pillar(M):
     v.scale = (UB_HW * 2 + 0.001, UB_HW * 2 + 0.001, UB_HEIGHT + 0.001)
     activate(v)
     bpy.ops.object.transform_apply(scale=True)
-    boolean_cut(pillar, v, solver='FAST')
+    boolean_cut(pillar, v)
 
     # --- Centre-pipe channel (spider underside → box top face) ---
     # The top 20 mm of the pillar is carved by the spider boolean later;
@@ -1302,59 +1303,85 @@ def build_pillar(M):
         depth=cp_void_len,
         vertices=32,
         location=(0, 0, cp_void_z))
-    boolean_cut(pillar, bpy.context.active_object, solver='FAST')
+    boolean_cut(pillar, bpy.context.active_object)
 
     # --- Four sighting-tube channels (pillar face → box outer face) ---
-    # Each is a separate cylinder that stops at the box wall — concrete
-    # does NOT extend into the box interior.
-    chan_r = ST_OUTER_R + 0.001         # 1 mm clearance — tight fit
+    # Each channel shares the exact axis of its sighting tube so the
+    # concrete is in intimate contact with the tube outer surface.
+    # The 0.1 mm boolean clearance avoids co-planar faces while keeping
+    # the gap invisible.
+    chan_r = ST_OUTER_R + 0.0001        # 0.1 mm clearance for clean boolean
+    a = ST_TILT
     hw = pillar_hw_at(ST_Z)
     box_face = UB_HW                    # box outer face distance from centre
+    box_inner = UB_HW - UB_WALL         # inner box wall distance from centre
+
+    # Tube midpoint — same calculation as build_sighting_tubes() so the
+    # channel cutter shares the identical axis line.
+    tube_outer_end = hw - 0.005
+    tube_inner_end = box_inner - 0.010
+    tube_mid = (tube_inner_end + tube_outer_end) / 2
 
     # Channel spans from 2 mm inside the box wall to 5 mm past the pillar face
     chan_inner = box_face - 0.002
     chan_outer = hw + 0.005
-    chan_len = chan_outer - chan_inner
-    chan_mid = (chan_outer + chan_inner) / 2
+    chan_radial_mid = (chan_outer + chan_inner) / 2
+    chan_len = (chan_outer - chan_inner) / math.cos(a)
 
+    # Z offset so channel centre lies on the tilted tube axis
+    # (outer end of every tube is lower — drainage tilt)
+    chan_z = ST_Z - (chan_radial_mid - tube_mid) * math.tan(a)
+
+    # Rotations match the sighting-tube rotations exactly so channel
+    # and tube share the same tilted axis (symmetric cutter — direction
+    # along the axis is irrelevant).
     for dx, dy, ry, rx in (
-        (0, -1, 0, -math.pi / 2),      # South
-        (0, +1, 0, +math.pi / 2),      # North
-        (+1, 0, -math.pi / 2, 0),      # East
-        (-1, 0, +math.pi / 2, 0),      # West
+        (0, -1, 0,  (math.pi / 2 + a)),      # South — same as tube
+        (0, +1, 0, -(math.pi / 2 + a)),      # North — same as tube
+        (+1, 0,  (math.pi / 2 + a), 0),      # East  — same as tube
+        (-1, 0, -(math.pi / 2 + a), 0),      # West  — same as tube
     ):
         bpy.ops.mesh.primitive_cylinder_add(
             radius=chan_r, depth=chan_len, vertices=32,
-            location=(dx * chan_mid, dy * chan_mid, ST_Z))
+            location=(dx * chan_radial_mid, dy * chan_radial_mid, chan_z))
         c = bpy.context.active_object
         c.rotation_euler = (rx, ry, 0)
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
-        boolean_cut(pillar, c, solver='FAST')
+        boolean_cut(pillar, c)
 
     # Bevelled entrance at each sighting hole — conical chamfer, 8 mm deep
     bevel_face_r = ST_OUTER_R + 0.012   # wider at the pillar surface
     bevel_inner_r = chan_r               # matches channel
     bevel_depth = 0.008
 
+    # Z at pillar face on the tilted tube axis
+    bevel_face_z = ST_Z - (hw - tube_mid) * math.tan(a)
+
+    # Cone is asymmetric (wide end at local -Z must face outward), so
+    # the rotation preserves the original sign but reduces the magnitude
+    # by the tilt angle — giving the same axis line as the tube while
+    # keeping radius1 (wider) at the pillar face.
     for face_x, face_y, ry, rx in (
-        (0, -hw, 0, -math.pi / 2),      # South
-        (0, +hw, 0, +math.pi / 2),      # North
-        (+hw, 0, -math.pi / 2, 0),      # East
-        (-hw, 0, +math.pi / 2, 0),      # West
+        (0, -hw, 0, -(math.pi / 2 - a)),      # South
+        (0, +hw, 0, +(math.pi / 2 - a)),      # North
+        (+hw, 0, -(math.pi / 2 - a), 0),      # East
+        (-hw, 0, +(math.pi / 2 - a), 0),      # West
     ):
         bpy.ops.mesh.primitive_cone_add(
             radius1=bevel_face_r, radius2=bevel_inner_r,
             depth=bevel_depth, vertices=32,
-            location=(face_x, face_y, ST_Z))
+            location=(face_x, face_y, bevel_face_z))
         c = bpy.context.active_object
         c.rotation_euler = (rx, ry, 0)
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
+        # Shift inward along tube axis so wide end sits at pillar face
         shift_x = -face_x / hw * bevel_depth / 2 if face_x != 0 else 0
         shift_y = -face_y / hw * bevel_depth / 2 if face_y != 0 else 0
-        c.location = (face_x + shift_x, face_y + shift_y, ST_Z)
-        boolean_cut(pillar, c, solver='FAST')
+        shift_z = bevel_depth / 2 * math.sin(a)   # inward = slightly uphill
+        c.location = (face_x + shift_x, face_y + shift_y, bevel_face_z + shift_z)
+        boolean_cut(pillar, c)
 
     assign(pillar, M['concrete'])
     return pillar
@@ -1472,23 +1499,30 @@ def build_upper_box(M):
     bpy.ops.mesh.primitive_cylinder_add(
         radius=CP_OUTER_R + 0.001, depth=UB_WALL * 3,
         vertices=32, location=(0, 0, tz))
-    boolean_cut(box, bpy.context.active_object, solver='FAST')
+    boolean_cut(box, bpy.context.active_object)
 
-    # Sighting-tube holes through four side walls
+    # Sighting-tube holes through four side walls — axis-matched to tubes
+    a = ST_TILT
+    _hw = pillar_hw_at(ST_Z)
+    _box_inner = UB_HW - UB_WALL
+    _tube_mid = ((_box_inner - 0.010) + (_hw - 0.005)) / 2
+    # Z on the tilted tube axis at the box wall
+    box_hole_z = ST_Z - (ow - _tube_mid) * math.tan(a)
+
     for dx, dy, rot in (
-        ( 0, -1, ( math.pi / 2, 0, 0)),
-        ( 0,  1, (-math.pi / 2, 0, 0)),
-        ( 1,  0, (0,  math.pi / 2, 0)),
-        (-1,  0, (0, -math.pi / 2, 0)),
+        ( 0, -1, ( (math.pi / 2 + a), 0, 0)),
+        ( 0,  1, (-(math.pi / 2 + a), 0, 0)),
+        ( 1,  0, (0,  (math.pi / 2 + a), 0)),
+        (-1,  0, (0, -(math.pi / 2 + a), 0)),
     ):
         bpy.ops.mesh.primitive_cylinder_add(
-            radius=ST_OUTER_R + 0.001, depth=UB_WALL * 3,
-            vertices=32, location=(dx * ow, dy * ow, ST_Z))
+            radius=ST_OUTER_R + 0.0001, depth=UB_WALL * 3,
+            vertices=32, location=(dx * ow, dy * ow, box_hole_z))
         c = bpy.context.active_object
         c.rotation_euler = rot
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
-        boolean_cut(box, c, solver='FAST')
+        boolean_cut(box, c)
 
     assign(box, M['wood'])
     return box
