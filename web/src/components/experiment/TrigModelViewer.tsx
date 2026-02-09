@@ -150,9 +150,11 @@ function AutoRotateControls() {
 
   const handleInteractionStart = useCallback(() => {
     // While the user is actively dragging, disable auto-rotate immediately
+    // and cancel any pending resume timer from a previous interaction.
     if (controlsRef.current) {
       controlsRef.current.autoRotate = false;
     }
+    resumeAtRef.current = 0;
   }, []);
 
   const handleInteractionEnd = useCallback(() => {
