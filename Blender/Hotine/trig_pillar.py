@@ -133,6 +133,7 @@ FB_D                = 0.008     # [D] plate thickness behind beading
 FB_BEAD_R           = 0.005     # [D] 5 mm semicircular beading radius
 FB_SETBACK          = 0.023     # [D] bead peak ~10 mm behind pillar face at top
 FB_BTM_Z            = 0.172     # [D] 30 mm above sighting tube top edge
+FB_RECESS_MARGIN    = 0.020     # [E] recess outer edge this far beyond plate edge
 
 # --- Lower Wooden Box ---
 LB_HW               = 0.127     # [E] ~10" / 2
@@ -2441,8 +2442,9 @@ def build_flush_bracket(M):
     pillar face at the top edge; because the pillar tapers, the
     setback is greater at the bottom.
 
-    A recess is carved from the pillar with 45° chamfers sloping from
-    the pillar face to the beading on all four sides.
+    A recess is carved from the pillar with chamfer faces sloping from
+    a rectangle on the pillar surface (FB_RECESS_MARGIN wider than the
+    plate) inward to the beading on all four sides.
     """
     print("  Flush bracket ...")
 
@@ -2473,87 +2475,50 @@ def build_flush_bracket(M):
 
     # ── Beading (D-shaped tube around front face perimeter) ───
     # A semicircular cross-section (flat against plate, dome forward)
-    # swept around the rectangular perimeter with rounded corners.
-    BEAD_N   = 6                                  # semicircle segments
-    CORNER_N = 4                                  # samples per corner arc
+    # built as four separate straight segments — one per edge — each
+    # with flat D-shaped end caps.  At corners the perpendicular caps
+    # from adjacent edges meet at a sharp 90° dihedral, matching the
+    # real casting exactly.
+    BEAD_N = 6                                    # semicircle segments
+    n_bead = BEAD_N + 1
 
     bm = bmesh.new()
 
-    # Build the perimeter path on the plate's front face.
-    # Each entry: (x, z, tangent_x, tangent_z).
-    # Corners follow quarter-circle arcs of radius br.
-    path = []
+    # Four edges: each defined by (start, end) path points.
+    # Each point: (x, z, tangent_x, tangent_z).
+    edge_paths = [
+        [(-hw, z_bot,  1,  0), ( hw, z_bot,  1,  0)],   # bottom
+        [( hw, z_bot,  0,  1), ( hw, z_top,  0,  1)],   # right
+        [( hw, z_top, -1,  0), (-hw, z_top, -1,  0)],   # top
+        [(-hw, z_top,  0, -1), (-hw, z_bot,  0, -1)],   # left
+    ]
 
-    # Bottom edge (+X)
-    path.append((-hw + br, z_bot, 1, 0))
-    path.append(( hw - br, z_bot, 1, 0))
+    for edge_path in edge_paths:
+        rings = []
+        for px, pz, tx, tz in edge_path:
+            bx, bz = -tz, tx                     # bi-normal
+            ring = []
+            for j in range(n_bead):
+                a = -math.pi / 2 + j * math.pi / BEAD_N
+                fwd = br * math.cos(a)
+                bi  = br * math.sin(a)
+                ring.append(bm.verts.new((
+                    px + bi * bx,
+                    front_y + fwd,
+                    pz + bi * bz)))
+            rings.append(ring)
 
-    # BR corner — centre (hw - br, z_bot + br), arc -π/2 → 0
-    cx, cz = hw - br, z_bot + br
-    for k in range(1, CORNER_N + 1):
-        th = -math.pi / 2 + k * (math.pi / 2) / CORNER_N
-        path.append((cx + br * math.cos(th), cz + br * math.sin(th),
-                      -math.sin(th), math.cos(th)))
-
-    # Right edge (+Z)
-    path.append((hw, z_top - br, 0, 1))
-
-    # TR corner — centre (hw - br, z_top - br), arc 0 → π/2
-    cx, cz = hw - br, z_top - br
-    for k in range(1, CORNER_N + 1):
-        th = k * (math.pi / 2) / CORNER_N
-        path.append((cx + br * math.cos(th), cz + br * math.sin(th),
-                      -math.sin(th), math.cos(th)))
-
-    # Top edge (-X)
-    path.append((-hw + br, z_top, -1, 0))
-
-    # TL corner — centre (-hw + br, z_top - br), arc π/2 → π
-    cx, cz = -hw + br, z_top - br
-    for k in range(1, CORNER_N + 1):
-        th = math.pi / 2 + k * (math.pi / 2) / CORNER_N
-        path.append((cx + br * math.cos(th), cz + br * math.sin(th),
-                      -math.sin(th), math.cos(th)))
-
-    # Left edge (-Z)
-    path.append((-hw, z_bot + br, 0, -1))
-
-    # BL corner — centre (-hw + br, z_bot + br), arc π → 3π/2
-    # Omit final point (coincides with path[0] to close the loop).
-    cx, cz = -hw + br, z_bot + br
-    for k in range(1, CORNER_N):
-        th = math.pi + k * (math.pi / 2) / CORNER_N
-        path.append((cx + br * math.cos(th), cz + br * math.sin(th),
-                      -math.sin(th), math.cos(th)))
-
-    # Create a D-shaped cross-section ring at each path point.
-    # The semicircle's flat side sits on the plate front face.
-    # Bi-normal B = tangent × Y gives the "sideways" direction.
-    rings = []
-    n_bead = BEAD_N + 1
-    for px, pz, tx, tz in path:
-        bx, bz = -tz, tx                         # bi-normal
-        ring = []
-        for j in range(n_bead):
-            a = -math.pi / 2 + j * math.pi / BEAD_N
-            fwd = br * math.cos(a)
-            bi  = br * math.sin(a)
-            ring.append(bm.verts.new((
-                px + bi * bx,
-                front_y + fwd,
-                pz + bi * bz)))
-        rings.append(ring)
-
-    # Connect adjacent rings with quads (closed loop)
-    n_path = len(rings)
-    for s in range(n_path):
-        sn = (s + 1) % n_path
+        # Tube surface quads
         for v in range(n_bead - 1):
-            bm.faces.new([rings[s][v], rings[s][v + 1],
-                          rings[sn][v + 1], rings[sn][v]])
-        # Close the D — flat back face (last vert → first vert)
-        bm.faces.new([rings[s][n_bead - 1], rings[s][0],
-                      rings[sn][0], rings[sn][n_bead - 1]])
+            bm.faces.new([rings[0][v], rings[0][v + 1],
+                          rings[1][v + 1], rings[1][v]])
+        # Close the D — flat back quad
+        bm.faces.new([rings[0][n_bead - 1], rings[0][0],
+                      rings[1][0], rings[1][n_bead - 1]])
+
+        # Flat end caps (D-shaped polygon at each end)
+        bm.faces.new(rings[0])
+        bm.faces.new(rings[1][::-1])
 
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
 
@@ -2568,33 +2533,32 @@ def build_flush_bracket(M):
     smooth(bead)
 
     # ── Recess in pillar ──────────────────────────────────────
-    # The recess is a pocket + 45° chamfer on all four sides.
+    # The recess is a pocket behind the bracket plate, plus sloping
+    # chamfer faces from the beading edge outward to a rectangle on
+    # the pillar surface that is FB_RECESS_MARGIN wider than the
+    # bracket plate on each side.  The chamfer angle is whatever the
+    # geometry requires — not a fixed 45°.
     # Built as a 12-vertex solid:
-    #   4 back verts   (pocket back, inner outline)
-    #   4 inner verts  (bracket level, inner outline)
-    #   4 outer verts  (pillar face, expanded by 45° chamfer)
+    #   4 back verts   (pocket back, inner outline at beading)
+    #   4 inner verts  (bracket level, inner outline at beading)
+    #   4 outer verts  (pillar face, outer rect = plate + margin)
     pillar = bpy.data.objects['Pillar']
 
-    bead_ext = br + 0.001                         # beading outline + clearance
+    recess_margin = FB_RECESS_MARGIN              # tuneable
+    bead_clr = br + 0.001                         # beading outline + clearance
     inner_y  = front_y + br + 0.001               # just past beading peak
 
-    # Inner outline (matches bracket beading)
-    ixl = -(hw + bead_ext)
-    ixr =  (hw + bead_ext)
-    izb =  z_bot - bead_ext
-    izt =  z_top + bead_ext
+    # Inner outline (matches bracket beading outer edge)
+    ixl = -(hw + bead_clr)
+    ixr =  (hw + bead_clr)
+    izb =  z_bot - bead_clr
+    izt =  z_top + bead_clr
 
-    # Gap from beading to pillar face (depth of chamfer)
-    gap_top = max(0.001, pillar_hw_at(z_top) - inner_y)
-    gap_bot = max(0.001, pillar_hw_at(z_bot) - inner_y)
-
-    # Outer outline (at pillar face, expanded by gap = 45° chamfer)
-    ozt = izt + gap_top
-    ozb = izb - gap_bot
-    oxl_t = ixl - gap_top                         # sides narrower at top
-    oxr_t = ixr + gap_top
-    oxl_b = ixl - gap_bot                         # sides wider at bottom
-    oxr_b = ixr + gap_bot
+    # Outer outline — fixed rectangle on pillar surface
+    oxl = -(hw + recess_margin)
+    oxr =  (hw + recess_margin)
+    ozb =  z_bot - recess_margin
+    ozt =  z_top + recess_margin
 
     eps     = 0.002
     y_back  = plate_y - eps
@@ -2616,11 +2580,11 @@ def build_flush_bracket(M):
     i_br = bm_c.verts.new((ixr, inner_y, izb))
     i_bl = bm_c.verts.new((ixl, inner_y, izb))
 
-    # Outer front vertices (at pillar face, expanded outline)
-    o_tl = bm_c.verts.new((oxl_t, oy_top, ozt))
-    o_tr = bm_c.verts.new((oxr_t, oy_top, ozt))
-    o_br = bm_c.verts.new((oxr_b, oy_bot, ozb))
-    o_bl = bm_c.verts.new((oxl_b, oy_bot, ozb))
+    # Outer front vertices (at pillar face, outer outline)
+    o_tl = bm_c.verts.new((oxl, oy_top, ozt))
+    o_tr = bm_c.verts.new((oxr, oy_top, ozt))
+    o_br = bm_c.verts.new((oxr, oy_bot, ozb))
+    o_bl = bm_c.verts.new((oxl, oy_bot, ozb))
 
     # 10 faces forming the closed solid
     bm_c.faces.new([b_tl, b_tr, b_br, b_bl])     # back
@@ -2628,10 +2592,10 @@ def build_flush_bracket(M):
     bm_c.faces.new([b_bl, b_br, i_br, i_bl])     # pocket bottom
     bm_c.faces.new([b_tl, i_tl, i_bl, b_bl])     # pocket left
     bm_c.faces.new([b_tr, b_br, i_br, i_tr])     # pocket right
-    bm_c.faces.new([i_tl, i_tr, o_tr, o_tl])     # chamfer top (45°)
-    bm_c.faces.new([i_bl, i_br, o_br, o_bl])     # chamfer bottom (45°)
-    bm_c.faces.new([i_tl, o_tl, o_bl, i_bl])     # chamfer left (45°)
-    bm_c.faces.new([i_tr, i_br, o_br, o_tr])     # chamfer right (45°)
+    bm_c.faces.new([i_tl, i_tr, o_tr, o_tl])     # chamfer top
+    bm_c.faces.new([i_bl, i_br, o_br, o_bl])     # chamfer bottom
+    bm_c.faces.new([i_tl, o_tl, o_bl, i_bl])     # chamfer left
+    bm_c.faces.new([i_tr, i_br, o_br, o_tr])     # chamfer right
     bm_c.faces.new([o_tl, o_tr, o_br, o_bl])     # front
 
     bmesh.ops.recalc_face_normals(bm_c, faces=bm_c.faces[:])
