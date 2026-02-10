@@ -135,6 +135,13 @@ FB_SETBACK          = 0.023     # [D] bead peak ~10 mm behind pillar face at top
 FB_BTM_Z            = 0.172     # [D] 30 mm above sighting tube top edge
 FB_RECESS_MARGIN    = 0.020     # [E] recess outer edge this far beyond plate edge
 
+# --- Flush Bracket Keying Structure ---
+FB_REAR_H_FRAC     = 0.90      # [E] rear plate height as fraction of front
+FB_BAR_H            = 0.010     # [D] keying bar height (10 mm)
+FB_BAR_DEPTH        = 0.025     # [D] keying bar protrusion behind rear plate (25 mm)
+FB_ANCHOR_H         = 0.035     # [D] anchor block height (35 mm)
+FB_ANCHOR_DEPTH     = 0.010     # [D] anchor block depth (10 mm)
+
 # --- Lower Wooden Box ---
 LB_HW               = 0.127     # [E] ~10" / 2
 LB_HEIGHT           = 0.102     # [E] ~4"
@@ -2434,13 +2441,19 @@ def build_fixings(M):
 
 
 def build_flush_bracket(M):
-    """Flush bracket with beading, recessed into one pillar face (+Y).
+    """Flush bracket with beading and keying structure, recessed into
+    one pillar face (+Y).
 
     The bracket is a vertical brass plate (180 × 100 mm) with 5 mm
     semicircular beading running around all four edges of the front
-    face, including rounded corners.  It is set back 8 mm from the
-    pillar face at the top edge; because the pillar tapers, the
-    setback is greater at the bottom.
+    face with mitred corners.  It is set back 8 mm from the pillar
+    face at the top edge; because the pillar tapers, the setback is
+    greater at the bottom.
+
+    Behind the front plate a rear plate (90 % height, bottom-aligned)
+    carries a T-shaped keying piece: a thin bar (10 mm high, 25 mm
+    deep) widening sharply to an anchor block (35 mm high, 10 mm deep)
+    that locks the assembly into the concrete.
 
     A recess is carved from the pillar with chamfer faces sloping from
     a rectangle on the pillar surface (FB_RECESS_MARGIN wider than the
@@ -2472,6 +2485,80 @@ def build_flush_bracket(M):
     activate(plate)
     bpy.ops.object.transform_apply(scale=True)
     assign(plate, M['brass'])
+
+    # ── Rear plate & keying structure ────────────────────────
+    # Behind the front plate a second plate (90 % of front height,
+    # bottom-aligned) carries a T-shaped keying piece that anchors
+    # the assembly into the concrete.  The key is a thin horizontal
+    # bar (10 mm high, 25 mm deep) widening sharply to an anchor
+    # block (35 mm high, 10 mm deep).
+    rear_h     = h * FB_REAR_H_FRAC               # 162 mm
+    rear_d     = d                                 # same thickness as front plate
+    rear_z_bot = z_bot
+    rear_z_top = z_bot + rear_h
+    rear_z_mid = (rear_z_bot + rear_z_top) / 2
+    rear_back  = plate_y - rear_d                  # back face of rear plate
+
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, plate_y - rear_d / 2, rear_z_mid))
+    rear_plate = bpy.context.active_object
+    rear_plate.name = "FlushBracket_RearPlate"
+    rear_plate.scale = (w, rear_d, rear_h)
+    activate(rear_plate)
+    bpy.ops.object.transform_apply(scale=True)
+    assign(rear_plate, M['brass'])
+
+    # Keying bar — tapered square-section bar protruding from rear plate.
+    # Square at the rear-plate end (bar_h × bar_h), 25 % narrower at the
+    # anchor end.  Built with bmesh for the trapezoidal plan shape.
+    bar_h      = FB_BAR_H                          # 10 mm
+    bar_depth  = FB_BAR_DEPTH                      # 25 mm
+    bar_z_mid  = rear_z_mid                        # centred on rear plate
+    bar_back   = rear_back - bar_depth             # back face of bar
+    bar_w_front = bar_h                            # square at rear plate
+    bar_w_back  = bar_h * 0.75                     # 25 % narrower at anchor
+
+    bm_bar = bmesh.new()
+    bhf = bar_h / 2
+    bwf = bar_w_front / 2
+    bwb = bar_w_back / 2
+    # Front face (y = rear_back, touching rear plate)
+    bf0 = bm_bar.verts.new((-bwf, rear_back, bar_z_mid - bhf))
+    bf1 = bm_bar.verts.new(( bwf, rear_back, bar_z_mid - bhf))
+    bf2 = bm_bar.verts.new(( bwf, rear_back, bar_z_mid + bhf))
+    bf3 = bm_bar.verts.new((-bwf, rear_back, bar_z_mid + bhf))
+    # Back face (y = bar_back, touching anchor)
+    bb0 = bm_bar.verts.new((-bwb, bar_back, bar_z_mid - bhf))
+    bb1 = bm_bar.verts.new(( bwb, bar_back, bar_z_mid - bhf))
+    bb2 = bm_bar.verts.new(( bwb, bar_back, bar_z_mid + bhf))
+    bb3 = bm_bar.verts.new((-bwb, bar_back, bar_z_mid + bhf))
+    bm_bar.faces.new([bf3, bf2, bf1, bf0])                # front
+    bm_bar.faces.new([bb0, bb1, bb2, bb3])                # back
+    bm_bar.faces.new([bf3, bb3, bb2, bf2])                # top
+    bm_bar.faces.new([bf0, bf1, bb1, bb0])                # bottom
+    bm_bar.faces.new([bf0, bb0, bb3, bf3])                # left
+    bm_bar.faces.new([bf2, bb2, bb1, bf1])                # right
+    bmesh.ops.recalc_face_normals(bm_bar, faces=bm_bar.faces[:])
+    mesh_bar = bpy.data.meshes.new("FlushBracket_Bar")
+    bm_bar.to_mesh(mesh_bar)
+    bm_bar.free()
+    bar = bpy.data.objects.new("FlushBracket_Bar", mesh_bar)
+    bpy.context.collection.objects.link(bar)
+    assign(bar, M['brass'])
+
+    # Anchor block — square cross-section at back of bar
+    anchor_h     = FB_ANCHOR_H                     # 35 mm
+    anchor_depth = FB_ANCHOR_DEPTH                 # 10 mm
+    anchor_w     = anchor_h                        # square
+
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, bar_back - anchor_depth / 2, bar_z_mid))
+    anchor = bpy.context.active_object
+    anchor.name = "FlushBracket_Anchor"
+    anchor.scale = (anchor_w, anchor_depth, anchor_h)
+    activate(anchor)
+    bpy.ops.object.transform_apply(scale=True)
+    assign(anchor, M['brass'])
 
     # ── Beading (D-shaped tube around front face perimeter) ───
     # A semicircular cross-section (flat against plate, dome forward)
@@ -2632,7 +2719,7 @@ def build_base_slab(M):
 def build_angle_irons(M):
     """Four angle irons spanning the pillar-to-base-slab junction.
 
-    L-profile built directly with bmesh (no boolean union) for completely
+    T-profile built directly with bmesh (no boolean union) for completely
     predictable geometry.  All four are exactly the same length with Z
     placements differing by ~10 mm.
     """
@@ -2649,15 +2736,18 @@ def build_angle_irons(M):
     t = AI_THICK
     half = leg / 2
 
-    # Standard L cross-section centred on bounding-box centre.
-    # Inner corner faces (+X, +Y).
+    # T cross-section centred on bounding-box centre.
+    # Flange at y = -half (inner face toward pillar), web centred.
+    ht = t / 2                                    # half-thickness
     profile = [
-        (-half,     -half),
-        ( half,     -half),
-        ( half,     -half + t),
-        (-half + t, -half + t),
-        (-half + t,  half),
-        (-half,      half),
+        (-half,  -half),                          # flange bottom-left
+        ( half,  -half),                          # flange bottom-right
+        ( half,  -half + t),                      # flange top-right
+        ( ht,    -half + t),                      # web right junction
+        ( ht,     half),                          # web top-right
+        (-ht,     half),                          # web top-left
+        (-ht,    -half + t),                      # web left junction
+        (-half,  -half + t),                      # flange top-left
     ]
 
     for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
@@ -2665,8 +2755,8 @@ def build_angle_irons(M):
         tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.01, 0.01))
         tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.01, 0.01))
 
-        # Build L-shape with bmesh — flip profile to orient inner corner
-        # toward (sx, sy) so it grips the pillar edge.
+        # Build T-shape with bmesh — flip profile to orient flange
+        # toward (sx, sy) so it sits against the pillar face.
         bm = bmesh.new()
         top_verts = []
         btm_verts = []
