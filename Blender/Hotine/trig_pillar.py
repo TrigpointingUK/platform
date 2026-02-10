@@ -2475,10 +2475,10 @@ def build_flush_bracket(M):
 
     # ── Beading (D-shaped tube around front face perimeter) ───
     # A semicircular cross-section (flat against plate, dome forward)
-    # built as four separate straight segments — one per edge — each
-    # with flat D-shaped end caps.  At corners the perpendicular caps
-    # from adjacent edges meet at a sharp 90° dihedral, matching the
-    # real casting exactly.
+    # built as four separate straight segments — one per edge — with
+    # mitred end caps.  Each ring vertex is offset along the tangent
+    # by ±bi (its bi-normal offset), cutting a 45° mitre so that
+    # adjacent segments meet flush at each corner with no gap.
     BEAD_N = 6                                    # semicircle segments
     n_bead = BEAD_N + 1
 
@@ -2495,17 +2495,19 @@ def build_flush_bracket(M):
 
     for edge_path in edge_paths:
         rings = []
-        for px, pz, tx, tz in edge_path:
+        for idx, (px, pz, tx, tz) in enumerate(edge_path):
             bx, bz = -tz, tx                     # bi-normal
+            msign = 1 if idx == 0 else -1         # mitre direction
             ring = []
             for j in range(n_bead):
                 a = -math.pi / 2 + j * math.pi / BEAD_N
                 fwd = br * math.cos(a)
                 bi  = br * math.sin(a)
+                m   = msign * bi                  # mitre offset along tangent
                 ring.append(bm.verts.new((
-                    px + bi * bx,
+                    px + bi * bx + m * tx,
                     front_y + fwd,
-                    pz + bi * bz)))
+                    pz + bi * bz + m * tz)))
             rings.append(ring)
 
         # Tube surface quads
@@ -2516,7 +2518,7 @@ def build_flush_bracket(M):
         bm.faces.new([rings[0][n_bead - 1], rings[0][0],
                       rings[1][0], rings[1][n_bead - 1]])
 
-        # Flat end caps (D-shaped polygon at each end)
+        # Mitred end caps (coplanar on the 45° mitre plane)
         bm.faces.new(rings[0])
         bm.faces.new(rings[1][::-1])
 
