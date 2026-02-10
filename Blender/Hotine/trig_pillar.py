@@ -55,8 +55,12 @@ UB_BASE_Z           = 0.000     # box base sits on top of the base slab
 FILL_HEIGHT         = 0.096     # [E] top 5 mm below bottom of sighting-tube holes
 
 # --- Upper Centre Mark ---
-UCM_R               = 0.016     # [E] ~1.25" dia / 2
-UCM_H               = 0.012     # [E] dome height
+UCM_R               = 0.03175   # [D] 2.5" widest flange dia / 2
+UCM_DISC_H          = 0.005     # [E] disc thickness (5 mm, both discs)
+UCM_SPIKE_D         = 0.005     # [E] spike diameter (5 mm)
+UCM_STEM_H          = 0.072     # [E] stem zone height incl. fillets (72 mm)
+UCM_FILLET_R        = 0.005     # [E] fillet radius at stem-disc junctions (5 mm)
+UCM_BASE_H          = 0.008     # [E] base disc height (8 mm)
 
 # --- Base Slab (Foundation) ---
 BASE_TOP_HW         = 0.380     # [E] ~2'6" / 2 — wider overhang around pillar
@@ -1571,74 +1575,157 @@ def _union_into(target, piece):
 
 
 def build_upper_centre_mark(M):
-    """Upper centre mark — two stepped disks with sloping edges, a low dome,
-    a pencil-point, and a brass pillar + base cylinder embedded below.
+    """Upper centre mark — two stacked discs with dome and spike above,
+    cylindrical stem with filleted transitions, and base disc below.
 
-    All proportions are relative to the overall dome diameter (UCM_R * 2).
+    Cross-section (top to bottom):
+      - Dome (quarter ellipse, base = upper disc top, h = 75 % of disc)
+      - Upper disc (7/9 of flange dia, tapered ~3 mm narrower at top)
+      - Lower disc / flange (widest part, 2.5")
+      - Cylindrical stem (25/62 of flange dia) with 5 mm fillet curves
+      - Base disc (44/62 of flange dia)
+
+    Built as a single lathe (surface of revolution) mesh for the body,
+    with the spike as a separate object.
     """
     print("  Upper centre mark ...")
     z0 = UB_BASE_Z + FILL_HEIGHT           # top of concrete fill
-    dome_d = UCM_R * 2                      # overall diameter (32 mm)
 
-    # ── Above the concrete surface ──────────────────────────────
+    # ── Dimensions ────────────────────────────────────────────
+    flange_r      = UCM_R                   # 31.75 mm (widest)
+    disc_h        = UCM_DISC_H             # 5 mm (both discs)
+    dome_h        = 0.75 * disc_h          # 3.75 mm
+    up_btm_r      = 0.0240                 # upper disc bottom radius (24.0 mm)
+    up_top_r      = up_btm_r - 0.0015     # 3 mm narrower diameter → 1.5 mm radius
+    dome_r        = up_top_r              # dome base = upper disc top
+    spike_r       = UCM_SPIKE_D / 2        # 2.5 mm
+    rod_h         = UCM_SPIKE_D * 2 / 3    # height = ⅔ diameter
+    cone_h        = spike_r               # 45° tip (height = radius)
+    stem_h        = UCM_STEM_H             # 72 mm total (includes fillets)
+    stem_r        = 25 / 62 * flange_r     # ~12.8 mm
+    fillet_r      = UCM_FILLET_R           # 5 mm
+    base_r        = 44 / 62 * flange_r     # ~22.5 mm
+    base_h        = UCM_BASE_H             # 8 mm
 
-    # Lower step — truncated cone (sloping edge, wider at bottom)
-    ls_btm_r = dome_d / 2                   # full diameter
-    ls_top_r = dome_d / 2 * 0.88            # slight inward slope
-    ls_h = 0.0025                            # 2.5 mm
-    bpy.ops.mesh.primitive_cone_add(
-        radius1=ls_btm_r, radius2=ls_top_r,
-        depth=ls_h, vertices=32,
-        location=(0, 0, z0 + ls_h / 2))
-    mark = bpy.context.active_object
-    mark.name = "UpperCentreMark"
+    # ── Z coordinates ─────────────────────────────────────────
+    z_lo_btm      = z0                     # lower disc bottom
+    z_lo_top      = z0 + disc_h            # lower disc top = upper disc bottom
+    z_up_top      = z_lo_top + disc_h      # upper disc top
+    z_dome_peak   = z_up_top + dome_h
+    z_base_top    = z0 - stem_h
+    z_base_btm    = z_base_top - base_h
 
-    # Upper step — smaller truncated cone
-    us_btm_r = dome_d / 2 * 0.70
-    us_top_r = dome_d / 2 * 0.60
-    us_h = 0.002                             # 2 mm
-    z_us = z0 + ls_h + us_h / 2
-    bpy.ops.mesh.primitive_cone_add(
-        radius1=us_btm_r, radius2=us_top_r,
-        depth=us_h, vertices=32,
-        location=(0, 0, z_us))
-    _union_into(mark, bpy.context.active_object)
+    # ── Lathe profile (r, z) — revolved around Z axis ────────
+    N_DOME   = 8                            # arc segments for dome
+    N_FILLET = 6                            # segments per fillet curve
+    N_SIDES  = 32                           # revolution segments
 
-    # Flat rounded dome — 80% of upper step diameter, ~2.7 mm tall (⅓ of 8 mm)
-    fd_r = us_top_r * 0.80
-    fd_h = 0.0027
-    z_fd = z0 + ls_h + us_h
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        radius=fd_r, segments=32, ring_count=16,
-        location=(0, 0, z_fd))
-    dome_obj = bpy.context.active_object
-    dome_obj.scale.z = fd_h / fd_r
-    activate(dome_obj)
-    bpy.ops.object.transform_apply(scale=True)
-    # Cut the bottom half
-    bpy.ops.mesh.primitive_cube_add(
-        size=fd_r * 4, location=(0, 0, z_fd - fd_r * 2))
-    boolean_cut(dome_obj, bpy.context.active_object)
-    _union_into(mark, dome_obj)
+    profile = []
 
-    # Point — 5 mm diameter rod with 45° cone tip
-    # (kept as a separate object to avoid boolean-union artefacts at this scale)
-    pt_r = 0.005 / 2                        # 2.5 mm radius
-    rod_h = 0.005                            # 5 mm cylinder
-    cone_h = pt_r                            # 2.5 mm (45° → height = radius)
-    z_rod = z_fd + fd_h + rod_h / 2
-    z_cone = z_fd + fd_h + rod_h + cone_h / 2
+    # Dome: quarter ellipse from peak (r=0) to upper disc top
+    for i in range(N_DOME + 1):
+        a = math.pi / 2 * i / N_DOME
+        profile.append((dome_r * math.sin(a),
+                         z_up_top + dome_h * math.cos(a)))
 
-    # Cylinder (rod portion)
+    # Upper disc tapered rim (truncated cone, wider at bottom)
+    profile.append((up_btm_r, z_lo_top))
+
+    # Lower disc top annulus (flat, from upper disc base to flange edge)
+    profile.append((flange_r, z_lo_top))
+
+    # Lower disc outer rim (vertical)
+    profile.append((flange_r, z_lo_btm))
+
+    # Lower disc underside → fillet start (flat)
+    profile.append((stem_r + fillet_r, z_lo_btm))
+
+    # Top fillet: quarter circle from disc underside to stem
+    # Centre at (stem_r + fillet_r, z0 - fillet_r)
+    cx_t = stem_r + fillet_r
+    cz_t = z_lo_btm - fillet_r
+    for i in range(1, N_FILLET + 1):
+        a = math.pi / 2 * i / N_FILLET
+        profile.append((cx_t - fillet_r * math.sin(a),
+                         cz_t + fillet_r * math.cos(a)))
+
+    # Straight cylindrical stem
+    profile.append((stem_r, z_base_top + fillet_r))
+
+    # Bottom fillet: quarter circle from stem to base top
+    # Centre at (stem_r + fillet_r, z_base_top + fillet_r)
+    cx_b = stem_r + fillet_r
+    cz_b = z_base_top + fillet_r
+    for i in range(1, N_FILLET + 1):
+        a = math.pi / 2 * i / N_FILLET
+        profile.append((cx_b - fillet_r * math.cos(a),
+                         cz_b - fillet_r * math.sin(a)))
+
+    # Base top annulus (flat)
+    profile.append((base_r, z_base_top))
+
+    # Base outer rim (vertical)
+    profile.append((base_r, z_base_btm))
+
+    # Base bottom centre (singular)
+    profile.append((0, z_base_btm))
+
+    # ── Build lathe mesh ──────────────────────────────────────
+    bm = bmesh.new()
+    rings = []
+    for r, z in profile:
+        if r < 1e-6:
+            rings.append([bm.verts.new((0, 0, z))])
+        else:
+            ring = []
+            for j in range(N_SIDES):
+                a = 2 * math.pi * j / N_SIDES
+                ring.append(bm.verts.new((
+                    r * math.cos(a), r * math.sin(a), z)))
+            rings.append(ring)
+
+    for i in range(len(rings) - 1):
+        r0, r1 = rings[i], rings[i + 1]
+        if len(r0) == 1:
+            # Triangle fan: singular vertex → ring
+            for j in range(N_SIDES):
+                k = (j + 1) % N_SIDES
+                bm.faces.new([r0[0], r1[j], r1[k]])
+        elif len(r1) == 1:
+            # Triangle fan: ring → singular vertex
+            for j in range(N_SIDES):
+                k = (j + 1) % N_SIDES
+                bm.faces.new([r0[k], r0[j], r1[0]])
+        else:
+            # Quad strip
+            for j in range(N_SIDES):
+                k = (j + 1) % N_SIDES
+                bm.faces.new([r0[j], r0[k], r1[k], r1[j]])
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+    mesh = bpy.data.meshes.new("UpperCentreMark")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    mark = bpy.data.objects.new("UpperCentreMark", mesh)
+    bpy.context.collection.objects.link(mark)
+    assign(mark, M['brass'])
+    smooth(mark)
+
+    # ── Spike (separate object) ───────────────────────────────
+    # Rod: height = 2× diameter, then 45° cone tip on top.
+    z_rod  = z_dome_peak + rod_h / 2
+    z_cone = z_dome_peak + rod_h + cone_h / 2
+
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=pt_r, depth=rod_h, vertices=16,
+        radius=spike_r, depth=rod_h, vertices=16,
         location=(0, 0, z_rod))
     spike = bpy.context.active_object
     spike.name = "UpperCentreMark_Spike"
 
-    # Cone tip
     bpy.ops.mesh.primitive_cone_add(
-        radius1=pt_r, radius2=0,
+        radius1=spike_r, radius2=0,
         depth=cone_h, vertices=16,
         location=(0, 0, z_cone))
     _union_into(spike, bpy.context.active_object)
@@ -1646,28 +1733,6 @@ def build_upper_centre_mark(M):
     assign(spike, M['brass'])
     smooth(spike)
 
-    # ── Below the concrete surface (embedded) ───────────────────
-
-    # Brass pillar — 40% of dome diameter, height 150% of dome diameter
-    pil_r = dome_d * 0.40 / 2
-    pil_h = dome_d * 1.50
-    z_pil = z0 - pil_h / 2
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=pil_r, depth=pil_h, vertices=32,
-        location=(0, 0, z_pil))
-    _union_into(mark, bpy.context.active_object)
-
-    # Base cylinder — 130% of pillar diameter, 15% of pillar height
-    base_r = pil_r * 1.30
-    base_h = pil_h * 0.15
-    z_base = z0 - pil_h - base_h / 2
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=base_r, depth=base_h, vertices=32,
-        location=(0, 0, z_base))
-    _union_into(mark, bpy.context.active_object)
-
-    assign(mark, M['brass'])
-    smooth(mark)
     return mark
 
 
