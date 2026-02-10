@@ -90,8 +90,8 @@ SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
 LOOP_R              = 0.015     # [D] 30 mm loop dia / 2
 LOOP_WIRE_R         = 0.002     # [D] 4 mm wire dia / 2
 LOOP_DEPTH          = 0.003     # [D] top of loop 3 mm below pillar surface
-LOOP_RECESS_L       = 0.040     # [D] 40 mm recess length (radial)
-LOOP_RECESS_W       = 0.015     # [D] 15 mm recess width (tangential)
+LOOP_RECESS_L       = 0.070     # [E] 70 mm total recess length (tangential)
+LOOP_RECESS_W       = 0.020     # [E] 20 mm U-trough width (radial)
 LOOP_RECESS_D       = 0.015     # [D] 15 mm recess depth
 LOOP_POS_R          = 0.120     # [D] 120 mm from pillar centre
 
@@ -122,7 +122,7 @@ SCREW_SHAFT_R       = 0.00195   # [D] <4 mm shaft dia / 2
 SCREW_SHAFT_H       = 0.010     # [D] 10 mm long shaft
 SCREW_HEAD_R        = 0.0035    # [D] 7 mm head dia / 2
 SCREW_HEAD_H        = 0.005     # [D] 5 mm head height
-SCREW_SOCKET_R      = 0.0015    # [D] 3 mm allen socket dia / 2
+SCREW_SOCKET_R      = 0.0025    # [D] 3 mm allen socket dia / 2
 SCREW_SOCKET_DEPTH  = 0.003     # [D] 3 mm deep
 SCREW_SPACING       = 0.077     # [D] 77 mm apart (matches spider/plug)
 
@@ -2041,12 +2041,52 @@ def build_brass_loops(M):
     # Recess geometry parameters
     # Local frame: length along X (tangential), width along Y (radial),
     #              depth along -Z, surface at Z = 0.
-    cham_r      = 0.010                           # 10 mm nominal rounded chamfer
-    half_str    = (rl - rw) / 2                   # 12.5 mm half straight
-    CHAM_N      = 6                               # quarter-circle chamfer segments
-    SEMI_N      = 8                               # semicircle depth segments
-    CAP_N       = 6                               # end-cap taper slices
-    EPS         = 0.001                           # overshoot above surface
+    #
+    # Plan shape: a rounded rectangle (≈2:1 aspect ratio).  The narrow
+    # sides have a small 5 mm bevel at the lip.  The long ends have a
+    # massive spoon-shaped bevel — a flat section at full depth in the
+    # middle, then gentle cos² ramps that smoothly meet the surface.
+    #
+    # The depth profile is generated once at full size, then each slice
+    # along the length scales only the sub-surface Z coords by a taper
+    # factor.  Width stays constant except for a gentle rounding of the
+    # tips in the last 20 % of the ramp zone.
+    half_L      = rl / 2                            # 35 mm half-length
+    half_flat   = 0.010                             # 10 mm → 20 mm flat section
+    ramp_L      = half_L - half_flat                # 25 mm ramp at each end
+    bevel_r     = 0.005                             # 5 mm bevel (narrow dir)
+    BEVEL_N     = 6                                 # bevel arc segments
+    SEMI_N      = 8                                 # bottom semicircle segments
+    N_SLICES    = 28                                # slices along length
+    EPS         = 0.001                             # overshoot above surface
+
+    # Build base cross-section profile once (full depth, full width).
+    # List of (y, z) pairs; z < 0 = below surface, z > 0 = above.
+    wall_h_full = max(0, rd - bevel_r - hw)
+    base_pts = []
+    # Above surface, right
+    base_pts.append((hw + bevel_r, EPS))
+    # Right bevel arc (quarter circle, surface → wall)
+    for j in range(1, BEVEL_N + 1):
+        theta = math.pi / 2 + j * (math.pi / 2) / BEVEL_N
+        base_pts.append(((hw + bevel_r) + bevel_r * math.cos(theta),
+                         -bevel_r + bevel_r * math.sin(theta)))
+    # Wall bottom right
+    base_pts.append((hw, -(bevel_r + wall_h_full)))
+    # Semicircle bottom (right → left)
+    for j in range(1, SEMI_N):
+        a = j * (-math.pi / SEMI_N)
+        base_pts.append((hw * math.cos(a),
+                         -(bevel_r + wall_h_full) + hw * math.sin(a)))
+    # Wall bottom left
+    base_pts.append((-hw, -(bevel_r + wall_h_full)))
+    # Left bevel arc (quarter circle, wall → surface)
+    for j in range(1, BEVEL_N + 1):
+        theta = j * (math.pi / 2) / BEVEL_N
+        base_pts.append((-(hw + bevel_r) + bevel_r * math.cos(theta),
+                         -bevel_r + bevel_r * math.sin(theta)))
+    # Above surface, left
+    base_pts.append((-(hw + bevel_r), EPS))
 
     for i in range(3):
         # Between spider arms (offset 60° from arm positions)
@@ -2072,67 +2112,43 @@ def build_brass_loops(M):
         smooth(lp)
         loops.append(lp)
 
-        # ── Recess cutter (stadium plan, rounded profile) ────────
-        # Cross-section: quarter-circle chamfer at top flowing into
-        # semicircular trough at bottom, with straight walls between
-        # (when depth allows).  Chamfer radius is capped at hw_loc so
-        # at full width (7.5 mm) the chamfer and semicircle merge
-        # seamlessly — one continuous smooth curve, no flat walls.
+        # ── Recess cutter (spoon-shaped indent) ────────────────
+        # Scale only sub-surface Z by depth_t (cos² ramp at ends).
+        # Scale Y by width_t (stays ~1 in the middle, rounds gently
+        # to 0 at the tips so the outline is a rounded rectangle).
         bm_r = bmesh.new()
         rings = []
 
-        def _add_ring(x, hw_loc):
-            """Append a rounded-profile ring at position x."""
-            cr = min(cham_r, hw_loc)              # cap chamfer at ring width
-            wh = rd - hw_loc - cr                 # wall height (may be 0)
-            pts = []
-            # — Above surface, right
-            pts.append((hw_loc + cr, EPS))
-            # — Right chamfer arc (quarter circle, surface → wall)
-            #   Centre at (hw_loc + cr, -cr)
-            for j in range(1, CHAM_N + 1):
-                theta = math.pi / 2 + j * (math.pi / 2) / CHAM_N
-                pts.append(((hw_loc + cr) + cr * math.cos(theta),
-                            -cr + cr * math.sin(theta)))
-            # — Wall bottom right
-            pts.append((hw_loc, -(cr + wh)))
-            # — Semicircle bottom (right → left)
-            for j in range(1, SEMI_N):
-                a = j * (-math.pi / SEMI_N)
-                pts.append((hw_loc * math.cos(a),
-                            -(cr + wh) + hw_loc * math.sin(a)))
-            # — Wall bottom left
-            pts.append((-hw_loc, -(cr + wh)))
-            # — Left chamfer arc (quarter circle, wall → surface)
-            #   Centre at (-(hw_loc + cr), -cr)
-            for j in range(1, CHAM_N + 1):
-                theta = j * (math.pi / 2) / CHAM_N
-                pts.append((-(hw_loc + cr) + cr * math.cos(theta),
-                            -cr + cr * math.sin(theta)))
-            # — Above surface, left
-            pts.append((-(hw_loc + cr), EPS))
-            ring = [bm_r.verts.new((x, y, z)) for y, z in pts]
+        for k in range(N_SLICES + 1):
+            x = -half_L + k * rl / N_SLICES
+            ax = abs(x)
+
+            # Depth taper
+            if ax <= half_flat:
+                depth_t = 1.0
+            else:
+                depth_t = math.cos(
+                    math.pi / 2 * (ax - half_flat) / ramp_L) ** 2
+
+            # Width taper — constant in the flat zone and most of
+            # the ramp zone; only rounds off in the last 20 %.
+            tip_start = half_flat + 0.80 * ramp_L      # ~30 mm
+            if ax <= tip_start:
+                width_t = 1.0
+            else:
+                width_t = math.cos(
+                    math.pi / 2 * (ax - tip_start)
+                    / (half_L - tip_start)) ** 2
+
+            if depth_t < 0.01 and width_t < 0.05:
+                continue
+
+            ring = []
+            for y, z in base_pts:
+                y_eff = y * width_t
+                z_eff = z * depth_t if z < 0 else EPS
+                ring.append(bm_r.verts.new((x, y_eff, z_eff)))
             rings.append(ring)
-
-        # Left end cap (far end first → centre)
-        for k in range(CAP_N, 0, -1):
-            dx = hw * k / CAP_N
-            hw_loc = math.sqrt(max(0, hw**2 - dx**2))
-            if hw_loc < 0.0005:
-                continue
-            _add_ring(-(half_str + dx), hw_loc)
-
-        # Straight section ends
-        _add_ring(-half_str, hw)
-        _add_ring( half_str, hw)
-
-        # Right end cap (centre → far end)
-        for k in range(1, CAP_N + 1):
-            dx = hw * k / CAP_N
-            hw_loc = math.sqrt(max(0, hw**2 - dx**2))
-            if hw_loc < 0.0005:
-                continue
-            _add_ring(half_str + dx, hw_loc)
 
         nr  = len(rings)
         npv = len(rings[0])
@@ -2147,7 +2163,7 @@ def build_brass_loops(M):
         bm_r.faces.new(rings[0])
         bm_r.faces.new(rings[-1][::-1])
 
-        # Top face (stadium outline at z = EPS)
+        # Top face (rounded-rectangle outline at z = EPS)
         top = [ring[0] for ring in rings]
         top += [ring[-1] for ring in reversed(rings)]
         bm_r.faces.new(top)
@@ -2339,10 +2355,10 @@ def build_plug_text(M):
     """
     print("  Plug text ...")
 
-    TEXT_R       = 0.032     # midpoint of the upper ring annulus
-    EMBOSS       = 0.0020    # 2.0 mm engraving depth below surface
+    TEXT_R       = 0.033     # midpoint of the upper ring annulus
+    EMBOSS       = 0.0005    # 2.0 mm engraving depth below surface
     OVERSHOOT    = 0.002     # cutter extends this far above surface
-    FONT_SIZE    = 0.0045    # character height
+    FONT_SIZE    = 0.01    # character height
     RESOLUTION   = 4         # text mesh resolution (lower = fewer verts)
     TOP_SPAN_DEG = 155
     BTM_SPAN_DEG = 130
@@ -2356,8 +2372,8 @@ def build_plug_text(M):
     #   Letter tops face away from centre (standard for OS plugs).
     #   Both texts read clockwise when viewed from above.
     texts = [
-        ("TRIANGULATION STATION", 90,  TOP_SPAN_DEG),
-        ("ORDNANCE SURVEY",       270, BTM_SPAN_DEG),
+        ("TRIANGULATION   STATION", 90,  TOP_SPAN_DEG),
+        ("ORDNANCE     SURVEY",       270, BTM_SPAN_DEG),
     ]
 
     for body, centre_deg, span_deg in texts:
@@ -2479,7 +2495,7 @@ def build_fixings(M):
         # Allen socket — blind hole in top of head
         bpy.ops.mesh.primitive_cylinder_add(
             radius=SCREW_SOCKET_R, depth=SCREW_SOCKET_DEPTH + 0.001,
-            vertices=12,
+            vertices=6,
             location=(sx, sy, z_head_top - SCREW_SOCKET_DEPTH / 2))
         boolean_cut(screw, bpy.context.active_object)
 
