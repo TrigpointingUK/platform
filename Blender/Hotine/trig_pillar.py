@@ -146,6 +146,13 @@ FB_BAR_DEPTH        = 0.025     # [D] keying bar protrusion behind rear plate (2
 FB_ANCHOR_H         = 0.035     # [D] anchor block height (35 mm)
 FB_ANCHOR_DEPTH     = 0.010     # [D] anchor block depth (10 mm)
 
+# --- Flush Bracket Logo Relief ---
+LOGO_SVG            = 'TUK-Logo.svg'   # SVG file in ../../res/ relative to script
+LOGO_RELIEF         = 0.0048    # [E] maximum relief height (4.8 mm, bright green UK)
+LOGO_MARGIN         = 0.014     # [E] 8 mm margin inside plate edges
+LOGO_V_STRETCH      = 1.30      # [E] vertical stretch factor (20 % taller)
+LOGO_BTM_OFFSET     = 0.020     # [E] bottom of logo 10 mm above plate bottom
+
 # --- Lower Wooden Box ---
 LB_HW               = 0.127     # [E] ~10" / 2
 LB_HEIGHT           = 0.102     # [E] ~4"
@@ -2794,6 +2801,190 @@ def build_flush_bracket(M):
     return plate
 
 
+def build_flush_bracket_logo(M):
+    """Add the TrigpointingUK logo as a multi-layer brass relief on the
+    flush bracket front face.
+
+    The SVG logo is imported, each path is classified by its fill colour
+    into a relief layer, converted to mesh, solidified to the appropriate
+    depth, and positioned on the bracket plate.
+
+    Layer ordering (front to back):
+        1. Bright green (#63e710)  — UK map outline           (highest)
+        2. Dark green   (#599d2b)  — grass
+        3. Grey         (#939393)  — trigpoint / theodolite
+        4. Yellow       (#fee82a)  — benchmark arrow
+        5. Near-white / light grey — highlight details
+        6. Black        (#000000)  — outline base             (lowest)
+
+    TUNEABLE PARAMETERS
+    -------------------
+    LOGO_RELIEF  — maximum relief height (bright green layer)
+    LOGO_MARGIN  — inset from plate edges
+    """
+    print("  Flush bracket logo ...")
+
+    # ── Locate SVG ──────────────────────────────────────────────
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        script_dir = os.getcwd()
+    svg_path = os.path.normpath(
+        os.path.join(script_dir, '..', '..', 'res', LOGO_SVG))
+    if not os.path.isfile(svg_path):
+        print(f"    WARNING: {svg_path} not found — skipping logo.")
+        return
+
+    # ── Colour → relief fraction ────────────────────────────────
+    # sRGB hex values from the SVG, mapped to fraction of LOGO_RELIEF.
+    HEX_HEIGHTS = {
+        (0x63, 0xe7, 0x10): 1.00,   # bright green — UK map shape
+        (0x59, 0x9d, 0x2b): 0.60,   # dark green   — grass
+        (0x93, 0x93, 0x93): 0.35,   # grey         — trig / theodolite
+        (0xfe, 0xe8, 0x2a): 0.35,   # yellow       — benchmark arrow
+        (0xf2, 0xf2, 0xf2): 0.20,   # near-white   — highlight
+        (0xe6, 0xe6, 0xe6): 0.20,   # light grey   — highlight
+        (0x00, 0x00, 0x00): 0.00,   # black        — outline (skip)
+    }
+
+    def _srgb_to_lin(c):
+        """Convert sRGB component [0,1] to linear."""
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+    # Pre-convert to linear RGB for comparison with Blender's internal colours
+    lin_heights = [
+        ((_srgb_to_lin(r / 255), _srgb_to_lin(g / 255), _srgb_to_lin(b / 255)), frac)
+        for (r, g, b), frac in HEX_HEIGHTS.items()
+    ]
+
+    def _match_colour(dc):
+        """Return relief fraction for the closest colour match."""
+        best, frac = 1e9, 0.00
+        for (lr, lg, lb), f in lin_heights:
+            d = (dc[0] - lr) ** 2 + (dc[1] - lg) ** 2 + (dc[2] - lb) ** 2
+            if d < best:
+                best, frac = d, f
+        return frac
+
+    # ── Import SVG ──────────────────────────────────────────────
+    existing = set(o.name for o in bpy.data.objects)
+    bpy.ops.import_curve.svg(filepath=svg_path)
+    new_all = [o for o in bpy.data.objects if o.name not in existing]
+    curves = [o for o in new_all if o.type == 'CURVE']
+
+    if not curves:
+        print("    WARNING: no curves imported — skipping logo.")
+        for o in new_all:
+            bpy.data.objects.remove(o, do_unlink=True)
+        return
+
+    # ── Bounding box of all imported curves (world XY) ──────────
+    xs, ys = [], []
+    for obj in curves:
+        for corner in obj.bound_box:
+            co = obj.matrix_world @ Vector(corner)
+            xs.append(co.x)
+            ys.append(co.y)
+    svg_min_x, svg_max_x = min(xs), max(xs)
+    svg_min_y, svg_max_y = min(ys), max(ys)
+    svg_w  = max(svg_max_x - svg_min_x, 1e-6)
+    svg_h  = max(svg_max_y - svg_min_y, 1e-6)
+    svg_cx = (svg_min_x + svg_max_x) / 2
+    svg_cy = (svg_min_y + svg_max_y) / 2
+
+    # Uniform scale to fit within flush bracket (with margin),
+    # then stretch vertically by LOGO_V_STRETCH.
+    logo_max_w = FB_W - 2 * LOGO_MARGIN
+    logo_max_h = (FB_H - LOGO_BTM_OFFSET - LOGO_MARGIN) / LOGO_V_STRETCH
+    scale_f    = min(logo_max_w / svg_w, logo_max_h / svg_h)
+    scale_x    = scale_f                    # horizontal
+    scale_y    = scale_f * LOGO_V_STRETCH   # vertical (stretched)
+
+    # After scaling, the logo's actual height:
+    logo_h     = svg_h * scale_y
+
+    # ── Flush bracket face coordinates ──────────────────────────
+    z_bot   = FB_BTM_Z
+    z_top   = z_bot + FB_H
+    face_top = pillar_hw_at(z_top)
+    plate_y  = face_top - FB_SETBACK
+    front_y  = plate_y + FB_D               # front face of the plate
+
+    # Logo bottom 10 mm above plate bottom; centre derived from that
+    logo_z_bot = z_bot + LOGO_BTM_OFFSET
+    logo_z_mid = logo_z_bot + logo_h / 2
+
+    # ── Convert each curve to a relief piece ────────────────────
+    logo_objs = []
+    for obj in curves:
+        # Relief height from material colour
+        frac = 0.00
+        if obj.data.materials:
+            mat = obj.data.materials[0]
+            if mat:
+                frac = _match_colour(mat.diffuse_color)
+        relief = LOGO_RELIEF * frac
+
+        # Unparent (SVG importer may group under an empty)
+        activate(obj)
+        if obj.parent:
+            bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+
+        # Convert curve → mesh (fills closed 2D regions)
+        bpy.ops.object.convert(target='MESH')
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+        # Skip zero-relief layers (e.g. black outline) and degenerate meshes
+        if frac <= 0 or not obj.data.polygons:
+            bpy.data.objects.remove(obj, do_unlink=True)
+            continue
+
+        # Solidify to give relief depth (+Z direction = outward after remap)
+        mod = obj.modifiers.new('Solidify', 'SOLIDIFY')
+        mod.thickness = relief
+        mod.offset = 1.0            # extrude in +Z (outward from plate)
+        activate(obj)
+        bpy.ops.object.modifier_apply(modifier='Solidify')
+
+        # ── Transform vertices to flush bracket position ────────
+        # After transform_apply, vertex coords are in world space.
+        # Map from XY-plane logo space to flush bracket:
+        #   logo X  → -pillar X  (mirrored so logo reads correctly
+        #                          when viewed from outside the trig)
+        #   logo Y  →  pillar Z  (vertical — SVG importer flips Y)
+        #   logo Z  →  pillar Y  (relief depth, outward from face)
+        mesh = obj.data
+        for v in mesh.vertices:
+            lx = (v.co.x - svg_cx) * scale_x
+            ly = (v.co.y - svg_cy) * scale_y  # stretched vertically
+            lz = v.co.z                        # 0 … relief
+
+            v.co.x = -lx                       # mirror for correct reading
+            v.co.y = front_y + lz              # base flush with plate face
+            v.co.z = logo_z_mid + ly           # bottom aligned per offset
+
+        # Clear any residual object transform
+        obj.location = (0, 0, 0)
+        obj.rotation_euler = (0, 0, 0)
+        obj.scale = (1, 1, 1)
+
+        assign(obj, M['brass'])
+        obj.name = f"FBLogo_{obj.name}"
+        logo_objs.append(obj)
+
+    # ── Clean up SVG empties and unused materials ───────────────
+    for o in list(bpy.data.objects):
+        if o.name not in existing and o.type == 'EMPTY':
+            bpy.data.objects.remove(o, do_unlink=True)
+
+    # Purge SVG-imported materials (logo pieces now use brass)
+    for mat in list(bpy.data.materials):
+        if mat.name.startswith('SVGMat') and mat.users == 0:
+            bpy.data.materials.remove(mat)
+
+    print(f"    {len(logo_objs)} logo relief pieces placed.")
+
+
 def build_base_slab(M):
     """Concrete foundation base — rough-sided to suggest a hand-dug hole, flat on top."""
     print("  Base slab ...")
@@ -3582,6 +3773,7 @@ def main():
     build_fixings(M)
     build_brass_loops(M)
     build_flush_bracket(M)
+    build_flush_bracket_logo(M)
     build_base_slab(M)
     build_angle_irons(M)
     build_lower_box(M)
