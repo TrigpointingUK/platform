@@ -152,6 +152,8 @@ LOGO_RELIEF         = 0.0048    # [E] maximum relief height (4.8 mm, bright gree
 LOGO_MARGIN         = 0.014     # [E] 8 mm margin inside plate edges
 LOGO_V_STRETCH      = 1.30      # [E] vertical stretch factor (20 % taller)
 LOGO_BTM_OFFSET     = 0.020     # [E] bottom of logo 10 mm above plate bottom
+LOGO_BEVEL_FRAC     = 0.10      # [E] bevel width as fraction of layer relief
+LOGO_BEVEL_SEGS     = 1         # [E] bevel segments (1 = flat chamfer, 2+ = rounded)
 
 # --- Lower Wooden Box ---
 LB_HW               = 0.127     # [E] ~10" / 2
@@ -2968,6 +2970,39 @@ def build_flush_bracket_logo(M):
         obj.rotation_euler = (0, 0, 0)
         obj.scale = (1, 1, 1)
 
+        # Bevel the sharp edges so the relief catches light.
+        # Uses bmesh.ops.bevel directly (bypasses modifier pipeline
+        # which was silently failing after vertex-level transforms).
+        mesh.update()
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.edges.ensure_lookup_table()
+
+        # Select edges where the dihedral angle ≥ 30° (i.e. sharp edges
+        # between top/bottom faces and side walls of the solidified relief).
+        angle_thresh = math.radians(30)
+        sharp_edges = []
+        for e in bm.edges:
+            if len(e.link_faces) == 2:
+                angle = e.calc_face_angle(0)
+                if angle >= angle_thresh:
+                    sharp_edges.append(e)
+
+        if sharp_edges:
+            bmesh.ops.bevel(
+                bm,
+                geom=sharp_edges,
+                offset=relief * LOGO_BEVEL_FRAC,
+                offset_type='OFFSET',
+                segments=LOGO_BEVEL_SEGS,
+                profile=0.5,
+                affect='EDGES',
+            )
+
+        bm.to_mesh(mesh)
+        bm.free()
+        mesh.update()
+
         assign(obj, M['brass'])
         obj.name = f"FBLogo_{obj.name}"
         logo_objs.append(obj)
@@ -3795,6 +3830,7 @@ def main():
     print(f"\nDone — {n} objects created.")
     print("Tip: Press Space in the Timeline to preview the camera flythrough.")
     print("     Press Numpad-0 to toggle the camera view.\n")
+
 
 
 if __name__ == "__main__":
