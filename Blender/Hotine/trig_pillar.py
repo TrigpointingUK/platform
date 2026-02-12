@@ -1531,7 +1531,7 @@ def make_landscape_material():
     e2.color = (*FIELD_COL_LIGHT, 1)
     els[1].position = 1.0
     els[1].color = (*FIELD_COL_CROP, 1)
-    L.new(voronoi.outputs['Distance'], field_cr.inputs['Fac'])
+    L.new(voronoi.outputs['Color'], field_cr.inputs['Fac'])
 
     # ── Within-field variation (subtle noise) ─────────────────────
     field_noise = N('ShaderNodeTexNoise', (-800, 100), "Field Noise")
