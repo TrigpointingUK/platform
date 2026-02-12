@@ -170,6 +170,10 @@ LBLOCK_H            = 0.305     # [E] ~12"
 LCM_CYL_H          = 0.003     # [E] cylinder thickness (3 mm)
 LCM_PUNCH_R        = 0.0014    # [E] punch mark radius (1.4 mm); depth = radius (45°)
 
+# --- Hilltop Terrain ---
+TERRAIN_RADIUS      = 6.0       # [E] radius of the grassy dome (metres)
+DOME_HEIGHT         = 1.10      # [E] height drop from dome centre to edge (metres)
+
 
 # =====================================================================
 # UTILITY FUNCTIONS
@@ -526,7 +530,7 @@ def make_concrete_material():
     WHITEWASH_SCALE    = 5.0
     WHITEWASH_COLOUR   = (0.45, 0.42, 0.37)
     CONCRETE_COLOUR    = (0.30, 0.28, 0.23)
-    STAIN_STRENGTH     = 0.35
+    STAIN_STRENGTH     = 0.55
     STAIN_SCALE        = 4.0
     STAIN_STRETCH      = 8.0
     ROUGHNESS_BASE     = 0.85
@@ -3571,10 +3575,10 @@ def build_terrain(M):
 
     TUNEABLE PARAMETERS
     -------------------
-    TERRAIN_RADIUS   — radius of the terrain disc (metres)
+    TERRAIN_RADIUS   — radius of the terrain disc (module-level constant)
+    DOME_HEIGHT      — height drop centre to edge (module-level constant)
     TERRAIN_DEPTH    — how far below z=0 the terrain extends
     GRID_SUBDIVS     — mesh resolution (higher = smoother undulation)
-    DOME_HEIGHT      — height drop from centre to edge
     NOISE_STRENGTH   — amplitude of surface undulation
     NOISE_SCALE      — spatial frequency of undulation
     NOISE_OCTAVES    — fractal detail layers
@@ -3582,11 +3586,11 @@ def build_terrain(M):
     print("  Terrain ...")
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
-    TERRAIN_RADIUS = 5.0          # 10 m across — fills the frame
-    GRID_SUBDIVS   = 80           # vertex spacing ~12.5 cm
-    DOME_HEIGHT    = 0.50         # gentle 25 cm dome
-    NOISE_STRENGTH = 0.04         # ±4 cm undulation
-    NOISE_SCALE    = 1.5          # spatial frequency
+    # TERRAIN_RADIUS and DOME_HEIGHT are module-level constants
+    # (shared with build_landscape_ring).
+    GRID_SUBDIVS   = 100           # vertex spacing ~12.5 cm
+    NOISE_STRENGTH = 0.08         # ±4 cm undulation
+    NOISE_SCALE    = 2.5          # spatial frequency
     NOISE_OCTAVES  = 4            # fractal layers
     CUT_MARGIN     = 0.005        # 5 mm gap between terrain and base slab
     # ─────────────────────────────────────────────────────────────
@@ -3701,6 +3705,120 @@ def build_terrain(M):
     return terrain
 
 
+def build_landscape_ring(M):
+    """Large surrounding countryside to fill the gap between the hilltop
+    dome and the far horizon.
+
+    An efficient radial mesh (concentric rings with increasing spacing)
+    extends from just inside the terrain dome edge out to ~200 m.  The
+    surface continues the dome's downhill slope then gradually levels off,
+    simulating a broad hilltop viewed from the summit.  A procedural
+    patchwork-fields material fades into atmospheric haze at distance.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    INNER_R         — inner radius (overlaps terrain dome edge slightly)
+    OUTER_R         — outer radius (far enough for low camera angles)
+    N_ANGULAR       — vertices per ring (angular resolution)
+    SLOPE_RATE      — initial downhill slope (m drop per m outward)
+    SLOPE_DECAY     — how quickly the slope flattens (higher = faster)
+    MAX_DROP        — maximum height drop at the outer edge (metres)
+    UNDULATION_AMP  — amplitude of gentle terrain undulation
+    UNDULATION_FREQ — spatial frequency of undulation
+    """
+    print("  Landscape ring ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    INNER_R         = 4.6         # slightly inside terrain dome edge
+    OUTER_R         = 200.0       # far horizon fill
+    N_ANGULAR       = 64          # vertices per ring
+    SLOPE_RATE      = 0.10        # initial slope: 10 cm drop per metre
+    SLOPE_DECAY     = 0.04        # decay rate (1/e distance ≈ 25 m)
+    MAX_DROP        = 8.0         # total drop to far edge (metres)
+    UNDULATION_AMP  = 0.3         # gentle rolling hills (metres)
+    UNDULATION_FREQ = 0.08        # spatial frequency of undulation
+    # ─────────────────────────────────────────────────────────────
+
+    # Terrain dome edge height — derived from the module-level
+    # TERRAIN_RADIUS and DOME_HEIGHT (shared with build_terrain).
+    GROUND_Z = -BASE_HEIGHT + 0.80 * BASE_HEIGHT   # ≈ -0.061
+    t_edge = INNER_R / TERRAIN_RADIUS
+    EDGE_Z = GROUND_Z + (-DOME_HEIGHT * t_edge * t_edge)
+
+    # ── Build radial mesh with logarithmically spaced rings ───────
+    # Inner rings are close together (smooth join to dome); outer rings
+    # are widely spaced (far-field detail irrelevant due to haze).
+    ring_radii = [INNER_R]
+    r = INNER_R
+    dr = 0.3          # initial ring spacing (metres)
+    while r < OUTER_R:
+        r += dr
+        ring_radii.append(min(r, OUTER_R))
+        dr *= 1.25     # increase spacing outward
+    n_rings = len(ring_radii)
+
+    # Height profile: exponential decay slope + undulation
+    def landscape_z(r_val, angle):
+        # Smooth continuation of dome slope, decaying to flat
+        dist_from_edge = max(0.0, r_val - INNER_R)
+        drop = (SLOPE_RATE / SLOPE_DECAY) * (
+            1.0 - math.exp(-SLOPE_DECAY * dist_from_edge))
+        drop = min(drop, MAX_DROP)
+
+        # Gentle rolling undulation (sum of two sine waves)
+        x = r_val * math.cos(angle)
+        y = r_val * math.sin(angle)
+        und = UNDULATION_AMP * (
+            0.6 * math.sin(UNDULATION_FREQ * (x * 1.0 + y * 0.7) + 1.3)
+            + 0.4 * math.sin(UNDULATION_FREQ * 1.7 * (x * 0.6 - y * 1.0) + 4.1)
+        )
+        # Fade undulation in (zero at inner edge, full beyond 20 m)
+        und_fade = min(1.0, dist_from_edge / 15.0)
+
+        return EDGE_Z - drop + und * und_fade
+
+    bm = bmesh.new()
+
+    # Create vertex rings
+    vert_rings = []
+    for ri, rad in enumerate(ring_radii):
+        ring_verts = []
+        for ai in range(N_ANGULAR):
+            angle = 2.0 * math.pi * ai / N_ANGULAR
+            x = rad * math.cos(angle)
+            y = rad * math.sin(angle)
+            z = landscape_z(rad, angle)
+            ring_verts.append(bm.verts.new((x, y, z)))
+        vert_rings.append(ring_verts)
+
+    # Create faces between adjacent rings
+    for ri in range(n_rings - 1):
+        inner_ring = vert_rings[ri]
+        outer_ring = vert_rings[ri + 1]
+        for ai in range(N_ANGULAR):
+            ai_next = (ai + 1) % N_ANGULAR
+            # Quad: inner[ai], inner[ai+1], outer[ai+1], outer[ai]
+            bm.faces.new([
+                inner_ring[ai],
+                inner_ring[ai_next],
+                outer_ring[ai_next],
+                outer_ring[ai],
+            ])
+
+    bm.normal_update()
+
+    mesh = bpy.data.meshes.new("Landscape")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    landscape = bpy.data.objects.new("Landscape", mesh)
+    bpy.context.collection.objects.link(landscape)
+
+    assign(landscape, M['landscape'])
+    smooth(landscape)
+    return landscape
+
+
 def build_grass():
     """Scatter grass blade instances over the terrain via Geometry Nodes.
 
@@ -3740,9 +3858,9 @@ def build_grass():
     FULL_RADIUS    = 2.50     # full coverage from 2.5 m outward
     GRASS_DENSITY  = 1400.0   # points per m² at full weight (main layer)
     GRASS_DENSITY_SHORT = 6000.0   # dense short under-layer
-    WEED_DENSITY   = 400.0     # broad-leaf weeds (sparse)
-    FLOWER_DENSITY = 5.5      # flowers (very sparse)
-    STONE_DENSITY  = 40.0     # visible stones (sparse)
+    WEED_DENSITY   = 4400.0     # broad-leaf weeds (sparse)
+    FLOWER_DENSITY = 2.5      # flowers (very sparse)
+    STONE_DENSITY  = 140.0     # visible stones (sparse)
     WEED_VARIANTS  = 4
     FLOWER_VARIANTS = 2
     STONE_VARIANTS = 6
@@ -3765,9 +3883,9 @@ def build_grass():
     FLOWER_SCALE_MIN = 0.7
     FLOWER_SCALE_MAX = 1.4
     FLOWER_SCALE_BIAS = 2.0
-    STONE_SCALE_MIN = 1.2
-    STONE_SCALE_MAX = 3.0
-    STONE_RAISE     = 0.02    # lift stones above ground surface (m)
+    STONE_SCALE_MIN = 0.01
+    STONE_SCALE_MAX = 0.05
+    STONE_RAISE     = 0.05    # lift stones above ground surface (m)
 
     CLUMP_SCALE    = 0.25     # large-scale clump size
     CLUMP_DETAIL   = 2.0
@@ -4108,6 +4226,16 @@ def build_grass():
 
     sep_n = gn.new('ShaderNodeSeparateXYZ')
     sep_n.location = (-600, -350)
+
+    # Hard boolean gate: only scatter on faces whose normal points
+    # upward (Z > 0).  This is fed into the Selection input of every
+    # Distribute Points on Faces node, which completely excludes
+    # bottom / side faces from consideration — no grass on bedrock.
+    face_up = gn.new('FunctionNodeCompare')
+    face_up.data_type = 'FLOAT'
+    face_up.operation = 'GREATER_THAN'
+    face_up.inputs[1].default_value = 0.0   # threshold: normal Z > 0
+    face_up.location = (-400, -280)
 
     slope_map = gn.new('ShaderNodeMapRange')
     slope_map.location = (-400, -350)
@@ -4532,11 +4660,23 @@ def build_grass():
     # Input mesh → scatter + passthrough to join
     gl.new(group_in.outputs[0], distribute.inputs['Mesh'])
     gl.new(group_in.outputs[0], distribute_short.inputs['Mesh'])
+    gl.new(group_in.outputs[0], distribute_weed.inputs['Mesh'])
+    gl.new(group_in.outputs[0], distribute_flower.inputs['Mesh'])
+    gl.new(group_in.outputs[0], distribute_stone.inputs['Mesh'])
     gl.new(group_in.outputs[0], join.inputs['Geometry'])
+
+    # Restrict all scatter to upward-facing top surface only —
+    # the Selection boolean excludes bedrock / side faces entirely.
+    gl.new(face_up.outputs['Result'], distribute.inputs['Selection'])
+    gl.new(face_up.outputs['Result'], distribute_short.inputs['Selection'])
+    gl.new(face_up.outputs['Result'], distribute_weed.inputs['Selection'])
+    gl.new(face_up.outputs['Result'], distribute_flower.inputs['Selection'])
+    gl.new(face_up.outputs['Result'], distribute_stone.inputs['Selection'])
 
     # Upward-facing slope factor + orientation vector
     gl.new(normal_in.outputs['Normal'], sep_n.inputs['Vector'])
     gl.new(sep_n.outputs['Z'], slope_map.inputs['Value'])
+    gl.new(sep_n.outputs['Z'], face_up.inputs[0])             # normal Z > 0?
     gl.new(normal_in.outputs['Normal'], mix_vec.inputs['B'])
     gl.new(up_vec.outputs['Vector'], mix_vec.inputs['A'])
     gl.new(slope_map.outputs['Result'], align_factor.inputs[0])
@@ -4751,6 +4891,14 @@ def setup_scene():
     SUN_ALTITUDE    = 40          # degrees above horizon
     SUN_AZIMUTH     = 50          # degrees — between +X and +Y,
                                   # raking across the +Y flush bracket face
+
+    # Below-horizon safety gradient — catches any gap between the
+    # landscape ring edge and the sky.  Uses the ray direction Z
+    # component: positive = above horizon, negative = below.
+    HORIZON_UPPER   = 0.52        # blend starts just above true horizon
+    HORIZON_LOWER   = -0.08       # fully landscape colour by this angle
+    HORIZON_COL     = (0.52, 0.54, 0.50)   # overcast haze (match landscape)
+    HORIZON_STRENGTH_RATIO = 1.0  # relative to SKY_STRENGTH
     # ─────────────────────────────────────────────────────────────
 
     # Camera — positioned to see the full pillar
@@ -4839,8 +4987,34 @@ def setup_scene():
     bg.label = "Sky"
     bg.inputs['Strength'].default_value = SKY_STRENGTH
 
+    # ── Below-horizon landscape gradient (safety net) ─────────────
+    # If the camera ray looks below the horizon and sees past the
+    # landscape ring, show hazy overcast green instead of black void.
+    # Uses the Generated texture coordinates: in a world shader the
+    # Generated output is the normalised ray direction, so Z > 0 is
+    # above the horizon and Z < 0 is below.
+    sep_ray = wtree.nodes.new('ShaderNodeSeparateXYZ')
+    sep_ray.location = (-400, -400)
+
+    horizon_mask = wtree.nodes.new('ShaderNodeMapRange')
+    horizon_mask.location = (-200, -400)
+    horizon_mask.inputs['From Min'].default_value = HORIZON_LOWER
+    horizon_mask.inputs['From Max'].default_value = HORIZON_UPPER
+    horizon_mask.inputs['To Min'].default_value = 1.0   # below = landscape
+    horizon_mask.inputs['To Max'].default_value = 0.0   # above = sky
+    horizon_mask.clamp = True
+
+    land_bg = wtree.nodes.new('ShaderNodeBackground')
+    land_bg.location = (320, -400)
+    land_bg.label = "Horizon Haze"
+    land_bg.inputs['Color'].default_value = (*HORIZON_COL, 1.0)
+    land_bg.inputs['Strength'].default_value = SKY_STRENGTH * HORIZON_STRENGTH_RATIO
+
+    mix_horizon = wtree.nodes.new('ShaderNodeMixShader')
+    mix_horizon.location = (520, 200)
+
     output = wtree.nodes.new('ShaderNodeOutputWorld')
-    output.location = (520, 200)
+    output.location = (720, 200)
 
     # ── Wire everything up ─────────────────────────────────────────
     wL = wtree.links
@@ -4853,8 +5027,14 @@ def setup_scene():
     wL.new(hsv.outputs['Color'], cloud_scale.inputs[0])           # Vector
     wL.new(cloud_offset.outputs['Value'], cloud_scale.inputs['Scale'])
     wL.new(cloud_scale.outputs['Vector'], bg.inputs['Color'])
-    # Surface output only (world volume removed for performance)
-    wL.new(bg.outputs['Background'], output.inputs['Surface'])
+    # Horizon detection: Generated Z → mask
+    wL.new(tex_coord.outputs['Generated'], sep_ray.inputs['Vector'])
+    wL.new(sep_ray.outputs['Z'], horizon_mask.inputs['Value'])
+    # Mix sky (above) with haze (below), then to output
+    wL.new(horizon_mask.outputs['Result'], mix_horizon.inputs['Fac'])
+    wL.new(bg.outputs['Background'], mix_horizon.inputs[1])
+    wL.new(land_bg.outputs['Background'], mix_horizon.inputs[2])
+    wL.new(mix_horizon.outputs['Shader'], output.inputs['Surface'])
 
     # ── Sun light ─────────────────────────────────────────────────
     # Direction: shining from the azimuth/altitude towards the origin.
@@ -5224,6 +5404,7 @@ def main():
         'aged_steel':   make_aged_steel_material(),
         'wood':         make_wood_material(),
         'terrain':      make_terrain_material(),
+        'landscape':    make_landscape_material(),
     }
 
     # Build all components
@@ -5274,6 +5455,7 @@ def main():
     build_lower_block(M)
     build_lower_centre_mark(M)
     build_terrain(M)
+    build_landscape_ring(M)
     build_grass()
 
     # Scene (lights, viewport settings)
