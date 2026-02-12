@@ -45,7 +45,7 @@ Added maintenance pages for type hierarchy, condition and status
 Added comparison between T:UK and OS Net active station data
 
 
-xx Feb 2026
+02 Feb 2026
 
 Main map scrolls more smoothly, with better caching and faster update of markers
 Small map now has lock icon allowing it to be panned
@@ -56,4 +56,10 @@ Cleaned data for OSGB36 and moved trigpoints
 Added "Original location" field for moved trigpoints
 Small map on trig detail pages can now be expanded to fullscreen
 
+
+xx Feb 2026
+
+More accurate coastline for the RoI, so eg islands off the Cork coastline are now recognised as being in Ireland
+New admin screen comparing the TrigpointingUK database of Irish trigpoints with Clochandichter's curated spreadsheet.  Thousands of discrepancies shown, which I'll work on cleaning up over the coming weeks.
+Started work on a more user-friendly trigpoint list, which has finer-grained filtering, while hopefully not increasing complexity.  Feedback welcomed!
 
