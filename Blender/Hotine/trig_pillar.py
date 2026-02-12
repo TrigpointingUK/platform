@@ -3700,6 +3700,43 @@ def build_terrain(M):
         base_z=cut_btm_z)
     boolean_cut(terrain, cutter)
 
+    # ── Fix normals & mark top-surface faces ───────────────────────
+    # The Boolean solver can leave normals inconsistent, which breaks
+    # any downstream normal-based tests (GN scatter selection, density
+    # attribute).  We fix that here and additionally store an explicit
+    # face-domain boolean "IsTopFace" based on geometric proximity to
+    # the known dome equation — completely independent of normals.
+    bm = bmesh.new()
+    bm.from_mesh(terrain.data)
+
+    # 1. Recalculate normals so shading is correct and the density
+    #    attribute in build_grass() (which checks vertex normals) works.
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
+    bm.to_mesh(terrain.data)
+    bm.free()
+    terrain.data.update()
+
+    # 2. Store a face-domain boolean attribute "IsTopFace".
+    #    For each face we compare its centre Z against the expected
+    #    dome height at that XY radius.  Top-surface faces sit close
+    #    to the dome equation; bottom/rim faces are far below it.
+    TOP_Z_TOLERANCE = max(0.25, NOISE_STRENGTH * 4)  # generous margin
+    attr_top = terrain.data.attributes.get("IsTopFace")
+    if attr_top is None:
+        attr_top = terrain.data.attributes.new(
+            name="IsTopFace", type='BOOLEAN', domain='FACE')
+
+    mesh_data = terrain.data
+    mesh_data.calc_loop_triangles()          # ensure face data is fresh
+
+    for fi, face in enumerate(mesh_data.polygons):
+        cx, cy, cz = face.center
+        r = math.sqrt(cx * cx + cy * cy)
+        t = min(r / TERRAIN_RADIUS, 1.0)
+        expected_z = GROUND_Z + (-DOME_HEIGHT * t * t)
+        attr_top.data[fi].value = (cz > expected_z - TOP_Z_TOLERANCE)
+
     assign(terrain, M['terrain'])
     smooth(terrain)
     return terrain
@@ -4227,15 +4264,14 @@ def build_grass():
     sep_n = gn.new('ShaderNodeSeparateXYZ')
     sep_n.location = (-600, -350)
 
-    # Hard boolean gate: only scatter on faces whose normal points
-    # upward (Z > 0).  This is fed into the Selection input of every
-    # Distribute Points on Faces node, which completely excludes
-    # bottom / side faces from consideration — no grass on bedrock.
-    face_up = gn.new('FunctionNodeCompare')
-    face_up.data_type = 'FLOAT'
-    face_up.operation = 'GREATER_THAN'
-    face_up.inputs[1].default_value = 0.0   # threshold: normal Z > 0
-    face_up.location = (-400, -280)
+    # Hard boolean gate: only scatter on top-surface faces.  The
+    # "IsTopFace" attribute was computed in build_terrain() using the
+    # known dome equation — it's True only for faces geometrically on
+    # the upper terrain surface, regardless of normals.
+    top_face_attr = gn.new('GeometryNodeInputNamedAttribute')
+    top_face_attr.data_type = 'BOOLEAN'
+    top_face_attr.inputs['Name'].default_value = "IsTopFace"
+    top_face_attr.location = (-400, -280)
 
     slope_map = gn.new('ShaderNodeMapRange')
     slope_map.location = (-400, -350)
@@ -4665,18 +4701,18 @@ def build_grass():
     gl.new(group_in.outputs[0], distribute_stone.inputs['Mesh'])
     gl.new(group_in.outputs[0], join.inputs['Geometry'])
 
-    # Restrict all scatter to upward-facing top surface only —
-    # the Selection boolean excludes bedrock / side faces entirely.
-    gl.new(face_up.outputs['Result'], distribute.inputs['Selection'])
-    gl.new(face_up.outputs['Result'], distribute_short.inputs['Selection'])
-    gl.new(face_up.outputs['Result'], distribute_weed.inputs['Selection'])
-    gl.new(face_up.outputs['Result'], distribute_flower.inputs['Selection'])
-    gl.new(face_up.outputs['Result'], distribute_stone.inputs['Selection'])
+    # Restrict all scatter to the top terrain surface only —
+    # the IsTopFace boolean attribute (set in build_terrain from the
+    # dome equation) excludes bedrock / rim faces entirely.
+    gl.new(top_face_attr.outputs['Attribute'], distribute.inputs['Selection'])
+    gl.new(top_face_attr.outputs['Attribute'], distribute_short.inputs['Selection'])
+    gl.new(top_face_attr.outputs['Attribute'], distribute_weed.inputs['Selection'])
+    gl.new(top_face_attr.outputs['Attribute'], distribute_flower.inputs['Selection'])
+    gl.new(top_face_attr.outputs['Attribute'], distribute_stone.inputs['Selection'])
 
     # Upward-facing slope factor + orientation vector
     gl.new(normal_in.outputs['Normal'], sep_n.inputs['Vector'])
     gl.new(sep_n.outputs['Z'], slope_map.inputs['Value'])
-    gl.new(sep_n.outputs['Z'], face_up.inputs[0])             # normal Z > 0?
     gl.new(normal_in.outputs['Normal'], mix_vec.inputs['B'])
     gl.new(up_vec.outputs['Vector'], mix_vec.inputs['A'])
     gl.new(slope_map.outputs['Result'], align_factor.inputs[0])
