@@ -20,7 +20,7 @@ import bmesh
 import math
 import os
 import random
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 
 # =====================================================================
@@ -1127,8 +1127,24 @@ def make_terrain_material():
     GRASS_COL_DRY  = (0.20, 0.18, 0.06)    # dry / bare patches
     GRASS_ROUGH    = 0.90
     GRASS_SCALE    = 8.0
-    GRASS_BUMP     = 0.08
-    GRASS_DRY_AMT  = 0.20                  # proportion of dry patches
+    GRASS_BUMP     = 0.12
+    GRASS_DRY_AMT  = 0.10                  # proportion of dry patches
+
+    # Radial dryness (centre browner, edges greener)
+    RADIAL_DRY_INNER = 0.80                # full dryness within this radius
+    RADIAL_DRY_OUTER = 4.60                # fades to green by this radius
+    RADIAL_DRY_POWER = 0.5                 # >1 = tighter centre falloff
+    RADIAL_NOISE_SCALE = 0.6               # blotchy radial variation
+    RADIAL_NOISE_STRENGTH = 0.8            # 0..1 → how patchy
+
+    # Stones / rocks
+    STONE_SCALE     = 6.0                  # higher = smaller stones
+    STONE_THRESHOLD = 0.12                 # distance threshold for stones
+    STONE_BUMP      = 0.18                 # bump height contribution
+    STONE_COL_A     = (0.38, 0.36, 0.33)   # light stone
+    STONE_COL_B     = (0.25, 0.23, 0.21)   # dark stone
+    STONE_ROUGH     = 0.85
+    USE_SHADER_STONES = False              # if True, tint terrain with stone mask
     # ─────────────────────────────────────────────────────────────
 
     mat = bpy.data.materials.new("Terrain")
@@ -1167,6 +1183,73 @@ def make_terrain_material():
     map_sg.inputs['To Max'].default_value = 1.0
     map_sg.clamp = True
     L.new(sep_xyz.outputs['Z'], map_sg.inputs['Value'])
+
+    # ── Radial dryness (brown centre → green edges) ─────────────
+    # Compute radius from X/Y, then map to a 0–1 dryness mask.
+    comb_xy = N('ShaderNodeCombineXYZ', (-1050, -350), "XY Vector")
+    L.new(sep_xyz.outputs['X'], comb_xy.inputs['X'])
+    L.new(sep_xyz.outputs['Y'], comb_xy.inputs['Y'])
+
+    radius = N('ShaderNodeVectorMath', (-900, -350), "Radius")
+    radius.operation = 'LENGTH'
+    L.new(comb_xy.outputs['Vector'], radius.inputs[0])
+
+    radial_sub = N('ShaderNodeMath', (-750, -350), "Radial Shift")
+    radial_sub.operation = 'SUBTRACT'
+    radial_sub.inputs[1].default_value = RADIAL_DRY_INNER
+    L.new(radius.outputs['Value'], radial_sub.inputs[0])
+
+    radial_map = N('ShaderNodeMapRange', (-600, -350), "Radial Dry Map")
+    radial_map.inputs['From Min'].default_value = 0.0
+    radial_map.inputs['From Max'].default_value = max(
+        0.01, RADIAL_DRY_OUTER - RADIAL_DRY_INNER)
+    radial_map.inputs['To Min'].default_value = 1.0
+    radial_map.inputs['To Max'].default_value = 0.0
+    radial_map.clamp = True
+    L.new(radial_sub.outputs['Value'], radial_map.inputs['Value'])
+
+    radial_pow = N('ShaderNodeMath', (-450, -350), "Radial Dry Power")
+    radial_pow.operation = 'POWER'
+    radial_pow.inputs[1].default_value = RADIAL_DRY_POWER
+    L.new(radial_map.outputs['Result'], radial_pow.inputs[0])
+
+    # Blotchy modulation of radial dryness
+    radial_noise = N('ShaderNodeTexNoise', (-450, -500), "Radial Noise")
+    radial_noise.inputs['Scale'].default_value = RADIAL_NOISE_SCALE
+    radial_noise.inputs['Detail'].default_value = 2.0
+    radial_noise.inputs['Roughness'].default_value = 0.6
+    L.new(tex_coord.outputs['Object'], radial_noise.inputs['Vector'])
+
+    radial_noise_map = N('ShaderNodeMapRange', (-250, -500), "Radial Noise Map")
+    radial_noise_map.inputs['From Min'].default_value = 0.0
+    radial_noise_map.inputs['From Max'].default_value = 1.0
+    radial_noise_map.inputs['To Min'].default_value = 1.0 - RADIAL_NOISE_STRENGTH
+    radial_noise_map.inputs['To Max'].default_value = 1.0 + RADIAL_NOISE_STRENGTH
+    radial_noise_map.clamp = True
+    L.new(radial_noise.outputs['Fac'], radial_noise_map.inputs['Value'])
+
+    radial_patch = N('ShaderNodeMath', (-50, -420), "Radial Dry Patch")
+    radial_patch.operation = 'MULTIPLY'
+    L.new(radial_pow.outputs['Value'], radial_patch.inputs[0])
+    L.new(radial_noise_map.outputs['Result'], radial_patch.inputs[1])
+
+    radial_clamp = N('ShaderNodeMapRange', (120, -420), "Radial Dry Clamp")
+    radial_clamp.inputs['From Min'].default_value = 0.0
+    radial_clamp.inputs['From Max'].default_value = 1.0
+    radial_clamp.inputs['To Min'].default_value = 0.0
+    radial_clamp.inputs['To Max'].default_value = 1.0
+    radial_clamp.clamp = True
+    L.new(radial_patch.outputs['Value'], radial_clamp.inputs['Value'])
+
+    radial_grass = N('ShaderNodeMath', (300, -420), "Radial Grass")
+    radial_grass.operation = 'SUBTRACT'
+    radial_grass.inputs[0].default_value = 1.0
+    L.new(radial_clamp.outputs['Result'], radial_grass.inputs[1])
+
+    grass_mask = N('ShaderNodeMath', (500, -200), "Grass Mask")
+    grass_mask.operation = 'MAXIMUM'
+    L.new(map_sg.outputs['Result'], grass_mask.inputs[0])
+    L.new(radial_grass.outputs['Value'], grass_mask.inputs[1])
 
     # ── Bedrock colour ───────────────────────────────────────────
     rock_noise = N('ShaderNodeTexNoise', (-700, 500), "Rock Noise")
@@ -1221,12 +1304,33 @@ def make_terrain_material():
     dry_cr.color_ramp.elements[1].position = 1.0
     L.new(dry_noise.outputs['Fac'], dry_cr.inputs['Fac'])
 
+    # Dry patches biased toward the centre (radial dryness)
+    dry_strength = N('ShaderNodeMapRange', (-300, -350), "Dry Strength")
+    dry_strength.inputs['From Min'].default_value = 0.0
+    dry_strength.inputs['From Max'].default_value = 1.0
+    dry_strength.inputs['To Min'].default_value = 0.20
+    dry_strength.inputs['To Max'].default_value = 1.00
+    dry_strength.clamp = True
+    L.new(radial_clamp.outputs['Result'], dry_strength.inputs['Value'])
+
+    dry_mask = N('ShaderNodeMath', (-120, -350), "Dry Mask × Radial")
+    dry_mask.operation = 'MULTIPLY'
+    L.new(dry_cr.outputs['Color'], dry_mask.inputs[0])
+    L.new(dry_strength.outputs['Result'], dry_mask.inputs[1])
+
     grass_mix = N('ShaderNodeMixRGB', (-300, -200), "Grass + Dry")
     grass_mix.blend_type = 'MIX'
     grass_mix.inputs[0].default_value = 1.0   # use dry mask as factor
-    L.new(dry_cr.outputs['Color'], grass_mix.inputs['Fac'])
+    L.new(dry_mask.outputs['Value'], grass_mix.inputs['Fac'])
     L.new(grass_cr.outputs['Color'], grass_mix.inputs['Color1'])
     grass_mix.inputs['Color2'].default_value = (*GRASS_COL_DRY, 1)
+
+    # Radial dryness: mix grass with soil colour toward the centre
+    grass_radial = N('ShaderNodeMixRGB', (-120, -50), "Grass ↔ Soil (Radial)")
+    grass_radial.blend_type = 'MIX'
+    L.new(radial_clamp.outputs['Result'], grass_radial.inputs['Fac'])
+    L.new(grass_mix.outputs['Color'], grass_radial.inputs['Color1'])
+    L.new(soil_cr.outputs['Color'], grass_radial.inputs['Color2'])
 
     # ── Combine layers: bedrock → soil → grass ───────────────────
     mix_bs = N('ShaderNodeMixRGB', (-100, 300), "Bedrock→Soil Mix")
@@ -1237,9 +1341,10 @@ def make_terrain_material():
 
     mix_sg = N('ShaderNodeMixRGB', (100, 100), "→Grass Mix")
     mix_sg.blend_type = 'MIX'
-    L.new(map_sg.outputs['Result'], mix_sg.inputs['Fac'])
+    L.new(grass_mask.outputs['Value'], mix_sg.inputs['Fac'])
     L.new(mix_bs.outputs['Color'], mix_sg.inputs['Color1'])
-    L.new(grass_mix.outputs['Color'], mix_sg.inputs['Color2'])
+    L.new(grass_radial.outputs['Color'], mix_sg.inputs['Color2'])
+
 
     # ── Roughness: blend per layer (bedrock → soil → grass) ─────
     rough_bs = N('ShaderNodeMixRGB', (-100, -200), "Rough B→S")
@@ -1250,9 +1355,10 @@ def make_terrain_material():
 
     rough_final = N('ShaderNodeMixRGB', (100, -200), "Rough →G")
     rough_final.blend_type = 'MIX'
-    L.new(map_sg.outputs['Result'], rough_final.inputs['Fac'])
+    L.new(grass_mask.outputs['Value'], rough_final.inputs['Fac'])
     L.new(rough_bs.outputs['Color'], rough_final.inputs['Color1'])
     rough_final.inputs['Color2'].default_value = (GRASS_ROUGH, GRASS_ROUGH, GRASS_ROUGH, 1)
+
 
     # ── Bump: grassy lumpiness on top layer ──────────────────────
     bump_noise = N('ShaderNodeTexNoise', (-300, -500), "Grass Bump Noise")
@@ -1264,18 +1370,76 @@ def make_terrain_material():
     bump_mul = N('ShaderNodeMath', (-100, -500), "Bump × Grass Mask")
     bump_mul.operation = 'MULTIPLY'
     L.new(bump_noise.outputs['Fac'], bump_mul.inputs[0])
-    L.new(map_sg.outputs['Result'], bump_mul.inputs[1])
+    L.new(grass_mask.outputs['Value'], bump_mul.inputs[1])
+
+    # Stone/rock micro-relief — small pebbles concentrated near centre
+    stone_voro = N('ShaderNodeTexVoronoi', (-300, -750), "Stone Voronoi")
+    stone_voro.inputs['Scale'].default_value = STONE_SCALE
+    stone_voro.voronoi_dimensions = '3D'
+    L.new(tex_coord.outputs['Object'], stone_voro.inputs['Vector'])
+
+    stone_mask = N('ShaderNodeMath', (-100, -750), "Stone Mask")
+    stone_mask.operation = 'LESS_THAN'
+    stone_mask.inputs[1].default_value = STONE_THRESHOLD
+    L.new(stone_voro.outputs['Distance'], stone_mask.inputs[0])
+
+    stone_occ = N('ShaderNodeMath', (-100, -850), "Stone Occurrence")
+    stone_occ.operation = 'MULTIPLY'
+    L.new(stone_mask.outputs['Value'], stone_occ.inputs[0])
+    L.new(radial_clamp.outputs['Result'], stone_occ.inputs[1])
+
+    stone_cr = N('ShaderNodeValToRGB', (100, -850), "Stone Colour")
+    stone_cr.color_ramp.elements[0].position = 0.35
+    stone_cr.color_ramp.elements[0].color = (*STONE_COL_B, 1)
+    stone_cr.color_ramp.elements[1].position = 0.65
+    stone_cr.color_ramp.elements[1].color = (*STONE_COL_A, 1)
+    L.new(stone_voro.outputs['Distance'], stone_cr.inputs['Fac'])
+
+    # Stones tint the base colour in the drier centre
+    stone_mix = N('ShaderNodeMixRGB', (250, 100), "Base + Stones")
+    stone_mix.blend_type = 'MIX'
+    L.new(stone_occ.outputs['Value'], stone_mix.inputs['Fac'])
+    L.new(mix_sg.outputs['Color'], stone_mix.inputs['Color1'])
+    L.new(stone_cr.outputs['Color'], stone_mix.inputs['Color2'])
+
+    rough_stone = N('ShaderNodeMixRGB', (250, -200), "Rough + Stones")
+    rough_stone.blend_type = 'MIX'
+    L.new(stone_occ.outputs['Value'], rough_stone.inputs['Fac'])
+    L.new(rough_final.outputs['Color'], rough_stone.inputs['Color1'])
+    rough_stone.inputs['Color2'].default_value = (STONE_ROUGH, STONE_ROUGH, STONE_ROUGH, 1)
+
+    stone_height = N('ShaderNodeMath', (100, -750), "Stone Height")
+    stone_height.operation = 'MULTIPLY'
+    stone_height.inputs[1].default_value = STONE_BUMP
+    L.new(stone_mask.outputs['Value'], stone_height.inputs[0])
+
+    stone_centre = N('ShaderNodeMath', (250, -750), "Stone × Dry")
+    stone_centre.operation = 'MULTIPLY'
+    L.new(stone_height.outputs['Value'], stone_centre.inputs[0])
+    L.new(radial_clamp.outputs['Result'], stone_centre.inputs[1])
+
+    bump_add = N('ShaderNodeMath', (-20, -600), "Bump + Stones")
+    bump_add.operation = 'ADD'
+    L.new(bump_mul.outputs['Value'], bump_add.inputs[0])
+    L.new(stone_centre.outputs['Value'], bump_add.inputs[1])
 
     bump = N('ShaderNodeBump', (100, -500), "Bump")
     bump.inputs['Strength'].default_value = GRASS_BUMP
-    L.new(bump_mul.outputs['Value'], bump.inputs['Height'])
+    L.new(bump_add.outputs['Value'], bump.inputs['Height'])
 
     # ── BSDF ─────────────────────────────────────────────────────
     bsdf = N('ShaderNodeBsdfPrincipled', (400, 100), "Terrain BSDF")
-    L.new(mix_sg.outputs['Color'], bsdf.inputs['Base Color'])
+    # Choose whether to apply the shader-based stone tint
+    if USE_SHADER_STONES:
+        color_out = stone_mix
+        rough_out = rough_stone
+    else:
+        color_out = mix_sg
+        rough_out = rough_final
+    L.new(color_out.outputs['Color'], bsdf.inputs['Base Color'])
     # Feed the R channel of the blended roughness colour into Roughness
     sep_rough = N('ShaderNodeSeparateColor', (250, -200), "Sep Rough")
-    L.new(rough_final.outputs['Color'], sep_rough.inputs['Color'])
+    L.new(rough_out.outputs['Color'], sep_rough.inputs['Color'])
     L.new(sep_rough.outputs['Red'], bsdf.inputs['Roughness'])
     L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
 
@@ -3278,7 +3442,7 @@ def build_terrain(M):
     # ── TUNEABLE VALUES ──────────────────────────────────────────
     TERRAIN_RADIUS = 5.0          # 10 m across — fills the frame
     GRID_SUBDIVS   = 80           # vertex spacing ~12.5 cm
-    DOME_HEIGHT    = 0.25         # gentle 25 cm dome
+    DOME_HEIGHT    = 0.50         # gentle 25 cm dome
     NOISE_STRENGTH = 0.04         # ±4 cm undulation
     NOISE_SCALE    = 1.5          # spatial frequency
     NOISE_OCTAVES  = 4            # fractal layers
@@ -3395,12 +3559,1037 @@ def build_terrain(M):
     return terrain
 
 
+def build_grass():
+    """Scatter grass blade instances over the terrain via Geometry Nodes.
+
+    Uses Blender 4.x Geometry Nodes (Distribute Points on Faces →
+    Instance on Points) rather than the legacy particle system, giving
+    reliable viewport and render display without visibility-flag quirks.
+
+    Grass density varies with distance from the pillar: bare near the
+    base (worn earth, exposed rock), gradually filling in through a
+    noisy transition zone to lush coverage at the hillside edges.
+    The transition boundary is perturbed by coherent noise to avoid
+    an artificial circular cut-off.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    BARE_RADIUS     — inner radius with no grass (base slab area)
+    FULL_RADIUS     — full lush coverage from this radius outward
+    GRASS_DENSITY   — points per m² at full coverage
+    BLADE_H_MIN/MAX — blade height range (metres)
+    BLADE_WIDTH     — blade width at base (metres)
+    BLADE_VARIANTS  — number of different blade shapes
+    NOISE_SCALE     — boundary perturbation spatial frequency
+    NOISE_STRENGTH  — boundary perturbation amplitude (metres)
+    GREEN_COL_A/B   — lush grass colour range
+    DRY_COL         — sparse/dry tuft colour
+    TRANSLUCENCY    — back-lit translucency fraction (0–1)
+    """
+    print("  Grass ...")
+
+    terrain = bpy.data.objects.get("Terrain")
+    if not terrain:
+        print("    WARNING: Terrain not found — skipping grass.")
+        return
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    BARE_RADIUS    = 0.55     # no grass within 55 cm of centre
+    FULL_RADIUS    = 2.50     # full coverage from 2.5 m outward
+    GRASS_DENSITY  = 1400.0   # points per m² at full weight (main layer)
+    GRASS_DENSITY_SHORT = 6000.0   # dense short under-layer
+    WEED_DENSITY   = 400.0     # broad-leaf weeds (sparse)
+    FLOWER_DENSITY = 5.5      # flowers (very sparse)
+    STONE_DENSITY  = 40.0     # visible stones (sparse)
+    WEED_VARIANTS  = 4
+    FLOWER_VARIANTS = 2
+    STONE_VARIANTS = 6
+    BLADE_H_MIN    = 0.025    # shortest blade (2.5 cm)
+    BLADE_H_MAX    = 0.140    # tallest blade (14 cm)
+    BLADE_WIDTH    = 0.005    # 5 mm wide at base
+    BLADE_VARIANTS = 7        # distinct blade shapes (more = more short blades)
+    NOISE_SCALE    = 1.5      # boundary noise frequency
+    NOISE_STRENGTH = 0.5      # boundary noise ±50 cm
+    SEED           = 42
+    SCALE_MIN      = 0.55     # instance scale range (shorter bias)
+    SCALE_MAX      = 1.20
+    SCALE_BIAS     = 2.2      # >1 biases toward smaller blades
+    SHORT_SCALE_MIN = 0.20
+    SHORT_SCALE_MAX = 0.55
+    SHORT_SCALE_BIAS = 3.2
+    WEED_SCALE_MIN = 0.6
+    WEED_SCALE_MAX = 1.4
+    WEED_SCALE_BIAS = 1.6
+    FLOWER_SCALE_MIN = 0.7
+    FLOWER_SCALE_MAX = 1.4
+    FLOWER_SCALE_BIAS = 2.0
+    STONE_SCALE_MIN = 1.2
+    STONE_SCALE_MAX = 3.0
+    STONE_RAISE     = 0.02    # lift stones above ground surface (m)
+
+    CLUMP_SCALE    = 0.25     # large-scale clump size
+    CLUMP_DETAIL   = 2.0
+    CLUMP_ROUGH    = 0.6
+    CLUMP_MIN      = 0.20     # darkest clumps still keep some grass
+    CLUMP_MAX      = 2.2
+
+    UPWARD_MIN_Z   = 0.0      # only scatter on upward-facing surfaces
+    UPWARD_FULL_Z  = 0.70     # full density by this normal Z
+    UP_BLEND       = 0.65     # 0 = follow normals, 1 = world-up
+    ALIGN_TO_NORMAL = 0.35    # 0 = vertical, 1 = follow surface normal
+    TILT_MAX       = math.radians(7)  # random tilt angle
+    WEED_EDGE_POWER = 1.5
+    FLOWER_EDGE_POWER = 2.0
+    STONE_EDGE_POWER = 1.3
+
+    GREEN_COL_A    = (0.06, 0.14, 0.02, 1)   # dark rich green
+    GREEN_COL_B    = (0.16, 0.24, 0.04, 1)   # lighter green
+    DRY_COL        = (0.22, 0.18, 0.06, 1)   # dry yellowish
+    TRANSLUCENCY   = 0.25    # 25 % back-lit translucency
+    # ─────────────────────────────────────────────────────────────
+
+    GROUND_Z = -BASE_HEIGHT + 0.80 * BASE_HEIGHT
+
+    # ── Grass blade material ──────────────────────────────────────
+    # Colour varies per instance via Object Info → Random, giving a
+    # natural mix of green and dry blades.  A translucent component
+    # lets light filter through back-lit blades realistically.
+    grass_mat = bpy.data.materials.new("GrassBlade")
+    grass_mat.use_nodes = True
+    gt = grass_mat.node_tree
+    gt.nodes.clear()
+
+    obj_info = gt.nodes.new('ShaderNodeObjectInfo')
+    obj_info.location = (-500, 0)
+
+    cr_green = gt.nodes.new('ShaderNodeValToRGB')
+    cr_green.location = (-300, 100)
+    cr_green.label = "Green Variation"
+    cr_green.color_ramp.elements[0].position = 0.0
+    cr_green.color_ramp.elements[0].color = GREEN_COL_A
+    cr_green.color_ramp.elements[1].position = 0.6
+    cr_green.color_ramp.elements[1].color = GREEN_COL_B
+    dry_stop = cr_green.color_ramp.elements.new(1.0)
+    dry_stop.color = DRY_COL
+
+    bsdf = gt.nodes.new('ShaderNodeBsdfPrincipled')
+    bsdf.location = (100, 100)
+    bsdf.inputs['Roughness'].default_value = 0.75
+
+    trans = gt.nodes.new('ShaderNodeBsdfTranslucent')
+    trans.location = (100, -100)
+
+    mix_sh = gt.nodes.new('ShaderNodeMixShader')
+    mix_sh.location = (350, 0)
+    mix_sh.inputs[0].default_value = TRANSLUCENCY
+
+    mat_out = gt.nodes.new('ShaderNodeOutputMaterial')
+    mat_out.location = (550, 0)
+
+    gL = gt.links
+    gL.new(obj_info.outputs['Random'], cr_green.inputs['Fac'])
+    gL.new(cr_green.outputs['Color'], bsdf.inputs['Base Color'])
+    gL.new(cr_green.outputs['Color'], trans.inputs['Color'])
+    gL.new(bsdf.outputs['BSDF'], mix_sh.inputs[1])
+    gL.new(trans.outputs['BSDF'], mix_sh.inputs[2])
+    gL.new(mix_sh.outputs['Shader'], mat_out.inputs['Surface'])
+
+    # ── Create blade mesh variants ────────────────────────────────
+    # Each blade is a thin tapered quad with a slight forward bend.
+    # Multiple variants with different heights and curvatures give
+    # natural variation when picked randomly by the scatter system.
+    grass_col = bpy.data.collections.new("_GrassBlades")
+    bpy.context.scene.collection.children.link(grass_col)
+
+    rng = random.Random(SEED)
+
+    for i in range(BLADE_VARIANTS):
+        # Bias the variant heights toward shorter blades
+        t_var = (i / max(1, BLADE_VARIANTS - 1)) ** 2
+        h = BLADE_H_MIN + (BLADE_H_MAX - BLADE_H_MIN) * t_var
+        bend = rng.uniform(0.15, 0.55)
+        hw = BLADE_WIDTH / 2
+
+        bm = bmesh.new()
+        SEGS = 3
+        rows = []
+        for s in range(SEGS + 1):
+            t = s / SEGS
+            z = h * t
+            w = hw * (1.0 - t * 0.90)           # taper to 10 % at tip
+            y_off = bend * h * t * t             # quadratic forward lean
+            left = bm.verts.new((-w, y_off, z))
+            right = bm.verts.new((w, y_off, z))
+            rows.append((left, right))
+
+        for s in range(SEGS):
+            l0, r0 = rows[s]
+            l1, r1 = rows[s + 1]
+            bm.faces.new([l0, r0, r1, l1])
+
+        mesh = bpy.data.meshes.new(f"_blade_{i}")
+        bm.to_mesh(mesh)
+        bm.free()
+
+        obj = bpy.data.objects.new(f"_blade_{i}", mesh)
+        obj.data.materials.append(grass_mat)
+        grass_col.objects.link(obj)
+
+    # Hide source blades from viewport and render — Geometry Nodes
+    # reads the mesh data directly regardless of visibility flags.
+    for obj in grass_col.objects:
+        obj.hide_viewport = True
+        obj.hide_render = True
+
+    # ── Weed & flower variants ───────────────────────────────────
+    weed_mat = bpy.data.materials.new("WeedLeaf")
+    weed_mat.use_nodes = True
+    wt = weed_mat.node_tree
+    wt.nodes.clear()
+    w_bsdf = wt.nodes.new('ShaderNodeBsdfPrincipled')
+    w_bsdf.inputs['Base Color'].default_value = (0.10, 0.18, 0.04, 1)
+    w_bsdf.inputs['Roughness'].default_value = 0.80
+    w_out = wt.nodes.new('ShaderNodeOutputMaterial')
+    wt.links.new(w_bsdf.outputs['BSDF'], w_out.inputs['Surface'])
+
+    flower_white = bpy.data.materials.new("FlowerDaisy")
+    flower_white.use_nodes = True
+    fw = flower_white.node_tree
+    fw.nodes.clear()
+    fw_bsdf = fw.nodes.new('ShaderNodeBsdfPrincipled')
+    fw_bsdf.inputs['Base Color'].default_value = (0.85, 0.85, 0.80, 1)
+    fw_bsdf.inputs['Roughness'].default_value = 0.70
+    fw_out = fw.nodes.new('ShaderNodeOutputMaterial')
+    fw.links.new(fw_bsdf.outputs['BSDF'], fw_out.inputs['Surface'])
+
+    flower_yellow = bpy.data.materials.new("FlowerButtercup")
+    flower_yellow.use_nodes = True
+    fy = flower_yellow.node_tree
+    fy.nodes.clear()
+    fy_bsdf = fy.nodes.new('ShaderNodeBsdfPrincipled')
+    fy_bsdf.inputs['Base Color'].default_value = (0.75, 0.65, 0.10, 1)
+    fy_bsdf.inputs['Roughness'].default_value = 0.60
+    fy_out = fy.nodes.new('ShaderNodeOutputMaterial')
+    fy.links.new(fy_bsdf.outputs['BSDF'], fy_out.inputs['Surface'])
+
+    stone_mat = bpy.data.materials.new("Pebble")
+    stone_mat.use_nodes = True
+    st = stone_mat.node_tree
+    st.nodes.clear()
+    st_bsdf = st.nodes.new('ShaderNodeBsdfPrincipled')
+    st_bsdf.inputs['Base Color'].default_value = (0.30, 0.28, 0.26, 1)
+    st_bsdf.inputs['Roughness'].default_value = 0.90
+    st_out = st.nodes.new('ShaderNodeOutputMaterial')
+    st.links.new(st_bsdf.outputs['BSDF'], st_out.inputs['Surface'])
+
+    weed_col = bpy.data.collections.new("_WeedPlants")
+    flower_col = bpy.data.collections.new("_FlowerPlants")
+    stone_col = bpy.data.collections.new("_StonePebbles")
+    bpy.context.scene.collection.children.link(weed_col)
+    bpy.context.scene.collection.children.link(flower_col)
+    bpy.context.scene.collection.children.link(stone_col)
+
+    # Weed variants: 3-leaf clusters
+    for i in range(WEED_VARIANTS):
+        leaf_len = rng.uniform(0.03, 0.06)
+        leaf_w   = rng.uniform(0.015, 0.03)
+        tip_z    = rng.uniform(0.003, 0.008)
+
+        bm = bmesh.new()
+        for ang_deg in (0, 120, 240):
+            a = math.radians(ang_deg + rng.uniform(-10, 10))
+            ca, sa = math.cos(a), math.sin(a)
+            pts = [
+                (-leaf_w / 2, 0.0, 0.0),
+                ( leaf_w / 2, 0.0, 0.0),
+                ( 0.0,        leaf_len, tip_z),
+                ( 0.0,        leaf_len * 0.15, 0.0),
+            ]
+            verts = []
+            for x, y, z in pts:
+                rx = x * ca - y * sa
+                ry = x * sa + y * ca
+                verts.append(bm.verts.new((rx, ry, z)))
+            bm.faces.new(verts)
+
+        mesh = bpy.data.meshes.new(f"_weed_{i}")
+        bm.to_mesh(mesh)
+        bm.free()
+        obj = bpy.data.objects.new(f"_weed_{i}", mesh)
+        obj.data.materials.append(weed_mat)
+        weed_col.objects.link(obj)
+
+    # Flower variants: simple discs (daisy + buttercup)
+    for name, mat, r in (
+        ("_daisy", flower_white, 0.018),
+        ("_buttercup", flower_yellow, 0.016),
+    ):
+        bm = bmesh.new()
+        center = bm.verts.new((0, 0, 0.004))
+        ring = []
+        N = 12
+        for i in range(N):
+            ang = 2 * math.pi * i / N
+            ring.append(bm.verts.new((r * math.cos(ang), r * math.sin(ang), 0.004)))
+        for i in range(N):
+            bm.faces.new([center, ring[i], ring[(i + 1) % N]])
+        mesh = bpy.data.meshes.new(name)
+        bm.to_mesh(mesh)
+        bm.free()
+        obj = bpy.data.objects.new(name, mesh)
+        obj.data.materials.append(mat)
+        flower_col.objects.link(obj)
+
+    # Stone variants: low-poly pebbles (clearly 3D)
+    for i in range(STONE_VARIANTS):
+        r = rng.uniform(0.04, 0.12)
+        bm = bmesh.new()
+        bmesh.ops.create_icosphere(bm, subdivisions=2, radius=r)
+        # Flatten and jitter to sit on ground
+        for v in bm.verts:
+            v.co.x += rng.uniform(-r * 0.25, r * 0.25)
+            v.co.y += rng.uniform(-r * 0.25, r * 0.25)
+            v.co.z *= rng.uniform(0.7, 1.0)
+            v.co.z *= rng.uniform(0.8, 1.4)
+        # Shift so the lowest point sits on the ground (no half-buried discs)
+        min_z = min(v.co.z for v in bm.verts)
+        z_off = rng.uniform(0.005, 0.02)
+        for v in bm.verts:
+            v.co.z -= min_z
+            v.co.z += z_off
+        mesh = bpy.data.meshes.new(f"_stone_{i}")
+        bm.to_mesh(mesh)
+        bm.free()
+        obj = bpy.data.objects.new(f"_stone_{i}", mesh)
+        obj.data.materials.append(stone_mat)
+        stone_col.objects.link(obj)
+
+    # Hide source objects from viewport/render
+    for col in (weed_col, flower_col, stone_col):
+        for obj in col.objects:
+            obj.hide_viewport = True
+            obj.hide_render = True
+
+    # ── Density gradient attribute ────────────────────────────────
+    # Store the density as a *mesh attribute* (FLOAT, POINT domain).
+    # Geometry Nodes reliably reads mesh attributes via Named Attribute.
+    # (Vertex groups are not consistently exposed as attributes.)
+    mesh_data = terrain.data
+    attr = mesh_data.attributes.get("GrassDensity")
+    if attr is None:
+        attr = mesh_data.attributes.new(
+            name="GrassDensity", type='FLOAT', domain='POINT')
+
+    def _density_noise(x, y):
+        """Multi-octave sine-wave noise (same method as terrain builder)."""
+        value = 0.0
+        freq = NOISE_SCALE
+        amp = NOISE_STRENGTH
+        for j in range(4):
+            angle = j * 2.399
+            dx = math.cos(angle)
+            dy = math.sin(angle)
+            value += amp * math.sin(freq * (dx * x + dy * y) + j * 7.3)
+            freq *= 2.0
+            amp *= 0.5
+        return value
+
+    # Use bmesh to compute normals (Mesh.calc_normals() is not available
+    # in some Blender builds).
+    bm = bmesh.new()
+    bm.from_mesh(mesh_data)
+    bm.normal_update()
+    bm.verts.ensure_lookup_table()
+
+    for i, v in enumerate(bm.verts):
+        # Only assign density on upward-facing surfaces; this remains
+        # stable even if the dome height changes.
+        if v.normal.z < 0.05:
+            attr.data[i].value = 0.0
+            continue
+
+        r = math.sqrt(v.co.x ** 2 + v.co.y ** 2)
+        noise = _density_noise(v.co.x, v.co.y)
+
+        bare_r = max(0.0, BARE_RADIUS + noise * 0.3)
+        full_r = max(bare_r + 0.1, FULL_RADIUS + noise)
+
+        if r <= bare_r:
+            w = 0.0
+        elif r >= full_r:
+            w = 1.0
+        else:
+            frac = (r - bare_r) / (full_r - bare_r)
+            w = frac * frac * (3.0 - 2.0 * frac)
+
+        attr.data[i].value = w
+
+    bm.free()
+    mesh_data.update()
+
+    # ── Geometry Nodes scatter ────────────────────────────────────
+    # A node tree that distributes blade instances across the terrain
+    # surface.  Geometry Nodes is the modern Blender 4.x approach —
+    # more reliable than the legacy particle system for viewport and
+    # render display.
+    #
+    # Node flow:
+    #   Mesh → Distribute Points on Faces (density from vertex group)
+    #        → Instance on Points (random blade from collection)
+    #        → Rotate Instances (random facing direction)
+    #        → Join Geometry (terrain mesh + grass instances)
+
+    tree = bpy.data.node_groups.new("GrassScatter", 'GeometryNodeTree')
+    tree.interface.new_socket(
+        'Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')
+    tree.interface.new_socket(
+        'Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
+
+    gn = tree.nodes       # geometry nodes
+    gl = tree.links       # geometry links
+
+    group_in = gn.new('NodeGroupInput')
+    group_in.location = (-800, 0)
+
+    group_out = gn.new('NodeGroupOutput')
+    group_out.location = (600, 0)
+
+    # ── Read GrassDensity attribute ──
+    density_attr = gn.new('GeometryNodeInputNamedAttribute')
+    density_attr.data_type = 'FLOAT'
+    density_attr.inputs['Name'].default_value = "GrassDensity"
+    density_attr.location = (-600, -150)
+
+    # ── Upward-facing mask & slope factor ──
+    normal_in = gn.new('GeometryNodeInputNormal')
+    normal_in.location = (-800, -350)
+
+    sep_n = gn.new('ShaderNodeSeparateXYZ')
+    sep_n.location = (-600, -350)
+
+    slope_map = gn.new('ShaderNodeMapRange')
+    slope_map.location = (-400, -350)
+    slope_map.inputs['From Min'].default_value = UPWARD_MIN_Z
+    slope_map.inputs['From Max'].default_value = UPWARD_FULL_Z
+    slope_map.inputs['To Min'].default_value = 0.0
+    slope_map.inputs['To Max'].default_value = 1.0
+    slope_map.clamp = True
+
+    # ── Orientation: blend normal with world-up ──
+    up_vec = gn.new('ShaderNodeCombineXYZ')
+    up_vec.location = (-800, -520)
+    up_vec.inputs['Z'].default_value = 1.0
+
+    mix_vec = gn.new('ShaderNodeMix')
+    mix_vec.data_type = 'VECTOR'
+    mix_vec.location = (-600, -520)
+    mix_vec.inputs['Factor'].default_value = UP_BLEND
+
+    norm_vec = gn.new('ShaderNodeVectorMath')
+    norm_vec.operation = 'NORMALIZE'
+    norm_vec.location = (-400, -520)
+
+    align_vec = gn.new('FunctionNodeAlignEulerToVector')
+    align_vec.location = (-200, -520)
+    # Axis is a node property in Blender 4.x (not an input socket).
+    try:
+        align_vec.axis = 'Z'
+    except Exception:
+        pass
+
+    align_factor = gn.new('ShaderNodeMath')
+    align_factor.operation = 'MULTIPLY'
+    align_factor.inputs[1].default_value = ALIGN_TO_NORMAL
+    align_factor.location = (-400, -620)
+
+    # ── Clump noise for density variation ──
+    pos_in = gn.new('GeometryNodeInputPosition')
+    pos_in.location = (-800, 150)
+
+    clump_noise = gn.new('ShaderNodeTexNoise')
+    clump_noise.location = (-600, 150)
+    clump_noise.inputs['Scale'].default_value = CLUMP_SCALE
+    clump_noise.inputs['Detail'].default_value = CLUMP_DETAIL
+    clump_noise.inputs['Roughness'].default_value = CLUMP_ROUGH
+
+    clump_map = gn.new('ShaderNodeMapRange')
+    clump_map.location = (-400, 150)
+    clump_map.inputs['From Min'].default_value = 0.0
+    clump_map.inputs['From Max'].default_value = 1.0
+    clump_map.inputs['To Min'].default_value = CLUMP_MIN
+    clump_map.inputs['To Max'].default_value = CLUMP_MAX
+    clump_map.clamp = True
+
+    clump_mul = gn.new('ShaderNodeMath')
+    clump_mul.operation = 'MULTIPLY'
+    clump_mul.location = (-200, 150)
+
+    slope_mul = gn.new('ShaderNodeMath')
+    slope_mul.operation = 'MULTIPLY'
+    slope_mul.location = (-50, 80)
+
+    inv_density = gn.new('ShaderNodeMath')
+    inv_density.operation = 'SUBTRACT'
+    inv_density.inputs[0].default_value = 1.0
+    inv_density.location = (-50, -340)
+
+    weed_mul = gn.new('ShaderNodeMath')
+    weed_mul.operation = 'MULTIPLY'
+    weed_mul.location = (120, -340)
+
+    weed_mul2 = gn.new('ShaderNodeMath')
+    weed_mul2.operation = 'MULTIPLY'
+    weed_mul2.location = (260, -340)
+
+    weed_pow = gn.new('ShaderNodeMath')
+    weed_pow.operation = 'POWER'
+    weed_pow.inputs[1].default_value = WEED_EDGE_POWER
+    weed_pow.location = (420, -340)
+
+    flower_pow = gn.new('ShaderNodeMath')
+    flower_pow.operation = 'POWER'
+    flower_pow.inputs[1].default_value = FLOWER_EDGE_POWER
+    flower_pow.location = (420, -420)
+
+    stone_mul = gn.new('ShaderNodeMath')
+    stone_mul.operation = 'MULTIPLY'
+    stone_mul.location = (120, -500)
+
+    stone_pow = gn.new('ShaderNodeMath')
+    stone_pow.operation = 'POWER'
+    stone_pow.inputs[1].default_value = STONE_EDGE_POWER
+    stone_pow.location = (260, -500)
+
+    # ── Scatter points on surface ──
+    distribute = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute.distribute_method = 'RANDOM'
+    distribute.inputs['Density'].default_value = 1.0
+    distribute.inputs['Seed'].default_value = SEED
+    distribute.location = (-200, 0)
+
+    # Density = attribute (0..1) * clump (0..2) * GRASS_DENSITY
+    density_mul = gn.new('ShaderNodeMath')
+    density_mul.operation = 'MULTIPLY'
+    density_mul.inputs[1].default_value = GRASS_DENSITY
+    density_mul.location = (0, -50)
+
+    # Short-grass layer density
+    distribute_short = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute_short.distribute_method = 'RANDOM'
+    distribute_short.inputs['Density'].default_value = 1.0
+    distribute_short.inputs['Seed'].default_value = SEED + 101
+    distribute_short.location = (-200, -200)
+
+    density_mul_short = gn.new('ShaderNodeMath')
+    density_mul_short.operation = 'MULTIPLY'
+    density_mul_short.inputs[1].default_value = GRASS_DENSITY_SHORT
+    density_mul_short.location = (0, -200)
+
+    # Weeds / flowers / stones
+    distribute_weed = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute_weed.distribute_method = 'RANDOM'
+    distribute_weed.inputs['Density'].default_value = 1.0
+    distribute_weed.inputs['Seed'].default_value = SEED + 201
+    distribute_weed.location = (-200, -420)
+
+    distribute_flower = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute_flower.distribute_method = 'RANDOM'
+    distribute_flower.inputs['Density'].default_value = 1.0
+    distribute_flower.inputs['Seed'].default_value = SEED + 301
+    distribute_flower.location = (-200, -520)
+
+    distribute_stone = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute_stone.distribute_method = 'RANDOM'
+    distribute_stone.inputs['Density'].default_value = 1.0
+    distribute_stone.inputs['Seed'].default_value = SEED + 401
+    distribute_stone.location = (-200, -620)
+
+    density_mul_weed = gn.new('ShaderNodeMath')
+    density_mul_weed.operation = 'MULTIPLY'
+    density_mul_weed.inputs[1].default_value = WEED_DENSITY
+    density_mul_weed.location = (0, -420)
+
+    density_mul_flower = gn.new('ShaderNodeMath')
+    density_mul_flower.operation = 'MULTIPLY'
+    density_mul_flower.inputs[1].default_value = FLOWER_DENSITY
+    density_mul_flower.location = (0, -520)
+
+    density_mul_stone = gn.new('ShaderNodeMath')
+    density_mul_stone.operation = 'MULTIPLY'
+    density_mul_stone.inputs[1].default_value = STONE_DENSITY
+    density_mul_stone.location = (0, -620)
+
+    # ── Blade collection reference ──
+    col_info = gn.new('GeometryNodeCollectionInfo')
+    col_info.inputs[0].default_value = grass_col      # Collection
+    col_info.inputs['Separate Children'].default_value = True
+    col_info.inputs['Reset Children'].default_value = True
+    col_info.location = (-400, -300)
+
+    col_weed = gn.new('GeometryNodeCollectionInfo')
+    col_weed.inputs[0].default_value = weed_col
+    col_weed.inputs['Separate Children'].default_value = True
+    col_weed.inputs['Reset Children'].default_value = True
+    col_weed.location = (-400, -420)
+
+    col_flower = gn.new('GeometryNodeCollectionInfo')
+    col_flower.inputs[0].default_value = flower_col
+    col_flower.inputs['Separate Children'].default_value = True
+    col_flower.inputs['Reset Children'].default_value = True
+    col_flower.location = (-400, -520)
+
+    col_stone = gn.new('GeometryNodeCollectionInfo')
+    col_stone.inputs[0].default_value = stone_col
+    col_stone.inputs['Separate Children'].default_value = True
+    col_stone.inputs['Reset Children'].default_value = True
+    col_stone.location = (-400, -620)
+
+    # ── Random integer for picking a blade variant ──
+    # FunctionNodeRandomValue inputs by index:
+    #   0/1 = Min/Max Vector, 2/3 = Min/Max Float,
+    #   4/5 = Min/Max Int, 7 = ID, 8 = Seed
+    # Outputs: 0 = Vector, 1 = Float, 2 = Int, 3 = Bool
+    rand_idx = gn.new('FunctionNodeRandomValue')
+    rand_idx.data_type = 'INT'
+    rand_idx.inputs[4].default_value = 0                   # Min Int
+    rand_idx.inputs[5].default_value = BLADE_VARIANTS - 1  # Max Int
+    rand_idx.location = (-200, -250)
+
+    rand_idx_weed = gn.new('FunctionNodeRandomValue')
+    rand_idx_weed.data_type = 'INT'
+    rand_idx_weed.inputs[4].default_value = 0
+    rand_idx_weed.inputs[5].default_value = WEED_VARIANTS - 1
+    rand_idx_weed.location = (-200, -420)
+
+    rand_idx_flower = gn.new('FunctionNodeRandomValue')
+    rand_idx_flower.data_type = 'INT'
+    rand_idx_flower.inputs[4].default_value = 0
+    rand_idx_flower.inputs[5].default_value = FLOWER_VARIANTS - 1
+    rand_idx_flower.location = (-200, -520)
+
+    rand_idx_stone = gn.new('FunctionNodeRandomValue')
+    rand_idx_stone.data_type = 'INT'
+    rand_idx_stone.inputs[4].default_value = 0
+    rand_idx_stone.inputs[5].default_value = STONE_VARIANTS - 1
+    rand_idx_stone.location = (-200, -620)
+
+    # ── Instance blade meshes at scattered points ──
+    instance_on = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on.inputs['Pick Instance'].default_value = True
+    instance_on.location = (150, 0)
+
+    instance_on_short = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on_short.inputs['Pick Instance'].default_value = True
+    instance_on_short.location = (150, -200)
+
+    instance_on_weed = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on_weed.inputs['Pick Instance'].default_value = True
+    instance_on_weed.location = (150, -420)
+
+    instance_on_flower = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on_flower.inputs['Pick Instance'].default_value = True
+    instance_on_flower.location = (150, -520)
+
+    instance_on_stone = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on_stone.inputs['Pick Instance'].default_value = True
+    instance_on_stone.location = (150, -620)
+
+    # ── Random facing direction (rotate around local Z) ──
+    rand_rot = gn.new('FunctionNodeRandomValue')
+    rand_rot.data_type = 'FLOAT'
+    rand_rot.inputs[2].default_value = 0.0                 # Min Float
+    rand_rot.inputs[3].default_value = 2 * math.pi         # Max Float
+    rand_rot.location = (0, -450)
+
+    axis_rot = gn.new('FunctionNodeAxisAngleToRotation')
+    axis_rot.inputs['Axis'].default_value = (0, 0, 1)
+    axis_rot.location = (150, -450)
+
+    rotate = gn.new('GeometryNodeRotateInstances')
+    rotate.inputs['Local Space'].default_value = True
+    rotate.location = (350, 0)
+
+    rotate_short = gn.new('GeometryNodeRotateInstances')
+    rotate_short.inputs['Local Space'].default_value = True
+    rotate_short.location = (350, -200)
+
+    rotate_weed = gn.new('GeometryNodeRotateInstances')
+    rotate_weed.inputs['Local Space'].default_value = True
+    rotate_weed.location = (350, -420)
+
+    rotate_flower = gn.new('GeometryNodeRotateInstances')
+    rotate_flower.inputs['Local Space'].default_value = True
+    rotate_flower.location = (350, -520)
+
+    rotate_stone = gn.new('GeometryNodeRotateInstances')
+    rotate_stone.inputs['Local Space'].default_value = True
+    rotate_stone.location = (350, -620)
+
+    translate_stone = gn.new('GeometryNodeTranslateInstances')
+    translate_stone.location = (520, -620)
+    translate_stone.inputs['Translation'].default_value = (0.0, 0.0, STONE_RAISE)
+
+    # ── Random tilt (small X/Y rotation) ──
+    rand_tilt_x = gn.new('FunctionNodeRandomValue')
+    rand_tilt_x.data_type = 'FLOAT'
+    rand_tilt_x.inputs[2].default_value = -TILT_MAX
+    rand_tilt_x.inputs[3].default_value = TILT_MAX
+    rand_tilt_x.location = (0, -520)
+
+    rand_tilt_y = gn.new('FunctionNodeRandomValue')
+    rand_tilt_y.data_type = 'FLOAT'
+    rand_tilt_y.inputs[2].default_value = -TILT_MAX
+    rand_tilt_y.inputs[3].default_value = TILT_MAX
+    rand_tilt_y.location = (0, -560)
+
+    tilt_vec = gn.new('ShaderNodeCombineXYZ')
+    tilt_vec.location = (150, -540)
+
+    rotate_tilt = gn.new('GeometryNodeRotateInstances')
+    rotate_tilt.inputs['Local Space'].default_value = True
+    rotate_tilt.location = (520, 0)
+
+    rotate_tilt_short = gn.new('GeometryNodeRotateInstances')
+    rotate_tilt_short.inputs['Local Space'].default_value = True
+    rotate_tilt_short.location = (520, -200)
+
+    # ── Scale bias toward shorter blades ──
+    rand_scale = gn.new('FunctionNodeRandomValue')
+    rand_scale.data_type = 'FLOAT'
+    rand_scale.inputs[2].default_value = 0.0                # Min Float
+    rand_scale.inputs[3].default_value = 1.0                # Max Float
+    rand_scale.location = (0, -600)
+
+    scale_pow = gn.new('ShaderNodeMath')
+    scale_pow.operation = 'POWER'
+    scale_pow.inputs[1].default_value = SCALE_BIAS
+    scale_pow.location = (150, -600)
+
+    scale_map = gn.new('ShaderNodeMapRange')
+    scale_map.inputs['From Min'].default_value = 0.0
+    scale_map.inputs['From Max'].default_value = 1.0
+    scale_map.inputs['To Min'].default_value = SCALE_MIN
+    scale_map.inputs['To Max'].default_value = SCALE_MAX
+    scale_map.clamp = True
+    scale_map.location = (350, -600)
+
+    scale_vec = gn.new('ShaderNodeCombineXYZ')
+    scale_vec.location = (550, -600)
+
+    # Short-grass scale chain
+    rand_scale_s = gn.new('FunctionNodeRandomValue')
+    rand_scale_s.data_type = 'FLOAT'
+    rand_scale_s.inputs[2].default_value = 0.0
+    rand_scale_s.inputs[3].default_value = 1.0
+    rand_scale_s.location = (0, -750)
+
+    scale_pow_s = gn.new('ShaderNodeMath')
+    scale_pow_s.operation = 'POWER'
+    scale_pow_s.inputs[1].default_value = SHORT_SCALE_BIAS
+    scale_pow_s.location = (150, -750)
+
+    scale_map_s = gn.new('ShaderNodeMapRange')
+    scale_map_s.inputs['From Min'].default_value = 0.0
+    scale_map_s.inputs['From Max'].default_value = 1.0
+    scale_map_s.inputs['To Min'].default_value = SHORT_SCALE_MIN
+    scale_map_s.inputs['To Max'].default_value = SHORT_SCALE_MAX
+    scale_map_s.clamp = True
+    scale_map_s.location = (350, -750)
+
+    scale_vec_s = gn.new('ShaderNodeCombineXYZ')
+    scale_vec_s.location = (550, -750)
+
+    # Weed scale
+    rand_scale_w = gn.new('FunctionNodeRandomValue')
+    rand_scale_w.data_type = 'FLOAT'
+    rand_scale_w.inputs[2].default_value = 0.0
+    rand_scale_w.inputs[3].default_value = 1.0
+    rand_scale_w.location = (0, -900)
+
+    scale_pow_w = gn.new('ShaderNodeMath')
+    scale_pow_w.operation = 'POWER'
+    scale_pow_w.inputs[1].default_value = WEED_SCALE_BIAS
+    scale_pow_w.location = (150, -900)
+
+    scale_map_w = gn.new('ShaderNodeMapRange')
+    scale_map_w.inputs['From Min'].default_value = 0.0
+    scale_map_w.inputs['From Max'].default_value = 1.0
+    scale_map_w.inputs['To Min'].default_value = WEED_SCALE_MIN
+    scale_map_w.inputs['To Max'].default_value = WEED_SCALE_MAX
+    scale_map_w.clamp = True
+    scale_map_w.location = (350, -900)
+
+    scale_vec_w = gn.new('ShaderNodeCombineXYZ')
+    scale_vec_w.location = (550, -900)
+
+    # Flower scale
+    rand_scale_f = gn.new('FunctionNodeRandomValue')
+    rand_scale_f.data_type = 'FLOAT'
+    rand_scale_f.inputs[2].default_value = 0.0
+    rand_scale_f.inputs[3].default_value = 1.0
+    rand_scale_f.location = (0, -1020)
+
+    scale_pow_f = gn.new('ShaderNodeMath')
+    scale_pow_f.operation = 'POWER'
+    scale_pow_f.inputs[1].default_value = FLOWER_SCALE_BIAS
+    scale_pow_f.location = (150, -1020)
+
+    scale_map_f = gn.new('ShaderNodeMapRange')
+    scale_map_f.inputs['From Min'].default_value = 0.0
+    scale_map_f.inputs['From Max'].default_value = 1.0
+    scale_map_f.inputs['To Min'].default_value = FLOWER_SCALE_MIN
+    scale_map_f.inputs['To Max'].default_value = FLOWER_SCALE_MAX
+    scale_map_f.clamp = True
+    scale_map_f.location = (350, -1020)
+
+    scale_vec_f = gn.new('ShaderNodeCombineXYZ')
+    scale_vec_f.location = (550, -1020)
+
+    # Stone scale
+    rand_scale_t = gn.new('FunctionNodeRandomValue')
+    rand_scale_t.data_type = 'FLOAT'
+    rand_scale_t.inputs[2].default_value = 0.0
+    rand_scale_t.inputs[3].default_value = 1.0
+    rand_scale_t.location = (0, -1140)
+
+    scale_map_t = gn.new('ShaderNodeMapRange')
+    scale_map_t.inputs['From Min'].default_value = 0.0
+    scale_map_t.inputs['From Max'].default_value = 1.0
+    scale_map_t.inputs['To Min'].default_value = STONE_SCALE_MIN
+    scale_map_t.inputs['To Max'].default_value = STONE_SCALE_MAX
+    scale_map_t.clamp = True
+    scale_map_t.location = (350, -1140)
+
+    scale_vec_t = gn.new('ShaderNodeCombineXYZ')
+    scale_vec_t.location = (550, -1140)
+
+    realize = gn.new('GeometryNodeRealizeInstances')
+    realize.location = (520, 0)
+
+    realize_short = gn.new('GeometryNodeRealizeInstances')
+    realize_short.location = (520, -200)
+
+    realize_weed = gn.new('GeometryNodeRealizeInstances')
+    realize_weed.location = (520, -420)
+
+    realize_flower = gn.new('GeometryNodeRealizeInstances')
+    realize_flower.location = (520, -520)
+
+    realize_stone = gn.new('GeometryNodeRealizeInstances')
+    realize_stone.location = (680, -620)
+
+    set_mat_stone = gn.new('GeometryNodeSetMaterial')
+    set_mat_stone.location = (820, -620)
+    set_mat_stone.inputs['Material'].default_value = stone_mat
+
+    # ── Combine terrain mesh + grass instances ──
+    join = gn.new('GeometryNodeJoinGeometry')
+    join.location = (700, 0)
+
+    # ── Wire the node tree ──
+    # Input mesh → scatter + passthrough to join
+    gl.new(group_in.outputs[0], distribute.inputs['Mesh'])
+    gl.new(group_in.outputs[0], distribute_short.inputs['Mesh'])
+    gl.new(group_in.outputs[0], join.inputs['Geometry'])
+
+    # Upward-facing slope factor + orientation vector
+    gl.new(normal_in.outputs['Normal'], sep_n.inputs['Vector'])
+    gl.new(sep_n.outputs['Z'], slope_map.inputs['Value'])
+    gl.new(normal_in.outputs['Normal'], mix_vec.inputs['B'])
+    gl.new(up_vec.outputs['Vector'], mix_vec.inputs['A'])
+    gl.new(slope_map.outputs['Result'], align_factor.inputs[0])
+    gl.new(align_factor.outputs['Value'], mix_vec.inputs['Factor'])
+    gl.new(mix_vec.outputs[2], norm_vec.inputs[0])
+    gl.new(norm_vec.outputs['Vector'], align_vec.inputs['Vector'])
+
+    # Clump noise
+    gl.new(pos_in.outputs['Position'], clump_noise.inputs['Vector'])
+    gl.new(clump_noise.outputs['Fac'], clump_map.inputs['Value'])
+    gl.new(density_attr.outputs['Attribute'], clump_mul.inputs[0])
+    gl.new(clump_map.outputs['Result'], clump_mul.inputs[1])
+    gl.new(clump_mul.outputs['Value'], slope_mul.inputs[0])
+    gl.new(slope_map.outputs['Result'], slope_mul.inputs[1])
+
+    # Edge / centre masks for weeds, flowers, stones
+    gl.new(density_attr.outputs['Attribute'], inv_density.inputs[1])
+    gl.new(density_attr.outputs['Attribute'], weed_mul.inputs[0])
+    gl.new(clump_map.outputs['Result'], weed_mul.inputs[1])
+    gl.new(weed_mul.outputs['Value'], weed_mul2.inputs[0])
+    gl.new(slope_map.outputs['Result'], weed_mul2.inputs[1])
+    gl.new(weed_mul2.outputs['Value'], weed_pow.inputs[0])
+    gl.new(weed_mul2.outputs['Value'], flower_pow.inputs[0])
+
+    gl.new(inv_density.outputs['Value'], stone_mul.inputs[0])
+    gl.new(slope_map.outputs['Result'], stone_mul.inputs[1])
+    gl.new(stone_mul.outputs['Value'], stone_pow.inputs[0])
+
+    # Attribute weight → density (main + short)
+    gl.new(slope_mul.outputs['Value'], density_mul.inputs[0])
+    gl.new(slope_mul.outputs['Value'], density_mul_short.inputs[0])
+    gl.new(density_mul.outputs['Value'], distribute.inputs['Density'])
+    gl.new(density_mul_short.outputs['Value'], distribute_short.inputs['Density'])
+
+    gl.new(weed_pow.outputs['Value'], density_mul_weed.inputs[0])
+    gl.new(flower_pow.outputs['Value'], density_mul_flower.inputs[0])
+    gl.new(stone_pow.outputs['Value'], density_mul_stone.inputs[0])
+    gl.new(density_mul_weed.outputs['Value'], distribute_weed.inputs['Density'])
+    gl.new(density_mul_flower.outputs['Value'], distribute_flower.inputs['Density'])
+    gl.new(density_mul_stone.outputs['Value'], distribute_stone.inputs['Density'])
+
+    # Scattered points → instance placement (main)
+    gl.new(distribute.outputs['Points'], instance_on.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on.inputs['Rotation'])
+    gl.new(col_info.outputs[0], instance_on.inputs['Instance'])
+    gl.new(rand_idx.outputs[2], instance_on.inputs['Instance Index'])
+
+    # Scattered points → instance placement (short)
+    gl.new(distribute_short.outputs['Points'], instance_on_short.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on_short.inputs['Rotation'])
+    gl.new(col_info.outputs[0], instance_on_short.inputs['Instance'])
+    gl.new(rand_idx.outputs[2], instance_on_short.inputs['Instance Index'])
+
+    gl.new(distribute_weed.outputs['Points'], instance_on_weed.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on_weed.inputs['Rotation'])
+    gl.new(col_weed.outputs[0], instance_on_weed.inputs['Instance'])
+    gl.new(rand_idx_weed.outputs[2], instance_on_weed.inputs['Instance Index'])
+
+    gl.new(distribute_flower.outputs['Points'], instance_on_flower.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on_flower.inputs['Rotation'])
+    gl.new(col_flower.outputs[0], instance_on_flower.inputs['Instance'])
+    gl.new(rand_idx_flower.outputs[2], instance_on_flower.inputs['Instance Index'])
+
+    gl.new(distribute_stone.outputs['Points'], instance_on_stone.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on_stone.inputs['Rotation'])
+    gl.new(col_stone.outputs[0], instance_on_stone.inputs['Instance'])
+    gl.new(rand_idx_stone.outputs[2], instance_on_stone.inputs['Instance Index'])
+
+    # Main instances → rotation → tilt → realize
+    gl.new(instance_on.outputs['Instances'], rotate.inputs['Instances'])
+    gl.new(rand_rot.outputs[1], axis_rot.inputs['Angle'])
+    gl.new(axis_rot.outputs['Rotation'], rotate.inputs['Rotation'])
+    gl.new(rand_scale.outputs[1], scale_pow.inputs[0])
+    gl.new(scale_pow.outputs['Value'], scale_map.inputs['Value'])
+    gl.new(scale_map.outputs['Result'], scale_vec.inputs['X'])
+    gl.new(scale_map.outputs['Result'], scale_vec.inputs['Y'])
+    gl.new(scale_map.outputs['Result'], scale_vec.inputs['Z'])
+    gl.new(scale_vec.outputs['Vector'], instance_on.inputs['Scale'])
+    gl.new(rand_tilt_x.outputs[1], tilt_vec.inputs['X'])
+    gl.new(rand_tilt_y.outputs[1], tilt_vec.inputs['Y'])
+    gl.new(tilt_vec.outputs['Vector'], rotate_tilt.inputs['Rotation'])
+    gl.new(rotate.outputs['Instances'], rotate_tilt.inputs['Instances'])
+    gl.new(rotate_tilt.outputs['Instances'], realize.inputs['Geometry'])
+
+    # Short instances → rotation → tilt → realize
+    gl.new(instance_on_short.outputs['Instances'], rotate_short.inputs['Instances'])
+    gl.new(axis_rot.outputs['Rotation'], rotate_short.inputs['Rotation'])
+    gl.new(rand_scale_s.outputs[1], scale_pow_s.inputs[0])
+    gl.new(scale_pow_s.outputs['Value'], scale_map_s.inputs['Value'])
+    gl.new(scale_map_s.outputs['Result'], scale_vec_s.inputs['X'])
+    gl.new(scale_map_s.outputs['Result'], scale_vec_s.inputs['Y'])
+    gl.new(scale_map_s.outputs['Result'], scale_vec_s.inputs['Z'])
+    gl.new(scale_vec_s.outputs['Vector'], instance_on_short.inputs['Scale'])
+    gl.new(tilt_vec.outputs['Vector'], rotate_tilt_short.inputs['Rotation'])
+    gl.new(rotate_short.outputs['Instances'], rotate_tilt_short.inputs['Instances'])
+    gl.new(rotate_tilt_short.outputs['Instances'], realize_short.inputs['Geometry'])
+
+    gl.new(axis_rot.outputs['Rotation'], rotate_weed.inputs['Rotation'])
+    gl.new(axis_rot.outputs['Rotation'], rotate_flower.inputs['Rotation'])
+    gl.new(axis_rot.outputs['Rotation'], rotate_stone.inputs['Rotation'])
+
+    gl.new(rand_scale_w.outputs[1], scale_pow_w.inputs[0])
+    gl.new(scale_pow_w.outputs['Value'], scale_map_w.inputs['Value'])
+    gl.new(scale_map_w.outputs['Result'], scale_vec_w.inputs['X'])
+    gl.new(scale_map_w.outputs['Result'], scale_vec_w.inputs['Y'])
+    gl.new(scale_map_w.outputs['Result'], scale_vec_w.inputs['Z'])
+    gl.new(scale_vec_w.outputs['Vector'], instance_on_weed.inputs['Scale'])
+    gl.new(instance_on_weed.outputs['Instances'], rotate_weed.inputs['Instances'])
+    gl.new(rotate_weed.outputs['Instances'], realize_weed.inputs['Geometry'])
+
+    gl.new(rand_scale_f.outputs[1], scale_pow_f.inputs[0])
+    gl.new(scale_pow_f.outputs['Value'], scale_map_f.inputs['Value'])
+    gl.new(scale_map_f.outputs['Result'], scale_vec_f.inputs['X'])
+    gl.new(scale_map_f.outputs['Result'], scale_vec_f.inputs['Y'])
+    gl.new(scale_map_f.outputs['Result'], scale_vec_f.inputs['Z'])
+    gl.new(scale_vec_f.outputs['Vector'], instance_on_flower.inputs['Scale'])
+    gl.new(instance_on_flower.outputs['Instances'], rotate_flower.inputs['Instances'])
+    gl.new(rotate_flower.outputs['Instances'], realize_flower.inputs['Geometry'])
+
+    gl.new(scale_map_t.outputs['Result'], scale_vec_t.inputs['X'])
+    gl.new(scale_map_t.outputs['Result'], scale_vec_t.inputs['Y'])
+    gl.new(scale_map_t.outputs['Result'], scale_vec_t.inputs['Z'])
+    gl.new(rand_scale_t.outputs[1], scale_map_t.inputs['Value'])
+    gl.new(scale_vec_t.outputs['Vector'], instance_on_stone.inputs['Scale'])
+    gl.new(instance_on_stone.outputs['Instances'], rotate_stone.inputs['Instances'])
+    gl.new(rotate_stone.outputs['Instances'], translate_stone.inputs['Instances'])
+    gl.new(translate_stone.outputs['Instances'], realize_stone.inputs['Geometry'])
+
+    # Join all geometry and output
+    gl.new(realize.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(realize_short.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(realize_weed.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(realize_flower.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(realize_stone.outputs['Geometry'], set_mat_stone.inputs['Geometry'])
+    gl.new(set_mat_stone.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(join.outputs['Geometry'], group_out.inputs[0])
+
+    # ── Apply the Geometry Nodes modifier to the terrain ──
+    gn_mod = terrain.modifiers.new("Grass", 'NODES')
+    gn_mod.node_group = tree
+
+    print(f"    Density: {GRASS_DENSITY:.0f} pts/m², "
+          f"{BLADE_VARIANTS} blade variants")
+    print(f"    Bare r < {BARE_RADIUS} m → full r > {FULL_RADIUS} m")
+    print(f"    Noise: scale={NOISE_SCALE}, strength=±{NOISE_STRENGTH} m")
+
+    return terrain
+
+
 # =====================================================================
 # SCENE SETUP
 # =====================================================================
 
 def setup_scene():
-    """Add camera, lights, and configure render settings."""
+    """Add camera, HDRI environment, sun light, and configure render settings.
+
+    Lighting strategy:
+      - HDRI environment map provides ambient fill, sky colour, and
+        realistic reflections in brass/steel surfaces.
+      - Sun lamp aligned to rake across the flush bracket (+Y face)
+        so the logo bevels catch highlights.
+      - Sighting-hole point light for box interior illumination.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    HDRI_NAME         — filename of the HDRI in the script directory
+    HDRI_STRENGTH     — environment brightness (1.0 = neutral)
+    HDRI_ROTATION_Z   — rotate the HDRI around Z (radians)
+    SUN_ENERGY        — sun lamp intensity
+    SUN_ALTITUDE      — sun elevation angle (degrees from horizontal)
+    SUN_AZIMUTH       — sun compass bearing — 0° = +X, 90° = +Y, etc.
+                        The flush bracket faces +Y; a sun roughly from
+                        the +Y/+X quadrant (azimuth ~50°) rakes across
+                        the bracket face and catches the logo bevels.
+    """
+    print("  Scene setup ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    HDRI_NAME       = 'kloofendal_overcast_4k.exr'
+    HDRI_STRENGTH   = 1.0
+    HDRI_ROTATION_Z = 0.0         # adjust if sky direction looks wrong
+
+    # Camera-visible sky (the HDRI is only used for lighting &
+    # reflections — the camera sees this flat overcast sky instead,
+    # so the terrain edge blends naturally into the sky).
+    SKY_ZENITH      = (0.52, 0.55, 0.62)    # cool grey-blue overhead
+    SKY_HORIZON     = (0.72, 0.72, 0.74)    # lighter warm grey at horizon
+    SKY_STRENGTH    = 1.0
+
+    SUN_ENERGY      = 3.0
+    SUN_ALTITUDE    = 40          # degrees above horizon
+    SUN_AZIMUTH     = 50          # degrees — between +X and +Y,
+                                  # raking across the +Y flush bracket face
+    # ─────────────────────────────────────────────────────────────
+
     # Camera — positioned to see the full pillar
     cam_data = bpy.data.cameras.new("Camera")
     cam_data.lens = 50
@@ -3410,23 +4599,156 @@ def setup_scene():
     cam_obj.rotation_euler = (math.radians(72), 0, math.radians(45))
     bpy.context.scene.camera = cam_obj
 
-    # Sun light
+    # ── HDRI environment map ──────────────────────────────────────
+    # Replaces the old area fill light — provides natural ambient
+    # illumination, sky colour, and reflections in metallic surfaces.
+    #
+    # Path detection: when run via `blender --python <path>`, __file__
+    # resolves correctly.  When run from Blender's text editor,
+    # __file__ is just the text-block name (e.g. '/trig_pillar.py'),
+    # so we fall back to the blend file's directory, then cwd.
+    script_dir = None
+    try:
+        candidate = os.path.dirname(os.path.abspath(__file__))
+        if os.path.isfile(os.path.join(candidate, HDRI_NAME)):
+            script_dir = candidate
+    except NameError:
+        pass
+    if script_dir is None and bpy.data.filepath:
+        candidate = os.path.dirname(os.path.abspath(bpy.data.filepath))
+        if os.path.isfile(os.path.join(candidate, HDRI_NAME)):
+            script_dir = candidate
+    if script_dir is None:
+        # Try any loaded text blocks (Blender text editor case)
+        for text in bpy.data.texts:
+            if text.filepath and os.path.isfile(text.filepath):
+                candidate = os.path.dirname(os.path.abspath(text.filepath))
+                if os.path.isfile(os.path.join(candidate, HDRI_NAME)):
+                    script_dir = candidate
+                    break
+    if script_dir is None:
+        script_dir = os.getcwd()
+    hdri_path = os.path.join(script_dir, HDRI_NAME)
+
+    world = bpy.data.worlds.new("HDRIWorld")
+    bpy.context.scene.world = world
+    world.use_nodes = True
+    wtree = world.node_tree
+    wtree.nodes.clear()
+
+    # Two-layer world shader:
+    #   • Lighting / reflection rays → HDRI (realistic ambient + reflections)
+    #   • Camera rays → simple overcast sky gradient (hides the HDRI
+    #     landscape so the terrain disc doesn't float in mid-photo)
+
+    # ── HDRI branch (lighting) ────────────────────────────────────
+    tex_coord = wtree.nodes.new('ShaderNodeTexCoord')
+    tex_coord.location = (-800, 300)
+
+    mapping = wtree.nodes.new('ShaderNodeMapping')
+    mapping.location = (-600, 300)
+    mapping.inputs['Rotation'].default_value = (0, 0, HDRI_ROTATION_Z)
+
+    env_tex = wtree.nodes.new('ShaderNodeTexEnvironment')
+    env_tex.location = (-400, 300)
+
+    bg_hdri = wtree.nodes.new('ShaderNodeBackground')
+    bg_hdri.location = (-100, 300)
+    bg_hdri.label = "HDRI (lighting)"
+    bg_hdri.inputs['Strength'].default_value = HDRI_STRENGTH
+
+    if not os.path.isfile(hdri_path):
+        exrs = []
+        try:
+            exrs = sorted(
+                f for f in os.listdir(script_dir)
+                if f.lower().endswith('.exr')
+            )
+        except Exception:
+            pass
+        avail = ", ".join(exrs) if exrs else "none"
+        raise RuntimeError(
+            f"HDRI not found at {hdri_path}. Available .exr: {avail}"
+        )
+
+    env_tex.image = bpy.data.images.load(hdri_path, check_existing=True)
+    print(f"    HDRI loaded: {HDRI_NAME}")
+
+    # ── Sky branch (camera-visible background) ────────────────────
+    # Zenith-to-horizon gradient using the ray direction's Z component.
+    sep_xyz = wtree.nodes.new('ShaderNodeSeparateXYZ')
+    sep_xyz.location = (-600, -100)
+
+    # Map Z from [0, 1] (horizon to zenith) via a colour ramp
+    sky_ramp = wtree.nodes.new('ShaderNodeValToRGB')
+    sky_ramp.location = (-400, -100)
+    sky_ramp.label = "Sky Gradient"
+    sky_ramp.color_ramp.elements[0].position = 0.0
+    sky_ramp.color_ramp.elements[0].color = (*SKY_HORIZON, 1)
+    sky_ramp.color_ramp.elements[1].position = 0.5
+    sky_ramp.color_ramp.elements[1].color = (*SKY_ZENITH, 1)
+
+    bg_sky = wtree.nodes.new('ShaderNodeBackground')
+    bg_sky.location = (-100, -100)
+    bg_sky.label = "Sky (camera)"
+    bg_sky.inputs['Strength'].default_value = SKY_STRENGTH
+
+    # ── Light Path switch ─────────────────────────────────────────
+    # Is Camera Ray = 0 → HDRI,  = 1 → sky gradient
+    light_path = wtree.nodes.new('ShaderNodeLightPath')
+    light_path.location = (-100, 100)
+
+    mix_sh = wtree.nodes.new('ShaderNodeMixShader')
+    mix_sh.location = (150, 200)
+
+    output = wtree.nodes.new('ShaderNodeOutputWorld')
+    output.location = (400, 200)
+
+    wL = wtree.links
+    # HDRI chain
+    wL.new(tex_coord.outputs['Generated'], mapping.inputs['Vector'])
+    wL.new(mapping.outputs['Vector'], env_tex.inputs['Vector'])
+    wL.new(env_tex.outputs['Color'], bg_hdri.inputs['Color'])
+    # Sky chain
+    wL.new(tex_coord.outputs['Generated'], sep_xyz.inputs['Vector'])
+    wL.new(sep_xyz.outputs['Z'], sky_ramp.inputs['Fac'])
+    wL.new(sky_ramp.outputs['Color'], bg_sky.inputs['Color'])
+    # Switch: camera rays see sky, everything else sees HDRI
+    wL.new(light_path.outputs['Is Camera Ray'], mix_sh.inputs[0])
+    wL.new(bg_hdri.outputs['Background'], mix_sh.inputs[1])
+    wL.new(bg_sky.outputs['Background'], mix_sh.inputs[2])
+    wL.new(mix_sh.outputs['Shader'], output.inputs['Surface'])
+
+    # ── Sun light ─────────────────────────────────────────────────
+    # Direction: shining from the azimuth/altitude towards the origin.
+    # The flush bracket is on the +Y face.  An azimuth of ~50° puts
+    # the sun roughly from the +X/+Y quadrant, raking obliquely
+    # across the bracket face so the bevelled logo edges catch bright
+    # highlights on one side and fall into shadow on the other.
+    #
+    # Blender's sun lamp direction is set by its rotation; we convert
+    # altitude/azimuth to Euler angles.  The sun direction vector is
+    # (-cos(alt)*cos(az), -cos(alt)*sin(az), -sin(alt)), but the
+    # lamp's default direction is -Z, so we rotate to align.
     sun_data = bpy.data.lights.new("Sun", 'SUN')
-    sun_data.energy = 3
+    sun_data.energy = SUN_ENERGY
     sun_obj = bpy.data.objects.new("Sun", sun_data)
     bpy.context.collection.objects.link(sun_obj)
-    sun_obj.rotation_euler = (
-        math.radians(40), math.radians(15), math.radians(30))
 
-    # Fill light
-    fill_data = bpy.data.lights.new("Fill", 'AREA')
-    fill_data.energy = 50
-    fill_data.size = 2.0
-    fill_obj = bpy.data.objects.new("Fill", fill_data)
-    bpy.context.collection.objects.link(fill_obj)
-    fill_obj.location = (-2, 3, 2)
-    fill_obj.rotation_euler = (
-        math.radians(55), 0, math.radians(-130))
+    alt_r = math.radians(SUN_ALTITUDE)
+    az_r  = math.radians(SUN_AZIMUTH)
+    # Lamp default emits along its local -Z.  After XYZ Euler rotation
+    # (θx, 0, θz), the world-space light direction becomes:
+    #   x = -sin(θz) · sin(θx)
+    #   y =  cos(θz) · sin(θx)
+    #   z = -cos(θx)
+    # Matching this to a sun FROM (cos(A)·cos(Az), cos(A)·sin(Az), sin(A)):
+    #   θx = π/2 - altitude,  θz = azimuth + π/2
+    sun_obj.rotation_euler = (
+        math.radians(90) - alt_r,   # tilt from vertical
+        0,
+        az_r + math.pi / 2          # +π/2 aligns azimuth correctly
+    )
 
     # Point light at the East sighting hole — illuminates the box interior
     # when looking through the sighting tubes
@@ -3815,6 +5137,7 @@ def main():
     build_lower_block(M)
     build_lower_centre_mark(M)
     build_terrain(M)
+    build_grass()
 
     # Scene (lights, viewport settings)
     setup_scene()
