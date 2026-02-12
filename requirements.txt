@@ -4,7 +4,7 @@ uvicorn[standard]==0.40.0
 sqlalchemy==2.0.46
 psycopg2-binary==2.9.11
 geoalchemy2==0.18.1
-cryptography==46.0.4
+cryptography==46.0.5
 PyJWT==2.11.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.3.0
@@ -32,7 +32,7 @@ types-requests==2.32.4.20260107
 redis==7.1.0
 
 # Image processing
-Pillow==12.1.0
+Pillow==12.1.1
 numpy==2.4.2
 onnxruntime==1.24.1
 

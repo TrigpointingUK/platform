@@ -1449,6 +1449,148 @@ def make_terrain_material():
     return mat
 
 
+def make_landscape_material():
+    """Distant countryside surrounding the hilltop — patchwork fields
+    fading into overcast atmospheric haze at distance.
+
+    The material is entirely procedural: Voronoi-based field boundaries
+    tinted with varied greens and browns, plus distance-based haze that
+    blends to the overcast sky colour so the far edge of the landscape
+    ring dissolves invisibly into the world background.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    FIELD_SCALE         — Voronoi scale (lower = larger fields)
+    FIELD_COL_DARK      — darkest field green
+    FIELD_COL_MID       — mid field green
+    FIELD_COL_LIGHT     — lightest / pasture green
+    FIELD_COL_CROP      — brown / ploughed field
+    HEDGE_WIDTH         — hedgerow darkness width in Voronoi space
+    HEDGE_COL           — hedgerow colour (dark green/brown)
+    HAZE_START          — distance (m) where haze begins
+    HAZE_END            — distance (m) where fully hazed out
+    HAZE_COL            — haze / overcast sky colour
+    """
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    FIELD_SCALE     = 0.08       # large fields (~12 m Voronoi cells)
+    FIELD_COL_DARK  = (0.06, 0.14, 0.03)   # dark pasture
+    FIELD_COL_MID   = (0.10, 0.20, 0.05)   # mid green
+    FIELD_COL_LIGHT = (0.14, 0.26, 0.07)   # light meadow
+    FIELD_COL_CROP  = (0.16, 0.14, 0.06)   # ploughed / arable
+    HEDGE_WIDTH     = 0.06       # hedgerow band width (normalised)
+    HEDGE_COL       = (0.03, 0.06, 0.02)   # dark hedge green
+    WITHIN_NOISE_SC = 1.2        # within-field variation scale
+    WITHIN_NOISE_AM = 0.15       # within-field variation amplitude
+
+    HAZE_START      = 15.0       # haze begins (metres from origin)
+    HAZE_END        = 150.0      # fully hazed by here
+    HAZE_COL        = (0.52, 0.54, 0.50)   # overcast haze (matches sky)
+    # ─────────────────────────────────────────────────────────────
+
+    mat = bpy.data.materials.new("Landscape")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    N = lambda t, loc, lbl="": _new_node(tree, t, loc, lbl)
+    L = tree.links
+
+    # ── Coordinates ───────────────────────────────────────────────
+    tex_coord = N('ShaderNodeTexCoord', (-1200, 0), "Tex Coord")
+    sep_xyz   = N('ShaderNodeSeparateXYZ', (-1000, 0), "Sep XYZ")
+    L.new(tex_coord.outputs['Object'], sep_xyz.inputs['Vector'])
+
+    # XY-only vector for distance calculation
+    comb_xy = N('ShaderNodeCombineXYZ', (-1000, -300), "XY Vector")
+    L.new(sep_xyz.outputs['X'], comb_xy.inputs['X'])
+    L.new(sep_xyz.outputs['Y'], comb_xy.inputs['Y'])
+
+    dist = N('ShaderNodeVectorMath', (-800, -300), "Distance")
+    dist.operation = 'LENGTH'
+    L.new(comb_xy.outputs['Vector'], dist.inputs[0])
+
+    # ── Patchwork fields via Voronoi ──────────────────────────────
+    voronoi = N('ShaderNodeTexVoronoi', (-800, 300), "Field Voronoi")
+    voronoi.inputs['Scale'].default_value = FIELD_SCALE
+    voronoi.voronoi_dimensions = '2D'
+    voronoi.feature = 'F1'
+    L.new(tex_coord.outputs['Object'], voronoi.inputs['Vector'])
+
+    # Use randomness output (cell ID hash) for per-field colour
+    field_cr = N('ShaderNodeValToRGB', (-550, 300), "Field Colours")
+    els = field_cr.color_ramp.elements
+    els[0].position = 0.0
+    els[0].color = (*FIELD_COL_DARK, 1)
+    e1 = field_cr.color_ramp.elements.new(0.33)
+    e1.color = (*FIELD_COL_MID, 1)
+    e2 = field_cr.color_ramp.elements.new(0.66)
+    e2.color = (*FIELD_COL_LIGHT, 1)
+    els[1].position = 1.0
+    els[1].color = (*FIELD_COL_CROP, 1)
+    L.new(voronoi.outputs['Distance'], field_cr.inputs['Fac'])
+
+    # ── Within-field variation (subtle noise) ─────────────────────
+    field_noise = N('ShaderNodeTexNoise', (-800, 100), "Field Noise")
+    field_noise.inputs['Scale'].default_value = WITHIN_NOISE_SC
+    field_noise.inputs['Detail'].default_value = 4.0
+    field_noise.inputs['Roughness'].default_value = 0.5
+    L.new(tex_coord.outputs['Object'], field_noise.inputs['Vector'])
+
+    field_var = N('ShaderNodeMapRange', (-600, 100), "Field Var")
+    field_var.inputs['From Min'].default_value = 0.0
+    field_var.inputs['From Max'].default_value = 1.0
+    field_var.inputs['To Min'].default_value = 1.0 - WITHIN_NOISE_AM
+    field_var.inputs['To Max'].default_value = 1.0 + WITHIN_NOISE_AM
+    field_var.clamp = True
+    L.new(field_noise.outputs['Fac'], field_var.inputs['Value'])
+
+    # Multiply field colour by variation
+    field_varied = N('ShaderNodeVectorMath', (-350, 200), "Field × Var")
+    field_varied.operation = 'SCALE'
+    L.new(field_cr.outputs['Color'], field_varied.inputs[0])
+    L.new(field_var.outputs['Result'], field_varied.inputs['Scale'])
+
+    # ── Hedgerow darkening at field boundaries ────────────────────
+    hedge_mask = N('ShaderNodeMapRange', (-550, 0), "Hedge Mask")
+    hedge_mask.inputs['From Min'].default_value = 0.0
+    hedge_mask.inputs['From Max'].default_value = HEDGE_WIDTH
+    hedge_mask.inputs['To Min'].default_value = 1.0
+    hedge_mask.inputs['To Max'].default_value = 0.0
+    hedge_mask.clamp = True
+    L.new(voronoi.outputs['Distance'], hedge_mask.inputs['Value'])
+
+    hedge_mix = N('ShaderNodeMixRGB', (-200, 200), "Hedge Mix")
+    hedge_mix.blend_type = 'MIX'
+    L.new(hedge_mask.outputs['Result'], hedge_mix.inputs['Fac'])
+    L.new(field_varied.outputs['Vector'], hedge_mix.inputs['Color1'])
+    hedge_mix.inputs['Color2'].default_value = (*HEDGE_COL, 1)
+
+    # ── Distance haze fade ────────────────────────────────────────
+    haze_map = N('ShaderNodeMapRange', (-600, -300), "Haze Fade")
+    haze_map.inputs['From Min'].default_value = HAZE_START
+    haze_map.inputs['From Max'].default_value = HAZE_END
+    haze_map.inputs['To Min'].default_value = 0.0
+    haze_map.inputs['To Max'].default_value = 1.0
+    haze_map.clamp = True
+    L.new(dist.outputs['Value'], haze_map.inputs['Value'])
+
+    haze_mix = N('ShaderNodeMixRGB', (0, 100), "Landscape + Haze")
+    haze_mix.blend_type = 'MIX'
+    L.new(haze_map.outputs['Result'], haze_mix.inputs['Fac'])
+    L.new(hedge_mix.outputs['Color'], haze_mix.inputs['Color1'])
+    haze_mix.inputs['Color2'].default_value = (*HAZE_COL, 1)
+
+    # ── BSDF ──────────────────────────────────────────────────────
+    bsdf = N('ShaderNodeBsdfPrincipled', (200, 100), "Landscape BSDF")
+    L.new(haze_mix.outputs['Color'], bsdf.inputs['Base Color'])
+    bsdf.inputs['Roughness'].default_value = 1.0
+
+    output = N('ShaderNodeOutputMaterial', (450, 100))
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
 # =====================================================================
 # COMPONENT BUILDERS
 # =====================================================================
