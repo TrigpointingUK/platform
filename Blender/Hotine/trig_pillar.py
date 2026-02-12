@@ -4549,42 +4549,63 @@ def build_grass():
 # =====================================================================
 
 def setup_scene():
-    """Add camera, HDRI environment, sun light, and configure render settings.
+    """Add camera, procedural sky, sun light, fog, and configure render.
 
-    Lighting strategy:
-      - HDRI environment map provides ambient fill, sky colour, and
-        realistic reflections in brass/steel surfaces.
+    Lighting strategy — fully procedural, no external HDRI:
+      - Nishita physically-based sky provides ambient fill, sky colour,
+        and reflections in brass/steel surfaces.  Heavy dust and air
+        density settings wash it out to an overcast look; desaturation
+        and cloud noise complete the British-gloom aesthetic.
       - Sun lamp aligned to rake across the flush bracket (+Y face)
         so the logo bevels catch highlights.
       - Sighting-hole point light for box interior illumination.
+      - Procedural cloud modulation adds local variation to suggest
+        uneven overcast thickness without external assets.
 
     TUNEABLE PARAMETERS
     -------------------
-    HDRI_NAME         — filename of the HDRI in the script directory
-    HDRI_STRENGTH     — environment brightness (1.0 = neutral)
-    HDRI_ROTATION_Z   — rotate the HDRI around Z (radians)
-    SUN_ENERGY        — sun lamp intensity
-    SUN_ALTITUDE      — sun elevation angle (degrees from horizontal)
-    SUN_AZIMUTH       — sun compass bearing — 0° = +X, 90° = +Y, etc.
-                        The flush bracket faces +Y; a sun roughly from
-                        the +Y/+X quadrant (azimuth ~50°) rakes across
-                        the bracket face and catches the logo bevels.
+    Sky atmosphere
+        SKY_AIR_DENSITY   — Rayleigh scattering (higher = denser blue)
+        SKY_DUST_DENSITY  — Mie scattering / haze (higher = whiter)
+        SKY_OZONE_DENSITY — warm tinge at the horizon
+        SKY_SUN_INTENSITY — brightness of the sun disc in the sky
+        SKY_SUN_SIZE      — apparent size of the sun disc (degrees)
+        SKY_SATURATION    — colour saturation (0 = greyscale, 1 = full)
+        SKY_VALUE         — overall brightness tweak
+        SKY_STRENGTH      — world background emission strength
+    Cloud modulation
+        CLOUD_SCALE       — spatial frequency (lower = bigger patches)
+        CLOUD_DETAIL      — fractal octaves in the noise
+        CLOUD_ROUGHNESS   — inter-octave amplitude ratio
+        CLOUD_AMOUNT      — brightness variation amplitude
+        CLOUD_CONTRAST    — cloud pattern contrast (higher = punchier)
+    Sun lamp
+        SUN_ENERGY        — sun lamp intensity
+        SUN_ALTITUDE      — elevation angle (degrees from horizontal)
+        SUN_AZIMUTH       — compass bearing (0° = +X, 90° = +Y)
     """
     print("  Scene setup ...")
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
-    HDRI_NAME       = 'kloofendal_overcast_4k.exr'
-    HDRI_STRENGTH   = 1.0
-    HDRI_ROTATION_Z = 0.0         # adjust if sky direction looks wrong
 
-    # Camera-visible sky (the HDRI is only used for lighting &
-    # reflections — the camera sees this flat overcast sky instead,
-    # so the terrain edge blends naturally into the sky).
-    SKY_ZENITH      = (0.52, 0.55, 0.62)    # cool grey-blue overhead
-    SKY_HORIZON     = (0.72, 0.72, 0.74)    # lighter warm grey at horizon
-    SKY_STRENGTH    = 1.0
+    # Nishita sky — heavy atmosphere for washed-out overcast look
+    SKY_AIR_DENSITY    = 3.0       # dense Rayleigh scattering
+    SKY_DUST_DENSITY   = 6.0       # thick Mie haze → overcast white-out
+    SKY_OZONE_DENSITY  = 2.0       # warm horizon tinge
+    SKY_SUN_INTENSITY  = 0.3       # dim, diffused sun disc
+    SKY_SUN_SIZE       = 3.0       # bloated disc (degrees) — cloud-diffused
+    SKY_SATURATION     = 0.25      # heavily desaturated — British gloom
+    SKY_VALUE          = 0.50      # pull back washed-out highlights
+    SKY_STRENGTH       = 0.60
 
-    SUN_ENERGY      = 3.0
+    # Cloud noise overlay — large-scale noise modulates sky brightness
+    CLOUD_SCALE        = 2.5       # spatial frequency
+    CLOUD_DETAIL       = 6.0       # fractal octaves
+    CLOUD_ROUGHNESS    = 0.6       # inter-octave amplitude ratio
+    CLOUD_AMOUNT       = 0.38      # brightness variation ± (0 = none)
+    CLOUD_CONTRAST     = 8.2       # emphasise local cloud-thickness variation
+
+    SUN_ENERGY      = 1.2
     SUN_ALTITUDE    = 40          # degrees above horizon
     SUN_AZIMUTH     = 50          # degrees — between +X and +Y,
                                   # raking across the +Y flush bracket face
@@ -4599,125 +4620,99 @@ def setup_scene():
     cam_obj.rotation_euler = (math.radians(72), 0, math.radians(45))
     bpy.context.scene.camera = cam_obj
 
-    # ── HDRI environment map ──────────────────────────────────────
-    # Replaces the old area fill light — provides natural ambient
-    # illumination, sky colour, and reflections in metallic surfaces.
-    #
-    # Path detection: when run via `blender --python <path>`, __file__
-    # resolves correctly.  When run from Blender's text editor,
-    # __file__ is just the text-block name (e.g. '/trig_pillar.py'),
-    # so we fall back to the blend file's directory, then cwd.
-    script_dir = None
-    try:
-        candidate = os.path.dirname(os.path.abspath(__file__))
-        if os.path.isfile(os.path.join(candidate, HDRI_NAME)):
-            script_dir = candidate
-    except NameError:
-        pass
-    if script_dir is None and bpy.data.filepath:
-        candidate = os.path.dirname(os.path.abspath(bpy.data.filepath))
-        if os.path.isfile(os.path.join(candidate, HDRI_NAME)):
-            script_dir = candidate
-    if script_dir is None:
-        # Try any loaded text blocks (Blender text editor case)
-        for text in bpy.data.texts:
-            if text.filepath and os.path.isfile(text.filepath):
-                candidate = os.path.dirname(os.path.abspath(text.filepath))
-                if os.path.isfile(os.path.join(candidate, HDRI_NAME)):
-                    script_dir = candidate
-                    break
-    if script_dir is None:
-        script_dir = os.getcwd()
-    hdri_path = os.path.join(script_dir, HDRI_NAME)
+    # ── Procedural world shader ────────────────────────────────────
+    # Unified Nishita sky for all ray types (camera, reflection,
+    # diffuse, glossy) — no external HDRI required.  The sky is
+    # desaturated and cloud-modulated to evoke overcast Britain.
 
-    world = bpy.data.worlds.new("HDRIWorld")
+    world = bpy.data.worlds.new("ProceduralSky")
     bpy.context.scene.world = world
     world.use_nodes = True
     wtree = world.node_tree
     wtree.nodes.clear()
 
-    # Two-layer world shader:
-    #   • Lighting / reflection rays → HDRI (realistic ambient + reflections)
-    #   • Camera rays → simple overcast sky gradient (hides the HDRI
-    #     landscape so the terrain disc doesn't float in mid-photo)
+    # ── Sky texture: Nishita atmospheric model ─────────────────────
+    sky_tex = wtree.nodes.new('ShaderNodeTexSky')
+    sky_tex.location = (-800, 200)
+    sky_tex.sky_type = 'NISHITA'
+    sky_tex.sun_elevation = math.radians(SUN_ALTITUDE)
+    sky_tex.sun_rotation = math.radians(SUN_AZIMUTH)
+    sky_tex.air_density = SKY_AIR_DENSITY
+    sky_tex.dust_density = SKY_DUST_DENSITY
+    sky_tex.ozone_density = SKY_OZONE_DENSITY
+    sky_tex.sun_intensity = SKY_SUN_INTENSITY
+    sky_tex.sun_size = math.radians(SKY_SUN_SIZE)
+    sky_tex.altitude = 0
 
-    # ── HDRI branch (lighting) ────────────────────────────────────
+    # ── Desaturate — drain colour to match overcast Britain ────────
+    hsv = wtree.nodes.new('ShaderNodeHueSaturation')
+    hsv.location = (-600, 200)
+    hsv.inputs['Saturation'].default_value = SKY_SATURATION
+    hsv.inputs['Value'].default_value = SKY_VALUE
+
+    # ── Cloud modulation ────────────────────────────────────────────
+    # Large-scale 3D noise sampled from the viewing direction
+    # modulates sky brightness, giving local variation that reads as
+    # uneven cloud thickness.
+    #
+    # Approach: noise → MapRange [1−A, 1+A] → VectorMath SCALE on
+    # the sky colour.  This avoids ShaderNodeMix whose Color socket
+    # indices shift between Blender versions (Rotation sockets were
+    # added in 4.1, pushing Color from [6]/[7] to [7]/[8]).
     tex_coord = wtree.nodes.new('ShaderNodeTexCoord')
-    tex_coord.location = (-800, 300)
+    tex_coord.location = (-800, -100)
 
-    mapping = wtree.nodes.new('ShaderNodeMapping')
-    mapping.location = (-600, 300)
-    mapping.inputs['Rotation'].default_value = (0, 0, HDRI_ROTATION_Z)
+    cloud_noise = wtree.nodes.new('ShaderNodeTexNoise')
+    cloud_noise.location = (-600, -100)
+    cloud_noise.noise_dimensions = '3D'
+    cloud_noise.inputs['Scale'].default_value = CLOUD_SCALE
+    cloud_noise.inputs['Detail'].default_value = CLOUD_DETAIL
+    cloud_noise.inputs['Roughness'].default_value = CLOUD_ROUGHNESS
 
-    env_tex = wtree.nodes.new('ShaderNodeTexEnvironment')
-    env_tex.location = (-400, 300)
+    # Shape the noise for stronger local contrast:
+    # noise -> centred (-0.5..0.5) -> contrast -> offset (+1.0)
+    cloud_center = wtree.nodes.new('ShaderNodeMath')
+    cloud_center.location = (-400, -100)
+    cloud_center.operation = 'SUBTRACT'
+    cloud_center.inputs[1].default_value = 0.5
 
-    bg_hdri = wtree.nodes.new('ShaderNodeBackground')
-    bg_hdri.location = (-100, 300)
-    bg_hdri.label = "HDRI (lighting)"
-    bg_hdri.inputs['Strength'].default_value = HDRI_STRENGTH
+    cloud_contrast = wtree.nodes.new('ShaderNodeMath')
+    cloud_contrast.location = (-220, -100)
+    cloud_contrast.operation = 'MULTIPLY'
+    cloud_contrast.inputs[1].default_value = CLOUD_CONTRAST * CLOUD_AMOUNT
 
-    if not os.path.isfile(hdri_path):
-        exrs = []
-        try:
-            exrs = sorted(
-                f for f in os.listdir(script_dir)
-                if f.lower().endswith('.exr')
-            )
-        except Exception:
-            pass
-        avail = ", ".join(exrs) if exrs else "none"
-        raise RuntimeError(
-            f"HDRI not found at {hdri_path}. Available .exr: {avail}"
-        )
+    cloud_offset = wtree.nodes.new('ShaderNodeMath')
+    cloud_offset.location = (-40, -100)
+    cloud_offset.operation = 'ADD'
+    cloud_offset.inputs[1].default_value = 1.0
 
-    env_tex.image = bpy.data.images.load(hdri_path, check_existing=True)
-    print(f"    HDRI loaded: {HDRI_NAME}")
+    # Multiply desaturated sky colour by the noise-driven brightness
+    cloud_scale = wtree.nodes.new('ShaderNodeVectorMath')
+    cloud_scale.location = (140, 200)
+    cloud_scale.operation = 'SCALE'
 
-    # ── Sky branch (camera-visible background) ────────────────────
-    # Zenith-to-horizon gradient using the ray direction's Z component.
-    sep_xyz = wtree.nodes.new('ShaderNodeSeparateXYZ')
-    sep_xyz.location = (-600, -100)
-
-    # Map Z from [0, 1] (horizon to zenith) via a colour ramp
-    sky_ramp = wtree.nodes.new('ShaderNodeValToRGB')
-    sky_ramp.location = (-400, -100)
-    sky_ramp.label = "Sky Gradient"
-    sky_ramp.color_ramp.elements[0].position = 0.0
-    sky_ramp.color_ramp.elements[0].color = (*SKY_HORIZON, 1)
-    sky_ramp.color_ramp.elements[1].position = 0.5
-    sky_ramp.color_ramp.elements[1].color = (*SKY_ZENITH, 1)
-
-    bg_sky = wtree.nodes.new('ShaderNodeBackground')
-    bg_sky.location = (-100, -100)
-    bg_sky.label = "Sky (camera)"
-    bg_sky.inputs['Strength'].default_value = SKY_STRENGTH
-
-    # ── Light Path switch ─────────────────────────────────────────
-    # Is Camera Ray = 0 → HDRI,  = 1 → sky gradient
-    light_path = wtree.nodes.new('ShaderNodeLightPath')
-    light_path.location = (-100, 100)
-
-    mix_sh = wtree.nodes.new('ShaderNodeMixShader')
-    mix_sh.location = (150, 200)
+    # ── Background + output ────────────────────────────────────────
+    bg = wtree.nodes.new('ShaderNodeBackground')
+    bg.location = (320, 200)
+    bg.label = "Sky"
+    bg.inputs['Strength'].default_value = SKY_STRENGTH
 
     output = wtree.nodes.new('ShaderNodeOutputWorld')
-    output.location = (400, 200)
+    output.location = (520, 200)
 
+    # ── Wire everything up ─────────────────────────────────────────
     wL = wtree.links
-    # HDRI chain
-    wL.new(tex_coord.outputs['Generated'], mapping.inputs['Vector'])
-    wL.new(mapping.outputs['Vector'], env_tex.inputs['Vector'])
-    wL.new(env_tex.outputs['Color'], bg_hdri.inputs['Color'])
-    # Sky chain
-    wL.new(tex_coord.outputs['Generated'], sep_xyz.inputs['Vector'])
-    wL.new(sep_xyz.outputs['Z'], sky_ramp.inputs['Fac'])
-    wL.new(sky_ramp.outputs['Color'], bg_sky.inputs['Color'])
-    # Switch: camera rays see sky, everything else sees HDRI
-    wL.new(light_path.outputs['Is Camera Ray'], mix_sh.inputs[0])
-    wL.new(bg_hdri.outputs['Background'], mix_sh.inputs[1])
-    wL.new(bg_sky.outputs['Background'], mix_sh.inputs[2])
-    wL.new(mix_sh.outputs['Shader'], output.inputs['Surface'])
+    # Sky chain: Nishita → desaturate → cloud brightness modulation
+    wL.new(sky_tex.outputs['Color'], hsv.inputs['Color'])
+    wL.new(tex_coord.outputs['Generated'], cloud_noise.inputs['Vector'])
+    wL.new(cloud_noise.outputs['Fac'], cloud_center.inputs[0])
+    wL.new(cloud_center.outputs['Value'], cloud_contrast.inputs[0])
+    wL.new(cloud_contrast.outputs['Value'], cloud_offset.inputs[0])
+    wL.new(hsv.outputs['Color'], cloud_scale.inputs[0])           # Vector
+    wL.new(cloud_offset.outputs['Value'], cloud_scale.inputs['Scale'])
+    wL.new(cloud_scale.outputs['Vector'], bg.inputs['Color'])
+    # Surface output only (world volume removed for performance)
+    wL.new(bg.outputs['Background'], output.inputs['Surface'])
 
     # ── Sun light ─────────────────────────────────────────────────
     # Direction: shining from the azimuth/altitude towards the origin.
