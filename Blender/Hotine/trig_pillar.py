@@ -3589,8 +3589,8 @@ def build_terrain(M):
     # TERRAIN_RADIUS and DOME_HEIGHT are module-level constants
     # (shared with build_landscape_ring).
     GRID_SUBDIVS   = 100           # vertex spacing ~12.5 cm
-    NOISE_STRENGTH = 0.08         # ±4 cm undulation
-    NOISE_SCALE    = 2.5          # spatial frequency
+    NOISE_STRENGTH = 0.07         # ±4 cm undulation
+    NOISE_SCALE    = 2.0          # spatial frequency
     NOISE_OCTAVES  = 4            # fractal layers
     CUT_MARGIN     = 0.005        # 5 mm gap between terrain and base slab
     # ─────────────────────────────────────────────────────────────
@@ -3895,9 +3895,9 @@ def build_grass():
     FULL_RADIUS    = 2.50     # full coverage from 2.5 m outward
     GRASS_DENSITY  = 1400.0   # points per m² at full weight (main layer)
     GRASS_DENSITY_SHORT = 6000.0   # dense short under-layer
-    WEED_DENSITY   = 4400.0     # broad-leaf weeds (sparse)
-    FLOWER_DENSITY = 2.5      # flowers (very sparse)
-    STONE_DENSITY  = 140.0     # visible stones (sparse)
+    WEED_DENSITY   = 2400.0     # broad-leaf weeds (sparse)
+    FLOWER_DENSITY = 7.5      # flowers (very sparse)
+    STONE_DENSITY  = 840.0     # visible stones (sparse)
     WEED_VARIANTS  = 4
     FLOWER_VARIANTS = 2
     STONE_VARIANTS = 6
@@ -3917,12 +3917,12 @@ def build_grass():
     WEED_SCALE_MIN = 0.6
     WEED_SCALE_MAX = 1.4
     WEED_SCALE_BIAS = 1.6
-    FLOWER_SCALE_MIN = 0.7
-    FLOWER_SCALE_MAX = 1.4
+    FLOWER_SCALE_MIN = 0.3
+    FLOWER_SCALE_MAX = 0.6
     FLOWER_SCALE_BIAS = 2.0
     STONE_SCALE_MIN = 0.01
     STONE_SCALE_MAX = 0.05
-    STONE_RAISE     = 0.05    # lift stones above ground surface (m)
+    STONE_RAISE     = -0.05    # lift stones above ground surface (m)
 
     CLUMP_SCALE    = 0.25     # large-scale clump size
     CLUMP_DETAIL   = 2.0
