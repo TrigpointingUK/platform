@@ -5253,9 +5253,9 @@ def setup_camera_animation():
       181–360   Tube fly-through: SIGHTING_0 → SIGHTING_1
       361–510   Sweep to profile: SIGHTING_1 → PROFILE_0
       511–630   Hold + rise to spider: PROFILE_0 → SPIDER_0
-      631–930   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
+      631–705   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
                 (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
-      931–1110  Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
+      706–885   Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5321,8 +5321,8 @@ def setup_camera_animation():
     F2_END = 360              # end of segment 2 (6 s)
     F3_END = 510              # end of segment 3 (5 s)
     F4_END = 630              # end of segment 4 (4 s: 1 s hold + 3 s flight)
-    F5_END = 930              # end of segment 5 (10 s: screw removal)
-    F6_END = 1110             # end of segment 6 (6 s: plug removal)
+    F5_END = 705              # end of segment 5 (2.5 s: screw removal)
+    F6_END = 885              # end of segment 6 (6 s: plug removal)
     TOTAL_FRAMES = F6_END     # extended as segments are added
 
     # ── Remove any existing camera / target / assembly empties ─────
@@ -5466,19 +5466,19 @@ def setup_camera_animation():
     kf(target, F4_END, SPIDER_0_TGT)                   # spider target
 
     # =================================================================
-    # SEGMENT 5 — Screw removal  (frames 631 → 930,  10 s)
+    # SEGMENT 5 — Screw removal  (frames 631 → 705,  2.5 s)
     # =================================================================
     # Both machine screws unscrew from the spider shelf and float
-    # down to rest on the pillar top.  Four sub-segments:
+    # down to rest on the pillar top.  Four sub-segments (quick):
     #
-    #   5a  631–690   Screw_0 unscrews anticlockwise + rises   (2 s)
-    #   5b  691–780   Screw_0 arcs to pillar top + tips horiz  (3 s)
-    #   5c  781–840   Screw_180 unscrews + rises               (2 s)
-    #   5d  841–930   Screw_180 arcs to pillar top + tips horiz(3 s)
+    #   5a  631–645   Screw_0 unscrews anticlockwise + rises   (0.5 s)
+    #   5b  646–668   Screw_0 arcs to pillar top + tips horiz  (0.75 s)
+    #   5c  669–683   Screw_180 unscrews + rises               (0.5 s)
+    #   5d  684–705   Screw_180 arcs to pillar top + tips horiz(0.7 s)
     #
     # Each screw: anticlockwise spin while rising straight up until
-    # the bottom clears the pillar top by 5 cm → brief hold → smooth
-    # arc to the surface while rotating from vertical to horizontal.
+    # the bottom clears the pillar top by 5 cm → smooth arc to the
+    # surface while rotating from vertical to horizontal.
     # Camera holds at SPIDER_0 throughout.
 
     screw_0 = bpy.data.objects["Screw_0"]
@@ -5489,9 +5489,6 @@ def setup_camera_animation():
     s180_home = tuple(screw_180.location)
 
     # Elevated: bottom of screw 5 cm above pillar top
-    #   bottom = origin.z - SCREW_SHAFT_H / 2
-    #   need bottom = PILLAR_HEIGHT + 0.05
-    #   ⇒ origin.z = PILLAR_HEIGHT + 0.05 + SCREW_SHAFT_H / 2
     z_elevated = PILLAR_HEIGHT + 0.05 + SCREW_SHAFT_H / 2   # ≈ 1.245
     s0_up = (s0_home[0], s0_home[1], z_elevated)
     s180_up = (s180_home[0], s180_home[1], z_elevated)
@@ -5508,61 +5505,52 @@ def setup_camera_animation():
     ROT_LYING = (math.pi / 2, 0, UNSCREW_RAD)  # horizontal on surface
 
     # Sub-segment frame markers
-    F5A_END = 690        # Screw_0 reaches top
-    F5B_END = 780        # Screw_0 placed on surface
-    F5C_END = 840        # Screw_180 reaches top
+    F5A_END = 645        # Screw_0 reaches top
+    F5B_END = 668        # Screw_0 placed on surface
+    F5C_END = 683        # Screw_180 reaches top
 
-    # ── 5a: Screw_0 unscrews + rises  (631 → 690) ──────────────
+    # ── 5a: Screw_0 unscrews + rises  (631 → 645) ──────────────
     # Pin at installed position for all earlier segments
     kf(screw_0,     1, s0_home)
     kf_rot(screw_0, 1, ROT_ZERO)
     kf(screw_0,     F4_END, s0_home)
     kf_rot(screw_0, F4_END, ROT_ZERO)
 
-    # Rise while spinning anticlockwise (3 turns over 2 s)
-    kf(screw_0,     660, (s0_home[0], s0_home[1],
+    # Rise while spinning anticlockwise (3 turns)
+    kf(screw_0,     638, (s0_home[0], s0_home[1],
                           s0_home[2] + 0.035))              # mid-rise
-    kf_rot(screw_0, 660, (0, 0, UNSCREW_RAD / 2))          # 1.5 turns
+    kf_rot(screw_0, 638, (0, 0, UNSCREW_RAD / 2))          # 1.5 turns
     kf(screw_0,     F5A_END, s0_up)                         # at top
     kf_rot(screw_0, F5A_END, ROT_TOP)                       # 3 turns done
 
-    # ── 5b: Screw_0 arcs + tips horizontal  (691 → 780) ────────
-    # Brief hold at top (≈ 0.3 s) before arcing
-    kf(screw_0,     700, s0_up)
-    kf_rot(screw_0, 700, ROT_TOP)
-
+    # ── 5b: Screw_0 arcs + tips horizontal  (646 → 668) ────────
     # Arc outward and down to pillar surface while tipping
-    kf(screw_0,     740, (0.06, -0.02, 1.24))              # mid-arc
-    kf_rot(screw_0, 740, (math.pi / 4, 0, UNSCREW_RAD))   # 45° tip
+    kf(screw_0,     657, (0.06, -0.02, 1.24))              # mid-arc
+    kf_rot(screw_0, 657, (math.pi / 4, 0, UNSCREW_RAD))   # 45° tip
     kf(screw_0,     F5B_END, s0_rest)                       # on surface
     kf_rot(screw_0, F5B_END, ROT_LYING)                     # horizontal
 
-    # ── 5c: Screw_180 unscrews + rises  (781 → 840) ────────────
+    # ── 5c: Screw_180 unscrews + rises  (669 → 683) ────────────
     # Pin at installed position until Screw_0 is placed
     kf(screw_180,     1, s180_home)
     kf_rot(screw_180, 1, ROT_ZERO)
     kf(screw_180,     F5B_END, s180_home)
     kf_rot(screw_180, F5B_END, ROT_ZERO)
 
-    # Rise while spinning anticlockwise (3 turns over 2 s)
-    kf(screw_180,     810, (s180_home[0], s180_home[1],
+    # Rise while spinning anticlockwise (3 turns)
+    kf(screw_180,     676, (s180_home[0], s180_home[1],
                             s180_home[2] + 0.035))          # mid-rise
-    kf_rot(screw_180, 810, (0, 0, UNSCREW_RAD / 2))        # 1.5 turns
+    kf_rot(screw_180, 676, (0, 0, UNSCREW_RAD / 2))        # 1.5 turns
     kf(screw_180,     F5C_END, s180_up)                     # at top
     kf_rot(screw_180, F5C_END, ROT_TOP)                     # 3 turns done
 
-    # ── 5d: Screw_180 arcs + tips horizontal  (841 → 930) ──────
-    # Brief hold at top
-    kf(screw_180,     850, s180_up)
-    kf_rot(screw_180, 850, ROT_TOP)
-
-    # Longer arc — Screw_180 starts on the opposite side of the
-    # pillar and must travel further to land next to Screw_0.
-    # Extra waypoint keeps the sweep smooth.
-    kf(screw_180,     880, (0.00, -0.01, 1.26))            # swing across
-    kf_rot(screw_180, 880, (math.pi / 6, 0, UNSCREW_RAD)) # 30° tip
-    kf(screw_180,     910, (0.06, -0.03, 1.22))            # closing in
-    kf_rot(screw_180, 910, (math.pi / 3, 0, UNSCREW_RAD)) # 60° tip
+    # ── 5d: Screw_180 arcs + tips horizontal  (684 → 705) ──────
+    # Longer arc — Screw_180 starts on the opposite side and must
+    # travel further to land next to Screw_0.
+    kf(screw_180,     693, (0.00, -0.01, 1.26))            # swing across
+    kf_rot(screw_180, 693, (math.pi / 6, 0, UNSCREW_RAD)) # 30° tip
+    kf(screw_180,     700, (0.06, -0.03, 1.22))            # closing in
+    kf_rot(screw_180, 700, (math.pi / 3, 0, UNSCREW_RAD)) # 60° tip
     kf(screw_180,     F5_END, s180_rest)                    # on surface
     kf_rot(screw_180, F5_END, ROT_LYING)                    # horizontal
 
@@ -5571,14 +5559,14 @@ def setup_camera_animation():
     kf(target, F5_END, SPIDER_0_TGT)
 
     # =================================================================
-    # SEGMENT 6 — Plug removal  (frames 931 → 1110,  6 s)
+    # SEGMENT 6 — Plug removal  (frames 706 → 885,  6 s)
     # =================================================================
     # The plug, inner plug, and anti-rotation peg move as a single unit.
     # We parent all three to an animated Empty ("PlugAssembly") so they
     # share the same location/rotation keyframes.
     #
-    #   Phase 1  931–1020  Unscrew: 3 anticlockwise turns + rise 1.5 cm
-    #   Phase 2 1021–1110  Rise 10 cm + tilt 120° away from viewer
+    #   Phase 1  706–795   Unscrew: 3 anticlockwise turns + rise 1.5 cm
+    #   Phase 2  796–885   Rise 10 cm + tilt 120° away from viewer
     #
     # The tilt axis is the camera's horizontal axis (perpendicular to
     # the view direction in the ground plane) so the assembly's bottom
@@ -5624,8 +5612,8 @@ def setup_camera_animation():
                           PLUG_UNSCREW + tilt_full.z)
 
     # Sub-segment frame markers
-    F6A_END = 1020       # end of unscrew phase
-    # F6_END = 1110      # defined above in frame boundaries
+    F6A_END = 795        # end of unscrew phase
+    # F6_END = 885       # defined above in frame boundaries
 
     # ── Pin assembly at installed position for segments 1–5 ────────
     kf(assembly,     1, (0, 0, z_pc))
@@ -5633,15 +5621,15 @@ def setup_camera_animation():
     kf(assembly,     F5_END, (0, 0, z_pc))
     kf_rot(assembly, F5_END, (0, 0, 0))
 
-    # ── Phase 1: Unscrew + rise 1.5 cm  (931 → 1020,  3 s) ────────
-    kf(assembly,     975, (0, 0, z_pc + 0.0075))           # mid-rise
-    kf_rot(assembly, 975, (0, 0, PLUG_UNSCREW / 2))        # 1.5 turns
+    # ── Phase 1: Unscrew + rise 1.5 cm  (706 → 795,  3 s) ────────
+    kf(assembly,     750, (0, 0, z_pc + 0.0075))           # mid-rise
+    kf_rot(assembly, 750, (0, 0, PLUG_UNSCREW / 2))        # 1.5 turns
     kf(assembly,     F6A_END, (0, 0, z_pc + 0.015))        # 1.5 cm up
     kf_rot(assembly, F6A_END, ROT_PLUG_TOP)                 # 3 turns done
 
-    # ── Phase 2: Rise 10 cm + tilt 30°  (1021 → 1110,  3 s) ───────
-    kf(assembly,     1065, (0, 0, z_pc + 0.015 + 0.05))    # mid-rise
-    kf_rot(assembly, 1065, ROT_PLUG_HALF_TILT)              # 60° tilt
+    # ── Phase 2: Rise 10 cm + tilt 120°  (796 → 885,  3 s) ──────
+    kf(assembly,     840, (0, 0, z_pc + 0.015 + 0.05))     # mid-rise
+    kf_rot(assembly, 840, ROT_PLUG_HALF_TILT)               # 60° tilt
     kf(assembly,     F6_END, (0, 0, z_pc + 0.015 + 0.10))  # 10 cm up
     kf_rot(assembly, F6_END, ROT_PLUG_FULL_TILT)            # 120° tilt
 
