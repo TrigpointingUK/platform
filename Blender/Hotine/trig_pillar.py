@@ -5772,7 +5772,7 @@ def setup_camera_animation():
     # ── Phase 2: Arc to rest on pillar top (2 s) ─────────────────
     # ~20 cm in the +Y / -X direction from centre, near beveled edge
     ip_ws_start = child_combined @ Vector(ip_clear_loc)
-    ip_ws_end = Vector((-0.18, 0.20, PILLAR_HEIGHT + IPLUG_H / 2))
+    ip_ws_end = Vector((-0.13, 0.15, PILLAR_HEIGHT + IPLUG_H / 2))
     arc_kf(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
            arc_height=0.04)
 
