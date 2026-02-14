@@ -5255,6 +5255,7 @@ def setup_camera_animation():
       511–630   Hold + rise to spider: PROFILE_0 → SPIDER_0
       631–930   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
                 (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
+      931–1110  Plug removal: unscrew 3 turns + rise, then rise + tilt 30°
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5321,12 +5322,16 @@ def setup_camera_animation():
     F3_END = 510              # end of segment 3 (5 s)
     F4_END = 630              # end of segment 4 (4 s: 1 s hold + 3 s flight)
     F5_END = 930              # end of segment 5 (10 s: screw removal)
-    TOTAL_FRAMES = F5_END     # extended as segments are added
+    F6_END = 1110             # end of segment 6 (6 s: plug removal)
+    TOTAL_FRAMES = F6_END     # extended as segments are added
 
-    # ── Remove any existing camera / target ────────────────────────
-    for name in ("Camera", "FlyCamera", "CameraTarget"):
+    # ── Remove any existing camera / target / assembly empties ─────
+    for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
         old = bpy.data.objects.get(name)
         if old:
+            # Unparent children first so they keep world position
+            for child in list(old.children):
+                child.parent = None
             bpy.data.objects.remove(old, do_unlink=True)
 
     # ── Create camera ────────────────────────────────────────────
@@ -5559,6 +5564,80 @@ def setup_camera_animation():
     kf(cam,    F5_END, SPIDER_0_CAM)
     kf(target, F5_END, SPIDER_0_TGT)
 
+    # =================================================================
+    # SEGMENT 6 — Plug removal  (frames 931 → 1110,  6 s)
+    # =================================================================
+    # The plug, inner plug, and anti-rotation peg move as a single unit.
+    # We parent all three to an animated Empty ("PlugAssembly") so they
+    # share the same location/rotation keyframes.
+    #
+    #   Phase 1  931–1020  Unscrew: 3 anticlockwise turns + rise 1.5 cm
+    #   Phase 2 1021–1110  Rise 5 cm + tilt 30° away from viewer
+    #
+    # The tilt axis is the camera's horizontal axis (perpendicular to
+    # the view direction in the ground plane) so the assembly's bottom
+    # face rotates toward the viewer.
+
+    # ── Create PlugAssembly empty + parent objects ──────────────────
+    z_plug_top = (PILLAR_HEIGHT - SPIDER_THICK / 2) + PLUG_UPPER_H
+    z_plug_bot = (PILLAR_HEIGHT - SPIDER_THICK / 2) - PLUG_MIDDLE_H \
+                 - PLUG_LOWER_H
+    z_pc = (z_plug_top + z_plug_bot) / 2             # assembly centre
+
+    assembly = bpy.data.objects.new("PlugAssembly", None)
+    assembly.empty_display_type = 'PLAIN_AXES'
+    assembly.empty_display_size = 0.02
+    bpy.context.collection.objects.link(assembly)
+    assembly.location = (0, 0, z_pc)
+
+    for obj_name in ("Plug", "InnerPlug", "AntiRotationPeg"):
+        obj = bpy.data.objects.get(obj_name)
+        if obj:
+            obj.parent = assembly
+            obj.matrix_parent_inverse = assembly.matrix_world.inverted()
+
+    # ── Compute tilt axis (camera's horizontal = "right" vector) ───
+    cam_dir = (Vector(SPIDER_0_TGT) - Vector(SPIDER_0_CAM)).normalized()
+    cam_right = cam_dir.cross(Vector((0, 0, 1))).normalized()
+
+    # Pre-compute tilt Euler angles (30° and 15° around cam_right)
+    tilt_full = Matrix.Rotation(math.radians(30), 3, cam_right).to_euler('XYZ')
+    tilt_half = Matrix.Rotation(math.radians(15), 3, cam_right).to_euler('XYZ')
+
+    PLUG_UNSCREW = 3 * 2 * math.pi                  # 3 anticlockwise turns
+    ROT_PLUG_TOP = (0, 0, PLUG_UNSCREW)
+    ROT_PLUG_HALF_TILT = (tilt_half.x, tilt_half.y,
+                          PLUG_UNSCREW + tilt_half.z)
+    ROT_PLUG_FULL_TILT = (tilt_full.x, tilt_full.y,
+                          PLUG_UNSCREW + tilt_full.z)
+
+    # Sub-segment frame markers
+    F6A_END = 1020       # end of unscrew phase
+    # F6_END = 1110      # defined above in frame boundaries
+
+    # ── Pin assembly at installed position for segments 1–5 ────────
+    kf(assembly,     1, (0, 0, z_pc))
+    kf_rot(assembly, 1, (0, 0, 0))
+    kf(assembly,     F5_END, (0, 0, z_pc))
+    kf_rot(assembly, F5_END, (0, 0, 0))
+
+    # ── Phase 1: Unscrew + rise 1.5 cm  (931 → 1020,  3 s) ────────
+    kf(assembly,     975, (0, 0, z_pc + 0.0075))           # mid-rise
+    kf_rot(assembly, 975, (0, 0, PLUG_UNSCREW / 2))        # 1.5 turns
+    kf(assembly,     F6A_END, (0, 0, z_pc + 0.015))        # 1.5 cm up
+    kf_rot(assembly, F6A_END, ROT_PLUG_TOP)                 # 3 turns done
+
+    # ── Phase 2: Rise 5 cm + tilt 30°  (1021 → 1110,  3 s) ────────
+    kf(assembly,     1065, (0, 0, z_pc + 0.015 + 0.025))   # mid-rise
+    kf_rot(assembly, 1065, ROT_PLUG_HALF_TILT)              # 15° tilt
+    kf(assembly,     F6_END, (0, 0, z_pc + 0.015 + 0.05))  # 5 cm up
+    kf_rot(assembly, F6_END, ROT_PLUG_FULL_TILT)            # 30° tilt
+
+    # Camera: subtle target rise to follow the elevated plug
+    kf(cam,    F6_END, SPIDER_0_CAM)                        # camera holds
+    kf(target, F6A_END, SPIDER_0_TGT)                       # hold during spin
+    kf(target, F6_END, (0.00, 0.00, 1.24))                 # follow plug up
+
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
     print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
@@ -5569,11 +5648,12 @@ def setup_camera_animation():
     print(f"      {F2_END+1}–{F3_END}:  Sweep to profile (SIGHTING_1 → PROFILE_0)")
     print(f"      {F3_END+1}–{F4_END}:  Hold + rise (PROFILE_0 → SPIDER_0)")
     print(f"      {F4_END+1}–{F5_END}:  Screw removal (Screw_0 then Screw_180)")
+    print(f"      {F5_END+1}–{F6_END}:  Plug removal (unscrew + tilt)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
     # still giving smooth curves.
-    for obj in (cam, target, screw_0, screw_180):
+    for obj in (cam, target, screw_0, screw_180, assembly):
         if obj.animation_data and obj.animation_data.action:
             for fc in obj.animation_data.action.fcurves:
                 for kp in fc.keyframe_points:
