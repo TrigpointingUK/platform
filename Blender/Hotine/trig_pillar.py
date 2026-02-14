@@ -5572,7 +5572,7 @@ def setup_camera_animation():
     # share the same location/rotation keyframes.
     #
     #   Phase 1  931–1020  Unscrew: 3 anticlockwise turns + rise 1.5 cm
-    #   Phase 2 1021–1110  Rise 5 cm + tilt 30° away from viewer
+    #   Phase 2 1021–1110  Rise 10 cm + tilt 30° away from viewer
     #
     # The tilt axis is the camera's horizontal axis (perpendicular to
     # the view direction in the ground plane) so the assembly's bottom
@@ -5604,9 +5604,11 @@ def setup_camera_animation():
     cam_dir = (Vector(SPIDER_0_TGT) - Vector(SPIDER_0_CAM)).normalized()
     cam_right = cam_dir.cross(Vector((0, 0, 1))).normalized()
 
-    # Pre-compute tilt Euler angles (30° and 15° around cam_right)
-    tilt_full = Matrix.Rotation(math.radians(30), 3, cam_right).to_euler('XYZ')
-    tilt_half = Matrix.Rotation(math.radians(15), 3, cam_right).to_euler('XYZ')
+    # Pre-compute tilt Euler angles (-30° and -15° around cam_right).
+    # Negative angle tilts the top AWAY from the viewer, exposing the
+    # bottom face toward the camera.
+    tilt_full = Matrix.Rotation(math.radians(-30), 3, cam_right).to_euler('XYZ')
+    tilt_half = Matrix.Rotation(math.radians(-15), 3, cam_right).to_euler('XYZ')
 
     PLUG_UNSCREW = 3 * 2 * math.pi                  # 3 anticlockwise turns
     ROT_PLUG_TOP = (0, 0, PLUG_UNSCREW)
@@ -5631,16 +5633,16 @@ def setup_camera_animation():
     kf(assembly,     F6A_END, (0, 0, z_pc + 0.015))        # 1.5 cm up
     kf_rot(assembly, F6A_END, ROT_PLUG_TOP)                 # 3 turns done
 
-    # ── Phase 2: Rise 5 cm + tilt 30°  (1021 → 1110,  3 s) ────────
-    kf(assembly,     1065, (0, 0, z_pc + 0.015 + 0.025))   # mid-rise
+    # ── Phase 2: Rise 10 cm + tilt 30°  (1021 → 1110,  3 s) ───────
+    kf(assembly,     1065, (0, 0, z_pc + 0.015 + 0.05))    # mid-rise
     kf_rot(assembly, 1065, ROT_PLUG_HALF_TILT)              # 15° tilt
-    kf(assembly,     F6_END, (0, 0, z_pc + 0.015 + 0.05))  # 5 cm up
+    kf(assembly,     F6_END, (0, 0, z_pc + 0.015 + 0.10))  # 10 cm up
     kf_rot(assembly, F6_END, ROT_PLUG_FULL_TILT)            # 30° tilt
 
     # Camera: subtle target rise to follow the elevated plug
     kf(cam,    F6_END, SPIDER_0_CAM)                        # camera holds
     kf(target, F6A_END, SPIDER_0_TGT)                       # hold during spin
-    kf(target, F6_END, (0.00, 0.00, 1.24))                 # follow plug up
+    kf(target, F6_END, (0.00, 0.00, 1.30))                 # follow plug up
 
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
