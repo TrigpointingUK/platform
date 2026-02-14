@@ -5676,6 +5676,27 @@ def setup_camera_animation():
         local_mat = asm_rot_inv @ world_rot_matrix
         return tuple(local_mat.to_euler('XYZ'))
 
+    # ── World-space arc helper ─────────────────────────────────────
+    # Children are parented to the tilted assembly, so Blender
+    # interpolates obj.location in the assembly's local frame.  With
+    # a 120° tilt, a few keyframes in local space don't trace a smooth
+    # arc in world space.  We densely sample the desired world-space
+    # trajectory, convert each point to local, and insert keyframes.
+    def arc_kf(obj, f_start, f_end, ws_start, ws_end, arc_height,
+               n_steps=15):
+        """Insert location keyframes along a world-space parabolic arc.
+
+        ws_start / ws_end — world-space Vector positions.
+        arc_height — extra Z elevation at the arc midpoint above the
+                     linear interpolation.
+        """
+        for i in range(n_steps + 1):
+            t = i / n_steps
+            frame = int(round(f_start + t * (f_end - f_start)))
+            w = ws_start.lerp(ws_end, t)
+            w.z += arc_height * 4.0 * t * (1.0 - t)
+            kf(obj, frame, world_to_local(w))
+
     # =================================================================
     # SEGMENT 7 — Anti-rotation peg removal  (frames 886 → 975,  3 s)
     # =================================================================
@@ -5702,22 +5723,13 @@ def setup_camera_animation():
     kf_rot(peg, F7_EXTRACT, (0, 0, 0))
 
     # ── Phase 2: Arc down to pillar top (2 s) ────────────────────
-    # Desired world rest position: near screws on pillar surface
-    peg_world_rest = Vector((0.04, -0.06, PILLAR_HEIGHT + PEG_R))
-    peg_local_rest = world_to_local(peg_world_rest)
+    peg_ws_start = child_combined @ Vector(peg_extracted)
+    peg_ws_end = Vector((0.04, -0.06, PILLAR_HEIGHT + PEG_R))
+    arc_kf(peg, F7_EXTRACT, F7_END, peg_ws_start, peg_ws_end,
+           arc_height=0.03)
 
-    # Counter-rotate to lie horizontal in world space (identity)
+    # Rotation: counter-rotate to lie horizontal in world space
     peg_rest_rot = world_rot_to_local(Matrix.Identity(3))
-
-    # Mid-arc: elevated world point between extracted and rest
-    peg_world_ext = child_combined @ Vector(peg_extracted)
-    mid_world = (peg_world_ext + peg_world_rest) / 2
-    mid_world.z = max(mid_world.z, PILLAR_HEIGHT + 0.06)
-    peg_local_mid = world_to_local(mid_world)
-
-    F7_MID = F6_END + 60
-    kf(peg, F7_MID, peg_local_mid)
-    kf(peg, F7_END, peg_local_rest)
     kf_rot(peg, F7_END, peg_rest_rot)
 
     # Camera: hold at SPIDER_0
@@ -5727,14 +5739,13 @@ def setup_camera_animation():
     # =================================================================
     # SEGMENT 8 — Inner plug removal  (frames 976 → 1155,  6 s)
     # =================================================================
-    # The inner plug unscrews 12 anticlockwise turns (positive local Z
-    # rotation = clockwise as seen from the camera looking at the base)
-    # while rising along its axis until clear of the plug bore.  Then
-    # it arcs to rest upside-down on the pillar top, with the three
-    # blind holes facing up.
+    # The inner plug unscrews 12 anticlockwise turns while rising
+    # along its axis until clear of the plug bore.  Then it arcs to
+    # rest upside-down on the pillar top near the -X/+Y beveled edge,
+    # with the three blind holes facing up.
     #
     #   Phase 1   976–1095  Unscrew 12 turns + rise 3 cm (4 s)
-    #   Phase 2  1096–1155  Arc to pillar top (-X, +Y corner) (2 s)
+    #   Phase 2  1096–1155  Arc to pillar top near edge   (2 s)
 
     inner_plug = bpy.data.objects["InnerPlug"]
     ip_home = tuple(inner_plug.location)
@@ -5759,27 +5770,18 @@ def setup_camera_animation():
     kf_rot(inner_plug, F8_CLEAR, (0, 0, IPLUG_UNSCREW))
 
     # ── Phase 2: Arc to rest on pillar top (2 s) ─────────────────
-    # Desired world rest: -X, +Y corner, a few cm in from the edge
-    ip_world_rest = Vector((-0.04, 0.06, PILLAR_HEIGHT + IPLUG_H / 2))
-    ip_local_rest = world_to_local(ip_world_rest)
+    # ~20 cm in the +Y / -X direction from centre, near beveled edge
+    ip_ws_start = child_combined @ Vector(ip_clear_loc)
+    ip_ws_end = Vector((-0.18, 0.20, PILLAR_HEIGHT + IPLUG_H / 2))
+    arc_kf(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
+           arc_height=0.04)
 
-    # Rest rotation: upside down (180° around X) so the top face
-    # (which was originally uppermost) faces down, exposing the
-    # three blind holes on the bottom.  Keep accumulated Z turns.
+    # Rest rotation: upside down (180° around X) so the blind holes
+    # face upward.  Keep accumulated Z turns.
     world_flip = Matrix.Rotation(math.pi, 3, 'X')  # 180° flip
     ip_rest_base = world_rot_to_local(world_flip)
     ip_rest_rot = (ip_rest_base[0], ip_rest_base[1],
                    ip_rest_base[2] + IPLUG_UNSCREW)
-
-    # Mid-arc waypoint
-    ip_world_ext = child_combined @ Vector(ip_clear_loc)
-    ip_mid_world = (ip_world_ext + ip_world_rest) / 2
-    ip_mid_world.z = max(ip_mid_world.z, PILLAR_HEIGHT + 0.06)
-    ip_local_mid = world_to_local(ip_mid_world)
-
-    F8_MID = F8_CLEAR + 30
-    kf(inner_plug, F8_MID, ip_local_mid)
-    kf(inner_plug, F8_END, ip_local_rest)
     kf_rot(inner_plug, F8_END, ip_rest_rot)
 
     # Camera: hold
@@ -5801,23 +5803,14 @@ def setup_camera_animation():
     kf(plug, F8_END, plug_home)
     kf_rot(plug, F8_END, (0, 0, 0))
 
-    # Desired world rest: +X, +Y, a few cm from centre, near corner
-    plug_world_rest = Vector((0.06, 0.06,
-                              PILLAR_HEIGHT + PLUG_MIDDLE_R))
-    plug_local_rest = world_to_local(plug_world_rest)
+    # Desired world rest: +X, +Y, near corner of pillar top
+    plug_ws_start = child_combined @ Vector(plug_home)
+    plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + PLUG_MIDDLE_R))
+    arc_kf(plug, F8_END, F9_END, plug_ws_start, plug_ws_end,
+           arc_height=0.05)
 
     # Rest rotation: counter assembly tilt, plug upright on surface
     plug_rest_rot = world_rot_to_local(Matrix.Identity(3))
-
-    # Mid-arc waypoint
-    plug_world_start = child_combined @ Vector(plug_home)
-    plug_mid_world = (plug_world_start + plug_world_rest) / 2
-    plug_mid_world.z = max(plug_mid_world.z, PILLAR_HEIGHT + 0.08)
-    plug_local_mid = world_to_local(plug_mid_world)
-
-    F9_MID = F8_END + 45
-    kf(plug, F9_MID, plug_local_mid)
-    kf(plug, F9_END, plug_local_rest)
     kf_rot(plug, F9_END, plug_rest_rot)
 
     # Camera: hold
