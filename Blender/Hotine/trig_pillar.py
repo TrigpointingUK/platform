@@ -13,6 +13,41 @@ Usage:
 Dimensions marked [D] are from the OS specification diagram (Fig 2.2).
 Dimensions marked [E] are estimated from proportions / photographs.
 All measurements are in metres.
+
+
+Animation Workflow (for AI agents)
+----------------------------------
+The animation is built from named segments in setup_camera_animation().
+Each segment defines keyframed camera and target positions over a frame
+range.  The camera uses a Track To constraint aimed at an animated
+"CameraTarget" empty, so it always faces the action.
+
+**Feedback loop for authoring new segments:**
+
+1. The user positions the camera interactively in Blender's viewport
+   (fly mode, manual move, Numpad-0 camera view + Shift+MMB, etc.)
+   until they find a composition they like.
+
+2. They run ``print_camera_state()`` in Blender's Python console
+   (see that function's docstring for full instructions).  This prints
+   the camera location, target location, rotation, and lens as
+   copy-pasteable Python values.
+
+3. The user pastes that output into the chat.  An agent can then use
+   those exact coordinates as waypoints when writing or editing
+   segment keyframes in setup_camera_animation().
+
+4. The user re-runs the script in Blender, scrubs the timeline, and
+   iterates.
+
+When the user gives natural-language directions like "closer to the
+flush bracket, looking slightly upward", translate those relative to
+the model's coordinate system:
+  - Origin (0, 0, 0) is at ground level, centre of pillar.
+  - +Z is up.  Pillar top is at z ≈ 1.19 m.
+  - Sighting tubes run along the ±X and ±Y axes at z ≈ 0.117 m.
+  - Flush bracket is on the +Y face.
+  - The pillar is roughly 0.6 m wide at the base, 0.36 m at the top.
 """
 
 import bpy
@@ -173,6 +208,7 @@ LCM_PUNCH_R        = 0.0014    # [E] punch mark radius (1.4 mm); depth = radius 
 # --- Hilltop Terrain ---
 TERRAIN_RADIUS      = 6.0       # [E] radius of the grassy dome (metres)
 DOME_HEIGHT         = 1.10      # [E] height drop from dome centre to edge (metres)
+TERRAIN_NOISE       = 0.17      # [T] amplitude of surface undulation (metres)
 
 
 # =====================================================================
@@ -814,13 +850,13 @@ def make_rusted_steel_material():
       BUMP_SCALE       (float)    Pitting detail scale.
                                     Default: 20.0
     """
-    # ── Tuneable values ───────────────────────────────────────────
-    RUST_COLOUR_A  = (0.14, 0.06, 0.02)
-    RUST_COLOUR_B  = (0.07, 0.03, 0.01)
-    RUST_SCALE     = 6.0
+    # ── Tuneable values───────────────────────────────────────────
+    RUST_COLOUR_A  = (0.15, 0.06, 0.02)
+    RUST_COLOUR_B  = (0.09, 0.03, 0.01)
+    RUST_SCALE     = 1.0
     ROUGHNESS      = 0.95
-    BUMP_STRENGTH  = 0.50
-    BUMP_SCALE     = 20.0
+    BUMP_STRENGTH  = 0.20
+    BUMP_SCALE     = 100.0
 
     mat = bpy.data.materials.new("RustedSteel")
     mat.use_nodes = True
@@ -3586,12 +3622,12 @@ def build_terrain(M):
     print("  Terrain ...")
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
-    # TERRAIN_RADIUS and DOME_HEIGHT are module-level constants
-    # (shared with build_landscape_ring).
-    GRID_SUBDIVS   = 100           # vertex spacing ~12.5 cm
-    NOISE_STRENGTH = 0.07         # ±4 cm undulation
-    NOISE_SCALE    = 2.0          # spatial frequency
-    NOISE_OCTAVES  = 4            # fractal layers
+    # TERRAIN_RADIUS, DOME_HEIGHT and TERRAIN_NOISE are module-level
+    # constants (shared with build_landscape_ring).
+    GRID_SUBDIVS   = 50           # vertex spacing ~12.5 cm
+    NOISE_STRENGTH = TERRAIN_NOISE # alias for readability below
+    NOISE_SCALE    = 1.8         # spatial frequency
+    NOISE_OCTAVES  = 5            # fractal layers
     CUT_MARGIN     = 0.005        # 5 mm gap between terrain and base slab
     # ─────────────────────────────────────────────────────────────
 
@@ -3650,7 +3686,10 @@ def build_terrain(M):
         slab_fade = max(0.0, min(1.0,
             (r - BASE_TOP_HW * 1.5) / (BASE_TOP_HW * 0.5)))
 
-        v.co.z = dome + noise_val * slab_fade
+        # Clamp so no vertex rises above z=0 (the dome peak).  This
+        # guarantees the trigpoint sits on the highest ground even when
+        # NOISE_STRENGTH is cranked up.
+        v.co.z = min(0.0, dome + noise_val * slab_fade)
 
     bm.to_mesh(terrain.data)
     bm.free()
@@ -3777,10 +3816,13 @@ def build_landscape_ring(M):
     # ─────────────────────────────────────────────────────────────
 
     # Terrain dome edge height — derived from the module-level
-    # TERRAIN_RADIUS and DOME_HEIGHT (shared with build_terrain).
+    # TERRAIN_RADIUS, DOME_HEIGHT and TERRAIN_NOISE (shared with
+    # build_terrain).  Subtract the noise amplitude so the landscape
+    # ring always sits below the actual (noisy) terrain surface in the
+    # overlap zone, preventing black gaps in the render.
     GROUND_Z = -BASE_HEIGHT + 0.80 * BASE_HEIGHT   # ≈ -0.061
     t_edge = INNER_R / TERRAIN_RADIUS
-    EDGE_Z = GROUND_Z + (-DOME_HEIGHT * t_edge * t_edge)
+    EDGE_Z = GROUND_Z + (-DOME_HEIGHT * t_edge * t_edge) - TERRAIN_NOISE
 
     # ── Build radial mesh with logarithmically spaced rings ───────
     # Inner rings are close together (smooth join to dome); outer rings
@@ -3891,13 +3933,13 @@ def build_grass():
         return
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
-    BARE_RADIUS    = 0.55     # no grass within 55 cm of centre
-    FULL_RADIUS    = 2.50     # full coverage from 2.5 m outward
+    BARE_RADIUS    = 0.45     # no grass within 55 cm of centre
+    FULL_RADIUS    = 2.00     # full coverage from 2.5 m outward
     GRASS_DENSITY  = 1400.0   # points per m² at full weight (main layer)
-    GRASS_DENSITY_SHORT = 6000.0   # dense short under-layer
+    GRASS_DENSITY_SHORT = 9000.0   # dense short under-layer
     WEED_DENSITY   = 2400.0     # broad-leaf weeds (sparse)
     FLOWER_DENSITY = 7.5      # flowers (very sparse)
-    STONE_DENSITY  = 840.0     # visible stones (sparse)
+    STONE_DENSITY  = 140.0     # visible stones (sparse)
     WEED_VARIANTS  = 4
     FLOWER_VARIANTS = 2
     STONE_VARIANTS = 6
@@ -3921,7 +3963,7 @@ def build_grass():
     FLOWER_SCALE_MAX = 0.6
     FLOWER_SCALE_BIAS = 2.0
     STONE_SCALE_MIN = 0.01
-    STONE_SCALE_MAX = 0.05
+    STONE_SCALE_MAX = 0.10
     STONE_RAISE     = -0.05    # lift stones above ground surface (m)
 
     CLUMP_SCALE    = 0.25     # large-scale clump size
@@ -5103,15 +5145,16 @@ def setup_scene():
         az_r + math.pi / 2          # +π/2 aligns azimuth correctly
     )
 
-    # Point light at the East sighting hole — illuminates the box interior
-    # when looking through the sighting tubes
+    # Point light inside the +X (East) sighting tube — illuminates the
+    # box interior when the camera flies through.  Initially off;
+    # keyframed on at the start of segment 2 in setup_camera_animation().
     sh_data = bpy.data.lights.new("SightingHoleLight", 'POINT')
-    sh_data.energy = 5
+    sh_data.energy = 0                     # starts off
+    sh_data.color = (1.0, 0.867, 0.620)   # #FFDD9E warm tungsten
     sh_data.shadow_soft_size = 0.02
     sh_obj = bpy.data.objects.new("SightingHoleLight", sh_data)
     bpy.context.collection.objects.link(sh_obj)
-    sh_hw = PILLAR_BTM_HW + (PILLAR_TOP_HW - PILLAR_BTM_HW) * (ST_Z / PILLAR_HEIGHT)
-    sh_obj.location = (sh_hw + 0.05, 0, ST_Z)
+    sh_obj.location = (0.2, 0, ST_Z)      # inside +X tube
 
     # Render engine
     try:
@@ -5133,26 +5176,88 @@ def setup_scene():
         pass  # headless mode
 
 
+# ── Named camera positions ──────────────────────────────────────────
+# Populated by setup_camera_animation(); used by goto() in the Blender
+# console.  Dict of name → (frame, cam_loc, tgt_loc).
+CAMERA_POSITIONS: dict[str, tuple[int, tuple, tuple]] = {}
+
+
+def goto(name: str = ""):
+    """Jump the camera and target to a named position.
+
+    Call from the Blender Python console to instantly snap the camera
+    and its Track To target to one of the positions defined in
+    setup_camera_animation(), and set the timeline to that frame.
+
+    Usage
+    -----
+        goto()            — list all available positions
+        goto("START_0")   — jump to START_0
+        goto("SIGHTING_0") — jump to SIGHTING_0
+
+    The position names are case-insensitive.
+    """
+    if not CAMERA_POSITIONS:
+        print("No positions registered — run the script first.")
+        return
+
+    # No argument or empty string → list positions
+    if not name:
+        print("\nAvailable positions:")
+        for pname, (frame, cam, tgt) in CAMERA_POSITIONS.items():
+            print(f"  {pname:12s}  frame {frame:>4d}"
+                  f"  cam=({cam[0]:+.2f}, {cam[1]:+.2f}, {cam[2]:+.2f})"
+                  f"  tgt=({tgt[0]:+.2f}, {tgt[1]:+.2f}, {tgt[2]:+.2f})")
+        print("\nUsage:  goto(\"START_0\")")
+        return
+
+    key = name.upper()
+    if key not in CAMERA_POSITIONS:
+        print(f"Unknown position '{name}'.  Available: "
+              f"{', '.join(CAMERA_POSITIONS.keys())}")
+        return
+
+    frame, cam_loc, tgt_loc = CAMERA_POSITIONS[key]
+
+    cam_obj = bpy.data.objects.get("FlyCamera")
+    tgt_obj = bpy.data.objects.get("CameraTarget")
+    if cam_obj is None or tgt_obj is None:
+        print("ERROR: FlyCamera or CameraTarget not found in scene.")
+        return
+
+    bpy.context.scene.frame_set(frame)
+    cam_obj.location = cam_loc
+    tgt_obj.location = tgt_loc
+
+    print(f"Jumped to {key} (frame {frame})")
+    print(f"  camera  = ({cam_loc[0]:+.4f}, {cam_loc[1]:+.4f}, {cam_loc[2]:+.4f})")
+    print(f"  target  = ({tgt_loc[0]:+.4f}, {tgt_loc[1]:+.4f}, {tgt_loc[2]:+.4f})")
+
+
 def setup_camera_animation():
-    """Flythrough camera: descend → orbit → sighting-hole pass → pull back.
+    """Cinematic flythrough built from individually authored segments.
 
     The camera uses a Track To constraint pointed at an animated empty
     ("CameraTarget"), so it always faces the action.  Both the camera
     and the target have keyframed locations defining the trajectory.
 
+    Named positions (captured with print_camera_state()):
+      START_0     — low angle from the south-west, looking at mid-pillar
+      SIGHTING_0  — in front of sighting tube, looking in
+      SIGHTING_1  — exited -Y tube, looking along -Y
+      PROFILE_0   — south-east profile view, elevated
+      SPIDER_0    — close-up of spider / pillar top
+
     Segment map (30 fps):
-      1–120     Fly down from high above
-      120–480   Full 360° orbit around the pillar
-      480–600   Approach the east sighting hole
-      600–690   Fly through the sighting tube
-      690–810   Pull back to a 3/4 view
-      810–900   Hold the final composition
+      1–180     Arc approach: START_0 → SIGHTING_0
+      181–360   Tube fly-through: SIGHTING_0 → SIGHTING_1
+      361–510   Sweep to profile: SIGHTING_1 → PROFILE_0
+      511–630   Hold + rise to spider: PROFILE_0 → SPIDER_0
 
     TUNEABLE PARAMETERS
     -------------------
-    ORBIT_R / ORBIT_Z   — orbit radius and height
-    LENS_MM             — camera focal length (lower = wider / more dramatic)
-    FPS / TOTAL_FRAMES  — animation timing
+    LENS_MM / CLIP_START — camera optics
+    FPS                  — frames per second
     Individual keyframe positions can be adjusted in the code or
     interactively in Blender's Graph Editor after running.
     """
@@ -5160,28 +5265,63 @@ def setup_camera_animation():
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
     FPS          = 30
-    TOTAL_FRAMES = 900
-    ORBIT_R      = 2.5       # metres from pillar centre
-    ORBIT_Z      = 1.5       # orbit altitude
-    ORBIT_STEPS  = 72        # keyframes per full revolution (every 5°)
     LENS_MM      = 35        # focal length — 35 mm for dramatic perspective
     CLIP_START   = 0.001     # 1 mm — needed for sighting tube close-ups
     # ─────────────────────────────────────────────────────────────
 
+    # ── Named positions ────────────────────────────────────────────
+    # Stored in the module-level CAMERA_POSITIONS dict so that the
+    # interactive goto() helper can jump to them from the Blender
+    # console.  Each entry: name → (frame, cam_loc, tgt_loc).
+    SH_Z = ST_Z                              # 0.117 — sighting tube height
+    CAMERA_POSITIONS.clear()
+    CAMERA_POSITIONS["START_0"] = (
+        1,
+        (-1.8204,  2.9291, -0.0934),        # cam — low south-west
+        ( 0.0000,  0.0000,  0.4750),         # tgt — mid-pillar
+    )
+    CAMERA_POSITIONS["SIGHTING_0"] = (
+        180,
+        ( 0.00,  0.65,  0.10),               # cam — in front of sighting tube
+        ( 0.00, -0.30,  0.22),               # tgt — looking into tube
+    )
+    CAMERA_POSITIONS["SIGHTING_1"] = (
+        360,
+        ( 0.00, -0.50,  SH_Z),              # cam — exited -Y tube
+        ( 0.00, -3.00,  SH_Z),              # tgt — looking along -Y
+    )
+    CAMERA_POSITIONS["PROFILE_0"] = (
+        510,
+        ( 0.5814, -2.9690,  1.5039),        # cam — south-east, elevated
+        ( 0.0000, -0.3000,  0.6200),        # tgt — pillar mid-section
+    )
+    CAMERA_POSITIONS["SPIDER_0"] = (
+        630,
+        ( 0.2306, -0.3915,  1.9977),        # cam — close-up above
+        ( 0.0000,  0.0000,  1.2000),        # tgt — spider / pillar top
+    )
+
+    # Local aliases for readability in keyframe code below
+    START_0_CAM    = CAMERA_POSITIONS["START_0"][1]
+    START_0_TGT    = CAMERA_POSITIONS["START_0"][2]
+    SIGHTING_0_CAM = CAMERA_POSITIONS["SIGHTING_0"][1]
+    SIGHTING_0_TGT = CAMERA_POSITIONS["SIGHTING_0"][2]
+    SIGHTING_1_CAM = CAMERA_POSITIONS["SIGHTING_1"][1]
+    SIGHTING_1_TGT = CAMERA_POSITIONS["SIGHTING_1"][2]
+    PROFILE_0_CAM  = CAMERA_POSITIONS["PROFILE_0"][1]
+    PROFILE_0_TGT  = CAMERA_POSITIONS["PROFILE_0"][2]
+    SPIDER_0_CAM   = CAMERA_POSITIONS["SPIDER_0"][1]
+    SPIDER_0_TGT   = CAMERA_POSITIONS["SPIDER_0"][2]
+
     # ── Frame boundaries ─────────────────────────────────────────
-    F_FLY_END   = 120        # end of fly-down
-    F_ORB_END   = 480        # end of orbit
-    F_APP_END   = 600        # end of approach
-    F_THR_END   = 690        # end of flythrough
-    F_PULL_END  = 810        # end of pull-back
-    # 810–900 = hold
+    F1_END = 180              # end of segment 1 (6 s)
+    F2_END = 360              # end of segment 2 (6 s)
+    F3_END = 510              # end of segment 3 (5 s)
+    F4_END = 630              # end of segment 4 (4 s: 1 s hold + 3 s flight)
+    TOTAL_FRAMES = F4_END     # extended as segments are added
 
-    # ── Derived positions ────────────────────────────────────────
-    TARGET_MID = (0, 0, PILLAR_HEIGHT * 0.5)  # general look-at point
-    SH_Z       = ST_Z                          # sighting hole height
-
-    # ── Remove any existing camera ───────────────────────────────
-    for name in ("Camera", "FlyCamera"):
+    # ── Remove any existing camera / target ────────────────────────
+    for name in ("Camera", "FlyCamera", "CameraTarget"):
         old = bpy.data.objects.get(name)
         if old:
             bpy.data.objects.remove(old, do_unlink=True)
@@ -5190,6 +5330,7 @@ def setup_camera_animation():
     cam_data = bpy.data.cameras.new("FlyCamera")
     cam_data.lens = LENS_MM
     cam_data.clip_start = CLIP_START
+    cam_data.passepartout_alpha = 0.98
     cam = bpy.data.objects.new("FlyCamera", cam_data)
     bpy.context.collection.objects.link(cam)
     bpy.context.scene.camera = cam
@@ -5219,87 +5360,100 @@ def setup_camera_animation():
         obj.keyframe_insert(data_path="location", frame=int(round(frame)))
 
     # =================================================================
-    # SEGMENT 1 — Fly down from above  (frames 1 → 120)
+    # SEGMENT 1 — Arc approach  (frames 1 → 180,  6 s)
     # =================================================================
-    # Start high up to the south-east, descend to orbit entry (east).
-    kf(cam, 1,                  (2.0, -3.0, 8.0))
-    kf(cam, F_FLY_END * 0.5,   (2.5, -1.0, 4.0))
-    kf(cam, F_FLY_END,         (ORBIT_R, 0, ORBIT_Z))
+    # Shallow horizontal arc from START_0 (south-west, low) around to
+    # directly in front of the +Y sighting tube.  The camera keeps the
+    # flush bracket (+Y face, z ≈ 0.17–0.35) visible throughout.
+    #
+    # Target framing: sighting hole (z=0.117) sits ~1/3 up the frame,
+    # flush bracket centre (z≈0.26) sits ~2/3 up.  This means the
+    # look-at point is at roughly z ≈ 0.19 during the middle section.
+    #
+    # Camera path (viewed from above: anticlockwise spiral inward):
+    kf(cam,   1, START_0_CAM)                         # start
+    kf(cam,  45, (-1.20,  2.20, -0.05))               # easing in
+    kf(cam,  90, (-0.50,  1.40,  0.00))               # mid-arc
+    kf(cam, 135, (-0.08,  0.85,  0.06))               # closing in
+    kf(cam, F1_END, SIGHTING_0_CAM)                     # in front of tube
 
-    # Target: look at mid-pillar throughout the descent
-    kf(target, 1,          TARGET_MID)
-    kf(target, F_FLY_END,  TARGET_MID)
-
-    # =================================================================
-    # SEGMENT 2 — 360° orbit  (frames 120 → 480)
-    # =================================================================
-    # Counter-clockwise from east (+X).  Keyframes every 15° for a
-    # smooth Bézier-interpolated circle.
-    orbit_dur = F_ORB_END - F_FLY_END          # 360 frames
-    for i in range(ORBIT_STEPS + 1):
-        angle = math.radians(i * 360.0 / ORBIT_STEPS)
-        x = ORBIT_R * math.cos(angle)
-        y = ORBIT_R * math.sin(angle)
-        f = F_FLY_END + i * orbit_dur / ORBIT_STEPS
-        kf(cam, f, (x, y, ORBIT_Z))
-
-    kf(target, F_ORB_END, TARGET_MID)
-
-    # =================================================================
-    # SEGMENT 3 — Approach east sighting hole  (frames 480 → 600)
-    # =================================================================
-    # Camera descends from orbit altitude to sighting-hole height,
-    # closing in on the east face.
-    f_app_mid = (F_ORB_END + F_APP_END) // 2     # frame 540
-    kf(cam, f_app_mid, (1.2, 0, 0.5))
-    kf(cam, F_APP_END, (0.6, 0, SH_Z))
-
-    # Target shifts to look straight through the sighting hole
-    kf(target, f_app_mid, (0, 0, 0.3))
-    kf(target, F_APP_END, (-3.0, 0, SH_Z))
+    # Target path: smoothly settle to bracket/tube framing early,
+    # hold that level through the middle, then ease into the tube.
+    kf(target,   1, START_0_TGT)                       # start (smooth)
+    kf(target,  40, ( 0.00,  0.00,  0.22))             # settle to ideal
+    kf(target, 130, ( 0.00,  0.00,  0.20))             # held steady
+    kf(target, 160, ( 0.00, -0.10,  0.21))             # easing toward tube
+    kf(target, F1_END, SIGHTING_0_TGT)                  # into the tube
 
     # =================================================================
-    # SEGMENT 4 — Fly through the sighting tube  (frames 600 → 690)
+    # SEGMENT 2 — Tube fly-through  (frames 181 → 360,  6 s)
     # =================================================================
-    # Straight-line flight along the X axis at sighting-hole height.
-    # The tube inner diameter is 44 mm — Blender's camera is a point
-    # so it fits, and the 1 mm clip distance captures the tube walls.
-    f_thr_mid = (F_APP_END + F_THR_END) // 2     # frame 645
-    kf(cam, f_thr_mid, (0, 0, SH_Z))
-    kf(cam, F_THR_END, (-0.6, 0, SH_Z))
+    # Sighting-hole light (in the +X tube) switches on for side-
+    # lighting.  Camera is already aimed at the +Y tube from
+    # SIGHTING_0 — it descends to tube height, enters the +Y tube,
+    # flies straight through the pillar along the -Y axis, and exits
+    # from the -Y (South) side.
+    #
+    # Camera path (straight-line through +Y / -Y tubes):
+    kf(cam, 210, ( 0.00,  0.30,  SH_Z))               # at +Y tube face
+    kf(cam, 270, ( 0.00,  0.00,  SH_Z))               # centre of pillar
+    kf(cam, 330, ( 0.00, -0.30,  SH_Z))               # at -Y tube exit
+    kf(cam, F2_END, SIGHTING_1_CAM)                    # clear of pillar
 
-    kf(target, F_THR_END, (-3.0, 0, SH_Z))
+    # Target: look straight through the tube along -Y
+    kf(target, 210, ( 0.00, -3.00, SH_Z))
+    kf(target, F2_END, SIGHTING_1_TGT)
+
+    # Light: switch on over ~0.5 s at the start of the segment
+    light = bpy.data.objects["SightingHoleLight"]
+    light.data.energy = 0
+    light.data.keyframe_insert(data_path="energy", frame=F1_END)
+    light.data.energy = 20
+    light.data.keyframe_insert(data_path="energy", frame=F1_END + 15)
 
     # =================================================================
-    # SEGMENT 5 — Pull back to 3/4 view  (frames 690 → 810)
+    # SEGMENT 3 — Sweep to profile view  (frames 361 → 510,  5 s)
     # =================================================================
-    # Camera retreats south-west and rises, while the target
-    # transitions back to mid-pillar for a classic 3/4 composition.
-    f_pull_mid = (F_THR_END + F_PULL_END) // 2    # frame 750
-    kf(cam, f_pull_mid, (-2.0, -1.5, 0.8))
-    kf(cam, F_PULL_END, (-3.0, -2.5, 1.5))
+    # Camera sweeps from the -Y tube exit around to a classic profile
+    # view from the south-east, rising to ~1.5 m.  Two intermediate
+    # waypoints keep the motion smooth rather than a jarring flick.
+    #
+    # Camera path:
+    kf(cam, 400, ( 0.15, -0.90,  0.40))               # early swing
+    kf(cam, 450, ( 0.35, -1.80,  0.80))               # mid-sweep SE
+    kf(cam, F3_END, PROFILE_0_CAM)                     # final position
 
-    kf(target, f_pull_mid, (-0.5, 0, 0.4))
-    kf(target, F_PULL_END, TARGET_MID)
+    # Target sweeps smoothly to mid-pillar view
+    kf(target, 400, ( 0.00, -0.15,  0.40))             # early transition
+    kf(target, 450, ( 0.00, -0.25,  0.55))             # settling
+    kf(target, F3_END, PROFILE_0_TGT)                  # profile target
 
     # =================================================================
-    # SEGMENT 6 — Hold final view  (frames 810 → 900)
+    # SEGMENT 4 — Hold + rise to spider  (frames 511 → 630,  4 s)
     # =================================================================
-    kf(cam, TOTAL_FRAMES, (-3.0, -2.5, 1.5))
-    kf(target, TOTAL_FRAMES, TARGET_MID)
+    # Hold the profile composition for 1 second, then smooth flight
+    # upward to a close-up of the spider / pillar top.
+    #
+    # 1 s hold at PROFILE_0
+    kf(cam,    F3_END + 30, PROFILE_0_CAM)             # hold 1 s
+    kf(target, F3_END + 30, PROFILE_0_TGT)
+
+    # 3 s flight up to SPIDER_0
+    kf(cam, 580, ( 0.35, -1.60,  1.70))               # mid-rise
+    kf(cam, F4_END, SPIDER_0_CAM)                      # final position
+
+    kf(target, 580, ( 0.00, -0.15,  1.00))             # rising target
+    kf(target, F4_END, SPIDER_0_TGT)                   # spider target
 
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
     print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
-    print(f"    Orbit: r={ORBIT_R} m, z={ORBIT_Z} m, {ORBIT_STEPS} steps")
     print(f"    Lens: {LENS_MM} mm, clip: {CLIP_START*1000:.0f} mm")
     print("    Segments:")
-    print(f"      1–{F_FLY_END}:    Fly down")
-    print(f"      {F_FLY_END}–{F_ORB_END}:  360° orbit")
-    print(f"      {F_ORB_END}–{F_APP_END}:  Approach sighting hole")
-    print(f"      {F_APP_END}–{F_THR_END}:  Fly through sighting tube")
-    print(f"      {F_THR_END}–{F_PULL_END}:  Pull back to 3/4 view")
-    print(f"      {F_PULL_END}–{TOTAL_FRAMES}:  Hold final composition")
+    print(f"      1–{F1_END}:    Arc approach (START_0 → SIGHTING_0)")
+    print(f"      {F1_END+1}–{F2_END}:  Tube fly-through (SIGHTING_0 → SIGHTING_1)")
+    print(f"      {F2_END+1}–{F3_END}:  Sweep to profile (SIGHTING_1 → PROFILE_0)")
+    print(f"      {F3_END+1}–{F4_END}:  Hold + rise (PROFILE_0 → SPIDER_0)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
@@ -5310,6 +5464,98 @@ def setup_camera_animation():
                 for kp in fc.keyframe_points:
                     kp.handle_left_type = 'AUTO_CLAMPED'
                     kp.handle_right_type = 'AUTO_CLAMPED'
+    # Also smooth the light energy curve
+    if light.data.animation_data and light.data.animation_data.action:
+        for fc in light.data.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.handle_left_type = 'AUTO_CLAMPED'
+                kp.handle_right_type = 'AUTO_CLAMPED'
+
+
+def print_camera_state():
+    """Print the active camera's position, target, and lens as pasteable values.
+
+    Run this in Blender's Python console to capture a camera pose you've
+    set up interactively, so you can paste the output to an AI agent or
+    copy the values into setup_camera_animation().
+
+    HOW TO USE
+    ----------
+    1. Position the camera in Blender however you like:
+       - Select the camera → G to grab → move it
+       - Numpad 0 for camera view, then Shift+MMB to pan / Ctrl+MMB to zoom
+       - Or use View → Navigation → Fly/Walk mode (Shift+`)
+
+    2. If you also want to reposition the look-at target:
+       - Select "CameraTarget" in the outliner → G to grab → move it
+       - The camera will reorient automatically via its Track To constraint
+
+    3. Open the Python Console panel in Blender (or switch an editor to it).
+
+    4. Type:
+           print_camera_state()
+       and press Enter.  (The function is injected into Python builtins
+       when the script runs, so it's available in the console.)
+
+    5. Copy the printed output and paste it into the chat with the AI agent.
+       The output looks like this:
+
+           # ── Camera state (frame 120) ──────────────
+           camera_loc  = ( 1.8500, -0.7200,  0.9500)
+           target_loc  = ( 0.0000,  0.0000,  0.4500)
+           camera_rot  = ( 1.2345,  0.0000,  1.1781)  # euler XYZ radians
+           lens_mm     = 35.0
+           clip_start  = 0.001
+
+       The agent can use camera_loc and target_loc directly as keyframe
+       waypoints.  camera_rot is informational (it's computed from the
+       Track To constraint, so you don't normally set it directly).
+
+    OPTIONAL: LENS CHANGES
+    ----------------------
+    If you've changed the focal length interactively (select camera →
+    Properties panel → Camera tab → Focal Length), that will also be
+    captured.  Mention to the agent if you want the lens to animate
+    between waypoints.
+
+    TIPS
+    ----
+    - You can scrub to any frame first, then call this — the frame number
+      is included in the output so you know which pose you captured.
+    - Multiple calls at different frames let you sketch out a segment's
+      key poses before asking the agent to fill in the motion.
+    """
+    cam = bpy.context.scene.camera
+    if cam is None:
+        print("ERROR: No active camera in the scene.")
+        return
+
+    frame = bpy.context.scene.frame_current
+    loc = cam.location
+    rot = cam.rotation_euler
+    lens = cam.data.lens
+    clip = cam.data.clip_start
+
+    # Find the Track To target (if any)
+    target_loc = None
+    target_name = None
+    for c in cam.constraints:
+        if c.type == 'TRACK_TO' and c.target:
+            target_name = c.target.name
+            target_loc = c.target.location
+
+    print(f"\n# ── Camera state (frame {frame}) ──────────────")
+    print(f"camera_loc  = ({loc.x:8.4f}, {loc.y:8.4f}, {loc.z:8.4f})")
+    if target_loc is not None:
+        print(f"target_loc  = ({target_loc.x:8.4f}, {target_loc.y:8.4f},"
+              f" {target_loc.z:8.4f})  # {target_name}")
+    else:
+        print(f"target_loc  = None  # no Track To constraint found")
+    print(f"camera_rot  = ({rot.x:8.4f}, {rot.y:8.4f}, {rot.z:8.4f})"
+          f"  # euler XYZ radians")
+    print(f"lens_mm     = {lens}")
+    print(f"clip_start  = {clip}")
+    print()
 
 
 def setup_final_render():
@@ -5503,14 +5749,24 @@ def main():
     # High-quality render settings (Cycles GPU, PNG sequence)
     setup_final_render()
 
+    # Make helper functions available in Blender's Python console.
+    # Script functions live in their own module namespace, which the
+    # interactive console can't see — injecting into builtins fixes that.
+    import builtins
+    builtins.print_camera_state = print_camera_state
+    builtins.goto = goto
+
     bpy.ops.object.select_all(action='DESELECT')
     n = len(bpy.data.objects)
     print(f"\nDone — {n} objects created.")
     print("Tip: Press Space in the Timeline to preview the camera flythrough.")
     print("     Press Numpad-0 to toggle the camera view.\n")
+    print("Console helpers:")
+    print("  print_camera_state()  — capture the current camera pose")
+    print("  goto()                — list named positions")
+    print("  goto(\"START_0\")       — jump camera to a named position\n")
 
 
 
 if __name__ == "__main__":
     main()
-
