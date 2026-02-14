@@ -55,7 +55,7 @@ import bmesh
 import math
 import os
 import random
-from mathutils import Vector, Matrix
+from mathutils import Vector, Matrix, Euler
 
 
 # =====================================================================
@@ -5256,6 +5256,7 @@ def setup_camera_animation():
       631–705   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
                 (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
       706–885   Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
+      886–975   Peg removal: extract along axis, arc to pillar top
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5323,7 +5324,8 @@ def setup_camera_animation():
     F4_END = 630              # end of segment 4 (4 s: 1 s hold + 3 s flight)
     F5_END = 705              # end of segment 5 (2.5 s: screw removal)
     F6_END = 885              # end of segment 6 (6 s: plug removal)
-    TOTAL_FRAMES = F6_END     # extended as segments are added
+    F7_END = 975              # end of segment 7 (3 s: peg removal)
+    TOTAL_FRAMES = F7_END     # extended as segments are added
 
     # ── Remove any existing camera / target / assembly empties ─────
     for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
@@ -5638,6 +5640,69 @@ def setup_camera_animation():
     kf(target, F6A_END, SPIDER_0_TGT)                       # hold during spin
     kf(target, F6_END, (0.00, 0.00, 1.30))                 # follow plug up
 
+    # =================================================================
+    # SEGMENT 7 — Anti-rotation peg removal  (frames 886 → 975,  3 s)
+    # =================================================================
+    # The peg slides out along its axis (local X in the tilted
+    # assembly), then arcs down to rest on the pillar top near the
+    # screws.
+    #
+    #   Phase 1  886–915   Extract: slide +3 cm along axis (1 s)
+    #   Phase 2  916–975   Arc down to pillar top surface  (2 s)
+    #
+    # The peg is still parented to PlugAssembly (tilted 120°), so all
+    # peg keyframes are in parent-local space.  We convert desired
+    # world rest positions to local using the assembly's known final
+    # transform.
+
+    peg = bpy.data.objects["AntiRotationPeg"]
+    peg_home = tuple(peg.location)
+
+    # Pin peg at home through segment 6 (moves with assembly)
+    kf(peg, 1, peg_home)
+    kf_rot(peg, 1, (0, 0, 0))
+    kf(peg, F6_END, peg_home)
+    kf_rot(peg, F6_END, (0, 0, 0))
+
+    # Assembly's world transform at F6_END (constant for segments 7+)
+    asm_final_loc = Vector((0, 0, z_pc + 0.015 + 0.10))
+    asm_final_rot = Euler(ROT_PLUG_FULL_TILT)
+    asm_world_end = (Matrix.Translation(asm_final_loc)
+                     @ asm_final_rot.to_matrix().to_4x4())
+    par_inv_mat = Matrix.Translation(Vector((0, 0, -z_pc)))
+    peg_combined = asm_world_end @ par_inv_mat          # world = combined @ loc
+    peg_combined_inv = peg_combined.inverted()           # loc = inv @ world
+
+    # ── Phase 1: Extract along axis (local +X, 3 cm,  1 s) ──────
+    peg_extracted = (peg_home[0] + 0.03, peg_home[1], peg_home[2])
+    F7_EXTRACT = F6_END + 30
+    kf(peg, F7_EXTRACT, peg_extracted)
+    kf_rot(peg, F7_EXTRACT, (0, 0, 0))
+
+    # ── Phase 2: Arc down to pillar top (2 s) ────────────────────
+    # Desired world rest position: near screws on pillar surface
+    peg_world_rest = Vector((0.04, -0.06, PILLAR_HEIGHT + PEG_R))
+    peg_local_rest = tuple(peg_combined_inv @ peg_world_rest)
+
+    # Counter-rotate to lie horizontal in world space
+    peg_rest_rot = tuple(asm_final_rot.to_matrix()
+                         .inverted().to_euler('XYZ'))
+
+    # Mid-arc: elevated point between extracted and rest positions
+    peg_world_ext = peg_combined @ Vector(peg_extracted)
+    mid_world = (peg_world_ext + peg_world_rest) / 2
+    mid_world.z = max(mid_world.z, PILLAR_HEIGHT + 0.06)
+    peg_local_mid = tuple(peg_combined_inv @ mid_world)
+
+    F7_MID = F6_END + 60
+    kf(peg, F7_MID, peg_local_mid)
+    kf(peg, F7_END, peg_local_rest)
+    kf_rot(peg, F7_END, peg_rest_rot)
+
+    # Camera: hold at SPIDER_0
+    kf(cam, F7_END, SPIDER_0_CAM)
+    kf(target, F7_END, (0.00, 0.00, 1.30))
+
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
     print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
@@ -5649,11 +5714,12 @@ def setup_camera_animation():
     print(f"      {F3_END+1}–{F4_END}:  Hold + rise (PROFILE_0 → SPIDER_0)")
     print(f"      {F4_END+1}–{F5_END}:  Screw removal (Screw_0 then Screw_180)")
     print(f"      {F5_END+1}–{F6_END}:  Plug removal (unscrew + tilt)")
+    print(f"      {F6_END+1}–{F7_END}:  Peg removal (extract + arc)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
     # still giving smooth curves.
-    for obj in (cam, target, screw_0, screw_180, assembly):
+    for obj in (cam, target, screw_0, screw_180, assembly, peg):
         if obj.animation_data and obj.animation_data.action:
             for fc in obj.animation_data.action.fcurves:
                 for kp in fc.keyframe_points:
