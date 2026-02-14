@@ -108,7 +108,7 @@ class Auth0ErrorBoundaryInner extends Component<InnerProps, State> {
         : "An authentication error occurred.";
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+        <div className="min-h-dvh flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
           <div className="max-w-md w-full text-center">
             <div className="text-6xl mb-4">🔐</div>
             <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">
