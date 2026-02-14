@@ -5255,7 +5255,7 @@ def setup_camera_animation():
       511–630   Hold + rise to spider: PROFILE_0 → SPIDER_0
       631–930   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
                 (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
-      931–1110  Plug removal: unscrew 3 turns + rise, then rise + tilt 30°
+      931–1110  Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5429,17 +5429,23 @@ def setup_camera_animation():
     # SEGMENT 3 — Sweep to profile view  (frames 361 → 510,  5 s)
     # =================================================================
     # Camera sweeps from the -Y tube exit around to a classic profile
-    # view from the south-east, rising to ~1.5 m.  Two intermediate
-    # waypoints keep the motion smooth rather than a jarring flick.
+    # view from the south-east, rising to ~1.5 m.  The rotation is
+    # spread over the first ~100 frames and overlaps with the outward/
+    # upward movement so it reads as a single smooth sweep rather than
+    # a snap-then-glide.
     #
-    # Camera path:
-    kf(cam, 400, ( 0.15, -0.90,  0.40))               # early swing
-    kf(cam, 450, ( 0.35, -1.80,  0.80))               # mid-sweep SE
+    # Camera path — starts moving backward and up immediately while
+    # the target swings gradually from -Y look direction to pillar:
+    kf(cam, 385, ( 0.05, -0.70,  0.20))               # barely moved
+    kf(cam, 420, ( 0.15, -1.10,  0.45))               # rotating + rising
+    kf(cam, 460, ( 0.35, -1.90,  0.85))               # mid-sweep SE
     kf(cam, F3_END, PROFILE_0_CAM)                     # final position
 
-    # Target sweeps smoothly to mid-pillar view
-    kf(target, 400, ( 0.00, -0.15,  0.40))             # early transition
-    kf(target, 450, ( 0.00, -0.25,  0.55))             # settling
+    # Target swings slowly from the -Y direction back to the pillar,
+    # spread over ~100 frames so the rotation feels gradual:
+    kf(target, 385, ( 0.00, -1.50,  0.25))             # still mostly -Y
+    kf(target, 420, ( 0.00, -0.60,  0.35))             # swinging back
+    kf(target, 460, ( 0.00, -0.30,  0.50))             # nearly settled
     kf(target, F3_END, PROFILE_0_TGT)                  # profile target
 
     # =================================================================
@@ -5572,7 +5578,7 @@ def setup_camera_animation():
     # share the same location/rotation keyframes.
     #
     #   Phase 1  931–1020  Unscrew: 3 anticlockwise turns + rise 1.5 cm
-    #   Phase 2 1021–1110  Rise 10 cm + tilt 30° away from viewer
+    #   Phase 2 1021–1110  Rise 10 cm + tilt 120° away from viewer
     #
     # The tilt axis is the camera's horizontal axis (perpendicular to
     # the view direction in the ground plane) so the assembly's bottom
@@ -5604,11 +5610,11 @@ def setup_camera_animation():
     cam_dir = (Vector(SPIDER_0_TGT) - Vector(SPIDER_0_CAM)).normalized()
     cam_right = cam_dir.cross(Vector((0, 0, 1))).normalized()
 
-    # Pre-compute tilt Euler angles (-30° and -15° around cam_right).
+    # Pre-compute tilt Euler angles (-120° and -60° around cam_right).
     # Negative angle tilts the top AWAY from the viewer, exposing the
     # bottom face toward the camera.
-    tilt_full = Matrix.Rotation(math.radians(-30), 3, cam_right).to_euler('XYZ')
-    tilt_half = Matrix.Rotation(math.radians(-15), 3, cam_right).to_euler('XYZ')
+    tilt_full = Matrix.Rotation(math.radians(-120), 3, cam_right).to_euler('XYZ')
+    tilt_half = Matrix.Rotation(math.radians(-60), 3, cam_right).to_euler('XYZ')
 
     PLUG_UNSCREW = 3 * 2 * math.pi                  # 3 anticlockwise turns
     ROT_PLUG_TOP = (0, 0, PLUG_UNSCREW)
@@ -5635,9 +5641,9 @@ def setup_camera_animation():
 
     # ── Phase 2: Rise 10 cm + tilt 30°  (1021 → 1110,  3 s) ───────
     kf(assembly,     1065, (0, 0, z_pc + 0.015 + 0.05))    # mid-rise
-    kf_rot(assembly, 1065, ROT_PLUG_HALF_TILT)              # 15° tilt
+    kf_rot(assembly, 1065, ROT_PLUG_HALF_TILT)              # 60° tilt
     kf(assembly,     F6_END, (0, 0, z_pc + 0.015 + 0.10))  # 10 cm up
-    kf_rot(assembly, F6_END, ROT_PLUG_FULL_TILT)            # 30° tilt
+    kf_rot(assembly, F6_END, ROT_PLUG_FULL_TILT)            # 120° tilt
 
     # Camera: subtle target rise to follow the elevated plug
     kf(cam,    F6_END, SPIDER_0_CAM)                        # camera holds
