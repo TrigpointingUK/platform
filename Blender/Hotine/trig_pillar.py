@@ -5645,9 +5645,17 @@ def setup_camera_animation():
     kf(target, F6_END, (0.00, 0.00, 1.30))                 # follow plug up
 
     # ── Evaluate assembly at F6_END for segments 7–9 ────────────
-    # Pin assembly at F6_END position for all remaining frames so
-    # it doesn't drift due to extrapolation.
-    kf(assembly,     F9_END, (0, 0, z_pc + 0.015 + 0.10))
+    # Pin assembly FIRMLY at F6_END position.  The extra keyframe at
+    # F6_END+1 forces zero tangent immediately after segment 6,
+    # preventing any drift from the unscrew/tilt motion's momentum.
+    ASM_PIN = (0, 0, z_pc + 0.015 + 0.10)
+    kf(assembly,     F6_END + 1, ASM_PIN)
+    kf_rot(assembly, F6_END + 1, ROT_PLUG_FULL_TILT)
+    kf(assembly,     F7_END, ASM_PIN)
+    kf_rot(assembly, F7_END, ROT_PLUG_FULL_TILT)
+    kf(assembly,     F8_END, ASM_PIN)
+    kf_rot(assembly, F8_END, ROT_PLUG_FULL_TILT)
+    kf(assembly,     F9_END, ASM_PIN)
     kf_rot(assembly, F9_END, ROT_PLUG_FULL_TILT)
 
     # Force Blender to evaluate at F6_END so we can read the
@@ -5723,7 +5731,11 @@ def setup_camera_animation():
     kf_rot(peg, F7_EXTRACT, (0, 0, 0))
 
     # ── Phase 2: Arc down to pillar top (2 s) ────────────────────
-    peg_ws_start = child_combined @ Vector(peg_extracted)
+    # Use Blender's actual evaluated world position at F7_EXTRACT
+    # (avoids any assembly drift near F6_END boundary).
+    bpy.context.scene.frame_set(int(F7_EXTRACT))
+    bpy.context.view_layer.update()
+    peg_ws_start = peg.matrix_world.translation.copy()
     peg_ws_end = Vector((0.04, -0.06, PILLAR_HEIGHT + PEG_R))
     arc_kf(peg, F7_EXTRACT, F7_END, peg_ws_start, peg_ws_end,
            arc_height=0.03)
@@ -5771,7 +5783,9 @@ def setup_camera_animation():
 
     # ── Phase 2: Arc to rest on pillar top (2 s) ─────────────────
     # ~20 cm in the +Y / -X direction from centre, near beveled edge
-    ip_ws_start = child_combined @ Vector(ip_clear_loc)
+    bpy.context.scene.frame_set(int(F8_CLEAR))
+    bpy.context.view_layer.update()
+    ip_ws_start = inner_plug.matrix_world.translation.copy()
     ip_ws_end = Vector((-0.13, 0.15, PILLAR_HEIGHT + IPLUG_H / 2))
     arc_kf(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
            arc_height=0.04)
@@ -5804,7 +5818,9 @@ def setup_camera_animation():
     kf_rot(plug, F8_END, (0, 0, 0))
 
     # Desired world rest: +X, +Y, near corner of pillar top
-    plug_ws_start = child_combined @ Vector(plug_home)
+    bpy.context.scene.frame_set(int(F8_END))
+    bpy.context.view_layer.update()
+    plug_ws_start = plug.matrix_world.translation.copy()
     plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + PLUG_MIDDLE_R))
     arc_kf(plug, F8_END, F9_END, plug_ws_start, plug_ws_end,
            arc_height=0.05)
