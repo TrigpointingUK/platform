@@ -5253,6 +5253,8 @@ def setup_camera_animation():
       181–360   Tube fly-through: SIGHTING_0 → SIGHTING_1
       361–510   Sweep to profile: SIGHTING_1 → PROFILE_0
       511–630   Hold + rise to spider: PROFILE_0 → SPIDER_0
+      631–930   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
+                (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5318,7 +5320,8 @@ def setup_camera_animation():
     F2_END = 360              # end of segment 2 (6 s)
     F3_END = 510              # end of segment 3 (5 s)
     F4_END = 630              # end of segment 4 (4 s: 1 s hold + 3 s flight)
-    TOTAL_FRAMES = F4_END     # extended as segments are added
+    F5_END = 930              # end of segment 5 (10 s: screw removal)
+    TOTAL_FRAMES = F5_END     # extended as segments are added
 
     # ── Remove any existing camera / target ────────────────────────
     for name in ("Camera", "FlyCamera", "CameraTarget"):
@@ -5353,11 +5356,17 @@ def setup_camera_animation():
     scene.frame_start = 1
     scene.frame_end = TOTAL_FRAMES
 
-    # ── Keyframe helper ──────────────────────────────────────────
+    # ── Keyframe helpers ─────────────────────────────────────────
     def kf(obj, frame, loc):
         """Insert a location keyframe."""
         obj.location = loc
         obj.keyframe_insert(data_path="location", frame=int(round(frame)))
+
+    def kf_rot(obj, frame, rot):
+        """Insert a rotation_euler keyframe."""
+        obj.rotation_euler = rot
+        obj.keyframe_insert(data_path="rotation_euler",
+                            frame=int(round(frame)))
 
     # =================================================================
     # SEGMENT 1 — Arc approach  (frames 1 → 180,  6 s)
@@ -5445,6 +5454,111 @@ def setup_camera_animation():
     kf(target, 580, ( 0.00, -0.15,  1.00))             # rising target
     kf(target, F4_END, SPIDER_0_TGT)                   # spider target
 
+    # =================================================================
+    # SEGMENT 5 — Screw removal  (frames 631 → 930,  10 s)
+    # =================================================================
+    # Both machine screws unscrew from the spider shelf and float
+    # down to rest on the pillar top.  Four sub-segments:
+    #
+    #   5a  631–690   Screw_0 unscrews anticlockwise + rises   (2 s)
+    #   5b  691–780   Screw_0 arcs to pillar top + tips horiz  (3 s)
+    #   5c  781–840   Screw_180 unscrews + rises               (2 s)
+    #   5d  841–930   Screw_180 arcs to pillar top + tips horiz(3 s)
+    #
+    # Each screw: anticlockwise spin while rising straight up until
+    # the bottom clears the pillar top by 5 cm → brief hold → smooth
+    # arc to the surface while rotating from vertical to horizontal.
+    # Camera holds at SPIDER_0 throughout.
+
+    screw_0 = bpy.data.objects["Screw_0"]
+    screw_180 = bpy.data.objects["Screw_180"]
+
+    # Installed positions (read live — match build_fixings())
+    s0_home = tuple(screw_0.location)
+    s180_home = tuple(screw_180.location)
+
+    # Elevated: bottom of screw 5 cm above pillar top
+    #   bottom = origin.z - SCREW_SHAFT_H / 2
+    #   need bottom = PILLAR_HEIGHT + 0.05
+    #   ⇒ origin.z = PILLAR_HEIGHT + 0.05 + SCREW_SHAFT_H / 2
+    z_elevated = PILLAR_HEIGHT + 0.05 + SCREW_SHAFT_H / 2   # ≈ 1.245
+    s0_up = (s0_home[0], s0_home[1], z_elevated)
+    s180_up = (s180_home[0], s180_home[1], z_elevated)
+
+    # Final resting: lying horizontal on pillar top, 2 cm apart
+    z_rest = PILLAR_HEIGHT + SCREW_HEAD_R                    # ≈ 1.1935
+    s0_rest = (0.08, -0.04, z_rest)
+    s180_rest = (0.10, -0.04, z_rest)          # 2 cm to the right
+
+    # Rotation constants
+    ROT_ZERO = (0, 0, 0)
+    UNSCREW_RAD = 3 * 2 * math.pi              # 3 full anticlockwise turns
+    ROT_TOP = (0, 0, UNSCREW_RAD)              # vertical, done spinning
+    ROT_LYING = (math.pi / 2, 0, UNSCREW_RAD)  # horizontal on surface
+
+    # Sub-segment frame markers
+    F5A_END = 690        # Screw_0 reaches top
+    F5B_END = 780        # Screw_0 placed on surface
+    F5C_END = 840        # Screw_180 reaches top
+
+    # ── 5a: Screw_0 unscrews + rises  (631 → 690) ──────────────
+    # Pin at installed position for all earlier segments
+    kf(screw_0,     1, s0_home)
+    kf_rot(screw_0, 1, ROT_ZERO)
+    kf(screw_0,     F4_END, s0_home)
+    kf_rot(screw_0, F4_END, ROT_ZERO)
+
+    # Rise while spinning anticlockwise (3 turns over 2 s)
+    kf(screw_0,     660, (s0_home[0], s0_home[1],
+                          s0_home[2] + 0.035))              # mid-rise
+    kf_rot(screw_0, 660, (0, 0, UNSCREW_RAD / 2))          # 1.5 turns
+    kf(screw_0,     F5A_END, s0_up)                         # at top
+    kf_rot(screw_0, F5A_END, ROT_TOP)                       # 3 turns done
+
+    # ── 5b: Screw_0 arcs + tips horizontal  (691 → 780) ────────
+    # Brief hold at top (≈ 0.3 s) before arcing
+    kf(screw_0,     700, s0_up)
+    kf_rot(screw_0, 700, ROT_TOP)
+
+    # Arc outward and down to pillar surface while tipping
+    kf(screw_0,     740, (0.06, -0.02, 1.24))              # mid-arc
+    kf_rot(screw_0, 740, (math.pi / 4, 0, UNSCREW_RAD))   # 45° tip
+    kf(screw_0,     F5B_END, s0_rest)                       # on surface
+    kf_rot(screw_0, F5B_END, ROT_LYING)                     # horizontal
+
+    # ── 5c: Screw_180 unscrews + rises  (781 → 840) ────────────
+    # Pin at installed position until Screw_0 is placed
+    kf(screw_180,     1, s180_home)
+    kf_rot(screw_180, 1, ROT_ZERO)
+    kf(screw_180,     F5B_END, s180_home)
+    kf_rot(screw_180, F5B_END, ROT_ZERO)
+
+    # Rise while spinning anticlockwise (3 turns over 2 s)
+    kf(screw_180,     810, (s180_home[0], s180_home[1],
+                            s180_home[2] + 0.035))          # mid-rise
+    kf_rot(screw_180, 810, (0, 0, UNSCREW_RAD / 2))        # 1.5 turns
+    kf(screw_180,     F5C_END, s180_up)                     # at top
+    kf_rot(screw_180, F5C_END, ROT_TOP)                     # 3 turns done
+
+    # ── 5d: Screw_180 arcs + tips horizontal  (841 → 930) ──────
+    # Brief hold at top
+    kf(screw_180,     850, s180_up)
+    kf_rot(screw_180, 850, ROT_TOP)
+
+    # Longer arc — Screw_180 starts on the opposite side of the
+    # pillar and must travel further to land next to Screw_0.
+    # Extra waypoint keeps the sweep smooth.
+    kf(screw_180,     880, (0.00, -0.01, 1.26))            # swing across
+    kf_rot(screw_180, 880, (math.pi / 6, 0, UNSCREW_RAD)) # 30° tip
+    kf(screw_180,     910, (0.06, -0.03, 1.22))            # closing in
+    kf_rot(screw_180, 910, (math.pi / 3, 0, UNSCREW_RAD)) # 60° tip
+    kf(screw_180,     F5_END, s180_rest)                    # on surface
+    kf_rot(screw_180, F5_END, ROT_LYING)                    # horizontal
+
+    # Camera: hold at SPIDER_0 throughout segment 5
+    kf(cam,    F5_END, SPIDER_0_CAM)
+    kf(target, F5_END, SPIDER_0_TGT)
+
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
     print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
@@ -5454,11 +5568,12 @@ def setup_camera_animation():
     print(f"      {F1_END+1}–{F2_END}:  Tube fly-through (SIGHTING_0 → SIGHTING_1)")
     print(f"      {F2_END+1}–{F3_END}:  Sweep to profile (SIGHTING_1 → PROFILE_0)")
     print(f"      {F3_END+1}–{F4_END}:  Hold + rise (PROFILE_0 → SPIDER_0)")
+    print(f"      {F4_END+1}–{F5_END}:  Screw removal (Screw_0 then Screw_180)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
     # still giving smooth curves.
-    for obj in (cam, target):
+    for obj in (cam, target, screw_0, screw_180):
         if obj.animation_data and obj.animation_data.action:
             for fc in obj.animation_data.action.fcurves:
                 for kp in fc.keyframe_points:
