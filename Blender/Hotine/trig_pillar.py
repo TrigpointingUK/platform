@@ -5590,6 +5590,10 @@ def setup_camera_animation():
     bpy.context.collection.objects.link(assembly)
     assembly.location = (0, 0, z_pc)
 
+    # Force depsgraph update so matrix_world reflects the new location
+    # before we compute parent-inverse matrices for the children.
+    bpy.context.view_layer.update()
+
     for obj_name in ("Plug", "InnerPlug", "AntiRotationPeg"):
         obj = bpy.data.objects.get(obj_name)
         if obj:
