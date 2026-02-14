@@ -5258,6 +5258,7 @@ def setup_camera_animation():
       706–885   Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
       886–975   Peg removal: extract along axis, arc to pillar top
       976–1155  Inner plug removal: 12 turns unscrew, arc to -X/+Y corner
+      1156–1245 Plug arc to rest on +X/+Y corner
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5327,7 +5328,8 @@ def setup_camera_animation():
     F6_END = 885              # end of segment 6 (6 s: plug removal)
     F7_END = 975              # end of segment 7 (3 s: peg removal)
     F8_END = 1155             # end of segment 8 (6 s: inner plug removal)
-    TOTAL_FRAMES = F8_END     # extended as segments are added
+    F9_END = 1245             # end of segment 9 (3 s: plug arc to rest)
+    TOTAL_FRAMES = F9_END     # extended as segments are added
 
     # ── Remove any existing camera / target / assembly empties ─────
     for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
@@ -5771,6 +5773,47 @@ def setup_camera_animation():
     kf(cam, F8_END, SPIDER_0_CAM)
     kf(target, F8_END, (0.00, 0.00, 1.30))
 
+    # =================================================================
+    # SEGMENT 9 — Plug arc to rest  (frames 1156 → 1245,  3 s)
+    # =================================================================
+    # The plug (still parented to PlugAssembly, now alone after peg &
+    # inner plug have departed) arcs from its tilted position to rest
+    # on the +X, +Y corner of the pillar top — a different corner from
+    # the screws (+X, -Y), peg (+X, -Y area), and inner plug (-X, +Y).
+
+    plug = bpy.data.objects["Plug"]
+    plug_home = tuple(plug.location)
+
+    # Pin plug at home through segment 8 (moves with assembly)
+    kf(plug, 1, plug_home)
+    kf_rot(plug, 1, (0, 0, 0))
+    kf(plug, F8_END, plug_home)
+    kf_rot(plug, F8_END, (0, 0, 0))
+
+    # Desired world rest: +X, +Y corner of pillar top, lying on side
+    plug_world_rest = Vector((0.08, 0.08,
+                              PILLAR_HEIGHT + PLUG_MIDDLE_R))
+    plug_local_rest = tuple(peg_combined_inv @ plug_world_rest)
+
+    # Rest rotation: counter assembly tilt + tip 90° horizontal
+    plug_rest_rot_mat = asm_rot_mat.inverted() @ world_tip
+    plug_rest_rot = tuple(plug_rest_rot_mat.to_euler('XYZ'))
+
+    # Mid-arc waypoint
+    plug_world_start = peg_combined @ Vector(plug_home)
+    plug_mid_world = (plug_world_start + plug_world_rest) / 2
+    plug_mid_world.z = max(plug_mid_world.z, PILLAR_HEIGHT + 0.08)
+    plug_local_mid = tuple(peg_combined_inv @ plug_mid_world)
+
+    F9_MID = F8_END + 45
+    kf(plug, F9_MID, plug_local_mid)
+    kf(plug, F9_END, plug_local_rest)
+    kf_rot(plug, F9_END, plug_rest_rot)
+
+    # Camera: hold
+    kf(cam, F9_END, SPIDER_0_CAM)
+    kf(target, F9_END, (0.00, 0.00, 1.25))             # drift down slightly
+
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
     print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
@@ -5784,12 +5827,13 @@ def setup_camera_animation():
     print(f"      {F5_END+1}–{F6_END}:  Plug removal (unscrew + tilt)")
     print(f"      {F6_END+1}–{F7_END}:  Peg removal (extract + arc)")
     print(f"      {F7_END+1}–{F8_END}:  Inner plug removal (unscrew + arc)")
+    print(f"      {F8_END+1}–{F9_END}:  Plug arc to rest (+X, +Y corner)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
     # still giving smooth curves.
     for obj in (cam, target, screw_0, screw_180, assembly, peg,
-                inner_plug):
+                inner_plug, plug):
         if obj.animation_data and obj.animation_data.action:
             for fc in obj.animation_data.action.fcurves:
                 for kp in fc.keyframe_points:
