@@ -5663,26 +5663,41 @@ def setup_camera_animation():
     bpy.context.scene.frame_set(int(F6_END))
     bpy.context.view_layer.update()
 
-    asm_world_actual = assembly.matrix_world.copy()
-    # All three children share the same matrix_parent_inverse
-    # (set identically during the parenting loop above).
-    child_par_inv = bpy.data.objects["AntiRotationPeg"] \
-                        .matrix_parent_inverse.copy()
-    child_combined = asm_world_actual @ child_par_inv
-    child_combined_inv = child_combined.inverted()
-
-    # Helper: convert desired world position → child obj.location
-    def world_to_local(world_pos):
-        return tuple(child_combined_inv @ Vector(world_pos))
-
-    # Helper: compute local rotation so child appears with a given
-    # world rotation matrix, accounting for the assembly's tilt.
-    asm_rot_actual = asm_world_actual.to_3x3()
+    asm_rot_actual = assembly.matrix_world.to_3x3()
     asm_rot_inv = asm_rot_actual.inverted()
 
     def world_rot_to_local(world_rot_matrix):
+        """Convert a world-space rotation matrix to assembly-local Euler."""
         local_mat = asm_rot_inv @ world_rot_matrix
         return tuple(local_mat.to_euler('XYZ'))
+
+    def make_w2l(child_obj):
+        """Build a world→local converter for a specific child of assembly.
+
+        Each child may have a different matrix_parent_inverse, so we
+        read it from the child itself rather than assuming one value.
+        """
+        par_world = assembly.matrix_world.copy()
+        par_inv = child_obj.matrix_parent_inverse.copy()
+        combined = par_world @ par_inv
+        combined_inv = combined.inverted()
+        # Debug: verify round-trip
+        actual_loc = tuple(child_obj.location)
+        actual_world = child_obj.matrix_world.translation
+        roundtrip = tuple(combined_inv @ actual_world)
+        print(f"    w2l check {child_obj.name}:")
+        print(f"      obj.location  = ({actual_loc[0]:+.6f},"
+              f" {actual_loc[1]:+.6f}, {actual_loc[2]:+.6f})")
+        print(f"      world_pos     = ({actual_world[0]:+.6f},"
+              f" {actual_world[1]:+.6f}, {actual_world[2]:+.6f})")
+        print(f"      round-trip    = ({roundtrip[0]:+.6f},"
+              f" {roundtrip[1]:+.6f}, {roundtrip[2]:+.6f})")
+        match = all(abs(a - b) < 0.0001
+                    for a, b in zip(actual_loc, roundtrip))
+        print(f"      match = {match}")
+        def w2l(world_pos):
+            return tuple(combined_inv @ Vector(world_pos))
+        return w2l
 
     # ── World-space arc helper ─────────────────────────────────────
     # Children are parented to the tilted assembly, so Blender
@@ -5691,19 +5706,20 @@ def setup_camera_animation():
     # arc in world space.  We densely sample the desired world-space
     # trajectory, convert each point to local, and insert keyframes.
     def arc_kf(obj, f_start, f_end, ws_start, ws_end, arc_height,
-               n_steps=15):
+               w2l, n_steps=15):
         """Insert location keyframes along a world-space parabolic arc.
 
         ws_start / ws_end — world-space Vector positions.
         arc_height — extra Z elevation at the arc midpoint above the
                      linear interpolation.
+        w2l — world-to-local conversion function for this child.
         """
         for i in range(n_steps + 1):
             t = i / n_steps
             frame = int(round(f_start + t * (f_end - f_start)))
             w = ws_start.lerp(ws_end, t)
             w.z += arc_height * 4.0 * t * (1.0 - t)
-            kf(obj, frame, world_to_local(w))
+            kf(obj, frame, w2l(w))
 
     # =================================================================
     # SEGMENT 7 — Anti-rotation peg removal  (frames 886 → 975,  3 s)
@@ -5731,14 +5747,19 @@ def setup_camera_animation():
     kf_rot(peg, F7_EXTRACT, (0, 0, 0))
 
     # ── Phase 2: Arc down to pillar top (2 s) ────────────────────
-    # Use Blender's actual evaluated world position at F7_EXTRACT
-    # (avoids any assembly drift near F6_END boundary).
+    # Build peg's own world→local converter and evaluate at arc start.
     bpy.context.scene.frame_set(int(F7_EXTRACT))
     bpy.context.view_layer.update()
+    peg_w2l = make_w2l(peg)
     peg_ws_start = peg.matrix_world.translation.copy()
     peg_ws_end = Vector((0.04, -0.06, PILLAR_HEIGHT + PEG_R))
+    print(f"    peg arc: ws_start=({peg_ws_start.x:+.4f},"
+          f" {peg_ws_start.y:+.4f}, {peg_ws_start.z:+.4f})")
+    print(f"    peg arc: ws_end  =({peg_ws_end.x:+.4f},"
+          f" {peg_ws_end.y:+.4f}, {peg_ws_end.z:+.4f})")
+    print(f"    peg arc: local_end={peg_w2l(peg_ws_end)}")
     arc_kf(peg, F7_EXTRACT, F7_END, peg_ws_start, peg_ws_end,
-           arc_height=0.03)
+           arc_height=0.03, w2l=peg_w2l)
 
     # Rotation: counter-rotate to lie horizontal in world space
     peg_rest_rot = world_rot_to_local(Matrix.Identity(3))
@@ -5785,10 +5806,16 @@ def setup_camera_animation():
     # ~20 cm in the +Y / -X direction from centre, near beveled edge
     bpy.context.scene.frame_set(int(F8_CLEAR))
     bpy.context.view_layer.update()
+    ip_w2l = make_w2l(inner_plug)
     ip_ws_start = inner_plug.matrix_world.translation.copy()
     ip_ws_end = Vector((-0.13, 0.15, PILLAR_HEIGHT + IPLUG_H / 2))
+    print(f"    ip arc:  ws_start=({ip_ws_start.x:+.4f},"
+          f" {ip_ws_start.y:+.4f}, {ip_ws_start.z:+.4f})")
+    print(f"    ip arc:  ws_end  =({ip_ws_end.x:+.4f},"
+          f" {ip_ws_end.y:+.4f}, {ip_ws_end.z:+.4f})")
+    print(f"    ip arc:  local_end={ip_w2l(ip_ws_end)}")
     arc_kf(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
-           arc_height=0.04)
+           arc_height=0.04, w2l=ip_w2l)
 
     # Rest rotation: upside down (180° around X) so the blind holes
     # face upward.  Keep accumulated Z turns.
@@ -5820,10 +5847,16 @@ def setup_camera_animation():
     # Desired world rest: +X, +Y, near corner of pillar top
     bpy.context.scene.frame_set(int(F8_END))
     bpy.context.view_layer.update()
+    plug_w2l = make_w2l(plug)
     plug_ws_start = plug.matrix_world.translation.copy()
     plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + PLUG_MIDDLE_R))
+    print(f"    plug arc: ws_start=({plug_ws_start.x:+.4f},"
+          f" {plug_ws_start.y:+.4f}, {plug_ws_start.z:+.4f})")
+    print(f"    plug arc: ws_end  =({plug_ws_end.x:+.4f},"
+          f" {plug_ws_end.y:+.4f}, {plug_ws_end.z:+.4f})")
+    print(f"    plug arc: local_end={plug_w2l(plug_ws_end)}")
     arc_kf(plug, F8_END, F9_END, plug_ws_start, plug_ws_end,
-           arc_height=0.05)
+           arc_height=0.05, w2l=plug_w2l)
 
     # Rest rotation: counter assembly tilt, plug upright on surface
     plug_rest_rot = world_rot_to_local(Matrix.Identity(3))
