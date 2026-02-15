@@ -5241,70 +5241,81 @@ def goto(name: str = ""):
     print(f"  target  = ({tgt_loc[0]:+.4f}, {tgt_loc[1]:+.4f}, {tgt_loc[2]:+.4f})")
 
 
-def add_glass_fade(obj, frame_start, frame_end):
-    """Fade an object's material from opaque concrete to transparent.
+def add_transparent_fade(obj, frame_start, frame_end,
+                         tint=(0.85, 0.90, 0.95), max_fade=1.0):
+    """Fade an object's material from fully opaque to transparent.
 
-    Inserts a Mix Shader between the existing Principled BSDF output and
-    the Material Output, with a Transparent BSDF on the second slot.
-    Unlike glass, Transparent BSDF passes light straight through with no
-    refraction — perfect for revealing internal components clearly.
+    Finds whatever shader node is currently wired into the Material
+    Output's Surface socket, disconnects it, and re-routes through a
+    new Mix Shader: original shader → slot 1, Transparent BSDF → slot 2.
+    This works regardless of whether the surface chain ends at a
+    Principled BSDF, a Mix Shader, or any other shader node.
 
-    A faint tint is applied so the pillar outline remains subtly visible
-    even at full transparency.
-
-    The mix factor is keyframed from 0 (fully opaque, original material)
-    at *frame_start* to 1 (fully transparent) at *frame_end*.
-
-    Works on the FIRST material slot of *obj*.
+    Parameters
+    ----------
+    obj : bpy.types.Object
+        The Blender object whose first material slot will be modified.
+    frame_start : int
+        Frame at which the fade begins (mix factor = 0, fully opaque).
+    frame_end : int
+        Frame at which the fade completes (mix factor = *max_fade*).
+    tint : tuple of 3 floats
+        RGB colour of the Transparent BSDF.  Pure white (1,1,1) is
+        perfectly clear; tinted values leave a coloured residue.
+    max_fade : float
+        Final mix factor (0–1).  1.0 = fully transparent.  Values < 1
+        leave a ghost of the original material showing through.
     """
     mat = obj.data.materials[0]
     tree = mat.node_tree
     nodes = tree.nodes
     links = tree.links
 
-    # Find existing Principled BSDF and Material Output nodes
-    bsdf = None
+    # Find the Material Output node
     output = None
     for n in nodes:
-        if n.type == 'BSDF_PRINCIPLED':
-            bsdf = n
-        elif n.type == 'OUTPUT_MATERIAL':
+        if n.type == 'OUTPUT_MATERIAL':
             output = n
-    if not bsdf or not output:
-        print("  WARNING: could not find BSDF / Output nodes — skipping glass fade")
+            break
+    if not output:
+        print(f"  WARNING: {obj.name} — no Material Output node, skipping")
         return
 
-    # Remove the existing BSDF → Output link
+    # Find the node currently driving the Surface input
+    source_socket = None
     for link in list(links):
         if link.to_node == output and link.to_socket.name == 'Surface':
+            source_socket = link.from_socket
             links.remove(link)
             break
+    if not source_socket:
+        print(f"  WARNING: {obj.name} — nothing connected to Surface, skipping")
+        return
 
     # Create Transparent BSDF — no refraction, light passes straight through.
-    # Slight blue-grey tint keeps the pillar silhouette faintly visible.
     ox, oy = output.location
     transparent = nodes.new('ShaderNodeBsdfTransparent')
     transparent.location = (ox - 200, oy - 200)
     transparent.label = "Transparent Fade"
-    transparent.inputs['Color'].default_value = (0.85, 0.90, 0.95, 1.0)
+    transparent.inputs['Color'].default_value = (*tint, 1.0)
 
     # Create Mix Shader
     mix = nodes.new('ShaderNodeMixShader')
     mix.location = (ox, oy)
-    mix.label = "Concrete ↔ Transparent"
+    mix.label = "Opaque ↔ Transparent"
 
     # Shift output node to the right
     output.location = (ox + 200, oy)
 
-    # Wire: BSDF → Mix.Shader1, Transparent → Mix.Shader2, Mix → Output
-    links.new(bsdf.outputs['BSDF'], mix.inputs[1])
+    # Wire: original → Mix.Shader1, Transparent → Mix.Shader2, Mix → Output
+    links.new(source_socket, mix.inputs[1])
     links.new(transparent.outputs['BSDF'], mix.inputs[2])
     links.new(mix.outputs['Shader'], output.inputs['Surface'])
 
-    # Keyframe the mix factor: 0 at frame_start, 1 at frame_end
+    # Keyframe the mix factor: 0 at frame_start, max_fade at frame_end
     mix.inputs[0].default_value = 0.0
     mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
-    mix.inputs[0].default_value = 1.0
+    mix.inputs[0].default_value = max_fade
     mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
 
     # Make keyframes linear for a steady fade
@@ -5313,7 +5324,65 @@ def add_glass_fade(obj, frame_start, frame_end):
             for kp in fc.keyframe_points:
                 kp.interpolation = 'LINEAR'
 
-    print(f"    Transparent fade: frames {frame_start}–{frame_end}")
+    print(f"    {obj.name} fade: frames {frame_start}–{frame_end}"
+          f"  (max {max_fade:.0%}, tint {tint})")
+
+
+def _fade_material(mat, frame_start, frame_end,
+                   tint=(0.85, 0.90, 0.95), max_fade=1.0):
+    """Like add_transparent_fade but operates on a material directly.
+
+    Used for materials assigned to Geometry Nodes instances (grass blades,
+    weeds, flowers) where we have the material but no single owner object.
+    """
+    tree = mat.node_tree
+    nodes = tree.nodes
+    links = tree.links
+
+    output = None
+    for n in nodes:
+        if n.type == 'OUTPUT_MATERIAL':
+            output = n
+            break
+    if not output:
+        return
+
+    source_socket = None
+    for link in list(links):
+        if link.to_node == output and link.to_socket.name == 'Surface':
+            source_socket = link.from_socket
+            links.remove(link)
+            break
+    if not source_socket:
+        return
+
+    ox, oy = output.location
+    transparent = nodes.new('ShaderNodeBsdfTransparent')
+    transparent.location = (ox - 200, oy - 200)
+    transparent.label = "Transparent Fade"
+    transparent.inputs['Color'].default_value = (*tint, 1.0)
+
+    mix = nodes.new('ShaderNodeMixShader')
+    mix.location = (ox, oy)
+    mix.label = "Opaque ↔ Transparent"
+    output.location = (ox + 200, oy)
+
+    links.new(source_socket, mix.inputs[1])
+    links.new(transparent.outputs['BSDF'], mix.inputs[2])
+    links.new(mix.outputs['Shader'], output.inputs['Surface'])
+
+    mix.inputs[0].default_value = 0.0
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
+    mix.inputs[0].default_value = max_fade
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
+
+    if mat.node_tree.animation_data and mat.node_tree.animation_data.action:
+        for fc in mat.node_tree.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = 'LINEAR'
+
+    print(f"    {mat.name} fade: frames {frame_start}–{frame_end}"
+          f"  (max {max_fade:.0%})")
 
 
 def setup_camera_animation():
@@ -5348,6 +5417,8 @@ def setup_camera_animation():
       1426–1515 Plug assembly return: tilt back + screw in
       1516–1560 Screws reinsert: Screw_180 then Screw_0
       1600–1630 Pillar fades to transparent
+      1630–1660 Surroundings fade (terrain, landscape, grass, stones, base, irons)
+      1660–1690 Internal structure fade (fill, boxes, tubes, pipe)
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5438,7 +5509,9 @@ def setup_camera_animation():
     F12_END = 1515            # end of segment 12 (3 s: assembly return)
     F13_END = 1560            # end of segment 13 (1.5 s: screw insert)
     F14_END = 1630            # end of segment 14 (1 s: pillar fades to transparent)
-    TOTAL_FRAMES = F14_END    # extended as segments are added
+    F15_END = 1660            # end of segment 15 (1 s: surroundings fade)
+    F16_END = 1690            # end of segment 16 (1 s: internal structure fade)
+    TOTAL_FRAMES = F16_END    # extended as segments are added
 
     # ── Remove any existing camera / target / assembly empties ─────
     for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
@@ -6230,17 +6303,78 @@ def setup_camera_animation():
     # =================================================================
     # SEGMENT 14 — Pillar fades to transparent  (frames 1600 → 1630,  1 s)
     # =================================================================
-    # Camera holds at PROFILE_1 while the concrete fades to transparent,
-    # revealing all internal components.
+    # Camera holds at PROFILE_1 while the pillar concrete fades out.
     F14_START = 1600
     kf(cam, F14_START, PROFILE_1_CAM)
     kf(target, F14_START, PROFILE_1_TGT)
     kf(cam, F14_END, PROFILE_1_CAM)
     kf(target, F14_END, PROFILE_1_TGT)
 
-    # Apply the glass fade to the Pillar object
+    # Fade the pillar to transparent (blue-grey tint for subtle outline)
     pillar = bpy.data.objects['Pillar']
-    add_glass_fade(pillar, F14_START, F14_END)
+    add_transparent_fade(pillar, F14_START, F14_END,
+                         tint=(0.85, 0.90, 0.95))
+
+    # =================================================================
+    # SEGMENT 15 — Surroundings fade  (frames 1630 → 1660,  1 s)
+    # =================================================================
+    # After the pillar is transparent, terrain, landscape, grass, stones,
+    # base slab, and angle irons all fade out, leaving a faint green
+    # residue (max_fade=0.96) so the ground plane is implied.
+    F15_START = F14_END
+    kf(cam, F15_START, PROFILE_1_CAM)
+    kf(target, F15_START, PROFILE_1_TGT)
+    kf(cam, F15_END, PROFILE_1_CAM)
+    kf(target, F15_END, PROFILE_1_TGT)
+
+    # Fully transparent — max_fade=1.0 and pure white tint.
+    CLEAR = (1.0, 1.0, 1.0)
+
+    terrain = bpy.data.objects['Terrain']
+    add_transparent_fade(terrain, F15_START, F15_END,
+                         tint=CLEAR, max_fade=1.0)
+    landscape = bpy.data.objects['Landscape']
+    add_transparent_fade(landscape, F15_START, F15_END,
+                         tint=CLEAR, max_fade=1.0)
+
+    # Fade grass / weed / flower / stone materials that are used by
+    # Geometry Nodes instances — they have their own materials.
+    for mat_name in ("GrassBlade", "WeedLeaf", "FlowerDaisy",
+                     "FlowerButtercup", "Pebble"):
+        mat = bpy.data.materials.get(mat_name)
+        if mat:
+            _fade_material(mat, F15_START, F15_END,
+                           tint=CLEAR, max_fade=1.0)
+
+    # Fade the base slab and four angle irons
+    base_slab = bpy.data.objects.get('BaseSlab')
+    if base_slab:
+        add_transparent_fade(base_slab, F15_START, F15_END,
+                             tint=(0.75, 0.80, 0.75), max_fade=0.96)
+    for i in range(4):
+        ai = bpy.data.objects.get(f'AngleIron_{i}')
+        if ai:
+            add_transparent_fade(ai, F15_START, F15_END,
+                                 tint=(0.75, 0.80, 0.75), max_fade=0.96)
+
+    # =================================================================
+    # SEGMENT 16 — Internal structure fade  (frames 1660 → 1690,  1 s)
+    # =================================================================
+    # Concrete fill, lower block, lower/upper box, sighting tubes, and
+    # centre pipe fade out — leaving only brass internals visible.
+    F16_START = F15_END
+    kf(cam, F16_START, PROFILE_1_CAM)
+    kf(target, F16_START, PROFILE_1_TGT)
+    kf(cam, F16_END, PROFILE_1_CAM)
+    kf(target, F16_END, PROFILE_1_TGT)
+
+    for obj_name in ("ConcreteFill", "LowerBlock", "LowerBox", "UpperBox",
+                     "CentrePipe", "ST_East", "ST_West", "ST_North",
+                     "ST_South"):
+        obj = bpy.data.objects.get(obj_name)
+        if obj:
+            add_transparent_fade(obj, F16_START, F16_END,
+                                 tint=(0.90, 0.92, 0.90), max_fade=0.96)
 
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
@@ -6261,6 +6395,8 @@ def setup_camera_animation():
     print(f"      {F11_END+1}–{F12_END}:  Assembly return (tilt + screw in)")
     print(f"      {F12_END+1}–{F13_END}:  Screws reinsert (Screw_180 → Screw_0)")
     print(f"      {F14_START}–{F14_END}:  Pillar fades to transparent")
+    print(f"      {F15_START}–{F15_END}:  Surroundings fade (terrain, landscape, grass, stones, base, irons)")
+    print(f"      {F16_START}–{F16_END}:  Internal structure fade (fill, boxes, tubes, pipe)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
