@@ -5268,6 +5268,16 @@ def add_transparent_fade(obj, frame_start, frame_end,
         leave a ghost of the original material showing through.
     """
     mat = obj.data.materials[0]
+
+    # Make single-user so fading this object doesn't affect others
+    # that share the same material (e.g. Pillar and ConcreteFill both
+    # use "Concrete").  Without this, each call chains another Mix
+    # Shader onto the shared material, and only the outermost gets
+    # unfaded later.
+    if mat.users > 1:
+        mat = mat.copy()
+        obj.data.materials[0] = mat
+
     tree = mat.node_tree
     nodes = tree.nodes
     links = tree.links
@@ -5389,62 +5399,41 @@ def _fade_material(mat, frame_start, frame_end,
 def _unfade_material(mat, frame_start, frame_end):
     """Reverse a previous transparent fade — keyframe mix factor back to 0.
 
-    Locates the Mix Shader sitting directly in front of the Material
-    Output's Surface socket (the one inserted by ``_fade_material`` /
-    ``add_transparent_fade``) and adds two new keyframes: hold the
-    faded-out value at *frame_start*, then animate to 0.0 (fully opaque)
-    at *frame_end*.
+    Finds every "Opaque ↔ Transparent" Mix Shader in the material and
+    adds two keyframes to each: hold the faded-out value at
+    *frame_start*, then animate to 0.0 (fully opaque) at *frame_end*.
 
-    The hold value is read from the fcurve (evaluated at *frame_start*)
-    rather than from ``default_value``, because Blender returns the
-    animated value at the *current scene frame* when you read a property
-    that has keyframes — which is almost certainly not *frame_start*.
+    The hold value is read from each node's fcurve (evaluated at
+    *frame_start*) rather than from ``default_value``, because Blender
+    returns the animated value at the *current scene frame* when you
+    read a keyframed property — which is almost certainly wrong.
     """
     tree = mat.node_tree
     nodes = tree.nodes
-    links = tree.links
 
-    # ── Find the Output Material node ──────────────────────────
-    output = None
-    for n in nodes:
-        if n.type == 'OUTPUT_MATERIAL':
-            output = n
-            break
-    if not output:
-        print(f"    WARNING: {mat.name} — no Output Material node, "
-              "skipping unfade")
-        return
-
-    # ── Find the Mix Shader wired to the Surface input ─────────
-    mix = None
-    for link in links:
-        if (link.to_node == output
-                and link.to_socket.name == 'Surface'
-                and link.from_node.label == "Opaque ↔ Transparent"):
-            mix = link.from_node
-            break
-    if not mix:
+    # ── Find ALL "Opaque ↔ Transparent" Mix Shaders ──────────
+    mix_nodes = [n for n in nodes
+                 if n.label == "Opaque ↔ Transparent"]
+    if not mix_nodes:
         print(f"    WARNING: {mat.name} — no 'Opaque ↔ Transparent' "
-              "node driving Surface output, skipping unfade")
+              "node found, skipping unfade")
         return
 
-    # ── Determine the hold value from the fcurve ──────────────
-    # Reading mix.inputs[0].default_value would give us the animated
-    # value at the *current scene frame*, not at frame_start.  Instead,
-    # evaluate the fcurve directly.
-    fac_path = f'nodes["{mix.name}"].inputs[0].default_value'
-    hold_value = 1.0                     # safe fallback (fully transparent)
-    if tree.animation_data and tree.animation_data.action:
-        for fc in tree.animation_data.action.fcurves:
-            if fc.data_path == fac_path:
-                hold_value = fc.evaluate(frame_start)
-                break
+    for mix in mix_nodes:
+        # ── Determine the hold value from the fcurve ──────────
+        fac_path = f'nodes["{mix.name}"].inputs[0].default_value'
+        hold_value = 1.0                 # safe fallback
+        if tree.animation_data and tree.animation_data.action:
+            for fc in tree.animation_data.action.fcurves:
+                if fc.data_path == fac_path:
+                    hold_value = fc.evaluate(frame_start)
+                    break
 
-    # ── Insert unfade keyframes ────────────────────────────────
-    mix.inputs[0].default_value = hold_value
-    mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
-    mix.inputs[0].default_value = 0.0
-    mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
+        # ── Insert unfade keyframes ───────────────────────────
+        mix.inputs[0].default_value = hold_value
+        mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
+        mix.inputs[0].default_value = 0.0
+        mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
 
     # Keep all keyframes linear
     if tree.animation_data and tree.animation_data.action:
@@ -5453,7 +5442,7 @@ def _unfade_material(mat, frame_start, frame_end):
                 kp.interpolation = 'LINEAR'
 
     print(f"    {mat.name} unfade: frames {frame_start}–{frame_end}"
-          f"  (hold {hold_value:.3f} → 0.0)")
+          f"  ({len(mix_nodes)} mix node(s))")
 
 
 def unfade_transparent(obj, frame_start, frame_end):
