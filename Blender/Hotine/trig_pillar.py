@@ -20,7 +20,7 @@ import bmesh
 import math
 import os
 import random
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 
 # =====================================================================
@@ -55,8 +55,12 @@ UB_BASE_Z           = 0.000     # box base sits on top of the base slab
 FILL_HEIGHT         = 0.096     # [E] top 5 mm below bottom of sighting-tube holes
 
 # --- Upper Centre Mark ---
-UCM_R               = 0.016     # [E] ~1.25" dia / 2
-UCM_H               = 0.012     # [E] dome height
+UCM_R               = 0.03175   # [D] 2.5" widest flange dia / 2
+UCM_DISC_H          = 0.005     # [E] disc thickness (5 mm, both discs)
+UCM_SPIKE_D         = 0.005     # [E] spike diameter (5 mm)
+UCM_STEM_H          = 0.072     # [E] stem zone height incl. fillets (72 mm)
+UCM_FILLET_R        = 0.005     # [E] fillet radius at stem-disc junctions (5 mm)
+UCM_BASE_H          = 0.008     # [E] base disc height (8 mm)
 
 # --- Base Slab (Foundation) ---
 BASE_TOP_HW         = 0.380     # [E] ~2'6" / 2 — wider overhang around pillar
@@ -86,8 +90,8 @@ SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
 LOOP_R              = 0.015     # [D] 30 mm loop dia / 2
 LOOP_WIRE_R         = 0.002     # [D] 4 mm wire dia / 2
 LOOP_DEPTH          = 0.003     # [D] top of loop 3 mm below pillar surface
-LOOP_RECESS_L       = 0.040     # [D] 40 mm recess length (radial)
-LOOP_RECESS_W       = 0.015     # [D] 15 mm recess width (tangential)
+LOOP_RECESS_L       = 0.070     # [E] 70 mm total recess length (tangential)
+LOOP_RECESS_W       = 0.020     # [E] 20 mm U-trough width (radial)
 LOOP_RECESS_D       = 0.015     # [D] 15 mm recess depth
 LOOP_POS_R          = 0.120     # [D] 120 mm from pillar centre
 
@@ -118,7 +122,7 @@ SCREW_SHAFT_R       = 0.00195   # [D] <4 mm shaft dia / 2
 SCREW_SHAFT_H       = 0.010     # [D] 10 mm long shaft
 SCREW_HEAD_R        = 0.0035    # [D] 7 mm head dia / 2
 SCREW_HEAD_H        = 0.005     # [D] 5 mm head height
-SCREW_SOCKET_R      = 0.0015    # [D] 3 mm allen socket dia / 2
+SCREW_SOCKET_R      = 0.0025    # [D] 3 mm allen socket dia / 2
 SCREW_SOCKET_DEPTH  = 0.003     # [D] 3 mm deep
 SCREW_SPACING       = 0.077     # [D] 77 mm apart (matches spider/plug)
 
@@ -133,6 +137,23 @@ FB_D                = 0.008     # [D] plate thickness behind beading
 FB_BEAD_R           = 0.005     # [D] 5 mm semicircular beading radius
 FB_SETBACK          = 0.023     # [D] bead peak ~10 mm behind pillar face at top
 FB_BTM_Z            = 0.172     # [D] 30 mm above sighting tube top edge
+FB_RECESS_MARGIN    = 0.020     # [E] recess outer edge this far beyond plate edge
+
+# --- Flush Bracket Keying Structure ---
+FB_REAR_H_FRAC     = 0.90      # [E] rear plate height as fraction of front
+FB_BAR_H            = 0.010     # [D] keying bar height (10 mm)
+FB_BAR_DEPTH        = 0.025     # [D] keying bar protrusion behind rear plate (25 mm)
+FB_ANCHOR_H         = 0.035     # [D] anchor block height (35 mm)
+FB_ANCHOR_DEPTH     = 0.010     # [D] anchor block depth (10 mm)
+
+# --- Flush Bracket Logo Relief ---
+LOGO_SVG            = 'TUK-Logo.svg'   # SVG file in ../../res/ relative to script
+LOGO_RELIEF         = 0.0048    # [E] maximum relief height (4.8 mm, bright green UK)
+LOGO_MARGIN         = 0.014     # [E] 8 mm margin inside plate edges
+LOGO_V_STRETCH      = 1.30      # [E] vertical stretch factor (20 % taller)
+LOGO_BTM_OFFSET     = 0.020     # [E] bottom of logo 10 mm above plate bottom
+LOGO_BEVEL_FRAC     = 0.10      # [E] bevel width as fraction of layer relief
+LOGO_BEVEL_SEGS     = 1         # [E] bevel segments (1 = flat chamfer, 2+ = rounded)
 
 # --- Lower Wooden Box ---
 LB_HW               = 0.127     # [E] ~10" / 2
@@ -144,8 +165,14 @@ LBLOCK_HW           = 0.152     # [D] 1'0" / 2
 LBLOCK_H            = 0.305     # [E] ~12"
 
 # --- Lower Centre Mark ---
-LCM_R               = 0.016     # [E] same as upper
-LCM_H               = 0.012     # [E] dome height
+# Below-ground components reuse UCM stem/fillet/base dimensions.
+# Above-ground dimensions derived from the shared base disc.
+LCM_CYL_H          = 0.003     # [E] cylinder thickness (3 mm)
+LCM_PUNCH_R        = 0.0014    # [E] punch mark radius (1.4 mm); depth = radius (45°)
+
+# --- Hilltop Terrain ---
+TERRAIN_RADIUS      = 6.0       # [E] radius of the grassy dome (metres)
+DOME_HEIGHT         = 1.10      # [E] height drop from dome centre to edge (metres)
 
 
 # =====================================================================
@@ -201,8 +228,9 @@ def smooth(obj):
 def boolean_cut(target, cutter, operation='DIFFERENCE', solver='EXACT'):
     """Apply a boolean modifier to target using cutter, then remove cutter.
 
-    Use solver='FAST' for cuts where EXACT fails silently (e.g. cylindrical
-    holes through complex geometry).
+    The EXACT solver is used by default — it uses exact arithmetic and
+    produces clean, predictable geometry.  FAST is available as a fallback
+    but produces messier triangulation and potential artefacts.
 
     After applying, normals are recalculated so that subsequent booleans
     on the same target mesh have clean, consistent geometry to work with.
@@ -502,7 +530,7 @@ def make_concrete_material():
     WHITEWASH_SCALE    = 5.0
     WHITEWASH_COLOUR   = (0.45, 0.42, 0.37)
     CONCRETE_COLOUR    = (0.30, 0.28, 0.23)
-    STAIN_STRENGTH     = 0.35
+    STAIN_STRENGTH     = 0.55
     STAIN_SCALE        = 4.0
     STAIN_STRETCH      = 8.0
     ROUGHNESS_BASE     = 0.85
@@ -1103,8 +1131,24 @@ def make_terrain_material():
     GRASS_COL_DRY  = (0.20, 0.18, 0.06)    # dry / bare patches
     GRASS_ROUGH    = 0.90
     GRASS_SCALE    = 8.0
-    GRASS_BUMP     = 0.08
-    GRASS_DRY_AMT  = 0.20                  # proportion of dry patches
+    GRASS_BUMP     = 0.12
+    GRASS_DRY_AMT  = 0.10                  # proportion of dry patches
+
+    # Radial dryness (centre browner, edges greener)
+    RADIAL_DRY_INNER = 0.80                # full dryness within this radius
+    RADIAL_DRY_OUTER = 4.60                # fades to green by this radius
+    RADIAL_DRY_POWER = 0.5                 # >1 = tighter centre falloff
+    RADIAL_NOISE_SCALE = 0.6               # blotchy radial variation
+    RADIAL_NOISE_STRENGTH = 0.8            # 0..1 → how patchy
+
+    # Stones / rocks
+    STONE_SCALE     = 6.0                  # higher = smaller stones
+    STONE_THRESHOLD = 0.12                 # distance threshold for stones
+    STONE_BUMP      = 0.18                 # bump height contribution
+    STONE_COL_A     = (0.38, 0.36, 0.33)   # light stone
+    STONE_COL_B     = (0.25, 0.23, 0.21)   # dark stone
+    STONE_ROUGH     = 0.85
+    USE_SHADER_STONES = False              # if True, tint terrain with stone mask
     # ─────────────────────────────────────────────────────────────
 
     mat = bpy.data.materials.new("Terrain")
@@ -1143,6 +1187,73 @@ def make_terrain_material():
     map_sg.inputs['To Max'].default_value = 1.0
     map_sg.clamp = True
     L.new(sep_xyz.outputs['Z'], map_sg.inputs['Value'])
+
+    # ── Radial dryness (brown centre → green edges) ─────────────
+    # Compute radius from X/Y, then map to a 0–1 dryness mask.
+    comb_xy = N('ShaderNodeCombineXYZ', (-1050, -350), "XY Vector")
+    L.new(sep_xyz.outputs['X'], comb_xy.inputs['X'])
+    L.new(sep_xyz.outputs['Y'], comb_xy.inputs['Y'])
+
+    radius = N('ShaderNodeVectorMath', (-900, -350), "Radius")
+    radius.operation = 'LENGTH'
+    L.new(comb_xy.outputs['Vector'], radius.inputs[0])
+
+    radial_sub = N('ShaderNodeMath', (-750, -350), "Radial Shift")
+    radial_sub.operation = 'SUBTRACT'
+    radial_sub.inputs[1].default_value = RADIAL_DRY_INNER
+    L.new(radius.outputs['Value'], radial_sub.inputs[0])
+
+    radial_map = N('ShaderNodeMapRange', (-600, -350), "Radial Dry Map")
+    radial_map.inputs['From Min'].default_value = 0.0
+    radial_map.inputs['From Max'].default_value = max(
+        0.01, RADIAL_DRY_OUTER - RADIAL_DRY_INNER)
+    radial_map.inputs['To Min'].default_value = 1.0
+    radial_map.inputs['To Max'].default_value = 0.0
+    radial_map.clamp = True
+    L.new(radial_sub.outputs['Value'], radial_map.inputs['Value'])
+
+    radial_pow = N('ShaderNodeMath', (-450, -350), "Radial Dry Power")
+    radial_pow.operation = 'POWER'
+    radial_pow.inputs[1].default_value = RADIAL_DRY_POWER
+    L.new(radial_map.outputs['Result'], radial_pow.inputs[0])
+
+    # Blotchy modulation of radial dryness
+    radial_noise = N('ShaderNodeTexNoise', (-450, -500), "Radial Noise")
+    radial_noise.inputs['Scale'].default_value = RADIAL_NOISE_SCALE
+    radial_noise.inputs['Detail'].default_value = 2.0
+    radial_noise.inputs['Roughness'].default_value = 0.6
+    L.new(tex_coord.outputs['Object'], radial_noise.inputs['Vector'])
+
+    radial_noise_map = N('ShaderNodeMapRange', (-250, -500), "Radial Noise Map")
+    radial_noise_map.inputs['From Min'].default_value = 0.0
+    radial_noise_map.inputs['From Max'].default_value = 1.0
+    radial_noise_map.inputs['To Min'].default_value = 1.0 - RADIAL_NOISE_STRENGTH
+    radial_noise_map.inputs['To Max'].default_value = 1.0 + RADIAL_NOISE_STRENGTH
+    radial_noise_map.clamp = True
+    L.new(radial_noise.outputs['Fac'], radial_noise_map.inputs['Value'])
+
+    radial_patch = N('ShaderNodeMath', (-50, -420), "Radial Dry Patch")
+    radial_patch.operation = 'MULTIPLY'
+    L.new(radial_pow.outputs['Value'], radial_patch.inputs[0])
+    L.new(radial_noise_map.outputs['Result'], radial_patch.inputs[1])
+
+    radial_clamp = N('ShaderNodeMapRange', (120, -420), "Radial Dry Clamp")
+    radial_clamp.inputs['From Min'].default_value = 0.0
+    radial_clamp.inputs['From Max'].default_value = 1.0
+    radial_clamp.inputs['To Min'].default_value = 0.0
+    radial_clamp.inputs['To Max'].default_value = 1.0
+    radial_clamp.clamp = True
+    L.new(radial_patch.outputs['Value'], radial_clamp.inputs['Value'])
+
+    radial_grass = N('ShaderNodeMath', (300, -420), "Radial Grass")
+    radial_grass.operation = 'SUBTRACT'
+    radial_grass.inputs[0].default_value = 1.0
+    L.new(radial_clamp.outputs['Result'], radial_grass.inputs[1])
+
+    grass_mask = N('ShaderNodeMath', (500, -200), "Grass Mask")
+    grass_mask.operation = 'MAXIMUM'
+    L.new(map_sg.outputs['Result'], grass_mask.inputs[0])
+    L.new(radial_grass.outputs['Value'], grass_mask.inputs[1])
 
     # ── Bedrock colour ───────────────────────────────────────────
     rock_noise = N('ShaderNodeTexNoise', (-700, 500), "Rock Noise")
@@ -1197,12 +1308,33 @@ def make_terrain_material():
     dry_cr.color_ramp.elements[1].position = 1.0
     L.new(dry_noise.outputs['Fac'], dry_cr.inputs['Fac'])
 
+    # Dry patches biased toward the centre (radial dryness)
+    dry_strength = N('ShaderNodeMapRange', (-300, -350), "Dry Strength")
+    dry_strength.inputs['From Min'].default_value = 0.0
+    dry_strength.inputs['From Max'].default_value = 1.0
+    dry_strength.inputs['To Min'].default_value = 0.20
+    dry_strength.inputs['To Max'].default_value = 1.00
+    dry_strength.clamp = True
+    L.new(radial_clamp.outputs['Result'], dry_strength.inputs['Value'])
+
+    dry_mask = N('ShaderNodeMath', (-120, -350), "Dry Mask × Radial")
+    dry_mask.operation = 'MULTIPLY'
+    L.new(dry_cr.outputs['Color'], dry_mask.inputs[0])
+    L.new(dry_strength.outputs['Result'], dry_mask.inputs[1])
+
     grass_mix = N('ShaderNodeMixRGB', (-300, -200), "Grass + Dry")
     grass_mix.blend_type = 'MIX'
     grass_mix.inputs[0].default_value = 1.0   # use dry mask as factor
-    L.new(dry_cr.outputs['Color'], grass_mix.inputs['Fac'])
+    L.new(dry_mask.outputs['Value'], grass_mix.inputs['Fac'])
     L.new(grass_cr.outputs['Color'], grass_mix.inputs['Color1'])
     grass_mix.inputs['Color2'].default_value = (*GRASS_COL_DRY, 1)
+
+    # Radial dryness: mix grass with soil colour toward the centre
+    grass_radial = N('ShaderNodeMixRGB', (-120, -50), "Grass ↔ Soil (Radial)")
+    grass_radial.blend_type = 'MIX'
+    L.new(radial_clamp.outputs['Result'], grass_radial.inputs['Fac'])
+    L.new(grass_mix.outputs['Color'], grass_radial.inputs['Color1'])
+    L.new(soil_cr.outputs['Color'], grass_radial.inputs['Color2'])
 
     # ── Combine layers: bedrock → soil → grass ───────────────────
     mix_bs = N('ShaderNodeMixRGB', (-100, 300), "Bedrock→Soil Mix")
@@ -1213,9 +1345,10 @@ def make_terrain_material():
 
     mix_sg = N('ShaderNodeMixRGB', (100, 100), "→Grass Mix")
     mix_sg.blend_type = 'MIX'
-    L.new(map_sg.outputs['Result'], mix_sg.inputs['Fac'])
+    L.new(grass_mask.outputs['Value'], mix_sg.inputs['Fac'])
     L.new(mix_bs.outputs['Color'], mix_sg.inputs['Color1'])
-    L.new(grass_mix.outputs['Color'], mix_sg.inputs['Color2'])
+    L.new(grass_radial.outputs['Color'], mix_sg.inputs['Color2'])
+
 
     # ── Roughness: blend per layer (bedrock → soil → grass) ─────
     rough_bs = N('ShaderNodeMixRGB', (-100, -200), "Rough B→S")
@@ -1226,9 +1359,10 @@ def make_terrain_material():
 
     rough_final = N('ShaderNodeMixRGB', (100, -200), "Rough →G")
     rough_final.blend_type = 'MIX'
-    L.new(map_sg.outputs['Result'], rough_final.inputs['Fac'])
+    L.new(grass_mask.outputs['Value'], rough_final.inputs['Fac'])
     L.new(rough_bs.outputs['Color'], rough_final.inputs['Color1'])
     rough_final.inputs['Color2'].default_value = (GRASS_ROUGH, GRASS_ROUGH, GRASS_ROUGH, 1)
+
 
     # ── Bump: grassy lumpiness on top layer ──────────────────────
     bump_noise = N('ShaderNodeTexNoise', (-300, -500), "Grass Bump Noise")
@@ -1240,22 +1374,222 @@ def make_terrain_material():
     bump_mul = N('ShaderNodeMath', (-100, -500), "Bump × Grass Mask")
     bump_mul.operation = 'MULTIPLY'
     L.new(bump_noise.outputs['Fac'], bump_mul.inputs[0])
-    L.new(map_sg.outputs['Result'], bump_mul.inputs[1])
+    L.new(grass_mask.outputs['Value'], bump_mul.inputs[1])
+
+    # Stone/rock micro-relief — small pebbles concentrated near centre
+    stone_voro = N('ShaderNodeTexVoronoi', (-300, -750), "Stone Voronoi")
+    stone_voro.inputs['Scale'].default_value = STONE_SCALE
+    stone_voro.voronoi_dimensions = '3D'
+    L.new(tex_coord.outputs['Object'], stone_voro.inputs['Vector'])
+
+    stone_mask = N('ShaderNodeMath', (-100, -750), "Stone Mask")
+    stone_mask.operation = 'LESS_THAN'
+    stone_mask.inputs[1].default_value = STONE_THRESHOLD
+    L.new(stone_voro.outputs['Distance'], stone_mask.inputs[0])
+
+    stone_occ = N('ShaderNodeMath', (-100, -850), "Stone Occurrence")
+    stone_occ.operation = 'MULTIPLY'
+    L.new(stone_mask.outputs['Value'], stone_occ.inputs[0])
+    L.new(radial_clamp.outputs['Result'], stone_occ.inputs[1])
+
+    stone_cr = N('ShaderNodeValToRGB', (100, -850), "Stone Colour")
+    stone_cr.color_ramp.elements[0].position = 0.35
+    stone_cr.color_ramp.elements[0].color = (*STONE_COL_B, 1)
+    stone_cr.color_ramp.elements[1].position = 0.65
+    stone_cr.color_ramp.elements[1].color = (*STONE_COL_A, 1)
+    L.new(stone_voro.outputs['Distance'], stone_cr.inputs['Fac'])
+
+    # Stones tint the base colour in the drier centre
+    stone_mix = N('ShaderNodeMixRGB', (250, 100), "Base + Stones")
+    stone_mix.blend_type = 'MIX'
+    L.new(stone_occ.outputs['Value'], stone_mix.inputs['Fac'])
+    L.new(mix_sg.outputs['Color'], stone_mix.inputs['Color1'])
+    L.new(stone_cr.outputs['Color'], stone_mix.inputs['Color2'])
+
+    rough_stone = N('ShaderNodeMixRGB', (250, -200), "Rough + Stones")
+    rough_stone.blend_type = 'MIX'
+    L.new(stone_occ.outputs['Value'], rough_stone.inputs['Fac'])
+    L.new(rough_final.outputs['Color'], rough_stone.inputs['Color1'])
+    rough_stone.inputs['Color2'].default_value = (STONE_ROUGH, STONE_ROUGH, STONE_ROUGH, 1)
+
+    stone_height = N('ShaderNodeMath', (100, -750), "Stone Height")
+    stone_height.operation = 'MULTIPLY'
+    stone_height.inputs[1].default_value = STONE_BUMP
+    L.new(stone_mask.outputs['Value'], stone_height.inputs[0])
+
+    stone_centre = N('ShaderNodeMath', (250, -750), "Stone × Dry")
+    stone_centre.operation = 'MULTIPLY'
+    L.new(stone_height.outputs['Value'], stone_centre.inputs[0])
+    L.new(radial_clamp.outputs['Result'], stone_centre.inputs[1])
+
+    bump_add = N('ShaderNodeMath', (-20, -600), "Bump + Stones")
+    bump_add.operation = 'ADD'
+    L.new(bump_mul.outputs['Value'], bump_add.inputs[0])
+    L.new(stone_centre.outputs['Value'], bump_add.inputs[1])
 
     bump = N('ShaderNodeBump', (100, -500), "Bump")
     bump.inputs['Strength'].default_value = GRASS_BUMP
-    L.new(bump_mul.outputs['Value'], bump.inputs['Height'])
+    L.new(bump_add.outputs['Value'], bump.inputs['Height'])
 
     # ── BSDF ─────────────────────────────────────────────────────
     bsdf = N('ShaderNodeBsdfPrincipled', (400, 100), "Terrain BSDF")
-    L.new(mix_sg.outputs['Color'], bsdf.inputs['Base Color'])
+    # Choose whether to apply the shader-based stone tint
+    if USE_SHADER_STONES:
+        color_out = stone_mix
+        rough_out = rough_stone
+    else:
+        color_out = mix_sg
+        rough_out = rough_final
+    L.new(color_out.outputs['Color'], bsdf.inputs['Base Color'])
     # Feed the R channel of the blended roughness colour into Roughness
     sep_rough = N('ShaderNodeSeparateColor', (250, -200), "Sep Rough")
-    L.new(rough_final.outputs['Color'], sep_rough.inputs['Color'])
+    L.new(rough_out.outputs['Color'], sep_rough.inputs['Color'])
     L.new(sep_rough.outputs['Red'], bsdf.inputs['Roughness'])
     L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
 
     output = N('ShaderNodeOutputMaterial', (700, 100))
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
+def make_landscape_material():
+    """Distant countryside surrounding the hilltop — patchwork fields
+    fading into overcast atmospheric haze at distance.
+
+    The material is entirely procedural: Voronoi-based field boundaries
+    tinted with varied greens and browns, plus distance-based haze that
+    blends to the overcast sky colour so the far edge of the landscape
+    ring dissolves invisibly into the world background.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    FIELD_SCALE         — Voronoi scale (lower = larger fields)
+    FIELD_COL_DARK      — darkest field green
+    FIELD_COL_MID       — mid field green
+    FIELD_COL_LIGHT     — lightest / pasture green
+    FIELD_COL_CROP      — brown / ploughed field
+    HEDGE_WIDTH         — hedgerow darkness width in Voronoi space
+    HEDGE_COL           — hedgerow colour (dark green/brown)
+    HAZE_START          — distance (m) where haze begins
+    HAZE_END            — distance (m) where fully hazed out
+    HAZE_COL            — haze / overcast sky colour
+    """
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    FIELD_SCALE     = 0.08       # large fields (~12 m Voronoi cells)
+    FIELD_COL_DARK  = (0.06, 0.14, 0.03)   # dark pasture
+    FIELD_COL_MID   = (0.10, 0.20, 0.05)   # mid green
+    FIELD_COL_LIGHT = (0.14, 0.26, 0.07)   # light meadow
+    FIELD_COL_CROP  = (0.16, 0.14, 0.06)   # ploughed / arable
+    HEDGE_WIDTH     = 0.06       # hedgerow band width (normalised)
+    HEDGE_COL       = (0.03, 0.06, 0.02)   # dark hedge green
+    WITHIN_NOISE_SC = 1.2        # within-field variation scale
+    WITHIN_NOISE_AM = 0.15       # within-field variation amplitude
+
+    HAZE_START      = 15.0       # haze begins (metres from origin)
+    HAZE_END        = 150.0      # fully hazed by here
+    HAZE_COL        = (0.52, 0.54, 0.50)   # overcast haze (matches sky)
+    # ─────────────────────────────────────────────────────────────
+
+    mat = bpy.data.materials.new("Landscape")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    N = lambda t, loc, lbl="": _new_node(tree, t, loc, lbl)
+    L = tree.links
+
+    # ── Coordinates ───────────────────────────────────────────────
+    tex_coord = N('ShaderNodeTexCoord', (-1200, 0), "Tex Coord")
+    sep_xyz   = N('ShaderNodeSeparateXYZ', (-1000, 0), "Sep XYZ")
+    L.new(tex_coord.outputs['Object'], sep_xyz.inputs['Vector'])
+
+    # XY-only vector for distance calculation
+    comb_xy = N('ShaderNodeCombineXYZ', (-1000, -300), "XY Vector")
+    L.new(sep_xyz.outputs['X'], comb_xy.inputs['X'])
+    L.new(sep_xyz.outputs['Y'], comb_xy.inputs['Y'])
+
+    dist = N('ShaderNodeVectorMath', (-800, -300), "Distance")
+    dist.operation = 'LENGTH'
+    L.new(comb_xy.outputs['Vector'], dist.inputs[0])
+
+    # ── Patchwork fields via Voronoi ──────────────────────────────
+    voronoi = N('ShaderNodeTexVoronoi', (-800, 300), "Field Voronoi")
+    voronoi.inputs['Scale'].default_value = FIELD_SCALE
+    voronoi.voronoi_dimensions = '2D'
+    voronoi.feature = 'F1'
+    L.new(tex_coord.outputs['Object'], voronoi.inputs['Vector'])
+
+    # Use randomness output (cell ID hash) for per-field colour
+    field_cr = N('ShaderNodeValToRGB', (-550, 300), "Field Colours")
+    els = field_cr.color_ramp.elements
+    els[0].position = 0.0
+    els[0].color = (*FIELD_COL_DARK, 1)
+    e1 = field_cr.color_ramp.elements.new(0.33)
+    e1.color = (*FIELD_COL_MID, 1)
+    e2 = field_cr.color_ramp.elements.new(0.66)
+    e2.color = (*FIELD_COL_LIGHT, 1)
+    els[1].position = 1.0
+    els[1].color = (*FIELD_COL_CROP, 1)
+    L.new(voronoi.outputs['Color'], field_cr.inputs['Fac'])
+
+    # ── Within-field variation (subtle noise) ─────────────────────
+    field_noise = N('ShaderNodeTexNoise', (-800, 100), "Field Noise")
+    field_noise.inputs['Scale'].default_value = WITHIN_NOISE_SC
+    field_noise.inputs['Detail'].default_value = 4.0
+    field_noise.inputs['Roughness'].default_value = 0.5
+    L.new(tex_coord.outputs['Object'], field_noise.inputs['Vector'])
+
+    field_var = N('ShaderNodeMapRange', (-600, 100), "Field Var")
+    field_var.inputs['From Min'].default_value = 0.0
+    field_var.inputs['From Max'].default_value = 1.0
+    field_var.inputs['To Min'].default_value = 1.0 - WITHIN_NOISE_AM
+    field_var.inputs['To Max'].default_value = 1.0 + WITHIN_NOISE_AM
+    field_var.clamp = True
+    L.new(field_noise.outputs['Fac'], field_var.inputs['Value'])
+
+    # Multiply field colour by variation
+    field_varied = N('ShaderNodeVectorMath', (-350, 200), "Field × Var")
+    field_varied.operation = 'SCALE'
+    L.new(field_cr.outputs['Color'], field_varied.inputs[0])
+    L.new(field_var.outputs['Result'], field_varied.inputs['Scale'])
+
+    # ── Hedgerow darkening at field boundaries ────────────────────
+    hedge_mask = N('ShaderNodeMapRange', (-550, 0), "Hedge Mask")
+    hedge_mask.inputs['From Min'].default_value = 0.0
+    hedge_mask.inputs['From Max'].default_value = HEDGE_WIDTH
+    hedge_mask.inputs['To Min'].default_value = 1.0
+    hedge_mask.inputs['To Max'].default_value = 0.0
+    hedge_mask.clamp = True
+    L.new(voronoi.outputs['Distance'], hedge_mask.inputs['Value'])
+
+    hedge_mix = N('ShaderNodeMixRGB', (-200, 200), "Hedge Mix")
+    hedge_mix.blend_type = 'MIX'
+    L.new(hedge_mask.outputs['Result'], hedge_mix.inputs['Fac'])
+    L.new(field_varied.outputs['Vector'], hedge_mix.inputs['Color1'])
+    hedge_mix.inputs['Color2'].default_value = (*HEDGE_COL, 1)
+
+    # ── Distance haze fade ────────────────────────────────────────
+    haze_map = N('ShaderNodeMapRange', (-600, -300), "Haze Fade")
+    haze_map.inputs['From Min'].default_value = HAZE_START
+    haze_map.inputs['From Max'].default_value = HAZE_END
+    haze_map.inputs['To Min'].default_value = 0.0
+    haze_map.inputs['To Max'].default_value = 1.0
+    haze_map.clamp = True
+    L.new(dist.outputs['Value'], haze_map.inputs['Value'])
+
+    haze_mix = N('ShaderNodeMixRGB', (0, 100), "Landscape + Haze")
+    haze_mix.blend_type = 'MIX'
+    L.new(haze_map.outputs['Result'], haze_mix.inputs['Fac'])
+    L.new(hedge_mix.outputs['Color'], haze_mix.inputs['Color1'])
+    haze_mix.inputs['Color2'].default_value = (*HAZE_COL, 1)
+
+    # ── BSDF ──────────────────────────────────────────────────────
+    bsdf = N('ShaderNodeBsdfPrincipled', (200, 100), "Landscape BSDF")
+    L.new(haze_mix.outputs['Color'], bsdf.inputs['Base Color'])
+    bsdf.inputs['Roughness'].default_value = 1.0
+
+    output = N('ShaderNodeOutputMaterial', (450, 100))
     L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
 
     return mat
@@ -1289,7 +1623,7 @@ def build_pillar(M):
     v.scale = (UB_HW * 2 + 0.001, UB_HW * 2 + 0.001, UB_HEIGHT + 0.001)
     activate(v)
     bpy.ops.object.transform_apply(scale=True)
-    boolean_cut(pillar, v, solver='FAST')
+    boolean_cut(pillar, v)
 
     # --- Centre-pipe channel (spider underside → box top face) ---
     # The top 20 mm of the pillar is carved by the spider boolean later;
@@ -1302,59 +1636,85 @@ def build_pillar(M):
         depth=cp_void_len,
         vertices=32,
         location=(0, 0, cp_void_z))
-    boolean_cut(pillar, bpy.context.active_object, solver='FAST')
+    boolean_cut(pillar, bpy.context.active_object)
 
     # --- Four sighting-tube channels (pillar face → box outer face) ---
-    # Each is a separate cylinder that stops at the box wall — concrete
-    # does NOT extend into the box interior.
-    chan_r = ST_OUTER_R + 0.001         # 1 mm clearance — tight fit
+    # Each channel shares the exact axis of its sighting tube so the
+    # concrete is in intimate contact with the tube outer surface.
+    # The 0.1 mm boolean clearance avoids co-planar faces while keeping
+    # the gap invisible.
+    chan_r = ST_OUTER_R + 0.0001        # 0.1 mm clearance for clean boolean
+    a = ST_TILT
     hw = pillar_hw_at(ST_Z)
     box_face = UB_HW                    # box outer face distance from centre
+    box_inner = UB_HW - UB_WALL         # inner box wall distance from centre
+
+    # Tube midpoint — same calculation as build_sighting_tubes() so the
+    # channel cutter shares the identical axis line.
+    tube_outer_end = hw - 0.005
+    tube_inner_end = box_inner - 0.010
+    tube_mid = (tube_inner_end + tube_outer_end) / 2
 
     # Channel spans from 2 mm inside the box wall to 5 mm past the pillar face
     chan_inner = box_face - 0.002
     chan_outer = hw + 0.005
-    chan_len = chan_outer - chan_inner
-    chan_mid = (chan_outer + chan_inner) / 2
+    chan_radial_mid = (chan_outer + chan_inner) / 2
+    chan_len = (chan_outer - chan_inner) / math.cos(a)
 
+    # Z offset so channel centre lies on the tilted tube axis
+    # (outer end of every tube is lower — drainage tilt)
+    chan_z = ST_Z - (chan_radial_mid - tube_mid) * math.tan(a)
+
+    # Rotations match the sighting-tube rotations exactly so channel
+    # and tube share the same tilted axis (symmetric cutter — direction
+    # along the axis is irrelevant).
     for dx, dy, ry, rx in (
-        (0, -1, 0, -math.pi / 2),      # South
-        (0, +1, 0, +math.pi / 2),      # North
-        (+1, 0, -math.pi / 2, 0),      # East
-        (-1, 0, +math.pi / 2, 0),      # West
+        (0, -1, 0,  (math.pi / 2 + a)),      # South — same as tube
+        (0, +1, 0, -(math.pi / 2 + a)),      # North — same as tube
+        (+1, 0,  (math.pi / 2 + a), 0),      # East  — same as tube
+        (-1, 0, -(math.pi / 2 + a), 0),      # West  — same as tube
     ):
         bpy.ops.mesh.primitive_cylinder_add(
             radius=chan_r, depth=chan_len, vertices=32,
-            location=(dx * chan_mid, dy * chan_mid, ST_Z))
+            location=(dx * chan_radial_mid, dy * chan_radial_mid, chan_z))
         c = bpy.context.active_object
         c.rotation_euler = (rx, ry, 0)
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
-        boolean_cut(pillar, c, solver='FAST')
+        boolean_cut(pillar, c)
 
     # Bevelled entrance at each sighting hole — conical chamfer, 8 mm deep
     bevel_face_r = ST_OUTER_R + 0.012   # wider at the pillar surface
     bevel_inner_r = chan_r               # matches channel
     bevel_depth = 0.008
 
+    # Z at pillar face on the tilted tube axis
+    bevel_face_z = ST_Z - (hw - tube_mid) * math.tan(a)
+
+    # Cone is asymmetric (wide end at local -Z must face outward), so
+    # the rotation preserves the original sign but reduces the magnitude
+    # by the tilt angle — giving the same axis line as the tube while
+    # keeping radius1 (wider) at the pillar face.
     for face_x, face_y, ry, rx in (
-        (0, -hw, 0, -math.pi / 2),      # South
-        (0, +hw, 0, +math.pi / 2),      # North
-        (+hw, 0, -math.pi / 2, 0),      # East
-        (-hw, 0, +math.pi / 2, 0),      # West
+        (0, -hw, 0, -(math.pi / 2 - a)),      # South
+        (0, +hw, 0, +(math.pi / 2 - a)),      # North
+        (+hw, 0, -(math.pi / 2 - a), 0),      # East
+        (-hw, 0, +(math.pi / 2 - a), 0),      # West
     ):
         bpy.ops.mesh.primitive_cone_add(
             radius1=bevel_face_r, radius2=bevel_inner_r,
             depth=bevel_depth, vertices=32,
-            location=(face_x, face_y, ST_Z))
+            location=(face_x, face_y, bevel_face_z))
         c = bpy.context.active_object
         c.rotation_euler = (rx, ry, 0)
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
+        # Shift inward along tube axis so wide end sits at pillar face
         shift_x = -face_x / hw * bevel_depth / 2 if face_x != 0 else 0
         shift_y = -face_y / hw * bevel_depth / 2 if face_y != 0 else 0
-        c.location = (face_x + shift_x, face_y + shift_y, ST_Z)
-        boolean_cut(pillar, c, solver='FAST')
+        shift_z = bevel_depth / 2 * math.sin(a)   # inward = slightly uphill
+        c.location = (face_x + shift_x, face_y + shift_y, bevel_face_z + shift_z)
+        boolean_cut(pillar, c)
 
     assign(pillar, M['concrete'])
     return pillar
@@ -1472,23 +1832,30 @@ def build_upper_box(M):
     bpy.ops.mesh.primitive_cylinder_add(
         radius=CP_OUTER_R + 0.001, depth=UB_WALL * 3,
         vertices=32, location=(0, 0, tz))
-    boolean_cut(box, bpy.context.active_object, solver='FAST')
+    boolean_cut(box, bpy.context.active_object)
 
-    # Sighting-tube holes through four side walls
+    # Sighting-tube holes through four side walls — axis-matched to tubes
+    a = ST_TILT
+    _hw = pillar_hw_at(ST_Z)
+    _box_inner = UB_HW - UB_WALL
+    _tube_mid = ((_box_inner - 0.010) + (_hw - 0.005)) / 2
+    # Z on the tilted tube axis at the box wall
+    box_hole_z = ST_Z - (ow - _tube_mid) * math.tan(a)
+
     for dx, dy, rot in (
-        ( 0, -1, ( math.pi / 2, 0, 0)),
-        ( 0,  1, (-math.pi / 2, 0, 0)),
-        ( 1,  0, (0,  math.pi / 2, 0)),
-        (-1,  0, (0, -math.pi / 2, 0)),
+        ( 0, -1, ( (math.pi / 2 + a), 0, 0)),
+        ( 0,  1, (-(math.pi / 2 + a), 0, 0)),
+        ( 1,  0, (0,  (math.pi / 2 + a), 0)),
+        (-1,  0, (0, -(math.pi / 2 + a), 0)),
     ):
         bpy.ops.mesh.primitive_cylinder_add(
-            radius=ST_OUTER_R + 0.001, depth=UB_WALL * 3,
-            vertices=32, location=(dx * ow, dy * ow, ST_Z))
+            radius=ST_OUTER_R + 0.0001, depth=UB_WALL * 3,
+            vertices=32, location=(dx * ow, dy * ow, box_hole_z))
         c = bpy.context.active_object
         c.rotation_euler = rot
         activate(c)
         bpy.ops.object.transform_apply(rotation=True)
-        boolean_cut(box, c, solver='FAST')
+        boolean_cut(box, c)
 
     assign(box, M['wood'])
     return box
@@ -1528,75 +1895,168 @@ def _union_into(target, piece):
     bpy.data.objects.remove(piece, do_unlink=True)
 
 
-def build_upper_centre_mark(M):
-    """Upper centre mark — two stepped disks with sloping edges, a low dome,
-    a pencil-point, and a brass pillar + base cylinder embedded below.
+def _lathe_mesh(profile, name, n_sides=32):
+    """Build a surface-of-revolution mesh from an (r, z) profile.
 
-    All proportions are relative to the overall dome diameter (UCM_R * 2).
+    Points with r < 1e-6 become singular centre vertices connected to
+    their neighbour ring by a triangle fan.  All other adjacent pairs
+    of rings are connected by a quad strip.
+    """
+    bm = bmesh.new()
+    rings = []
+    for r, z in profile:
+        if r < 1e-6:
+            rings.append([bm.verts.new((0, 0, z))])
+        else:
+            ring = []
+            for j in range(n_sides):
+                a = 2 * math.pi * j / n_sides
+                ring.append(bm.verts.new((
+                    r * math.cos(a), r * math.sin(a), z)))
+            rings.append(ring)
+
+    for i in range(len(rings) - 1):
+        r0, r1 = rings[i], rings[i + 1]
+        if len(r0) == 1:
+            for j in range(n_sides):
+                k = (j + 1) % n_sides
+                bm.faces.new([r0[0], r1[j], r1[k]])
+        elif len(r1) == 1:
+            for j in range(n_sides):
+                k = (j + 1) % n_sides
+                bm.faces.new([r0[k], r0[j], r1[0]])
+        else:
+            for j in range(n_sides):
+                k = (j + 1) % n_sides
+                bm.faces.new([r0[j], r0[k], r1[k], r1[j]])
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    return mesh
+
+
+def _embedded_stem_profile(z_surface, stem_r, fillet_r, stem_h,
+                           base_r, base_h, n_fillet=6):
+    """Return (r, z) profile points for the embedded portion of a centre mark.
+
+    The profile starts at the disc underside (z_surface) with a fillet
+    transition into a straight cylindrical stem, a second fillet at the
+    bottom, and a base disc.  The first point is (stem_r + fillet_r,
+    z_surface); the last is (0, z_surface - stem_h - base_h).
+    """
+    z_base_top = z_surface - stem_h
+    z_base_btm = z_base_top - base_h
+
+    pts = []
+
+    # Disc underside → fillet start
+    pts.append((stem_r + fillet_r, z_surface))
+
+    # Top fillet: quarter circle, disc underside → stem
+    cx = stem_r + fillet_r
+    cz = z_surface - fillet_r
+    for i in range(1, n_fillet + 1):
+        a = math.pi / 2 * i / n_fillet
+        pts.append((cx - fillet_r * math.sin(a),
+                     cz + fillet_r * math.cos(a)))
+
+    # Straight stem
+    pts.append((stem_r, z_base_top + fillet_r))
+
+    # Bottom fillet: quarter circle, stem → base top
+    cx = stem_r + fillet_r
+    cz = z_base_top + fillet_r
+    for i in range(1, n_fillet + 1):
+        a = math.pi / 2 * i / n_fillet
+        pts.append((cx - fillet_r * math.cos(a),
+                     cz - fillet_r * math.sin(a)))
+
+    # Base disc
+    pts.append((base_r, z_base_top))
+    pts.append((base_r, z_base_btm))
+    pts.append((0, z_base_btm))
+
+    return pts
+
+
+def build_upper_centre_mark(M):
+    """Upper centre mark — two stacked discs with dome and spike above,
+    cylindrical stem with filleted transitions, and base disc below.
+
+    Cross-section (top to bottom):
+      - Dome (quarter ellipse, base = upper disc top, h = 75 % of disc)
+      - Upper disc (tapered ~3 mm narrower at top)
+      - Lower disc / flange (widest part, 2.5")
+      - Cylindrical stem (25/62 of flange dia) with 5 mm fillet curves
+      - Base disc (44/62 of flange dia)
+
+    Built as a single lathe mesh; spike is a separate object.
     """
     print("  Upper centre mark ...")
     z0 = UB_BASE_Z + FILL_HEIGHT           # top of concrete fill
-    dome_d = UCM_R * 2                      # overall diameter (32 mm)
 
-    # ── Above the concrete surface ──────────────────────────────
+    # ── Dimensions ────────────────────────────────────────────
+    flange_r      = UCM_R                   # 31.75 mm (widest)
+    disc_h        = UCM_DISC_H             # 5 mm (both discs)
+    dome_h        = 0.75 * disc_h          # 3.75 mm
+    up_btm_r      = 0.0240                 # upper disc bottom radius (24.0 mm)
+    up_top_r      = up_btm_r - 0.0015     # 3 mm narrower diameter → 1.5 mm radius
+    dome_r        = up_top_r              # dome base = upper disc top
+    spike_r       = UCM_SPIKE_D / 2        # 2.5 mm
+    rod_h         = UCM_SPIKE_D * 2 / 3    # height = ⅔ diameter
+    cone_h        = spike_r               # 45° tip (height = radius)
+    stem_r        = 25 / 62 * flange_r
+    fillet_r      = UCM_FILLET_R
+    base_r        = 44 / 62 * flange_r
+    base_h        = UCM_BASE_H
 
-    # Lower step — truncated cone (sloping edge, wider at bottom)
-    ls_btm_r = dome_d / 2                   # full diameter
-    ls_top_r = dome_d / 2 * 0.88            # slight inward slope
-    ls_h = 0.0025                            # 2.5 mm
-    bpy.ops.mesh.primitive_cone_add(
-        radius1=ls_btm_r, radius2=ls_top_r,
-        depth=ls_h, vertices=32,
-        location=(0, 0, z0 + ls_h / 2))
-    mark = bpy.context.active_object
-    mark.name = "UpperCentreMark"
+    # ── Z coordinates ─────────────────────────────────────────
+    z_lo_btm      = z0                     # lower disc bottom (surface)
+    z_lo_top      = z0 + disc_h
+    z_up_top      = z_lo_top + disc_h
+    z_dome_peak   = z_up_top + dome_h
 
-    # Upper step — smaller truncated cone
-    us_btm_r = dome_d / 2 * 0.70
-    us_top_r = dome_d / 2 * 0.60
-    us_h = 0.002                             # 2 mm
-    z_us = z0 + ls_h + us_h / 2
-    bpy.ops.mesh.primitive_cone_add(
-        radius1=us_btm_r, radius2=us_top_r,
-        depth=us_h, vertices=32,
-        location=(0, 0, z_us))
-    _union_into(mark, bpy.context.active_object)
+    # ── Lathe profile ─────────────────────────────────────────
+    N_DOME = 8
+    profile = []
 
-    # Flat rounded dome — 80% of upper step diameter, ~2.7 mm tall (⅓ of 8 mm)
-    fd_r = us_top_r * 0.80
-    fd_h = 0.0027
-    z_fd = z0 + ls_h + us_h
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        radius=fd_r, segments=32, ring_count=16,
-        location=(0, 0, z_fd))
-    dome_obj = bpy.context.active_object
-    dome_obj.scale.z = fd_h / fd_r
-    activate(dome_obj)
-    bpy.ops.object.transform_apply(scale=True)
-    # Cut the bottom half
-    bpy.ops.mesh.primitive_cube_add(
-        size=fd_r * 4, location=(0, 0, z_fd - fd_r * 2))
-    boolean_cut(dome_obj, bpy.context.active_object)
-    _union_into(mark, dome_obj)
+    # Dome: quarter ellipse from peak to upper disc top
+    for i in range(N_DOME + 1):
+        a = math.pi / 2 * i / N_DOME
+        profile.append((dome_r * math.sin(a),
+                         z_up_top + dome_h * math.cos(a)))
 
-    # Point — 5 mm diameter rod with 45° cone tip
-    # (kept as a separate object to avoid boolean-union artefacts at this scale)
-    pt_r = 0.005 / 2                        # 2.5 mm radius
-    rod_h = 0.005                            # 5 mm cylinder
-    cone_h = pt_r                            # 2.5 mm (45° → height = radius)
-    z_rod = z_fd + fd_h + rod_h / 2
-    z_cone = z_fd + fd_h + rod_h + cone_h / 2
+    # Upper disc tapered rim
+    profile.append((up_btm_r, z_lo_top))
 
-    # Cylinder (rod portion)
+    # Lower disc (flange) — top annulus, outer rim, underside
+    profile.append((flange_r, z_lo_top))
+    profile.append((flange_r, z_lo_btm))
+
+    # Embedded portion (shared with lower mark)
+    profile += _embedded_stem_profile(
+        z_lo_btm, stem_r, fillet_r, UCM_STEM_H, base_r, base_h)
+
+    mesh = _lathe_mesh(profile, "UpperCentreMark")
+    mark = bpy.data.objects.new("UpperCentreMark", mesh)
+    bpy.context.collection.objects.link(mark)
+    assign(mark, M['brass'])
+    smooth(mark)
+
+    # ── Spike (separate object) ───────────────────────────────
+    z_rod  = z_dome_peak + rod_h / 2
+    z_cone = z_dome_peak + rod_h + cone_h / 2
+
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=pt_r, depth=rod_h, vertices=16,
+        radius=spike_r, depth=rod_h, vertices=16,
         location=(0, 0, z_rod))
     spike = bpy.context.active_object
     spike.name = "UpperCentreMark_Spike"
 
-    # Cone tip
     bpy.ops.mesh.primitive_cone_add(
-        radius1=pt_r, radius2=0,
+        radius1=spike_r, radius2=0,
         depth=cone_h, vertices=16,
         location=(0, 0, z_cone))
     _union_into(spike, bpy.context.active_object)
@@ -1604,28 +2064,6 @@ def build_upper_centre_mark(M):
     assign(spike, M['brass'])
     smooth(spike)
 
-    # ── Below the concrete surface (embedded) ───────────────────
-
-    # Brass pillar — 40% of dome diameter, height 150% of dome diameter
-    pil_r = dome_d * 0.40 / 2
-    pil_h = dome_d * 1.50
-    z_pil = z0 - pil_h / 2
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=pil_r, depth=pil_h, vertices=32,
-        location=(0, 0, z_pil))
-    _union_into(mark, bpy.context.active_object)
-
-    # Base cylinder — 130% of pillar diameter, 15% of pillar height
-    base_r = pil_r * 1.30
-    base_h = pil_h * 0.15
-    z_base = z0 - pil_h - base_h / 2
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=base_r, depth=base_h, vertices=32,
-        location=(0, 0, z_base))
-    _union_into(mark, bpy.context.active_object)
-
-    assign(mark, M['brass'])
-    smooth(mark)
     return mark
 
 
@@ -1922,12 +2360,52 @@ def build_brass_loops(M):
     # Recess geometry parameters
     # Local frame: length along X (tangential), width along Y (radial),
     #              depth along -Z, surface at Z = 0.
-    cham_r      = 0.010                           # 10 mm nominal rounded chamfer
-    half_str    = (rl - rw) / 2                   # 12.5 mm half straight
-    CHAM_N      = 6                               # quarter-circle chamfer segments
-    SEMI_N      = 8                               # semicircle depth segments
-    CAP_N       = 6                               # end-cap taper slices
-    EPS         = 0.001                           # overshoot above surface
+    #
+    # Plan shape: a rounded rectangle (≈2:1 aspect ratio).  The narrow
+    # sides have a small 5 mm bevel at the lip.  The long ends have a
+    # massive spoon-shaped bevel — a flat section at full depth in the
+    # middle, then gentle cos² ramps that smoothly meet the surface.
+    #
+    # The depth profile is generated once at full size, then each slice
+    # along the length scales only the sub-surface Z coords by a taper
+    # factor.  Width stays constant except for a gentle rounding of the
+    # tips in the last 20 % of the ramp zone.
+    half_L      = rl / 2                            # 35 mm half-length
+    half_flat   = 0.010                             # 10 mm → 20 mm flat section
+    ramp_L      = half_L - half_flat                # 25 mm ramp at each end
+    bevel_r     = 0.005                             # 5 mm bevel (narrow dir)
+    BEVEL_N     = 6                                 # bevel arc segments
+    SEMI_N      = 8                                 # bottom semicircle segments
+    N_SLICES    = 28                                # slices along length
+    EPS         = 0.001                             # overshoot above surface
+
+    # Build base cross-section profile once (full depth, full width).
+    # List of (y, z) pairs; z < 0 = below surface, z > 0 = above.
+    wall_h_full = max(0, rd - bevel_r - hw)
+    base_pts = []
+    # Above surface, right
+    base_pts.append((hw + bevel_r, EPS))
+    # Right bevel arc (quarter circle, surface → wall)
+    for j in range(1, BEVEL_N + 1):
+        theta = math.pi / 2 + j * (math.pi / 2) / BEVEL_N
+        base_pts.append(((hw + bevel_r) + bevel_r * math.cos(theta),
+                         -bevel_r + bevel_r * math.sin(theta)))
+    # Wall bottom right
+    base_pts.append((hw, -(bevel_r + wall_h_full)))
+    # Semicircle bottom (right → left)
+    for j in range(1, SEMI_N):
+        a = j * (-math.pi / SEMI_N)
+        base_pts.append((hw * math.cos(a),
+                         -(bevel_r + wall_h_full) + hw * math.sin(a)))
+    # Wall bottom left
+    base_pts.append((-hw, -(bevel_r + wall_h_full)))
+    # Left bevel arc (quarter circle, wall → surface)
+    for j in range(1, BEVEL_N + 1):
+        theta = j * (math.pi / 2) / BEVEL_N
+        base_pts.append((-(hw + bevel_r) + bevel_r * math.cos(theta),
+                         -bevel_r + bevel_r * math.sin(theta)))
+    # Above surface, left
+    base_pts.append((-(hw + bevel_r), EPS))
 
     for i in range(3):
         # Between spider arms (offset 60° from arm positions)
@@ -1953,67 +2431,43 @@ def build_brass_loops(M):
         smooth(lp)
         loops.append(lp)
 
-        # ── Recess cutter (stadium plan, rounded profile) ────────
-        # Cross-section: quarter-circle chamfer at top flowing into
-        # semicircular trough at bottom, with straight walls between
-        # (when depth allows).  Chamfer radius is capped at hw_loc so
-        # at full width (7.5 mm) the chamfer and semicircle merge
-        # seamlessly — one continuous smooth curve, no flat walls.
+        # ── Recess cutter (spoon-shaped indent) ────────────────
+        # Scale only sub-surface Z by depth_t (cos² ramp at ends).
+        # Scale Y by width_t (stays ~1 in the middle, rounds gently
+        # to 0 at the tips so the outline is a rounded rectangle).
         bm_r = bmesh.new()
         rings = []
 
-        def _add_ring(x, hw_loc):
-            """Append a rounded-profile ring at position x."""
-            cr = min(cham_r, hw_loc)              # cap chamfer at ring width
-            wh = rd - hw_loc - cr                 # wall height (may be 0)
-            pts = []
-            # — Above surface, right
-            pts.append((hw_loc + cr, EPS))
-            # — Right chamfer arc (quarter circle, surface → wall)
-            #   Centre at (hw_loc + cr, -cr)
-            for j in range(1, CHAM_N + 1):
-                theta = math.pi / 2 + j * (math.pi / 2) / CHAM_N
-                pts.append(((hw_loc + cr) + cr * math.cos(theta),
-                            -cr + cr * math.sin(theta)))
-            # — Wall bottom right
-            pts.append((hw_loc, -(cr + wh)))
-            # — Semicircle bottom (right → left)
-            for j in range(1, SEMI_N):
-                a = j * (-math.pi / SEMI_N)
-                pts.append((hw_loc * math.cos(a),
-                            -(cr + wh) + hw_loc * math.sin(a)))
-            # — Wall bottom left
-            pts.append((-hw_loc, -(cr + wh)))
-            # — Left chamfer arc (quarter circle, wall → surface)
-            #   Centre at (-(hw_loc + cr), -cr)
-            for j in range(1, CHAM_N + 1):
-                theta = j * (math.pi / 2) / CHAM_N
-                pts.append((-(hw_loc + cr) + cr * math.cos(theta),
-                            -cr + cr * math.sin(theta)))
-            # — Above surface, left
-            pts.append((-(hw_loc + cr), EPS))
-            ring = [bm_r.verts.new((x, y, z)) for y, z in pts]
+        for k in range(N_SLICES + 1):
+            x = -half_L + k * rl / N_SLICES
+            ax = abs(x)
+
+            # Depth taper
+            if ax <= half_flat:
+                depth_t = 1.0
+            else:
+                depth_t = math.cos(
+                    math.pi / 2 * (ax - half_flat) / ramp_L) ** 2
+
+            # Width taper — constant in the flat zone and most of
+            # the ramp zone; only rounds off in the last 20 %.
+            tip_start = half_flat + 0.80 * ramp_L      # ~30 mm
+            if ax <= tip_start:
+                width_t = 1.0
+            else:
+                width_t = math.cos(
+                    math.pi / 2 * (ax - tip_start)
+                    / (half_L - tip_start)) ** 2
+
+            if depth_t < 0.01 and width_t < 0.05:
+                continue
+
+            ring = []
+            for y, z in base_pts:
+                y_eff = y * width_t
+                z_eff = z * depth_t if z < 0 else EPS
+                ring.append(bm_r.verts.new((x, y_eff, z_eff)))
             rings.append(ring)
-
-        # Left end cap (far end first → centre)
-        for k in range(CAP_N, 0, -1):
-            dx = hw * k / CAP_N
-            hw_loc = math.sqrt(max(0, hw**2 - dx**2))
-            if hw_loc < 0.0005:
-                continue
-            _add_ring(-(half_str + dx), hw_loc)
-
-        # Straight section ends
-        _add_ring(-half_str, hw)
-        _add_ring( half_str, hw)
-
-        # Right end cap (centre → far end)
-        for k in range(1, CAP_N + 1):
-            dx = hw * k / CAP_N
-            hw_loc = math.sqrt(max(0, hw**2 - dx**2))
-            if hw_loc < 0.0005:
-                continue
-            _add_ring(half_str + dx, hw_loc)
 
         nr  = len(rings)
         npv = len(rings[0])
@@ -2028,7 +2482,7 @@ def build_brass_loops(M):
         bm_r.faces.new(rings[0])
         bm_r.faces.new(rings[-1][::-1])
 
-        # Top face (stadium outline at z = EPS)
+        # Top face (rounded-rectangle outline at z = EPS)
         top = [ring[0] for ring in rings]
         top += [ring[-1] for ring in reversed(rings)]
         bm_r.faces.new(top)
@@ -2220,10 +2674,10 @@ def build_plug_text(M):
     """
     print("  Plug text ...")
 
-    TEXT_R       = 0.032     # midpoint of the upper ring annulus
-    EMBOSS       = 0.0020    # 2.0 mm engraving depth below surface
+    TEXT_R       = 0.033     # midpoint of the upper ring annulus
+    EMBOSS       = 0.0005    # 2.0 mm engraving depth below surface
     OVERSHOOT    = 0.002     # cutter extends this far above surface
-    FONT_SIZE    = 0.0045    # character height
+    FONT_SIZE    = 0.01    # character height
     RESOLUTION   = 4         # text mesh resolution (lower = fewer verts)
     TOP_SPAN_DEG = 155
     BTM_SPAN_DEG = 130
@@ -2237,8 +2691,8 @@ def build_plug_text(M):
     #   Letter tops face away from centre (standard for OS plugs).
     #   Both texts read clockwise when viewed from above.
     texts = [
-        ("TRIANGULATION STATION", 90,  TOP_SPAN_DEG),
-        ("ORDNANCE SURVEY",       270, BTM_SPAN_DEG),
+        ("TRIANGULATION   STATION", 90,  TOP_SPAN_DEG),
+        ("ORDNANCE     SURVEY",       270, BTM_SPAN_DEG),
     ]
 
     for body, centre_deg, span_deg in texts:
@@ -2360,7 +2814,7 @@ def build_fixings(M):
         # Allen socket — blind hole in top of head
         bpy.ops.mesh.primitive_cylinder_add(
             radius=SCREW_SOCKET_R, depth=SCREW_SOCKET_DEPTH + 0.001,
-            vertices=12,
+            vertices=6,
             location=(sx, sy, z_head_top - SCREW_SOCKET_DEPTH / 2))
         boolean_cut(screw, bpy.context.active_object)
 
@@ -2399,16 +2853,23 @@ def build_fixings(M):
 
 
 def build_flush_bracket(M):
-    """Flush bracket with beading, recessed into one pillar face (+Y).
+    """Flush bracket with beading and keying structure, recessed into
+    one pillar face (+Y).
 
     The bracket is a vertical brass plate (180 × 100 mm) with 5 mm
     semicircular beading running around all four edges of the front
-    face, including rounded corners.  It is set back 8 mm from the
-    pillar face at the top edge; because the pillar tapers, the
-    setback is greater at the bottom.
+    face with mitred corners.  It is set back 8 mm from the pillar
+    face at the top edge; because the pillar tapers, the setback is
+    greater at the bottom.
 
-    A recess is carved from the pillar with 45° chamfers sloping from
-    the pillar face to the beading on all four sides.
+    Behind the front plate a rear plate (90 % height, bottom-aligned)
+    carries a T-shaped keying piece: a thin bar (10 mm high, 25 mm
+    deep) widening sharply to an anchor block (35 mm high, 10 mm deep)
+    that locks the assembly into the concrete.
+
+    A recess is carved from the pillar with chamfer faces sloping from
+    a rectangle on the pillar surface (FB_RECESS_MARGIN wider than the
+    plate) inward to the beading on all four sides.
     """
     print("  Flush bracket ...")
 
@@ -2437,89 +2898,128 @@ def build_flush_bracket(M):
     bpy.ops.object.transform_apply(scale=True)
     assign(plate, M['brass'])
 
+    # ── Rear plate & keying structure ────────────────────────
+    # Behind the front plate a second plate (90 % of front height,
+    # bottom-aligned) carries a T-shaped keying piece that anchors
+    # the assembly into the concrete.  The key is a thin horizontal
+    # bar (10 mm high, 25 mm deep) widening sharply to an anchor
+    # block (35 mm high, 10 mm deep).
+    rear_h     = h * FB_REAR_H_FRAC               # 162 mm
+    rear_d     = d                                 # same thickness as front plate
+    rear_z_bot = z_bot
+    rear_z_top = z_bot + rear_h
+    rear_z_mid = (rear_z_bot + rear_z_top) / 2
+    rear_back  = plate_y - rear_d                  # back face of rear plate
+
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, plate_y - rear_d / 2, rear_z_mid))
+    rear_plate = bpy.context.active_object
+    rear_plate.name = "FlushBracket_RearPlate"
+    rear_plate.scale = (w, rear_d, rear_h)
+    activate(rear_plate)
+    bpy.ops.object.transform_apply(scale=True)
+    assign(rear_plate, M['brass'])
+
+    # Keying bar — tapered square-section bar protruding from rear plate.
+    # Square at the rear-plate end (bar_h × bar_h), 25 % narrower at the
+    # anchor end.  Built with bmesh for the trapezoidal plan shape.
+    bar_h      = FB_BAR_H                          # 10 mm
+    bar_depth  = FB_BAR_DEPTH                      # 25 mm
+    bar_z_mid  = rear_z_mid                        # centred on rear plate
+    bar_back   = rear_back - bar_depth             # back face of bar
+    bar_w_front = bar_h                            # square at rear plate
+    bar_w_back  = bar_h * 0.75                     # 25 % narrower at anchor
+
+    bm_bar = bmesh.new()
+    bhf = bar_h / 2
+    bwf = bar_w_front / 2
+    bwb = bar_w_back / 2
+    # Front face (y = rear_back, touching rear plate)
+    bf0 = bm_bar.verts.new((-bwf, rear_back, bar_z_mid - bhf))
+    bf1 = bm_bar.verts.new(( bwf, rear_back, bar_z_mid - bhf))
+    bf2 = bm_bar.verts.new(( bwf, rear_back, bar_z_mid + bhf))
+    bf3 = bm_bar.verts.new((-bwf, rear_back, bar_z_mid + bhf))
+    # Back face (y = bar_back, touching anchor)
+    bb0 = bm_bar.verts.new((-bwb, bar_back, bar_z_mid - bhf))
+    bb1 = bm_bar.verts.new(( bwb, bar_back, bar_z_mid - bhf))
+    bb2 = bm_bar.verts.new(( bwb, bar_back, bar_z_mid + bhf))
+    bb3 = bm_bar.verts.new((-bwb, bar_back, bar_z_mid + bhf))
+    bm_bar.faces.new([bf3, bf2, bf1, bf0])                # front
+    bm_bar.faces.new([bb0, bb1, bb2, bb3])                # back
+    bm_bar.faces.new([bf3, bb3, bb2, bf2])                # top
+    bm_bar.faces.new([bf0, bf1, bb1, bb0])                # bottom
+    bm_bar.faces.new([bf0, bb0, bb3, bf3])                # left
+    bm_bar.faces.new([bf2, bb2, bb1, bf1])                # right
+    bmesh.ops.recalc_face_normals(bm_bar, faces=bm_bar.faces[:])
+    mesh_bar = bpy.data.meshes.new("FlushBracket_Bar")
+    bm_bar.to_mesh(mesh_bar)
+    bm_bar.free()
+    bar = bpy.data.objects.new("FlushBracket_Bar", mesh_bar)
+    bpy.context.collection.objects.link(bar)
+    assign(bar, M['brass'])
+
+    # Anchor block — square cross-section at back of bar
+    anchor_h     = FB_ANCHOR_H                     # 35 mm
+    anchor_depth = FB_ANCHOR_DEPTH                 # 10 mm
+    anchor_w     = anchor_h                        # square
+
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, bar_back - anchor_depth / 2, bar_z_mid))
+    anchor = bpy.context.active_object
+    anchor.name = "FlushBracket_Anchor"
+    anchor.scale = (anchor_w, anchor_depth, anchor_h)
+    activate(anchor)
+    bpy.ops.object.transform_apply(scale=True)
+    assign(anchor, M['brass'])
+
     # ── Beading (D-shaped tube around front face perimeter) ───
     # A semicircular cross-section (flat against plate, dome forward)
-    # swept around the rectangular perimeter with rounded corners.
-    BEAD_N   = 6                                  # semicircle segments
-    CORNER_N = 4                                  # samples per corner arc
+    # built as four separate straight segments — one per edge — with
+    # mitred end caps.  Each ring vertex is offset along the tangent
+    # by ±bi (its bi-normal offset), cutting a 45° mitre so that
+    # adjacent segments meet flush at each corner with no gap.
+    BEAD_N = 6                                    # semicircle segments
+    n_bead = BEAD_N + 1
 
     bm = bmesh.new()
 
-    # Build the perimeter path on the plate's front face.
-    # Each entry: (x, z, tangent_x, tangent_z).
-    # Corners follow quarter-circle arcs of radius br.
-    path = []
+    # Four edges: each defined by (start, end) path points.
+    # Each point: (x, z, tangent_x, tangent_z).
+    edge_paths = [
+        [(-hw, z_bot,  1,  0), ( hw, z_bot,  1,  0)],   # bottom
+        [( hw, z_bot,  0,  1), ( hw, z_top,  0,  1)],   # right
+        [( hw, z_top, -1,  0), (-hw, z_top, -1,  0)],   # top
+        [(-hw, z_top,  0, -1), (-hw, z_bot,  0, -1)],   # left
+    ]
 
-    # Bottom edge (+X)
-    path.append((-hw + br, z_bot, 1, 0))
-    path.append(( hw - br, z_bot, 1, 0))
+    for edge_path in edge_paths:
+        rings = []
+        for idx, (px, pz, tx, tz) in enumerate(edge_path):
+            bx, bz = -tz, tx                     # bi-normal
+            msign = 1 if idx == 0 else -1         # mitre direction
+            ring = []
+            for j in range(n_bead):
+                a = -math.pi / 2 + j * math.pi / BEAD_N
+                fwd = br * math.cos(a)
+                bi  = br * math.sin(a)
+                m   = msign * bi                  # mitre offset along tangent
+                ring.append(bm.verts.new((
+                    px + bi * bx + m * tx,
+                    front_y + fwd,
+                    pz + bi * bz + m * tz)))
+            rings.append(ring)
 
-    # BR corner — centre (hw - br, z_bot + br), arc -π/2 → 0
-    cx, cz = hw - br, z_bot + br
-    for k in range(1, CORNER_N + 1):
-        th = -math.pi / 2 + k * (math.pi / 2) / CORNER_N
-        path.append((cx + br * math.cos(th), cz + br * math.sin(th),
-                      -math.sin(th), math.cos(th)))
-
-    # Right edge (+Z)
-    path.append((hw, z_top - br, 0, 1))
-
-    # TR corner — centre (hw - br, z_top - br), arc 0 → π/2
-    cx, cz = hw - br, z_top - br
-    for k in range(1, CORNER_N + 1):
-        th = k * (math.pi / 2) / CORNER_N
-        path.append((cx + br * math.cos(th), cz + br * math.sin(th),
-                      -math.sin(th), math.cos(th)))
-
-    # Top edge (-X)
-    path.append((-hw + br, z_top, -1, 0))
-
-    # TL corner — centre (-hw + br, z_top - br), arc π/2 → π
-    cx, cz = -hw + br, z_top - br
-    for k in range(1, CORNER_N + 1):
-        th = math.pi / 2 + k * (math.pi / 2) / CORNER_N
-        path.append((cx + br * math.cos(th), cz + br * math.sin(th),
-                      -math.sin(th), math.cos(th)))
-
-    # Left edge (-Z)
-    path.append((-hw, z_bot + br, 0, -1))
-
-    # BL corner — centre (-hw + br, z_bot + br), arc π → 3π/2
-    # Omit final point (coincides with path[0] to close the loop).
-    cx, cz = -hw + br, z_bot + br
-    for k in range(1, CORNER_N):
-        th = math.pi + k * (math.pi / 2) / CORNER_N
-        path.append((cx + br * math.cos(th), cz + br * math.sin(th),
-                      -math.sin(th), math.cos(th)))
-
-    # Create a D-shaped cross-section ring at each path point.
-    # The semicircle's flat side sits on the plate front face.
-    # Bi-normal B = tangent × Y gives the "sideways" direction.
-    rings = []
-    n_bead = BEAD_N + 1
-    for px, pz, tx, tz in path:
-        bx, bz = -tz, tx                         # bi-normal
-        ring = []
-        for j in range(n_bead):
-            a = -math.pi / 2 + j * math.pi / BEAD_N
-            fwd = br * math.cos(a)
-            bi  = br * math.sin(a)
-            ring.append(bm.verts.new((
-                px + bi * bx,
-                front_y + fwd,
-                pz + bi * bz)))
-        rings.append(ring)
-
-    # Connect adjacent rings with quads (closed loop)
-    n_path = len(rings)
-    for s in range(n_path):
-        sn = (s + 1) % n_path
+        # Tube surface quads
         for v in range(n_bead - 1):
-            bm.faces.new([rings[s][v], rings[s][v + 1],
-                          rings[sn][v + 1], rings[sn][v]])
-        # Close the D — flat back face (last vert → first vert)
-        bm.faces.new([rings[s][n_bead - 1], rings[s][0],
-                      rings[sn][0], rings[sn][n_bead - 1]])
+            bm.faces.new([rings[0][v], rings[0][v + 1],
+                          rings[1][v + 1], rings[1][v]])
+        # Close the D — flat back quad
+        bm.faces.new([rings[0][n_bead - 1], rings[0][0],
+                      rings[1][0], rings[1][n_bead - 1]])
+
+        # Mitred end caps (coplanar on the 45° mitre plane)
+        bm.faces.new(rings[0])
+        bm.faces.new(rings[1][::-1])
 
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
 
@@ -2534,33 +3034,32 @@ def build_flush_bracket(M):
     smooth(bead)
 
     # ── Recess in pillar ──────────────────────────────────────
-    # The recess is a pocket + 45° chamfer on all four sides.
+    # The recess is a pocket behind the bracket plate, plus sloping
+    # chamfer faces from the beading edge outward to a rectangle on
+    # the pillar surface that is FB_RECESS_MARGIN wider than the
+    # bracket plate on each side.  The chamfer angle is whatever the
+    # geometry requires — not a fixed 45°.
     # Built as a 12-vertex solid:
-    #   4 back verts   (pocket back, inner outline)
-    #   4 inner verts  (bracket level, inner outline)
-    #   4 outer verts  (pillar face, expanded by 45° chamfer)
+    #   4 back verts   (pocket back, inner outline at beading)
+    #   4 inner verts  (bracket level, inner outline at beading)
+    #   4 outer verts  (pillar face, outer rect = plate + margin)
     pillar = bpy.data.objects['Pillar']
 
-    bead_ext = br + 0.001                         # beading outline + clearance
+    recess_margin = FB_RECESS_MARGIN              # tuneable
+    bead_clr = br + 0.001                         # beading outline + clearance
     inner_y  = front_y + br + 0.001               # just past beading peak
 
-    # Inner outline (matches bracket beading)
-    ixl = -(hw + bead_ext)
-    ixr =  (hw + bead_ext)
-    izb =  z_bot - bead_ext
-    izt =  z_top + bead_ext
+    # Inner outline (matches bracket beading outer edge)
+    ixl = -(hw + bead_clr)
+    ixr =  (hw + bead_clr)
+    izb =  z_bot - bead_clr
+    izt =  z_top + bead_clr
 
-    # Gap from beading to pillar face (depth of chamfer)
-    gap_top = max(0.001, pillar_hw_at(z_top) - inner_y)
-    gap_bot = max(0.001, pillar_hw_at(z_bot) - inner_y)
-
-    # Outer outline (at pillar face, expanded by gap = 45° chamfer)
-    ozt = izt + gap_top
-    ozb = izb - gap_bot
-    oxl_t = ixl - gap_top                         # sides narrower at top
-    oxr_t = ixr + gap_top
-    oxl_b = ixl - gap_bot                         # sides wider at bottom
-    oxr_b = ixr + gap_bot
+    # Outer outline — fixed rectangle on pillar surface
+    oxl = -(hw + recess_margin)
+    oxr =  (hw + recess_margin)
+    ozb =  z_bot - recess_margin
+    ozt =  z_top + recess_margin
 
     eps     = 0.002
     y_back  = plate_y - eps
@@ -2582,11 +3081,11 @@ def build_flush_bracket(M):
     i_br = bm_c.verts.new((ixr, inner_y, izb))
     i_bl = bm_c.verts.new((ixl, inner_y, izb))
 
-    # Outer front vertices (at pillar face, expanded outline)
-    o_tl = bm_c.verts.new((oxl_t, oy_top, ozt))
-    o_tr = bm_c.verts.new((oxr_t, oy_top, ozt))
-    o_br = bm_c.verts.new((oxr_b, oy_bot, ozb))
-    o_bl = bm_c.verts.new((oxl_b, oy_bot, ozb))
+    # Outer front vertices (at pillar face, outer outline)
+    o_tl = bm_c.verts.new((oxl, oy_top, ozt))
+    o_tr = bm_c.verts.new((oxr, oy_top, ozt))
+    o_br = bm_c.verts.new((oxr, oy_bot, ozb))
+    o_bl = bm_c.verts.new((oxl, oy_bot, ozb))
 
     # 10 faces forming the closed solid
     bm_c.faces.new([b_tl, b_tr, b_br, b_bl])     # back
@@ -2594,10 +3093,10 @@ def build_flush_bracket(M):
     bm_c.faces.new([b_bl, b_br, i_br, i_bl])     # pocket bottom
     bm_c.faces.new([b_tl, i_tl, i_bl, b_bl])     # pocket left
     bm_c.faces.new([b_tr, b_br, i_br, i_tr])     # pocket right
-    bm_c.faces.new([i_tl, i_tr, o_tr, o_tl])     # chamfer top (45°)
-    bm_c.faces.new([i_bl, i_br, o_br, o_bl])     # chamfer bottom (45°)
-    bm_c.faces.new([i_tl, o_tl, o_bl, i_bl])     # chamfer left (45°)
-    bm_c.faces.new([i_tr, i_br, o_br, o_tr])     # chamfer right (45°)
+    bm_c.faces.new([i_tl, i_tr, o_tr, o_tl])     # chamfer top
+    bm_c.faces.new([i_bl, i_br, o_br, o_bl])     # chamfer bottom
+    bm_c.faces.new([i_tl, o_tl, o_bl, i_bl])     # chamfer left
+    bm_c.faces.new([i_tr, i_br, o_br, o_tr])     # chamfer right
     bm_c.faces.new([o_tl, o_tr, o_br, o_bl])     # front
 
     bmesh.ops.recalc_face_normals(bm_c, faces=bm_c.faces[:])
@@ -2612,6 +3111,223 @@ def build_flush_bracket(M):
     boolean_cut(pillar, recess)
 
     return plate
+
+
+def build_flush_bracket_logo(M):
+    """Add the TrigpointingUK logo as a multi-layer brass relief on the
+    flush bracket front face.
+
+    The SVG logo is imported, each path is classified by its fill colour
+    into a relief layer, converted to mesh, solidified to the appropriate
+    depth, and positioned on the bracket plate.
+
+    Layer ordering (front to back):
+        1. Bright green (#63e710)  — UK map outline           (highest)
+        2. Dark green   (#599d2b)  — grass
+        3. Grey         (#939393)  — trigpoint / theodolite
+        4. Yellow       (#fee82a)  — benchmark arrow
+        5. Near-white / light grey — highlight details
+        6. Black        (#000000)  — outline base             (lowest)
+
+    TUNEABLE PARAMETERS
+    -------------------
+    LOGO_RELIEF  — maximum relief height (bright green layer)
+    LOGO_MARGIN  — inset from plate edges
+    """
+    print("  Flush bracket logo ...")
+
+    # ── Locate SVG ──────────────────────────────────────────────
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        script_dir = os.getcwd()
+    svg_path = os.path.normpath(
+        os.path.join(script_dir, '..', '..', 'res', LOGO_SVG))
+    if not os.path.isfile(svg_path):
+        print(f"    WARNING: {svg_path} not found — skipping logo.")
+        return
+
+    # ── Colour → relief fraction ────────────────────────────────
+    # sRGB hex values from the SVG, mapped to fraction of LOGO_RELIEF.
+    HEX_HEIGHTS = {
+        (0x63, 0xe7, 0x10): 1.00,   # bright green — UK map shape
+        (0x59, 0x9d, 0x2b): 0.60,   # dark green   — grass
+        (0x93, 0x93, 0x93): 0.35,   # grey         — trig / theodolite
+        (0xfe, 0xe8, 0x2a): 0.35,   # yellow       — benchmark arrow
+        (0xf2, 0xf2, 0xf2): 0.20,   # near-white   — highlight
+        (0xe6, 0xe6, 0xe6): 0.20,   # light grey   — highlight
+        (0x00, 0x00, 0x00): 0.00,   # black        — outline (skip)
+    }
+
+    def _srgb_to_lin(c):
+        """Convert sRGB component [0,1] to linear."""
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+    # Pre-convert to linear RGB for comparison with Blender's internal colours
+    lin_heights = [
+        ((_srgb_to_lin(r / 255), _srgb_to_lin(g / 255), _srgb_to_lin(b / 255)), frac)
+        for (r, g, b), frac in HEX_HEIGHTS.items()
+    ]
+
+    def _match_colour(dc):
+        """Return relief fraction for the closest colour match."""
+        best, frac = 1e9, 0.00
+        for (lr, lg, lb), f in lin_heights:
+            d = (dc[0] - lr) ** 2 + (dc[1] - lg) ** 2 + (dc[2] - lb) ** 2
+            if d < best:
+                best, frac = d, f
+        return frac
+
+    # ── Import SVG ──────────────────────────────────────────────
+    existing = set(o.name for o in bpy.data.objects)
+    bpy.ops.import_curve.svg(filepath=svg_path)
+    new_all = [o for o in bpy.data.objects if o.name not in existing]
+    curves = [o for o in new_all if o.type == 'CURVE']
+
+    if not curves:
+        print("    WARNING: no curves imported — skipping logo.")
+        for o in new_all:
+            bpy.data.objects.remove(o, do_unlink=True)
+        return
+
+    # ── Bounding box of all imported curves (world XY) ──────────
+    xs, ys = [], []
+    for obj in curves:
+        for corner in obj.bound_box:
+            co = obj.matrix_world @ Vector(corner)
+            xs.append(co.x)
+            ys.append(co.y)
+    svg_min_x, svg_max_x = min(xs), max(xs)
+    svg_min_y, svg_max_y = min(ys), max(ys)
+    svg_w  = max(svg_max_x - svg_min_x, 1e-6)
+    svg_h  = max(svg_max_y - svg_min_y, 1e-6)
+    svg_cx = (svg_min_x + svg_max_x) / 2
+    svg_cy = (svg_min_y + svg_max_y) / 2
+
+    # Uniform scale to fit within flush bracket (with margin),
+    # then stretch vertically by LOGO_V_STRETCH.
+    logo_max_w = FB_W - 2 * LOGO_MARGIN
+    logo_max_h = (FB_H - LOGO_BTM_OFFSET - LOGO_MARGIN) / LOGO_V_STRETCH
+    scale_f    = min(logo_max_w / svg_w, logo_max_h / svg_h)
+    scale_x    = scale_f                    # horizontal
+    scale_y    = scale_f * LOGO_V_STRETCH   # vertical (stretched)
+
+    # After scaling, the logo's actual height:
+    logo_h     = svg_h * scale_y
+
+    # ── Flush bracket face coordinates ──────────────────────────
+    z_bot   = FB_BTM_Z
+    z_top   = z_bot + FB_H
+    face_top = pillar_hw_at(z_top)
+    plate_y  = face_top - FB_SETBACK
+    front_y  = plate_y + FB_D               # front face of the plate
+
+    # Logo bottom 10 mm above plate bottom; centre derived from that
+    logo_z_bot = z_bot + LOGO_BTM_OFFSET
+    logo_z_mid = logo_z_bot + logo_h / 2
+
+    # ── Convert each curve to a relief piece ────────────────────
+    logo_objs = []
+    for obj in curves:
+        # Relief height from material colour
+        frac = 0.00
+        if obj.data.materials:
+            mat = obj.data.materials[0]
+            if mat:
+                frac = _match_colour(mat.diffuse_color)
+        relief = LOGO_RELIEF * frac
+
+        # Unparent (SVG importer may group under an empty)
+        activate(obj)
+        if obj.parent:
+            bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+
+        # Convert curve → mesh (fills closed 2D regions)
+        bpy.ops.object.convert(target='MESH')
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+        # Skip zero-relief layers (e.g. black outline) and degenerate meshes
+        if frac <= 0 or not obj.data.polygons:
+            bpy.data.objects.remove(obj, do_unlink=True)
+            continue
+
+        # Solidify to give relief depth (+Z direction = outward after remap)
+        mod = obj.modifiers.new('Solidify', 'SOLIDIFY')
+        mod.thickness = relief
+        mod.offset = 1.0            # extrude in +Z (outward from plate)
+        activate(obj)
+        bpy.ops.object.modifier_apply(modifier='Solidify')
+
+        # ── Transform vertices to flush bracket position ────────
+        # After transform_apply, vertex coords are in world space.
+        # Map from XY-plane logo space to flush bracket:
+        #   logo X  → -pillar X  (mirrored so logo reads correctly
+        #                          when viewed from outside the trig)
+        #   logo Y  →  pillar Z  (vertical — SVG importer flips Y)
+        #   logo Z  →  pillar Y  (relief depth, outward from face)
+        mesh = obj.data
+        for v in mesh.vertices:
+            lx = (v.co.x - svg_cx) * scale_x
+            ly = (v.co.y - svg_cy) * scale_y  # stretched vertically
+            lz = v.co.z                        # 0 … relief
+
+            v.co.x = -lx                       # mirror for correct reading
+            v.co.y = front_y + lz              # base flush with plate face
+            v.co.z = logo_z_mid + ly           # bottom aligned per offset
+
+        # Clear any residual object transform
+        obj.location = (0, 0, 0)
+        obj.rotation_euler = (0, 0, 0)
+        obj.scale = (1, 1, 1)
+
+        # Bevel the sharp edges so the relief catches light.
+        # Uses bmesh.ops.bevel directly (bypasses modifier pipeline
+        # which was silently failing after vertex-level transforms).
+        mesh.update()
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.edges.ensure_lookup_table()
+
+        # Select edges where the dihedral angle ≥ 30° (i.e. sharp edges
+        # between top/bottom faces and side walls of the solidified relief).
+        angle_thresh = math.radians(30)
+        sharp_edges = []
+        for e in bm.edges:
+            if len(e.link_faces) == 2:
+                angle = e.calc_face_angle(0)
+                if angle >= angle_thresh:
+                    sharp_edges.append(e)
+
+        if sharp_edges:
+            bmesh.ops.bevel(
+                bm,
+                geom=sharp_edges,
+                offset=relief * LOGO_BEVEL_FRAC,
+                offset_type='OFFSET',
+                segments=LOGO_BEVEL_SEGS,
+                profile=0.5,
+                affect='EDGES',
+            )
+
+        bm.to_mesh(mesh)
+        bm.free()
+        mesh.update()
+
+        assign(obj, M['brass'])
+        obj.name = f"FBLogo_{obj.name}"
+        logo_objs.append(obj)
+
+    # ── Clean up SVG empties and unused materials ───────────────
+    for o in list(bpy.data.objects):
+        if o.name not in existing and o.type == 'EMPTY':
+            bpy.data.objects.remove(o, do_unlink=True)
+
+    # Purge SVG-imported materials (logo pieces now use brass)
+    for mat in list(bpy.data.materials):
+        if mat.name.startswith('SVGMat') and mat.users == 0:
+            bpy.data.materials.remove(mat)
+
+    print(f"    {len(logo_objs)} logo relief pieces placed.")
 
 
 def build_base_slab(M):
@@ -2632,7 +3348,7 @@ def build_base_slab(M):
 def build_angle_irons(M):
     """Four angle irons spanning the pillar-to-base-slab junction.
 
-    L-profile built directly with bmesh (no boolean union) for completely
+    T-profile built directly with bmesh (no boolean union) for completely
     predictable geometry.  All four are exactly the same length with Z
     placements differing by ~10 mm.
     """
@@ -2649,15 +3365,18 @@ def build_angle_irons(M):
     t = AI_THICK
     half = leg / 2
 
-    # Standard L cross-section centred on bounding-box centre.
-    # Inner corner faces (+X, +Y).
+    # T cross-section centred on bounding-box centre.
+    # Flange at y = -half (inner face toward pillar), web centred.
+    ht = t / 2                                    # half-thickness
     profile = [
-        (-half,     -half),
-        ( half,     -half),
-        ( half,     -half + t),
-        (-half + t, -half + t),
-        (-half + t,  half),
-        (-half,      half),
+        (-half,  -half),                          # flange bottom-left
+        ( half,  -half),                          # flange bottom-right
+        ( half,  -half + t),                      # flange top-right
+        ( ht,    -half + t),                      # web right junction
+        ( ht,     half),                          # web top-right
+        (-ht,     half),                          # web top-left
+        (-ht,    -half + t),                      # web left junction
+        (-half,  -half + t),                      # flange top-left
     ]
 
     for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
@@ -2665,8 +3384,8 @@ def build_angle_irons(M):
         tilt_x = sy * base_tilt * (1.0 + rng.uniform(-0.01, 0.01))
         tilt_y = -sx * base_tilt * (1.0 + rng.uniform(-0.01, 0.01))
 
-        # Build L-shape with bmesh — flip profile to orient inner corner
-        # toward (sx, sy) so it grips the pillar edge.
+        # Build T-shape with bmesh — flip profile to orient flange
+        # toward (sx, sy) so it sits against the pillar face.
         bm = bmesh.new()
         top_verts = []
         btm_verts = []
@@ -2762,77 +3481,87 @@ def build_lower_block(M):
 
 
 def build_lower_centre_mark(M):
-    """Brass centre mark: dome + tapered stalk + base disk.
+    """Lower centre mark — cylinder, conic section, dome and punch mark
+    above the block surface; identical embedded stem+base below.
 
-    Proportions are relative to dome diameter (dome_dia):
-      - Stalk height:      1.0  × dome_dia
-      - Stalk top width:   0.25 × dome_dia
-      - Stalk bottom width: 0.35 × dome_dia
-      - Disk diameter:     0.5  × dome_dia
-      - Disk height:       0.2  × dome_dia
+    Cross-section (top to bottom):
+      - Dome (circular arc tangent-matched to cone slope)
+      - Conic section (cylinder dia → 25 % at h = 20 % of dia)
+      - Cylinder (78/47 × base disc dia, 3 mm thick)
+      - Cylindrical stem with 5 mm fillets (shared with upper mark)
+      - Base disc (shared with upper mark)
+
+    The dome is a circular arc whose tangent at the base matches the
+    conic section's slope, so the overall shape reads as a cone with
+    its apex point rounded off.  A small punch mark replaces the spike.
     """
     print("  Lower centre mark ...")
     z_top = -BASE_HEIGHT - LB_HEIGHT       # top of lower block
-    dome_dia = LCM_R * 2                   # full dome diameter
 
-    # --- Dome (top) ---
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        radius=LCM_R, segments=32, ring_count=16, location=(0, 0, z_top))
-    mark = bpy.context.active_object
-    mark.name = "LowerCentreMark"
-    mark.scale.z = LCM_H / LCM_R
-    activate(mark)
-    bpy.ops.object.transform_apply(scale=True)
+    # ── Shared embedded dimensions (same as upper mark) ───────
+    flange_r  = UCM_R
+    stem_r    = 25 / 62 * flange_r
+    fillet_r  = UCM_FILLET_R
+    base_r    = 44 / 62 * flange_r
+    base_h    = UCM_BASE_H
 
-    # Cut bottom half to make a dome
-    bpy.ops.mesh.primitive_cube_add(
-        size=LCM_R * 4, location=(0, 0, z_top - LCM_R * 2))
-    boolean_cut(mark, bpy.context.active_object)
+    # ── Above-ground dimensions ───────────────────────────────
+    base_d      = base_r * 2                # base disc diameter
+    cyl_r       = 78 / 47 * base_d / 2     # cylinder radius
+    cyl_h       = LCM_CYL_H                # 3 mm
+    conic_top_r = 0.25 * cyl_r             # 25 % of cylinder radius
+    conic_h     = 0.20 * cyl_r * 2         # 20 % of cylinder diameter
+    dome_r      = conic_top_r
 
-    # --- Stalk (tapered cylinder below dome) ---
-    stalk_h = dome_dia                             # height = dome diameter
-    stalk_top_r = 0.25 * dome_dia / 2             # 0.25× dome dia as radius
-    stalk_btm_r = 0.35 * dome_dia / 2             # 0.35× dome dia as radius
-    stalk_z = z_top - stalk_h / 2                  # centre of stalk
+    # Dome: circular arc whose tangent at its base matches the cone.
+    # cone_alpha is the half-angle of the arc measured from the Z-axis.
+    # tan(α) = conic_h / (cyl_r - conic_top_r)
+    cone_alpha = math.atan2(conic_h, cyl_r - conic_top_r)
+    arc_R      = dome_r / math.sin(cone_alpha)  # arc radius
+    dome_h     = arc_R * (1 - math.cos(cone_alpha))
 
-    bpy.ops.mesh.primitive_cone_add(
-        radius1=stalk_btm_r, radius2=stalk_top_r,
-        depth=stalk_h, vertices=32,
-        location=(0, 0, stalk_z))
-    stalk = bpy.context.active_object
-    stalk.name = "_lcm_stalk"
+    # ── Z coordinates ─────────────────────────────────────────
+    z_cyl_btm   = z_top                    # cylinder bottom (block surface)
+    z_cyl_top   = z_top + cyl_h
+    z_conic_top = z_cyl_top + conic_h
+    z_dome_peak = z_conic_top + dome_h
 
-    # Union stalk to dome
-    activate(mark)
-    mod = mark.modifiers.new("_bool", 'BOOLEAN')
-    mod.operation = 'UNION'
-    mod.object = stalk
-    mod.solver = 'EXACT'
-    bpy.ops.object.modifier_apply(modifier="_bool")
-    bpy.data.objects.remove(stalk, do_unlink=True)
+    # ── Lathe profile ─────────────────────────────────────────
+    N_DOME = 8
+    profile = []
 
-    # --- Base disk ---
-    disk_r = 0.5 * dome_dia / 2                   # 0.5× dome dia as radius
-    disk_h = 0.2 * dome_dia                        # 0.2× dome dia
-    disk_z = z_top - stalk_h - disk_h / 2          # sits below stalk
+    # Dome: circular arc from peak (r=0) to conic top, tangent-matched
+    z_arc_ctr = z_conic_top - arc_R * math.cos(cone_alpha)
+    for i in range(N_DOME + 1):
+        theta = cone_alpha * i / N_DOME
+        profile.append((arc_R * math.sin(theta),
+                         z_arc_ctr + arc_R * math.cos(theta)))
 
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=disk_r, depth=disk_h, vertices=32,
-        location=(0, 0, disk_z))
-    disk = bpy.context.active_object
-    disk.name = "_lcm_disk"
+    # Conic section (truncated cone from conic_top_r to cyl_r)
+    profile.append((cyl_r, z_cyl_top))
 
-    # Union disk to dome+stalk
-    activate(mark)
-    mod = mark.modifiers.new("_bool", 'BOOLEAN')
-    mod.operation = 'UNION'
-    mod.object = disk
-    mod.solver = 'EXACT'
-    bpy.ops.object.modifier_apply(modifier="_bool")
-    bpy.data.objects.remove(disk, do_unlink=True)
+    # Cylinder outer rim (vertical)
+    profile.append((cyl_r, z_cyl_btm))
 
+    # Embedded portion (shared with upper mark)
+    profile += _embedded_stem_profile(
+        z_cyl_btm, stem_r, fillet_r, UCM_STEM_H, base_r, base_h)
+
+    mesh = _lathe_mesh(profile, "LowerCentreMark")
+    mark = bpy.data.objects.new("LowerCentreMark", mesh)
+    bpy.context.collection.objects.link(mark)
     assign(mark, M['brass'])
     smooth(mark)
+
+    # ── Punch mark (45° conical hole in dome top) ──────────────
+    punch_r = LCM_PUNCH_R
+    cone_depth = punch_r                   # 45°: depth = radius
+    bpy.ops.mesh.primitive_cone_add(
+        radius1=0, radius2=punch_r,
+        depth=cone_depth, vertices=16,
+        location=(0, 0, z_dome_peak - cone_depth / 2))
+    boolean_cut(mark, bpy.context.active_object)
+
     return mark
 
 
@@ -2846,10 +3575,10 @@ def build_terrain(M):
 
     TUNEABLE PARAMETERS
     -------------------
-    TERRAIN_RADIUS   — radius of the terrain disc (metres)
+    TERRAIN_RADIUS   — radius of the terrain disc (module-level constant)
+    DOME_HEIGHT      — height drop centre to edge (module-level constant)
     TERRAIN_DEPTH    — how far below z=0 the terrain extends
     GRID_SUBDIVS     — mesh resolution (higher = smoother undulation)
-    DOME_HEIGHT      — height drop from centre to edge
     NOISE_STRENGTH   — amplitude of surface undulation
     NOISE_SCALE      — spatial frequency of undulation
     NOISE_OCTAVES    — fractal detail layers
@@ -2857,11 +3586,11 @@ def build_terrain(M):
     print("  Terrain ...")
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
-    TERRAIN_RADIUS = 5.0          # 10 m across — fills the frame
-    GRID_SUBDIVS   = 80           # vertex spacing ~12.5 cm
-    DOME_HEIGHT    = 0.25         # gentle 25 cm dome
-    NOISE_STRENGTH = 0.04         # ±4 cm undulation
-    NOISE_SCALE    = 1.5          # spatial frequency
+    # TERRAIN_RADIUS and DOME_HEIGHT are module-level constants
+    # (shared with build_landscape_ring).
+    GRID_SUBDIVS   = 100           # vertex spacing ~12.5 cm
+    NOISE_STRENGTH = 0.07         # ±4 cm undulation
+    NOISE_SCALE    = 2.0          # spatial frequency
     NOISE_OCTAVES  = 4            # fractal layers
     CUT_MARGIN     = 0.005        # 5 mm gap between terrain and base slab
     # ─────────────────────────────────────────────────────────────
@@ -2971,8 +3700,1165 @@ def build_terrain(M):
         base_z=cut_btm_z)
     boolean_cut(terrain, cutter)
 
+    # ── Fix normals & mark top-surface faces ───────────────────────
+    # The Boolean solver can leave normals inconsistent, which breaks
+    # any downstream normal-based tests (GN scatter selection, density
+    # attribute).  We fix that here and additionally store an explicit
+    # face-domain boolean "IsTopFace" based on geometric proximity to
+    # the known dome equation — completely independent of normals.
+    bm = bmesh.new()
+    bm.from_mesh(terrain.data)
+
+    # 1. Recalculate normals so shading is correct and the density
+    #    attribute in build_grass() (which checks vertex normals) works.
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
+    bm.to_mesh(terrain.data)
+    bm.free()
+    terrain.data.update()
+
+    # 2. Store a face-domain boolean attribute "IsTopFace".
+    #    For each face we compare its centre Z against the expected
+    #    dome height at that XY radius.  Top-surface faces sit close
+    #    to the dome equation; bottom/rim faces are far below it.
+    TOP_Z_TOLERANCE = max(0.25, NOISE_STRENGTH * 4)  # generous margin
+    attr_top = terrain.data.attributes.get("IsTopFace")
+    if attr_top is None:
+        attr_top = terrain.data.attributes.new(
+            name="IsTopFace", type='BOOLEAN', domain='FACE')
+
+    mesh_data = terrain.data
+    mesh_data.calc_loop_triangles()          # ensure face data is fresh
+
+    for fi, face in enumerate(mesh_data.polygons):
+        cx, cy, cz = face.center
+        r = math.sqrt(cx * cx + cy * cy)
+        t = min(r / TERRAIN_RADIUS, 1.0)
+        expected_z = GROUND_Z + (-DOME_HEIGHT * t * t)
+        attr_top.data[fi].value = (cz > expected_z - TOP_Z_TOLERANCE)
+
     assign(terrain, M['terrain'])
     smooth(terrain)
+    return terrain
+
+
+def build_landscape_ring(M):
+    """Large surrounding countryside to fill the gap between the hilltop
+    dome and the far horizon.
+
+    An efficient radial mesh (concentric rings with increasing spacing)
+    extends from just inside the terrain dome edge out to ~200 m.  The
+    surface continues the dome's downhill slope then gradually levels off,
+    simulating a broad hilltop viewed from the summit.  A procedural
+    patchwork-fields material fades into atmospheric haze at distance.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    INNER_R         — inner radius (overlaps terrain dome edge slightly)
+    OUTER_R         — outer radius (far enough for low camera angles)
+    N_ANGULAR       — vertices per ring (angular resolution)
+    SLOPE_RATE      — initial downhill slope (m drop per m outward)
+    SLOPE_DECAY     — how quickly the slope flattens (higher = faster)
+    MAX_DROP        — maximum height drop at the outer edge (metres)
+    UNDULATION_AMP  — amplitude of gentle terrain undulation
+    UNDULATION_FREQ — spatial frequency of undulation
+    """
+    print("  Landscape ring ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    INNER_R         = 4.6         # slightly inside terrain dome edge
+    OUTER_R         = 200.0       # far horizon fill
+    N_ANGULAR       = 64          # vertices per ring
+    SLOPE_RATE      = 0.10        # initial slope: 10 cm drop per metre
+    SLOPE_DECAY     = 0.04        # decay rate (1/e distance ≈ 25 m)
+    MAX_DROP        = 8.0         # total drop to far edge (metres)
+    UNDULATION_AMP  = 0.3         # gentle rolling hills (metres)
+    UNDULATION_FREQ = 0.08        # spatial frequency of undulation
+    # ─────────────────────────────────────────────────────────────
+
+    # Terrain dome edge height — derived from the module-level
+    # TERRAIN_RADIUS and DOME_HEIGHT (shared with build_terrain).
+    GROUND_Z = -BASE_HEIGHT + 0.80 * BASE_HEIGHT   # ≈ -0.061
+    t_edge = INNER_R / TERRAIN_RADIUS
+    EDGE_Z = GROUND_Z + (-DOME_HEIGHT * t_edge * t_edge)
+
+    # ── Build radial mesh with logarithmically spaced rings ───────
+    # Inner rings are close together (smooth join to dome); outer rings
+    # are widely spaced (far-field detail irrelevant due to haze).
+    ring_radii = [INNER_R]
+    r = INNER_R
+    dr = 0.3          # initial ring spacing (metres)
+    while r < OUTER_R:
+        r += dr
+        ring_radii.append(min(r, OUTER_R))
+        dr *= 1.25     # increase spacing outward
+    n_rings = len(ring_radii)
+
+    # Height profile: exponential decay slope + undulation
+    def landscape_z(r_val, angle):
+        # Smooth continuation of dome slope, decaying to flat
+        dist_from_edge = max(0.0, r_val - INNER_R)
+        drop = (SLOPE_RATE / SLOPE_DECAY) * (
+            1.0 - math.exp(-SLOPE_DECAY * dist_from_edge))
+        drop = min(drop, MAX_DROP)
+
+        # Gentle rolling undulation (sum of two sine waves)
+        x = r_val * math.cos(angle)
+        y = r_val * math.sin(angle)
+        und = UNDULATION_AMP * (
+            0.6 * math.sin(UNDULATION_FREQ * (x * 1.0 + y * 0.7) + 1.3)
+            + 0.4 * math.sin(UNDULATION_FREQ * 1.7 * (x * 0.6 - y * 1.0) + 4.1)
+        )
+        # Fade undulation in (zero at inner edge, full beyond 20 m)
+        und_fade = min(1.0, dist_from_edge / 15.0)
+
+        return EDGE_Z - drop + und * und_fade
+
+    bm = bmesh.new()
+
+    # Create vertex rings
+    vert_rings = []
+    for ri, rad in enumerate(ring_radii):
+        ring_verts = []
+        for ai in range(N_ANGULAR):
+            angle = 2.0 * math.pi * ai / N_ANGULAR
+            x = rad * math.cos(angle)
+            y = rad * math.sin(angle)
+            z = landscape_z(rad, angle)
+            ring_verts.append(bm.verts.new((x, y, z)))
+        vert_rings.append(ring_verts)
+
+    # Create faces between adjacent rings
+    for ri in range(n_rings - 1):
+        inner_ring = vert_rings[ri]
+        outer_ring = vert_rings[ri + 1]
+        for ai in range(N_ANGULAR):
+            ai_next = (ai + 1) % N_ANGULAR
+            # Quad: inner[ai], inner[ai+1], outer[ai+1], outer[ai]
+            bm.faces.new([
+                inner_ring[ai],
+                inner_ring[ai_next],
+                outer_ring[ai_next],
+                outer_ring[ai],
+            ])
+
+    bm.normal_update()
+
+    mesh = bpy.data.meshes.new("Landscape")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    landscape = bpy.data.objects.new("Landscape", mesh)
+    bpy.context.collection.objects.link(landscape)
+
+    assign(landscape, M['landscape'])
+    smooth(landscape)
+    return landscape
+
+
+def build_grass():
+    """Scatter grass blade instances over the terrain via Geometry Nodes.
+
+    Uses Blender 4.x Geometry Nodes (Distribute Points on Faces →
+    Instance on Points) rather than the legacy particle system, giving
+    reliable viewport and render display without visibility-flag quirks.
+
+    Grass density varies with distance from the pillar: bare near the
+    base (worn earth, exposed rock), gradually filling in through a
+    noisy transition zone to lush coverage at the hillside edges.
+    The transition boundary is perturbed by coherent noise to avoid
+    an artificial circular cut-off.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    BARE_RADIUS     — inner radius with no grass (base slab area)
+    FULL_RADIUS     — full lush coverage from this radius outward
+    GRASS_DENSITY   — points per m² at full coverage
+    BLADE_H_MIN/MAX — blade height range (metres)
+    BLADE_WIDTH     — blade width at base (metres)
+    BLADE_VARIANTS  — number of different blade shapes
+    NOISE_SCALE     — boundary perturbation spatial frequency
+    NOISE_STRENGTH  — boundary perturbation amplitude (metres)
+    GREEN_COL_A/B   — lush grass colour range
+    DRY_COL         — sparse/dry tuft colour
+    TRANSLUCENCY    — back-lit translucency fraction (0–1)
+    """
+    print("  Grass ...")
+
+    terrain = bpy.data.objects.get("Terrain")
+    if not terrain:
+        print("    WARNING: Terrain not found — skipping grass.")
+        return
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    BARE_RADIUS    = 0.55     # no grass within 55 cm of centre
+    FULL_RADIUS    = 2.50     # full coverage from 2.5 m outward
+    GRASS_DENSITY  = 1400.0   # points per m² at full weight (main layer)
+    GRASS_DENSITY_SHORT = 6000.0   # dense short under-layer
+    WEED_DENSITY   = 2400.0     # broad-leaf weeds (sparse)
+    FLOWER_DENSITY = 7.5      # flowers (very sparse)
+    STONE_DENSITY  = 840.0     # visible stones (sparse)
+    WEED_VARIANTS  = 4
+    FLOWER_VARIANTS = 2
+    STONE_VARIANTS = 6
+    BLADE_H_MIN    = 0.025    # shortest blade (2.5 cm)
+    BLADE_H_MAX    = 0.140    # tallest blade (14 cm)
+    BLADE_WIDTH    = 0.005    # 5 mm wide at base
+    BLADE_VARIANTS = 7        # distinct blade shapes (more = more short blades)
+    NOISE_SCALE    = 1.5      # boundary noise frequency
+    NOISE_STRENGTH = 0.5      # boundary noise ±50 cm
+    SEED           = 42
+    SCALE_MIN      = 0.55     # instance scale range (shorter bias)
+    SCALE_MAX      = 1.20
+    SCALE_BIAS     = 2.2      # >1 biases toward smaller blades
+    SHORT_SCALE_MIN = 0.20
+    SHORT_SCALE_MAX = 0.55
+    SHORT_SCALE_BIAS = 3.2
+    WEED_SCALE_MIN = 0.6
+    WEED_SCALE_MAX = 1.4
+    WEED_SCALE_BIAS = 1.6
+    FLOWER_SCALE_MIN = 0.3
+    FLOWER_SCALE_MAX = 0.6
+    FLOWER_SCALE_BIAS = 2.0
+    STONE_SCALE_MIN = 0.01
+    STONE_SCALE_MAX = 0.05
+    STONE_RAISE     = -0.05    # lift stones above ground surface (m)
+
+    CLUMP_SCALE    = 0.25     # large-scale clump size
+    CLUMP_DETAIL   = 2.0
+    CLUMP_ROUGH    = 0.6
+    CLUMP_MIN      = 0.20     # darkest clumps still keep some grass
+    CLUMP_MAX      = 2.2
+
+    UPWARD_MIN_Z   = 0.0      # only scatter on upward-facing surfaces
+    UPWARD_FULL_Z  = 0.70     # full density by this normal Z
+    UP_BLEND       = 0.65     # 0 = follow normals, 1 = world-up
+    ALIGN_TO_NORMAL = 0.35    # 0 = vertical, 1 = follow surface normal
+    TILT_MAX       = math.radians(7)  # random tilt angle
+    WEED_EDGE_POWER = 1.5
+    FLOWER_EDGE_POWER = 2.0
+    STONE_EDGE_POWER = 1.3
+
+    GREEN_COL_A    = (0.06, 0.14, 0.02, 1)   # dark rich green
+    GREEN_COL_B    = (0.16, 0.24, 0.04, 1)   # lighter green
+    DRY_COL        = (0.22, 0.18, 0.06, 1)   # dry yellowish
+    TRANSLUCENCY   = 0.25    # 25 % back-lit translucency
+    # ─────────────────────────────────────────────────────────────
+
+    GROUND_Z = -BASE_HEIGHT + 0.80 * BASE_HEIGHT
+
+    # ── Grass blade material ──────────────────────────────────────
+    # Colour varies per instance via Object Info → Random, giving a
+    # natural mix of green and dry blades.  A translucent component
+    # lets light filter through back-lit blades realistically.
+    grass_mat = bpy.data.materials.new("GrassBlade")
+    grass_mat.use_nodes = True
+    gt = grass_mat.node_tree
+    gt.nodes.clear()
+
+    obj_info = gt.nodes.new('ShaderNodeObjectInfo')
+    obj_info.location = (-500, 0)
+
+    cr_green = gt.nodes.new('ShaderNodeValToRGB')
+    cr_green.location = (-300, 100)
+    cr_green.label = "Green Variation"
+    cr_green.color_ramp.elements[0].position = 0.0
+    cr_green.color_ramp.elements[0].color = GREEN_COL_A
+    cr_green.color_ramp.elements[1].position = 0.6
+    cr_green.color_ramp.elements[1].color = GREEN_COL_B
+    dry_stop = cr_green.color_ramp.elements.new(1.0)
+    dry_stop.color = DRY_COL
+
+    bsdf = gt.nodes.new('ShaderNodeBsdfPrincipled')
+    bsdf.location = (100, 100)
+    bsdf.inputs['Roughness'].default_value = 0.75
+
+    trans = gt.nodes.new('ShaderNodeBsdfTranslucent')
+    trans.location = (100, -100)
+
+    mix_sh = gt.nodes.new('ShaderNodeMixShader')
+    mix_sh.location = (350, 0)
+    mix_sh.inputs[0].default_value = TRANSLUCENCY
+
+    mat_out = gt.nodes.new('ShaderNodeOutputMaterial')
+    mat_out.location = (550, 0)
+
+    gL = gt.links
+    gL.new(obj_info.outputs['Random'], cr_green.inputs['Fac'])
+    gL.new(cr_green.outputs['Color'], bsdf.inputs['Base Color'])
+    gL.new(cr_green.outputs['Color'], trans.inputs['Color'])
+    gL.new(bsdf.outputs['BSDF'], mix_sh.inputs[1])
+    gL.new(trans.outputs['BSDF'], mix_sh.inputs[2])
+    gL.new(mix_sh.outputs['Shader'], mat_out.inputs['Surface'])
+
+    # ── Create blade mesh variants ────────────────────────────────
+    # Each blade is a thin tapered quad with a slight forward bend.
+    # Multiple variants with different heights and curvatures give
+    # natural variation when picked randomly by the scatter system.
+    grass_col = bpy.data.collections.new("_GrassBlades")
+    bpy.context.scene.collection.children.link(grass_col)
+
+    rng = random.Random(SEED)
+
+    for i in range(BLADE_VARIANTS):
+        # Bias the variant heights toward shorter blades
+        t_var = (i / max(1, BLADE_VARIANTS - 1)) ** 2
+        h = BLADE_H_MIN + (BLADE_H_MAX - BLADE_H_MIN) * t_var
+        bend = rng.uniform(0.15, 0.55)
+        hw = BLADE_WIDTH / 2
+
+        bm = bmesh.new()
+        SEGS = 3
+        rows = []
+        for s in range(SEGS + 1):
+            t = s / SEGS
+            z = h * t
+            w = hw * (1.0 - t * 0.90)           # taper to 10 % at tip
+            y_off = bend * h * t * t             # quadratic forward lean
+            left = bm.verts.new((-w, y_off, z))
+            right = bm.verts.new((w, y_off, z))
+            rows.append((left, right))
+
+        for s in range(SEGS):
+            l0, r0 = rows[s]
+            l1, r1 = rows[s + 1]
+            bm.faces.new([l0, r0, r1, l1])
+
+        mesh = bpy.data.meshes.new(f"_blade_{i}")
+        bm.to_mesh(mesh)
+        bm.free()
+
+        obj = bpy.data.objects.new(f"_blade_{i}", mesh)
+        obj.data.materials.append(grass_mat)
+        grass_col.objects.link(obj)
+
+    # Hide source blades from viewport and render — Geometry Nodes
+    # reads the mesh data directly regardless of visibility flags.
+    for obj in grass_col.objects:
+        obj.hide_viewport = True
+        obj.hide_render = True
+
+    # ── Weed & flower variants ───────────────────────────────────
+    weed_mat = bpy.data.materials.new("WeedLeaf")
+    weed_mat.use_nodes = True
+    wt = weed_mat.node_tree
+    wt.nodes.clear()
+    w_bsdf = wt.nodes.new('ShaderNodeBsdfPrincipled')
+    w_bsdf.inputs['Base Color'].default_value = (0.10, 0.18, 0.04, 1)
+    w_bsdf.inputs['Roughness'].default_value = 0.80
+    w_out = wt.nodes.new('ShaderNodeOutputMaterial')
+    wt.links.new(w_bsdf.outputs['BSDF'], w_out.inputs['Surface'])
+
+    flower_white = bpy.data.materials.new("FlowerDaisy")
+    flower_white.use_nodes = True
+    fw = flower_white.node_tree
+    fw.nodes.clear()
+    fw_bsdf = fw.nodes.new('ShaderNodeBsdfPrincipled')
+    fw_bsdf.inputs['Base Color'].default_value = (0.85, 0.85, 0.80, 1)
+    fw_bsdf.inputs['Roughness'].default_value = 0.70
+    fw_out = fw.nodes.new('ShaderNodeOutputMaterial')
+    fw.links.new(fw_bsdf.outputs['BSDF'], fw_out.inputs['Surface'])
+
+    flower_yellow = bpy.data.materials.new("FlowerButtercup")
+    flower_yellow.use_nodes = True
+    fy = flower_yellow.node_tree
+    fy.nodes.clear()
+    fy_bsdf = fy.nodes.new('ShaderNodeBsdfPrincipled')
+    fy_bsdf.inputs['Base Color'].default_value = (0.75, 0.65, 0.10, 1)
+    fy_bsdf.inputs['Roughness'].default_value = 0.60
+    fy_out = fy.nodes.new('ShaderNodeOutputMaterial')
+    fy.links.new(fy_bsdf.outputs['BSDF'], fy_out.inputs['Surface'])
+
+    stone_mat = bpy.data.materials.new("Pebble")
+    stone_mat.use_nodes = True
+    st = stone_mat.node_tree
+    st.nodes.clear()
+    st_bsdf = st.nodes.new('ShaderNodeBsdfPrincipled')
+    st_bsdf.inputs['Base Color'].default_value = (0.30, 0.28, 0.26, 1)
+    st_bsdf.inputs['Roughness'].default_value = 0.90
+    st_out = st.nodes.new('ShaderNodeOutputMaterial')
+    st.links.new(st_bsdf.outputs['BSDF'], st_out.inputs['Surface'])
+
+    weed_col = bpy.data.collections.new("_WeedPlants")
+    flower_col = bpy.data.collections.new("_FlowerPlants")
+    stone_col = bpy.data.collections.new("_StonePebbles")
+    bpy.context.scene.collection.children.link(weed_col)
+    bpy.context.scene.collection.children.link(flower_col)
+    bpy.context.scene.collection.children.link(stone_col)
+
+    # Weed variants: 3-leaf clusters
+    for i in range(WEED_VARIANTS):
+        leaf_len = rng.uniform(0.03, 0.06)
+        leaf_w   = rng.uniform(0.015, 0.03)
+        tip_z    = rng.uniform(0.003, 0.008)
+
+        bm = bmesh.new()
+        for ang_deg in (0, 120, 240):
+            a = math.radians(ang_deg + rng.uniform(-10, 10))
+            ca, sa = math.cos(a), math.sin(a)
+            pts = [
+                (-leaf_w / 2, 0.0, 0.0),
+                ( leaf_w / 2, 0.0, 0.0),
+                ( 0.0,        leaf_len, tip_z),
+                ( 0.0,        leaf_len * 0.15, 0.0),
+            ]
+            verts = []
+            for x, y, z in pts:
+                rx = x * ca - y * sa
+                ry = x * sa + y * ca
+                verts.append(bm.verts.new((rx, ry, z)))
+            bm.faces.new(verts)
+
+        mesh = bpy.data.meshes.new(f"_weed_{i}")
+        bm.to_mesh(mesh)
+        bm.free()
+        obj = bpy.data.objects.new(f"_weed_{i}", mesh)
+        obj.data.materials.append(weed_mat)
+        weed_col.objects.link(obj)
+
+    # Flower variants: simple discs (daisy + buttercup)
+    for name, mat, r in (
+        ("_daisy", flower_white, 0.018),
+        ("_buttercup", flower_yellow, 0.016),
+    ):
+        bm = bmesh.new()
+        center = bm.verts.new((0, 0, 0.004))
+        ring = []
+        N = 12
+        for i in range(N):
+            ang = 2 * math.pi * i / N
+            ring.append(bm.verts.new((r * math.cos(ang), r * math.sin(ang), 0.004)))
+        for i in range(N):
+            bm.faces.new([center, ring[i], ring[(i + 1) % N]])
+        mesh = bpy.data.meshes.new(name)
+        bm.to_mesh(mesh)
+        bm.free()
+        obj = bpy.data.objects.new(name, mesh)
+        obj.data.materials.append(mat)
+        flower_col.objects.link(obj)
+
+    # Stone variants: low-poly pebbles (clearly 3D)
+    for i in range(STONE_VARIANTS):
+        r = rng.uniform(0.04, 0.12)
+        bm = bmesh.new()
+        bmesh.ops.create_icosphere(bm, subdivisions=2, radius=r)
+        # Flatten and jitter to sit on ground
+        for v in bm.verts:
+            v.co.x += rng.uniform(-r * 0.25, r * 0.25)
+            v.co.y += rng.uniform(-r * 0.25, r * 0.25)
+            v.co.z *= rng.uniform(0.7, 1.0)
+            v.co.z *= rng.uniform(0.8, 1.4)
+        # Shift so the lowest point sits on the ground (no half-buried discs)
+        min_z = min(v.co.z for v in bm.verts)
+        z_off = rng.uniform(0.005, 0.02)
+        for v in bm.verts:
+            v.co.z -= min_z
+            v.co.z += z_off
+        mesh = bpy.data.meshes.new(f"_stone_{i}")
+        bm.to_mesh(mesh)
+        bm.free()
+        obj = bpy.data.objects.new(f"_stone_{i}", mesh)
+        obj.data.materials.append(stone_mat)
+        stone_col.objects.link(obj)
+
+    # Hide source objects from viewport/render
+    for col in (weed_col, flower_col, stone_col):
+        for obj in col.objects:
+            obj.hide_viewport = True
+            obj.hide_render = True
+
+    # ── Density gradient attribute ────────────────────────────────
+    # Store the density as a *mesh attribute* (FLOAT, POINT domain).
+    # Geometry Nodes reliably reads mesh attributes via Named Attribute.
+    # (Vertex groups are not consistently exposed as attributes.)
+    mesh_data = terrain.data
+    attr = mesh_data.attributes.get("GrassDensity")
+    if attr is None:
+        attr = mesh_data.attributes.new(
+            name="GrassDensity", type='FLOAT', domain='POINT')
+
+    def _density_noise(x, y):
+        """Multi-octave sine-wave noise (same method as terrain builder)."""
+        value = 0.0
+        freq = NOISE_SCALE
+        amp = NOISE_STRENGTH
+        for j in range(4):
+            angle = j * 2.399
+            dx = math.cos(angle)
+            dy = math.sin(angle)
+            value += amp * math.sin(freq * (dx * x + dy * y) + j * 7.3)
+            freq *= 2.0
+            amp *= 0.5
+        return value
+
+    # Use bmesh to compute normals (Mesh.calc_normals() is not available
+    # in some Blender builds).
+    bm = bmesh.new()
+    bm.from_mesh(mesh_data)
+    bm.normal_update()
+    bm.verts.ensure_lookup_table()
+
+    for i, v in enumerate(bm.verts):
+        # Only assign density on upward-facing surfaces; this remains
+        # stable even if the dome height changes.
+        if v.normal.z < 0.05:
+            attr.data[i].value = 0.0
+            continue
+
+        r = math.sqrt(v.co.x ** 2 + v.co.y ** 2)
+        noise = _density_noise(v.co.x, v.co.y)
+
+        bare_r = max(0.0, BARE_RADIUS + noise * 0.3)
+        full_r = max(bare_r + 0.1, FULL_RADIUS + noise)
+
+        if r <= bare_r:
+            w = 0.0
+        elif r >= full_r:
+            w = 1.0
+        else:
+            frac = (r - bare_r) / (full_r - bare_r)
+            w = frac * frac * (3.0 - 2.0 * frac)
+
+        attr.data[i].value = w
+
+    bm.free()
+    mesh_data.update()
+
+    # ── Geometry Nodes scatter ────────────────────────────────────
+    # A node tree that distributes blade instances across the terrain
+    # surface.  Geometry Nodes is the modern Blender 4.x approach —
+    # more reliable than the legacy particle system for viewport and
+    # render display.
+    #
+    # Node flow:
+    #   Mesh → Distribute Points on Faces (density from vertex group)
+    #        → Instance on Points (random blade from collection)
+    #        → Rotate Instances (random facing direction)
+    #        → Join Geometry (terrain mesh + grass instances)
+
+    tree = bpy.data.node_groups.new("GrassScatter", 'GeometryNodeTree')
+    tree.interface.new_socket(
+        'Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')
+    tree.interface.new_socket(
+        'Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
+
+    gn = tree.nodes       # geometry nodes
+    gl = tree.links       # geometry links
+
+    group_in = gn.new('NodeGroupInput')
+    group_in.location = (-800, 0)
+
+    group_out = gn.new('NodeGroupOutput')
+    group_out.location = (600, 0)
+
+    # ── Read GrassDensity attribute ──
+    density_attr = gn.new('GeometryNodeInputNamedAttribute')
+    density_attr.data_type = 'FLOAT'
+    density_attr.inputs['Name'].default_value = "GrassDensity"
+    density_attr.location = (-600, -150)
+
+    # ── Upward-facing mask & slope factor ──
+    normal_in = gn.new('GeometryNodeInputNormal')
+    normal_in.location = (-800, -350)
+
+    sep_n = gn.new('ShaderNodeSeparateXYZ')
+    sep_n.location = (-600, -350)
+
+    # Hard boolean gate: only scatter on top-surface faces.  The
+    # "IsTopFace" attribute was computed in build_terrain() using the
+    # known dome equation — it's True only for faces geometrically on
+    # the upper terrain surface, regardless of normals.
+    top_face_attr = gn.new('GeometryNodeInputNamedAttribute')
+    top_face_attr.data_type = 'BOOLEAN'
+    top_face_attr.inputs['Name'].default_value = "IsTopFace"
+    top_face_attr.location = (-400, -280)
+
+    slope_map = gn.new('ShaderNodeMapRange')
+    slope_map.location = (-400, -350)
+    slope_map.inputs['From Min'].default_value = UPWARD_MIN_Z
+    slope_map.inputs['From Max'].default_value = UPWARD_FULL_Z
+    slope_map.inputs['To Min'].default_value = 0.0
+    slope_map.inputs['To Max'].default_value = 1.0
+    slope_map.clamp = True
+
+    # ── Orientation: blend normal with world-up ──
+    up_vec = gn.new('ShaderNodeCombineXYZ')
+    up_vec.location = (-800, -520)
+    up_vec.inputs['Z'].default_value = 1.0
+
+    mix_vec = gn.new('ShaderNodeMix')
+    mix_vec.data_type = 'VECTOR'
+    mix_vec.location = (-600, -520)
+    mix_vec.inputs['Factor'].default_value = UP_BLEND
+
+    norm_vec = gn.new('ShaderNodeVectorMath')
+    norm_vec.operation = 'NORMALIZE'
+    norm_vec.location = (-400, -520)
+
+    align_vec = gn.new('FunctionNodeAlignEulerToVector')
+    align_vec.location = (-200, -520)
+    # Axis is a node property in Blender 4.x (not an input socket).
+    try:
+        align_vec.axis = 'Z'
+    except Exception:
+        pass
+
+    align_factor = gn.new('ShaderNodeMath')
+    align_factor.operation = 'MULTIPLY'
+    align_factor.inputs[1].default_value = ALIGN_TO_NORMAL
+    align_factor.location = (-400, -620)
+
+    # ── Clump noise for density variation ──
+    pos_in = gn.new('GeometryNodeInputPosition')
+    pos_in.location = (-800, 150)
+
+    clump_noise = gn.new('ShaderNodeTexNoise')
+    clump_noise.location = (-600, 150)
+    clump_noise.inputs['Scale'].default_value = CLUMP_SCALE
+    clump_noise.inputs['Detail'].default_value = CLUMP_DETAIL
+    clump_noise.inputs['Roughness'].default_value = CLUMP_ROUGH
+
+    clump_map = gn.new('ShaderNodeMapRange')
+    clump_map.location = (-400, 150)
+    clump_map.inputs['From Min'].default_value = 0.0
+    clump_map.inputs['From Max'].default_value = 1.0
+    clump_map.inputs['To Min'].default_value = CLUMP_MIN
+    clump_map.inputs['To Max'].default_value = CLUMP_MAX
+    clump_map.clamp = True
+
+    clump_mul = gn.new('ShaderNodeMath')
+    clump_mul.operation = 'MULTIPLY'
+    clump_mul.location = (-200, 150)
+
+    slope_mul = gn.new('ShaderNodeMath')
+    slope_mul.operation = 'MULTIPLY'
+    slope_mul.location = (-50, 80)
+
+    inv_density = gn.new('ShaderNodeMath')
+    inv_density.operation = 'SUBTRACT'
+    inv_density.inputs[0].default_value = 1.0
+    inv_density.location = (-50, -340)
+
+    weed_mul = gn.new('ShaderNodeMath')
+    weed_mul.operation = 'MULTIPLY'
+    weed_mul.location = (120, -340)
+
+    weed_mul2 = gn.new('ShaderNodeMath')
+    weed_mul2.operation = 'MULTIPLY'
+    weed_mul2.location = (260, -340)
+
+    weed_pow = gn.new('ShaderNodeMath')
+    weed_pow.operation = 'POWER'
+    weed_pow.inputs[1].default_value = WEED_EDGE_POWER
+    weed_pow.location = (420, -340)
+
+    flower_pow = gn.new('ShaderNodeMath')
+    flower_pow.operation = 'POWER'
+    flower_pow.inputs[1].default_value = FLOWER_EDGE_POWER
+    flower_pow.location = (420, -420)
+
+    stone_mul = gn.new('ShaderNodeMath')
+    stone_mul.operation = 'MULTIPLY'
+    stone_mul.location = (120, -500)
+
+    stone_pow = gn.new('ShaderNodeMath')
+    stone_pow.operation = 'POWER'
+    stone_pow.inputs[1].default_value = STONE_EDGE_POWER
+    stone_pow.location = (260, -500)
+
+    # ── Scatter points on surface ──
+    distribute = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute.distribute_method = 'RANDOM'
+    distribute.inputs['Density'].default_value = 1.0
+    distribute.inputs['Seed'].default_value = SEED
+    distribute.location = (-200, 0)
+
+    # Density = attribute (0..1) * clump (0..2) * GRASS_DENSITY
+    density_mul = gn.new('ShaderNodeMath')
+    density_mul.operation = 'MULTIPLY'
+    density_mul.inputs[1].default_value = GRASS_DENSITY
+    density_mul.location = (0, -50)
+
+    # Short-grass layer density
+    distribute_short = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute_short.distribute_method = 'RANDOM'
+    distribute_short.inputs['Density'].default_value = 1.0
+    distribute_short.inputs['Seed'].default_value = SEED + 101
+    distribute_short.location = (-200, -200)
+
+    density_mul_short = gn.new('ShaderNodeMath')
+    density_mul_short.operation = 'MULTIPLY'
+    density_mul_short.inputs[1].default_value = GRASS_DENSITY_SHORT
+    density_mul_short.location = (0, -200)
+
+    # Weeds / flowers / stones
+    distribute_weed = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute_weed.distribute_method = 'RANDOM'
+    distribute_weed.inputs['Density'].default_value = 1.0
+    distribute_weed.inputs['Seed'].default_value = SEED + 201
+    distribute_weed.location = (-200, -420)
+
+    distribute_flower = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute_flower.distribute_method = 'RANDOM'
+    distribute_flower.inputs['Density'].default_value = 1.0
+    distribute_flower.inputs['Seed'].default_value = SEED + 301
+    distribute_flower.location = (-200, -520)
+
+    distribute_stone = gn.new('GeometryNodeDistributePointsOnFaces')
+    distribute_stone.distribute_method = 'RANDOM'
+    distribute_stone.inputs['Density'].default_value = 1.0
+    distribute_stone.inputs['Seed'].default_value = SEED + 401
+    distribute_stone.location = (-200, -620)
+
+    density_mul_weed = gn.new('ShaderNodeMath')
+    density_mul_weed.operation = 'MULTIPLY'
+    density_mul_weed.inputs[1].default_value = WEED_DENSITY
+    density_mul_weed.location = (0, -420)
+
+    density_mul_flower = gn.new('ShaderNodeMath')
+    density_mul_flower.operation = 'MULTIPLY'
+    density_mul_flower.inputs[1].default_value = FLOWER_DENSITY
+    density_mul_flower.location = (0, -520)
+
+    density_mul_stone = gn.new('ShaderNodeMath')
+    density_mul_stone.operation = 'MULTIPLY'
+    density_mul_stone.inputs[1].default_value = STONE_DENSITY
+    density_mul_stone.location = (0, -620)
+
+    # ── Blade collection reference ──
+    col_info = gn.new('GeometryNodeCollectionInfo')
+    col_info.inputs[0].default_value = grass_col      # Collection
+    col_info.inputs['Separate Children'].default_value = True
+    col_info.inputs['Reset Children'].default_value = True
+    col_info.location = (-400, -300)
+
+    col_weed = gn.new('GeometryNodeCollectionInfo')
+    col_weed.inputs[0].default_value = weed_col
+    col_weed.inputs['Separate Children'].default_value = True
+    col_weed.inputs['Reset Children'].default_value = True
+    col_weed.location = (-400, -420)
+
+    col_flower = gn.new('GeometryNodeCollectionInfo')
+    col_flower.inputs[0].default_value = flower_col
+    col_flower.inputs['Separate Children'].default_value = True
+    col_flower.inputs['Reset Children'].default_value = True
+    col_flower.location = (-400, -520)
+
+    col_stone = gn.new('GeometryNodeCollectionInfo')
+    col_stone.inputs[0].default_value = stone_col
+    col_stone.inputs['Separate Children'].default_value = True
+    col_stone.inputs['Reset Children'].default_value = True
+    col_stone.location = (-400, -620)
+
+    # ── Random integer for picking a blade variant ──
+    # FunctionNodeRandomValue inputs by index:
+    #   0/1 = Min/Max Vector, 2/3 = Min/Max Float,
+    #   4/5 = Min/Max Int, 7 = ID, 8 = Seed
+    # Outputs: 0 = Vector, 1 = Float, 2 = Int, 3 = Bool
+    rand_idx = gn.new('FunctionNodeRandomValue')
+    rand_idx.data_type = 'INT'
+    rand_idx.inputs[4].default_value = 0                   # Min Int
+    rand_idx.inputs[5].default_value = BLADE_VARIANTS - 1  # Max Int
+    rand_idx.location = (-200, -250)
+
+    rand_idx_weed = gn.new('FunctionNodeRandomValue')
+    rand_idx_weed.data_type = 'INT'
+    rand_idx_weed.inputs[4].default_value = 0
+    rand_idx_weed.inputs[5].default_value = WEED_VARIANTS - 1
+    rand_idx_weed.location = (-200, -420)
+
+    rand_idx_flower = gn.new('FunctionNodeRandomValue')
+    rand_idx_flower.data_type = 'INT'
+    rand_idx_flower.inputs[4].default_value = 0
+    rand_idx_flower.inputs[5].default_value = FLOWER_VARIANTS - 1
+    rand_idx_flower.location = (-200, -520)
+
+    rand_idx_stone = gn.new('FunctionNodeRandomValue')
+    rand_idx_stone.data_type = 'INT'
+    rand_idx_stone.inputs[4].default_value = 0
+    rand_idx_stone.inputs[5].default_value = STONE_VARIANTS - 1
+    rand_idx_stone.location = (-200, -620)
+
+    # ── Instance blade meshes at scattered points ──
+    instance_on = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on.inputs['Pick Instance'].default_value = True
+    instance_on.location = (150, 0)
+
+    instance_on_short = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on_short.inputs['Pick Instance'].default_value = True
+    instance_on_short.location = (150, -200)
+
+    instance_on_weed = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on_weed.inputs['Pick Instance'].default_value = True
+    instance_on_weed.location = (150, -420)
+
+    instance_on_flower = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on_flower.inputs['Pick Instance'].default_value = True
+    instance_on_flower.location = (150, -520)
+
+    instance_on_stone = gn.new('GeometryNodeInstanceOnPoints')
+    instance_on_stone.inputs['Pick Instance'].default_value = True
+    instance_on_stone.location = (150, -620)
+
+    # ── Random facing direction (rotate around local Z) ──
+    rand_rot = gn.new('FunctionNodeRandomValue')
+    rand_rot.data_type = 'FLOAT'
+    rand_rot.inputs[2].default_value = 0.0                 # Min Float
+    rand_rot.inputs[3].default_value = 2 * math.pi         # Max Float
+    rand_rot.location = (0, -450)
+
+    axis_rot = gn.new('FunctionNodeAxisAngleToRotation')
+    axis_rot.inputs['Axis'].default_value = (0, 0, 1)
+    axis_rot.location = (150, -450)
+
+    rotate = gn.new('GeometryNodeRotateInstances')
+    rotate.inputs['Local Space'].default_value = True
+    rotate.location = (350, 0)
+
+    rotate_short = gn.new('GeometryNodeRotateInstances')
+    rotate_short.inputs['Local Space'].default_value = True
+    rotate_short.location = (350, -200)
+
+    rotate_weed = gn.new('GeometryNodeRotateInstances')
+    rotate_weed.inputs['Local Space'].default_value = True
+    rotate_weed.location = (350, -420)
+
+    rotate_flower = gn.new('GeometryNodeRotateInstances')
+    rotate_flower.inputs['Local Space'].default_value = True
+    rotate_flower.location = (350, -520)
+
+    rotate_stone = gn.new('GeometryNodeRotateInstances')
+    rotate_stone.inputs['Local Space'].default_value = True
+    rotate_stone.location = (350, -620)
+
+    translate_stone = gn.new('GeometryNodeTranslateInstances')
+    translate_stone.location = (520, -620)
+    translate_stone.inputs['Translation'].default_value = (0.0, 0.0, STONE_RAISE)
+
+    # ── Random tilt (small X/Y rotation) ──
+    rand_tilt_x = gn.new('FunctionNodeRandomValue')
+    rand_tilt_x.data_type = 'FLOAT'
+    rand_tilt_x.inputs[2].default_value = -TILT_MAX
+    rand_tilt_x.inputs[3].default_value = TILT_MAX
+    rand_tilt_x.location = (0, -520)
+
+    rand_tilt_y = gn.new('FunctionNodeRandomValue')
+    rand_tilt_y.data_type = 'FLOAT'
+    rand_tilt_y.inputs[2].default_value = -TILT_MAX
+    rand_tilt_y.inputs[3].default_value = TILT_MAX
+    rand_tilt_y.location = (0, -560)
+
+    tilt_vec = gn.new('ShaderNodeCombineXYZ')
+    tilt_vec.location = (150, -540)
+
+    rotate_tilt = gn.new('GeometryNodeRotateInstances')
+    rotate_tilt.inputs['Local Space'].default_value = True
+    rotate_tilt.location = (520, 0)
+
+    rotate_tilt_short = gn.new('GeometryNodeRotateInstances')
+    rotate_tilt_short.inputs['Local Space'].default_value = True
+    rotate_tilt_short.location = (520, -200)
+
+    # ── Scale bias toward shorter blades ──
+    rand_scale = gn.new('FunctionNodeRandomValue')
+    rand_scale.data_type = 'FLOAT'
+    rand_scale.inputs[2].default_value = 0.0                # Min Float
+    rand_scale.inputs[3].default_value = 1.0                # Max Float
+    rand_scale.location = (0, -600)
+
+    scale_pow = gn.new('ShaderNodeMath')
+    scale_pow.operation = 'POWER'
+    scale_pow.inputs[1].default_value = SCALE_BIAS
+    scale_pow.location = (150, -600)
+
+    scale_map = gn.new('ShaderNodeMapRange')
+    scale_map.inputs['From Min'].default_value = 0.0
+    scale_map.inputs['From Max'].default_value = 1.0
+    scale_map.inputs['To Min'].default_value = SCALE_MIN
+    scale_map.inputs['To Max'].default_value = SCALE_MAX
+    scale_map.clamp = True
+    scale_map.location = (350, -600)
+
+    scale_vec = gn.new('ShaderNodeCombineXYZ')
+    scale_vec.location = (550, -600)
+
+    # Short-grass scale chain
+    rand_scale_s = gn.new('FunctionNodeRandomValue')
+    rand_scale_s.data_type = 'FLOAT'
+    rand_scale_s.inputs[2].default_value = 0.0
+    rand_scale_s.inputs[3].default_value = 1.0
+    rand_scale_s.location = (0, -750)
+
+    scale_pow_s = gn.new('ShaderNodeMath')
+    scale_pow_s.operation = 'POWER'
+    scale_pow_s.inputs[1].default_value = SHORT_SCALE_BIAS
+    scale_pow_s.location = (150, -750)
+
+    scale_map_s = gn.new('ShaderNodeMapRange')
+    scale_map_s.inputs['From Min'].default_value = 0.0
+    scale_map_s.inputs['From Max'].default_value = 1.0
+    scale_map_s.inputs['To Min'].default_value = SHORT_SCALE_MIN
+    scale_map_s.inputs['To Max'].default_value = SHORT_SCALE_MAX
+    scale_map_s.clamp = True
+    scale_map_s.location = (350, -750)
+
+    scale_vec_s = gn.new('ShaderNodeCombineXYZ')
+    scale_vec_s.location = (550, -750)
+
+    # Weed scale
+    rand_scale_w = gn.new('FunctionNodeRandomValue')
+    rand_scale_w.data_type = 'FLOAT'
+    rand_scale_w.inputs[2].default_value = 0.0
+    rand_scale_w.inputs[3].default_value = 1.0
+    rand_scale_w.location = (0, -900)
+
+    scale_pow_w = gn.new('ShaderNodeMath')
+    scale_pow_w.operation = 'POWER'
+    scale_pow_w.inputs[1].default_value = WEED_SCALE_BIAS
+    scale_pow_w.location = (150, -900)
+
+    scale_map_w = gn.new('ShaderNodeMapRange')
+    scale_map_w.inputs['From Min'].default_value = 0.0
+    scale_map_w.inputs['From Max'].default_value = 1.0
+    scale_map_w.inputs['To Min'].default_value = WEED_SCALE_MIN
+    scale_map_w.inputs['To Max'].default_value = WEED_SCALE_MAX
+    scale_map_w.clamp = True
+    scale_map_w.location = (350, -900)
+
+    scale_vec_w = gn.new('ShaderNodeCombineXYZ')
+    scale_vec_w.location = (550, -900)
+
+    # Flower scale
+    rand_scale_f = gn.new('FunctionNodeRandomValue')
+    rand_scale_f.data_type = 'FLOAT'
+    rand_scale_f.inputs[2].default_value = 0.0
+    rand_scale_f.inputs[3].default_value = 1.0
+    rand_scale_f.location = (0, -1020)
+
+    scale_pow_f = gn.new('ShaderNodeMath')
+    scale_pow_f.operation = 'POWER'
+    scale_pow_f.inputs[1].default_value = FLOWER_SCALE_BIAS
+    scale_pow_f.location = (150, -1020)
+
+    scale_map_f = gn.new('ShaderNodeMapRange')
+    scale_map_f.inputs['From Min'].default_value = 0.0
+    scale_map_f.inputs['From Max'].default_value = 1.0
+    scale_map_f.inputs['To Min'].default_value = FLOWER_SCALE_MIN
+    scale_map_f.inputs['To Max'].default_value = FLOWER_SCALE_MAX
+    scale_map_f.clamp = True
+    scale_map_f.location = (350, -1020)
+
+    scale_vec_f = gn.new('ShaderNodeCombineXYZ')
+    scale_vec_f.location = (550, -1020)
+
+    # Stone scale
+    rand_scale_t = gn.new('FunctionNodeRandomValue')
+    rand_scale_t.data_type = 'FLOAT'
+    rand_scale_t.inputs[2].default_value = 0.0
+    rand_scale_t.inputs[3].default_value = 1.0
+    rand_scale_t.location = (0, -1140)
+
+    scale_map_t = gn.new('ShaderNodeMapRange')
+    scale_map_t.inputs['From Min'].default_value = 0.0
+    scale_map_t.inputs['From Max'].default_value = 1.0
+    scale_map_t.inputs['To Min'].default_value = STONE_SCALE_MIN
+    scale_map_t.inputs['To Max'].default_value = STONE_SCALE_MAX
+    scale_map_t.clamp = True
+    scale_map_t.location = (350, -1140)
+
+    scale_vec_t = gn.new('ShaderNodeCombineXYZ')
+    scale_vec_t.location = (550, -1140)
+
+    realize = gn.new('GeometryNodeRealizeInstances')
+    realize.location = (520, 0)
+
+    realize_short = gn.new('GeometryNodeRealizeInstances')
+    realize_short.location = (520, -200)
+
+    realize_weed = gn.new('GeometryNodeRealizeInstances')
+    realize_weed.location = (520, -420)
+
+    realize_flower = gn.new('GeometryNodeRealizeInstances')
+    realize_flower.location = (520, -520)
+
+    realize_stone = gn.new('GeometryNodeRealizeInstances')
+    realize_stone.location = (680, -620)
+
+    set_mat_stone = gn.new('GeometryNodeSetMaterial')
+    set_mat_stone.location = (820, -620)
+    set_mat_stone.inputs['Material'].default_value = stone_mat
+
+    # ── Combine terrain mesh + grass instances ──
+    join = gn.new('GeometryNodeJoinGeometry')
+    join.location = (700, 0)
+
+    # ── Wire the node tree ──
+    # Input mesh → scatter + passthrough to join
+    gl.new(group_in.outputs[0], distribute.inputs['Mesh'])
+    gl.new(group_in.outputs[0], distribute_short.inputs['Mesh'])
+    gl.new(group_in.outputs[0], distribute_weed.inputs['Mesh'])
+    gl.new(group_in.outputs[0], distribute_flower.inputs['Mesh'])
+    gl.new(group_in.outputs[0], distribute_stone.inputs['Mesh'])
+    gl.new(group_in.outputs[0], join.inputs['Geometry'])
+
+    # Restrict all scatter to the top terrain surface only —
+    # the IsTopFace boolean attribute (set in build_terrain from the
+    # dome equation) excludes bedrock / rim faces entirely.
+    gl.new(top_face_attr.outputs['Attribute'], distribute.inputs['Selection'])
+    gl.new(top_face_attr.outputs['Attribute'], distribute_short.inputs['Selection'])
+    gl.new(top_face_attr.outputs['Attribute'], distribute_weed.inputs['Selection'])
+    gl.new(top_face_attr.outputs['Attribute'], distribute_flower.inputs['Selection'])
+    gl.new(top_face_attr.outputs['Attribute'], distribute_stone.inputs['Selection'])
+
+    # Upward-facing slope factor + orientation vector
+    gl.new(normal_in.outputs['Normal'], sep_n.inputs['Vector'])
+    gl.new(sep_n.outputs['Z'], slope_map.inputs['Value'])
+    gl.new(normal_in.outputs['Normal'], mix_vec.inputs['B'])
+    gl.new(up_vec.outputs['Vector'], mix_vec.inputs['A'])
+    gl.new(slope_map.outputs['Result'], align_factor.inputs[0])
+    gl.new(align_factor.outputs['Value'], mix_vec.inputs['Factor'])
+    gl.new(mix_vec.outputs[2], norm_vec.inputs[0])
+    gl.new(norm_vec.outputs['Vector'], align_vec.inputs['Vector'])
+
+    # Clump noise
+    gl.new(pos_in.outputs['Position'], clump_noise.inputs['Vector'])
+    gl.new(clump_noise.outputs['Fac'], clump_map.inputs['Value'])
+    gl.new(density_attr.outputs['Attribute'], clump_mul.inputs[0])
+    gl.new(clump_map.outputs['Result'], clump_mul.inputs[1])
+    gl.new(clump_mul.outputs['Value'], slope_mul.inputs[0])
+    gl.new(slope_map.outputs['Result'], slope_mul.inputs[1])
+
+    # Edge / centre masks for weeds, flowers, stones
+    gl.new(density_attr.outputs['Attribute'], inv_density.inputs[1])
+    gl.new(density_attr.outputs['Attribute'], weed_mul.inputs[0])
+    gl.new(clump_map.outputs['Result'], weed_mul.inputs[1])
+    gl.new(weed_mul.outputs['Value'], weed_mul2.inputs[0])
+    gl.new(slope_map.outputs['Result'], weed_mul2.inputs[1])
+    gl.new(weed_mul2.outputs['Value'], weed_pow.inputs[0])
+    gl.new(weed_mul2.outputs['Value'], flower_pow.inputs[0])
+
+    gl.new(inv_density.outputs['Value'], stone_mul.inputs[0])
+    gl.new(slope_map.outputs['Result'], stone_mul.inputs[1])
+    gl.new(stone_mul.outputs['Value'], stone_pow.inputs[0])
+
+    # Attribute weight → density (main + short)
+    gl.new(slope_mul.outputs['Value'], density_mul.inputs[0])
+    gl.new(slope_mul.outputs['Value'], density_mul_short.inputs[0])
+    gl.new(density_mul.outputs['Value'], distribute.inputs['Density'])
+    gl.new(density_mul_short.outputs['Value'], distribute_short.inputs['Density'])
+
+    gl.new(weed_pow.outputs['Value'], density_mul_weed.inputs[0])
+    gl.new(flower_pow.outputs['Value'], density_mul_flower.inputs[0])
+    gl.new(stone_pow.outputs['Value'], density_mul_stone.inputs[0])
+    gl.new(density_mul_weed.outputs['Value'], distribute_weed.inputs['Density'])
+    gl.new(density_mul_flower.outputs['Value'], distribute_flower.inputs['Density'])
+    gl.new(density_mul_stone.outputs['Value'], distribute_stone.inputs['Density'])
+
+    # Scattered points → instance placement (main)
+    gl.new(distribute.outputs['Points'], instance_on.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on.inputs['Rotation'])
+    gl.new(col_info.outputs[0], instance_on.inputs['Instance'])
+    gl.new(rand_idx.outputs[2], instance_on.inputs['Instance Index'])
+
+    # Scattered points → instance placement (short)
+    gl.new(distribute_short.outputs['Points'], instance_on_short.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on_short.inputs['Rotation'])
+    gl.new(col_info.outputs[0], instance_on_short.inputs['Instance'])
+    gl.new(rand_idx.outputs[2], instance_on_short.inputs['Instance Index'])
+
+    gl.new(distribute_weed.outputs['Points'], instance_on_weed.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on_weed.inputs['Rotation'])
+    gl.new(col_weed.outputs[0], instance_on_weed.inputs['Instance'])
+    gl.new(rand_idx_weed.outputs[2], instance_on_weed.inputs['Instance Index'])
+
+    gl.new(distribute_flower.outputs['Points'], instance_on_flower.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on_flower.inputs['Rotation'])
+    gl.new(col_flower.outputs[0], instance_on_flower.inputs['Instance'])
+    gl.new(rand_idx_flower.outputs[2], instance_on_flower.inputs['Instance Index'])
+
+    gl.new(distribute_stone.outputs['Points'], instance_on_stone.inputs['Points'])
+    gl.new(align_vec.outputs['Rotation'], instance_on_stone.inputs['Rotation'])
+    gl.new(col_stone.outputs[0], instance_on_stone.inputs['Instance'])
+    gl.new(rand_idx_stone.outputs[2], instance_on_stone.inputs['Instance Index'])
+
+    # Main instances → rotation → tilt → realize
+    gl.new(instance_on.outputs['Instances'], rotate.inputs['Instances'])
+    gl.new(rand_rot.outputs[1], axis_rot.inputs['Angle'])
+    gl.new(axis_rot.outputs['Rotation'], rotate.inputs['Rotation'])
+    gl.new(rand_scale.outputs[1], scale_pow.inputs[0])
+    gl.new(scale_pow.outputs['Value'], scale_map.inputs['Value'])
+    gl.new(scale_map.outputs['Result'], scale_vec.inputs['X'])
+    gl.new(scale_map.outputs['Result'], scale_vec.inputs['Y'])
+    gl.new(scale_map.outputs['Result'], scale_vec.inputs['Z'])
+    gl.new(scale_vec.outputs['Vector'], instance_on.inputs['Scale'])
+    gl.new(rand_tilt_x.outputs[1], tilt_vec.inputs['X'])
+    gl.new(rand_tilt_y.outputs[1], tilt_vec.inputs['Y'])
+    gl.new(tilt_vec.outputs['Vector'], rotate_tilt.inputs['Rotation'])
+    gl.new(rotate.outputs['Instances'], rotate_tilt.inputs['Instances'])
+    gl.new(rotate_tilt.outputs['Instances'], realize.inputs['Geometry'])
+
+    # Short instances → rotation → tilt → realize
+    gl.new(instance_on_short.outputs['Instances'], rotate_short.inputs['Instances'])
+    gl.new(axis_rot.outputs['Rotation'], rotate_short.inputs['Rotation'])
+    gl.new(rand_scale_s.outputs[1], scale_pow_s.inputs[0])
+    gl.new(scale_pow_s.outputs['Value'], scale_map_s.inputs['Value'])
+    gl.new(scale_map_s.outputs['Result'], scale_vec_s.inputs['X'])
+    gl.new(scale_map_s.outputs['Result'], scale_vec_s.inputs['Y'])
+    gl.new(scale_map_s.outputs['Result'], scale_vec_s.inputs['Z'])
+    gl.new(scale_vec_s.outputs['Vector'], instance_on_short.inputs['Scale'])
+    gl.new(tilt_vec.outputs['Vector'], rotate_tilt_short.inputs['Rotation'])
+    gl.new(rotate_short.outputs['Instances'], rotate_tilt_short.inputs['Instances'])
+    gl.new(rotate_tilt_short.outputs['Instances'], realize_short.inputs['Geometry'])
+
+    gl.new(axis_rot.outputs['Rotation'], rotate_weed.inputs['Rotation'])
+    gl.new(axis_rot.outputs['Rotation'], rotate_flower.inputs['Rotation'])
+    gl.new(axis_rot.outputs['Rotation'], rotate_stone.inputs['Rotation'])
+
+    gl.new(rand_scale_w.outputs[1], scale_pow_w.inputs[0])
+    gl.new(scale_pow_w.outputs['Value'], scale_map_w.inputs['Value'])
+    gl.new(scale_map_w.outputs['Result'], scale_vec_w.inputs['X'])
+    gl.new(scale_map_w.outputs['Result'], scale_vec_w.inputs['Y'])
+    gl.new(scale_map_w.outputs['Result'], scale_vec_w.inputs['Z'])
+    gl.new(scale_vec_w.outputs['Vector'], instance_on_weed.inputs['Scale'])
+    gl.new(instance_on_weed.outputs['Instances'], rotate_weed.inputs['Instances'])
+    gl.new(rotate_weed.outputs['Instances'], realize_weed.inputs['Geometry'])
+
+    gl.new(rand_scale_f.outputs[1], scale_pow_f.inputs[0])
+    gl.new(scale_pow_f.outputs['Value'], scale_map_f.inputs['Value'])
+    gl.new(scale_map_f.outputs['Result'], scale_vec_f.inputs['X'])
+    gl.new(scale_map_f.outputs['Result'], scale_vec_f.inputs['Y'])
+    gl.new(scale_map_f.outputs['Result'], scale_vec_f.inputs['Z'])
+    gl.new(scale_vec_f.outputs['Vector'], instance_on_flower.inputs['Scale'])
+    gl.new(instance_on_flower.outputs['Instances'], rotate_flower.inputs['Instances'])
+    gl.new(rotate_flower.outputs['Instances'], realize_flower.inputs['Geometry'])
+
+    gl.new(scale_map_t.outputs['Result'], scale_vec_t.inputs['X'])
+    gl.new(scale_map_t.outputs['Result'], scale_vec_t.inputs['Y'])
+    gl.new(scale_map_t.outputs['Result'], scale_vec_t.inputs['Z'])
+    gl.new(rand_scale_t.outputs[1], scale_map_t.inputs['Value'])
+    gl.new(scale_vec_t.outputs['Vector'], instance_on_stone.inputs['Scale'])
+    gl.new(instance_on_stone.outputs['Instances'], rotate_stone.inputs['Instances'])
+    gl.new(rotate_stone.outputs['Instances'], translate_stone.inputs['Instances'])
+    gl.new(translate_stone.outputs['Instances'], realize_stone.inputs['Geometry'])
+
+    # Join all geometry and output
+    gl.new(realize.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(realize_short.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(realize_weed.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(realize_flower.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(realize_stone.outputs['Geometry'], set_mat_stone.inputs['Geometry'])
+    gl.new(set_mat_stone.outputs['Geometry'], join.inputs['Geometry'])
+    gl.new(join.outputs['Geometry'], group_out.inputs[0])
+
+    # ── Apply the Geometry Nodes modifier to the terrain ──
+    gn_mod = terrain.modifiers.new("Grass", 'NODES')
+    gn_mod.node_group = tree
+
+    print(f"    Density: {GRASS_DENSITY:.0f} pts/m², "
+          f"{BLADE_VARIANTS} blade variants")
+    print(f"    Bare r < {BARE_RADIUS} m → full r > {FULL_RADIUS} m")
+    print(f"    Noise: scale={NOISE_SCALE}, strength=±{NOISE_STRENGTH} m")
+
     return terrain
 
 
@@ -2981,7 +4867,76 @@ def build_terrain(M):
 # =====================================================================
 
 def setup_scene():
-    """Add camera, lights, and configure render settings."""
+    """Add camera, procedural sky, sun light, fog, and configure render.
+
+    Lighting strategy — fully procedural, no external HDRI:
+      - Nishita physically-based sky provides ambient fill, sky colour,
+        and reflections in brass/steel surfaces.  Heavy dust and air
+        density settings wash it out to an overcast look; desaturation
+        and cloud noise complete the British-gloom aesthetic.
+      - Sun lamp aligned to rake across the flush bracket (+Y face)
+        so the logo bevels catch highlights.
+      - Sighting-hole point light for box interior illumination.
+      - Procedural cloud modulation adds local variation to suggest
+        uneven overcast thickness without external assets.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    Sky atmosphere
+        SKY_AIR_DENSITY   — Rayleigh scattering (higher = denser blue)
+        SKY_DUST_DENSITY  — Mie scattering / haze (higher = whiter)
+        SKY_OZONE_DENSITY — warm tinge at the horizon
+        SKY_SUN_INTENSITY — brightness of the sun disc in the sky
+        SKY_SUN_SIZE      — apparent size of the sun disc (degrees)
+        SKY_SATURATION    — colour saturation (0 = greyscale, 1 = full)
+        SKY_VALUE         — overall brightness tweak
+        SKY_STRENGTH      — world background emission strength
+    Cloud modulation
+        CLOUD_SCALE       — spatial frequency (lower = bigger patches)
+        CLOUD_DETAIL      — fractal octaves in the noise
+        CLOUD_ROUGHNESS   — inter-octave amplitude ratio
+        CLOUD_AMOUNT      — brightness variation amplitude
+        CLOUD_CONTRAST    — cloud pattern contrast (higher = punchier)
+    Sun lamp
+        SUN_ENERGY        — sun lamp intensity
+        SUN_ALTITUDE      — elevation angle (degrees from horizontal)
+        SUN_AZIMUTH       — compass bearing (0° = +X, 90° = +Y)
+    """
+    print("  Scene setup ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+
+    # Nishita sky — heavy atmosphere for washed-out overcast look
+    SKY_AIR_DENSITY    = 3.0       # dense Rayleigh scattering
+    SKY_DUST_DENSITY   = 6.0       # thick Mie haze → overcast white-out
+    SKY_OZONE_DENSITY  = 2.0       # warm horizon tinge
+    SKY_SUN_INTENSITY  = 0.3       # dim, diffused sun disc
+    SKY_SUN_SIZE       = 3.0       # bloated disc (degrees) — cloud-diffused
+    SKY_SATURATION     = 0.25      # heavily desaturated — British gloom
+    SKY_VALUE          = 0.50      # pull back washed-out highlights
+    SKY_STRENGTH       = 0.60
+
+    # Cloud noise overlay — large-scale noise modulates sky brightness
+    CLOUD_SCALE        = 2.5       # spatial frequency
+    CLOUD_DETAIL       = 6.0       # fractal octaves
+    CLOUD_ROUGHNESS    = 0.6       # inter-octave amplitude ratio
+    CLOUD_AMOUNT       = 0.38      # brightness variation ± (0 = none)
+    CLOUD_CONTRAST     = 8.2       # emphasise local cloud-thickness variation
+
+    SUN_ENERGY      = 1.2
+    SUN_ALTITUDE    = 40          # degrees above horizon
+    SUN_AZIMUTH     = 50          # degrees — between +X and +Y,
+                                  # raking across the +Y flush bracket face
+
+    # Below-horizon safety gradient — catches any gap between the
+    # landscape ring edge and the sky.  Uses the ray direction Z
+    # component: positive = above horizon, negative = below.
+    HORIZON_UPPER   = 0.52        # blend starts just above true horizon
+    HORIZON_LOWER   = -0.08       # fully landscape colour by this angle
+    HORIZON_COL     = (0.52, 0.54, 0.50)   # overcast haze (match landscape)
+    HORIZON_STRENGTH_RATIO = 1.0  # relative to SKY_STRENGTH
+    # ─────────────────────────────────────────────────────────────
+
     # Camera — positioned to see the full pillar
     cam_data = bpy.data.cameras.new("Camera")
     cam_data.lens = 50
@@ -2991,23 +4946,162 @@ def setup_scene():
     cam_obj.rotation_euler = (math.radians(72), 0, math.radians(45))
     bpy.context.scene.camera = cam_obj
 
-    # Sun light
+    # ── Procedural world shader ────────────────────────────────────
+    # Unified Nishita sky for all ray types (camera, reflection,
+    # diffuse, glossy) — no external HDRI required.  The sky is
+    # desaturated and cloud-modulated to evoke overcast Britain.
+
+    world = bpy.data.worlds.new("ProceduralSky")
+    bpy.context.scene.world = world
+    world.use_nodes = True
+    wtree = world.node_tree
+    wtree.nodes.clear()
+
+    # ── Sky texture: Nishita atmospheric model ─────────────────────
+    sky_tex = wtree.nodes.new('ShaderNodeTexSky')
+    sky_tex.location = (-800, 200)
+    sky_tex.sky_type = 'NISHITA'
+    sky_tex.sun_elevation = math.radians(SUN_ALTITUDE)
+    sky_tex.sun_rotation = math.radians(SUN_AZIMUTH)
+    sky_tex.air_density = SKY_AIR_DENSITY
+    sky_tex.dust_density = SKY_DUST_DENSITY
+    sky_tex.ozone_density = SKY_OZONE_DENSITY
+    sky_tex.sun_intensity = SKY_SUN_INTENSITY
+    sky_tex.sun_size = math.radians(SKY_SUN_SIZE)
+    sky_tex.altitude = 0
+
+    # ── Desaturate — drain colour to match overcast Britain ────────
+    hsv = wtree.nodes.new('ShaderNodeHueSaturation')
+    hsv.location = (-600, 200)
+    hsv.inputs['Saturation'].default_value = SKY_SATURATION
+    hsv.inputs['Value'].default_value = SKY_VALUE
+
+    # ── Cloud modulation ────────────────────────────────────────────
+    # Large-scale 3D noise sampled from the viewing direction
+    # modulates sky brightness, giving local variation that reads as
+    # uneven cloud thickness.
+    #
+    # Approach: noise → MapRange [1−A, 1+A] → VectorMath SCALE on
+    # the sky colour.  This avoids ShaderNodeMix whose Color socket
+    # indices shift between Blender versions (Rotation sockets were
+    # added in 4.1, pushing Color from [6]/[7] to [7]/[8]).
+    tex_coord = wtree.nodes.new('ShaderNodeTexCoord')
+    tex_coord.location = (-800, -100)
+
+    cloud_noise = wtree.nodes.new('ShaderNodeTexNoise')
+    cloud_noise.location = (-600, -100)
+    cloud_noise.noise_dimensions = '3D'
+    cloud_noise.inputs['Scale'].default_value = CLOUD_SCALE
+    cloud_noise.inputs['Detail'].default_value = CLOUD_DETAIL
+    cloud_noise.inputs['Roughness'].default_value = CLOUD_ROUGHNESS
+
+    # Shape the noise for stronger local contrast:
+    # noise -> centred (-0.5..0.5) -> contrast -> offset (+1.0)
+    cloud_center = wtree.nodes.new('ShaderNodeMath')
+    cloud_center.location = (-400, -100)
+    cloud_center.operation = 'SUBTRACT'
+    cloud_center.inputs[1].default_value = 0.5
+
+    cloud_contrast = wtree.nodes.new('ShaderNodeMath')
+    cloud_contrast.location = (-220, -100)
+    cloud_contrast.operation = 'MULTIPLY'
+    cloud_contrast.inputs[1].default_value = CLOUD_CONTRAST * CLOUD_AMOUNT
+
+    cloud_offset = wtree.nodes.new('ShaderNodeMath')
+    cloud_offset.location = (-40, -100)
+    cloud_offset.operation = 'ADD'
+    cloud_offset.inputs[1].default_value = 1.0
+
+    # Multiply desaturated sky colour by the noise-driven brightness
+    cloud_scale = wtree.nodes.new('ShaderNodeVectorMath')
+    cloud_scale.location = (140, 200)
+    cloud_scale.operation = 'SCALE'
+
+    # ── Background + output ────────────────────────────────────────
+    bg = wtree.nodes.new('ShaderNodeBackground')
+    bg.location = (320, 200)
+    bg.label = "Sky"
+    bg.inputs['Strength'].default_value = SKY_STRENGTH
+
+    # ── Below-horizon landscape gradient (safety net) ─────────────
+    # If the camera ray looks below the horizon and sees past the
+    # landscape ring, show hazy overcast green instead of black void.
+    # Uses the Generated texture coordinates: in a world shader the
+    # Generated output is the normalised ray direction, so Z > 0 is
+    # above the horizon and Z < 0 is below.
+    sep_ray = wtree.nodes.new('ShaderNodeSeparateXYZ')
+    sep_ray.location = (-400, -400)
+
+    horizon_mask = wtree.nodes.new('ShaderNodeMapRange')
+    horizon_mask.location = (-200, -400)
+    horizon_mask.inputs['From Min'].default_value = HORIZON_LOWER
+    horizon_mask.inputs['From Max'].default_value = HORIZON_UPPER
+    horizon_mask.inputs['To Min'].default_value = 1.0   # below = landscape
+    horizon_mask.inputs['To Max'].default_value = 0.0   # above = sky
+    horizon_mask.clamp = True
+
+    land_bg = wtree.nodes.new('ShaderNodeBackground')
+    land_bg.location = (320, -400)
+    land_bg.label = "Horizon Haze"
+    land_bg.inputs['Color'].default_value = (*HORIZON_COL, 1.0)
+    land_bg.inputs['Strength'].default_value = SKY_STRENGTH * HORIZON_STRENGTH_RATIO
+
+    mix_horizon = wtree.nodes.new('ShaderNodeMixShader')
+    mix_horizon.location = (520, 200)
+
+    output = wtree.nodes.new('ShaderNodeOutputWorld')
+    output.location = (720, 200)
+
+    # ── Wire everything up ─────────────────────────────────────────
+    wL = wtree.links
+    # Sky chain: Nishita → desaturate → cloud brightness modulation
+    wL.new(sky_tex.outputs['Color'], hsv.inputs['Color'])
+    wL.new(tex_coord.outputs['Generated'], cloud_noise.inputs['Vector'])
+    wL.new(cloud_noise.outputs['Fac'], cloud_center.inputs[0])
+    wL.new(cloud_center.outputs['Value'], cloud_contrast.inputs[0])
+    wL.new(cloud_contrast.outputs['Value'], cloud_offset.inputs[0])
+    wL.new(hsv.outputs['Color'], cloud_scale.inputs[0])           # Vector
+    wL.new(cloud_offset.outputs['Value'], cloud_scale.inputs['Scale'])
+    wL.new(cloud_scale.outputs['Vector'], bg.inputs['Color'])
+    # Horizon detection: Generated Z → mask
+    wL.new(tex_coord.outputs['Generated'], sep_ray.inputs['Vector'])
+    wL.new(sep_ray.outputs['Z'], horizon_mask.inputs['Value'])
+    # Mix sky (above) with haze (below), then to output
+    wL.new(horizon_mask.outputs['Result'], mix_horizon.inputs['Fac'])
+    wL.new(bg.outputs['Background'], mix_horizon.inputs[1])
+    wL.new(land_bg.outputs['Background'], mix_horizon.inputs[2])
+    wL.new(mix_horizon.outputs['Shader'], output.inputs['Surface'])
+
+    # ── Sun light ─────────────────────────────────────────────────
+    # Direction: shining from the azimuth/altitude towards the origin.
+    # The flush bracket is on the +Y face.  An azimuth of ~50° puts
+    # the sun roughly from the +X/+Y quadrant, raking obliquely
+    # across the bracket face so the bevelled logo edges catch bright
+    # highlights on one side and fall into shadow on the other.
+    #
+    # Blender's sun lamp direction is set by its rotation; we convert
+    # altitude/azimuth to Euler angles.  The sun direction vector is
+    # (-cos(alt)*cos(az), -cos(alt)*sin(az), -sin(alt)), but the
+    # lamp's default direction is -Z, so we rotate to align.
     sun_data = bpy.data.lights.new("Sun", 'SUN')
-    sun_data.energy = 3
+    sun_data.energy = SUN_ENERGY
     sun_obj = bpy.data.objects.new("Sun", sun_data)
     bpy.context.collection.objects.link(sun_obj)
-    sun_obj.rotation_euler = (
-        math.radians(40), math.radians(15), math.radians(30))
 
-    # Fill light
-    fill_data = bpy.data.lights.new("Fill", 'AREA')
-    fill_data.energy = 50
-    fill_data.size = 2.0
-    fill_obj = bpy.data.objects.new("Fill", fill_data)
-    bpy.context.collection.objects.link(fill_obj)
-    fill_obj.location = (-2, 3, 2)
-    fill_obj.rotation_euler = (
-        math.radians(55), 0, math.radians(-130))
+    alt_r = math.radians(SUN_ALTITUDE)
+    az_r  = math.radians(SUN_AZIMUTH)
+    # Lamp default emits along its local -Z.  After XYZ Euler rotation
+    # (θx, 0, θz), the world-space light direction becomes:
+    #   x = -sin(θz) · sin(θx)
+    #   y =  cos(θz) · sin(θx)
+    #   z = -cos(θx)
+    # Matching this to a sun FROM (cos(A)·cos(Az), cos(A)·sin(Az), sin(A)):
+    #   θx = π/2 - altitude,  θz = azimuth + π/2
+    sun_obj.rotation_euler = (
+        math.radians(90) - alt_r,   # tilt from vertical
+        0,
+        az_r + math.pi / 2          # +π/2 aligns azimuth correctly
+    )
 
     # Point light at the East sighting hole — illuminates the box interior
     # when looking through the sighting tubes
@@ -3346,6 +5440,7 @@ def main():
         'aged_steel':   make_aged_steel_material(),
         'wood':         make_wood_material(),
         'terrain':      make_terrain_material(),
+        'landscape':    make_landscape_material(),
     }
 
     # Build all components
@@ -3389,12 +5484,15 @@ def main():
     build_fixings(M)
     build_brass_loops(M)
     build_flush_bracket(M)
+    build_flush_bracket_logo(M)
     build_base_slab(M)
     build_angle_irons(M)
     build_lower_box(M)
     build_lower_block(M)
     build_lower_centre_mark(M)
     build_terrain(M)
+    build_landscape_ring(M)
+    build_grass()
 
     # Scene (lights, viewport settings)
     setup_scene()
@@ -3410,6 +5508,7 @@ def main():
     print(f"\nDone — {n} objects created.")
     print("Tip: Press Space in the Timeline to preview the camera flythrough.")
     print("     Press Numpad-0 to toggle the camera view.\n")
+
 
 
 if __name__ == "__main__":

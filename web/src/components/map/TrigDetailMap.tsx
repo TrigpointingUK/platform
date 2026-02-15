@@ -120,7 +120,7 @@ export default function TrigDetailMap({
       <BaseMap
         center={center}
         zoom={zoomLevel}
-        height={isFullscreen ? "100vh" : height}
+        height={isFullscreen ? "100dvh" : height}
         tileLayerId={tileLayerId}
         interactive={!isLocked}
         onMapReady={setMapInstance}

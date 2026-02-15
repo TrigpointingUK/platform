@@ -231,7 +231,7 @@ export default function Search() {
 
   if (!query || query.length < 2) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-dvh bg-gray-50 dark:bg-gray-900">
         <title>Search | TrigpointingUK</title>
         <Header />
         <div className="container mx-auto px-4 py-8">
@@ -264,7 +264,7 @@ export default function Search() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-dvh bg-gray-50 dark:bg-gray-900">
       <title>Search | TrigpointingUK</title>
       <Header />
       <div className="container mx-auto px-4 py-6">
