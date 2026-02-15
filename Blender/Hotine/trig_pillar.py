@@ -5958,8 +5958,13 @@ def setup_camera_animation():
     # SEGMENT 11 — Slew to profile + reassemble  (frames 1336 → 1425,  3 s)
     # =================================================================
     F11_START = F10_END + 1
-    F11_IP_CLEAR = F11_START + 30
-    F11_PEG_ARC_END = F11_START + 60
+    F11_PLUG_END = F11_START + 29
+    F11_IP_START = F11_PLUG_END + 1
+    F11_IP_END = F11_IP_START + 29
+    F11_PEG_START = F11_IP_END + 1
+    F11_END = F11_PEG_START + 29
+    F11_IP_CLEAR = F11_IP_START + 15
+    F11_PEG_ARC_END = F11_PEG_START + 20
 
     # Camera move to PROFILE_1
     kf(target, F11_START, (0.00, 0.00, 1.20))            # start higher
@@ -5986,42 +5991,52 @@ def setup_camera_animation():
     plug_home_world = asm_world @ asm_bind_inv @ plug_bind_world
     peg_home_world = asm_world @ asm_bind_inv @ peg_bind_world
 
-    # ── Plug reassemble: arc back to assembled position (reverse of seg 9)
-    kf_rot(plug, F11_START, tuple(plug.rotation_euler))
-    arc_kf_world(plug, F11_START, F11_END, plug_ws_rest,
-                 plug_home_world.translation, arc_height=0.05)
-    kf_world(plug, F11_END, plug_home_world)
+    # ── Plug reassemble (first): reverse of seg 9
+    # Move and rotate together along the same arc.
+    plug_start_world = plug.matrix_world.copy()
+    plug_start_q = plug_start_world.to_quaternion()
+    plug_end_q = plug_home_world.to_quaternion()
+    for i in range(16):
+        t = i / 15
+        frame = int(round(F11_START + t * (F11_PLUG_END - F11_START)))
+        loc = plug_ws_rest.lerp(plug_home_world.translation, t)
+        loc.z += 0.05 * 4.0 * t * (1.0 - t)
+        rot = plug_start_q.slerp(plug_end_q, t)
+        mat = rot.to_matrix().to_4x4()
+        mat.translation = loc
+        kf_world(plug, frame, mat)
     if plug_con:
         kf_influence(plug_con, F11_START, 0.0)
-        bpy.context.scene.frame_set(int(F11_END))
+        kf_influence(plug_con, F11_PLUG_END, 0.0)
+        bpy.context.scene.frame_set(int(F11_PLUG_END + 1))
         bpy.context.view_layer.update()
-        reattach_child_of(plug, plug_con, plug_home_world, F11_END)
+        reattach_child_of(plug, plug_con, plug_home_world, F11_PLUG_END + 1)
 
-    # ── Peg reassemble: arc up, then slide in along axis (reverse seg 7)
-    peg_axis = asm_world.to_3x3() @ Vector((1, 0, 0))
-    peg_axis.normalize()
-    peg_ws_extract = peg_home_world.translation + peg_axis * 0.03
-    kf_rot(peg, F11_START, tuple(peg.rotation_euler))
-    arc_kf_world(peg, F11_START, F11_PEG_ARC_END, peg_ws_rest,
-                 peg_ws_extract, arc_height=0.03)
-    kf_world(peg, F11_END, peg_home_world)
-    if peg_con:
-        kf_influence(peg_con, F11_START, 0.0)
-        bpy.context.scene.frame_set(int(F11_END))
-        bpy.context.view_layer.update()
-        reattach_child_of(peg, peg_con, peg_home_world, F11_END)
-
-    # ── Inner plug reassemble: arc back, then screw in (reverse seg 8)
+    # ── Inner plug reassemble (second): reverse of seg 8
     ip_w2l = make_w2l(inner_plug)
     ip_ws_clear = asm_world @ Vector(ip_clear_loc)
-    kf(inner_plug, F11_START, tuple(inner_plug.location))
-    kf_rot(inner_plug, F11_START, ip_rest_rot)
-    arc_kf(inner_plug, F11_START, F11_IP_CLEAR, ip_ws_rest, ip_ws_clear,
+    kf(inner_plug, F11_IP_START, tuple(inner_plug.location))
+    kf_rot(inner_plug, F11_IP_START, ip_rest_rot)
+    arc_kf(inner_plug, F11_IP_START, F11_IP_CLEAR, ip_ws_rest, ip_ws_clear,
            arc_height=0.04, w2l=ip_w2l)
     kf(inner_plug, F11_IP_CLEAR, ip_clear_loc)
     kf_rot(inner_plug, F11_IP_CLEAR, (0, 0, IPLUG_UNSCREW))
-    kf(inner_plug, F11_END, ip_home)
-    kf_rot(inner_plug, F11_END, (0, 0, 0))
+    kf(inner_plug, F11_IP_END, ip_home)
+    kf_rot(inner_plug, F11_IP_END, (0, 0, 0))
+
+    # ── Peg reassemble (third): reverse of seg 7
+    peg_axis = asm_world.to_3x3() @ Vector((1, 0, 0))
+    peg_axis.normalize()
+    peg_ws_extract = peg_home_world.translation + peg_axis * 0.03
+    kf_rot(peg, F11_PEG_START, tuple(peg.rotation_euler))
+    arc_kf_world(peg, F11_PEG_START, F11_PEG_ARC_END, peg_ws_rest,
+                 peg_ws_extract, arc_height=0.03)
+    kf_world(peg, F11_END, peg_home_world)
+    if peg_con:
+        kf_influence(peg_con, F11_PEG_START, 0.0)
+        bpy.context.scene.frame_set(int(F11_END))
+        bpy.context.view_layer.update()
+        reattach_child_of(peg, peg_con, peg_home_world, F11_END)
 
     # =================================================================
     # SEGMENT 12 — Plug assembly return  (frames 1426 → 1515,  3 s)
