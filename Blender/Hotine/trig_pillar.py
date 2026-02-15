@@ -5385,6 +5385,47 @@ def _fade_material(mat, frame_start, frame_end,
           f"  (max {max_fade:.0%})")
 
 
+def _unfade_material(mat, frame_start, frame_end):
+    """Reverse a previous transparent fade — keyframe mix factor back to 0.
+
+    Finds the "Opaque ↔ Transparent" Mix Shader that was inserted by
+    ``_fade_material`` / ``add_transparent_fade`` and adds two new
+    keyframes: hold the current value at *frame_start*, then animate to
+    0.0 (fully opaque) at *frame_end*.
+    """
+    tree = mat.node_tree
+    mix = None
+    for n in tree.nodes:
+        if n.type == 'MIX_SHADER' and n.label == "Opaque ↔ Transparent":
+            mix = n
+            break
+    if not mix:
+        print(f"    WARNING: {mat.name} — no 'Opaque ↔ Transparent' "
+              "Mix Shader found, skipping unfade")
+        return
+
+    # Hold current value at frame_start, then animate to 0
+    current = mix.inputs[0].default_value
+    mix.inputs[0].default_value = current
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
+    mix.inputs[0].default_value = 0.0
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
+
+    # Keep all keyframes linear
+    if tree.animation_data and tree.animation_data.action:
+        for fc in tree.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = 'LINEAR'
+
+    print(f"    {mat.name} unfade: frames {frame_start}–{frame_end}")
+
+
+def unfade_transparent(obj, frame_start, frame_end):
+    """Reverse a previous transparent fade on an object's first material."""
+    mat = obj.data.materials[0]
+    _unfade_material(mat, frame_start, frame_end)
+
+
 def setup_camera_animation():
     """Cinematic flythrough built from individually authored segments.
 
@@ -5419,6 +5460,7 @@ def setup_camera_animation():
       1600–1630 Pillar fades to transparent
       1630–1660 Surroundings fade (terrain, landscape, grass, stones, base, irons)
       1660–1690 Internal structure fade (fill, boxes, tubes, pipe)
+      1690–1810 Orbit + unfade: PROFILE_1 → START_0 (all objects restore)
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5511,7 +5553,8 @@ def setup_camera_animation():
     F14_END = 1630            # end of segment 14 (1 s: pillar fades to transparent)
     F15_END = 1660            # end of segment 15 (1 s: surroundings fade)
     F16_END = 1690            # end of segment 16 (1 s: internal structure fade)
-    TOTAL_FRAMES = F16_END    # extended as segments are added
+    F17_END = 1810            # end of segment 17 (4 s: orbit + unfade)
+    TOTAL_FRAMES = F17_END    # extended as segments are added
 
     # ── Remove any existing camera / target / assembly empties ─────
     for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
@@ -6376,6 +6419,76 @@ def setup_camera_animation():
             add_transparent_fade(obj, F16_START, F16_END,
                                  tint=(0.90, 0.92, 0.90), max_fade=0.96)
 
+    # =================================================================
+    # SEGMENT 17 — Orbit + unfade  (frames 1690 → 1810,  4 s)
+    # =================================================================
+    # Camera sweeps clockwise (viewed from above) around the trigpoint
+    # from PROFILE_1 back to START_0 — a ~204° arc that reveals every
+    # face.  Simultaneously all transparent objects un-fade back to
+    # their original opaque materials.
+    F17_START = F16_END
+    F17_FRAMES = 120                     # 4 s at 30 fps
+
+    # ── Camera orbit ────────────────────────────────────────────
+    # Parametric arc: interpolate polar angle (clockwise), radius,
+    # and height between PROFILE_1 and START_0.
+    p1_r     = math.sqrt(PROFILE_1_CAM[0]**2 + PROFILE_1_CAM[1]**2)
+    p1_angle = math.atan2(PROFILE_1_CAM[1], PROFILE_1_CAM[0])
+    p1_z     = PROFILE_1_CAM[2]
+
+    s0_r     = math.sqrt(START_0_CAM[0]**2 + START_0_CAM[1]**2)
+    s0_angle = math.atan2(START_0_CAM[1], START_0_CAM[0])
+    s0_z     = START_0_CAM[2]
+
+    # Clockwise sweep: make the end angle < start angle
+    cw_end_angle = s0_angle - 2 * math.pi     # ≈ -4.16 rad
+
+    N_KF = 6                                    # keyframes (incl. start & end)
+    for i in range(N_KF):
+        t = i / (N_KF - 1)
+        angle = p1_angle + t * (cw_end_angle - p1_angle)
+        r     = p1_r + t * (s0_r - p1_r)
+        z     = p1_z + t * (s0_z - p1_z)
+        x     = r * math.cos(angle)
+        y     = r * math.sin(angle)
+        frame = F17_START + int(round(t * F17_FRAMES))
+        kf(cam, frame, (x, y, z))
+
+    # Target: smooth interpolation from PROFILE_1_TGT → START_0_TGT
+    # (both are at the origin, just different Z — let Blender lerp)
+    kf(target, F17_START, PROFILE_1_TGT)
+    kf(target, F17_END,   START_0_TGT)
+
+    # ── Un-fade all transparent objects ─────────────────────────
+    # Every object that was faded in segments 14–16 simultaneously
+    # returns to fully opaque over the duration of this segment.
+    print("  Segment 17 — un-fade all transparent objects:")
+
+    # Seg 14 objects
+    unfade_transparent(pillar, F17_START, F17_END)
+
+    # Seg 15 objects
+    unfade_transparent(terrain, F17_START, F17_END)
+    unfade_transparent(landscape, F17_START, F17_END)
+    for mat_name in ("GrassBlade", "WeedLeaf", "FlowerDaisy",
+                     "FlowerButtercup", "Pebble"):
+        mat = bpy.data.materials.get(mat_name)
+        if mat:
+            _unfade_material(mat, F17_START, F17_END)
+    unfade_transparent(base_slab, F17_START, F17_END)
+    for i in range(4):
+        ai = bpy.data.objects.get(f'AngleIron_{i}')
+        if ai:
+            unfade_transparent(ai, F17_START, F17_END)
+
+    # Seg 16 objects
+    for obj_name in ("ConcreteFill", "LowerBlock", "LowerBox", "UpperBox",
+                     "CentrePipe", "ST_East", "ST_West", "ST_North",
+                     "ST_South"):
+        obj = bpy.data.objects.get(obj_name)
+        if obj:
+            unfade_transparent(obj, F17_START, F17_END)
+
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
     print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
@@ -6397,6 +6510,7 @@ def setup_camera_animation():
     print(f"      {F14_START}–{F14_END}:  Pillar fades to transparent")
     print(f"      {F15_START}–{F15_END}:  Surroundings fade (terrain, landscape, grass, stones, base, irons)")
     print(f"      {F16_START}–{F16_END}:  Internal structure fade (fill, boxes, tubes, pipe)")
+    print(f"      {F17_START}–{F17_END}:  Orbit + unfade (PROFILE_1 → START_0)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
