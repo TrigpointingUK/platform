@@ -2619,6 +2619,11 @@ def build_plug(M):
 
     assign(plug, M['brass'])
     smooth(plug)
+    # Centre the plug origin so rotations happen around its body.
+    # Without this, the object origin is at (0,0,0) while the mesh
+    # is at z ≈ 1.17 m, which causes large orbital motion.
+    activate(plug)
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
     # ── Inner plug ─────────────────────────────────────────────────
     # Solid cylinder (~37.8 mm dia) with 1 mm chamfer on top edge and
@@ -2886,6 +2891,8 @@ def build_fixings(M):
 
     assign(peg, M['aged_steel'])
     smooth(peg)
+    activate(peg)
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
 
 def build_flush_bracket(M):
@@ -5379,6 +5386,43 @@ def setup_camera_animation():
         obj.keyframe_insert(data_path="rotation_euler",
                             frame=int(round(frame)))
 
+    def kf_world(obj, frame, world_matrix):
+        """Insert location/rotation keyframes from a world matrix."""
+        obj.matrix_world = world_matrix
+        obj.keyframe_insert(data_path="location", frame=int(round(frame)))
+        obj.keyframe_insert(data_path="rotation_euler",
+                            frame=int(round(frame)))
+
+    def add_child_of(obj, target, name="AssemblyFollow"):
+        """Add a Child Of constraint so obj follows target (set inverse)."""
+        con = obj.constraints.new(type='CHILD_OF')
+        con.name = name
+        con.target = target
+        con.influence = 1.0
+        # Ensure transforms are up to date, then set inverse via operator
+        # (matches Blender UI "Set Inverse" and avoids offset drift).
+        bpy.context.view_layer.update()
+        if bpy.context.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        prev_active = bpy.context.view_layer.objects.active
+        prev_selected = list(bpy.context.selected_objects)
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.constraint.childof_set_inverse(constraint=con.name,
+                                               owner='OBJECT')
+        # Restore selection
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in prev_selected:
+            if o.name in bpy.data.objects:
+                o.select_set(True)
+        bpy.context.view_layer.objects.active = prev_active
+        return con
+
+    def kf_influence(con, frame, value):
+        con.influence = value
+        con.keyframe_insert(data_path="influence", frame=int(round(frame)))
+
     # =================================================================
     # SEGMENT 1 — Arc approach  (frames 1 → 180,  6 s)
     # =================================================================
@@ -5568,8 +5612,9 @@ def setup_camera_animation():
     # SEGMENT 6 — Plug removal  (frames 706 → 885,  6 s)
     # =================================================================
     # The plug, inner plug, and anti-rotation peg move as a single unit.
-    # We parent all three to an animated Empty ("PlugAssembly") so they
-    # share the same location/rotation keyframes.
+    # The inner plug is parented to an animated Empty ("PlugAssembly");
+    # the plug and peg follow via Child Of constraints so we can
+    # release them later without duplication.
     #
     #   Phase 1  706–795   Unscrew: 3 anticlockwise turns + rise 1.5 cm
     #   Phase 2  796–885   Rise 10 cm + tilt 120° away from viewer
@@ -5594,11 +5639,19 @@ def setup_camera_animation():
     # before we compute parent-inverse matrices for the children.
     bpy.context.view_layer.update()
 
-    for obj_name in ("Plug", "InnerPlug", "AntiRotationPeg"):
-        obj = bpy.data.objects.get(obj_name)
-        if obj:
-            obj.parent = assembly
-            obj.matrix_parent_inverse = assembly.matrix_world.inverted()
+    inner_plug = bpy.data.objects.get("InnerPlug")
+    if inner_plug:
+        inner_plug.parent = assembly
+        inner_plug.matrix_parent_inverse = assembly.matrix_world.inverted()
+
+    plug = bpy.data.objects.get("Plug")
+    peg = bpy.data.objects.get("AntiRotationPeg")
+    plug_con = add_child_of(plug, assembly) if plug else None
+    peg_con = add_child_of(peg, assembly) if peg else None
+    if plug_con:
+        kf_influence(plug_con, 1, 1.0)
+    if peg_con:
+        kf_influence(peg_con, 1, 1.0)
 
     # ── Compute tilt axis (camera's horizontal = "right" vector) ───
     cam_dir = (Vector(SPIDER_0_TGT) - Vector(SPIDER_0_CAM)).normalized()
@@ -5672,29 +5725,10 @@ def setup_camera_animation():
         return tuple(local_mat.to_euler('XYZ'))
 
     def make_w2l(child_obj):
-        """Build a world→local converter for a specific child of assembly.
-
-        Each child may have a different matrix_parent_inverse, so we
-        read it from the child itself rather than assuming one value.
-        """
+        """Build a world→local converter for a specific child of assembly."""
         par_world = assembly.matrix_world.copy()
         par_inv = child_obj.matrix_parent_inverse.copy()
-        combined = par_world @ par_inv
-        combined_inv = combined.inverted()
-        # Debug: verify round-trip
-        actual_loc = tuple(child_obj.location)
-        actual_world = child_obj.matrix_world.translation
-        roundtrip = tuple(combined_inv @ actual_world)
-        print(f"    w2l check {child_obj.name}:")
-        print(f"      obj.location  = ({actual_loc[0]:+.6f},"
-              f" {actual_loc[1]:+.6f}, {actual_loc[2]:+.6f})")
-        print(f"      world_pos     = ({actual_world[0]:+.6f},"
-              f" {actual_world[1]:+.6f}, {actual_world[2]:+.6f})")
-        print(f"      round-trip    = ({roundtrip[0]:+.6f},"
-              f" {roundtrip[1]:+.6f}, {roundtrip[2]:+.6f})")
-        match = all(abs(a - b) < 0.0001
-                    for a, b in zip(actual_loc, roundtrip))
-        print(f"      match = {match}")
+        combined_inv = (par_world @ par_inv).inverted()
         def w2l(world_pos):
             return tuple(combined_inv @ Vector(world_pos))
         return w2l
@@ -5721,6 +5755,18 @@ def setup_camera_animation():
             w.z += arc_height * 4.0 * t * (1.0 - t)
             kf(obj, frame, w2l(w))
 
+    def arc_kf_world(obj, f_start, f_end, ws_start, ws_end, arc_height,
+                     n_steps=15):
+        """Insert location keyframes along a world-space parabolic arc."""
+        for i in range(n_steps + 1):
+            t = i / n_steps
+            frame = int(round(f_start + t * (f_end - f_start)))
+            w = ws_start.lerp(ws_end, t)
+            w.z += arc_height * 4.0 * t * (1.0 - t)
+            obj.location = (w.x, w.y, w.z)
+            obj.keyframe_insert(data_path="location", frame=frame)
+
+
     # =================================================================
     # SEGMENT 7 — Anti-rotation peg removal  (frames 886 → 975,  3 s)
     # =================================================================
@@ -5740,30 +5786,33 @@ def setup_camera_animation():
     kf(peg, F6_END, peg_home)
     kf_rot(peg, F6_END, (0, 0, 0))
 
-    # ── Phase 1: Extract along axis (local +X, 3 cm,  1 s) ──────
-    peg_extracted = (peg_home[0] + 0.03, peg_home[1], peg_home[2])
+    # ── Phase 1: Extract along peg axis (3 cm, 1 s) ──────────────
+    # Detach at segment start so we can move along the peg's own axis
+    # in world space (assembly is pinned after F6_END).
+    F7_START = F6_END + 1
     F7_EXTRACT = F6_END + 30
-    kf(peg, F7_EXTRACT, peg_extracted)
-    kf_rot(peg, F7_EXTRACT, (0, 0, 0))
+    if peg_con:
+        kf_influence(peg_con, F6_END, 1.0)
+        bpy.context.scene.frame_set(int(F6_END))
+        bpy.context.view_layer.update()
+        peg_world = peg.matrix_world.copy()
+        kf_influence(peg_con, F7_START, 0.0)
+        kf_world(peg, F7_START, peg_world)
+
+    peg_ws_start = peg.matrix_world.translation.copy()
+    peg_axis = peg.matrix_world.to_3x3() @ Vector((1, 0, 0))
+    peg_axis.normalize()
+    peg_ws_extract = peg_ws_start + peg_axis * 0.03
+    kf(peg, F7_EXTRACT, (peg_ws_extract.x,
+                         peg_ws_extract.y,
+                         peg_ws_extract.z))
+    kf_rot(peg, F7_EXTRACT, tuple(peg.rotation_euler))
 
     # ── Phase 2: Arc down to pillar top (2 s) ────────────────────
-    # Build peg's own world→local converter and evaluate at arc start.
-    bpy.context.scene.frame_set(int(F7_EXTRACT))
-    bpy.context.view_layer.update()
-    peg_w2l = make_w2l(peg)
-    peg_ws_start = peg.matrix_world.translation.copy()
     peg_ws_end = Vector((0.04, -0.06, PILLAR_HEIGHT + PEG_R))
-    print(f"    peg arc: ws_start=({peg_ws_start.x:+.4f},"
-          f" {peg_ws_start.y:+.4f}, {peg_ws_start.z:+.4f})")
-    print(f"    peg arc: ws_end  =({peg_ws_end.x:+.4f},"
-          f" {peg_ws_end.y:+.4f}, {peg_ws_end.z:+.4f})")
-    print(f"    peg arc: local_end={peg_w2l(peg_ws_end)}")
-    arc_kf(peg, F7_EXTRACT, F7_END, peg_ws_start, peg_ws_end,
-           arc_height=0.03, w2l=peg_w2l)
-
-    # Rotation: counter-rotate to lie horizontal in world space
-    peg_rest_rot = world_rot_to_local(Matrix.Identity(3))
-    kf_rot(peg, F7_END, peg_rest_rot)
+    arc_kf_world(peg, F7_EXTRACT, F7_END, peg_ws_extract,
+                 peg_ws_end, arc_height=0.03)
+    kf_rot(peg, F7_END, (0, 0, 0))
 
     # Camera: hold at SPIDER_0
     kf(cam, F7_END, SPIDER_0_CAM)
@@ -5809,11 +5858,6 @@ def setup_camera_animation():
     ip_w2l = make_w2l(inner_plug)
     ip_ws_start = inner_plug.matrix_world.translation.copy()
     ip_ws_end = Vector((-0.13, 0.15, PILLAR_HEIGHT + IPLUG_H / 2))
-    print(f"    ip arc:  ws_start=({ip_ws_start.x:+.4f},"
-          f" {ip_ws_start.y:+.4f}, {ip_ws_start.z:+.4f})")
-    print(f"    ip arc:  ws_end  =({ip_ws_end.x:+.4f},"
-          f" {ip_ws_end.y:+.4f}, {ip_ws_end.z:+.4f})")
-    print(f"    ip arc:  local_end={ip_w2l(ip_ws_end)}")
     arc_kf(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
            arc_height=0.04, w2l=ip_w2l)
 
@@ -5841,26 +5885,27 @@ def setup_camera_animation():
     # Pin plug at home through segment 8 (moves with assembly)
     kf(plug, 1, plug_home)
     kf_rot(plug, 1, (0, 0, 0))
-    kf(plug, F8_END, plug_home)
-    kf_rot(plug, F8_END, (0, 0, 0))
+    # Hold plug steady until just before release; avoid interpolating
+    # toward the baked world rotation (which causes slow pre-tilt).
+    kf(plug, F8_END - 1, plug_home)
+    kf_rot(plug, F8_END - 1, (0, 0, 0))
 
     # Desired world rest: +X, +Y, near corner of pillar top
-    bpy.context.scene.frame_set(int(F8_END))
-    bpy.context.view_layer.update()
-    plug_w2l = make_w2l(plug)
+    if plug_con:
+        kf_influence(plug_con, F8_END - 1, 1.0)
+        bpy.context.scene.frame_set(int(F8_END))
+        bpy.context.view_layer.update()
+        plug_world = plug.matrix_world.copy()
+        kf_influence(plug_con, F8_END, 0.0)
+        kf_world(plug, F8_END, plug_world)
+
     plug_ws_start = plug.matrix_world.translation.copy()
     plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + PLUG_MIDDLE_R))
-    print(f"    plug arc: ws_start=({plug_ws_start.x:+.4f},"
-          f" {plug_ws_start.y:+.4f}, {plug_ws_start.z:+.4f})")
-    print(f"    plug arc: ws_end  =({plug_ws_end.x:+.4f},"
-          f" {plug_ws_end.y:+.4f}, {plug_ws_end.z:+.4f})")
-    print(f"    plug arc: local_end={plug_w2l(plug_ws_end)}")
-    arc_kf(plug, F8_END, F9_END, plug_ws_start, plug_ws_end,
-           arc_height=0.05, w2l=plug_w2l)
+    arc_kf_world(plug, F8_END, F9_END, plug_ws_start, plug_ws_end,
+                 arc_height=0.05)
 
-    # Rest rotation: counter assembly tilt, plug upright on surface
-    plug_rest_rot = world_rot_to_local(Matrix.Identity(3))
-    kf_rot(plug, F9_END, plug_rest_rot)
+    # Rest rotation: plug upright on surface
+    kf_rot(plug, F9_END, (0, 0, 0))
 
     # Camera: hold
     kf(cam, F9_END, SPIDER_0_CAM)
@@ -5891,6 +5936,8 @@ def setup_camera_animation():
                 for kp in fc.keyframe_points:
                     kp.handle_left_type = 'AUTO_CLAMPED'
                     kp.handle_right_type = 'AUTO_CLAMPED'
+                    if "constraints" in fc.data_path and "influence" in fc.data_path:
+                        kp.interpolation = 'CONSTANT'
     # Also smooth the light energy curve
     if light.data.animation_data and light.data.animation_data.action:
         for fc in light.data.animation_data.action.fcurves:
