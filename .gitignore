@@ -168,6 +168,7 @@ test_gw*.db
 # Blender
 Blender/blender-*/
 Blender/Hotine/frames/
+Blender/Hotine/draft/
 Blender/Hotine/render.log
 Blender/Hotine/*.mp4
 Blender/Scratch/

@@ -6643,36 +6643,14 @@ def print_camera_state():
     print()
 
 
-def setup_final_render():
-    """Configure Cycles GPU rendering for high-quality output.
+def _setup_cycles_common(scene, render):
+    """Shared Cycles engine and device configuration.
 
-    Renders to a PNG image sequence in a 'frames/' subdirectory next
-    to this script.  Use the companion render.sh script to render
-    headlessly and assemble the video with FFmpeg.
-
-    TUNEABLE PARAMETERS
-    -------------------
-    SAMPLES       — Cycles samples per pixel (higher = cleaner, slower)
-    RESOLUTION    — output resolution (width, height)
-    USE_DENOISER  — enable AI denoising (highly recommended)
+    Returns the GPU compute type string (e.g. 'OPTIX', 'CUDA', 'CPU').
     """
-    print("  Render settings ...")
-
-    # ── TUNEABLE VALUES ──────────────────────────────────────────
-    SAMPLES      = 256
-    RESOLUTION   = (1920, 1080)
-    USE_DENOISER = True
-    # ─────────────────────────────────────────────────────────────
-
-    scene  = bpy.context.scene
-    render = scene.render
-
-    # ── Cycles engine with GPU ───────────────────────────────────
     render.engine = 'CYCLES'
     scene.cycles.device = 'GPU'
-    scene.cycles.samples = SAMPLES
     scene.cycles.use_adaptive_sampling = True
-    scene.cycles.adaptive_threshold = 0.01
 
     # Prefer OptiX (fastest on RTX), fall back to CUDA
     prefs = bpy.context.preferences.addons['cycles'].preferences
@@ -6692,45 +6670,36 @@ def setup_final_render():
     for device in prefs.devices:
         device.use = True
 
-    # ── Denoiser ─────────────────────────────────────────────────
-    denoiser_name = "none"
-    if USE_DENOISER:
-        scene.cycles.use_denoising = True
-        # Try denoisers in preference order
-        for dn in ('OPENIMAGEDENOISE', 'OPTIX'):
-            try:
-                scene.cycles.denoiser = dn
-                denoiser_name = dn
-                break
-            except TypeError:
-                continue
-        else:
-            # No denoiser available — compensate with more samples
-            scene.cycles.use_denoising = False
-            scene.cycles.samples = max(SAMPLES, 512)
-            denoiser_name = "none (samples raised to 512)"
+    return gpu_type
 
-    # ── Light path optimisation ─────────────────────────────────
-    scene.cycles.max_bounces = 8
-    scene.cycles.diffuse_bounces = 4
-    scene.cycles.glossy_bounces = 4
-    scene.cycles.transmission_bounces = 8
-    scene.cycles.transparent_max_bounces = 8
-    scene.cycles.sample_clamp_indirect = 10.0    # reduce fireflies
 
-    # ── Resolution ───────────────────────────────────────────────
-    render.resolution_x = RESOLUTION[0]
-    render.resolution_y = RESOLUTION[1]
-    render.resolution_percentage = 100
+def _setup_denoiser(scene, samples_fallback):
+    """Try to enable OIDN or OptiX denoiser.
 
-    # ── Output: PNG image sequence ───────────────────────────────
-    # Determine output directory relative to this script
+    If no denoiser is available, raises samples to *samples_fallback*
+    to compensate.  Returns a human-readable denoiser name string.
+    """
+    scene.cycles.use_denoising = True
+    for dn in ('OPENIMAGEDENOISE', 'OPTIX'):
+        try:
+            scene.cycles.denoiser = dn
+            return dn
+        except TypeError:
+            continue
+    # No denoiser available — compensate with more samples
+    scene.cycles.use_denoising = False
+    scene.cycles.samples = max(scene.cycles.samples, samples_fallback)
+    return f"none (samples raised to {scene.cycles.samples})"
+
+
+def _setup_output(render, subdir="frames"):
+    """Configure PNG image-sequence output in *subdir* next to this script."""
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
     except NameError:
         script_dir = os.getcwd()
 
-    frames_dir = os.path.join(script_dir, "frames", "")
+    frames_dir = os.path.join(script_dir, subdir, "")
     os.makedirs(frames_dir, exist_ok=True)
 
     render.filepath = frames_dir
@@ -6739,13 +6708,109 @@ def setup_final_render():
     render.image_settings.color_depth = '8'
     render.use_overwrite = False          # skip already-rendered frames
     render.use_file_extension = True
+    return frames_dir
 
-    # ── Performance ──────────────────────────────────────────────
-    render.use_persistent_data = True     # keep BVH between frames
+
+def setup_draft_render():
+    """Configure a fast Cycles draft render for previewing the animation.
+
+    Uses very low samples (32) with OIDN denoising at half resolution
+    (960×540).  Transparency is fully accurate because it's still Cycles
+    with the same light-path bounce limits — just faster.
+
+    Output goes to a 'draft/' subdirectory to keep it separate from the
+    full-quality frames.
+    """
+    print("  Draft render settings ...")
+
+    SAMPLES    = 32
+    RESOLUTION = (960, 540)
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    gpu_type = _setup_cycles_common(scene, render)
+
+    scene.cycles.samples = SAMPLES
+    scene.cycles.adaptive_threshold = 0.05   # more aggressive early termination
+
+    denoiser_name = _setup_denoiser(scene, samples_fallback=128)
+
+    # Light path — same transparent bounces as final for correct layered
+    # transparency; reduce others slightly for speed.
+    scene.cycles.max_bounces = 6
+    scene.cycles.diffuse_bounces = 3
+    scene.cycles.glossy_bounces = 2
+    scene.cycles.transmission_bounces = 6
+    scene.cycles.transparent_max_bounces = 8     # critical for layered fade
+    scene.cycles.sample_clamp_indirect = 10.0
+
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    frames_dir = _setup_output(render, subdir="draft")
+
+    render.use_persistent_data = True
     if gpu_type == 'OPTIX':
-        scene.cycles.tile_size = 2048     # OptiX works best with large tiles
+        scene.cycles.tile_size = 2048
     else:
-        scene.cycles.tile_size = 256      # good for CUDA
+        scene.cycles.tile_size = 256
+
+    print(f"    Engine:     Cycles ({gpu_type})  [DRAFT]")
+    print(f"    Samples:    {scene.cycles.samples} (adaptive)")
+    print(f"    Denoiser:   {denoiser_name}")
+    print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]}")
+    print(f"    Output:     {frames_dir}")
+    print(f"    Overwrite:  off (resume-safe)")
+
+
+def setup_final_render():
+    """Configure Cycles GPU rendering for high-quality output.
+
+    Renders to a PNG image sequence in a 'frames/' subdirectory next
+    to this script.  Use the companion render.sh script to render
+    headlessly and assemble the video with FFmpeg.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    SAMPLES       — Cycles samples per pixel (higher = cleaner, slower)
+    RESOLUTION    — output resolution (width, height)
+    """
+    print("  Render settings ...")
+
+    SAMPLES    = 256
+    RESOLUTION = (1920, 1080)
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    gpu_type = _setup_cycles_common(scene, render)
+
+    scene.cycles.samples = SAMPLES
+    scene.cycles.adaptive_threshold = 0.01
+
+    denoiser_name = _setup_denoiser(scene, samples_fallback=512)
+
+    # Light path optimisation
+    scene.cycles.max_bounces = 8
+    scene.cycles.diffuse_bounces = 4
+    scene.cycles.glossy_bounces = 4
+    scene.cycles.transmission_bounces = 8
+    scene.cycles.transparent_max_bounces = 8
+    scene.cycles.sample_clamp_indirect = 10.0    # reduce fireflies
+
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    frames_dir = _setup_output(render, subdir="frames")
+
+    render.use_persistent_data = True
+    if gpu_type == 'OPTIX':
+        scene.cycles.tile_size = 2048
+    else:
+        scene.cycles.tile_size = 256
 
     print(f"    Engine:     Cycles ({gpu_type})")
     print(f"    Samples:    {scene.cycles.samples} (adaptive)")
@@ -6831,8 +6896,12 @@ def main():
     # Camera flythrough trajectory
     setup_camera_animation()
 
-    # High-quality render settings (Cycles GPU, PNG sequence)
-    setup_final_render()
+    # Render settings — draft (fast preview) or final (high quality)
+    quality = os.environ.get('TRIG_RENDER_QUALITY', 'final')
+    if quality == 'draft':
+        setup_draft_render()
+    else:
+        setup_final_render()
 
     # Make helper functions available in Blender's Python console.
     # Script functions live in their own module namespace, which the
