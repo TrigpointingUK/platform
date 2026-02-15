@@ -6014,7 +6014,8 @@ def setup_camera_animation():
 
     # ── Inner plug reassemble (second): reverse of seg 8
     ip_w2l = make_w2l(inner_plug)
-    ip_ws_clear = asm_world @ Vector(ip_clear_loc)
+    ip_child_combined = assembly.matrix_world @ inner_plug.matrix_parent_inverse
+    ip_ws_clear = ip_child_combined @ Vector(ip_clear_loc)
     kf(inner_plug, F11_IP_START, tuple(inner_plug.location))
     kf_rot(inner_plug, F11_IP_START, ip_rest_rot)
     arc_kf(inner_plug, F11_IP_START, F11_IP_CLEAR, ip_ws_rest, ip_ws_clear,
