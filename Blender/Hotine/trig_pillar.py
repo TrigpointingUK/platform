@@ -5241,6 +5241,81 @@ def goto(name: str = ""):
     print(f"  target  = ({tgt_loc[0]:+.4f}, {tgt_loc[1]:+.4f}, {tgt_loc[2]:+.4f})")
 
 
+def add_glass_fade(obj, frame_start, frame_end):
+    """Fade an object's material from opaque concrete to transparent.
+
+    Inserts a Mix Shader between the existing Principled BSDF output and
+    the Material Output, with a Transparent BSDF on the second slot.
+    Unlike glass, Transparent BSDF passes light straight through with no
+    refraction — perfect for revealing internal components clearly.
+
+    A faint tint is applied so the pillar outline remains subtly visible
+    even at full transparency.
+
+    The mix factor is keyframed from 0 (fully opaque, original material)
+    at *frame_start* to 1 (fully transparent) at *frame_end*.
+
+    Works on the FIRST material slot of *obj*.
+    """
+    mat = obj.data.materials[0]
+    tree = mat.node_tree
+    nodes = tree.nodes
+    links = tree.links
+
+    # Find existing Principled BSDF and Material Output nodes
+    bsdf = None
+    output = None
+    for n in nodes:
+        if n.type == 'BSDF_PRINCIPLED':
+            bsdf = n
+        elif n.type == 'OUTPUT_MATERIAL':
+            output = n
+    if not bsdf or not output:
+        print("  WARNING: could not find BSDF / Output nodes — skipping glass fade")
+        return
+
+    # Remove the existing BSDF → Output link
+    for link in list(links):
+        if link.to_node == output and link.to_socket.name == 'Surface':
+            links.remove(link)
+            break
+
+    # Create Transparent BSDF — no refraction, light passes straight through.
+    # Slight blue-grey tint keeps the pillar silhouette faintly visible.
+    ox, oy = output.location
+    transparent = nodes.new('ShaderNodeBsdfTransparent')
+    transparent.location = (ox - 200, oy - 200)
+    transparent.label = "Transparent Fade"
+    transparent.inputs['Color'].default_value = (0.85, 0.90, 0.95, 1.0)
+
+    # Create Mix Shader
+    mix = nodes.new('ShaderNodeMixShader')
+    mix.location = (ox, oy)
+    mix.label = "Concrete ↔ Transparent"
+
+    # Shift output node to the right
+    output.location = (ox + 200, oy)
+
+    # Wire: BSDF → Mix.Shader1, Transparent → Mix.Shader2, Mix → Output
+    links.new(bsdf.outputs['BSDF'], mix.inputs[1])
+    links.new(transparent.outputs['BSDF'], mix.inputs[2])
+    links.new(mix.outputs['Shader'], output.inputs['Surface'])
+
+    # Keyframe the mix factor: 0 at frame_start, 1 at frame_end
+    mix.inputs[0].default_value = 0.0
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
+    mix.inputs[0].default_value = 1.0
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
+
+    # Make keyframes linear for a steady fade
+    if mat.node_tree.animation_data and mat.node_tree.animation_data.action:
+        for fc in mat.node_tree.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = 'LINEAR'
+
+    print(f"    Transparent fade: frames {frame_start}–{frame_end}")
+
+
 def setup_camera_animation():
     """Cinematic flythrough built from individually authored segments.
 
@@ -5272,6 +5347,7 @@ def setup_camera_animation():
       1336–1425 Slew to profile: PIPE_0 → PROFILE_1 + reassemble
       1426–1515 Plug assembly return: tilt back + screw in
       1516–1560 Screws reinsert: Screw_180 then Screw_0
+      1600–1630 Pillar fades to transparent
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5361,7 +5437,8 @@ def setup_camera_animation():
     F11_END = 1425            # end of segment 11 (3 s: slew + reassemble)
     F12_END = 1515            # end of segment 12 (3 s: assembly return)
     F13_END = 1560            # end of segment 13 (1.5 s: screw insert)
-    TOTAL_FRAMES = F13_END    # extended as segments are added
+    F14_END = 1630            # end of segment 14 (1 s: pillar fades to transparent)
+    TOTAL_FRAMES = F14_END    # extended as segments are added
 
     # ── Remove any existing camera / target / assembly empties ─────
     for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
@@ -6146,9 +6223,24 @@ def setup_camera_animation():
     kf(screw_0, F13_END, s0_home)
     kf_rot(screw_0, F13_END, ROT_ZERO)
 
-    # Camera arrives at PROFILE_1 at the end of the sequence
+    # Camera arrives at PROFILE_1
     kf(cam, F13_END, PROFILE_1_CAM)
     kf(target, F13_END, PROFILE_1_TGT)
+
+    # =================================================================
+    # SEGMENT 14 — Pillar fades to transparent  (frames 1600 → 1630,  1 s)
+    # =================================================================
+    # Camera holds at PROFILE_1 while the concrete fades to transparent,
+    # revealing all internal components.
+    F14_START = 1600
+    kf(cam, F14_START, PROFILE_1_CAM)
+    kf(target, F14_START, PROFILE_1_TGT)
+    kf(cam, F14_END, PROFILE_1_CAM)
+    kf(target, F14_END, PROFILE_1_TGT)
+
+    # Apply the glass fade to the Pillar object
+    pillar = bpy.data.objects['Pillar']
+    add_glass_fade(pillar, F14_START, F14_END)
 
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
@@ -6168,6 +6260,7 @@ def setup_camera_animation():
     print(f"      {F10_END+1}–{F11_END}:  Slew + reassemble (PIPE_0 → PROFILE_1)")
     print(f"      {F11_END+1}–{F12_END}:  Assembly return (tilt + screw in)")
     print(f"      {F12_END+1}–{F13_END}:  Screws reinsert (Screw_180 → Screw_0)")
+    print(f"      {F14_START}–{F14_END}:  Pillar fades to transparent")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
@@ -6184,9 +6277,9 @@ def setup_camera_animation():
     # Also smooth the light energy curve
     if light.data.animation_data and light.data.animation_data.action:
         for fc in light.data.animation_data.action.fcurves:
-            for kp in fc.keyframe_points:
-                kp.handle_left_type = 'AUTO_CLAMPED'
-                kp.handle_right_type = 'AUTO_CLAMPED'
+                for kp in fc.keyframe_points:
+                    kp.handle_left_type = 'AUTO_CLAMPED'
+                    kp.handle_right_type = 'AUTO_CLAMPED'
 
 
 def print_camera_state():
