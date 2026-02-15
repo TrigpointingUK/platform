@@ -5254,6 +5254,8 @@ def setup_camera_animation():
       SIGHTING_1  — exited -Y tube, looking along -Y
       PROFILE_0   — south-east profile view, elevated
       SPIDER_0    — close-up of spider / pillar top
+      PIPE_0      — overhead, looking down the centre pipe
+      PROFILE_1   — high profile view for reassembled state
 
     Segment map (30 fps):
       1–180     Arc approach: START_0 → SIGHTING_0
@@ -5266,6 +5268,10 @@ def setup_camera_animation():
       886–975   Peg removal: extract along axis, arc to pillar top
       976–1155  Inner plug removal: 12 turns unscrew, arc to -X/+Y corner
       1156–1245 Plug arc to rest on +X/+Y corner
+      1246–1335 Slew to centre pipe: SPIDER_0 → PIPE_0
+      1336–1425 Slew to profile: PIPE_0 → PROFILE_1 + reassemble
+      1426–1515 Plug assembly return: tilt back + screw in
+      1516–1560 Screws reinsert: Screw_180 then Screw_0
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5313,6 +5319,16 @@ def setup_camera_animation():
         ( 0.2306, -0.3915,  1.9977),        # cam — close-up above
         ( 0.0000,  0.0000,  1.2000),        # tgt — spider / pillar top
     )
+    CAMERA_POSITIONS["PIPE_0"] = (
+        1335,
+        ( 0.0004, -0.0003,  1.4249),        # cam — overhead
+        ( 0.0000,  0.0000,  0.0000),        # tgt — centre pipe
+    )
+    CAMERA_POSITIONS["PROFILE_1"] = (
+        1425,
+        ( 2.5277, -1.7177,  1.9225),        # cam — high profile
+        ( 0.0000,  0.0000,  0.3650),        # tgt — mid-pillar
+    )
 
     # Local aliases for readability in keyframe code below
     START_0_CAM    = CAMERA_POSITIONS["START_0"][1]
@@ -5325,6 +5341,10 @@ def setup_camera_animation():
     PROFILE_0_TGT  = CAMERA_POSITIONS["PROFILE_0"][2]
     SPIDER_0_CAM   = CAMERA_POSITIONS["SPIDER_0"][1]
     SPIDER_0_TGT   = CAMERA_POSITIONS["SPIDER_0"][2]
+    PIPE_0_CAM     = CAMERA_POSITIONS["PIPE_0"][1]
+    PIPE_0_TGT     = CAMERA_POSITIONS["PIPE_0"][2]
+    PROFILE_1_CAM  = CAMERA_POSITIONS["PROFILE_1"][1]
+    PROFILE_1_TGT  = CAMERA_POSITIONS["PROFILE_1"][2]
 
     # ── Frame boundaries ─────────────────────────────────────────
     F1_END = 180              # end of segment 1 (6 s)
@@ -5336,7 +5356,11 @@ def setup_camera_animation():
     F7_END = 975              # end of segment 7 (3 s: peg removal)
     F8_END = 1155             # end of segment 8 (6 s: inner plug removal)
     F9_END = 1245             # end of segment 9 (3 s: plug arc to rest)
-    TOTAL_FRAMES = F9_END     # extended as segments are added
+    F10_END = 1335            # end of segment 10 (3 s: slew to pipe)
+    F11_END = 1425            # end of segment 11 (3 s: slew + reassemble)
+    F12_END = 1515            # end of segment 12 (3 s: assembly return)
+    F13_END = 1560            # end of segment 13 (1.5 s: screw insert)
+    TOTAL_FRAMES = F13_END    # extended as segments are added
 
     # ── Remove any existing camera / target / assembly empties ─────
     for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
@@ -5418,6 +5442,15 @@ def setup_camera_animation():
                 o.select_set(True)
         bpy.context.view_layer.objects.active = prev_active
         return con
+
+    def reattach_child_of(obj, con, target_world, frame):
+        """Reattach a Child Of constraint without a visible jump."""
+        target = con.target
+        # Compute the local matrix that yields target_world when constrained.
+        c_mat = target.matrix_world @ con.inverse_matrix
+        local = c_mat.inverted() @ target_world
+        kf_world(obj, frame, local)
+        kf_influence(con, frame, 1.0)
 
     def kf_influence(con, frame, value):
         con.influence = value
@@ -5638,6 +5671,7 @@ def setup_camera_animation():
     # Force depsgraph update so matrix_world reflects the new location
     # before we compute parent-inverse matrices for the children.
     bpy.context.view_layer.update()
+    assembly_bind_world = assembly.matrix_world.copy()
 
     inner_plug = bpy.data.objects.get("InnerPlug")
     if inner_plug:
@@ -5646,6 +5680,8 @@ def setup_camera_animation():
 
     plug = bpy.data.objects.get("Plug")
     peg = bpy.data.objects.get("AntiRotationPeg")
+    plug_bind_world = plug.matrix_world.copy() if plug else None
+    peg_bind_world = peg.matrix_world.copy() if peg else None
     plug_con = add_child_of(plug, assembly) if plug else None
     peg_con = add_child_of(peg, assembly) if peg else None
     if plug_con:
@@ -5778,19 +5814,18 @@ def setup_camera_animation():
     #   Phase 2  916–975   Arc down to pillar top surface  (2 s)
 
     peg = bpy.data.objects["AntiRotationPeg"]
-    peg_home = tuple(peg.location)
-
-    # Pin peg at home through segment 6 (moves with assembly)
-    kf(peg, 1, peg_home)
-    kf_rot(peg, 1, (0, 0, 0))
-    kf(peg, F6_END, peg_home)
-    kf_rot(peg, F6_END, (0, 0, 0))
 
     # ── Phase 1: Extract along peg axis (3 cm, 1 s) ──────────────
     # Detach at segment start so we can move along the peg's own axis
     # in world space (assembly is pinned after F6_END).
     F7_START = F6_END + 1
     F7_EXTRACT = F6_END + 30
+    peg_home_local = tuple(peg.location)
+    peg_home_rot = tuple(peg.rotation_euler)
+    kf(peg, 1, peg_home_local)
+    kf_rot(peg, 1, peg_home_rot)
+    kf(peg, F7_START - 1, peg_home_local)
+    kf_rot(peg, F7_START - 1, peg_home_rot)
     if peg_con:
         kf_influence(peg_con, F6_END, 1.0)
         bpy.context.scene.frame_set(int(F6_END))
@@ -5852,12 +5887,15 @@ def setup_camera_animation():
     kf_rot(inner_plug, F8_CLEAR, (0, 0, IPLUG_UNSCREW))
 
     # ── Phase 2: Arc to rest on pillar top (2 s) ─────────────────
-    # ~20 cm in the +Y / -X direction from centre, near beveled edge
+    # Place the inner plug just inside the brass loop radius.
     bpy.context.scene.frame_set(int(F8_CLEAR))
     bpy.context.view_layer.update()
     ip_w2l = make_w2l(inner_plug)
     ip_ws_start = inner_plug.matrix_world.translation.copy()
-    ip_ws_end = Vector((-0.13, 0.15, PILLAR_HEIGHT + IPLUG_H / 2))
+    ip_dir = Vector((-0.13, 0.15, 0)).normalized()
+    ip_r = LOOP_POS_R - 0.005  # 5 mm inside loop radius
+    ip_xy = ip_dir * ip_r
+    ip_ws_end = Vector((ip_xy.x, ip_xy.y, PILLAR_HEIGHT + IPLUG_H / 2))
     arc_kf(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
            arc_height=0.04, w2l=ip_w2l)
 
@@ -5880,15 +5918,13 @@ def setup_camera_animation():
     # +X, +Y corner of the pillar top.
 
     plug = bpy.data.objects["Plug"]
-    plug_home = tuple(plug.location)
 
-    # Pin plug at home through segment 8 (moves with assembly)
-    kf(plug, 1, plug_home)
-    kf_rot(plug, 1, (0, 0, 0))
-    # Hold plug steady until just before release; avoid interpolating
-    # toward the baked world rotation (which causes slow pre-tilt).
-    kf(plug, F8_END - 1, plug_home)
-    kf_rot(plug, F8_END - 1, (0, 0, 0))
+    plug_home_local = tuple(plug.location)
+    plug_home_rot = tuple(plug.rotation_euler)
+    kf(plug, 1, plug_home_local)
+    kf_rot(plug, 1, plug_home_rot)
+    kf(plug, F8_END - 1, plug_home_local)
+    kf_rot(plug, F8_END - 1, plug_home_rot)
 
     # Desired world rest: +X, +Y, near corner of pillar top
     if plug_con:
@@ -5911,6 +5947,148 @@ def setup_camera_animation():
     kf(cam, F9_END, SPIDER_0_CAM)
     kf(target, F9_END, (0.00, 0.00, 1.25))             # drift down slightly
 
+    # =================================================================
+    # SEGMENT 10 — Slew to centre pipe  (frames 1246 → 1335,  3 s)
+    # =================================================================
+    # Graceful move to an overhead view looking down the centre pipe.
+    kf(cam, F10_END, PIPE_0_CAM)
+    kf(target, F10_END, PIPE_0_TGT)
+
+    # =================================================================
+    # SEGMENT 11 — Slew to profile + reassemble  (frames 1336 → 1425,  3 s)
+    # =================================================================
+    F11_START = F10_END + 1
+    F11_IP_CLEAR = F11_START + 30
+    F11_PEG_ARC_END = F11_START + 60
+
+    # Camera move to PROFILE_1
+    kf(target, F11_START, (0.00, 0.00, 1.20))            # start higher
+    kf(cam, F11_END, PROFILE_1_CAM)
+    kf(target, F11_END, PROFILE_1_TGT)
+
+    # Light fades out during the reassembly
+    light.data.energy = 20
+    light.data.keyframe_insert(data_path="energy", frame=F11_START)
+    light.data.energy = 0
+    light.data.keyframe_insert(data_path="energy", frame=F11_START + 30)
+
+    # Evaluate at segment start to capture current rest positions
+    bpy.context.scene.frame_set(int(F11_START))
+    bpy.context.view_layer.update()
+    asm_world = assembly.matrix_world.copy()
+    plug_ws_rest = plug.matrix_world.translation.copy()
+    peg_ws_rest = peg.matrix_world.translation.copy()
+    ip_ws_rest = inner_plug.matrix_world.translation.copy()
+    ip_rest_rot = tuple(inner_plug.rotation_euler)
+
+    # Compute assembled world matrices for plug/peg
+    asm_bind_inv = assembly_bind_world.inverted()
+    plug_home_world = asm_world @ asm_bind_inv @ plug_bind_world
+    peg_home_world = asm_world @ asm_bind_inv @ peg_bind_world
+
+    # ── Plug reassemble: arc back to assembled position (reverse of seg 9)
+    kf_rot(plug, F11_START, tuple(plug.rotation_euler))
+    arc_kf_world(plug, F11_START, F11_END, plug_ws_rest,
+                 plug_home_world.translation, arc_height=0.05)
+    kf_world(plug, F11_END, plug_home_world)
+    if plug_con:
+        kf_influence(plug_con, F11_START, 0.0)
+        bpy.context.scene.frame_set(int(F11_END))
+        bpy.context.view_layer.update()
+        reattach_child_of(plug, plug_con, plug_home_world, F11_END)
+
+    # ── Peg reassemble: arc up, then slide in along axis (reverse seg 7)
+    peg_axis = asm_world.to_3x3() @ Vector((1, 0, 0))
+    peg_axis.normalize()
+    peg_ws_extract = peg_home_world.translation + peg_axis * 0.03
+    kf_rot(peg, F11_START, tuple(peg.rotation_euler))
+    arc_kf_world(peg, F11_START, F11_PEG_ARC_END, peg_ws_rest,
+                 peg_ws_extract, arc_height=0.03)
+    kf_world(peg, F11_END, peg_home_world)
+    if peg_con:
+        kf_influence(peg_con, F11_START, 0.0)
+        bpy.context.scene.frame_set(int(F11_END))
+        bpy.context.view_layer.update()
+        reattach_child_of(peg, peg_con, peg_home_world, F11_END)
+
+    # ── Inner plug reassemble: arc back, then screw in (reverse seg 8)
+    ip_w2l = make_w2l(inner_plug)
+    ip_ws_clear = asm_world @ Vector(ip_clear_loc)
+    kf(inner_plug, F11_START, tuple(inner_plug.location))
+    kf_rot(inner_plug, F11_START, ip_rest_rot)
+    arc_kf(inner_plug, F11_START, F11_IP_CLEAR, ip_ws_rest, ip_ws_clear,
+           arc_height=0.04, w2l=ip_w2l)
+    kf(inner_plug, F11_IP_CLEAR, ip_clear_loc)
+    kf_rot(inner_plug, F11_IP_CLEAR, (0, 0, IPLUG_UNSCREW))
+    kf(inner_plug, F11_END, ip_home)
+    kf_rot(inner_plug, F11_END, (0, 0, 0))
+
+    # =================================================================
+    # SEGMENT 12 — Plug assembly return  (frames 1426 → 1515,  3 s)
+    # =================================================================
+    F12_START = F11_END + 1
+    F12_END = F12_START + 89
+    F12_MID1 = F12_START + 22
+    F12_MID2 = F12_START + 45
+    F12_MID3 = F12_START + 67
+
+    # Reverse segment 6: tilt back + lower 10 cm, then screw in 3 turns
+    kf(assembly,     F12_START, ASM_PIN)
+    kf_rot(assembly, F12_START, ROT_PLUG_FULL_TILT)
+    kf(assembly,     F12_MID1, (0, 0, z_pc + 0.015 + 0.05))
+    kf_rot(assembly, F12_MID1, ROT_PLUG_HALF_TILT)
+    kf(assembly,     F12_MID2, (0, 0, z_pc + 0.015))
+    kf_rot(assembly, F12_MID2, ROT_PLUG_TOP)
+    kf(assembly,     F12_MID3, (0, 0, z_pc + 0.0075))
+    kf_rot(assembly, F12_MID3, (0, 0, PLUG_UNSCREW / 2))
+    kf(assembly,     F12_END, (0, 0, z_pc))
+    kf_rot(assembly, F12_END, (0, 0, 0))
+
+    # Camera: hold at PROFILE_1
+    kf(cam, F12_END, PROFILE_1_CAM)
+    kf(target, F12_END, PROFILE_1_TGT)
+
+    # =================================================================
+    # SEGMENT 13 — Screws reinsert  (frames 1516 → 1560,  1.5 s)
+    # =================================================================
+    F13_START = F12_END + 1
+    F13_END = F13_START + 44
+    F13A_END = F13_START + 22
+
+    # Ensure screws start from their resting positions
+    kf(screw_180, F13_START, s180_rest)
+    kf_rot(screw_180, F13_START, ROT_LYING)
+    kf(screw_0, F13_START, s0_rest)
+    kf_rot(screw_0, F13_START, ROT_LYING)
+
+    # ── Screw_180 returns first (reverse of 5c + 5d)
+    kf(screw_180, F13_START + 7, (0.06, -0.03, 1.22))
+    kf_rot(screw_180, F13_START + 7, (math.pi / 3, 0, UNSCREW_RAD))
+    kf(screw_180, F13_START + 12, (0.00, -0.01, 1.26))
+    kf_rot(screw_180, F13_START + 12, (math.pi / 6, 0, UNSCREW_RAD))
+    kf(screw_180, F13_START + 15, s180_up)
+    kf_rot(screw_180, F13_START + 15, ROT_TOP)
+    kf(screw_180, F13_START + 18,
+       (s180_home[0], s180_home[1], s180_home[2] + 0.035))
+    kf_rot(screw_180, F13_START + 18, (0, 0, UNSCREW_RAD / 2))
+    kf(screw_180, F13A_END, s180_home)
+    kf_rot(screw_180, F13A_END, ROT_ZERO)
+
+    # ── Screw_0 returns second (reverse of 5a + 5b)
+    kf(screw_0, F13A_END + 7, (0.06, -0.02, 1.24))
+    kf_rot(screw_0, F13A_END + 7, (math.pi / 4, 0, UNSCREW_RAD))
+    kf(screw_0, F13A_END + 12, s0_up)
+    kf_rot(screw_0, F13A_END + 12, ROT_TOP)
+    kf(screw_0, F13A_END + 17,
+       (s0_home[0], s0_home[1], s0_home[2] + 0.035))
+    kf_rot(screw_0, F13A_END + 17, (0, 0, UNSCREW_RAD / 2))
+    kf(screw_0, F13_END, s0_home)
+    kf_rot(screw_0, F13_END, ROT_ZERO)
+
+    # Camera: hold at PROFILE_1
+    kf(cam, F13_END, PROFILE_1_CAM)
+    kf(target, F13_END, PROFILE_1_TGT)
+
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
     print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
@@ -5925,6 +6103,10 @@ def setup_camera_animation():
     print(f"      {F6_END+1}–{F7_END}:  Peg removal (extract + arc)")
     print(f"      {F7_END+1}–{F8_END}:  Inner plug removal (unscrew + arc)")
     print(f"      {F8_END+1}–{F9_END}:  Plug arc to rest (+X, +Y corner)")
+    print(f"      {F9_END+1}–{F10_END}:  Slew to pipe (SPIDER_0 → PIPE_0)")
+    print(f"      {F10_END+1}–{F11_END}:  Slew + reassemble (PIPE_0 → PROFILE_1)")
+    print(f"      {F11_END+1}–{F12_END}:  Assembly return (tilt + screw in)")
+    print(f"      {F12_END+1}–{F13_END}:  Screws reinsert (Screw_180 → Screw_0)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
