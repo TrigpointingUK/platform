@@ -91,12 +91,16 @@ if [ "$ASSEMBLE_ONLY" = false ]; then
     RENDER_ARGS=(
         "${BLENDER}" --background
         --python "${BLEND_SCRIPT}"
-        --render-anim
     )
 
+    # --frame-jump MUST come before --render-anim because Blender
+    # processes arguments left-to-right and --render-anim triggers
+    # the render immediately — anything after it is ignored.
     if [ "$FRAME_JUMP" -gt 1 ]; then
         RENDER_ARGS+=(--frame-jump "${FRAME_JUMP}")
     fi
+
+    RENDER_ARGS+=(--render-anim)
 
     # Tell the Python script which quality level to configure
     export TRIG_RENDER_QUALITY="${RENDER_QUALITY}"
