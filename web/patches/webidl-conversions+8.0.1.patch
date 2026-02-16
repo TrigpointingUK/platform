@@ -1,0 +1,17 @@
+diff --git a/node_modules/webidl-conversions/lib/index.js b/node_modules/webidl-conversions/lib/index.js
+index 2b96a69..707b892 100644
+--- a/node_modules/webidl-conversions/lib/index.js
++++ b/node_modules/webidl-conversions/lib/index.js
+@@ -296,8 +296,10 @@ function isSharedArrayBuffer(value) {
+   }
+ }
+ 
+-const abResizableGetter = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable").get;
+-const sabGrowableGetter = Object.getOwnPropertyDescriptor(SharedArrayBuffer.prototype, "growable").get;
++const abResizableDesc = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable");
++const sabGrowableDesc = Object.getOwnPropertyDescriptor(SharedArrayBuffer.prototype, "growable");
++const abResizableGetter = abResizableDesc ? abResizableDesc.get : () => false;
++const sabGrowableGetter = sabGrowableDesc ? sabGrowableDesc.get : () => false;
+ 
+ function isNonSharedArrayBufferResizable(value) {
+   try {
