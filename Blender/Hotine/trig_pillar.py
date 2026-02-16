@@ -6782,7 +6782,10 @@ def setup_draft_render():
     scene.cycles.diffuse_bounces = 3
     scene.cycles.glossy_bounces = 2
     scene.cycles.transmission_bounces = 6
-    scene.cycles.transparent_max_bounces = 8     # critical for layered fade
+    scene.cycles.transparent_max_bounces = 128   # must be high — dense/noisy
+                                                  # geometry can stack dozens of
+                                                  # transparent faces per ray;
+                                                  # transparent bounces are free
     scene.cycles.sample_clamp_indirect = 10.0
 
     render.resolution_x = RESOLUTION[0]
@@ -6837,7 +6840,8 @@ def setup_final_render():
     scene.cycles.diffuse_bounces = 4
     scene.cycles.glossy_bounces = 4
     scene.cycles.transmission_bounces = 8
-    scene.cycles.transparent_max_bounces = 8
+    scene.cycles.transparent_max_bounces = 128   # see draft comment — must be
+                                                  # high for dense geometry
     scene.cycles.sample_clamp_indirect = 10.0    # reduce fireflies
 
     render.resolution_x = RESOLUTION[0]
