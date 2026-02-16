@@ -3,9 +3,20 @@
  *
  * Uses React Three Fiber with drei helpers to display a .glb model that
  * auto-rotates and supports orbit / pan / zoom via mouse interaction.
+ *
+ * Material-group toggle buttons let the user hide/show structural layers
+ * (concrete, brass, steel, wood, fixings) so the pillar's interior can
+ * be inspected.
  */
 
-import { Suspense, useRef, useCallback, useEffect, useMemo } from "react";
+import {
+  Suspense,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -38,28 +49,31 @@ function makePBR(
 }
 
 const MATERIALS: Record<string, THREE.MeshStandardMaterial> = {
-  concrete:     makePBR([0.30, 0.28, 0.23], 0.0, 0.85),
-  brass:        makePBR([0.25, 0.18, 0.06], 0.55, 0.50),
+  concrete: makePBR([0.3, 0.28, 0.23], 0.0, 0.85),
+  brass: makePBR([0.25, 0.18, 0.06], 0.55, 0.5),
   rusted_steel: makePBR([0.14, 0.06, 0.02], 0.2, 0.75),
-  aged_steel:   makePBR([0.12, 0.12, 0.13], 0.6, 0.55),
-  wood:         makePBR([0.15, 0.08, 0.03], 0.0, 0.80),
-  terrain:      makePBR([0.12, 0.20, 0.05], 0.0, 0.95),
+  aged_steel: makePBR([0.12, 0.12, 0.13], 0.6, 0.55),
+  wood: makePBR([0.15, 0.08, 0.03], 0.0, 0.8),
+  terrain: makePBR([0.12, 0.2, 0.05], 0.0, 0.95),
 };
 
-/** Map Blender object names (or prefixes) to material keys. */
-function materialForObject(name: string): THREE.MeshStandardMaterial | null {
+// ---------------------------------------------------------------------------
+// Object → material-group mapping (used for both material assignment and
+// layer-visibility toggling).
+// ---------------------------------------------------------------------------
+
+/** Return the material-group key for a Blender object name. */
+function materialGroupForObject(name: string): string | null {
   const n = name.toLowerCase();
 
-  // Concrete parts
   if (
     n === "pillar" ||
     n === "concretefill" ||
     n === "baseslab" ||
     n === "lowerblock"
   )
-    return MATERIALS.concrete;
+    return "concrete";
 
-  // Brass parts
   if (
     n === "spider" ||
     n === "plug" ||
@@ -71,28 +85,46 @@ function materialForObject(name: string): THREE.MeshStandardMaterial | null {
     n === "uppercentremark_spike" ||
     n === "lowercentremark"
   )
-    return MATERIALS.brass;
+    return "brass";
 
-  // Rusted steel — sighting tubes, centre pipe, angle irons
   if (
     n.startsWith("st_") ||
     n === "centrepipe" ||
     n.startsWith("angleiron")
   )
-    return MATERIALS.rusted_steel;
+    return "rusted_steel";
 
-  // Aged steel — screws, peg
-  if (n.startsWith("screw") || n === "antirotationpeg")
-    return MATERIALS.aged_steel;
+  if (n.startsWith("screw") || n === "antirotationpeg") return "aged_steel";
 
-  // Wood — boxes
-  if (n === "upperbox" || n === "lowerbox") return MATERIALS.wood;
+  if (n === "upperbox" || n === "lowerbox") return "wood";
 
-  // Terrain
-  if (n === "terrain" || n === "grid") return MATERIALS.terrain;
+  if (n === "terrain" || n === "grid") return "terrain";
 
   return null;
 }
+
+/** Return the PBR material for a Blender object name. */
+function materialForObject(name: string): THREE.MeshStandardMaterial | null {
+  const group = materialGroupForObject(name);
+  return group ? (MATERIALS[group] ?? null) : null;
+}
+
+// ---------------------------------------------------------------------------
+// Layer toggle definitions
+// ---------------------------------------------------------------------------
+
+/** Material groups the user can toggle on/off. */
+const LAYER_GROUPS = [
+  { key: "concrete", label: "Concrete" },
+  { key: "brass", label: "Brass" },
+  { key: "rusted_steel", label: "Steel" },
+  { key: "wood", label: "Wood" },
+  { key: "aged_steel", label: "Fixings" },
+] as const;
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
 
 /** Inline loading indicator shown inside the Canvas while the model loads. */
 function Loader() {
@@ -109,7 +141,7 @@ function Loader() {
 }
 
 /** The GLTF model itself, centred at the origin with materials applied. */
-function TrigModel() {
+function TrigModel({ hidden }: { hidden: Set<string> }) {
   const { scene } = useGLTF(MODEL_PATH);
 
   // Clone the scene so we don't mutate the cached original.
@@ -123,9 +155,12 @@ function TrigModel() {
         if (mat) {
           mesh.material = mat;
         }
+        // Toggle visibility based on the hidden set
+        const group = materialGroupForObject(mesh.name);
+        mesh.visible = group ? !hidden.has(group) : true;
       }
     });
-  }, [cloned]);
+  }, [cloned, hidden]);
 
   return (
     <Center>
@@ -165,7 +200,11 @@ function AutoRotateControls() {
   useFrame(() => {
     const controls = controlsRef.current;
     if (!controls) return;
-    if (!controls.autoRotate && resumeAtRef.current > 0 && performance.now() >= resumeAtRef.current) {
+    if (
+      !controls.autoRotate &&
+      resumeAtRef.current > 0 &&
+      performance.now() >= resumeAtRef.current
+    ) {
       controls.autoRotate = true;
       resumeAtRef.current = 0;
     }
@@ -188,9 +227,36 @@ function AutoRotateControls() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Colour swatch for each material group (matches the PBR palette above)
+// ---------------------------------------------------------------------------
+
+const SWATCH_COLOURS: Record<string, string> = {
+  concrete: "#4d4840",
+  brass: "#9e7520",
+  rusted_steel: "#5c2810",
+  aged_steel: "#3a3a40",
+  wood: "#5c3010",
+};
+
+// ---------------------------------------------------------------------------
+// Main exported component
+// ---------------------------------------------------------------------------
+
 export default function TrigModelViewer() {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+
+  const toggle = useCallback((key: string) => {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   return (
-    <div className="w-full h-full min-h-[60vh]">
+    <div className="relative w-full h-full min-h-[60vh]">
       <Canvas
         camera={{ position: [3, 2.5, 3], fov: 40, near: 0.01, far: 100 }}
         gl={{ antialias: true }}
@@ -209,7 +275,7 @@ export default function TrigModelViewer() {
 
         {/* Model with suspense fallback */}
         <Suspense fallback={<Loader />}>
-          <TrigModel />
+          <TrigModel hidden={hidden} />
           <ContactShadows
             position={[0, -0.01, 0]}
             opacity={0.4}
@@ -222,7 +288,38 @@ export default function TrigModelViewer() {
         {/* Controls – auto-rotate with pause-on-interact behaviour */}
         <AutoRotateControls />
       </Canvas>
+
+      {/* Layer toggle buttons — overlaid bottom-right */}
+      <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
+        {LAYER_GROUPS.map(({ key, label }) => {
+          const isHidden = hidden.has(key);
+          return (
+            <button
+              key={key}
+              onClick={() => toggle(key)}
+              className={`
+                flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium
+                backdrop-blur-sm transition-all shadow-sm cursor-pointer
+                ${
+                  isHidden
+                    ? "bg-gray-800/60 text-gray-400 line-through"
+                    : "bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-200"
+                }
+                hover:scale-105 active:scale-95
+              `}
+            >
+              <span
+                className="inline-block w-3 h-3 rounded-full shrink-0 border border-white/30"
+                style={{
+                  backgroundColor: SWATCH_COLOURS[key],
+                  opacity: isHidden ? 0.3 : 1,
+                }}
+              />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
-
