@@ -5485,7 +5485,8 @@ def setup_camera_animation():
       1600–1630 Pillar fades to transparent
       1630–1660 Surroundings fade (terrain, landscape, grass, stones, base, irons)
       1660–1690 Internal structure fade (fill, boxes, tubes, pipe)
-      1690–1810 Orbit + unfade: PROFILE_1 → START_0 (all objects restore)
+      1690–1720 Hold (brass internals exposed)
+      1720–1840 Orbit + unfade: PROFILE_1 → START_0 (all objects restore)
 
     TUNEABLE PARAMETERS
     -------------------
@@ -5578,7 +5579,8 @@ def setup_camera_animation():
     F14_END = 1630            # end of segment 14 (1 s: pillar fades to transparent)
     F15_END = 1660            # end of segment 15 (1 s: surroundings fade)
     F16_END = 1690            # end of segment 16 (1 s: internal structure fade)
-    F17_END = 1810            # end of segment 17 (4 s: orbit + unfade)
+    F17_START = 1720          # start of segment 17 (after 1 s hold)
+    F17_END = 1840            # end of segment 17 (4 s: orbit + unfade)
     TOTAL_FRAMES = F17_END    # extended as segments are added
 
     # ── Remove any existing camera / target / assembly empties ─────
@@ -6368,6 +6370,18 @@ def setup_camera_animation():
     kf(cam, F13_END, PROFILE_1_CAM)
     kf(target, F13_END, PROFILE_1_TGT)
 
+    # Fully-transparent tint — used by segments 14–16.
+    CLEAR = (1.0, 1.0, 1.0)
+
+    # Helper: keyframe both hide_render and hide_viewport at fade-end
+    # so objects vanish in both final renders and viewport Rendered mode.
+    def _hide_at(obj, frame):
+        for prop in ("hide_render", "hide_viewport"):
+            setattr(obj, prop, False)
+            obj.keyframe_insert(prop, frame=frame - 1)
+            setattr(obj, prop, True)
+            obj.keyframe_insert(prop, frame=frame)
+
     # =================================================================
     # SEGMENT 14 — Pillar fades to transparent  (frames 1600 → 1630,  1 s)
     # =================================================================
@@ -6378,10 +6392,11 @@ def setup_camera_animation():
     kf(cam, F14_END, PROFILE_1_CAM)
     kf(target, F14_END, PROFILE_1_TGT)
 
-    # Fade the pillar to transparent (blue-grey tint for subtle outline)
+    # Fade the pillar to fully transparent then hide it
     pillar = bpy.data.objects['Pillar']
     add_transparent_fade(pillar, F14_START, F14_END,
-                         tint=(0.85, 0.90, 0.95))
+                         tint=CLEAR, max_fade=1.0)
+    _hide_at(pillar, F14_END)
 
     # =================================================================
     # SEGMENT 15 — Surroundings fade  (frames 1630 → 1660,  1 s)
@@ -6395,8 +6410,6 @@ def setup_camera_animation():
     kf(target, F15_START, PROFILE_1_TGT)
     kf(cam, F15_END, PROFILE_1_CAM)
     kf(target, F15_END, PROFILE_1_TGT)
-
-    CLEAR = (1.0, 1.0, 1.0)
 
     # Objects that get both a material fade AND a hide at fade-end.
     seg15_objects = []
@@ -6433,15 +6446,10 @@ def setup_camera_animation():
                                  tint=CLEAR, max_fade=1.0)
             seg15_objects.append(ai)
 
-    # Hide from render at the fade-end frame.  Dense/noisy geometry
-    # can exhaust Cycles' transparent_max_bounces and leave visible
-    # residue even at max_fade=1.0.  Keyframing hide_render ensures
-    # total removal.  (Visible one frame before, hidden from F15_END.)
+    # Hide at fade-end — guarantees total removal even if transparent
+    # bounces are exhausted by dense geometry.
     for obj in seg15_objects:
-        obj.hide_render = False
-        obj.keyframe_insert("hide_render", frame=F15_END - 1)
-        obj.hide_render = True
-        obj.keyframe_insert("hide_render", frame=F15_END)
+        _hide_at(obj, F15_END)
 
     # =================================================================
     # SEGMENT 16 — Internal structure fade  (frames 1660 → 1690,  1 s)
@@ -6465,20 +6473,24 @@ def setup_camera_animation():
             seg16_objects.append(obj)
 
     for obj in seg16_objects:
-        obj.hide_render = False
-        obj.keyframe_insert("hide_render", frame=F16_END - 1)
-        obj.hide_render = True
-        obj.keyframe_insert("hide_render", frame=F16_END)
+        _hide_at(obj, F16_END)
 
     # =================================================================
-    # SEGMENT 17 — Orbit + unfade  (frames 1690 → 1810,  4 s)
+    # HOLD — 1 s pause with brass internals exposed (1690 → 1720)
+    # =================================================================
+    kf(cam, F16_END, PROFILE_1_CAM)
+    kf(target, F16_END, PROFILE_1_TGT)
+    kf(cam, F17_START, PROFILE_1_CAM)
+    kf(target, F17_START, PROFILE_1_TGT)
+
+    # =================================================================
+    # SEGMENT 17 — Orbit + unfade  (frames 1720 → 1840,  4 s)
     # =================================================================
     # Camera sweeps clockwise (viewed from above) around the trigpoint
     # from PROFILE_1 back to START_0 — a ~204° arc that reveals every
     # face.  Simultaneously all transparent objects un-fade back to
     # their original opaque materials.
-    F17_START = F16_END
-    F17_FRAMES = 120                     # 4 s at 30 fps
+    F17_FRAMES = F17_END - F17_START     # 120 frames = 4 s at 30 fps
 
     # ── Camera orbit ────────────────────────────────────────────
     # Parametric arc: interpolate polar angle (clockwise), radius,
@@ -6519,12 +6531,14 @@ def setup_camera_animation():
 
     def _unhide(obj, frame):
         """Re-show an object that was hidden at fade-end."""
-        obj.hide_render = True
-        obj.keyframe_insert("hide_render", frame=frame - 1)
-        obj.hide_render = False
-        obj.keyframe_insert("hide_render", frame=frame)
+        for prop in ("hide_render", "hide_viewport"):
+            setattr(obj, prop, True)
+            obj.keyframe_insert(prop, frame=frame - 1)
+            setattr(obj, prop, False)
+            obj.keyframe_insert(prop, frame=frame)
 
-    # Seg 14 objects (pillar was not hidden, only faded)
+    # Seg 14 objects — un-hide then un-fade
+    _unhide(pillar, F17_START)
     unfade_transparent(pillar, F17_START, F17_END)
 
     # Seg 15 objects — un-hide then un-fade
@@ -6575,6 +6589,7 @@ def setup_camera_animation():
     print(f"      {F14_START}–{F14_END}:  Pillar fades to transparent")
     print(f"      {F15_START}–{F15_END}:  Surroundings fade (terrain, landscape, grass, stones, base, irons)")
     print(f"      {F16_START}–{F16_END}:  Internal structure fade (fill, boxes, tubes, pipe)")
+    print(f"      {F16_END}–{F17_START}:  Hold (brass internals exposed)")
     print(f"      {F17_START}–{F17_END}:  Orbit + unfade (PROFILE_1 → START_0)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
