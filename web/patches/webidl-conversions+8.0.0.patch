@@ -1,8 +1,8 @@
 diff --git a/node_modules/webidl-conversions/lib/index.js b/node_modules/webidl-conversions/lib/index.js
-index 2b96a69..707b892 100644
+index 55f56c8..bfd69e8 100644
 --- a/node_modules/webidl-conversions/lib/index.js
 +++ b/node_modules/webidl-conversions/lib/index.js
-@@ -296,8 +296,10 @@ function isSharedArrayBuffer(value) {
+@@ -322,8 +322,10 @@ function isSharedArrayBuffer(value) {
    }
  }
  
