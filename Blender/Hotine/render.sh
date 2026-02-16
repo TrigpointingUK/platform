@@ -55,8 +55,8 @@ if [ "$DRAFT" = true ]; then
     RENDER_QUALITY="draft"
     echo "  Mode: DRAFT (${FRAME_JUMP}× frame skip, low samples, half-res)"
 elif [ "$PREVIEW" = true ]; then
-    FRAMES_DIR="${SCRIPT_DIR}/frames"
-    OUTPUT="${SCRIPT_DIR}/trig_flythrough.mp4"
+    FRAMES_DIR="${SCRIPT_DIR}/preview"
+    OUTPUT="${SCRIPT_DIR}/trig_preview.mp4"
     FRAME_JUMP=10
     RENDER_QUALITY="final"
     echo "  Mode: PREVIEW (${FRAME_JUMP}× frame skip, full quality)"
