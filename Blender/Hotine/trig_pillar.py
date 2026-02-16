@@ -6387,23 +6387,29 @@ def setup_camera_animation():
     # SEGMENT 15 — Surroundings fade  (frames 1630 → 1660,  1 s)
     # =================================================================
     # After the pillar is transparent, terrain, landscape, grass, stones,
-    # base slab, and angle irons all fade out, leaving a faint green
-    # residue (max_fade=0.96) so the ground plane is implied.
+    # base slab, and angle irons all fade to fully transparent and are
+    # then hidden from the render so dense geometry can't leave residue
+    # from exhausted transparent-bounce limits.
     F15_START = F14_END
     kf(cam, F15_START, PROFILE_1_CAM)
     kf(target, F15_START, PROFILE_1_TGT)
     kf(cam, F15_END, PROFILE_1_CAM)
     kf(target, F15_END, PROFILE_1_TGT)
 
-    # Fully transparent — max_fade=1.0 and pure white tint.
     CLEAR = (1.0, 1.0, 1.0)
+
+    # Objects that get both a material fade AND a hide at fade-end.
+    seg15_objects = []
 
     terrain = bpy.data.objects['Terrain']
     add_transparent_fade(terrain, F15_START, F15_END,
                          tint=CLEAR, max_fade=1.0)
+    seg15_objects.append(terrain)
+
     landscape = bpy.data.objects['Landscape']
     add_transparent_fade(landscape, F15_START, F15_END,
                          tint=CLEAR, max_fade=1.0)
+    seg15_objects.append(landscape)
 
     # Fade grass / weed / flower / stone materials that are used by
     # Geometry Nodes instances — they have their own materials.
@@ -6414,16 +6420,28 @@ def setup_camera_animation():
             _fade_material(mat, F15_START, F15_END,
                            tint=CLEAR, max_fade=1.0)
 
-    # Fade the base slab and four angle irons
+    # Fade the base slab and four angle irons — fully transparent
     base_slab = bpy.data.objects.get('BaseSlab')
     if base_slab:
         add_transparent_fade(base_slab, F15_START, F15_END,
-                             tint=(0.75, 0.80, 0.75), max_fade=0.96)
+                             tint=CLEAR, max_fade=1.0)
+        seg15_objects.append(base_slab)
     for i in range(4):
         ai = bpy.data.objects.get(f'AngleIron_{i}')
         if ai:
             add_transparent_fade(ai, F15_START, F15_END,
-                                 tint=(0.75, 0.80, 0.75), max_fade=0.96)
+                                 tint=CLEAR, max_fade=1.0)
+            seg15_objects.append(ai)
+
+    # Hide from render at the fade-end frame.  Dense/noisy geometry
+    # can exhaust Cycles' transparent_max_bounces and leave visible
+    # residue even at max_fade=1.0.  Keyframing hide_render ensures
+    # total removal.  (Visible one frame before, hidden from F15_END.)
+    for obj in seg15_objects:
+        obj.hide_render = False
+        obj.keyframe_insert("hide_render", frame=F15_END - 1)
+        obj.hide_render = True
+        obj.keyframe_insert("hide_render", frame=F15_END)
 
     # =================================================================
     # SEGMENT 16 — Internal structure fade  (frames 1660 → 1690,  1 s)
@@ -6436,13 +6454,21 @@ def setup_camera_animation():
     kf(cam, F16_END, PROFILE_1_CAM)
     kf(target, F16_END, PROFILE_1_TGT)
 
+    seg16_objects = []
     for obj_name in ("ConcreteFill", "LowerBlock", "LowerBox", "UpperBox",
                      "CentrePipe", "ST_East", "ST_West", "ST_North",
                      "ST_South"):
         obj = bpy.data.objects.get(obj_name)
         if obj:
             add_transparent_fade(obj, F16_START, F16_END,
-                                 tint=(0.90, 0.92, 0.90), max_fade=0.96)
+                                 tint=CLEAR, max_fade=1.0)
+            seg16_objects.append(obj)
+
+    for obj in seg16_objects:
+        obj.hide_render = False
+        obj.keyframe_insert("hide_render", frame=F16_END - 1)
+        obj.hide_render = True
+        obj.keyframe_insert("hide_render", frame=F16_END)
 
     # =================================================================
     # SEGMENT 17 — Orbit + unfade  (frames 1690 → 1810,  4 s)
@@ -6487,12 +6513,23 @@ def setup_camera_animation():
     # ── Un-fade all transparent objects ─────────────────────────
     # Every object that was faded in segments 14–16 simultaneously
     # returns to fully opaque over the duration of this segment.
+    # Objects that were hidden at their fade-end must be un-hidden
+    # at the start of this segment so the material unfade is visible.
     print("  Segment 17 — un-fade all transparent objects:")
 
-    # Seg 14 objects
+    def _unhide(obj, frame):
+        """Re-show an object that was hidden at fade-end."""
+        obj.hide_render = True
+        obj.keyframe_insert("hide_render", frame=frame - 1)
+        obj.hide_render = False
+        obj.keyframe_insert("hide_render", frame=frame)
+
+    # Seg 14 objects (pillar was not hidden, only faded)
     unfade_transparent(pillar, F17_START, F17_END)
 
-    # Seg 15 objects
+    # Seg 15 objects — un-hide then un-fade
+    for obj in seg15_objects:
+        _unhide(obj, F17_START)
     unfade_transparent(terrain, F17_START, F17_END)
     unfade_transparent(landscape, F17_START, F17_END)
     for mat_name in ("GrassBlade", "WeedLeaf", "FlowerDaisy",
@@ -6500,13 +6537,16 @@ def setup_camera_animation():
         mat = bpy.data.materials.get(mat_name)
         if mat:
             _unfade_material(mat, F17_START, F17_END)
-    unfade_transparent(base_slab, F17_START, F17_END)
+    if base_slab:
+        unfade_transparent(base_slab, F17_START, F17_END)
     for i in range(4):
         ai = bpy.data.objects.get(f'AngleIron_{i}')
         if ai:
             unfade_transparent(ai, F17_START, F17_END)
 
-    # Seg 16 objects
+    # Seg 16 objects — un-hide then un-fade
+    for obj in seg16_objects:
+        _unhide(obj, F17_START)
     for obj_name in ("ConcreteFill", "LowerBlock", "LowerBox", "UpperBox",
                      "CentrePipe", "ST_East", "ST_West", "ST_North",
                      "ST_South"):
