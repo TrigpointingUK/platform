@@ -120,7 +120,6 @@ def run():
         export_apply=True,           # apply modifiers
         export_animations=False,
         export_materials='NONE',     # no materials in GLB
-        export_colors=False,
         export_normals=True,
         export_yup=True,             # three.js convention: Y-up
     )
