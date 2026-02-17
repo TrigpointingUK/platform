@@ -13,6 +13,18 @@ export interface AdvertItem {
 }
 
 /**
+ * Fisher-Yates shuffle: returns a new array in random order
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
  * Filters adverts based on current date and their startDate/endDate
  * - No dates = always show
  * - Only startDate = show from that date onwards
@@ -67,7 +79,7 @@ export function useAdverts() {
       }
       const text = await response.text();
       const data = yaml.load(text) as AdvertItem[];
-      return filterActiveAdverts(data);
+      return shuffleArray(filterActiveAdverts(data));
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
   });

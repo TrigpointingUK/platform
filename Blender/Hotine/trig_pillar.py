@@ -1,3 +1,4 @@
+
 """
 Ordnance Survey Trig Point (Hotine Pillar) — Blender 4.3 Model Generator
 =========================================================================
@@ -13,6 +14,41 @@ Usage:
 Dimensions marked [D] are from the OS specification diagram (Fig 2.2).
 Dimensions marked [E] are estimated from proportions / photographs.
 All measurements are in metres.
+
+
+Animation Workflow (for AI agents)
+----------------------------------
+The animation is built from named segments in setup_camera_animation().
+Each segment defines keyframed camera and target positions over a frame
+range.  The camera uses a Track To constraint aimed at an animated
+"CameraTarget" empty, so it always faces the action.
+
+**Feedback loop for authoring new segments:**
+
+1. The user positions the camera interactively in Blender's viewport
+   (fly mode, manual move, Numpad-0 camera view + Shift+MMB, etc.)
+   until they find a composition they like.
+
+2. They run ``print_camera_state()`` in Blender's Python console
+   (see that function's docstring for full instructions).  This prints
+   the camera location, target location, rotation, and lens as
+   copy-pasteable Python values.
+
+3. The user pastes that output into the chat.  An agent can then use
+   those exact coordinates as waypoints when writing or editing
+   segment keyframes in setup_camera_animation().
+
+4. The user re-runs the script in Blender, scrubs the timeline, and
+   iterates.
+
+When the user gives natural-language directions like "closer to the
+flush bracket, looking slightly upward", translate those relative to
+the model's coordinate system:
+  - Origin (0, 0, 0) is at ground level, centre of pillar.
+  - +Z is up.  Pillar top is at z ≈ 1.19 m.
+  - Sighting tubes run along the ±X and ±Y axes at z ≈ 0.117 m.
+  - Flush bracket is on the +Y face.
+  - The pillar is roughly 0.6 m wide at the base, 0.36 m at the top.
 """
 
 import bpy
@@ -173,6 +209,7 @@ LCM_PUNCH_R        = 0.0014    # [E] punch mark radius (1.4 mm); depth = radius 
 # --- Hilltop Terrain ---
 TERRAIN_RADIUS      = 6.0       # [E] radius of the grassy dome (metres)
 DOME_HEIGHT         = 1.10      # [E] height drop from dome centre to edge (metres)
+TERRAIN_NOISE       = 0.17      # [T] amplitude of surface undulation (metres)
 
 
 # =====================================================================
@@ -814,13 +851,13 @@ def make_rusted_steel_material():
       BUMP_SCALE       (float)    Pitting detail scale.
                                     Default: 20.0
     """
-    # ── Tuneable values ───────────────────────────────────────────
-    RUST_COLOUR_A  = (0.14, 0.06, 0.02)
-    RUST_COLOUR_B  = (0.07, 0.03, 0.01)
-    RUST_SCALE     = 6.0
+    # ── Tuneable values───────────────────────────────────────────
+    RUST_COLOUR_A  = (0.15, 0.06, 0.02)
+    RUST_COLOUR_B  = (0.09, 0.03, 0.01)
+    RUST_SCALE     = 1.0
     ROUGHNESS      = 0.95
-    BUMP_STRENGTH  = 0.50
-    BUMP_SCALE     = 20.0
+    BUMP_STRENGTH  = 0.20
+    BUMP_SCALE     = 100.0
 
     mat = bpy.data.materials.new("RustedSteel")
     mat.use_nodes = True
@@ -2583,6 +2620,11 @@ def build_plug(M):
 
     assign(plug, M['brass'])
     smooth(plug)
+    # Centre the plug origin so rotations happen around its body.
+    # Without this, the object origin is at (0,0,0) while the mesh
+    # is at z ≈ 1.17 m, which causes large orbital motion.
+    activate(plug)
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
     # ── Inner plug ─────────────────────────────────────────────────
     # Solid cylinder (~37.8 mm dia) with 1 mm chamfer on top edge and
@@ -2850,6 +2892,8 @@ def build_fixings(M):
 
     assign(peg, M['aged_steel'])
     smooth(peg)
+    activate(peg)
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
 
 def build_flush_bracket(M):
@@ -3586,12 +3630,12 @@ def build_terrain(M):
     print("  Terrain ...")
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
-    # TERRAIN_RADIUS and DOME_HEIGHT are module-level constants
-    # (shared with build_landscape_ring).
-    GRID_SUBDIVS   = 100           # vertex spacing ~12.5 cm
-    NOISE_STRENGTH = 0.07         # ±4 cm undulation
-    NOISE_SCALE    = 2.0          # spatial frequency
-    NOISE_OCTAVES  = 4            # fractal layers
+    # TERRAIN_RADIUS, DOME_HEIGHT and TERRAIN_NOISE are module-level
+    # constants (shared with build_landscape_ring).
+    GRID_SUBDIVS   = 50           # vertex spacing ~12.5 cm
+    NOISE_STRENGTH = TERRAIN_NOISE # alias for readability below
+    NOISE_SCALE    = 1.8         # spatial frequency
+    NOISE_OCTAVES  = 5            # fractal layers
     CUT_MARGIN     = 0.005        # 5 mm gap between terrain and base slab
     # ─────────────────────────────────────────────────────────────
 
@@ -3650,7 +3694,10 @@ def build_terrain(M):
         slab_fade = max(0.0, min(1.0,
             (r - BASE_TOP_HW * 1.5) / (BASE_TOP_HW * 0.5)))
 
-        v.co.z = dome + noise_val * slab_fade
+        # Clamp so no vertex rises above z=0 (the dome peak).  This
+        # guarantees the trigpoint sits on the highest ground even when
+        # NOISE_STRENGTH is cranked up.
+        v.co.z = min(0.0, dome + noise_val * slab_fade)
 
     bm.to_mesh(terrain.data)
     bm.free()
@@ -3777,10 +3824,13 @@ def build_landscape_ring(M):
     # ─────────────────────────────────────────────────────────────
 
     # Terrain dome edge height — derived from the module-level
-    # TERRAIN_RADIUS and DOME_HEIGHT (shared with build_terrain).
+    # TERRAIN_RADIUS, DOME_HEIGHT and TERRAIN_NOISE (shared with
+    # build_terrain).  Subtract the noise amplitude so the landscape
+    # ring always sits below the actual (noisy) terrain surface in the
+    # overlap zone, preventing black gaps in the render.
     GROUND_Z = -BASE_HEIGHT + 0.80 * BASE_HEIGHT   # ≈ -0.061
     t_edge = INNER_R / TERRAIN_RADIUS
-    EDGE_Z = GROUND_Z + (-DOME_HEIGHT * t_edge * t_edge)
+    EDGE_Z = GROUND_Z + (-DOME_HEIGHT * t_edge * t_edge) - TERRAIN_NOISE
 
     # ── Build radial mesh with logarithmically spaced rings ───────
     # Inner rings are close together (smooth join to dome); outer rings
@@ -3891,13 +3941,13 @@ def build_grass():
         return
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
-    BARE_RADIUS    = 0.55     # no grass within 55 cm of centre
-    FULL_RADIUS    = 2.50     # full coverage from 2.5 m outward
+    BARE_RADIUS    = 0.45     # no grass within 55 cm of centre
+    FULL_RADIUS    = 2.00     # full coverage from 2.5 m outward
     GRASS_DENSITY  = 1400.0   # points per m² at full weight (main layer)
-    GRASS_DENSITY_SHORT = 6000.0   # dense short under-layer
+    GRASS_DENSITY_SHORT = 9000.0   # dense short under-layer
     WEED_DENSITY   = 2400.0     # broad-leaf weeds (sparse)
     FLOWER_DENSITY = 7.5      # flowers (very sparse)
-    STONE_DENSITY  = 840.0     # visible stones (sparse)
+    STONE_DENSITY  = 140.0     # visible stones (sparse)
     WEED_VARIANTS  = 4
     FLOWER_VARIANTS = 2
     STONE_VARIANTS = 6
@@ -3921,7 +3971,7 @@ def build_grass():
     FLOWER_SCALE_MAX = 0.6
     FLOWER_SCALE_BIAS = 2.0
     STONE_SCALE_MIN = 0.01
-    STONE_SCALE_MAX = 0.05
+    STONE_SCALE_MAX = 0.10
     STONE_RAISE     = -0.05    # lift stones above ground surface (m)
 
     CLUMP_SCALE    = 0.25     # large-scale clump size
@@ -5103,15 +5153,16 @@ def setup_scene():
         az_r + math.pi / 2          # +π/2 aligns azimuth correctly
     )
 
-    # Point light at the East sighting hole — illuminates the box interior
-    # when looking through the sighting tubes
+    # Point light inside the +X (East) sighting tube — illuminates the
+    # box interior when the camera flies through.  Initially off;
+    # keyframed on at the start of segment 2 in setup_camera_animation().
     sh_data = bpy.data.lights.new("SightingHoleLight", 'POINT')
-    sh_data.energy = 5
+    sh_data.energy = 0                     # starts off
+    sh_data.color = (1.0, 0.867, 0.620)   # #FFDD9E warm tungsten
     sh_data.shadow_soft_size = 0.02
     sh_obj = bpy.data.objects.new("SightingHoleLight", sh_data)
     bpy.context.collection.objects.link(sh_obj)
-    sh_hw = PILLAR_BTM_HW + (PILLAR_TOP_HW - PILLAR_BTM_HW) * (ST_Z / PILLAR_HEIGHT)
-    sh_obj.location = (sh_hw + 0.05, 0, ST_Z)
+    sh_obj.location = (0.2, 0, ST_Z)      # inside +X tube
 
     # Render engine
     try:
@@ -5133,26 +5184,314 @@ def setup_scene():
         pass  # headless mode
 
 
+# ── Named camera positions ──────────────────────────────────────────
+# Populated by setup_camera_animation(); used by goto() in the Blender
+# console.  Dict of name → (frame, cam_loc, tgt_loc).
+CAMERA_POSITIONS: dict[str, tuple[int, tuple, tuple]] = {}
+
+
+def goto(name: str = ""):
+    """Jump the camera and target to a named position.
+
+    Call from the Blender Python console to instantly snap the camera
+    and its Track To target to one of the positions defined in
+    setup_camera_animation(), and set the timeline to that frame.
+
+    Usage
+    -----
+        goto()            — list all available positions
+        goto("START_0")   — jump to START_0
+        goto("SIGHTING_0") — jump to SIGHTING_0
+
+    The position names are case-insensitive.
+    """
+    if not CAMERA_POSITIONS:
+        print("No positions registered — run the script first.")
+        return
+
+    # No argument or empty string → list positions
+    if not name:
+        print("\nAvailable positions:")
+        for pname, (frame, cam, tgt) in CAMERA_POSITIONS.items():
+            print(f"  {pname:12s}  frame {frame:>4d}"
+                  f"  cam=({cam[0]:+.2f}, {cam[1]:+.2f}, {cam[2]:+.2f})"
+                  f"  tgt=({tgt[0]:+.2f}, {tgt[1]:+.2f}, {tgt[2]:+.2f})")
+        print("\nUsage:  goto(\"START_0\")")
+        return
+
+    key = name.upper()
+    if key not in CAMERA_POSITIONS:
+        print(f"Unknown position '{name}'.  Available: "
+              f"{', '.join(CAMERA_POSITIONS.keys())}")
+        return
+
+    frame, cam_loc, tgt_loc = CAMERA_POSITIONS[key]
+
+    cam_obj = bpy.data.objects.get("FlyCamera")
+    tgt_obj = bpy.data.objects.get("CameraTarget")
+    if cam_obj is None or tgt_obj is None:
+        print("ERROR: FlyCamera or CameraTarget not found in scene.")
+        return
+
+    bpy.context.scene.frame_set(frame)
+    cam_obj.location = cam_loc
+    tgt_obj.location = tgt_loc
+
+    print(f"Jumped to {key} (frame {frame})")
+    print(f"  camera  = ({cam_loc[0]:+.4f}, {cam_loc[1]:+.4f}, {cam_loc[2]:+.4f})")
+    print(f"  target  = ({tgt_loc[0]:+.4f}, {tgt_loc[1]:+.4f}, {tgt_loc[2]:+.4f})")
+
+
+def add_transparent_fade(obj, frame_start, frame_end,
+                         tint=(0.85, 0.90, 0.95), max_fade=1.0):
+    """Fade an object's material from fully opaque to transparent.
+
+    Finds whatever shader node is currently wired into the Material
+    Output's Surface socket, disconnects it, and re-routes through a
+    new Mix Shader: original shader → slot 1, Transparent BSDF → slot 2.
+    This works regardless of whether the surface chain ends at a
+    Principled BSDF, a Mix Shader, or any other shader node.
+
+    Parameters
+    ----------
+    obj : bpy.types.Object
+        The Blender object whose first material slot will be modified.
+    frame_start : int
+        Frame at which the fade begins (mix factor = 0, fully opaque).
+    frame_end : int
+        Frame at which the fade completes (mix factor = *max_fade*).
+    tint : tuple of 3 floats
+        RGB colour of the Transparent BSDF.  Pure white (1,1,1) is
+        perfectly clear; tinted values leave a coloured residue.
+    max_fade : float
+        Final mix factor (0–1).  1.0 = fully transparent.  Values < 1
+        leave a ghost of the original material showing through.
+    """
+    mat = obj.data.materials[0]
+
+    # Make single-user so fading this object doesn't affect others
+    # that share the same material (e.g. Pillar and ConcreteFill both
+    # use "Concrete").  Without this, each call chains another Mix
+    # Shader onto the shared material, and only the outermost gets
+    # unfaded later.
+    if mat.users > 1:
+        mat = mat.copy()
+        obj.data.materials[0] = mat
+
+    tree = mat.node_tree
+    nodes = tree.nodes
+    links = tree.links
+
+    # Find the Material Output node
+    output = None
+    for n in nodes:
+        if n.type == 'OUTPUT_MATERIAL':
+            output = n
+            break
+    if not output:
+        print(f"  WARNING: {obj.name} — no Material Output node, skipping")
+        return
+
+    # Find the node currently driving the Surface input
+    source_socket = None
+    for link in list(links):
+        if link.to_node == output and link.to_socket.name == 'Surface':
+            source_socket = link.from_socket
+            links.remove(link)
+            break
+    if not source_socket:
+        print(f"  WARNING: {obj.name} — nothing connected to Surface, skipping")
+        return
+
+    # Create Transparent BSDF — no refraction, light passes straight through.
+    ox, oy = output.location
+    transparent = nodes.new('ShaderNodeBsdfTransparent')
+    transparent.location = (ox - 200, oy - 200)
+    transparent.label = "Transparent Fade"
+    transparent.inputs['Color'].default_value = (*tint, 1.0)
+
+    # Create Mix Shader
+    mix = nodes.new('ShaderNodeMixShader')
+    mix.location = (ox, oy)
+    mix.label = "Opaque ↔ Transparent"
+
+    # Shift output node to the right
+    output.location = (ox + 200, oy)
+
+    # Wire: original → Mix.Shader1, Transparent → Mix.Shader2, Mix → Output
+    links.new(source_socket, mix.inputs[1])
+    links.new(transparent.outputs['BSDF'], mix.inputs[2])
+    links.new(mix.outputs['Shader'], output.inputs['Surface'])
+
+    # Keyframe the mix factor: 0 at frame_start, max_fade at frame_end
+    mix.inputs[0].default_value = 0.0
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
+    mix.inputs[0].default_value = max_fade
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
+
+    # Make keyframes linear for a steady fade
+    if mat.node_tree.animation_data and mat.node_tree.animation_data.action:
+        for fc in mat.node_tree.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = 'LINEAR'
+
+    print(f"    {obj.name} fade: frames {frame_start}–{frame_end}"
+          f"  (max {max_fade:.0%}, tint {tint})")
+
+
+def _fade_material(mat, frame_start, frame_end,
+                   tint=(0.85, 0.90, 0.95), max_fade=1.0):
+    """Like add_transparent_fade but operates on a material directly.
+
+    Used for materials assigned to Geometry Nodes instances (grass blades,
+    weeds, flowers) where we have the material but no single owner object.
+    """
+    tree = mat.node_tree
+    nodes = tree.nodes
+    links = tree.links
+
+    output = None
+    for n in nodes:
+        if n.type == 'OUTPUT_MATERIAL':
+            output = n
+            break
+    if not output:
+        return
+
+    source_socket = None
+    for link in list(links):
+        if link.to_node == output and link.to_socket.name == 'Surface':
+            source_socket = link.from_socket
+            links.remove(link)
+            break
+    if not source_socket:
+        return
+
+    ox, oy = output.location
+    transparent = nodes.new('ShaderNodeBsdfTransparent')
+    transparent.location = (ox - 200, oy - 200)
+    transparent.label = "Transparent Fade"
+    transparent.inputs['Color'].default_value = (*tint, 1.0)
+
+    mix = nodes.new('ShaderNodeMixShader')
+    mix.location = (ox, oy)
+    mix.label = "Opaque ↔ Transparent"
+    output.location = (ox + 200, oy)
+
+    links.new(source_socket, mix.inputs[1])
+    links.new(transparent.outputs['BSDF'], mix.inputs[2])
+    links.new(mix.outputs['Shader'], output.inputs['Surface'])
+
+    mix.inputs[0].default_value = 0.0
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
+    mix.inputs[0].default_value = max_fade
+    mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
+
+    if mat.node_tree.animation_data and mat.node_tree.animation_data.action:
+        for fc in mat.node_tree.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = 'LINEAR'
+
+    print(f"    {mat.name} fade: frames {frame_start}–{frame_end}"
+          f"  (max {max_fade:.0%})")
+
+
+def _unfade_material(mat, frame_start, frame_end):
+    """Reverse a previous transparent fade — keyframe mix factor back to 0.
+
+    Finds every "Opaque ↔ Transparent" Mix Shader in the material and
+    adds two keyframes to each: hold the faded-out value at
+    *frame_start*, then animate to 0.0 (fully opaque) at *frame_end*.
+
+    The hold value is read from each node's fcurve (evaluated at
+    *frame_start*) rather than from ``default_value``, because Blender
+    returns the animated value at the *current scene frame* when you
+    read a keyframed property — which is almost certainly wrong.
+    """
+    tree = mat.node_tree
+    nodes = tree.nodes
+
+    # ── Find ALL "Opaque ↔ Transparent" Mix Shaders ──────────
+    mix_nodes = [n for n in nodes
+                 if n.label == "Opaque ↔ Transparent"]
+    if not mix_nodes:
+        print(f"    WARNING: {mat.name} — no 'Opaque ↔ Transparent' "
+              "node found, skipping unfade")
+        return
+
+    for mix in mix_nodes:
+        # ── Determine the hold value from the fcurve ──────────
+        fac_path = f'nodes["{mix.name}"].inputs[0].default_value'
+        hold_value = 1.0                 # safe fallback
+        if tree.animation_data and tree.animation_data.action:
+            for fc in tree.animation_data.action.fcurves:
+                if fc.data_path == fac_path:
+                    hold_value = fc.evaluate(frame_start)
+                    break
+
+        # ── Insert unfade keyframes ───────────────────────────
+        mix.inputs[0].default_value = hold_value
+        mix.inputs[0].keyframe_insert("default_value", frame=frame_start)
+        mix.inputs[0].default_value = 0.0
+        mix.inputs[0].keyframe_insert("default_value", frame=frame_end)
+
+    # Keep all keyframes linear
+    if tree.animation_data and tree.animation_data.action:
+        for fc in tree.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = 'LINEAR'
+
+    print(f"    {mat.name} unfade: frames {frame_start}–{frame_end}"
+          f"  ({len(mix_nodes)} mix node(s))")
+
+
+def unfade_transparent(obj, frame_start, frame_end):
+    """Reverse a previous transparent fade on an object's first material."""
+    mat = obj.data.materials[0]
+    _unfade_material(mat, frame_start, frame_end)
+
+
 def setup_camera_animation():
-    """Flythrough camera: descend → orbit → sighting-hole pass → pull back.
+    """Cinematic flythrough built from individually authored segments.
 
     The camera uses a Track To constraint pointed at an animated empty
     ("CameraTarget"), so it always faces the action.  Both the camera
     and the target have keyframed locations defining the trajectory.
 
+    Named positions (captured with print_camera_state()):
+      START_0     — low angle from the south-west, looking at mid-pillar
+      SIGHTING_0  — in front of sighting tube, looking in
+      SIGHTING_1  — exited -Y tube, looking along -Y
+      PROFILE_0   — south-east profile view, elevated
+      SPIDER_0    — close-up of spider / pillar top
+      PIPE_0      — overhead, looking down the centre pipe
+      PROFILE_1   — high profile view for reassembled state
+
     Segment map (30 fps):
-      1–120     Fly down from high above
-      120–480   Full 360° orbit around the pillar
-      480–600   Approach the east sighting hole
-      600–690   Fly through the sighting tube
-      690–810   Pull back to a 3/4 view
-      810–900   Hold the final composition
+      1–180     Arc approach: START_0 → SIGHTING_0
+      181–360   Tube fly-through: SIGHTING_0 → SIGHTING_1
+      361–510   Sweep to profile: SIGHTING_1 → PROFILE_0
+      511–630   Hold + rise to spider: PROFILE_0 → SPIDER_0
+      631–705   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
+                (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
+      706–885   Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
+      886–975   Peg removal: extract along axis, arc to pillar top
+      976–1155  Inner plug removal: 12 turns unscrew, arc to -X/+Y corner
+      1156–1245 Plug arc to rest on +X/+Y corner
+      1246–1335 Slew to centre pipe + hold: SPIDER_0 → PIPE_0
+      1336–1425 Slew to profile: PIPE_0 → PROFILE_1 + reassemble
+      1426–1515 Plug assembly return: tilt back + screw in
+      1516–1560 Screws reinsert: Screw_180 then Screw_0
+      1600–1630 Pillar fades to transparent
+      1630–1660 Surroundings fade (terrain, landscape, grass, stones, base, irons)
+      1660–1690 Internal structure fade (fill, boxes, tubes, pipe)
+      1690–1720 Hold (brass internals exposed)
+      1720–1840 Orbit + unfade: PROFILE_1 → START_0 (all objects restore)
 
     TUNEABLE PARAMETERS
     -------------------
-    ORBIT_R / ORBIT_Z   — orbit radius and height
-    LENS_MM             — camera focal length (lower = wider / more dramatic)
-    FPS / TOTAL_FRAMES  — animation timing
+    LENS_MM / CLIP_START — camera optics
+    FPS                  — frames per second
     Individual keyframe positions can be adjusted in the code or
     interactively in Blender's Graph Editor after running.
     """
@@ -5160,36 +5499,104 @@ def setup_camera_animation():
 
     # ── TUNEABLE VALUES ──────────────────────────────────────────
     FPS          = 30
-    TOTAL_FRAMES = 900
-    ORBIT_R      = 2.5       # metres from pillar centre
-    ORBIT_Z      = 1.5       # orbit altitude
-    ORBIT_STEPS  = 72        # keyframes per full revolution (every 5°)
     LENS_MM      = 35        # focal length — 35 mm for dramatic perspective
     CLIP_START   = 0.001     # 1 mm — needed for sighting tube close-ups
     # ─────────────────────────────────────────────────────────────
 
+    # ── Named positions ────────────────────────────────────────────
+    # Stored in the module-level CAMERA_POSITIONS dict so that the
+    # interactive goto() helper can jump to them from the Blender
+    # console.  Each entry: name → (frame, cam_loc, tgt_loc).
+    SH_Z = ST_Z                              # 0.117 — sighting tube height
+    CAMERA_POSITIONS.clear()
+    CAMERA_POSITIONS["START_0"] = (
+        1,
+        (-1.8204,  2.9291, -0.0934),        # cam — low south-west
+        ( 0.0000,  0.0000,  0.4750),         # tgt — mid-pillar
+    )
+    CAMERA_POSITIONS["SIGHTING_0"] = (
+        180,
+        ( 0.00,  0.65,  0.10),               # cam — in front of sighting tube
+        ( 0.00, -0.30,  0.22),               # tgt — looking into tube
+    )
+    CAMERA_POSITIONS["SIGHTING_1"] = (
+        360,
+        ( 0.00, -0.50,  SH_Z),              # cam — exited -Y tube
+        ( 0.00, -3.00,  SH_Z),              # tgt — looking along -Y
+    )
+    CAMERA_POSITIONS["PROFILE_0"] = (
+        510,
+        ( 0.5814, -2.9690,  1.5039),        # cam — south-east, elevated
+        ( 0.0000, -0.3000,  0.6200),        # tgt — pillar mid-section
+    )
+    CAMERA_POSITIONS["SPIDER_0"] = (
+        630,
+        ( 0.2306, -0.3915,  1.9977),        # cam — close-up above
+        ( 0.0000,  0.0000,  1.2000),        # tgt — spider / pillar top
+    )
+    PIPE_LOOK_Z = PILLAR_HEIGHT * 0.75      # 1/4 down the centre pipe
+    CAMERA_POSITIONS["PIPE_0"] = (
+        1335,
+        ( 0.0004, -0.0003,  1.4249),        # cam — overhead
+        ( 0.0000,  0.0000,  PIPE_LOOK_Z),   # tgt — 1/4 down pipe
+    )
+    CAMERA_POSITIONS["PROFILE_1"] = (
+        1425,
+        ( 2.5277, -1.7177,  1.9225),        # cam — high profile
+        ( 0.0000,  0.0000,  0.3650),        # tgt — mid-pillar
+    )
+
+    # Local aliases for readability in keyframe code below
+    START_0_CAM    = CAMERA_POSITIONS["START_0"][1]
+    START_0_TGT    = CAMERA_POSITIONS["START_0"][2]
+    SIGHTING_0_CAM = CAMERA_POSITIONS["SIGHTING_0"][1]
+    SIGHTING_0_TGT = CAMERA_POSITIONS["SIGHTING_0"][2]
+    SIGHTING_1_CAM = CAMERA_POSITIONS["SIGHTING_1"][1]
+    SIGHTING_1_TGT = CAMERA_POSITIONS["SIGHTING_1"][2]
+    PROFILE_0_CAM  = CAMERA_POSITIONS["PROFILE_0"][1]
+    PROFILE_0_TGT  = CAMERA_POSITIONS["PROFILE_0"][2]
+    SPIDER_0_CAM   = CAMERA_POSITIONS["SPIDER_0"][1]
+    SPIDER_0_TGT   = CAMERA_POSITIONS["SPIDER_0"][2]
+    PIPE_0_CAM     = CAMERA_POSITIONS["PIPE_0"][1]
+    PIPE_0_TGT     = CAMERA_POSITIONS["PIPE_0"][2]
+    PROFILE_1_CAM  = CAMERA_POSITIONS["PROFILE_1"][1]
+    PROFILE_1_TGT  = CAMERA_POSITIONS["PROFILE_1"][2]
+
     # ── Frame boundaries ─────────────────────────────────────────
-    F_FLY_END   = 120        # end of fly-down
-    F_ORB_END   = 480        # end of orbit
-    F_APP_END   = 600        # end of approach
-    F_THR_END   = 690        # end of flythrough
-    F_PULL_END  = 810        # end of pull-back
-    # 810–900 = hold
+    F1_END = 180              # end of segment 1 (6 s)
+    F2_END = 360              # end of segment 2 (6 s)
+    F3_END = 510              # end of segment 3 (5 s)
+    F4_END = 630              # end of segment 4 (4 s: 1 s hold + 3 s flight)
+    F5_END = 705              # end of segment 5 (2.5 s: screw removal)
+    F6_END = 885              # end of segment 6 (6 s: plug removal)
+    F7_END = 975              # end of segment 7 (3 s: peg removal)
+    F8_END = 1155             # end of segment 8 (6 s: inner plug removal)
+    F9_END = 1245             # end of segment 9 (3 s: plug arc to rest)
+    F10_END = 1335            # end of segment 10 (3 s: slew to pipe)
+    F11_END = 1425            # end of segment 11 (3 s: slew + reassemble)
+    F12_END = 1515            # end of segment 12 (3 s: assembly return)
+    F13_END = 1560            # end of segment 13 (1.5 s: screw insert)
+    F14_END = 1630            # end of segment 14 (1 s: pillar fades to transparent)
+    F15_END = 1660            # end of segment 15 (1 s: surroundings fade)
+    F16_END = 1690            # end of segment 16 (1 s: internal structure fade)
+    F17_START = 1720          # start of segment 17 (after 1 s hold)
+    F17_END = 1840            # end of segment 17 (4 s: orbit + unfade)
+    TOTAL_FRAMES = F17_END    # extended as segments are added
 
-    # ── Derived positions ────────────────────────────────────────
-    TARGET_MID = (0, 0, PILLAR_HEIGHT * 0.5)  # general look-at point
-    SH_Z       = ST_Z                          # sighting hole height
-
-    # ── Remove any existing camera ───────────────────────────────
-    for name in ("Camera", "FlyCamera"):
+    # ── Remove any existing camera / target / assembly empties ─────
+    for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
         old = bpy.data.objects.get(name)
         if old:
+            # Unparent children first so they keep world position
+            for child in list(old.children):
+                child.parent = None
             bpy.data.objects.remove(old, do_unlink=True)
 
     # ── Create camera ────────────────────────────────────────────
     cam_data = bpy.data.cameras.new("FlyCamera")
     cam_data.lens = LENS_MM
     cam_data.clip_start = CLIP_START
+    cam_data.passepartout_alpha = 0.98
     cam = bpy.data.objects.new("FlyCamera", cam_data)
     bpy.context.collection.objects.link(cam)
     bpy.context.scene.camera = cam
@@ -5212,136 +5619,1093 @@ def setup_camera_animation():
     scene.frame_start = 1
     scene.frame_end = TOTAL_FRAMES
 
-    # ── Keyframe helper ──────────────────────────────────────────
+    # ── Keyframe helpers ─────────────────────────────────────────
     def kf(obj, frame, loc):
         """Insert a location keyframe."""
         obj.location = loc
         obj.keyframe_insert(data_path="location", frame=int(round(frame)))
 
-    # =================================================================
-    # SEGMENT 1 — Fly down from above  (frames 1 → 120)
-    # =================================================================
-    # Start high up to the south-east, descend to orbit entry (east).
-    kf(cam, 1,                  (2.0, -3.0, 8.0))
-    kf(cam, F_FLY_END * 0.5,   (2.5, -1.0, 4.0))
-    kf(cam, F_FLY_END,         (ORBIT_R, 0, ORBIT_Z))
+    def kf_rot(obj, frame, rot):
+        """Insert a rotation_euler keyframe."""
+        obj.rotation_euler = rot
+        obj.keyframe_insert(data_path="rotation_euler",
+                            frame=int(round(frame)))
 
-    # Target: look at mid-pillar throughout the descent
-    kf(target, 1,          TARGET_MID)
-    kf(target, F_FLY_END,  TARGET_MID)
+    def kf_world(obj, frame, world_matrix):
+        """Insert location/rotation keyframes from a world matrix."""
+        obj.matrix_world = world_matrix
+        obj.keyframe_insert(data_path="location", frame=int(round(frame)))
+        obj.keyframe_insert(data_path="rotation_euler",
+                            frame=int(round(frame)))
 
-    # =================================================================
-    # SEGMENT 2 — 360° orbit  (frames 120 → 480)
-    # =================================================================
-    # Counter-clockwise from east (+X).  Keyframes every 15° for a
-    # smooth Bézier-interpolated circle.
-    orbit_dur = F_ORB_END - F_FLY_END          # 360 frames
-    for i in range(ORBIT_STEPS + 1):
-        angle = math.radians(i * 360.0 / ORBIT_STEPS)
-        x = ORBIT_R * math.cos(angle)
-        y = ORBIT_R * math.sin(angle)
-        f = F_FLY_END + i * orbit_dur / ORBIT_STEPS
-        kf(cam, f, (x, y, ORBIT_Z))
+    def add_child_of(obj, target, name="AssemblyFollow"):
+        """Add a Child Of constraint so obj follows target (set inverse)."""
+        con = obj.constraints.new(type='CHILD_OF')
+        con.name = name
+        con.target = target
+        con.influence = 1.0
+        # Ensure transforms are up to date, then set inverse via operator
+        # (matches Blender UI "Set Inverse" and avoids offset drift).
+        bpy.context.view_layer.update()
+        if bpy.context.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        prev_active = bpy.context.view_layer.objects.active
+        prev_selected = list(bpy.context.selected_objects)
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.constraint.childof_set_inverse(constraint=con.name,
+                                               owner='OBJECT')
+        # Restore selection
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in prev_selected:
+            if o.name in bpy.data.objects:
+                o.select_set(True)
+        bpy.context.view_layer.objects.active = prev_active
+        return con
 
-    kf(target, F_ORB_END, TARGET_MID)
+    def reattach_child_of(obj, con, target_world, frame):
+        """Reattach a Child Of constraint without a visible jump."""
+        target = con.target
+        # Compute the local matrix that yields target_world when constrained.
+        c_mat = target.matrix_world @ con.inverse_matrix
+        local = c_mat.inverted() @ target_world
+        kf_world(obj, frame, local)
+        kf_influence(con, frame, 1.0)
 
-    # =================================================================
-    # SEGMENT 3 — Approach east sighting hole  (frames 480 → 600)
-    # =================================================================
-    # Camera descends from orbit altitude to sighting-hole height,
-    # closing in on the east face.
-    f_app_mid = (F_ORB_END + F_APP_END) // 2     # frame 540
-    kf(cam, f_app_mid, (1.2, 0, 0.5))
-    kf(cam, F_APP_END, (0.6, 0, SH_Z))
-
-    # Target shifts to look straight through the sighting hole
-    kf(target, f_app_mid, (0, 0, 0.3))
-    kf(target, F_APP_END, (-3.0, 0, SH_Z))
-
-    # =================================================================
-    # SEGMENT 4 — Fly through the sighting tube  (frames 600 → 690)
-    # =================================================================
-    # Straight-line flight along the X axis at sighting-hole height.
-    # The tube inner diameter is 44 mm — Blender's camera is a point
-    # so it fits, and the 1 mm clip distance captures the tube walls.
-    f_thr_mid = (F_APP_END + F_THR_END) // 2     # frame 645
-    kf(cam, f_thr_mid, (0, 0, SH_Z))
-    kf(cam, F_THR_END, (-0.6, 0, SH_Z))
-
-    kf(target, F_THR_END, (-3.0, 0, SH_Z))
-
-    # =================================================================
-    # SEGMENT 5 — Pull back to 3/4 view  (frames 690 → 810)
-    # =================================================================
-    # Camera retreats south-west and rises, while the target
-    # transitions back to mid-pillar for a classic 3/4 composition.
-    f_pull_mid = (F_THR_END + F_PULL_END) // 2    # frame 750
-    kf(cam, f_pull_mid, (-2.0, -1.5, 0.8))
-    kf(cam, F_PULL_END, (-3.0, -2.5, 1.5))
-
-    kf(target, f_pull_mid, (-0.5, 0, 0.4))
-    kf(target, F_PULL_END, TARGET_MID)
+    def kf_influence(con, frame, value):
+        con.influence = value
+        con.keyframe_insert(data_path="influence", frame=int(round(frame)))
 
     # =================================================================
-    # SEGMENT 6 — Hold final view  (frames 810 → 900)
+    # SEGMENT 1 — Arc approach  (frames 1 → 180,  6 s)
     # =================================================================
-    kf(cam, TOTAL_FRAMES, (-3.0, -2.5, 1.5))
-    kf(target, TOTAL_FRAMES, TARGET_MID)
+    # Shallow horizontal arc from START_0 (south-west, low) around to
+    # directly in front of the +Y sighting tube.  The camera keeps the
+    # flush bracket (+Y face, z ≈ 0.17–0.35) visible throughout.
+    #
+    # Target framing: sighting hole (z=0.117) sits ~1/3 up the frame,
+    # flush bracket centre (z≈0.26) sits ~2/3 up.  This means the
+    # look-at point is at roughly z ≈ 0.19 during the middle section.
+    #
+    # Camera path (viewed from above: anticlockwise spiral inward):
+    kf(cam,   1, START_0_CAM)                         # start
+    kf(cam,  45, (-1.20,  2.20, -0.05))               # easing in
+    kf(cam,  90, (-0.50,  1.40,  0.00))               # mid-arc
+    kf(cam, 135, (-0.08,  0.85,  0.06))               # closing in
+    kf(cam, F1_END, SIGHTING_0_CAM)                     # in front of tube
+
+    # Target path: smoothly settle to bracket/tube framing early,
+    # hold that level through the middle, then ease into the tube.
+    kf(target,   1, START_0_TGT)                       # start (smooth)
+    kf(target,  40, ( 0.00,  0.00,  0.22))             # settle to ideal
+    kf(target, 130, ( 0.00,  0.00,  0.20))             # held steady
+    kf(target, 160, ( 0.00, -0.10,  0.21))             # easing toward tube
+    kf(target, F1_END, SIGHTING_0_TGT)                  # into the tube
+
+    # =================================================================
+    # SEGMENT 2 — Tube fly-through  (frames 181 → 360,  6 s)
+    # =================================================================
+    # Sighting-hole light (in the +X tube) switches on for side-
+    # lighting.  Camera is already aimed at the +Y tube from
+    # SIGHTING_0 — it descends to tube height, enters the +Y tube,
+    # flies straight through the pillar along the -Y axis, and exits
+    # from the -Y (South) side.
+    #
+    # Camera path (straight-line through +Y / -Y tubes):
+    kf(cam, 210, ( 0.00,  0.30,  SH_Z))               # at +Y tube face
+    kf(cam, 270, ( 0.00,  0.00,  SH_Z))               # centre of pillar
+    kf(cam, 330, ( 0.00, -0.30,  SH_Z))               # at -Y tube exit
+    kf(cam, F2_END, SIGHTING_1_CAM)                    # clear of pillar
+
+    # Target: look straight through the tube along -Y
+    kf(target, 210, ( 0.00, -3.00, SH_Z))
+    kf(target, F2_END, SIGHTING_1_TGT)
+
+    # Light: switch on over ~0.5 s at the start of the segment
+    light = bpy.data.objects["SightingHoleLight"]
+    light.data.energy = 0
+    light.data.keyframe_insert(data_path="energy", frame=F1_END)
+    light.data.energy = 20
+    light.data.keyframe_insert(data_path="energy", frame=F1_END + 15)
+
+    # =================================================================
+    # SEGMENT 3 — Sweep to profile view  (frames 361 → 510,  5 s)
+    # =================================================================
+    # Camera sweeps from the -Y tube exit around to a classic profile
+    # view from the south-east, rising to ~1.5 m.  The rotation is
+    # spread over the first ~100 frames and overlaps with the outward/
+    # upward movement so it reads as a single smooth sweep rather than
+    # a snap-then-glide.
+    #
+    # Camera path — starts moving backward and up immediately while
+    # the target swings gradually from -Y look direction to pillar:
+    kf(cam, 385, ( 0.05, -0.70,  0.20))               # barely moved
+    kf(cam, 420, ( 0.15, -1.10,  0.45))               # rotating + rising
+    kf(cam, 460, ( 0.35, -1.90,  0.85))               # mid-sweep SE
+    kf(cam, F3_END, PROFILE_0_CAM)                     # final position
+
+    # Target swings slowly from the -Y direction back to the pillar,
+    # spread over ~100 frames so the rotation feels gradual:
+    kf(target, 385, ( 0.00, -1.50,  0.25))             # still mostly -Y
+    kf(target, 420, ( 0.00, -0.60,  0.35))             # swinging back
+    kf(target, 460, ( 0.00, -0.30,  0.50))             # nearly settled
+    kf(target, F3_END, PROFILE_0_TGT)                  # profile target
+
+    # =================================================================
+    # SEGMENT 4 — Hold + rise to spider  (frames 511 → 630,  4 s)
+    # =================================================================
+    # Hold the profile composition for 1 second, then smooth flight
+    # upward to a close-up of the spider / pillar top.
+    #
+    # 1 s hold at PROFILE_0
+    kf(cam,    F3_END + 30, PROFILE_0_CAM)             # hold 1 s
+    kf(target, F3_END + 30, PROFILE_0_TGT)
+
+    # 3 s flight up to SPIDER_0
+    kf(cam, 580, ( 0.35, -1.60,  1.70))               # mid-rise
+    kf(cam, F4_END, SPIDER_0_CAM)                      # final position
+
+    kf(target, 580, ( 0.00, -0.15,  1.00))             # rising target
+    kf(target, F4_END, SPIDER_0_TGT)                   # spider target
+
+    # =================================================================
+    # SEGMENT 5 — Screw removal  (frames 631 → 705,  2.5 s)
+    # =================================================================
+    # Both machine screws unscrew from the spider shelf and float
+    # down to rest on the pillar top.  Four sub-segments (quick):
+    #
+    #   5a  631–645   Screw_0 unscrews anticlockwise + rises   (0.5 s)
+    #   5b  646–668   Screw_0 arcs to pillar top + tips horiz  (0.75 s)
+    #   5c  669–683   Screw_180 unscrews + rises               (0.5 s)
+    #   5d  684–705   Screw_180 arcs to pillar top + tips horiz(0.7 s)
+    #
+    # Each screw: anticlockwise spin while rising straight up until
+    # the bottom clears the pillar top by 5 cm → smooth arc to the
+    # surface while rotating from vertical to horizontal.
+    # Camera holds at SPIDER_0 throughout.
+
+    screw_0 = bpy.data.objects["Screw_0"]
+    screw_180 = bpy.data.objects["Screw_180"]
+
+    # Installed positions (read live — match build_fixings())
+    s0_home = tuple(screw_0.location)
+    s180_home = tuple(screw_180.location)
+
+    # Elevated: bottom of screw 5 cm above pillar top
+    z_elevated = PILLAR_HEIGHT + 0.05 + SCREW_SHAFT_H / 2   # ≈ 1.245
+    s0_up = (s0_home[0], s0_home[1], z_elevated)
+    s180_up = (s180_home[0], s180_home[1], z_elevated)
+
+    # Final resting: lying horizontal on pillar top, 2 cm apart
+    z_rest = PILLAR_HEIGHT + SCREW_HEAD_R                    # ≈ 1.1935
+    s0_rest = (0.08, -0.04, z_rest)
+    s180_rest = (0.10, -0.04, z_rest)          # 2 cm to the right
+
+    # Rotation constants
+    ROT_ZERO = (0, 0, 0)
+    UNSCREW_RAD = 3 * 2 * math.pi              # 3 full anticlockwise turns
+    ROT_TOP = (0, 0, UNSCREW_RAD)              # vertical, done spinning
+    ROT_LYING = (math.pi / 2, 0, UNSCREW_RAD)  # horizontal on surface
+
+    # Sub-segment frame markers
+    F5A_END = 645        # Screw_0 reaches top
+    F5B_END = 668        # Screw_0 placed on surface
+    F5C_END = 683        # Screw_180 reaches top
+
+    # ── 5a: Screw_0 unscrews + rises  (631 → 645) ──────────────
+    # Pin at installed position for all earlier segments
+    kf(screw_0,     1, s0_home)
+    kf_rot(screw_0, 1, ROT_ZERO)
+    kf(screw_0,     F4_END, s0_home)
+    kf_rot(screw_0, F4_END, ROT_ZERO)
+
+    # Rise while spinning anticlockwise (3 turns)
+    kf(screw_0,     638, (s0_home[0], s0_home[1],
+                          s0_home[2] + 0.035))              # mid-rise
+    kf_rot(screw_0, 638, (0, 0, UNSCREW_RAD / 2))          # 1.5 turns
+    kf(screw_0,     F5A_END, s0_up)                         # at top
+    kf_rot(screw_0, F5A_END, ROT_TOP)                       # 3 turns done
+
+    # ── 5b: Screw_0 arcs + tips horizontal  (646 → 668) ────────
+    # Arc outward and down to pillar surface while tipping
+    kf(screw_0,     657, (0.06, -0.02, 1.24))              # mid-arc
+    kf_rot(screw_0, 657, (math.pi / 4, 0, UNSCREW_RAD))   # 45° tip
+    kf(screw_0,     F5B_END, s0_rest)                       # on surface
+    kf_rot(screw_0, F5B_END, ROT_LYING)                     # horizontal
+
+    # ── 5c: Screw_180 unscrews + rises  (669 → 683) ────────────
+    # Pin at installed position until Screw_0 is placed
+    kf(screw_180,     1, s180_home)
+    kf_rot(screw_180, 1, ROT_ZERO)
+    kf(screw_180,     F5B_END, s180_home)
+    kf_rot(screw_180, F5B_END, ROT_ZERO)
+
+    # Rise while spinning anticlockwise (3 turns)
+    kf(screw_180,     676, (s180_home[0], s180_home[1],
+                            s180_home[2] + 0.035))          # mid-rise
+    kf_rot(screw_180, 676, (0, 0, UNSCREW_RAD / 2))        # 1.5 turns
+    kf(screw_180,     F5C_END, s180_up)                     # at top
+    kf_rot(screw_180, F5C_END, ROT_TOP)                     # 3 turns done
+
+    # ── 5d: Screw_180 arcs + tips horizontal  (684 → 705) ──────
+    # Longer arc — Screw_180 starts on the opposite side and must
+    # travel further to land next to Screw_0.
+    kf(screw_180,     693, (0.00, -0.01, 1.26))            # swing across
+    kf_rot(screw_180, 693, (math.pi / 6, 0, UNSCREW_RAD)) # 30° tip
+    kf(screw_180,     700, (0.06, -0.03, 1.22))            # closing in
+    kf_rot(screw_180, 700, (math.pi / 3, 0, UNSCREW_RAD)) # 60° tip
+    kf(screw_180,     F5_END, s180_rest)                    # on surface
+    kf_rot(screw_180, F5_END, ROT_LYING)                    # horizontal
+
+    # Camera: hold at SPIDER_0 throughout segment 5
+    kf(cam,    F5_END, SPIDER_0_CAM)
+    kf(target, F5_END, SPIDER_0_TGT)
+
+    # =================================================================
+    # SEGMENT 6 — Plug removal  (frames 706 → 885,  6 s)
+    # =================================================================
+    # The plug, inner plug, and anti-rotation peg move as a single unit.
+    # The inner plug is parented to an animated Empty ("PlugAssembly");
+    # the plug and peg follow via Child Of constraints so we can
+    # release them later without duplication.
+    #
+    #   Phase 1  706–795   Unscrew: 3 anticlockwise turns + rise 1.5 cm
+    #   Phase 2  796–885   Rise 10 cm + tilt 120° away from viewer
+    #
+    # The tilt axis is the camera's horizontal axis (perpendicular to
+    # the view direction in the ground plane) so the assembly's bottom
+    # face rotates toward the viewer.
+
+    # ── Create PlugAssembly empty + parent objects ──────────────────
+    z_plug_top = (PILLAR_HEIGHT - SPIDER_THICK / 2) + PLUG_UPPER_H
+    z_plug_bot = (PILLAR_HEIGHT - SPIDER_THICK / 2) - PLUG_MIDDLE_H \
+                 - PLUG_LOWER_H
+    z_pc = (z_plug_top + z_plug_bot) / 2             # assembly centre
+
+    assembly = bpy.data.objects.new("PlugAssembly", None)
+    assembly.empty_display_type = 'PLAIN_AXES'
+    assembly.empty_display_size = 0.02
+    bpy.context.collection.objects.link(assembly)
+    assembly.location = (0, 0, z_pc)
+
+    # Force depsgraph update so matrix_world reflects the new location
+    # before we compute parent-inverse matrices for the children.
+    bpy.context.view_layer.update()
+    assembly_bind_world = assembly.matrix_world.copy()
+
+    inner_plug = bpy.data.objects.get("InnerPlug")
+    if inner_plug:
+        inner_plug.parent = assembly
+        inner_plug.matrix_parent_inverse = assembly.matrix_world.inverted()
+
+    plug = bpy.data.objects.get("Plug")
+    peg = bpy.data.objects.get("AntiRotationPeg")
+    plug_bind_world = plug.matrix_world.copy() if plug else None
+    peg_bind_world = peg.matrix_world.copy() if peg else None
+    plug_con = add_child_of(plug, assembly) if plug else None
+    peg_con = add_child_of(peg, assembly) if peg else None
+    if plug_con:
+        kf_influence(plug_con, 1, 1.0)
+    if peg_con:
+        kf_influence(peg_con, 1, 1.0)
+
+    # ── Compute tilt axis (camera's horizontal = "right" vector) ───
+    cam_dir = (Vector(SPIDER_0_TGT) - Vector(SPIDER_0_CAM)).normalized()
+    cam_right = cam_dir.cross(Vector((0, 0, 1))).normalized()
+
+    # Pre-compute tilt Euler angles (-120° and -60° around cam_right).
+    # Negative angle tilts the top AWAY from the viewer, exposing the
+    # bottom face toward the camera.
+    tilt_full = Matrix.Rotation(math.radians(-120), 3, cam_right).to_euler('XYZ')
+    tilt_half = Matrix.Rotation(math.radians(-60), 3, cam_right).to_euler('XYZ')
+
+    PLUG_UNSCREW = 3 * 2 * math.pi                  # 3 anticlockwise turns
+    ROT_PLUG_TOP = (0, 0, PLUG_UNSCREW)
+    ROT_PLUG_HALF_TILT = (tilt_half.x, tilt_half.y,
+                          PLUG_UNSCREW + tilt_half.z)
+    ROT_PLUG_FULL_TILT = (tilt_full.x, tilt_full.y,
+                          PLUG_UNSCREW + tilt_full.z)
+
+    # Sub-segment frame markers
+    F6A_END = 795        # end of unscrew phase
+    # F6_END = 885       # defined above in frame boundaries
+
+    # ── Pin assembly at installed position for segments 1–5 ────────
+    kf(assembly,     1, (0, 0, z_pc))
+    kf_rot(assembly, 1, (0, 0, 0))
+    kf(assembly,     F5_END, (0, 0, z_pc))
+    kf_rot(assembly, F5_END, (0, 0, 0))
+
+    # ── Phase 1: Unscrew + rise 1.5 cm  (706 → 795,  3 s) ────────
+    kf(assembly,     750, (0, 0, z_pc + 0.0075))           # mid-rise
+    kf_rot(assembly, 750, (0, 0, PLUG_UNSCREW / 2))        # 1.5 turns
+    kf(assembly,     F6A_END, (0, 0, z_pc + 0.015))        # 1.5 cm up
+    kf_rot(assembly, F6A_END, ROT_PLUG_TOP)                 # 3 turns done
+
+    # ── Phase 2: Rise 10 cm + tilt 120°  (796 → 885,  3 s) ──────
+    kf(assembly,     840, (0, 0, z_pc + 0.015 + 0.05))     # mid-rise
+    kf_rot(assembly, 840, ROT_PLUG_HALF_TILT)               # 60° tilt
+    kf(assembly,     F6_END, (0, 0, z_pc + 0.015 + 0.10))  # 10 cm up
+    kf_rot(assembly, F6_END, ROT_PLUG_FULL_TILT)            # 120° tilt
+
+    # Camera: subtle target rise to follow the elevated plug
+    kf(cam,    F6_END, SPIDER_0_CAM)                        # camera holds
+    kf(target, F6A_END, SPIDER_0_TGT)                       # hold during spin
+    kf(target, F6_END, (0.00, 0.00, 1.30))                 # follow plug up
+
+    # ── Evaluate assembly at F6_END for segments 7–9 ────────────
+    # Pin assembly FIRMLY at F6_END position.  The extra keyframe at
+    # F6_END+1 forces zero tangent immediately after segment 6,
+    # preventing any drift from the unscrew/tilt motion's momentum.
+    ASM_PIN = (0, 0, z_pc + 0.015 + 0.10)
+    kf(assembly,     F6_END + 1, ASM_PIN)
+    kf_rot(assembly, F6_END + 1, ROT_PLUG_FULL_TILT)
+    kf(assembly,     F7_END, ASM_PIN)
+    kf_rot(assembly, F7_END, ROT_PLUG_FULL_TILT)
+    kf(assembly,     F8_END, ASM_PIN)
+    kf_rot(assembly, F8_END, ROT_PLUG_FULL_TILT)
+    kf(assembly,     F9_END, ASM_PIN)
+    kf_rot(assembly, F9_END, ROT_PLUG_FULL_TILT)
+
+    # Force Blender to evaluate at F6_END so we can read the
+    # ACTUAL world matrix (avoids Euler composition errors).
+    bpy.context.scene.frame_set(int(F6_END))
+    bpy.context.view_layer.update()
+
+    asm_rot_actual = assembly.matrix_world.to_3x3()
+    asm_rot_inv = asm_rot_actual.inverted()
+
+    def world_rot_to_local(world_rot_matrix):
+        """Convert a world-space rotation matrix to assembly-local Euler."""
+        local_mat = asm_rot_inv @ world_rot_matrix
+        return tuple(local_mat.to_euler('XYZ'))
+
+    def make_w2l(child_obj):
+        """Build a world→local converter for a specific child of assembly."""
+        par_world = assembly.matrix_world.copy()
+        par_inv = child_obj.matrix_parent_inverse.copy()
+        combined_inv = (par_world @ par_inv).inverted()
+        def w2l(world_pos):
+            return tuple(combined_inv @ Vector(world_pos))
+        return w2l
+
+    # ── World-space arc helper ─────────────────────────────────────
+    # Children are parented to the tilted assembly, so Blender
+    # interpolates obj.location in the assembly's local frame.  With
+    # a 120° tilt, a few keyframes in local space don't trace a smooth
+    # arc in world space.  We densely sample the desired world-space
+    # trajectory, convert each point to local, and insert keyframes.
+    def arc_kf(obj, f_start, f_end, ws_start, ws_end, arc_height,
+               w2l, n_steps=15):
+        """Insert location keyframes along a world-space parabolic arc.
+
+        ws_start / ws_end — world-space Vector positions.
+        arc_height — extra Z elevation at the arc midpoint above the
+                     linear interpolation.
+        w2l — world-to-local conversion function for this child.
+        """
+        for i in range(n_steps + 1):
+            t = i / n_steps
+            frame = int(round(f_start + t * (f_end - f_start)))
+            w = ws_start.lerp(ws_end, t)
+            w.z += arc_height * 4.0 * t * (1.0 - t)
+            kf(obj, frame, w2l(w))
+
+    def arc_kf_world(obj, f_start, f_end, ws_start, ws_end, arc_height,
+                     n_steps=15):
+        """Insert location keyframes along a world-space parabolic arc."""
+        for i in range(n_steps + 1):
+            t = i / n_steps
+            frame = int(round(f_start + t * (f_end - f_start)))
+            w = ws_start.lerp(ws_end, t)
+            w.z += arc_height * 4.0 * t * (1.0 - t)
+            obj.location = (w.x, w.y, w.z)
+            obj.keyframe_insert(data_path="location", frame=frame)
+
+
+    # =================================================================
+    # SEGMENT 7 — Anti-rotation peg removal  (frames 886 → 975,  3 s)
+    # =================================================================
+    # The peg slides out along its axis (local X in the tilted
+    # assembly), then arcs down to rest on the pillar top near the
+    # screws.
+    #
+    #   Phase 1  886–915   Extract: slide +3 cm along axis (1 s)
+    #   Phase 2  916–975   Arc down to pillar top surface  (2 s)
+
+    peg = bpy.data.objects["AntiRotationPeg"]
+
+    # ── Phase 1: Extract along peg axis (3 cm, 1 s) ──────────────
+    # Detach at segment start so we can move along the peg's own axis
+    # in world space (assembly is pinned after F6_END).
+    F7_START = F6_END + 1
+    F7_EXTRACT = F6_END + 30
+    peg_home_local = tuple(peg.location)
+    peg_home_rot = tuple(peg.rotation_euler)
+    kf(peg, 1, peg_home_local)
+    kf_rot(peg, 1, peg_home_rot)
+    kf(peg, F7_START - 1, peg_home_local)
+    kf_rot(peg, F7_START - 1, peg_home_rot)
+    if peg_con:
+        kf_influence(peg_con, F6_END, 1.0)
+        bpy.context.scene.frame_set(int(F6_END))
+        bpy.context.view_layer.update()
+        peg_world = peg.matrix_world.copy()
+        kf_influence(peg_con, F7_START, 0.0)
+        kf_world(peg, F7_START, peg_world)
+
+    peg_ws_start = peg.matrix_world.translation.copy()
+    peg_axis = peg.matrix_world.to_3x3() @ Vector((1, 0, 0))
+    peg_axis.normalize()
+    peg_ws_extract = peg_ws_start + peg_axis * 0.03
+    kf(peg, F7_EXTRACT, (peg_ws_extract.x,
+                         peg_ws_extract.y,
+                         peg_ws_extract.z))
+    kf_rot(peg, F7_EXTRACT, tuple(peg.rotation_euler))
+
+    # ── Phase 2: Arc down to pillar top (2 s) ────────────────────
+    peg_ws_end = Vector((0.04, -0.06, PILLAR_HEIGHT + PEG_R))
+    arc_kf_world(peg, F7_EXTRACT, F7_END, peg_ws_extract,
+                 peg_ws_end, arc_height=0.03)
+    kf_rot(peg, F7_END, (0, 0, 0))
+
+    # Camera: hold at SPIDER_0
+    kf(cam, F7_END, SPIDER_0_CAM)
+    kf(target, F7_END, (0.00, 0.00, 1.30))
+
+    # =================================================================
+    # SEGMENT 8 — Inner plug removal  (frames 976 → 1155,  6 s)
+    # =================================================================
+    # The inner plug unscrews 12 anticlockwise turns while rising
+    # along its axis until clear of the plug bore.  Then it arcs to
+    # rest upside-down on the pillar top near the -X/+Y beveled edge,
+    # with the three blind holes facing up.
+    #
+    #   Phase 1   976–1095  Unscrew 12 turns + rise 3 cm (4 s)
+    #   Phase 2  1096–1155  Arc to pillar top near edge   (2 s)
+
+    inner_plug = bpy.data.objects["InnerPlug"]
+    ip_home = tuple(inner_plug.location)
+
+    # Pin at home through segment 7 (moves with assembly)
+    kf(inner_plug, 1, ip_home)
+    kf_rot(inner_plug, 1, (0, 0, 0))
+    kf(inner_plug, F7_END, ip_home)
+    kf_rot(inner_plug, F7_END, (0, 0, 0))
+
+    IPLUG_UNSCREW = 12 * 2 * math.pi       # 12 anticlockwise turns
+
+    # ── Phase 1: Unscrew + rise 3 cm  (976 → 1095,  4 s) ────────
+    F8_CLEAR = F7_END + 120
+    # Mid-unscrew
+    kf(inner_plug, F7_END + 60,
+       (ip_home[0], ip_home[1], ip_home[2] + 0.015))
+    kf_rot(inner_plug, F7_END + 60, (0, 0, IPLUG_UNSCREW / 2))
+    # Fully clear of bore
+    ip_clear_loc = (ip_home[0], ip_home[1], ip_home[2] + 0.03)
+    kf(inner_plug, F8_CLEAR, ip_clear_loc)
+    kf_rot(inner_plug, F8_CLEAR, (0, 0, IPLUG_UNSCREW))
+
+    # ── Phase 2: Arc to rest on pillar top (2 s) ─────────────────
+    # Place the inner plug just inside the brass loop radius.
+    bpy.context.scene.frame_set(int(F8_CLEAR))
+    bpy.context.view_layer.update()
+    ip_w2l = make_w2l(inner_plug)
+    ip_ws_start = inner_plug.matrix_world.translation.copy()
+    ip_dir = Vector((-0.13, 0.15, 0)).normalized()
+    ip_r = LOOP_POS_R - 0.005  # 5 mm inside loop radius
+    ip_xy = ip_dir * ip_r
+    ip_ws_end = Vector((ip_xy.x, ip_xy.y, PILLAR_HEIGHT + IPLUG_H / 2))
+    arc_kf(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
+           arc_height=0.04, w2l=ip_w2l)
+
+    # Rest rotation: upside down (180° around X) so the blind holes
+    # face upward.  Keep accumulated Z turns.
+    world_flip = Matrix.Rotation(math.pi, 3, 'X')  # 180° flip
+    ip_rest_base = world_rot_to_local(world_flip)
+    ip_rest_rot = (ip_rest_base[0], ip_rest_base[1],
+                   ip_rest_base[2] + IPLUG_UNSCREW)
+    kf_rot(inner_plug, F8_END, ip_rest_rot)
+
+    # Camera: hold
+    kf(cam, F8_END, SPIDER_0_CAM)
+    kf(target, F8_END, (0.00, 0.00, 1.30))
+
+    # =================================================================
+    # SEGMENT 9 — Plug arc to rest  (frames 1156 → 1245,  3 s)
+    # =================================================================
+    # The plug arcs from its tilted assembly position to rest near the
+    # +X, +Y corner of the pillar top.
+
+    plug = bpy.data.objects["Plug"]
+
+    plug_home_local = tuple(plug.location)
+    plug_home_rot = tuple(plug.rotation_euler)
+    kf(plug, 1, plug_home_local)
+    kf_rot(plug, 1, plug_home_rot)
+    kf(plug, F8_END - 1, plug_home_local)
+    kf_rot(plug, F8_END - 1, plug_home_rot)
+
+    # Desired world rest: +X, +Y, near corner of pillar top
+    if plug_con:
+        kf_influence(plug_con, F8_END - 1, 1.0)
+        bpy.context.scene.frame_set(int(F8_END))
+        bpy.context.view_layer.update()
+        plug_world = plug.matrix_world.copy()
+        kf_influence(plug_con, F8_END, 0.0)
+        kf_world(plug, F8_END, plug_world)
+
+    plug_ws_start = plug.matrix_world.translation.copy()
+    plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + PLUG_MIDDLE_R))
+    arc_kf_world(plug, F8_END, F9_END, plug_ws_start, plug_ws_end,
+                 arc_height=0.05)
+
+    # Rest rotation: plug upright on surface
+    kf_rot(plug, F9_END, (0, 0, 0))
+
+    # Camera: hold
+    kf(cam, F9_END, SPIDER_0_CAM)
+    kf(target, F9_END, (0.00, 0.00, 1.25))             # drift down slightly
+
+    # =================================================================
+    # SEGMENT 10 — Slew to centre pipe + hold  (frames 1246 → 1335,  3 s)
+    # =================================================================
+    # 1.5 s slew to overhead, then 1.5 s hold before reassembly.
+    F10_START = F9_END + 1
+    F10_SLEW_END = F10_START + 44
+
+    # Graceful move to an overhead view looking down the centre pipe.
+    # Add a small orbit in the final frames to smooth yaw roll.
+    kf(cam, 1276, ( 0.030, -0.040,  1.55))
+    kf(cam, 1282, ( 0.015, -0.020,  1.47))
+    kf(cam, 1286, ( 0.008, -0.010,  1.44))
+    kf(cam, F10_SLEW_END, PIPE_0_CAM)
+    # Ease the target down gradually; end 1/4 of the way down the pipe.
+    kf(target, 1246, (0.00, 0.00, 1.25))
+    kf(target, 1256, (0.00, 0.00, 1.25))
+    kf(target, 1266, (0.00, 0.00, 1.22))
+    kf(target, 1276, (0.00, 0.00, 1.09))
+    kf(target, 1286, (0.00, 0.00, 1.00))
+    kf(target, F10_SLEW_END, PIPE_0_TGT)
+
+    # Hold at PIPE_0
+    kf(cam, F10_END, PIPE_0_CAM)
+    kf(target, F10_END, PIPE_0_TGT)
+
+    # =================================================================
+    # SEGMENT 11 — Slew to profile + reassemble  (frames 1336 → 1425,  3 s)
+    # =================================================================
+    F11_START = F10_END + 1
+    F11_PLUG_END = F11_START + 29
+    F11_IP_START = F11_PLUG_END + 1
+    F11_IP_END = F11_IP_START + 29
+    F11_PEG_START = F11_IP_END + 1
+    F11_END = F11_PEG_START + 29
+    F11_IP_CLEAR = F11_IP_START + 15
+    F11_PEG_ARC_END = F11_PEG_START + 20
+
+    # Camera move to PROFILE_1 (slowly, through to frame 1560)
+    cam_start = Vector(PIPE_0_CAM)
+    cam_end = Vector(PROFILE_1_CAM)
+    cam_span = F13_END - F11_START
+    CAM_EASE_EXP = 1.7
+    t1 = ((F11_END - F11_START) / cam_span) ** CAM_EASE_EXP
+    t2 = ((F12_END - F11_START) / cam_span) ** CAM_EASE_EXP
+    cam_mid1 = tuple(cam_start.lerp(cam_end, t1))
+    cam_mid2 = tuple(cam_start.lerp(cam_end, t2))
+
+    # Target rises early so the plug stays in frame, then settles.
+    kf(target, 1359, (0.00, 0.00, 1.22))
+    kf(target, 1377, (0.00, 0.00, 1.23))
+    kf(target, 1390, (0.00, 0.00, 1.23))
+    kf(target, 1430, (0.00, 0.00, 1.15))
+    kf(target, 1500, (0.00, 0.00, 0.70))
+    kf(target, F13_END, PROFILE_1_TGT)
+
+    # Camera positions along the slow pull-back
+    kf(cam, F11_END, cam_mid1)
+
+    # Light fades out during the reassembly
+    light.data.energy = 20
+    light.data.keyframe_insert(data_path="energy", frame=F11_START)
+    light.data.energy = 0
+    light.data.keyframe_insert(data_path="energy", frame=F11_START + 30)
+
+    # Evaluate at segment start to capture current rest positions
+    bpy.context.scene.frame_set(int(F11_START))
+    bpy.context.view_layer.update()
+    asm_world = assembly.matrix_world.copy()
+    plug_ws_rest = plug.matrix_world.translation.copy()
+    peg_ws_rest = peg.matrix_world.translation.copy()
+    ip_ws_rest = inner_plug.matrix_world.translation.copy()
+    ip_rest_rot = tuple(inner_plug.rotation_euler)
+
+    # Compute assembled world matrices for plug/peg
+    asm_bind_inv = assembly_bind_world.inverted()
+    plug_home_world = asm_world @ asm_bind_inv @ plug_bind_world
+    peg_home_world = asm_world @ asm_bind_inv @ peg_bind_world
+
+    # ── Plug reassemble (first): reverse of seg 9
+    # Move and rotate together along the same arc.
+    plug_start_world = plug.matrix_world.copy()
+    plug_start_q = plug_start_world.to_quaternion()
+    plug_end_q = plug_home_world.to_quaternion()
+    for i in range(16):
+        t = i / 15
+        frame = int(round(F11_START + t * (F11_PLUG_END - F11_START)))
+        loc = plug_ws_rest.lerp(plug_home_world.translation, t)
+        loc.z += 0.05 * 4.0 * t * (1.0 - t)
+        rot = plug_start_q.slerp(plug_end_q, t)
+        mat = rot.to_matrix().to_4x4()
+        mat.translation = loc
+        kf_world(plug, frame, mat)
+    if plug_con:
+        kf_influence(plug_con, F11_START, 0.0)
+        kf_influence(plug_con, F11_PLUG_END, 0.0)
+        bpy.context.scene.frame_set(int(F11_PLUG_END + 1))
+        bpy.context.view_layer.update()
+        reattach_child_of(plug, plug_con, plug_home_world, F11_PLUG_END + 1)
+
+    # ── Inner plug reassemble (second): reverse of seg 8
+    ip_w2l = make_w2l(inner_plug)
+    ip_child_combined = assembly.matrix_world @ inner_plug.matrix_parent_inverse
+    ip_ws_clear = ip_child_combined @ Vector(ip_clear_loc)
+    kf(inner_plug, F11_IP_START, tuple(inner_plug.location))
+    kf_rot(inner_plug, F11_IP_START, ip_rest_rot)
+    arc_kf(inner_plug, F11_IP_START, F11_IP_CLEAR, ip_ws_rest, ip_ws_clear,
+           arc_height=0.04, w2l=ip_w2l)
+    kf(inner_plug, F11_IP_CLEAR, ip_clear_loc)
+    kf_rot(inner_plug, F11_IP_CLEAR, (0, 0, IPLUG_UNSCREW))
+    kf(inner_plug, F11_IP_END, ip_home)
+    kf_rot(inner_plug, F11_IP_END, (0, 0, 0))
+
+    # ── Peg reassemble (third): reverse of seg 7
+    peg_axis = asm_world.to_3x3() @ Vector((1, 0, 0))
+    peg_axis.normalize()
+    peg_ws_extract = peg_home_world.translation + peg_axis * 0.03
+    peg_start_world = peg.matrix_world.copy()
+    peg_start_q = peg_start_world.to_quaternion()
+    peg_end_q = peg_home_world.to_quaternion()
+    for i in range(16):
+        t = i / 15
+        frame = int(round(F11_PEG_START + t * (F11_PEG_ARC_END - F11_PEG_START)))
+        loc = peg_ws_rest.lerp(peg_ws_extract, t)
+        loc.z += 0.03 * 4.0 * t * (1.0 - t)
+        rot = peg_start_q.slerp(peg_end_q, t)
+        mat = rot.to_matrix().to_4x4()
+        mat.translation = loc
+        kf_world(peg, frame, mat)
+    kf_world(peg, F11_END, peg_home_world)
+    if peg_con:
+        kf_influence(peg_con, F11_PEG_START, 0.0)
+        kf_influence(peg_con, F11_END, 0.0)
+        bpy.context.scene.frame_set(int(F11_END + 1))
+        bpy.context.view_layer.update()
+        reattach_child_of(peg, peg_con, peg_home_world, F11_END + 1)
+
+    # =================================================================
+    # SEGMENT 12 — Plug assembly return  (frames 1426 → 1515,  3 s)
+    # =================================================================
+    F12_START = F11_END + 1
+    F12_END = F12_START + 89
+    F12_MID1 = F12_START + 22
+    F12_MID2 = F12_START + 45
+    F12_MID3 = F12_START + 67
+
+    # Reverse segment 6: tilt back + lower 10 cm, then screw in 3 turns
+    kf(assembly,     F12_START, ASM_PIN)
+    kf_rot(assembly, F12_START, ROT_PLUG_FULL_TILT)
+    kf(assembly,     F12_MID1, (0, 0, z_pc + 0.015 + 0.05))
+    kf_rot(assembly, F12_MID1, ROT_PLUG_HALF_TILT)
+    kf(assembly,     F12_MID2, (0, 0, z_pc + 0.015))
+    kf_rot(assembly, F12_MID2, ROT_PLUG_TOP)
+    kf(assembly,     F12_MID3, (0, 0, z_pc + 0.0075))
+    kf_rot(assembly, F12_MID3, (0, 0, PLUG_UNSCREW / 2))
+    kf(assembly,     F12_END, (0, 0, z_pc))
+    kf_rot(assembly, F12_END, (0, 0, 0))
+
+    # Camera continues pulling back to PROFILE_1
+    kf(cam, F12_END, cam_mid2)
+    kf(target, F12_END, (0.00, 0.00, 0.55))
+
+    # =================================================================
+    # SEGMENT 13 — Screws reinsert  (frames 1516 → 1560,  1.5 s)
+    # =================================================================
+    F13_START = F12_END + 1
+    F13_END = F13_START + 44
+    F13A_END = F13_START + 22
+
+    # Ensure screws start from their resting positions
+    kf(screw_180, F13_START, s180_rest)
+    kf_rot(screw_180, F13_START, ROT_LYING)
+    kf(screw_0, F13_START, s0_rest)
+    kf_rot(screw_0, F13_START, ROT_LYING)
+
+    # ── Screw_180 returns first (reverse of 5c + 5d)
+    kf(screw_180, F13_START + 7, (0.06, -0.03, 1.22))
+    kf_rot(screw_180, F13_START + 7, (math.pi / 3, 0, UNSCREW_RAD))
+    kf(screw_180, F13_START + 12, (0.00, -0.01, 1.26))
+    kf_rot(screw_180, F13_START + 12, (math.pi / 6, 0, UNSCREW_RAD))
+    kf(screw_180, F13_START + 15, s180_up)
+    kf_rot(screw_180, F13_START + 15, ROT_TOP)
+    kf(screw_180, F13_START + 18,
+       (s180_home[0], s180_home[1], s180_home[2] + 0.035))
+    kf_rot(screw_180, F13_START + 18, (0, 0, UNSCREW_RAD / 2))
+    kf(screw_180, F13A_END, s180_home)
+    kf_rot(screw_180, F13A_END, ROT_ZERO)
+
+    # ── Screw_0 returns second (reverse of 5a + 5b)
+    kf(screw_0, F13A_END + 7, (0.06, -0.02, 1.24))
+    kf_rot(screw_0, F13A_END + 7, (math.pi / 4, 0, UNSCREW_RAD))
+    kf(screw_0, F13A_END + 12, s0_up)
+    kf_rot(screw_0, F13A_END + 12, ROT_TOP)
+    kf(screw_0, F13A_END + 17,
+       (s0_home[0], s0_home[1], s0_home[2] + 0.035))
+    kf_rot(screw_0, F13A_END + 17, (0, 0, UNSCREW_RAD / 2))
+    kf(screw_0, F13_END, s0_home)
+    kf_rot(screw_0, F13_END, ROT_ZERO)
+
+    # Camera arrives at PROFILE_1
+    kf(cam, F13_END, PROFILE_1_CAM)
+    kf(target, F13_END, PROFILE_1_TGT)
+
+    # Fully-transparent tint — used by segments 14–16.
+    CLEAR = (1.0, 1.0, 1.0)
+
+    # Helper: keyframe both hide_render and hide_viewport at fade-end
+    # so objects vanish in both final renders and viewport Rendered mode.
+    def _hide_at(obj, frame):
+        for prop in ("hide_render", "hide_viewport"):
+            setattr(obj, prop, False)
+            obj.keyframe_insert(prop, frame=frame - 1)
+            setattr(obj, prop, True)
+            obj.keyframe_insert(prop, frame=frame)
+
+    # =================================================================
+    # SEGMENT 14 — Pillar fades to transparent  (frames 1600 → 1630,  1 s)
+    # =================================================================
+    # Camera holds at PROFILE_1 while the pillar concrete fades out.
+    F14_START = 1600
+    kf(cam, F14_START, PROFILE_1_CAM)
+    kf(target, F14_START, PROFILE_1_TGT)
+    kf(cam, F14_END, PROFILE_1_CAM)
+    kf(target, F14_END, PROFILE_1_TGT)
+
+    # Fade the pillar to fully transparent then hide it
+    pillar = bpy.data.objects['Pillar']
+    add_transparent_fade(pillar, F14_START, F14_END,
+                         tint=CLEAR, max_fade=1.0)
+    _hide_at(pillar, F14_END)
+
+    # =================================================================
+    # SEGMENT 15 — Surroundings fade  (frames 1630 → 1660,  1 s)
+    # =================================================================
+    # After the pillar is transparent, terrain, landscape, grass, stones,
+    # base slab, and angle irons all fade to fully transparent and are
+    # then hidden from the render so dense geometry can't leave residue
+    # from exhausted transparent-bounce limits.
+    F15_START = F14_END
+    kf(cam, F15_START, PROFILE_1_CAM)
+    kf(target, F15_START, PROFILE_1_TGT)
+    kf(cam, F15_END, PROFILE_1_CAM)
+    kf(target, F15_END, PROFILE_1_TGT)
+
+    # Objects that get both a material fade AND a hide at fade-end.
+    seg15_objects = []
+
+    terrain = bpy.data.objects['Terrain']
+    add_transparent_fade(terrain, F15_START, F15_END,
+                         tint=CLEAR, max_fade=1.0)
+    seg15_objects.append(terrain)
+
+    landscape = bpy.data.objects['Landscape']
+    add_transparent_fade(landscape, F15_START, F15_END,
+                         tint=CLEAR, max_fade=1.0)
+    seg15_objects.append(landscape)
+
+    # Fade grass / weed / flower / stone materials that are used by
+    # Geometry Nodes instances — they have their own materials.
+    for mat_name in ("GrassBlade", "WeedLeaf", "FlowerDaisy",
+                     "FlowerButtercup", "Pebble"):
+        mat = bpy.data.materials.get(mat_name)
+        if mat:
+            _fade_material(mat, F15_START, F15_END,
+                           tint=CLEAR, max_fade=1.0)
+
+    # Fade the base slab and four angle irons — fully transparent
+    base_slab = bpy.data.objects.get('BaseSlab')
+    if base_slab:
+        add_transparent_fade(base_slab, F15_START, F15_END,
+                             tint=CLEAR, max_fade=1.0)
+        seg15_objects.append(base_slab)
+    for i in range(4):
+        ai = bpy.data.objects.get(f'AngleIron_{i}')
+        if ai:
+            add_transparent_fade(ai, F15_START, F15_END,
+                                 tint=CLEAR, max_fade=1.0)
+            seg15_objects.append(ai)
+
+    # Hide at fade-end — guarantees total removal even if transparent
+    # bounces are exhausted by dense geometry.
+    for obj in seg15_objects:
+        _hide_at(obj, F15_END)
+
+    # =================================================================
+    # SEGMENT 16 — Internal structure fade  (frames 1660 → 1690,  1 s)
+    # =================================================================
+    # Concrete fill, lower block, lower/upper box, sighting tubes, and
+    # centre pipe fade out — leaving only brass internals visible.
+    F16_START = F15_END
+    kf(cam, F16_START, PROFILE_1_CAM)
+    kf(target, F16_START, PROFILE_1_TGT)
+    kf(cam, F16_END, PROFILE_1_CAM)
+    kf(target, F16_END, PROFILE_1_TGT)
+
+    seg16_objects = []
+    for obj_name in ("ConcreteFill", "LowerBlock", "LowerBox", "UpperBox",
+                     "CentrePipe", "ST_East", "ST_West", "ST_North",
+                     "ST_South"):
+        obj = bpy.data.objects.get(obj_name)
+        if obj:
+            add_transparent_fade(obj, F16_START, F16_END,
+                                 tint=CLEAR, max_fade=1.0)
+            seg16_objects.append(obj)
+
+    for obj in seg16_objects:
+        _hide_at(obj, F16_END)
+
+    # =================================================================
+    # HOLD — 1 s pause with brass internals exposed (1690 → 1720)
+    # =================================================================
+    kf(cam, F16_END, PROFILE_1_CAM)
+    kf(target, F16_END, PROFILE_1_TGT)
+    kf(cam, F17_START, PROFILE_1_CAM)
+    kf(target, F17_START, PROFILE_1_TGT)
+
+    # =================================================================
+    # SEGMENT 17 — Orbit + unfade  (frames 1720 → 1840,  4 s)
+    # =================================================================
+    # Camera sweeps clockwise (viewed from above) around the trigpoint
+    # from PROFILE_1 back to START_0 — a ~204° arc that reveals every
+    # face.  Simultaneously all transparent objects un-fade back to
+    # their original opaque materials.
+    F17_FRAMES = F17_END - F17_START     # 120 frames = 4 s at 30 fps
+
+    # ── Camera orbit ────────────────────────────────────────────
+    # Parametric arc: interpolate polar angle (clockwise), radius,
+    # and height between PROFILE_1 and START_0.
+    p1_r     = math.sqrt(PROFILE_1_CAM[0]**2 + PROFILE_1_CAM[1]**2)
+    p1_angle = math.atan2(PROFILE_1_CAM[1], PROFILE_1_CAM[0])
+    p1_z     = PROFILE_1_CAM[2]
+
+    s0_r     = math.sqrt(START_0_CAM[0]**2 + START_0_CAM[1]**2)
+    s0_angle = math.atan2(START_0_CAM[1], START_0_CAM[0])
+    s0_z     = START_0_CAM[2]
+
+    # Clockwise sweep: make the end angle < start angle
+    cw_end_angle = s0_angle - 2 * math.pi     # ≈ -4.16 rad
+
+    N_KF = 6                                    # keyframes (incl. start & end)
+    for i in range(N_KF):
+        t = i / (N_KF - 1)
+        angle = p1_angle + t * (cw_end_angle - p1_angle)
+        r     = p1_r + t * (s0_r - p1_r)
+        z     = p1_z + t * (s0_z - p1_z)
+        x     = r * math.cos(angle)
+        y     = r * math.sin(angle)
+        frame = F17_START + int(round(t * F17_FRAMES))
+        kf(cam, frame, (x, y, z))
+
+    # Target: smooth interpolation from PROFILE_1_TGT → START_0_TGT
+    # (both are at the origin, just different Z — let Blender lerp)
+    kf(target, F17_START, PROFILE_1_TGT)
+    kf(target, F17_END,   START_0_TGT)
+
+    # ── Un-fade all transparent objects ─────────────────────────
+    # Every object that was faded in segments 14–16 simultaneously
+    # returns to fully opaque over the duration of this segment.
+    # Objects that were hidden at their fade-end must be un-hidden
+    # at the start of this segment so the material unfade is visible.
+    print("  Segment 17 — un-fade all transparent objects:")
+
+    def _unhide(obj, frame):
+        """Re-show an object that was hidden at fade-end."""
+        for prop in ("hide_render", "hide_viewport"):
+            setattr(obj, prop, True)
+            obj.keyframe_insert(prop, frame=frame - 1)
+            setattr(obj, prop, False)
+            obj.keyframe_insert(prop, frame=frame)
+
+    # Seg 14 objects — un-hide then un-fade
+    _unhide(pillar, F17_START)
+    unfade_transparent(pillar, F17_START, F17_END)
+
+    # Seg 15 objects — un-hide then un-fade
+    for obj in seg15_objects:
+        _unhide(obj, F17_START)
+    unfade_transparent(terrain, F17_START, F17_END)
+    unfade_transparent(landscape, F17_START, F17_END)
+    for mat_name in ("GrassBlade", "WeedLeaf", "FlowerDaisy",
+                     "FlowerButtercup", "Pebble"):
+        mat = bpy.data.materials.get(mat_name)
+        if mat:
+            _unfade_material(mat, F17_START, F17_END)
+    if base_slab:
+        unfade_transparent(base_slab, F17_START, F17_END)
+    for i in range(4):
+        ai = bpy.data.objects.get(f'AngleIron_{i}')
+        if ai:
+            unfade_transparent(ai, F17_START, F17_END)
+
+    # Seg 16 objects — un-hide then un-fade
+    for obj in seg16_objects:
+        _unhide(obj, F17_START)
+    for obj_name in ("ConcreteFill", "LowerBlock", "LowerBox", "UpperBox",
+                     "CentrePipe", "ST_East", "ST_West", "ST_North",
+                     "ST_South"):
+        obj = bpy.data.objects.get(obj_name)
+        if obj:
+            unfade_transparent(obj, F17_START, F17_END)
 
     # ── Summary ──────────────────────────────────────────────────
     dur = TOTAL_FRAMES / FPS
     print(f"    {TOTAL_FRAMES} frames @ {FPS} fps = {dur:.0f} seconds")
-    print(f"    Orbit: r={ORBIT_R} m, z={ORBIT_Z} m, {ORBIT_STEPS} steps")
     print(f"    Lens: {LENS_MM} mm, clip: {CLIP_START*1000:.0f} mm")
     print("    Segments:")
-    print(f"      1–{F_FLY_END}:    Fly down")
-    print(f"      {F_FLY_END}–{F_ORB_END}:  360° orbit")
-    print(f"      {F_ORB_END}–{F_APP_END}:  Approach sighting hole")
-    print(f"      {F_APP_END}–{F_THR_END}:  Fly through sighting tube")
-    print(f"      {F_THR_END}–{F_PULL_END}:  Pull back to 3/4 view")
-    print(f"      {F_PULL_END}–{TOTAL_FRAMES}:  Hold final composition")
+    print(f"      1–{F1_END}:    Arc approach (START_0 → SIGHTING_0)")
+    print(f"      {F1_END+1}–{F2_END}:  Tube fly-through (SIGHTING_0 → SIGHTING_1)")
+    print(f"      {F2_END+1}–{F3_END}:  Sweep to profile (SIGHTING_1 → PROFILE_0)")
+    print(f"      {F3_END+1}–{F4_END}:  Hold + rise (PROFILE_0 → SPIDER_0)")
+    print(f"      {F4_END+1}–{F5_END}:  Screw removal (Screw_0 then Screw_180)")
+    print(f"      {F5_END+1}–{F6_END}:  Plug removal (unscrew + tilt)")
+    print(f"      {F6_END+1}–{F7_END}:  Peg removal (extract + arc)")
+    print(f"      {F7_END+1}–{F8_END}:  Inner plug removal (unscrew + arc)")
+    print(f"      {F8_END+1}–{F9_END}:  Plug arc to rest (+X, +Y corner)")
+    print(f"      {F9_END+1}–{F10_END}:  Slew to pipe + hold (SPIDER_0 → PIPE_0)")
+    print(f"      {F10_END+1}–{F11_END}:  Slew + reassemble (PIPE_0 → PROFILE_1)")
+    print(f"      {F11_END+1}–{F12_END}:  Assembly return (tilt + screw in)")
+    print(f"      {F12_END+1}–{F13_END}:  Screws reinsert (Screw_180 → Screw_0)")
+    print(f"      {F14_START}–{F14_END}:  Pillar fades to transparent")
+    print(f"      {F15_START}–{F15_END}:  Surroundings fade (terrain, landscape, grass, stones, base, irons)")
+    print(f"      {F16_START}–{F16_END}:  Internal structure fade (fill, boxes, tubes, pipe)")
+    print(f"      {F16_END}–{F17_START}:  Hold (brass internals exposed)")
+    print(f"      {F17_START}–{F17_END}:  Orbit + unfade (PROFILE_1 → START_0)")
 
     # ── Smooth keyframe handles ──────────────────────────────────
     # AUTO_CLAMPED prevents overshoot at segment boundaries while
     # still giving smooth curves.
-    for obj in (cam, target):
+    for obj in (cam, target, screw_0, screw_180, assembly, peg,
+                inner_plug, plug):
         if obj.animation_data and obj.animation_data.action:
             for fc in obj.animation_data.action.fcurves:
                 for kp in fc.keyframe_points:
                     kp.handle_left_type = 'AUTO_CLAMPED'
                     kp.handle_right_type = 'AUTO_CLAMPED'
+                    if "constraints" in fc.data_path and "influence" in fc.data_path:
+                        kp.interpolation = 'CONSTANT'
+    # Also smooth the light energy curve
+    if light.data.animation_data and light.data.animation_data.action:
+        for fc in light.data.animation_data.action.fcurves:
+                for kp in fc.keyframe_points:
+                    kp.handle_left_type = 'AUTO_CLAMPED'
+                    kp.handle_right_type = 'AUTO_CLAMPED'
 
 
-def setup_final_render():
-    """Configure Cycles GPU rendering for high-quality output.
+def print_camera_state():
+    """Print the active camera's position, target, and lens as pasteable values.
 
-    Renders to a PNG image sequence in a 'frames/' subdirectory next
-    to this script.  Use the companion render.sh script to render
-    headlessly and assemble the video with FFmpeg.
+    Run this in Blender's Python console to capture a camera pose you've
+    set up interactively, so you can paste the output to an AI agent or
+    copy the values into setup_camera_animation().
 
-    TUNEABLE PARAMETERS
-    -------------------
-    SAMPLES       — Cycles samples per pixel (higher = cleaner, slower)
-    RESOLUTION    — output resolution (width, height)
-    USE_DENOISER  — enable AI denoising (highly recommended)
+    HOW TO USE
+    ----------
+    1. Position the camera in Blender however you like:
+       - Select the camera → G to grab → move it
+       - Numpad 0 for camera view, then Shift+MMB to pan / Ctrl+MMB to zoom
+       - Or use View → Navigation → Fly/Walk mode (Shift+`)
+
+    2. If you also want to reposition the look-at target:
+       - Select "CameraTarget" in the outliner → G to grab → move it
+       - The camera will reorient automatically via its Track To constraint
+
+    3. Open the Python Console panel in Blender (or switch an editor to it).
+
+    4. Type:
+           print_camera_state()
+       and press Enter.  (The function is injected into Python builtins
+       when the script runs, so it's available in the console.)
+
+    5. Copy the printed output and paste it into the chat with the AI agent.
+       The output looks like this:
+
+           # ── Camera state (frame 120) ──────────────
+           camera_loc  = ( 1.8500, -0.7200,  0.9500)
+           target_loc  = ( 0.0000,  0.0000,  0.4500)
+           camera_rot  = ( 1.2345,  0.0000,  1.1781)  # euler XYZ radians
+           lens_mm     = 35.0
+           clip_start  = 0.001
+
+       The agent can use camera_loc and target_loc directly as keyframe
+       waypoints.  camera_rot is informational (it's computed from the
+       Track To constraint, so you don't normally set it directly).
+
+    OPTIONAL: LENS CHANGES
+    ----------------------
+    If you've changed the focal length interactively (select camera →
+    Properties panel → Camera tab → Focal Length), that will also be
+    captured.  Mention to the agent if you want the lens to animate
+    between waypoints.
+
+    TIPS
+    ----
+    - You can scrub to any frame first, then call this — the frame number
+      is included in the output so you know which pose you captured.
+    - Multiple calls at different frames let you sketch out a segment's
+      key poses before asking the agent to fill in the motion.
     """
-    print("  Render settings ...")
+    cam = bpy.context.scene.camera
+    if cam is None:
+        print("ERROR: No active camera in the scene.")
+        return
 
-    # ── TUNEABLE VALUES ──────────────────────────────────────────
-    SAMPLES      = 256
-    RESOLUTION   = (1920, 1080)
-    USE_DENOISER = True
-    # ─────────────────────────────────────────────────────────────
+    frame = bpy.context.scene.frame_current
+    loc = cam.location
+    rot = cam.rotation_euler
+    lens = cam.data.lens
+    clip = cam.data.clip_start
 
-    scene  = bpy.context.scene
-    render = scene.render
+    # Find the Track To target (if any)
+    target_loc = None
+    target_name = None
+    for c in cam.constraints:
+        if c.type == 'TRACK_TO' and c.target:
+            target_name = c.target.name
+            target_loc = c.target.location
 
-    # ── Cycles engine with GPU ───────────────────────────────────
+    print(f"\n# ── Camera state (frame {frame}) ──────────────")
+    print(f"camera_loc  = ({loc.x:8.4f}, {loc.y:8.4f}, {loc.z:8.4f})")
+    if target_loc is not None:
+        print(f"target_loc  = ({target_loc.x:8.4f}, {target_loc.y:8.4f},"
+              f" {target_loc.z:8.4f})  # {target_name}")
+    else:
+        print(f"target_loc  = None  # no Track To constraint found")
+    print(f"camera_rot  = ({rot.x:8.4f}, {rot.y:8.4f}, {rot.z:8.4f})"
+          f"  # euler XYZ radians")
+    print(f"lens_mm     = {lens}")
+    print(f"clip_start  = {clip}")
+    print()
+
+
+def _setup_cycles_common(scene, render):
+    """Shared Cycles engine and device configuration.
+
+    Returns the GPU compute type string (e.g. 'OPTIX', 'CUDA', 'CPU').
+    """
     render.engine = 'CYCLES'
     scene.cycles.device = 'GPU'
-    scene.cycles.samples = SAMPLES
     scene.cycles.use_adaptive_sampling = True
-    scene.cycles.adaptive_threshold = 0.01
 
     # Prefer OptiX (fastest on RTX), fall back to CUDA
     prefs = bpy.context.preferences.addons['cycles'].preferences
@@ -5361,45 +6725,36 @@ def setup_final_render():
     for device in prefs.devices:
         device.use = True
 
-    # ── Denoiser ─────────────────────────────────────────────────
-    denoiser_name = "none"
-    if USE_DENOISER:
-        scene.cycles.use_denoising = True
-        # Try denoisers in preference order
-        for dn in ('OPENIMAGEDENOISE', 'OPTIX'):
-            try:
-                scene.cycles.denoiser = dn
-                denoiser_name = dn
-                break
-            except TypeError:
-                continue
-        else:
-            # No denoiser available — compensate with more samples
-            scene.cycles.use_denoising = False
-            scene.cycles.samples = max(SAMPLES, 512)
-            denoiser_name = "none (samples raised to 512)"
+    return gpu_type
 
-    # ── Light path optimisation ─────────────────────────────────
-    scene.cycles.max_bounces = 8
-    scene.cycles.diffuse_bounces = 4
-    scene.cycles.glossy_bounces = 4
-    scene.cycles.transmission_bounces = 8
-    scene.cycles.transparent_max_bounces = 8
-    scene.cycles.sample_clamp_indirect = 10.0    # reduce fireflies
 
-    # ── Resolution ───────────────────────────────────────────────
-    render.resolution_x = RESOLUTION[0]
-    render.resolution_y = RESOLUTION[1]
-    render.resolution_percentage = 100
+def _setup_denoiser(scene, samples_fallback):
+    """Try to enable OIDN or OptiX denoiser.
 
-    # ── Output: PNG image sequence ───────────────────────────────
-    # Determine output directory relative to this script
+    If no denoiser is available, raises samples to *samples_fallback*
+    to compensate.  Returns a human-readable denoiser name string.
+    """
+    scene.cycles.use_denoising = True
+    for dn in ('OPENIMAGEDENOISE', 'OPTIX'):
+        try:
+            scene.cycles.denoiser = dn
+            return dn
+        except TypeError:
+            continue
+    # No denoiser available — compensate with more samples
+    scene.cycles.use_denoising = False
+    scene.cycles.samples = max(scene.cycles.samples, samples_fallback)
+    return f"none (samples raised to {scene.cycles.samples})"
+
+
+def _setup_output(render, subdir="frames"):
+    """Configure PNG image-sequence output in *subdir* next to this script."""
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
     except NameError:
         script_dir = os.getcwd()
 
-    frames_dir = os.path.join(script_dir, "frames", "")
+    frames_dir = os.path.join(script_dir, subdir, "")
     os.makedirs(frames_dir, exist_ok=True)
 
     render.filepath = frames_dir
@@ -5408,13 +6763,113 @@ def setup_final_render():
     render.image_settings.color_depth = '8'
     render.use_overwrite = False          # skip already-rendered frames
     render.use_file_extension = True
+    return frames_dir
 
-    # ── Performance ──────────────────────────────────────────────
-    render.use_persistent_data = True     # keep BVH between frames
+
+def setup_draft_render():
+    """Configure a fast Cycles draft render for previewing the animation.
+
+    Uses very low samples (32) with OIDN denoising at half resolution
+    (960×540).  Transparency is fully accurate because it's still Cycles
+    with the same light-path bounce limits — just faster.
+
+    Output goes to a 'draft/' subdirectory to keep it separate from the
+    full-quality frames.
+    """
+    print("  Draft render settings ...")
+
+    SAMPLES    = 32
+    RESOLUTION = (960, 540)
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    gpu_type = _setup_cycles_common(scene, render)
+
+    scene.cycles.samples = SAMPLES
+    scene.cycles.adaptive_threshold = 0.05   # more aggressive early termination
+
+    denoiser_name = _setup_denoiser(scene, samples_fallback=128)
+
+    # Light path — same transparent bounces as final for correct layered
+    # transparency; reduce others slightly for speed.
+    scene.cycles.max_bounces = 6
+    scene.cycles.diffuse_bounces = 3
+    scene.cycles.glossy_bounces = 2
+    scene.cycles.transmission_bounces = 6
+    scene.cycles.transparent_max_bounces = 128   # must be high — dense/noisy
+                                                  # geometry can stack dozens of
+                                                  # transparent faces per ray;
+                                                  # transparent bounces are free
+    scene.cycles.sample_clamp_indirect = 10.0
+
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    frames_dir = _setup_output(render, subdir="draft")
+
+    render.use_persistent_data = True
     if gpu_type == 'OPTIX':
-        scene.cycles.tile_size = 2048     # OptiX works best with large tiles
+        scene.cycles.tile_size = 2048
     else:
-        scene.cycles.tile_size = 256      # good for CUDA
+        scene.cycles.tile_size = 256
+
+    print(f"    Engine:     Cycles ({gpu_type})  [DRAFT]")
+    print(f"    Samples:    {scene.cycles.samples} (adaptive)")
+    print(f"    Denoiser:   {denoiser_name}")
+    print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]}")
+    print(f"    Output:     {frames_dir}")
+    print(f"    Overwrite:  off (resume-safe)")
+
+
+def setup_final_render():
+    """Configure Cycles GPU rendering for high-quality output.
+
+    Renders to a PNG image sequence in a 'frames/' subdirectory next
+    to this script.  Use the companion render.sh script to render
+    headlessly and assemble the video with FFmpeg.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    SAMPLES       — Cycles samples per pixel (higher = cleaner, slower)
+    RESOLUTION    — output resolution (width, height)
+    """
+    print("  Render settings ...")
+
+    SAMPLES    = 256
+    RESOLUTION = (1920, 1080)
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    gpu_type = _setup_cycles_common(scene, render)
+
+    scene.cycles.samples = SAMPLES
+    scene.cycles.adaptive_threshold = 0.01
+
+    denoiser_name = _setup_denoiser(scene, samples_fallback=512)
+
+    # Light path optimisation
+    scene.cycles.max_bounces = 8
+    scene.cycles.diffuse_bounces = 4
+    scene.cycles.glossy_bounces = 4
+    scene.cycles.transmission_bounces = 8
+    scene.cycles.transparent_max_bounces = 128   # see draft comment — must be
+                                                  # high for dense geometry
+    scene.cycles.sample_clamp_indirect = 10.0    # reduce fireflies
+
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    frames_dir = _setup_output(render, subdir="frames")
+
+    render.use_persistent_data = True
+    if gpu_type == 'OPTIX':
+        scene.cycles.tile_size = 2048
+    else:
+        scene.cycles.tile_size = 256
 
     print(f"    Engine:     Cycles ({gpu_type})")
     print(f"    Samples:    {scene.cycles.samples} (adaptive)")
@@ -5500,17 +6955,31 @@ def main():
     # Camera flythrough trajectory
     setup_camera_animation()
 
-    # High-quality render settings (Cycles GPU, PNG sequence)
-    setup_final_render()
+    # Render settings — draft (fast preview) or final (high quality)
+    quality = os.environ.get('TRIG_RENDER_QUALITY', 'final')
+    if quality == 'draft':
+        setup_draft_render()
+    else:
+        setup_final_render()
+
+    # Make helper functions available in Blender's Python console.
+    # Script functions live in their own module namespace, which the
+    # interactive console can't see — injecting into builtins fixes that.
+    import builtins
+    builtins.print_camera_state = print_camera_state
+    builtins.goto = goto
 
     bpy.ops.object.select_all(action='DESELECT')
     n = len(bpy.data.objects)
     print(f"\nDone — {n} objects created.")
     print("Tip: Press Space in the Timeline to preview the camera flythrough.")
     print("     Press Numpad-0 to toggle the camera view.\n")
+    print("Console helpers:")
+    print("  print_camera_state()  — capture the current camera pose")
+    print("  goto()                — list named positions")
+    print("  goto(\"START_0\")       — jump camera to a named position\n")
 
 
 
 if __name__ == "__main__":
     main()
-
