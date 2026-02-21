@@ -173,3 +173,6 @@ Blender/Hotine/preview/
 Blender/Hotine/render.log
 Blender/Hotine/*.mp4
 Blender/Scratch/
+
+# Extraction pipeline
+extraction/output/
