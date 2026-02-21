@@ -123,9 +123,12 @@ SPIDER_GROOVE_W        = 0.010   # [D] 10 mm wide, 90° V-groove
 SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
 
 # --- Brass Loops ---
-LOOP_R              = 0.015     # [D] 30 mm loop dia / 2
+LOOP_R              = 0.015     # [D] 30 mm upper loop dia / 2
+LOOP_LOWER_R        = 0.022     # [E] 44 mm lower (buried) loop dia / 2
 LOOP_WIRE_R         = 0.002     # [D] 4 mm wire dia / 2
 LOOP_DEPTH          = 0.003     # [D] top of loop 3 mm below pillar surface
+LOOP_WAIST_R        = 0.008     # [E] 16 mm waist blend radius (≈ ½ upper loop)
+LOOP_WAIST_DROP     = 0.005     # [E] 5 mm vertical separation at the waist
 LOOP_RECESS_L       = 0.070     # [E] 70 mm total recess length (tangential)
 LOOP_RECESS_W       = 0.020     # [E] 20 mm U-trough width (radial)
 LOOP_RECESS_D       = 0.015     # [D] 15 mm recess depth
@@ -2364,22 +2367,205 @@ def build_spider(M):
     return spider
 
 
+def _gourd_loop_centreline(upper_r, lower_r, waist_r, waist_drop,
+                           n_upper=28, n_lower=28, n_waist=8):
+    """Return a list of (x, z) points tracing a gourd-shaped centreline.
+
+    The shape sits in the XZ plane, centred on X = 0, with:
+      - an upper arc (radius *upper_r*) spanning the top,
+      - concave circular blend arcs (radius *waist_r*) at the waist,
+      - a lower, wider arc (radius *lower_r*) forming the buried bulb,
+        offset *waist_drop* below where the circles would otherwise touch.
+
+    All four arcs meet with G1 (tangent) continuity — the blend arc
+    centres are found by solving the external-tangency constraint against
+    both the upper and lower circles.
+
+    Convention:  +Z is up.  The top of the upper arc is shifted to
+    z = 0 before returning.
+    """
+
+    # ── Circle centres (before final Z shift) ──────────────────
+    # Upper circle — centre at (0, upper_r), top at z = 2·upper_r.
+    cu_z = upper_r
+
+    # Lower circle — centre placed so there is *waist_drop* of
+    # vertical daylight between the bottom of the upper circle
+    # (z = 0) and the top of the lower circle.
+    cl_z = -(waist_drop + lower_r)
+
+    # ── Blend-circle centres (right & left, symmetric) ─────────
+    # External tangency with BOTH main circles:
+    #   |C_blend − C_upper| = upper_r + waist_r   … (1)
+    #   |C_blend − C_lower| = lower_r + waist_r   … (2)
+    # Both main centres are on x = 0, so subtract (2) from (1)
+    # to get bz, then solve for bx.
+    d_u = upper_r + waist_r
+    d_l = lower_r + waist_r
+    dz_ul = cl_z - cu_z                           # negative
+    bz = (d_u ** 2 - d_l ** 2 - cu_z ** 2 + cl_z ** 2) / (2 * dz_ul)
+    bx = math.sqrt(max(0.0, d_u ** 2 - (bz - cu_z) ** 2))
+
+    # ── Tangent points ─────────────────────────────────────────
+    def _tang(cx, cz, r, tx, tz):
+        """Point on circle (cx,cz,r) in the direction of (tx,tz)."""
+        dx, dz = tx - cx, tz - cz
+        d = math.hypot(dx, dz)
+        return (cx + r * dx / d, cz + r * dz / d)
+
+    def _ang(cx, cz, px, pz):
+        return math.atan2(pz - cz, px - cx)
+
+    # Right-side tangent points
+    t_ur = _tang(0, cu_z, upper_r, bx, bz)        # upper → right blend
+    t_lr = _tang(0, cl_z, lower_r, bx, bz)        # lower → right blend
+    # Left-side (mirror in x)
+    t_ul = _tang(0, cu_z, upper_r, -bx, bz)       # upper → left blend
+    t_ll = _tang(0, cl_z, lower_r, -bx, bz)       # lower → left blend
+
+    # ── Arc-point helper ───────────────────────────────────────
+    def _arc(cx, cz, r, a0, a1, n, cw):
+        """n+1 points along a circular arc.
+
+        *cw* = True  → clockwise  (decreasing angle).
+        *cw* = False → counter-clockwise (increasing angle).
+        The sweep always takes the short way if < π, else the
+        long way — caller must pick the correct *cw* flag.
+        """
+        if cw:
+            sweep = (a0 - a1) % (2 * math.pi)
+        else:
+            sweep = (a1 - a0) % (2 * math.pi)
+        if sweep < 1e-10:
+            sweep = 2 * math.pi          # degenerate → full circle
+        out = []
+        for i in range(n + 1):
+            t = i / n
+            a = (a0 - t * sweep) if cw else (a0 + t * sweep)
+            out.append((cx + r * math.cos(a), cz + r * math.sin(a)))
+        return out
+
+    # ── Trace the four arcs (clockwise overall) ────────────────
+    # 1) Upper arc  – CW around C_upper from T_ul to T_ur
+    #    (sweeps through the top of the circle).
+    a_ul = _ang(0, cu_z, *t_ul)
+    a_ur = _ang(0, cu_z, *t_ur)
+    upper_pts = _arc(0, cu_z, upper_r, a_ul, a_ur, n_upper, cw=True)
+
+    # 2) Right blend – CCW around C_blend_right from T_ur to T_lr
+    #    (traces the concave inner face of the blend circle).
+    a_br0 = _ang(bx, bz, *t_ur)
+    a_br1 = _ang(bx, bz, *t_lr)
+    rblend_pts = _arc(bx, bz, waist_r, a_br0, a_br1, n_waist, cw=False)
+
+    # 3) Lower arc  – CW around C_lower from T_lr to T_ll
+    #    (sweeps through the bottom).
+    a_lr = _ang(0, cl_z, *t_lr)
+    a_ll = _ang(0, cl_z, *t_ll)
+    lower_pts = _arc(0, cl_z, lower_r, a_lr, a_ll, n_lower, cw=True)
+
+    # 4) Left blend – CCW around C_blend_left from T_ll to T_ul
+    a_bl0 = _ang(-bx, bz, *t_ll)
+    a_bl1 = _ang(-bx, bz, *t_ul)
+    lblend_pts = _arc(-bx, bz, waist_r, a_bl0, a_bl1, n_waist, cw=False)
+
+    # Concatenate, skipping duplicate junction vertices.
+    full = (upper_pts
+            + rblend_pts[1:]
+            + lower_pts[1:]
+            + lblend_pts[1:])
+
+    # Shift so the topmost point sits at z = 0.
+    z_max = max(p[1] for p in full)
+    full = [(p[0], p[1] - z_max) for p in full]
+
+    return full
+
+
+def _sweep_tube_along_path(path_xz, wire_r, name, n_circ=12):
+    """Create a closed tube mesh by sweeping a circle along an XZ path.
+
+    *path_xz* is a list of (x, z) centre-line points (the path is closed —
+    the last point connects back to the first).  *wire_r* is the radius
+    of the circular cross-section.  The tube is built in the XZ plane
+    (Y = 0 for the centre-line) so the caller can rotate it into place.
+
+    Returns a Blender mesh object (not yet linked to a collection).
+    """
+    n_pts = len(path_xz)
+    bm = bmesh.new()
+    rings = []
+
+    for i in range(n_pts):
+        # Tangent direction (forward difference, wrapping)
+        i_next = (i + 1) % n_pts
+        i_prev = (i - 1) % n_pts
+        tx = path_xz[i_next][0] - path_xz[i_prev][0]
+        tz = path_xz[i_next][1] - path_xz[i_prev][1]
+        tlen = math.sqrt(tx * tx + tz * tz)
+        if tlen < 1e-12:
+            tx, tz = 1.0, 0.0
+        else:
+            tx /= tlen
+            tz /= tlen
+
+        # Normal to tangent in the XZ plane (points outward from curve)
+        nx, nz = -tz, tx
+
+        # The binormal is always Y (out-of-plane)
+        cx, cz = path_xz[i]
+
+        ring = []
+        for j in range(n_circ):
+            a = 2 * math.pi * j / n_circ
+            cos_a = math.cos(a)
+            sin_a = math.sin(a)
+            # Position: centre + cos_a * normal * r + sin_a * binormal * r
+            px = cx + wire_r * (cos_a * nx)
+            py = wire_r * sin_a              # Y axis = binormal
+            pz = cz + wire_r * (cos_a * nz)
+            ring.append(bm.verts.new((px, py, pz)))
+        rings.append(ring)
+
+    # Connect rings with quad faces
+    for i in range(n_pts):
+        i_next = (i + 1) % n_pts
+        for j in range(n_circ):
+            j_next = (j + 1) % n_circ
+            bm.faces.new([
+                rings[i][j], rings[i][j_next],
+                rings[i_next][j_next], rings[i_next][j],
+            ])
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    return mesh
+
+
 def build_brass_loops(M):
     """Three brass loops embedded in the pillar top, with carved recesses.
 
-    Each loop is a 30 mm torus (4 mm wire) standing vertically with its
-    plane radially aligned (passing through the pillar centre axis).
-    The top of the wire is 3 mm below the pillar surface.
+    Each loop is a gourd-shaped ring of 4 mm brass wire standing
+    vertically with its plane radially aligned.  The upper portion
+    (radius 15 mm) is visible in the recess; below the concrete
+    surface the two legs converge through smooth concave blend arcs
+    (radius 8 mm) forming a waist, then flare out into a wider buried
+    loop (radius 22 mm) that anchors the fitting in the concrete.
 
-    A round-bottomed recess (40 × 15 × 15 mm) with stadium plan shape
-    and chamfered top edges is carved into the concrete.  The recess long
-    axis runs tangentially (across the loop).  The upper portion of the
-    loop and part of the inner hole are exposed; the bottom and sides
+    The top of the wire sits 3 mm below the pillar surface.
+
+    A round-bottomed recess (70 × 20 × 15 mm) with stadium plan shape
+    and chamfered top edges is carved into the concrete.  The upper arc
+    and part of the inner hole are exposed; the waist and lower bulb
     remain embedded.
     """
     print("  Brass loops ...")
 
-    R       = LOOP_R                              # major radius (15 mm)
+    R       = LOOP_R                              # upper loop radius (15 mm)
+    R_low   = LOOP_LOWER_R                        # lower loop radius (20 mm)
     r       = LOOP_WIRE_R                         # wire radius (2 mm)
     rl      = LOOP_RECESS_L                       # recess length (40 mm)
     rw      = LOOP_RECESS_W                       # recess width  (15 mm)
@@ -2387,12 +2573,16 @@ def build_brass_loops(M):
     hw      = rw / 2                              # half width (7.5 mm)
     z_surf  = PILLAR_HEIGHT                       # pillar surface
 
-    # Loop centre Z: top of wire = surface - LOOP_DEPTH
-    z_loop = z_surf - LOOP_DEPTH - R - r          # PILLAR_HEIGHT - 0.020
-
     r_pos   = LOOP_POS_R                          # 120 mm from centre
     pillar  = bpy.data.objects['Pillar']
     loops   = []
+
+    # Generate the gourd-shaped centreline once (in the XZ plane,
+    # top of loop at z = 0).
+    gourd_path = _gourd_loop_centreline(
+        upper_r=R, lower_r=R_low,
+        waist_r=LOOP_WAIST_R,
+        waist_drop=LOOP_WAIST_DROP)
 
     # Recess geometry parameters
     # Local frame: length along X (tangential), width along Y (radial),
@@ -2450,19 +2640,20 @@ def build_brass_loops(M):
         cx = r_pos * math.cos(angle)
         cy = r_pos * math.sin(angle)
 
-        # ── Brass loop (torus standing vertically) ────────────────
-        bpy.ops.mesh.primitive_torus_add(
-            major_radius=R, minor_radius=r,
-            major_segments=32, minor_segments=12,
-            location=(cx, cy, z_loop))
-        lp = bpy.context.active_object
-        lp.name = f"BrassLoop_{i}"
+        # ── Brass loop (gourd-shaped, standing vertically) ────────
+        # The centreline sits in XZ with top at z = 0.  We offset
+        # so the top of the wire = surface - LOOP_DEPTH.
+        z_top = z_surf - LOOP_DEPTH - r      # top of wire centre
+        loop_mesh = _sweep_tube_along_path(
+            gourd_path, r, f"_gourd_mesh_{i}")
+        lp = bpy.data.objects.new(f"BrassLoop_{i}", loop_mesh)
+        bpy.context.collection.objects.link(lp)
 
-        # Stand upright with plane passing through Z axis:
-        # Rx(90°) tilts ring into XZ plane, Rz(angle) aligns radially.
-        lp.rotation_euler = (math.pi / 2, 0, angle)
+        # Move so local z = 0 maps to z_top, then rotate into radial plane.
+        lp.location = (cx, cy, z_top)
+        lp.rotation_euler.z = angle
         activate(lp)
-        bpy.ops.object.transform_apply(rotation=True)
+        bpy.ops.object.transform_apply(location=True, rotation=True)
 
         assign(lp, M['brass'])
         smooth(lp)
