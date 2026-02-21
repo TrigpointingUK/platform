@@ -121,6 +121,7 @@ SPIDER_ARM_LEN         = 0.115   # [D] 115 mm from inner dia of annulus
 SPIDER_ARM_W           = 0.030   # [D] 30 mm
 SPIDER_GROOVE_W        = 0.010   # [D] 10 mm wide, 90° V-groove
 SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
+SPIDER_THREAD_PITCH    = 0.003   # [E] ~3 mm thread pitch (3 threads across 10 mm)
 
 # --- Brass Loops ---
 LOOP_R              = 0.015     # [D] 30 mm upper loop dia / 2
@@ -793,14 +794,174 @@ def make_brass_material():
     map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
     map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
 
-    # ── Bump ──────────────────────────────────────────────────────
+    # ── Surface-wear bump ──────────────────────────────────────────
     voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[1], -500),
                         "Surface Wear")
     voronoi.inputs['Scale'].default_value = BUMP_SCALE
     voronoi.voronoi_dimensions = '3D'
 
-    bump = _new_node(tree, 'ShaderNodeBump', (C[3], -400), "Bump")
-    bump.inputs['Strength'].default_value = BUMP_STRENGTH
+    bump_wear = _new_node(tree, 'ShaderNodeBump', (C[3], -400),
+                          "Wear Bump")
+    bump_wear.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── Thread bump (procedural, coordinate-masked) ──────────────
+    # Sawtooth wave at the thread pitch, restricted to the vertical
+    # cylindrical bore/annulus surfaces of the spider and plug via
+    # an object-space coordinate mask.
+    #
+    # Object-space coords (TexCoord → Object) are used so the pattern
+    # travels with each object during animation (the plug unscrews and
+    # rotates away).  The Spider has its origin at the world origin so
+    # its object coords equal world coords.  The Plug's origin was
+    # shifted by origin_set(center='BOUNDS'), so its Z bounds are
+    # expressed relative to its bounding-box centre.
+    #
+    # The wave is built from plain Math nodes (MULTIPLY + FRACT)
+    # instead of the Wave Texture to avoid Blender's undocumented
+    # internal ×20 coordinate multiplier that made pitch control
+    # unreliable.
+    THREAD_PITCH    = SPIDER_THREAD_PITCH
+    THREAD_BUMP_STR = 4.0
+    THREAD_BUMP_DIST = 0.0008            # fine sampling for sharp crests
+
+    z_shelf = PILLAR_HEIGHT - SPIDER_THICK / 2
+
+    # Spider zone — object space = world space (origin at 0,0,0).
+    # Z bounds are pulled 1 mm inward from the horizontal shelf/bottom
+    # faces so the bump only appears on the vertical bore wall.
+    spider_zone = (
+        SPIDER_LOWER_BORE_R - 0.003,
+        SPIDER_LOWER_BORE_R + 0.003,
+        z_shelf - SPIDER_THICK / 2 + 0.001,
+        z_shelf - 0.001,
+    )
+
+    # Plug zone — object space is relative to the plug's bounding-box
+    # centre, which sits at z = (plug_top + plug_bot) / 2 in world.
+    # Z bounds are pulled 1 mm inward so the bump stays strictly on
+    # the middle ring's vertical outer surface, avoiding the step
+    # faces at the top (shared with upper ring) and bottom.
+    plug_top_z = z_shelf + PLUG_UPPER_H
+    plug_bot_z = z_shelf - PLUG_MIDDLE_H - PLUG_LOWER_H
+    plug_origin_z = (plug_top_z + plug_bot_z) / 2
+    plug_zone = (
+        PLUG_MIDDLE_R - 0.003,
+        PLUG_MIDDLE_R + 0.003,
+        (z_shelf - PLUG_MIDDLE_H) - plug_origin_z + 0.001,
+        z_shelf - plug_origin_z - 0.001,
+    )
+
+    # Object-space position → Separate XYZ
+    sep = _new_node(tree, 'ShaderNodeSeparateXYZ', (C[0], -700),
+                    "Separate Pos")
+
+    # Radial distance: sqrt(x² + y²)
+    pow_x = _new_node(tree, 'ShaderNodeMath', (C[0] + 150, -600), "X²")
+    pow_x.operation = 'POWER'
+    pow_x.inputs[1].default_value = 2.0
+
+    pow_y = _new_node(tree, 'ShaderNodeMath', (C[0] + 150, -750), "Y²")
+    pow_y.operation = 'POWER'
+    pow_y.inputs[1].default_value = 2.0
+
+    add_xy = _new_node(tree, 'ShaderNodeMath', (C[0] + 300, -670),
+                       "X²+Y²")
+    add_xy.operation = 'ADD'
+
+    sqrt_r = _new_node(tree, 'ShaderNodeMath', (C[0] + 450, -670),
+                       "Radius")
+    sqrt_r.operation = 'SQRT'
+
+    def _zone_mask(zone, label_prefix, y_offset):
+        """Build four range-check nodes for one threaded zone."""
+        r_min, r_max, z_min, z_max = zone
+
+        r_lo = _new_node(tree, 'ShaderNodeMath',
+                         (C[1], y_offset), f"{label_prefix} R≥min")
+        r_lo.operation = 'GREATER_THAN'
+        r_lo.inputs[1].default_value = r_min
+
+        r_hi = _new_node(tree, 'ShaderNodeMath',
+                         (C[1], y_offset - 80), f"{label_prefix} R≤max")
+        r_hi.operation = 'LESS_THAN'
+        r_hi.inputs[1].default_value = r_max
+
+        z_lo = _new_node(tree, 'ShaderNodeMath',
+                         (C[1], y_offset - 160), f"{label_prefix} Z≥min")
+        z_lo.operation = 'GREATER_THAN'
+        z_lo.inputs[1].default_value = z_min
+
+        z_hi = _new_node(tree, 'ShaderNodeMath',
+                         (C[1], y_offset - 240), f"{label_prefix} Z≤max")
+        z_hi.operation = 'LESS_THAN'
+        z_hi.inputs[1].default_value = z_max
+
+        # r_lo AND r_hi
+        m1 = _new_node(tree, 'ShaderNodeMath',
+                       (C[1] + 200, y_offset - 40),
+                       f"{label_prefix} R ok")
+        m1.operation = 'MULTIPLY'
+
+        # z_lo AND z_hi
+        m2 = _new_node(tree, 'ShaderNodeMath',
+                       (C[1] + 200, y_offset - 200),
+                       f"{label_prefix} Z ok")
+        m2.operation = 'MULTIPLY'
+
+        # R ok AND Z ok
+        m3 = _new_node(tree, 'ShaderNodeMath',
+                       (C[1] + 400, y_offset - 120),
+                       f"{label_prefix} Mask")
+        m3.operation = 'MULTIPLY'
+
+        L.new(sqrt_r.outputs['Value'], r_lo.inputs[0])
+        L.new(sqrt_r.outputs['Value'], r_hi.inputs[0])
+        L.new(sep.outputs['Z'], z_lo.inputs[0])
+        L.new(sep.outputs['Z'], z_hi.inputs[0])
+        L.new(r_lo.outputs['Value'], m1.inputs[0])
+        L.new(r_hi.outputs['Value'], m1.inputs[1])
+        L.new(z_lo.outputs['Value'], m2.inputs[0])
+        L.new(z_hi.outputs['Value'], m2.inputs[1])
+        L.new(m1.outputs['Value'], m3.inputs[0])
+        L.new(m2.outputs['Value'], m3.inputs[1])
+        return m3
+
+    # Thread V-profile: abs(frac(Z/pitch) − 0.5) × 2
+    # Gives a triangle wave 1→0→1 per pitch — the 45° slopes simulate
+    # sharp V-thread crests (height 1) and roots (height 0).
+    thread_freq = _new_node(tree, 'ShaderNodeMath', (C[1], -1200),
+                            "Z ÷ pitch")
+    thread_freq.operation = 'MULTIPLY'
+    thread_freq.inputs[1].default_value = 1.0 / THREAD_PITCH
+
+    thread_frac = _new_node(tree, 'ShaderNodeMath', (C[1] + 180, -1200),
+                            "frac")
+    thread_frac.operation = 'FRACT'
+
+    thread_center = _new_node(tree, 'ShaderNodeMath', (C[1] + 360, -1200),
+                              "−0.5")
+    thread_center.operation = 'SUBTRACT'
+    thread_center.inputs[1].default_value = 0.5
+
+    thread_abs = _new_node(tree, 'ShaderNodeMath', (C[1] + 540, -1200),
+                           "|x|")
+    thread_abs.operation = 'ABSOLUTE'
+
+    thread_tri = _new_node(tree, 'ShaderNodeMath', (C[1] + 720, -1200),
+                           "×2 → V")
+    thread_tri.operation = 'MULTIPLY'
+    thread_tri.inputs[1].default_value = 2.0
+
+    bump_thread = _new_node(tree, 'ShaderNodeBump', (C[3], -700),
+                            "Thread Bump")
+    bump_thread.inputs['Strength'].default_value = THREAD_BUMP_STR
+    bump_thread.inputs['Distance'].default_value = THREAD_BUMP_DIST
+
+    # Mix the two bump normals: wear everywhere, thread only in masked zones
+    bump_mix = _new_node(tree, 'ShaderNodeMix', (C[3] + 200, -500),
+                         "Wear ↔ Thread Bump")
+    bump_mix.data_type = 'VECTOR'
+    bump_mix.clamp_factor = True
 
     # ── BSDF ──────────────────────────────────────────────────────
     bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[4], 0))
@@ -822,8 +983,44 @@ def make_brass_material():
     L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
     L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
 
-    L.new(voronoi.outputs['Distance'], bump.inputs['Height'])
-    L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+    # Surface wear bump
+    L.new(voronoi.outputs['Distance'], bump_wear.inputs['Height'])
+
+    # Thread V-profile → thread bump
+    L.new(sep.outputs['Z'], thread_freq.inputs[0])
+    L.new(thread_freq.outputs['Value'], thread_frac.inputs[0])
+    L.new(thread_frac.outputs['Value'], thread_center.inputs[0])
+    L.new(thread_center.outputs['Value'], thread_abs.inputs[0])
+    L.new(thread_abs.outputs['Value'], thread_tri.inputs[0])
+    L.new(thread_tri.outputs['Value'], bump_thread.inputs['Height'])
+    L.new(bump_wear.outputs['Normal'], bump_thread.inputs['Normal'])
+
+    # Coordinate mask: object coords → separate → radial distance
+    L.new(tex_coord.outputs['Object'], sep.inputs['Vector'])
+    L.new(sep.outputs['X'], pow_x.inputs[0])
+    L.new(sep.outputs['Y'], pow_y.inputs[0])
+    L.new(pow_x.outputs['Value'], add_xy.inputs[0])
+    L.new(pow_y.outputs['Value'], add_xy.inputs[1])
+    L.new(add_xy.outputs['Value'], sqrt_r.inputs[0])
+
+    # Build zone masks (must come after L is defined)
+    spider_mask = _zone_mask(spider_zone, "Spider", -700)
+    plug_mask   = _zone_mask(plug_zone,   "Plug",   -1050)
+
+    # Combine: either zone triggers the thread
+    zone_or = _new_node(tree, 'ShaderNodeMath', (C[2] + 200, -900),
+                        "Any Thread Zone")
+    zone_or.operation = 'MAXIMUM'
+    zone_or.use_clamp = True
+    L.new(spider_mask.outputs['Value'], zone_or.inputs[0])
+    L.new(plug_mask.outputs['Value'], zone_or.inputs[1])
+
+    # Mix wear bump ↔ thread bump, controlled by zone mask
+    L.new(zone_or.outputs['Value'], bump_mix.inputs[0])
+    L.new(bump_wear.outputs['Normal'], bump_mix.inputs[4])     # A (vector)
+    L.new(bump_thread.outputs['Normal'], bump_mix.inputs[5])   # B (vector)
+
+    L.new(bump_mix.outputs[1], bsdf.inputs['Normal'])
 
     L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
 
