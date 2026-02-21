@@ -123,6 +123,7 @@ SPIDER_GROOVE_W        = 0.010   # [D] 10 mm wide, 90° V-groove
 SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
 SPIDER_THREAD_PITCH    = 0.003   # [E] ~3 mm thread pitch (3 threads across 10 mm)
 SPIDER_THREAD_DEPTH    = 0.002   # [E] ~2 mm thread depth
+THREAD_SHARPNESS       = 0.35   # [T] cosine power (1.0 = smooth, 0.3 = near-V)
 
 # --- Brass Loops ---
 LOOP_R              = 0.015     # [D] 30 mm upper loop dia / 2
@@ -927,31 +928,34 @@ def make_brass_material():
         L.new(m2.outputs['Value'], m3.inputs[1])
         return m3
 
-    # Thread V-profile: abs(frac(Z/pitch) − 0.5) × 2
-    # Gives a triangle wave 1→0→1 per pitch — the 45° slopes simulate
-    # sharp V-thread crests (height 1) and roots (height 0).
+    # Thread cosine profile: (1 + cos(2π·Z/pitch)) / 2
+    # Smooth 1→0→1 per pitch — matches the plug's cosine geometry
+    # and produces continuously varying normals that smooth-shade
+    # properly on the plug's regular spin topology.
     thread_freq = _new_node(tree, 'ShaderNodeMath', (C[1], -1200),
-                            "Z ÷ pitch")
+                            "Z × 2π/p")
     thread_freq.operation = 'MULTIPLY'
-    thread_freq.inputs[1].default_value = 1.0 / THREAD_PITCH
+    thread_freq.inputs[1].default_value = 2.0 * math.pi / THREAD_PITCH
 
-    thread_frac = _new_node(tree, 'ShaderNodeMath', (C[1] + 180, -1200),
-                            "frac")
-    thread_frac.operation = 'FRACT'
+    thread_cos = _new_node(tree, 'ShaderNodeMath', (C[1] + 180, -1200),
+                           "cos")
+    thread_cos.operation = 'COSINE'
 
-    thread_center = _new_node(tree, 'ShaderNodeMath', (C[1] + 360, -1200),
-                              "−0.5")
-    thread_center.operation = 'SUBTRACT'
-    thread_center.inputs[1].default_value = 0.5
+    thread_add1 = _new_node(tree, 'ShaderNodeMath', (C[1] + 360, -1200),
+                            "+1")
+    thread_add1.operation = 'ADD'
+    thread_add1.inputs[1].default_value = 1.0
 
-    thread_abs = _new_node(tree, 'ShaderNodeMath', (C[1] + 540, -1200),
-                           "|x|")
-    thread_abs.operation = 'ABSOLUTE'
+    thread_half = _new_node(tree, 'ShaderNodeMath', (C[1] + 540, -1200),
+                            "÷2")
+    thread_half.operation = 'MULTIPLY'
+    thread_half.inputs[1].default_value = 0.5
 
-    thread_tri = _new_node(tree, 'ShaderNodeMath', (C[1] + 720, -1200),
-                           "×2 → V")
-    thread_tri.operation = 'MULTIPLY'
-    thread_tri.inputs[1].default_value = 2.0
+    thread_sharp = _new_node(tree, 'ShaderNodeMath', (C[1] + 720, -1200),
+                             "sharpen")
+    thread_sharp.operation = 'POWER'
+    thread_sharp.inputs[1].default_value = THREAD_SHARPNESS
+    thread_sharp.use_clamp = True
 
     bump_thread = _new_node(tree, 'ShaderNodeBump', (C[3], -700),
                             "Thread Bump")
@@ -987,13 +991,13 @@ def make_brass_material():
     # Surface wear bump
     L.new(voronoi.outputs['Distance'], bump_wear.inputs['Height'])
 
-    # Thread V-profile → thread bump
+    # Thread cosine profile → thread bump
     L.new(sep.outputs['Z'], thread_freq.inputs[0])
-    L.new(thread_freq.outputs['Value'], thread_frac.inputs[0])
-    L.new(thread_frac.outputs['Value'], thread_center.inputs[0])
-    L.new(thread_center.outputs['Value'], thread_abs.inputs[0])
-    L.new(thread_abs.outputs['Value'], thread_tri.inputs[0])
-    L.new(thread_tri.outputs['Value'], bump_thread.inputs['Height'])
+    L.new(thread_freq.outputs['Value'], thread_cos.inputs[0])
+    L.new(thread_cos.outputs['Value'], thread_add1.inputs[0])
+    L.new(thread_add1.outputs['Value'], thread_half.inputs[0])
+    L.new(thread_half.outputs['Value'], thread_sharp.inputs[0])
+    L.new(thread_sharp.outputs['Value'], bump_thread.inputs['Height'])
     L.new(bump_wear.outputs['Normal'], bump_thread.inputs['Normal'])
 
     # Coordinate mask: object coords → separate → radial distance
@@ -3009,18 +3013,25 @@ def build_plug(M):
     z_bot     = z_mid_bot - PLUG_LOWER_H         # bottom of plug
 
     # ── Stepped profile (XZ half-plane, spun 360° around Z) ──────
-    # The middle ring's outer wall carries the V-thread profile:
-    # radius oscillates between mid_r (root) and mid_r + thread_depth
-    # (crest) following a triangle wave at the thread pitch.
+    # The middle ring's outer wall carries the thread profile.
+    # Unlike the spider bore (where the boolean solver produces
+    # complex topology that smooth-shades naturally), the plug's
+    # spin operation creates perfectly regular quads.  A linear
+    # triangle wave produces flat bands ("square wave" appearance)
+    # because all faces on each ramp share an identical normal.
+    # A cosine wave gives the same depth/pitch but with continuously
+    # varying slope, so smooth shading works properly.
     td = SPIDER_THREAD_DEPTH
     tp = SPIDER_THREAD_PITCH
-    n_thread = int(math.ceil(PLUG_MIDDLE_H / tp) * 12) + 1
+    n_thread = int(math.ceil(PLUG_MIDDLE_H / tp) * 20) + 1
     thread_pts = []
     for i in range(n_thread):
         frac_i = i / (n_thread - 1)
         z = z_shelf - PLUG_MIDDLE_H * frac_i
-        tri = abs((z / tp % 1.0) - 0.5) * 2.0
-        thread_pts.append((mid_r + td * tri, z))
+        t = z / tp % 1.0
+        cos_val = max(0.0, (1.0 + math.cos(2.0 * math.pi * t)) / 2.0)
+        curved = cos_val ** THREAD_SHARPNESS
+        thread_pts.append((mid_r + td * curved, z))
 
     bm = bmesh.new()
     profile = [
