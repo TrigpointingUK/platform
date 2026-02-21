@@ -122,6 +122,7 @@ SPIDER_ARM_W           = 0.030   # [D] 30 mm
 SPIDER_GROOVE_W        = 0.010   # [D] 10 mm wide, 90° V-groove
 SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
 SPIDER_THREAD_PITCH    = 0.003   # [E] ~3 mm thread pitch (3 threads across 10 mm)
+SPIDER_THREAD_DEPTH    = 0.002   # [E] ~2 mm thread depth
 
 # --- Brass Loops ---
 LOOP_R              = 0.015     # [D] 30 mm upper loop dia / 2
@@ -2392,6 +2393,56 @@ def _spider_outline():
     return cleaned
 
 
+def _make_threaded_bore_cutter(radius, depth, z_center,
+                               thread_depth, thread_pitch,
+                               n_angular=64, n_per_pitch=12):
+    """Create a V-threaded cylinder for boolean bore-cutting.
+
+    The outer radius varies with Z following a triangle wave: at thread
+    roots it equals *radius* (maximum material removal); at crests it
+    equals *radius - thread_depth* (material left behind forms the
+    thread ridges protruding into the bore).
+    """
+    bm = bmesh.new()
+    z_top = z_center + depth / 2
+    z_bot = z_center - depth / 2
+    n_vert = max(4, int(math.ceil(depth / thread_pitch) * n_per_pitch) + 1)
+
+    rings = []
+    for i in range(n_vert + 1):
+        z = z_bot + (z_top - z_bot) * i / n_vert
+        tri = abs((z / thread_pitch % 1.0) - 0.5) * 2.0
+        r = radius - thread_depth * tri
+        ring = []
+        for j in range(n_angular):
+            a = 2 * math.pi * j / n_angular
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), z)))
+        rings.append(ring)
+
+    for i in range(len(rings) - 1):
+        for j in range(n_angular):
+            j2 = (j + 1) % n_angular
+            bm.faces.new([rings[i][j], rings[i][j2],
+                          rings[i + 1][j2], rings[i + 1][j]])
+
+    tc = bm.verts.new((0, 0, z_top))
+    bc = bm.verts.new((0, 0, z_bot))
+    for j in range(n_angular):
+        j2 = (j + 1) % n_angular
+        bm.faces.new([rings[-1][j2], rings[-1][j], tc])
+        bm.faces.new([rings[0][j], rings[0][j2], bc])
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+    mesh = bpy.data.meshes.new("_threaded_bore")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    obj = bpy.data.objects.new("_threaded_bore", mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
 def build_spider(M):
     """Brass spider fitting at the top of the pillar.
 
@@ -2495,13 +2546,12 @@ def build_spider(M):
         location=(0, 0, z_shelf + upper_h / 2))
     boolean_cut(spider, bpy.context.active_object)
 
-    # Lower half: 64 mm dia bore from bottom to shelf (forms shelf).
+    # Lower half: V-threaded bore from bottom to shelf (forms shelf).
     lower_h = thick / 2 + 0.002
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=lower_r, depth=lower_h,
-        vertices=64,
-        location=(0, 0, z_shelf - lower_h / 2))
-    boolean_cut(spider, bpy.context.active_object)
+    threaded_cutter = _make_threaded_bore_cutter(
+        lower_r, lower_h, z_shelf - lower_h / 2,
+        SPIDER_THREAD_DEPTH, SPIDER_THREAD_PITCH)
+    boolean_cut(spider, threaded_cutter)
 
     # ── Inner bevel (45° × 3 mm on top of inner edge) ────────────
     bevel_h = ib + 0.001
@@ -2959,19 +3009,30 @@ def build_plug(M):
     z_bot     = z_mid_bot - PLUG_LOWER_H         # bottom of plug
 
     # ── Stepped profile (XZ half-plane, spun 360° around Z) ──────
-    # Ten vertices trace the cross-section clockwise from top-inner.
+    # The middle ring's outer wall carries the V-thread profile:
+    # radius oscillates between mid_r (root) and mid_r + thread_depth
+    # (crest) following a triangle wave at the thread pitch.
+    td = SPIDER_THREAD_DEPTH
+    tp = SPIDER_THREAD_PITCH
+    n_thread = int(math.ceil(PLUG_MIDDLE_H / tp) * 12) + 1
+    thread_pts = []
+    for i in range(n_thread):
+        frac_i = i / (n_thread - 1)
+        z = z_shelf - PLUG_MIDDLE_H * frac_i
+        tri = abs((z / tp % 1.0) - 0.5) * 2.0
+        thread_pts.append((mid_r + td * tri, z))
+
     bm = bmesh.new()
     profile = [
         (bore_r,            z_top - bore_bv), # 0  bore wall, below inner chamfer
         (bore_r + bore_bv,  z_top),           # 1  inner chamfer end (top surface)
         (up_r - chm,        z_top),           # 2  top surface → outer chamfer
-        (up_r,          z_top - chm),         # 2  chamfer end (outer wall)
-        (up_r,          z_shelf),             # 3  upper ring outer, bottom
-        (mid_r,         z_shelf),             # 4  step to middle ring
-        (mid_r,         z_mid_bot),           # 5  middle ring outer, bottom
-        (low_r,         z_mid_bot),           # 6  step to lower ring
-        (low_r,         z_bot),               # 7  lower ring bottom outer
-        (bore_r,        z_bot),               # 8  lower ring bottom inner
+        (up_r,          z_top - chm),         #    chamfer end (outer wall)
+        (up_r,          z_shelf),             #    upper ring outer, bottom
+        *thread_pts,                          #    V-threaded middle ring
+        (low_r,         z_mid_bot),           #    step to lower ring
+        (low_r,         z_bot),               #    lower ring bottom outer
+        (bore_r,        z_bot),               #    lower ring bottom inner
     ]
 
     verts = [bm.verts.new((r, 0, z)) for r, z in profile]
