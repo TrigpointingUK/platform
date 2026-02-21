@@ -169,8 +169,10 @@ SCREW_SOCKET_DEPTH  = 0.003     # [D] 3 mm deep
 SCREW_SPACING       = 0.077     # [D] 77 mm apart (matches spider/plug)
 
 PEG_R               = 0.0015    # [D] 3 mm peg dia / 2
-PEG_LENGTH          = 0.030     # [D] 30 mm long
-PEG_OVERHANG        = 0.010     # [D] 10 mm outside plug annulus
+PEG_LENGTH          = 0.030     # [D] 30 mm long (shaft only)
+PEG_OVERHANG        = 0.005     # [E] 5 mm shaft outside plug annulus
+PEG_EYE_R           = 0.004     # [E] 4 mm eye (teardrop loop) radius
+PEG_EYE_GAP         = 0.001     # [E] 1 mm gap (split) in the cotter loop
 
 # --- Flush Bracket ---
 FB_W                = 0.100     # [D] 100 mm wide
@@ -3308,16 +3310,124 @@ def build_plug_text(M):
     smooth(plug)
 
 
+def _make_cotter_pin(wire_r, shaft_x0, shaft_x1, eye_r, eye_gap, z,
+                     n_circ=12, n_eye=32):
+    """Build a cotter-pin mesh: shaft cylinder + teardrop eye with gap.
+
+    The shaft is a solid 3 mm cylinder from *shaft_x0* to *shaft_x1*
+    along the X axis at height *z* (the part hidden inside the plug).
+
+    At the outer end a teardrop-shaped wire loop (the eye) extends in
+    the +X direction.  The eye wire is slightly thinner than the shaft.
+    A gap (split) runs horizontally through the eye at Z = z, giving
+    the characteristic cotter-pin appearance.
+
+    The eye is in the XZ plane (vertical loop, visible from the side).
+    """
+    bm = bmesh.new()
+    half_gap = eye_gap / 2
+    eye_wire_r = wire_r * 0.65
+    elongation = 0.3
+
+    # Place eye centre so the shaft-side point (θ = π) lands at shaft_x1.
+    eye_cx = shaft_x1 + eye_r * (1 - elongation)
+
+    r_at_gap = eye_r * (1 - elongation)
+    gap_half_a = math.asin(min(half_gap / max(r_at_gap, 1e-6), 0.99))
+
+    def _connect(r1, r2):
+        for j in range(n_circ):
+            j2 = (j + 1) % n_circ
+            bm.faces.new([r1[j], r1[j2], r2[j2], r2[j]])
+
+    def _cap(ring, cx, cy, cz, inward):
+        c = bm.verts.new((cx, cy, cz))
+        for j in range(n_circ):
+            j2 = (j + 1) % n_circ
+            if inward:
+                bm.faces.new([ring[j2], ring[j], c])
+            else:
+                bm.faces.new([ring[j], ring[j2], c])
+
+    # ── Shaft (cylinder along X) ──────────────────────────────────
+    n_shaft = max(4, int(abs(shaft_x1 - shaft_x0) / (wire_r * 3)))
+    shaft_rings = []
+    for i in range(n_shaft + 1):
+        t = i / n_shaft
+        x = shaft_x0 + t * (shaft_x1 - shaft_x0)
+        ring = []
+        for j in range(n_circ):
+            a = 2 * math.pi * j / n_circ
+            ring.append(bm.verts.new((
+                x, wire_r * math.cos(a), z + wire_r * math.sin(a))))
+        shaft_rings.append(ring)
+
+    for i in range(n_shaft):
+        _connect(shaft_rings[i], shaft_rings[i + 1])
+    _cap(shaft_rings[0], shaft_x0, 0, z, inward=True)
+    _cap(shaft_rings[-1], shaft_x1, 0, z, inward=False)
+
+    # ── Eye (torus arc with teardrop modulation) ──────────────────
+    # θ = 0  → +X  (outer, round end of teardrop)
+    # θ = π  → −X  (shaft side, gap location)
+    # Arc sweeps from just past the gap CW to just before the gap,
+    # traversing through 0 (the apex).
+    start_a = math.pi + gap_half_a
+    end_a = 3 * math.pi - gap_half_a
+
+    eye_rings = []
+    for i in range(n_eye + 1):
+        t = i / n_eye
+        theta = start_a + t * (end_a - start_a)
+        r_eff = eye_r * (1 + elongation * math.cos(theta))
+        cx = eye_cx + r_eff * math.cos(theta)
+        cz = z + r_eff * math.sin(theta)
+        nx = math.cos(theta)
+        nz = math.sin(theta)
+        ring = []
+        for j in range(n_circ):
+            a = 2 * math.pi * j / n_circ
+            cos_a, sin_a = math.cos(a), math.sin(a)
+            ring.append(bm.verts.new((
+                cx + eye_wire_r * cos_a * nx,
+                eye_wire_r * sin_a,
+                cz + eye_wire_r * cos_a * nz)))
+        eye_rings.append(ring)
+
+    for i in range(n_eye):
+        _connect(eye_rings[i], eye_rings[i + 1])
+
+    # Cap both open ends of the eye arc (the gap edges)
+    for end_i in (0, -1):
+        ring = eye_rings[end_i]
+        theta = start_a if end_i == 0 else end_a
+        r_eff = eye_r * (1 + elongation * math.cos(theta))
+        cx = eye_cx + r_eff * math.cos(theta)
+        cz = z + r_eff * math.sin(theta)
+        _cap(ring, cx, 0, cz, inward=(end_i == 0))
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+    mesh = bpy.data.meshes.new("_cotter_pin")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    obj = bpy.data.objects.new("_cotter_pin", mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
 def build_fixings(M):
-    """Steel machine screws and anti-rotation peg.
+    """Steel machine screws and anti-rotation cotter pin.
 
     Two stylised allen bolts hold the plug to the spider shelf.  Each has
     a <4 mm shaft threaded into the shelf, a 7 mm head sitting inside
     the plug's clearance hole, and a 3 mm allen socket in the top.
 
-    A horizontal 3 mm peg passes through the bottom plug annulus into
-    the inner plug, preventing it from rotating.  The peg is perpendicular
-    to the line of the inner plug's blind holes (i.e. along the X axis).
+    A horizontal 3 mm cotter pin passes through the bottom plug annulus
+    into the inner plug, preventing it from rotating.  The pin has a
+    teardrop-shaped eye with a split gap at the protruding end.  It is
+    perpendicular to the inner plug's blind holes (i.e. along the X axis).
     """
     print("  Steel fixings ...")
 
@@ -3357,32 +3467,26 @@ def build_fixings(M):
         assign(screw, M['aged_steel'])
         smooth(screw)
 
-    # ── Anti-rotation peg ─────────────────────────────────────────
-    # Horizontal 3 mm steel peg through the bottom plug annulus,
+    # ── Anti-rotation peg (cotter pin) ──────────────────────────────
+    # Horizontal 3 mm cotter pin through the bottom plug annulus,
     # perpendicular to the inner plug's blind holes (which run along Y).
-    # 10 mm hangs outside the bottom annulus.
+    # The protruding end has a teardrop eye with a split gap.
     plug_low_r = PLUG_LOWER_R
 
-    # Z position: mid-height of overlap between bottom annulus and
-    # inner plug.  Bottom annulus: z_shelf-9 mm to z_shelf-18 mm.
-    # Inner plug bottom: z_shelf+6 mm - 23 mm = z_shelf-17 mm.
-    # Overlap: z_shelf-9 mm to z_shelf-17 mm → midpoint z_shelf-13 mm.
     z_peg = z_shelf - 0.013
 
-    # Peg along +X: outer tip at plug_low_r + overhang
     peg_outer_x = plug_low_r + PEG_OVERHANG
     peg_inner_x = peg_outer_x - PEG_LENGTH
-    peg_cx = (peg_outer_x + peg_inner_x) / 2
 
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=PEG_R, depth=PEG_LENGTH,
-        vertices=16,
-        location=(peg_cx, 0, z_peg))
-    peg = bpy.context.active_object
+    peg = _make_cotter_pin(
+        wire_r=PEG_R,
+        shaft_x0=peg_inner_x,
+        shaft_x1=peg_outer_x,
+        eye_r=PEG_EYE_R,
+        eye_gap=PEG_EYE_GAP,
+        z=z_peg,
+    )
     peg.name = "AntiRotationPeg"
-    peg.rotation_euler.y = math.pi / 2       # rotate to lie along X
-    activate(peg)
-    bpy.ops.object.transform_apply(rotation=True)
 
     assign(peg, M['aged_steel'])
     smooth(peg)
