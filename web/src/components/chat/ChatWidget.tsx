@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 import { useChat } from "../../hooks/useChat";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
 
 export default function ChatWidget() {
+  const { user, isAuthenticated } = useAuth0();
   const [isOpen, setIsOpen] = useState(false);
   const { messages, isLoading, sendMessage, stopStreaming, clearMessages } =
     useChat();
@@ -14,6 +16,13 @@ export default function ChatWidget() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
+  const hasAdminRole = isAuthenticated && userRoles.includes("api-admin");
+
+  if (!hasAdminRole) {
+    return null;
+  }
 
   return (
     <>
