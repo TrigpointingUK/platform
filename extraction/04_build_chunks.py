@@ -63,7 +63,7 @@ def chunk_prose_section(
     section: dict, page_num: int, chapter: str | None, mentions: list[dict]
 ) -> list[dict]:
     """Create chunks from a prose section."""
-    text = section.get("text", "")
+    text = section.get("text") or ""
     heading = section.get("heading")
     if not text.strip():
         return []
@@ -106,7 +106,7 @@ def chunk_table_section(
     a compact representation of the rows.
     """
     caption = section.get("caption") or section.get("table_number") or "Untitled table"
-    description = section.get("description", "")
+    description = section.get("description") or ""
     columns = section.get("columns", [])
     rows = section.get("rows", [])
 
@@ -158,7 +158,7 @@ def chunk_diagram_section(
     connection topology — this is the highest-value extraction.
     """
     caption = section.get("caption") or section.get("figure_number") or "Untitled diagram"
-    description = section.get("description", "")
+    description = section.get("description") or ""
     annotations = section.get("annotations", [])
 
     parts = [f"[Page {page_num}]"]
@@ -241,8 +241,8 @@ def chunk_page(page_data: dict) -> list[dict]:
             )
 
         elif section_type == "photograph":
-            desc = section.get("description", "")
-            cap = section.get("caption", "")
+            desc = section.get("description") or ""
+            cap = section.get("caption") or ""
             if desc or cap:
                 text = f"[Page {page_num}] Photograph: {cap}\n\n{desc}".strip()
                 chunks.append({
@@ -259,7 +259,7 @@ def chunk_page(page_data: dict) -> list[dict]:
         elif section_type == "footnote":
             # Footnotes are appended to the preceding prose chunk if small,
             # or emitted as their own chunk
-            fn_text = section.get("text", "")
+            fn_text = section.get("text") or ""
             marker = section.get("marker", "")
             if fn_text:
                 text = f"[Page {page_num}] Footnote {marker}: {fn_text}"

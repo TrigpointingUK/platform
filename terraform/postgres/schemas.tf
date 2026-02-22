@@ -39,6 +39,14 @@ resource "postgresql_extension" "postgis_production" {
   database = postgresql_database.production.name
 }
 
+# Enable pgvector extension in production database (for RAG vector search)
+resource "postgresql_extension" "pgvector_production" {
+  name     = "vector"
+  database = postgresql_database.production.name
+
+  depends_on = [postgresql_database.production]
+}
+
 # Create staging schema
 resource "postgresql_database" "staging" {
   name  = "tuk_staging"
@@ -51,6 +59,14 @@ resource "postgresql_database" "staging" {
 resource "postgresql_extension" "postgis_staging" {
   name     = "postgis"
   database = postgresql_database.staging.name
+}
+
+# Enable pgvector extension in staging database (for RAG vector search)
+resource "postgresql_extension" "pgvector_staging" {
+  name     = "vector"
+  database = postgresql_database.staging.name
+
+  depends_on = [postgresql_database.staging]
 }
 
 # Enable pg_cron extension - IMPORTANT LIMITATION

@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from api.api.v1.endpoints import (
     admin,
     areas,
+    chat,
     condition_admin,
     conditions,
     coordinates,
@@ -69,3 +70,4 @@ api_router.include_router(
     tags=["admin-ireland-import"],
 )
 api_router.include_router(experiment.router, prefix="/experiment", tags=["experiment"])
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])

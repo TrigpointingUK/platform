@@ -2,9 +2,11 @@
 """Link extracted trig point names to database records.
 
 Usage:
+    source ../scripts/set-db-env-production.sh
     python 03_link_entities.py
 
-Requires DATABASE_URL in the environment (or .env file).
+Requires DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME env vars
+(set by set-db-env-production.sh), or a DATABASE_URL in .env.
 
 Reads:   extraction/output/pages/*.json
 Writes:  extraction/output/linked/*.json
@@ -12,31 +14,31 @@ Writes:  extraction/output/linked/*.json
 """
 
 import json
-import os
 import sys
 import time
 from collections import defaultdict
 from pathlib import Path
 
-from dotenv import load_dotenv
 from rapidfuzz import fuzz, process
 
-from config import FUZZY_MATCH_THRESHOLD, LINKED_DIR, PAGES_DIR
-
-load_dotenv()
+from config import DATABASE_URL, FUZZY_MATCH_THRESHOLD, LINKED_DIR, PAGES_DIR
 
 
 def load_trig_names() -> list[dict]:
     """Fetch all trig records (id, waypoint, name, stn_number) from the DB."""
-    db_url = os.environ.get("DATABASE_URL", "")
-    if not db_url:
-        print("Error: DATABASE_URL not set", file=sys.stderr)
+    if not DATABASE_URL:
+        print(
+            "Error: No database connection configured.\n"
+            "Either source scripts/set-db-env-production.sh (sets DB_HOST etc.)\n"
+            "or set DATABASE_URL in your .env file.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     import psycopg2
 
     # Convert SQLAlchemy URL to psycopg2 format if needed
-    conn_str = db_url.replace("postgresql+psycopg2://", "postgresql://")
+    conn_str = DATABASE_URL.replace("postgresql+psycopg2://", "postgresql://")
 
     conn = psycopg2.connect(conn_str)
     try:

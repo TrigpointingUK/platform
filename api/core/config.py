@@ -123,6 +123,9 @@ class Settings(BaseSettings):
     # OS Maps API Configuration
     OS_API_KEY: str = ""  # From Secrets Manager
 
+    # OpenAI Configuration (RAG Chat Agent)
+    OPENAI_API_KEY: Optional[str] = None
+
     # Tile caching configuration
     TILE_CACHE_DIR: str = "/mnt/tiles"
 

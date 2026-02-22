@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Auth0Provider, AppState } from "@auth0/auth0-react";
 import { Toaster } from "react-hot-toast";
 import AppRouter from "./router";
+import ChatWidget from "./components/chat/ChatWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Auth0ErrorBoundary from "./components/Auth0ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -95,6 +96,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Auth0ErrorBoundary>
             <QueryClientProvider client={queryClient}>
               <AppRouter />
+              <ChatWidget />
               <Toaster
                 position="top-right"
                 containerStyle={{
