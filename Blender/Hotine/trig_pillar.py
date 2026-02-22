@@ -188,7 +188,7 @@ FB_BTM_Z            = 0.172     # [D] 30 mm above sighting tube top edge
 FB_RECESS_MARGIN    = 0.020     # [E] recess outer edge this far beyond plate edge
 
 # --- Flush Bracket Keying Structure ---
-FB_REAR_H_FRAC     = 0.90      # [E] rear plate height as fraction of front
+FB_REAR_H_FRAC     = 1902 / 3220  # [D] rear plate height as fraction of front (top-aligned)
 FB_BAR_H            = 0.010     # [D] keying bar height (10 mm)
 FB_BAR_DEPTH        = 0.025     # [D] keying bar protrusion behind rear plate (25 mm)
 FB_ANCHOR_H         = 0.035     # [D] anchor block height (35 mm)
@@ -3784,22 +3784,76 @@ def build_flush_bracket(M):
     bpy.ops.mesh.primitive_cube_add(
         size=1, location=(0, plate_y + d / 2, z_mid))
     plate = bpy.context.active_object
-    plate.name = "FlushBracket"
+    plate.name = "FlushBracket_NearPlate"
     plate.scale = (w, d, h)
     activate(plate)
     bpy.ops.object.transform_apply(scale=True)
     assign(plate, M['brass'])
 
+    # ── Shaped holes near top of plate ──────────────────────
+    # Two keyhole-style cutouts: 10 × 22 mm cuboid on top with a
+    # 10 mm dia hemisphere rounding the bottom.  10 mm deep from
+    # the front face.  Outer edges 10 mm inward from the side beads.
+    sh_w    = 0.016                               # 10 mm wide
+    sh_h    = 0.028                              # 22 mm cuboid height
+    sh_d    = 0.008                              # 6 mm deep
+    sh_r    = sh_w / 2                             # 5 mm hemisphere radius
+    sh_z_top = z_top - br - 0.008                  # 5 mm below bottom of top bead
+    sh_z_bot = sh_z_top - sh_h
+    sh_z_mid = (sh_z_top + sh_z_bot) / 2
+    sh_y_mid = front_y - sh_d / 2
+
+    for side in (-1, 1):
+        sh_cx = side * (hw - 0.018 - sh_w / 2)    # 10 mm from bead centre
+
+        # Cuboid portion
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(sh_cx, sh_y_mid, sh_z_mid))
+        cub = bpy.context.active_object
+        cub.scale = (sh_w, sh_d + 0.002, sh_h)
+        activate(cub)
+        bpy.ops.object.transform_apply(scale=True)
+        boolean_cut(plate, cub)
+
+        # Hemisphere at the bottom — centre in the plane of the front face
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=sh_r, segments=16, ring_count=8,
+            location=(sh_cx, front_y, sh_z_bot))
+        sph = bpy.context.active_object
+        # Cut away the top half to leave a hemisphere pointing down
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(sh_cx, front_y, sh_z_bot + sh_r / 2 + 0.001))
+        top_cut = bpy.context.active_object
+        top_cut.scale = (sh_r * 3, sh_r * 3, sh_r + 0.002)
+        activate(top_cut)
+        bpy.ops.object.transform_apply(scale=True)
+        boolean_cut(sph, top_cut)
+
+        # Clip to plate depth (front_y backward by sh_d)
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(sh_cx, front_y - sh_d / 2, sh_z_bot))
+        depth_clip = bpy.context.active_object
+        depth_clip.scale = (sh_r * 3, sh_d + 0.002, sh_r * 3)
+        activate(depth_clip)
+        bpy.ops.object.transform_apply(scale=True)
+        # Intersect to keep only the part within the plate depth
+        activate(sph)
+        mod = sph.modifiers.new('Intersect', 'BOOLEAN')
+        mod.operation = 'INTERSECT'
+        mod.object = depth_clip
+        bpy.ops.object.modifier_apply(modifier='Intersect')
+        bpy.data.objects.remove(depth_clip, do_unlink=True)
+
+        boolean_cut(plate, sph)
+
     # ── Rear plate & keying structure ────────────────────────
-    # Behind the front plate a second plate (90 % of front height,
-    # bottom-aligned) carries a T-shaped keying piece that anchors
-    # the assembly into the concrete.  The key is a thin horizontal
-    # bar (10 mm high, 25 mm deep) widening sharply to an anchor
-    # block (35 mm high, 10 mm deep).
-    rear_h     = h * FB_REAR_H_FRAC               # 162 mm
+    # Behind the front plate a second plate (top-aligned, extending
+    # 1902/3220 of the way down the near plate) carries a keying
+    # piece that anchors the assembly into the concrete.
+    rear_h     = h * FB_REAR_H_FRAC
     rear_d     = d                                 # same thickness as front plate
-    rear_z_bot = z_bot
-    rear_z_top = z_bot + rear_h
+    rear_z_top = z_top                             # top-aligned with near plate
+    rear_z_bot = z_top - rear_h
     rear_z_mid = (rear_z_bot + rear_z_top) / 2
     rear_back  = plate_y - rear_d                  # back face of rear plate
 
@@ -3812,57 +3866,119 @@ def build_flush_bracket(M):
     bpy.ops.object.transform_apply(scale=True)
     assign(rear_plate, M['brass'])
 
-    # Keying bar — tapered square-section bar protruding from rear plate.
-    # Square at the rear-plate end (bar_h × bar_h), 25 % narrower at the
-    # anchor end.  Built with bmesh for the trapezoidal plan shape.
-    bar_h      = FB_BAR_H                          # 10 mm
-    bar_depth  = FB_BAR_DEPTH                      # 25 mm
-    bar_z_mid  = rear_z_mid                        # centred on rear plate
-    bar_back   = rear_back - bar_depth             # back face of bar
-    bar_w_front = bar_h                            # square at rear plate
-    bar_w_back  = bar_h * 0.75                     # 25 % narrower at anchor
+    # ── Rectangular hole through both plates ───────────────────
+    # Centred left-right; dimensions as fractions of the rear plate.
+    hole_w = w * 511 / 1237
+    hole_h = rear_h * 270 / 1764
+    hole_z_top = rear_z_top - rear_h * 819 / 1764
+    hole_z_mid = hole_z_top - hole_h / 2
+    hole_depth = front_y - rear_back + 0.004       # spans both plates with margin
 
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, (front_y + rear_back) / 2, hole_z_mid))
+    hole_cut = bpy.context.active_object
+    hole_cut.scale = (hole_w, hole_depth, hole_h)
+    activate(hole_cut)
+    bpy.ops.object.transform_apply(scale=True)
+    boolean_cut(plate, hole_cut)
+
+    # Cut the same hole from the rear plate
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, (front_y + rear_back) / 2, hole_z_mid))
+    hole_cut2 = bpy.context.active_object
+    hole_cut2.scale = (hole_w, hole_depth, hole_h)
+    activate(hole_cut2)
+    bpy.ops.object.transform_apply(scale=True)
+    boolean_cut(rear_plate, hole_cut2)
+
+    # Keying bar — tapered circular-section bar protruding from rear plate.
+    # Diameter at plate end = 477/667 of the distance from the bottom
+    # of the rectangular hole to the bottom of the rear plate.
+    # A concave fillet blends the bar base into the rear plate surface.
+    hole_z_bot  = hole_z_top - hole_h
+    dist_to_bot = hole_z_bot - rear_z_bot
+    bar_r_front = (dist_to_bot * 477 / 667) / 2
+    bar_r_back  = bar_r_front * 0.85              # 15 % narrower at anchor
+    bar_depth   = FB_BAR_DEPTH * 1.25             # 25 % longer
+    fillet_r    = bar_r_front * 0.35
+    bar_z_mid   = rear_z_bot + bar_r_front + fillet_r + 0.001
+    bar_back    = rear_back - bar_depth
+
+    # Build bar + fillet as a single solid of revolution.
+    # Profile in the (R, Y) plane, spun around the bar's Y axis.
+    # Fillet is CONCAVE (centre at the outer corner, arc scoops inward).
+    n_fillet = 8
     bm_bar = bmesh.new()
-    bhf = bar_h / 2
-    bwf = bar_w_front / 2
-    bwb = bar_w_back / 2
-    # Front face (y = rear_back, touching rear plate)
-    bf0 = bm_bar.verts.new((-bwf, rear_back, bar_z_mid - bhf))
-    bf1 = bm_bar.verts.new(( bwf, rear_back, bar_z_mid - bhf))
-    bf2 = bm_bar.verts.new(( bwf, rear_back, bar_z_mid + bhf))
-    bf3 = bm_bar.verts.new((-bwf, rear_back, bar_z_mid + bhf))
-    # Back face (y = bar_back, touching anchor)
-    bb0 = bm_bar.verts.new((-bwb, bar_back, bar_z_mid - bhf))
-    bb1 = bm_bar.verts.new(( bwb, bar_back, bar_z_mid - bhf))
-    bb2 = bm_bar.verts.new(( bwb, bar_back, bar_z_mid + bhf))
-    bb3 = bm_bar.verts.new((-bwb, bar_back, bar_z_mid + bhf))
-    bm_bar.faces.new([bf3, bf2, bf1, bf0])                # front
-    bm_bar.faces.new([bb0, bb1, bb2, bb3])                # back
-    bm_bar.faces.new([bf3, bb3, bb2, bf2])                # top
-    bm_bar.faces.new([bf0, bf1, bb1, bb0])                # bottom
-    bm_bar.faces.new([bf0, bb0, bb3, bf3])                # left
-    bm_bar.faces.new([bf2, bb2, bb1, bf1])                # right
-    bmesh.ops.recalc_face_normals(bm_bar, faces=bm_bar.faces[:])
+    profile_pts = [
+        (0,                      rear_back),       # centre at plate surface
+    ]
+    for i in range(n_fillet + 1):
+        t = (math.pi / 2) * i / n_fillet
+        r = (bar_r_front + fillet_r) - fillet_r * math.sin(t)
+        y = (rear_back - fillet_r) + fillet_r * math.cos(t)
+        profile_pts.append((r, y))
+    profile_pts.append((bar_r_back, bar_back))     # bar surface at anchor end
+    profile_pts.append((0,          bar_back))     # centre at anchor end
+
+    bar_verts = [bm_bar.verts.new((r, y, bar_z_mid)) for r, y in profile_pts]
+    bm_bar.faces.new(bar_verts)
+
+    geom_bar = bm_bar.faces[:] + bm_bar.edges[:] + bm_bar.verts[:]
+    bmesh.ops.spin(bm_bar, geom=geom_bar,
+                   cent=(0, 0, bar_z_mid), axis=(0, 1, 0),
+                   angle=2 * math.pi, steps=32)
+    bmesh.ops.remove_doubles(bm_bar, verts=bm_bar.verts, dist=0.0001)
+
     mesh_bar = bpy.data.meshes.new("FlushBracket_Bar")
     bm_bar.to_mesh(mesh_bar)
     bm_bar.free()
     bar = bpy.data.objects.new("FlushBracket_Bar", mesh_bar)
     bpy.context.collection.objects.link(bar)
     assign(bar, M['brass'])
+    smooth(bar)
 
-    # Anchor block — square cross-section at back of bar
-    anchor_h     = FB_ANCHOR_H                     # 35 mm
+    # Anchor block — circular cross-section with bevelled edges.
+    # 50 % larger diameter than the base constant; built via bmesh spin
+    # so we can include quarter-circle bevels on both flat faces.
+    anchor_r     = (FB_ANCHOR_H * 1.5) / 2
     anchor_depth = FB_ANCHOR_DEPTH                 # 10 mm
-    anchor_w     = anchor_h                        # square
+    anchor_bv    = min(anchor_r * 0.15, anchor_depth * 0.25)
+    anchor_y_front = bar_back
+    anchor_y_back  = bar_back - anchor_depth
+    n_bevel = 6
 
-    bpy.ops.mesh.primitive_cube_add(
-        size=1, location=(0, bar_back - anchor_depth / 2, bar_z_mid))
-    anchor = bpy.context.active_object
-    anchor.name = "FlushBracket_Anchor"
-    anchor.scale = (anchor_w, anchor_depth, anchor_h)
-    activate(anchor)
-    bpy.ops.object.transform_apply(scale=True)
+    bm_a = bmesh.new()
+    a_pts = [(0, anchor_y_back)]                   # centre of back face
+    a_pts.append((anchor_r - anchor_bv, anchor_y_back))
+    for i in range(1, n_bevel + 1):
+        t = (math.pi / 2) * i / n_bevel
+        a_pts.append((
+            anchor_r - anchor_bv + anchor_bv * math.sin(t),
+            anchor_y_back + anchor_bv - anchor_bv * math.cos(t)))
+    a_pts.append((anchor_r, anchor_y_front - anchor_bv))
+    for i in range(1, n_bevel + 1):
+        t = (math.pi / 2) * i / n_bevel
+        a_pts.append((
+            anchor_r - anchor_bv + anchor_bv * math.cos(t),
+            anchor_y_front - anchor_bv + anchor_bv * math.sin(t)))
+    a_pts.append((0, anchor_y_front))              # centre of front face
+
+    a_verts = [bm_a.verts.new((r, y, bar_z_mid)) for r, y in a_pts]
+    bm_a.faces.new(a_verts)
+
+    geom_a = bm_a.faces[:] + bm_a.edges[:] + bm_a.verts[:]
+    bmesh.ops.spin(bm_a, geom=geom_a,
+                   cent=(0, 0, bar_z_mid), axis=(0, 1, 0),
+                   angle=2 * math.pi, steps=32)
+    bmesh.ops.remove_doubles(bm_a, verts=bm_a.verts, dist=0.0001)
+
+    mesh_a = bpy.data.meshes.new("FlushBracket_Anchor")
+    bm_a.to_mesh(mesh_a)
+    bm_a.free()
+    anchor = bpy.data.objects.new("FlushBracket_Anchor", mesh_a)
+    bpy.context.collection.objects.link(anchor)
     assign(anchor, M['brass'])
+    smooth(anchor)
 
     # ── Beading (D-shaped tube around front face perimeter) ───
     # A semicircular cross-section (flat against plate, dome forward)
@@ -4002,10 +4118,22 @@ def build_flush_bracket(M):
     bpy.context.collection.objects.link(recess)
     boolean_cut(pillar, recess)
 
-    return plate
+    # ── Group under an Empty parent ─────────────────────────────
+    assembly = bpy.data.objects.new("FlushBracketAssembly", None)
+    assembly.empty_display_type = 'PLAIN_AXES'
+    assembly.empty_display_size = 0.02
+    assembly.location = (0, front_y, z_mid)
+    bpy.context.collection.objects.link(assembly)
+    bpy.context.view_layer.update()
+
+    for child in (plate, rear_plate, bar, anchor, bead):
+        child.parent = assembly
+        child.matrix_parent_inverse = assembly.matrix_world.inverted()
+
+    return assembly
 
 
-def build_flush_bracket_logo(M):
+def build_flush_bracket_logo(M, fb_assembly=None):
     """Add the TrigpointingUK logo as a multi-layer brass relief on the
     flush bracket front face.
 
@@ -4218,6 +4346,12 @@ def build_flush_bracket_logo(M):
     for mat in list(bpy.data.materials):
         if mat.name.startswith('SVGMat') and mat.users == 0:
             bpy.data.materials.remove(mat)
+
+    if fb_assembly:
+        inv = fb_assembly.matrix_world.inverted()
+        for obj in logo_objs:
+            obj.parent = fb_assembly
+            obj.matrix_parent_inverse = inv
 
     print(f"    {len(logo_objs)} logo relief pieces placed.")
 
@@ -7804,8 +7938,8 @@ def main():
     build_plug_text(M)
     build_fixings(M)
     build_brass_loops(M)
-    build_flush_bracket(M)
-    build_flush_bracket_logo(M)
+    fb_assembly = build_flush_bracket(M)
+    build_flush_bracket_logo(M, fb_assembly)
     build_base_slab(M)
     build_angle_irons(M)
     build_lower_box(M)
