@@ -99,8 +99,8 @@ UCM_FILLET_R        = 0.005     # [E] fillet radius at stem-disc junctions (5 mm
 UCM_BASE_H          = 0.008     # [E] base disc height (8 mm)
 
 # --- Base Slab (Foundation) ---
-BASE_TOP_HW         = 0.380     # [E] ~2'6" / 2 — wider overhang around pillar
-BASE_BTM_HW         = 0.457     # [D] 3'0" / 2
+BASE_TOP_HW         = 0.380     # [E] ~2'6" / 2 — overhang around pillar
+BASE_BTM_HW         = 0.350     # [E] slightly narrower at bottom (tapers inward)
 BASE_HEIGHT         = 0.305     # [E] ~12" thick
 
 # --- Angle Irons ---
@@ -202,12 +202,12 @@ LOGO_BEVEL_FRAC     = 0.10      # [E] bevel width as fraction of layer relief
 LOGO_BEVEL_SEGS     = 1         # [E] bevel segments (1 = flat chamfer, 2+ = rounded)
 
 # --- Lower Wooden Box ---
-LB_HW               = 0.127     # [E] ~10" / 2
+LB_HW               = 0.152     # [D] 12" / 2 — matches lower block
 LB_HEIGHT           = 0.102     # [E] ~4"
 LB_WALL             = 0.025     # [E] 1"
 
 # --- Lower Block ---
-LBLOCK_HW           = 0.152     # [D] 1'0" / 2
+LBLOCK_HW           = 0.157     # [E] ~5 mm oversize per side vs wooden box
 LBLOCK_H            = 0.305     # [E] ~12"
 
 # --- Lower Centre Mark ---
@@ -3975,15 +3975,34 @@ def build_flush_bracket_logo(M):
 
 
 def build_base_slab(M):
-    """Concrete foundation base — rough-sided to suggest a hand-dug hole, flat on top."""
-    print("  Base slab ...")
-    base = make_frustum(
-        "BaseSlab", BASE_BTM_HW, BASE_TOP_HW, BASE_HEIGHT,
-        base_z=-BASE_HEIGHT)
+    """Concrete foundation base — rough-sided to suggest a hand-dug hole, flat on top.
 
-    # Subdivide to add geometry, then roughen sides and bottom
+    The slab extends LB_HEIGHT/2 below the nominal base to embed
+    the upper half of the lower wooden box.  A box-shaped void is
+    boolean-subtracted from the underside so the wooden box fits
+    snugly into a recess.
+    """
+    print("  Base slab ...")
+    embed = LB_HEIGHT / 2
+    total_h = BASE_HEIGHT + embed
+    base = make_frustum(
+        "BaseSlab", BASE_BTM_HW, BASE_TOP_HW, total_h,
+        base_z=-(BASE_HEIGHT + embed))
+
+    # Subdivide and roughen the exterior first so soil-facing surfaces
+    # get irregular edges, then boolean-cut the box recess so its
+    # interior faces stay perfectly flat.
     subdivide_mesh(base, cuts=3)
     roughen_mesh(base, amount=0.020, seed=123, protect_top=True)
+
+    box_zt = -BASE_HEIGHT
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, 0, box_zt - LB_HEIGHT / 2))
+    cutter = bpy.context.active_object
+    cutter.scale = (LB_HW * 2, LB_HW * 2, LB_HEIGHT)
+    activate(cutter)
+    bpy.ops.object.transform_apply(scale=True)
+    boolean_cut(base, cutter)
 
     assign(base, M['concrete'])
     return base
@@ -4105,7 +4124,7 @@ def build_lower_box(M):
 
 
 def build_lower_block(M):
-    """Lower concrete block — rough-sided to suggest a hand-dug hole, flat on top."""
+    """Lower concrete block — hand-poured, rough-sided with ~10 mm imperfections."""
     print("  Lower block ...")
     zt = -BASE_HEIGHT - LB_HEIGHT
     bpy.ops.mesh.primitive_cube_add(
@@ -4116,9 +4135,8 @@ def build_lower_block(M):
     activate(blk)
     bpy.ops.object.transform_apply(scale=True)
 
-    # Subdivide to add geometry, then roughen sides and bottom
     subdivide_mesh(blk, cuts=3)
-    roughen_mesh(blk, amount=0.015, seed=42, protect_top=True)
+    roughen_mesh(blk, amount=0.010, seed=42, protect_top=True)
 
     assign(blk, M['concrete'])
     return blk
