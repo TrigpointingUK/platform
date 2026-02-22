@@ -2598,6 +2598,34 @@ def build_spider(M):
         SPIDER_THREAD_DEPTH, SPIDER_THREAD_PITCH)
     boolean_cut(spider, threaded_cutter)
 
+    # ── Ground-off thread flats ────────────────────────────────────
+    # Two diametrically opposite segments where the thread has been
+    # roughly ground away, leaving a flat bore surface slightly deeper
+    # than the thread valley.  Random bearing, not aligned with arms
+    # or screwholes.
+    grind_arc   = 0.014                              # 14 mm circumferential
+    grind_depth = 0.005                              # 5 mm radial (thread + extra)
+    grind_h     = thick / 2 + 0.002                  # full lower-bore height
+    grind_angle = random.Random(77).uniform(0, 2 * math.pi)
+
+    # Cutter spans from thread-crest radius outward by grind_depth.
+    crest_r  = lower_r - SPIDER_THREAD_DEPTH
+    center_r = crest_r + grind_depth / 2
+    grind_zm = z_shelf - thick / 4                   # midpoint of lower bore
+
+    for offset in (0, math.pi):
+        a = grind_angle + offset
+        cx = center_r * math.cos(a)
+        cy = center_r * math.sin(a)
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(cx, cy, grind_zm))
+        g = bpy.context.active_object
+        g.scale = (grind_depth, grind_arc, grind_h)
+        g.rotation_euler.z = a
+        activate(g)
+        bpy.ops.object.transform_apply(scale=True, rotation=True)
+        boolean_cut(spider, g)
+
     # ── Inner bevel (45° × 3 mm on top of inner edge) ────────────
     bevel_h = ib + 0.001
     bpy.ops.mesh.primitive_cone_add(
