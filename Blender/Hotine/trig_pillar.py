@@ -124,6 +124,8 @@ SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
 SPIDER_THREAD_PITCH    = 0.003   # [E] ~3 mm thread pitch (3 threads across 10 mm)
 SPIDER_THREAD_DEPTH    = 0.003   # [E] ~2 mm thread depth
 THREAD_ROUNDNESS       = 0.10   # [T] 0 = triangle wave, 1 = cosine (try 0.05–0.15)
+SPIDER_FLANGE_H        = 0.008   # [E] ~4 mm bottom flange thickness
+SPIDER_FLANGE_OVERHANG = 0.012   # [E] ~5 mm shelf width beyond main body
 
 # --- Brass Loops ---
 LOOP_R              = 0.015     # [D] 30 mm upper loop dia / 2
@@ -2651,6 +2653,53 @@ def build_spider(M):
         activate(groove)
         bpy.ops.object.transform_apply(rotation=True)
         boolean_cut(spider, groove)
+
+    # ── Bottom flange (wider shelf around the underside) ─────────
+    # A thin slab wider than the main body, forming a shelf around
+    # the annulus and arm sides.  The arm tips show an inverted-T
+    # cross-section (flange wider than the arm, but no shelf at the
+    # very end).
+    #
+    # The centre hole matches the CentrePipe OD + 1 mm clearance.
+    # TODO: verify what actually happens to the flange in the central
+    #       bore area — this clearance hole is a placeholder assumption.
+    flange_h  = SPIDER_FLANGE_H
+    flange_oh = SPIDER_FLANGE_OVERHANG
+    flange_zm = zb - flange_h / 2
+
+    # Start with a wider annulus disk
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=outer_r + flange_oh, depth=flange_h,
+        vertices=64, location=(0, 0, flange_zm))
+    flange = bpy.context.active_object
+    flange.name = "_flange"
+
+    # Add wider arm rectangles (extend from centre outward to tip_r)
+    for ai in range(3):
+        rot_angle = arm_angles[ai] - math.pi / 2
+        arm_length = tip_r
+        theta = arm_angles[ai]
+        cx = (arm_length / 2) * math.cos(theta)
+        cy = (arm_length / 2) * math.sin(theta)
+        bpy.ops.mesh.primitive_cube_add(
+            size=1,
+            location=(cx, cy, flange_zm))
+        arm_box = bpy.context.active_object
+        arm_box.scale = ((arm_hw + flange_oh) * 2, arm_length, flange_h)
+        arm_box.rotation_euler.z = rot_angle
+        activate(arm_box)
+        bpy.ops.object.transform_apply(scale=True, rotation=True)
+        _union_into(flange, arm_box)
+
+    # Cut the centre hole (CentrePipe OD + 1 mm clearance)
+    pipe_clearance_r = CP_OUTER_R + 0.001
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=pipe_clearance_r, depth=flange_h + 0.002,
+        vertices=64, location=(0, 0, flange_zm))
+    boolean_cut(flange, bpy.context.active_object)
+
+    # Union flange with the spider body
+    _union_into(spider, flange)
 
     assign(spider, M['brass'])
     smooth(spider)
@@ -7531,7 +7580,7 @@ def main():
     # (arms, annulus, fillets) so grooves, bore, etc. are air.
     print("  Cutting spider cavity from pillar ...")
     outline = _spider_outline()
-    spider_base_z = PILLAR_HEIGHT - SPIDER_THICK
+    spider_base_z = PILLAR_HEIGHT - SPIDER_THICK - SPIDER_FLANGE_H
     n = len(outline)
 
     bm = bmesh.new()
