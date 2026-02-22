@@ -154,7 +154,7 @@ PLUG_HOLE_SPACING   = 0.077     # [D] 77 mm apart (matches spider screwholes)
 
 # --- Inner Plug ---
 IPLUG_R             = 0.0189    # [D] ~37.8 mm dia / 2 (fraction under 38 mm)
-IPLUG_H             = 0.023     # [D] 23 mm thick
+IPLUG_H             = 0.022     # [D] 22 mm thick
 IPLUG_BEVEL         = 0.001     # [D] 1 mm chamfer on top edge
 IPLUG_HOLE_R        = 0.003     # [D] 6 mm blind holes / 2
 IPLUG_CENTRE_DEPTH  = 0.016     # [D] centre hole 16 mm deep
@@ -1161,7 +1161,7 @@ def make_rusted_steel_material():
     return mat
 
 
-def make_aged_steel_material():
+def make_fixings_material():
     """Aged steel with surface grime — dark grey, still metallic.
 
     Used for screws and pegs which are somewhat protected from weather
@@ -3162,6 +3162,8 @@ def build_plug(M):
     td = SPIDER_THREAD_DEPTH
     tp = SPIDER_THREAD_PITCH
     rnd = THREAD_ROUNDNESS
+    ip_td = td * 8 / 13              # inner-plug thread: 13/8 × finer
+    ip_tp = tp * 8 / 13
     n_thread = int(math.ceil(PLUG_MIDDLE_H / tp) * 20) + 1
     thread_pts = []
     for i in range(n_thread):
@@ -3218,6 +3220,28 @@ def build_plug(M):
             location=(hx, hy, z_shelf + PLUG_UPPER_H / 2))
         boolean_cut(plug, bpy.context.active_object)
 
+    # ── Internal bore thread (matches inner plug, bottom 3 mm plain) ──
+    bore_thread_top = z_top - bore_bv
+    bore_thread_bot = z_bot + 0.003
+    bore_thread_h   = bore_thread_top - bore_thread_bot
+    bore_thread_zc  = (bore_thread_top + bore_thread_bot) / 2
+    bore_cutter = _make_threaded_bore_cutter(
+        bore_r + ip_td, bore_thread_h, bore_thread_zc,
+        ip_td, ip_tp)
+    boolean_cut(plug, bore_cutter)
+
+    # ── Cotter-pin hole through the lower annulus ─────────────────
+    # Horizontal through-hole along +X at the same position and radius
+    # as the cotter pin, so the hole is visible once the pin is removed.
+    cp_z = z_shelf - 0.013                          # matches z_peg in build_fixings
+    cp_len = low_r - bore_r + ip_td + 0.004         # spans annulus wall with margin
+    cp_mid_x = (low_r + bore_r - ip_td) / 2
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=PEG_R + 0.0002, depth=cp_len, vertices=16,
+        location=(cp_mid_x, 0, cp_z),
+        rotation=(0, math.pi / 2, 0))
+    boolean_cut(plug, bpy.context.active_object)
+
     assign(plug, M['brass'])
     smooth(plug)
     # Centre the plug origin so rotations happen around its body.
@@ -3227,43 +3251,61 @@ def build_plug(M):
     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
     # ── Inner plug ─────────────────────────────────────────────────
-    # Solid cylinder (~37.8 mm dia) with 1 mm chamfer on top edge and
-    # three blind holes drilled into the bottom.  Sits inside the plug
-    # bore with its top flush with the plug top.
+    # Solid cylinder (~37.8 mm dia) with 1 mm chamfer on top edge,
+    # external V-threads on the outer wall, and three blind holes
+    # drilled into the bottom.  Sits inside the plug bore with its
+    # top flush with the plug top.
+    #
+    # Built via bmesh spin of a 2-D profile (same technique as the
+    # Plug's threaded middle ring).  Thread crests sit at ip_r,
+    # troughs at ip_r − SPIDER_THREAD_DEPTH.
     ip_r    = IPLUG_R
     ip_h    = IPLUG_H
     ip_bv   = IPLUG_BEVEL
     z_ip_top = z_top
     z_ip_bot = z_ip_top - ip_h
-    z_ip_mid = z_ip_top - ip_h / 2
 
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=ip_r, depth=ip_h, vertices=64,
-        location=(0, 0, z_ip_mid))
-    ip = bpy.context.active_object
-    ip.name = "InnerPlug"
+    # Thread profile points along the outer wall, below the chamfer.
+    # ip_td / ip_tp (13/8 × finer) are computed above alongside td / tp.
+    ip_thread_top = z_ip_top - ip_bv
+    ip_thread_h   = ip_thread_top - z_ip_bot
+    n_ip_thread   = int(math.ceil(ip_thread_h / ip_tp) * 20) + 1
+    ip_thread_pts = []
+    for i in range(n_ip_thread):
+        frac_i = i / (n_ip_thread - 1)
+        z = ip_thread_top - ip_thread_h * frac_i
+        t = z / ip_tp % 1.0
+        tri = abs(t - 0.5) * 2.0
+        cos_v = (1.0 + math.cos(2.0 * math.pi * t)) / 2.0
+        blended = tri + rnd * (cos_v - tri)
+        ip_thread_pts.append((ip_r - ip_td + ip_td * blended, z))
 
-    # Chamfer on top edge (1 mm, 45°) — revolved triangular cutter
-    eps = 0.0005
-    bm_c = bmesh.new()
-    cv = [
-        bm_c.verts.new((ip_r - ip_bv - eps, 0, z_ip_top + eps)),
-        bm_c.verts.new((ip_r + eps,          0, z_ip_top + eps)),
-        bm_c.verts.new((ip_r + eps,          0, z_ip_top - ip_bv - eps)),
+    bm_ip = bmesh.new()
+    ip_profile = [
+        (0,              z_ip_top),          # centre of top face
+        (ip_r - ip_bv,   z_ip_top),          # top surface → chamfer start
+        (ip_r,           ip_thread_top),      # chamfer end (thread start)
+        *ip_thread_pts,                       # V-threaded outer wall
+        (0,              z_ip_bot),           # centre of bottom face
     ]
-    bm_c.faces.new(cv)
-    geom_c = bm_c.faces[:] + bm_c.edges[:] + bm_c.verts[:]
-    bmesh.ops.spin(bm_c, geom=geom_c,
+
+    ip_verts = [bm_ip.verts.new((r, 0, z)) for r, z in ip_profile]
+    bm_ip.faces.new(ip_verts)
+
+    geom_ip = bm_ip.faces[:] + bm_ip.edges[:] + bm_ip.verts[:]
+    bmesh.ops.spin(bm_ip, geom=geom_ip,
                    cent=(0, 0, 0), axis=(0, 0, 1),
                    angle=2 * math.pi, steps=64)
-    bmesh.ops.remove_doubles(bm_c, verts=bm_c.verts, dist=0.0001)
-    mesh_c = bpy.data.meshes.new("_iplug_chamfer")
-    bm_c.to_mesh(mesh_c)
-    bm_c.free()
+    bmesh.ops.remove_doubles(bm_ip, verts=bm_ip.verts, dist=0.0001)
 
-    chamfer_cut = bpy.data.objects.new("_iplug_chamfer", mesh_c)
-    bpy.context.collection.objects.link(chamfer_cut)
-    boolean_cut(ip, chamfer_cut)
+    ip_mesh = bpy.data.meshes.new("InnerPlug")
+    bm_ip.to_mesh(ip_mesh)
+    bm_ip.free()
+
+    ip = bpy.data.objects.new("InnerPlug", ip_mesh)
+    bpy.context.collection.objects.link(ip)
+    bpy.context.view_layer.objects.active = ip
+    ip.select_set(True)
 
     # Three blind holes drilled into the bottom face
     bh_r = IPLUG_HOLE_R
@@ -3287,8 +3329,112 @@ def build_plug(M):
             location=(sx, sy, z_ip_bot + sd / 2))
         boolean_cut(ip, bpy.context.active_object)
 
+    # Horizontal through-hole — 1.5 mm radius, 3.5 mm above bottom,
+    # drilled radially from the outer surface to the central blind hole.
+    # Bearing is 90° around from the side blind holes (which are at
+    # 90°/270°), so this sits at 0° (along +X).
+    th_r = 0.0015
+    th_z = z_ip_bot + 0.0035
+    th_angle = math.radians(0)
+    th_len = ip_r + 0.002
+    th_cx = (th_len / 2) * math.cos(th_angle)
+    th_cy = (th_len / 2) * math.sin(th_angle)
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=th_r, depth=th_len, vertices=16,
+        location=(th_cx, th_cy, th_z),
+        rotation=(0, math.pi / 2, th_angle))
+    boolean_cut(ip, bpy.context.active_object)
+
+    # Grubscrew stepped hole — 10 mm above bottom, 60° from the 90°
+    # side blind hole (bearing 150°).  Outer section 3 mm radius for
+    # 10 mm depth, then 1.5 mm radius for the remainder to the
+    # central blind hole.
+    gs_z = z_ip_bot + 0.010
+    gs_angle = math.radians(150)
+    gs_dir_x = math.cos(gs_angle)
+    gs_dir_y = math.sin(gs_angle)
+
+    # Outer section: 3 mm radius, 10 mm long, starting at outer surface
+    gs_outer_r = 0.003
+    gs_outer_len = 0.010
+    gs_outer_start = ip_r + 0.001
+    gs_outer_mid = gs_outer_start - gs_outer_len / 2
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=gs_outer_r, depth=gs_outer_len + 0.002, vertices=16,
+        location=(gs_outer_mid * gs_dir_x, gs_outer_mid * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    boolean_cut(ip, bpy.context.active_object)
+
+    # Inner section: 1.5 mm radius, from 10 mm depth to central hole
+    gs_inner_r = 0.0015
+    gs_inner_start = gs_outer_start - gs_outer_len
+    gs_inner_end = 0.0
+    gs_inner_len = gs_inner_start - gs_inner_end
+    gs_inner_mid = (gs_inner_start + gs_inner_end) / 2
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=gs_inner_r, depth=gs_inner_len + 0.002, vertices=16,
+        location=(gs_inner_mid * gs_dir_x, gs_inner_mid * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    boolean_cut(ip, bpy.context.active_object)
+
     assign(ip, M['brass'])
     smooth(ip)
+
+    # ── Grub screw (sits inside the grubscrew hole) ───────────────
+    # 13 mm total: bottom 10 mm shaft at 1.5 mm radius, top 3 mm head
+    # at 3 mm radius (6 mm dia).  Radii reduced slightly for clearance.
+    # A 1 mm wide rectangular slot runs across the top face.
+    gs_screw_shaft_r = 0.00140       # 1.5 mm - 0.1 mm clearance
+    gs_screw_head_r  = 0.00290       # 3.0 mm - 0.1 mm clearance
+    gs_screw_shaft_l = 0.010         # 10 mm
+    gs_screw_head_l  = 0.003         # 3 mm
+    gs_slot_w        = 0.001         # 1 mm slot width
+
+    # Head recessed 2 mm inside the outer surface of the inner plug.
+    gs_recess    = 0.002
+    head_start   = ip_r - gs_recess
+    head_end     = head_start - gs_screw_head_l
+    shaft_end    = head_end - gs_screw_shaft_l
+
+    head_mid  = (head_start + head_end) / 2
+    shaft_mid = (head_end + shaft_end) / 2
+
+    # Head cylinder
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=gs_screw_head_r, depth=gs_screw_head_l, vertices=24,
+        location=(head_mid * gs_dir_x, head_mid * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    screw = bpy.context.active_object
+    screw.name = "GrubScrew"
+
+    # Shaft cylinder — union into the screw
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=gs_screw_shaft_r, depth=gs_screw_shaft_l, vertices=16,
+        location=(shaft_mid * gs_dir_x, shaft_mid * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    _union_into(screw, bpy.context.active_object)
+
+    # Slot across the top (outer) face of the head.
+    # The cutter straddles the face so the boolean is clean.
+    slot_depth = 0.0015
+    slot_len   = gs_screw_head_r * 2 + 0.001
+    slot_cx    = head_start - slot_depth / 2
+    bpy.ops.mesh.primitive_cube_add(
+        size=1,
+        location=(slot_cx * gs_dir_x, slot_cx * gs_dir_y, gs_z))
+    slot = bpy.context.active_object
+    slot.scale = (slot_depth, slot_len, gs_slot_w)
+    slot.rotation_euler.z = gs_angle
+    activate(slot)
+    bpy.ops.object.transform_apply(scale=True, rotation=True)
+    boolean_cut(screw, slot)
+
+    assign(screw, M['fixings'])
+    smooth(screw)
+
+    # Parent to inner plug so it follows during animation.
+    screw.parent = ip
+    screw.matrix_parent_inverse = ip.matrix_world.inverted()
 
     return plug, ip
 
@@ -3522,7 +3668,7 @@ def _make_cotter_pin(wire_r, shaft_x0, shaft_x1, eye_r, eye_gap, z,
 
 
 def build_fixings(M):
-    """Steel machine screws and anti-rotation cotter pin.
+    """Steel machine screws and cotter pin.
 
     Two stylised allen bolts hold the plug to the spider shelf.  Each has
     a <4 mm shaft threaded into the shelf, a 7 mm head sitting inside
@@ -3568,10 +3714,10 @@ def build_fixings(M):
             location=(sx, sy, z_head_top - SCREW_SOCKET_DEPTH / 2))
         boolean_cut(screw, bpy.context.active_object)
 
-        assign(screw, M['aged_steel'])
+        assign(screw, M['fixings'])
         smooth(screw)
 
-    # ── Anti-rotation peg (cotter pin) ──────────────────────────────
+    # ── Cotter pin ─────────────────────────────────────────────────
     # Horizontal 3 mm cotter pin through the bottom plug annulus,
     # perpendicular to the inner plug's blind holes (which run along Y).
     # The protruding end has a teardrop eye with a split gap.
@@ -3590,9 +3736,9 @@ def build_fixings(M):
         eye_gap=PEG_EYE_GAP,
         z=z_peg,
     )
-    peg.name = "AntiRotationPeg"
+    peg.name = "CotterPin"
 
-    assign(peg, M['aged_steel'])
+    assign(peg, M['fixings'])
     smooth(peg)
     activate(peg)
     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
@@ -6195,7 +6341,7 @@ def setup_camera_animation():
       631–705   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
                 (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
       706–885   Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
-      886–975   Peg removal: extract along axis, arc to pillar top
+      886–975   Cotter pin removal: extract along axis, arc to pillar top
       976–1155  Inner plug removal: 12 turns unscrew, arc to -X/+Y corner
       1156–1245 Plug arc to rest on +X/+Y corner
       1246–1335 Slew to centre pipe + hold: SPIDER_0 → PIPE_0
@@ -6585,7 +6731,7 @@ def setup_camera_animation():
     # =================================================================
     # SEGMENT 6 — Plug removal  (frames 706 → 885,  6 s)
     # =================================================================
-    # The plug, inner plug, and anti-rotation peg move as a single unit.
+    # The plug, inner plug, and cotter pin move as a single unit.
     # The inner plug is parented to an animated Empty ("PlugAssembly");
     # the plug and peg follow via Child Of constraints so we can
     # release them later without duplication.
@@ -6620,7 +6766,7 @@ def setup_camera_animation():
         inner_plug.matrix_parent_inverse = assembly.matrix_world.inverted()
 
     plug = bpy.data.objects.get("Plug")
-    peg = bpy.data.objects.get("AntiRotationPeg")
+    peg = bpy.data.objects.get("CotterPin")
     plug_bind_world = plug.matrix_world.copy() if plug else None
     peg_bind_world = peg.matrix_world.copy() if peg else None
     plug_con = add_child_of(plug, assembly) if plug else None
@@ -6745,7 +6891,7 @@ def setup_camera_animation():
 
 
     # =================================================================
-    # SEGMENT 7 — Anti-rotation peg removal  (frames 886 → 975,  3 s)
+    # SEGMENT 7 — Cotter pin removal  (frames 886 → 975,  3 s)
     # =================================================================
     # The peg slides out along its axis (local X in the tilted
     # assembly), then arcs down to rest on the pillar top near the
@@ -6754,7 +6900,7 @@ def setup_camera_animation():
     #   Phase 1  886–915   Extract: slide +3 cm along axis (1 s)
     #   Phase 2  916–975   Arc down to pillar top surface  (2 s)
 
-    peg = bpy.data.objects["AntiRotationPeg"]
+    peg = bpy.data.objects["CotterPin"]
 
     # ── Phase 1: Extract along peg axis (3 cm, 1 s) ──────────────
     # Detach at segment start so we can move along the peg's own axis
@@ -7299,7 +7445,7 @@ def setup_camera_animation():
     print(f"      {F3_END+1}–{F4_END}:  Hold + rise (PROFILE_0 → SPIDER_0)")
     print(f"      {F4_END+1}–{F5_END}:  Screw removal (Screw_0 then Screw_180)")
     print(f"      {F5_END+1}–{F6_END}:  Plug removal (unscrew + tilt)")
-    print(f"      {F6_END+1}–{F7_END}:  Peg removal (extract + arc)")
+    print(f"      {F6_END+1}–{F7_END}:  Cotter pin removal (extract + arc)")
     print(f"      {F7_END+1}–{F8_END}:  Inner plug removal (unscrew + arc)")
     print(f"      {F8_END+1}–{F9_END}:  Plug arc to rest (+X, +Y corner)")
     print(f"      {F9_END+1}–{F10_END}:  Slew to pipe + hold (SPIDER_0 → PIPE_0)")
@@ -7612,7 +7758,7 @@ def main():
         'concrete':     make_concrete_material(),
         'brass':        make_brass_material(),
         'rusted_steel': make_rusted_steel_material(),
-        'aged_steel':   make_aged_steel_material(),
+        'fixings':      make_fixings_material(),
         'wood':         make_wood_material(),
         'terrain':      make_terrain_material(),
         'landscape':    make_landscape_material(),
