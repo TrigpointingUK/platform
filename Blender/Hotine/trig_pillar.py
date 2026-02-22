@@ -2600,30 +2600,55 @@ def build_spider(M):
 
     # ── Ground-off thread flats ────────────────────────────────────
     # Two diametrically opposite segments where the thread has been
-    # roughly ground away, leaving a flat bore surface slightly deeper
-    # than the thread valley.  Random bearing, not aligned with arms
-    # or screwholes.
+    # roughly ground away.  The back (outer) face follows the bore
+    # curvature; the front extends past the thread crests so no
+    # thread remnants remain.  Random bearing.
     grind_arc   = 0.014                              # 14 mm circumferential
-    grind_depth = 0.005                              # 5 mm radial (thread + extra)
+    grind_depth = 0.003                              # 5 mm radial (thread + extra)
     grind_h     = thick / 2 + 0.002                  # full lower-bore height
     grind_angle = random.Random(77).uniform(0, 2 * math.pi)
 
-    # Cutter spans from thread-crest radius outward by grind_depth.
-    crest_r  = lower_r - SPIDER_THREAD_DEPTH
-    center_r = crest_r + grind_depth / 2
-    grind_zm = z_shelf - thick / 4                   # midpoint of lower bore
+    crest_r   = lower_r - SPIDER_THREAD_DEPTH
+    grind_ir  = crest_r - 0.001                      # 1 mm past crests into bore
+    grind_or  = crest_r + grind_depth                # 5 mm deep into solid brass
+    arc_outer = grind_arc / crest_r                  # angular span at crest radius
+    splay     = math.radians(10)                      # edges angle outward ~4°
+    arc_inner = arc_outer + 2 * splay                # wider at the bore face
+    grind_zm  = z_shelf - thick / 4
+    n_arc     = 20
 
     for offset in (0, math.pi):
-        a = grind_angle + offset
-        cx = center_r * math.cos(a)
-        cy = center_r * math.sin(a)
-        bpy.ops.mesh.primitive_cube_add(
-            size=1, location=(cx, cy, grind_zm))
-        g = bpy.context.active_object
-        g.scale = (grind_depth, grind_arc, grind_h)
-        g.rotation_euler.z = a
-        activate(g)
-        bpy.ops.object.transform_apply(scale=True, rotation=True)
+        bearing = grind_angle + offset
+        bm = bmesh.new()
+        z_lo = grind_zm - grind_h / 2
+        z_hi = grind_zm + grind_h / 2
+        rings = []
+        for z in (z_lo, z_hi):
+            ring = []
+            for i in range(n_arc + 1):
+                t = bearing - arc_outer / 2 + arc_outer * i / n_arc
+                ring.append(bm.verts.new((
+                    grind_or * math.cos(t),
+                    grind_or * math.sin(t), z)))
+            for i in range(n_arc, -1, -1):
+                t = bearing - arc_inner / 2 + arc_inner * i / n_arc
+                ring.append(bm.verts.new((
+                    grind_ir * math.cos(t),
+                    grind_ir * math.sin(t), z)))
+            rings.append(ring)
+        bot, top = rings
+        n_verts = len(bot)
+        bm.faces.new(bot)
+        bm.faces.new(list(reversed(top)))
+        for i in range(n_verts):
+            j = (i + 1) % n_verts
+            bm.faces.new([bot[i], bot[j], top[j], top[i]])
+        bm.normal_update()
+        mesh = bpy.data.meshes.new("grind_cutter")
+        bm.to_mesh(mesh)
+        bm.free()
+        g = bpy.data.objects.new("grind_cutter", mesh)
+        bpy.context.collection.objects.link(g)
         boolean_cut(spider, g)
 
     # ── Inner bevel (45° × 3 mm on top of inner edge) ────────────
@@ -7663,6 +7688,22 @@ def main():
     import builtins
     builtins.print_camera_state = print_camera_state
     builtins.goto = goto
+
+    # Optionally hide the terrain for faster viewport iteration.
+    # Must clear any animation keyframes on hide_viewport / hide_render
+    # that the camera-animation pass inserted, otherwise they override.
+    if os.environ.get('TRIG_HIDE_TERRAIN'):
+        for name in ('Terrain',):
+            obj = bpy.data.objects.get(name)
+            if obj:
+                obj.hide_viewport = True
+                obj.hide_render = True
+                if obj.animation_data and obj.animation_data.action:
+                    act = obj.animation_data.action
+                    for dp in ('hide_viewport', 'hide_render'):
+                        fc = act.fcurves.find(dp)
+                        if fc:
+                            act.fcurves.remove(fc)
 
     bpy.ops.object.select_all(action='DESELECT')
     n = len(bpy.data.objects)
