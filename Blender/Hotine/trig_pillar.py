@@ -170,9 +170,11 @@ SCREW_SPACING       = 0.077     # [D] 77 mm apart (matches spider/plug)
 
 PEG_R               = 0.0015    # [D] 3 mm peg dia / 2
 PEG_LENGTH          = 0.030     # [D] 30 mm long (shaft only)
-PEG_OVERHANG        = 0.005     # [E] 5 mm shaft outside plug annulus
-PEG_EYE_R           = 0.004     # [E] 4 mm eye (teardrop loop) radius
-PEG_EYE_GAP         = 0.001     # [E] 1 mm gap (split) in the cotter loop
+PEG_OVERHANG        = 0.002     # [E] 2 mm shaft outside plug annulus
+PEG_EYE_R           = 0.0025    # [E] 2.5 mm eye (teardrop loop) radius
+PEG_EYE_GAP         = 0.0008    # [E] 0.8 mm gap (split) in the cotter loop
+# Max radial extent: PLUG_LOWER_R + OVERHANG + 2·EYE_R + wire ≈ 31 mm
+# Must stay inside PLUG_MIDDLE_R (31.9 mm) to clear the spider bore.
 
 # --- Flush Bracket ---
 FB_W                = 0.100     # [D] 100 mm wide
