@@ -179,8 +179,8 @@ PEG_EYE_GAP         = 0.0008    # [E] 0.8 mm gap (split) in the cotter loop
 # Must stay inside PLUG_MIDDLE_R (31.9 mm) to clear the spider bore.
 
 # --- Flush Bracket ---
-FB_W                = 0.100     # [D] 100 mm wide
-FB_H                = 0.180     # [D] 180 mm high
+FB_W                = 0.0855    # [D] 85.5 mm wide
+FB_H                = 0.172     # [D] 172 mm high
 FB_D                = 0.008     # [D] plate thickness behind beading
 FB_BEAD_R           = 0.005     # [D] 5 mm semicircular beading radius
 FB_SETBACK          = 0.023     # [D] bead peak ~10 mm behind pillar face at top
@@ -3791,20 +3791,29 @@ def build_flush_bracket(M):
     assign(plate, M['brass'])
 
     # ── Shaped holes near top of plate ──────────────────────
-    # Two keyhole-style cutouts: 10 × 22 mm cuboid on top with a
-    # 10 mm dia hemisphere rounding the bottom.  10 mm deep from
-    # the front face.  Outer edges 10 mm inward from the side beads.
-    sh_w    = 0.016                               # 10 mm wide
-    sh_h    = 0.028                              # 22 mm cuboid height
-    sh_d    = 0.008                              # 6 mm deep
-    sh_r    = sh_w / 2                             # 5 mm hemisphere radius
-    sh_z_top = z_top - br - 0.008                  # 5 mm below bottom of top bead
+    # Two keyhole-style cutouts with hemisphere-rounded bottoms.
+    # Measured: hole width 16.9 mm, gap between holes 21.1 mm,
+    # margin from inner bead edge 10.3 mm (adjusted from 10.7 mm
+    # to absorb 0.8 mm casting tolerance).
+    sh_w    = 0.0169                                # 16.9 mm wide
+    sh_h    = 0.028                                 # 28 mm cuboid height
+    sh_d    = 0.0121                                # 12.1 mm deep
+    sh_r    = sh_w / 2                              # 8.45 mm hemisphere radius
+    sh_gap  = 0.0211                                # 21.1 mm gap between holes
+    sh_z_top = z_top - br - 0.005                   # 5 mm below bottom of top bead
     sh_z_bot = sh_z_top - sh_h
     sh_z_mid = (sh_z_top + sh_z_bot) / 2
     sh_y_mid = front_y - sh_d / 2
 
+    # Bridge parameters (horizontal rib across each hole)
+    br_h    = 0.0115                                # 11.5 mm tall
+    br_d    = 0.005                                 # 5 mm max thickness
+    br_bv   = 0.002                                 # 2 mm convex bevel radius
+    br_z_top = sh_z_top - 0.0116                    # 11.6 mm below hole top
+    br_z_mid = br_z_top - br_h / 2
+
     for side in (-1, 1):
-        sh_cx = side * (hw - 0.018 - sh_w / 2)    # 10 mm from bead centre
+        sh_cx = side * (sh_gap / 2 + sh_w / 2)     # centred on gap
 
         # Cuboid portion
         bpy.ops.mesh.primitive_cube_add(
@@ -3815,36 +3824,102 @@ def build_flush_bracket(M):
         bpy.ops.object.transform_apply(scale=True)
         boolean_cut(plate, cub)
 
-        # Hemisphere at the bottom — centre in the plane of the front face
-        bpy.ops.mesh.primitive_uv_sphere_add(
-            radius=sh_r, segments=16, ring_count=8,
-            location=(sh_cx, front_y, sh_z_bot))
-        sph = bpy.context.active_object
-        # Cut away the top half to leave a hemisphere pointing down
-        bpy.ops.mesh.primitive_cube_add(
-            size=1, location=(sh_cx, front_y, sh_z_bot + sh_r / 2 + 0.001))
-        top_cut = bpy.context.active_object
-        top_cut.scale = (sh_r * 3, sh_r * 3, sh_r + 0.002)
-        activate(top_cut)
-        bpy.ops.object.transform_apply(scale=True)
-        boolean_cut(sph, top_cut)
+        # Ellipsoidal scoop at the bottom — centered on the front face
+        # so the back wall is a smooth sculpted curve.  Each Z-level
+        # cross-section is an ellipse centered at (sh_cx, front_y)
+        # with X semi-axis = (sh_w/2)·cos(t), Y semi-axis = sh_d·cos(t).
+        # At z = sh_z_bot the Y semi-axis equals sh_d, matching the
+        # cuboid depth exactly — no shelf at the back.  The forward
+        # half of the ellipse extends into air (no material) and has
+        # no effect on the boolean.
+        # A collar ring 2 mm above sh_z_bot ensures clean overlap.
+        n_erings = 16
+        n_ecirc  = 24
+        e_overlap = 0.002
+        bm_e = bmesh.new()
+        erings = []
+        # Collar ring (inside cuboid space)
+        collar = []
+        for ej in range(n_ecirc):
+            ea = 2 * math.pi * ej / n_ecirc
+            collar.append(bm_e.verts.new((
+                sh_cx + (sh_w / 2) * math.cos(ea),
+                front_y + sh_d * math.sin(ea),
+                sh_z_bot + e_overlap)))
+        erings.append(collar)
+        # Ellipsoidal rings tapering from sh_z_bot downward
+        for ei in range(n_erings):
+            t = math.pi / 2 * ei / n_erings
+            ez = sh_z_bot - sh_r * math.sin(t)
+            sx = (sh_w / 2) * math.cos(t)
+            sy = sh_d * math.cos(t)
+            ring = []
+            for ej in range(n_ecirc):
+                ea = 2 * math.pi * ej / n_ecirc
+                ring.append(bm_e.verts.new((
+                    sh_cx + sx * math.cos(ea),
+                    front_y + sy * math.sin(ea), ez)))
+            erings.append(ring)
+        ebot = bm_e.verts.new((sh_cx, front_y, sh_z_bot - sh_r))
+        for ei in range(len(erings) - 1):
+            for ej in range(n_ecirc):
+                ej2 = (ej + 1) % n_ecirc
+                bm_e.faces.new([erings[ei][ej], erings[ei][ej2],
+                                erings[ei + 1][ej2], erings[ei + 1][ej]])
+        last = erings[-1]
+        for ej in range(n_ecirc):
+            ej2 = (ej + 1) % n_ecirc
+            bm_e.faces.new([last[ej], last[ej2], ebot])
+        bm_e.faces.new(list(reversed(erings[0])))
+        bmesh.ops.recalc_face_normals(bm_e, faces=bm_e.faces[:])
+        emesh = bpy.data.meshes.new("_ellipsoid_scoop")
+        bm_e.to_mesh(emesh)
+        bm_e.free()
+        scoop = bpy.data.objects.new("_ellipsoid_scoop", emesh)
+        bpy.context.collection.objects.link(scoop)
+        smooth(scoop)
+        boolean_cut(plate, scoop)
 
-        # Clip to plate depth (front_y backward by sh_d)
-        bpy.ops.mesh.primitive_cube_add(
-            size=1, location=(sh_cx, front_y - sh_d / 2, sh_z_bot))
-        depth_clip = bpy.context.active_object
-        depth_clip.scale = (sh_r * 3, sh_d + 0.002, sh_r * 3)
-        activate(depth_clip)
-        bpy.ops.object.transform_apply(scale=True)
-        # Intersect to keep only the part within the plate depth
-        activate(sph)
-        mod = sph.modifiers.new('Intersect', 'BOOLEAN')
-        mod.operation = 'INTERSECT'
-        mod.object = depth_clip
-        bpy.ops.object.modifier_apply(modifier='Intersect')
-        bpy.data.objects.remove(depth_clip, do_unlink=True)
-
-        boolean_cut(plate, sph)
+        # Convex bridge across the hole — a rib spanning the slot,
+        # flush with the front face, with rounded top/bottom edges.
+        # Built as a bmesh extrusion of a rounded-rectangle YZ profile
+        # so the left/right faces stay perfectly flat (no side bevel).
+        br_zt = br_z_mid + br_h / 2
+        br_zb = br_z_mid - br_h / 2
+        br_yf = front_y
+        br_yb = front_y - br_d
+        n_seg = 4
+        corners = [
+            (br_yf - br_bv, br_zt - br_bv, 0),
+            (br_yb + br_bv, br_zt - br_bv, math.pi / 2),
+            (br_yb + br_bv, br_zb + br_bv, math.pi),
+            (br_yf - br_bv, br_zb + br_bv, 3 * math.pi / 2),
+        ]
+        profile_yz = []
+        for cy, cz, a0 in corners:
+            for k in range(n_seg):
+                a = a0 + math.pi / 2 * k / n_seg
+                profile_yz.append((cy + br_bv * math.cos(a),
+                                   cz + br_bv * math.sin(a)))
+        n_prof = len(profile_yz)
+        x_lo = sh_cx - sh_w / 2 - 0.001
+        x_hi = sh_cx + sh_w / 2 + 0.001
+        bm_br = bmesh.new()
+        ring_lo = [bm_br.verts.new((x_lo, y, z)) for y, z in profile_yz]
+        ring_hi = [bm_br.verts.new((x_hi, y, z)) for y, z in profile_yz]
+        for k in range(n_prof):
+            k2 = (k + 1) % n_prof
+            bm_br.faces.new([ring_lo[k], ring_lo[k2],
+                             ring_hi[k2], ring_hi[k]])
+        bm_br.faces.new(ring_lo)
+        bm_br.faces.new(list(reversed(ring_hi)))
+        bmesh.ops.recalc_face_normals(bm_br, faces=bm_br.faces[:])
+        br_mesh = bpy.data.meshes.new("_bridge")
+        bm_br.to_mesh(br_mesh)
+        bm_br.free()
+        bridge = bpy.data.objects.new("_bridge", br_mesh)
+        bpy.context.collection.objects.link(bridge)
+        _union_into(plate, bridge)
 
     # ── Rear plate & keying structure ────────────────────────
     # Behind the front plate a second plate (top-aligned, extending
@@ -3867,10 +3942,10 @@ def build_flush_bracket(M):
     assign(rear_plate, M['brass'])
 
     # ── Rectangular hole through both plates ───────────────────
-    # Centred left-right; dimensions as fractions of the rear plate.
-    hole_w = w * 511 / 1237
+    # Centred left-right; dimensions from direct measurement.
+    hole_w = 0.0334                                   # 33.4 mm wide
     hole_h = rear_h * 270 / 1764
-    hole_z_top = rear_z_top - rear_h * 819 / 1764
+    hole_z_top = z_top - br - 0.0416                  # 41.6 mm below bottom of top bead
     hole_z_mid = hole_z_top - hole_h / 2
     hole_depth = front_y - rear_back + 0.004       # spans both plates with margin
 
@@ -4126,6 +4201,62 @@ def build_flush_bracket(M):
     bpy.context.collection.objects.link(assembly)
     bpy.context.view_layer.update()
 
+    # ── Raised letters "O" and "S" ────────────────────────────
+    let_w     = 0.016                                # 16 mm wide per letter
+    let_h     = 0.024                                # 24 mm tall
+    let_d     = 0.0045                               # 4.5 mm protrusion
+    let_z_top = z_top - br - 0.0484                  # 48.4 mm below bottom of top bead
+    let_sep   = 0.056                                # 56 mm centre-to-centre
+
+    for letter, side in (("S", -1), ("O", 1)):
+        lx = side * let_sep / 2
+        lz_mid = let_z_top - let_h / 2
+
+        bpy.ops.object.text_add(location=(0, 0, 0))
+        txt = bpy.context.active_object
+        txt.data.body = letter
+        txt.data.align_x = 'CENTER'
+        txt.data.align_y = 'CENTER'
+        txt.data.extrude = 0.01
+        activate(txt)
+        bpy.ops.object.convert(target='MESH')
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+        mesh = txt.data
+        verts = mesh.vertices
+        xs = [v.co.x for v in verts]
+        ys = [v.co.y for v in verts]
+        zs = [v.co.z for v in verts]
+        fmin = Vector((min(xs), min(ys), min(zs)))
+        fmax = Vector((max(xs), max(ys), max(zs)))
+        fctr = (fmin + fmax) / 2
+        fsz  = fmax - fmin
+
+        sc_w = let_w / fsz.x
+        sc_h = let_h / fsz.y
+        sc_d = let_d / fsz.z
+
+        for v in verts:
+            fx = (v.co.x - fctr.x) * sc_w
+            fy = (v.co.y - fctr.y) * sc_h
+            fz = (v.co.z - fctr.z) * sc_d
+            v.co.x = -fx + lx
+            v.co.y = fz + front_y + let_d / 2 - 0.001
+            v.co.z = fy + lz_mid
+        mesh.update()
+
+        mod = txt.modifiers.new("_bvl", 'BEVEL')
+        mod.width = 0.0004
+        mod.segments = 2
+        mod.limit_method = 'ANGLE'
+        mod.angle_limit = math.radians(30)
+        activate(txt)
+        bpy.ops.object.modifier_apply(modifier="_bvl")
+
+        assign(txt, M['brass'])
+        _union_into(plate, txt)
+
+    smooth(plate)
     for child in (plate, rear_plate, bar, anchor, bead):
         child.parent = assembly
         child.matrix_parent_inverse = assembly.matrix_world.inverted()
