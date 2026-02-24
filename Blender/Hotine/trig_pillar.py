@@ -3775,17 +3775,23 @@ def build_flush_bracket(M):
     z_mid   = z_bot + h / 2                       # centre Z
     hw      = w / 2                               # 50 mm half width
 
-    # Bracket plate Y: set back from pillar face at the top
+    # Bracket plate Y: set back from pillar face at the top.
+    # Plate thicknesses sized so rear plate back aligns with the broad-arrow
+    # trapezoidal cap back (cap_depth 25.4 mm minus ba_d 4.5 mm = 20.9 mm
+    # total plate depth), with NearPlate = 0.5× RearPlate.
     face_top = pillar_hw_at(z_top)
-    plate_y  = face_top - setback                 # back face of plate
-    front_y  = plate_y + d                        # plate front face Y
+    front_y  = face_top - setback + d             # plate front face Y
+    total_plate_d = 0.0254 - 0.0045               # trap depth − protrusion = 20.9 mm
+    rear_d   = total_plate_d * 2 / 3              # ≈ 13.93 mm
+    near_d   = total_plate_d / 3                  # ≈ 6.97 mm (0.5× rear_d)
+    plate_y  = front_y - near_d                   # back of near plate = front of rear plate
 
     # ── Plate (simple box) ────────────────────────────────────
     bpy.ops.mesh.primitive_cube_add(
-        size=1, location=(0, plate_y + d / 2, z_mid))
+        size=1, location=(0, front_y - near_d / 2, z_mid))
     plate = bpy.context.active_object
     plate.name = "FlushBracket_NearPlate"
-    plate.scale = (w, d, h)
+    plate.scale = (w, near_d, h)
     activate(plate)
     bpy.ops.object.transform_apply(scale=True)
     assign(plate, M['brass'])
@@ -3926,7 +3932,7 @@ def build_flush_bracket(M):
     # 1902/3220 of the way down the near plate) carries a keying
     # piece that anchors the assembly into the concrete.
     rear_h     = h * FB_REAR_H_FRAC
-    rear_d     = d                                 # same thickness as front plate
+    # rear_d already computed above (≈ 13.93 mm); near_d = 0.5× rear_d
     rear_z_top = z_top                             # top-aligned with near plate
     rear_z_bot = z_top - rear_h
     rear_z_mid = (rear_z_bot + rear_z_top) / 2
@@ -3966,34 +3972,41 @@ def build_flush_bracket(M):
     bpy.ops.object.transform_apply(scale=True)
     boolean_cut(rear_plate, hole_cut2)
 
-    # Keying bar — tapered circular-section bar protruding from rear plate.
-    # Diameter at plate end = 477/667 of the distance from the bottom
-    # of the rectangular hole to the bottom of the rear plate.
-    # A concave fillet blends the bar base into the rear plate surface.
+    # Keying bar — uniform circular-section bar protruding from rear plate.
+    # Diameter = 80 % of the proportional value (477/667 of distance from
+    # hole bottom to rear plate bottom).  No taper.
+    # Concave fillets at both ends (plate and anchor).
+    # Positioned so the fillet disc just touches the rear plate bottom edge.
     hole_z_bot  = hole_z_top - hole_h
     dist_to_bot = hole_z_bot - rear_z_bot
-    bar_r_front = (dist_to_bot * 477 / 667) / 2
-    bar_r_back  = bar_r_front * 0.85              # 15 % narrower at anchor
+    bar_r_base  = (dist_to_bot * 477 / 667) / 2
+    bar_r       = bar_r_base * 0.80               # 80 % of original diameter
     bar_depth   = FB_BAR_DEPTH * 1.25             # 25 % longer
-    fillet_r    = bar_r_front * 0.35
-    bar_z_mid   = rear_z_bot + bar_r_front + fillet_r + 0.001
+    fillet_r    = bar_r * 0.25                    # tighter fillet than before
+    bar_z_mid   = rear_z_bot + bar_r + fillet_r   # fillet edge touches plate bottom
     bar_back    = rear_back - bar_depth
 
-    # Build bar + fillet as a single solid of revolution.
+    # Build bar + fillets as a single solid of revolution.
     # Profile in the (R, Y) plane, spun around the bar's Y axis.
-    # Fillet is CONCAVE (centre at the outer corner, arc scoops inward).
     n_fillet = 8
     bm_bar = bmesh.new()
     profile_pts = [
-        (0,                      rear_back),       # centre at plate surface
+        (0, rear_back),                            # centre at plate surface
     ]
+    # Plate-end fillet (concave: widens from bar_r to bar_r + fillet_r at plate)
     for i in range(n_fillet + 1):
         t = (math.pi / 2) * i / n_fillet
-        r = (bar_r_front + fillet_r) - fillet_r * math.sin(t)
+        r = (bar_r + fillet_r) - fillet_r * math.sin(t)
         y = (rear_back - fillet_r) + fillet_r * math.cos(t)
         profile_pts.append((r, y))
-    profile_pts.append((bar_r_back, bar_back))     # bar surface at anchor end
-    profile_pts.append((0,          bar_back))     # centre at anchor end
+    # Anchor-end fillet (matching concave: widens from bar_r to bar_r + fillet_r)
+    anchor_y_f = bar_back
+    for i in range(n_fillet + 1):
+        t = (math.pi / 2) * i / n_fillet
+        r = bar_r + fillet_r * (1 - math.cos(t))
+        y = (anchor_y_f + fillet_r) - fillet_r * math.sin(t)
+        profile_pts.append((r, y))
+    profile_pts.append((0, anchor_y_f))            # centre at anchor face
 
     bar_verts = [bm_bar.verts.new((r, y, bar_z_mid)) for r, y in profile_pts]
     bm_bar.faces.new(bar_verts)
@@ -4392,6 +4405,39 @@ def build_flush_bracket(M):
                                   ba_top_w, ba_bot_w)
     _union_into(ba_main, ba_right)
     _union_into(ba_main, ba_left)
+
+    # Trapezoidal top cap — plan-view (from +Z) the top of the arrow is
+    # a trapezium: 6.8 mm wide at the front face, 27.0 mm wide at the back,
+    # 25.4 mm deep (Y) between the parallel edges.
+    cap_front_hw = ba_top_w / 2                    # 3.4 mm half-width at front
+    cap_back_hw  = 0.0270 / 2                      # 13.5 mm half-width at back
+    cap_depth    = 0.0254                           # 25.4 mm front-to-back
+    cap_z_thick  = 0.008                            # Z thickness for solid overlap
+    cap_y_front  = ba_yf
+    cap_y_back   = ba_yf - cap_depth
+
+    bm_cap = bmesh.new()
+    vt = [bm_cap.verts.new((-cap_front_hw, cap_y_front, ba_z_top)),
+          bm_cap.verts.new(( cap_front_hw, cap_y_front, ba_z_top)),
+          bm_cap.verts.new(( cap_back_hw,  cap_y_back,  ba_z_top)),
+          bm_cap.verts.new((-cap_back_hw,  cap_y_back,  ba_z_top))]
+    vb = [bm_cap.verts.new((-cap_front_hw, cap_y_front, ba_z_top - cap_z_thick)),
+          bm_cap.verts.new(( cap_front_hw, cap_y_front, ba_z_top - cap_z_thick)),
+          bm_cap.verts.new(( cap_back_hw,  cap_y_back,  ba_z_top - cap_z_thick)),
+          bm_cap.verts.new((-cap_back_hw,  cap_y_back,  ba_z_top - cap_z_thick))]
+    bm_cap.faces.new(vt)
+    bm_cap.faces.new(list(reversed(vb)))
+    for i in range(4):
+        j = (i + 1) % 4
+        bm_cap.faces.new([vt[i], vb[i], vb[j], vt[j]])
+    bmesh.ops.recalc_face_normals(bm_cap, faces=bm_cap.faces[:])
+
+    m_cap = bpy.data.meshes.new("_ba_cap")
+    bm_cap.to_mesh(m_cap)
+    bm_cap.free()
+    cap_obj = bpy.data.objects.new("_ba_cap", m_cap)
+    bpy.context.collection.objects.link(cap_obj)
+    _union_into(ba_main, cap_obj)
 
     _bevel_sharp_edges(ba_main, width=0.0005, segments=2)
 
