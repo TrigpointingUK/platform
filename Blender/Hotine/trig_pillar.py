@@ -3947,29 +3947,55 @@ def build_flush_bracket(M):
     bpy.ops.object.transform_apply(scale=True)
     assign(rear_plate, M['brass'])
 
-    # ── Rectangular hole through both plates ───────────────────
-    # Centred left-right; dimensions from direct measurement.
-    hole_w = 0.0334                                   # 33.4 mm wide
-    hole_h = rear_h * 270 / 1764
+    # ── Hole through both plates ────────────────────────────────
+    # The back of the hole is rectangular.  The front extends down to
+    # the bottom of the broad arrow; the bottom surface slopes between
+    # the two, forming a wedge.
+    hole_w     = 0.0334                               # 33.4 mm wide
+    hole_h     = rear_h * 270 / 1764                  # rectangular portion height
     hole_z_top = z_top - br - 0.0416                  # 41.6 mm below bottom of top bead
-    hole_z_mid = hole_z_top - hole_h / 2
-    hole_depth = front_y - rear_back + 0.004       # spans both plates with margin
+    hole_z_bot = hole_z_top - hole_h                  # back-face bottom
+    ba_z_top_  = hole_z_top - 0.0112                  # broad arrow top
+    ba_z_bot_  = ba_z_top_ - 0.0361                   # broad arrow bottom (front bottom)
 
-    bpy.ops.mesh.primitive_cube_add(
-        size=1, location=(0, (front_y + rear_back) / 2, hole_z_mid))
-    hole_cut = bpy.context.active_object
-    hole_cut.scale = (hole_w, hole_depth, hole_h)
+    eps_h   = 0.002                                   # boolean margin
+    hw_h    = hole_w / 2 + eps_h
+    y_front = front_y + eps_h
+    y_back  = rear_back - eps_h
+    zt      = hole_z_top + eps_h
+    zf_bot  = ba_z_bot_ - eps_h                       # front bottom (deep)
+    zb_bot  = hole_z_bot - eps_h                      # back bottom (shallow)
+
+    def _make_wedge_cutter(name):
+        bm_h = bmesh.new()
+        ftl = bm_h.verts.new((-hw_h, y_front, zt))
+        ftr = bm_h.verts.new(( hw_h, y_front, zt))
+        fbr = bm_h.verts.new(( hw_h, y_front, zf_bot))
+        fbl = bm_h.verts.new((-hw_h, y_front, zf_bot))
+        btl = bm_h.verts.new((-hw_h, y_back,  zt))
+        btr = bm_h.verts.new(( hw_h, y_back,  zt))
+        bbr = bm_h.verts.new(( hw_h, y_back,  zb_bot))
+        bbl = bm_h.verts.new((-hw_h, y_back,  zb_bot))
+        bm_h.faces.new([ftl, ftr, btr, btl])          # top
+        bm_h.faces.new([fbl, fbr, ftr, ftl])          # front
+        bm_h.faces.new([bbl, btl, btr, bbr])          # back
+        bm_h.faces.new([fbl, ftl, btl, bbl])          # left
+        bm_h.faces.new([fbr, bbr, btr, ftr])          # right
+        bm_h.faces.new([fbl, bbl, bbr, fbr])          # bottom (sloped)
+        bmesh.ops.recalc_face_normals(bm_h, faces=bm_h.faces[:])
+        m_h = bpy.data.meshes.new(name)
+        bm_h.to_mesh(m_h)
+        bm_h.free()
+        obj = bpy.data.objects.new(name, m_h)
+        bpy.context.collection.objects.link(obj)
+        return obj
+
+    hole_cut = _make_wedge_cutter("_hole_wedge_1")
     activate(hole_cut)
-    bpy.ops.object.transform_apply(scale=True)
     boolean_cut(plate, hole_cut)
 
-    # Cut the same hole from the rear plate
-    bpy.ops.mesh.primitive_cube_add(
-        size=1, location=(0, (front_y + rear_back) / 2, hole_z_mid))
-    hole_cut2 = bpy.context.active_object
-    hole_cut2.scale = (hole_w, hole_depth, hole_h)
+    hole_cut2 = _make_wedge_cutter("_hole_wedge_2")
     activate(hole_cut2)
-    bpy.ops.object.transform_apply(scale=True)
     boolean_cut(rear_plate, hole_cut2)
 
     # Keying bar — uniform circular-section bar protruding from rear plate.
@@ -4438,6 +4464,31 @@ def build_flush_bracket(M):
     cap_obj = bpy.data.objects.new("_ba_cap", m_cap)
     bpy.context.collection.objects.link(cap_obj)
     _union_into(ba_main, cap_obj)
+
+    # Side fill volumes — tetrahedra connecting the broad arrow outer edge,
+    # the trapezoid diagonal, and the sloping hole wall.  One per side.
+    # These are the sloped "ramps" between the narrow front and wide back.
+    dx_side  = ba_spread - ba_top_w / 2
+    dz_side  = math.sqrt(ba_len ** 2 - dx_side ** 2)
+    z_out_bt = ba_z_top - dz_side                  # outer-bottom Z of side leg
+
+    for sign in (1, -1):
+        bm_f = bmesh.new()
+        va = bm_f.verts.new((sign * ba_top_w / 2,  ba_yf,      ba_z_top))
+        vb = bm_f.verts.new((sign * ba_spread,      ba_yf,      z_out_bt))
+        vc = bm_f.verts.new((sign * cap_back_hw,    cap_y_back, ba_z_top))
+        vd = bm_f.verts.new((sign * hole_w / 2,     rear_back,  hole_z_bot))
+        bm_f.faces.new([va, vb, vc])
+        bm_f.faces.new([va, vc, vd])
+        bm_f.faces.new([va, vd, vb])
+        bm_f.faces.new([vb, vd, vc])
+        bmesh.ops.recalc_face_normals(bm_f, faces=bm_f.faces[:])
+        m_f = bpy.data.meshes.new(f"_ba_fill_{sign}")
+        bm_f.to_mesh(m_f)
+        bm_f.free()
+        fill_obj = bpy.data.objects.new(f"_ba_fill_{sign}", m_f)
+        bpy.context.collection.objects.link(fill_obj)
+        _union_into(ba_main, fill_obj)
 
     _bevel_sharp_edges(ba_main, width=0.0005, segments=2)
 
