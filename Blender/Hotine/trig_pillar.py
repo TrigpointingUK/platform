@@ -4503,20 +4503,19 @@ def build_flush_bracket(M):
         bpy.context.collection.objects.link(fill_obj)
         _union_into(ba_main, fill_obj)
 
-    # Side pyramids — thin wedges on the hole walls connecting the
-    # rectangular hole edges to the trapezoid back corners.
+    # Side pyramids — tetrahedra on the hole walls connecting the
+    # front hole edge to the back-bottom corner and the trapezoid
+    # apex.  The back face of the hole stays rectangular.
     for sign in (1, -1):
         bm_p = bmesh.new()
         p1 = bm_p.verts.new((sign * hole_hw, front_y,   hole_z_top))    # front top
         p2 = bm_p.verts.new((sign * hole_hw, front_y,   ba_z_bot))      # front bottom
         p3 = bm_p.verts.new((sign * hole_hw, rear_back,  hole_z_bot))   # back bottom
-        p4 = bm_p.verts.new((sign * hole_hw, rear_back,  hole_z_top))   # back top
         apex = bm_p.verts.new((sign * cap_back_hw, cap_y_back, ba_z_top))
-        bm_p.faces.new([p1, p2, p3, p4])              # base (hole wall)
-        bm_p.faces.new([p1, p4, apex])                 # top
-        bm_p.faces.new([p1, apex, p2])                 # front
-        bm_p.faces.new([p2, apex, p3])                 # bottom
-        bm_p.faces.new([p3, apex, p4])                 # back
+        bm_p.faces.new([p1, p3, p2])                  # base (hole wall)
+        bm_p.faces.new([p1, p2, apex])                 # front
+        bm_p.faces.new([p2, p3, apex])                 # bottom
+        bm_p.faces.new([p3, p1, apex])                 # top/back
         bmesh.ops.recalc_face_normals(bm_p, faces=bm_p.faces[:])
         m_p = bpy.data.meshes.new(f"_ba_side_pyr_{sign}")
         bm_p.to_mesh(m_p)
