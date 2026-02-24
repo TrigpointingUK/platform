@@ -4530,7 +4530,10 @@ def build_flush_bracket(M):
     smooth(ba_main)
     ba_main.name = "FlushBracket_BroadArrow"
 
+    _bevel_sharp_edges(rear_plate, width=0.0004, segments=2)
+    _bevel_sharp_edges(plate, width=0.0004, segments=2)
     smooth(plate)
+    smooth(rear_plate)
     for child in [plate, rear_plate, bar, anchor, bead, ba_main] + letter_objs:
         child.parent = assembly
         child.matrix_parent_inverse = assembly.matrix_world.inverted()
