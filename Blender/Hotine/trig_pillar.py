@@ -754,10 +754,12 @@ def make_brass_material():
     PATINA_AMOUNT  = 0.40
     PATINA_SCALE   = 8.0
     METALLIC       = 0.55
-    ROUGHNESS_BASE = 0.50
-    ROUGHNESS_VAR  = 0.05
-    BUMP_STRENGTH  = 0.02
+    ROUGHNESS_BASE = 0.52
+    ROUGHNESS_VAR  = 0.10
+    BUMP_STRENGTH  = 0.04
     BUMP_SCALE     = 50.0
+    FINE_BUMP_STR  = 0.06
+    FINE_BUMP_SCALE = 300.0
 
     mat = bpy.data.materials.new("Brass")
     mat.use_nodes = True
@@ -802,13 +804,26 @@ def make_brass_material():
     map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
     map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
 
-    # ── Surface-wear bump ──────────────────────────────────────────
-    voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[1], -500),
+    # ── Fine surface-wear bump (aged/weathered look) ───────────────
+    noise_fine = _new_node(tree, 'ShaderNodeTexNoise', (C[1], -450),
+                           "Fine Wear")
+    noise_fine.inputs['Scale'].default_value = FINE_BUMP_SCALE
+    noise_fine.inputs['Detail'].default_value = 6.0
+    noise_fine.inputs['Roughness'].default_value = 0.7
+
+    bump_fine = _new_node(tree, 'ShaderNodeBump', (C[2], -450),
+                          "Fine Bump")
+    bump_fine.inputs['Strength'].default_value = FINE_BUMP_STR
+
+    # ── Coarse surface-wear bump (patina-scale pitting) ──────────
+    voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[1], -600),
                         "Surface Wear")
     voronoi.inputs['Scale'].default_value = BUMP_SCALE
     voronoi.voronoi_dimensions = '3D'
+    voronoi.feature = 'SMOOTH_F1'
+    voronoi.inputs['Smoothness'].default_value = 0.7
 
-    bump_wear = _new_node(tree, 'ShaderNodeBump', (C[3], -400),
+    bump_wear = _new_node(tree, 'ShaderNodeBump', (C[3], -500),
                           "Wear Bump")
     bump_wear.inputs['Strength'].default_value = BUMP_STRENGTH
 
@@ -1012,6 +1027,7 @@ def make_brass_material():
     L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
     L.new(mapping.outputs['Vector'], noise_pat.inputs['Vector'])
     L.new(mapping.outputs['Vector'], noise_rgh.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_fine.inputs['Vector'])
     L.new(mapping.outputs['Vector'], voronoi.inputs['Vector'])
 
     L.new(noise_pat.outputs['Fac'], ramp_pat.inputs['Fac'])
@@ -1021,8 +1037,10 @@ def make_brass_material():
     L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
     L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
 
-    # Surface wear bump
+    # Bump chain: fine wear → coarse wear (chained via Normal input)
+    L.new(noise_fine.outputs['Fac'], bump_fine.inputs['Height'])
     L.new(voronoi.outputs['Distance'], bump_wear.inputs['Height'])
+    L.new(bump_fine.outputs['Normal'], bump_wear.inputs['Normal'])
 
     # Thread profile: triangle + cosine chains → blend → bump
     L.new(sep.outputs['Z'], t_div_p.inputs[0])
@@ -1067,6 +1085,132 @@ def make_brass_material():
     L.new(bump_thread.outputs['Normal'], bump_mix.inputs[5])   # B (vector)
 
     L.new(bump_mix.outputs[1], bsdf.inputs['Normal'])
+
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
+def make_brass_cast_material():
+    """Rough-cast brass — unfinished surface with coarse sand-cast texture.
+
+    Used for the rear plate of the flush bracket, hole interiors, and
+    any other surfaces that were not machined smooth after casting.
+    Shares the same base colour scheme as the polished brass material
+    but with higher roughness and an aggressive bump.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    Colour:
+      BASE_COLOUR      (R,G,B)    Slightly darker tarnished brass.
+                                    Default: (0.22, 0.16, 0.05)
+      PATINA_COLOUR    (R,G,B)    Darker patina in recesses.
+                                    Default: (0.08, 0.07, 0.02)
+      PATINA_AMOUNT    (0.0–1.0)  More patina in sheltered rear areas.
+                                    Default: 0.50
+
+    Surface:
+      METALLIC         (0.0–1.0)  Less metallic (not polished).
+                                    Default: 0.45
+      ROUGHNESS_BASE   (0.0–1.0)  Matte, unfinished surface.
+                                    Default: 0.72
+      ROUGHNESS_VAR    (0.0–0.3)  Roughness variation.
+                                    Default: 0.10
+      CAST_BUMP_SCALE  (float)    ~1 mm features (1/0.001 m).
+                                    Default: 1000.0
+      CAST_BUMP_STR    (0.0–2.0)  Strong surface texture.
+                                    Default: 0.35
+      CAST_DETAIL      (float)    Noise detail octaves.
+                                    Default: 8.0
+    """
+    BASE_COLOUR     = (0.22, 0.16, 0.05)
+    PATINA_COLOUR   = (0.08, 0.07, 0.02)
+    PATINA_AMOUNT   = 0.50
+    PATINA_SCALE    = 6.0
+    METALLIC        = 0.45
+    ROUGHNESS_BASE  = 0.72
+    ROUGHNESS_VAR   = 0.10
+    CAST_BUMP_SCALE = 1000.0
+    CAST_BUMP_STR   = 0.35
+    CAST_DETAIL     = 8.0
+
+    mat = bpy.data.materials.new("BrassCast")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    C = [-800, -500, -200, 100]
+
+    tex_coord = _new_node(tree, 'ShaderNodeTexCoord', (C[0], 200))
+    mapping = _new_node(tree, 'ShaderNodeMapping', (C[1], 200))
+
+    # ── Patina distribution ─────────────────────────────────────
+    noise_pat = _new_node(tree, 'ShaderNodeTexNoise', (C[1], 0),
+                          "Patina Pattern")
+    noise_pat.inputs['Scale'].default_value = PATINA_SCALE
+    noise_pat.inputs['Detail'].default_value = 5.0
+    noise_pat.inputs['Roughness'].default_value = 0.7
+
+    ramp_pat = _new_node(tree, 'ShaderNodeValToRGB', (C[2], 0),
+                         "Patina Threshold")
+    lo = max(0.001, PATINA_AMOUNT - 0.10)
+    hi = min(0.999, PATINA_AMOUNT + 0.10)
+    ramp_pat.color_ramp.elements[0].position = lo
+    ramp_pat.color_ramp.elements[1].position = hi
+
+    mix_col = _new_node(tree, 'ShaderNodeMix', (C[2] + 150, 0),
+                        "Base ↔ Patina")
+    mix_col.data_type = 'RGBA'
+    mix_col.inputs[6].default_value = (*BASE_COLOUR, 1.0)
+    mix_col.inputs[7].default_value = (*PATINA_COLOUR, 1.0)
+
+    # ── Roughness variation ─────────────────────────────────────
+    noise_rgh = _new_node(tree, 'ShaderNodeTexNoise', (C[1], -300),
+                          "Roughness Noise")
+    noise_rgh.inputs['Scale'].default_value = 20.0
+    noise_rgh.inputs['Detail'].default_value = 3.0
+
+    map_rng = _new_node(tree, 'ShaderNodeMapRange', (C[2], -300),
+                        "Roughness Range")
+    map_rng.inputs['From Min'].default_value = 0.0
+    map_rng.inputs['From Max'].default_value = 1.0
+    map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
+    map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
+
+    # ── Cast bump — coarse noise for sand-cast texture ──────────
+    noise_cast = _new_node(tree, 'ShaderNodeTexNoise', (C[1], -500),
+                           "Cast Texture")
+    noise_cast.inputs['Scale'].default_value = CAST_BUMP_SCALE
+    noise_cast.inputs['Detail'].default_value = CAST_DETAIL
+    noise_cast.inputs['Roughness'].default_value = 0.6
+
+    bump_cast = _new_node(tree, 'ShaderNodeBump', (C[2], -500),
+                          "Cast Bump")
+    bump_cast.inputs['Strength'].default_value = CAST_BUMP_STR
+
+    # ── BSDF ────────────────────────────────────────────────────
+    bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[3], -200))
+    bsdf.inputs['Metallic'].default_value = METALLIC
+
+    output = _new_node(tree, 'ShaderNodeOutputMaterial',
+                       (C[3] + 300, -200))
+
+    # ── Links ───────────────────────────────────────────────────
+    L = tree.links
+    L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_pat.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_rgh.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_cast.inputs['Vector'])
+
+    L.new(noise_pat.outputs['Fac'], ramp_pat.inputs['Fac'])
+    L.new(ramp_pat.outputs['Color'], mix_col.inputs[0])
+    L.new(mix_col.outputs[2], bsdf.inputs['Base Color'])
+
+    L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
+    L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
+
+    L.new(noise_cast.outputs['Fac'], bump_cast.inputs['Height'])
+    L.new(bump_cast.outputs['Normal'], bsdf.inputs['Normal'])
 
     L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
 
@@ -3945,7 +4089,7 @@ def build_flush_bracket(M):
     rear_plate.scale = (w, rear_d, rear_h)
     activate(rear_plate)
     bpy.ops.object.transform_apply(scale=True)
-    assign(rear_plate, M['brass'])
+    assign(rear_plate, M['brass_cast'])
 
     # ── Hole through both plates ────────────────────────────────
     # A wedge-shaped opening whose back face (at rear_back) is
@@ -4061,7 +4205,7 @@ def build_flush_bracket(M):
     bm_bar.free()
     bar = bpy.data.objects.new("FlushBracket_Bar", mesh_bar)
     bpy.context.collection.objects.link(bar)
-    assign(bar, M['brass'])
+    assign(bar, M['brass_cast'])
     smooth(bar)
 
     # Anchor block — circular cross-section with bevelled edges.
@@ -4104,7 +4248,7 @@ def build_flush_bracket(M):
     bm_a.free()
     anchor = bpy.data.objects.new("FlushBracket_Anchor", mesh_a)
     bpy.context.collection.objects.link(anchor)
-    assign(anchor, M['brass'])
+    assign(anchor, M['brass_cast'])
     smooth(anchor)
 
     # ── Beading (D-shaped tube around front face perimeter) ───
@@ -4526,15 +4670,53 @@ def build_flush_bracket(M):
 
     _bevel_sharp_edges(ba_main, width=0.0005, segments=2)
 
+    # Front face and trapezoidal cap top stay polished brass;
+    # everything else (leg sides, rear, cavity walls) gets brass_cast.
     assign(ba_main, M['brass'])
+    ba_main.data.materials.append(M['brass_cast'])
+    bm_ba = bmesh.new()
+    bm_ba.from_mesh(ba_main.data)
+    bm_ba.faces.ensure_lookup_table()
+    for f in bm_ba.faces:
+        if f.normal.y <= 0.5 and f.normal.z <= 0.9:
+            f.material_index = 1
+    bm_ba.to_mesh(ba_main.data)
+    bm_ba.free()
     smooth(ba_main)
     ba_main.name = "FlushBracket_BroadArrow"
 
-    _bevel_sharp_edges(rear_plate, width=0.0004, segments=2)
-    _bevel_sharp_edges(plate, width=0.0004, segments=2)
+    _bevel_sharp_edges(rear_plate, width=0.0012, segments=3)
+    _bevel_sharp_edges(plate, width=0.0012, segments=3)
+
+    # Assign brass_cast to non-front-facing faces of the near plate
+    # (hole interiors, back face, top/bottom edges).  Front-facing
+    # faces (normal.y > 0.5) keep the polished brass in slot 0.
+    plate.data.materials.append(M['brass_cast'])
+    bm_mat = bmesh.new()
+    bm_mat.from_mesh(plate.data)
+    bm_mat.faces.ensure_lookup_table()
+    for f in bm_mat.faces:
+        if f.normal.y < 0.5:
+            f.material_index = 1
+    bm_mat.to_mesh(plate.data)
+    bm_mat.free()
+
+    # Join near plate and rear plate into one object to eliminate
+    # Z-fighting at the shared face (Y = plate_y), then weld the
+    # coincident vertices.
+    activate(plate)
+    rear_plate.select_set(True)
+    bpy.ops.object.join()
+    bm_j = bmesh.new()
+    bm_j.from_mesh(plate.data)
+    bmesh.ops.remove_doubles(bm_j, verts=bm_j.verts, dist=0.0002)
+    bm_j.to_mesh(plate.data)
+    bm_j.free()
+
     smooth(plate)
-    smooth(rear_plate)
-    for child in [plate, rear_plate, bar, anchor, bead, ba_main] + letter_objs:
+    plate.name = "FlushBracket_Plates"
+
+    for child in [plate, bar, anchor, bead, ba_main] + letter_objs:
         child.parent = assembly
         child.matrix_parent_inverse = assembly.matrix_world.inverted()
 
@@ -8299,6 +8481,7 @@ def main():
     M = {
         'concrete':     make_concrete_material(),
         'brass':        make_brass_material(),
+        'brass_cast':   make_brass_cast_material(),
         'rusted_steel': make_rusted_steel_material(),
         'fixings':      make_fixings_material(),
         'wood':         make_wood_material(),
