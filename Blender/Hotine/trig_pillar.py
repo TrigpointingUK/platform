@@ -3948,42 +3948,54 @@ def build_flush_bracket(M):
     assign(rear_plate, M['brass'])
 
     # ── Hole through both plates ────────────────────────────────
-    # The back of the hole is rectangular; its bottom aligns with the
-    # top of the broad arrow.  The front extends down to the bottom of
-    # the broad arrow; the bottom surface slopes between the two.
-    # The top of the hole sits just below the hemisphere bottoms of
-    # the two vertical holes to avoid any overlap.
-    hole_w     = 0.0334                               # 33.4 mm wide
-    ba_z_top_  = z_top - br - 0.0528                  # broad arrow top (52.8 mm below bead)
-    ba_z_bot_  = ba_z_top_ - 0.0361                   # broad arrow bottom (front bottom)
-    hole_z_top = sh_z_bot - sh_r - 0.001              # 1 mm below hemisphere bottoms
-    hole_z_bot = ba_z_top_                            # back-face bottom = broad arrow top
-    hole_h     = hole_z_top - hole_z_bot              # derived height
+    # A wedge-shaped opening whose back face (at rear_back) is
+    # rectangular with its bottom aligned to the broad-arrow top,
+    # and whose front face (at front_y) extends down to the
+    # broad-arrow bottom.  The bottom slopes between these two.
+    #
+    # Broad-arrow Z positions (also used by the arrow section below).
+    ba_z_top        = z_top - br - 0.0528              # arrow top, 52.8 mm below bead
+    ba_z_bot        = ba_z_top - 0.0361                # arrow bottom (36.1 mm leg length)
 
-    eps_h   = 0.002                                   # boolean margin
-    hw_h    = hole_w / 2 + eps_h
-    y_front = front_y + eps_h
-    y_back  = rear_back - eps_h
-    zt      = hole_z_top + eps_h
-    zf_bot  = ba_z_bot_ - eps_h                       # front bottom (deep)
-    zb_bot  = hole_z_bot - eps_h                      # back bottom (shallow)
+    hole_w          = 0.0314                           # 31.4 mm (1 mm inset each side)
+    hole_hw         = hole_w / 2                       # half-width
+    hole_z_top      = sh_z_bot - sh_r - 0.001          # 1 mm below hemisphere bottoms
+    hole_z_bot      = ba_z_top                         # back-face bottom = broad-arrow top
+    hole_h          = hole_z_top - hole_z_bot
+    hole_front_zbot = ba_z_bot                         # front-face bottom = broad-arrow bottom
+
+    # Y-direction boolean overshoot — extends the cutter slightly
+    # past each plate face for a clean boolean.  The four-layer
+    # vertex layout keeps the slope only between the real plate
+    # faces (front_y → rear_back), so the overshoot regions have
+    # flat bottoms and don't shift the visible hole edges.
+    y_margin    = 0.002
+    y_cut_front = front_y + y_margin
+    y_cut_back  = rear_back - y_margin
 
     def _make_wedge_cutter(name):
         bm_h = bmesh.new()
-        ftl = bm_h.verts.new((-hw_h, y_front, zt))
-        ftr = bm_h.verts.new(( hw_h, y_front, zt))
-        fbr = bm_h.verts.new(( hw_h, y_front, zf_bot))
-        fbl = bm_h.verts.new((-hw_h, y_front, zf_bot))
-        btl = bm_h.verts.new((-hw_h, y_back,  zt))
-        btr = bm_h.verts.new(( hw_h, y_back,  zt))
-        bbr = bm_h.verts.new(( hw_h, y_back,  zb_bot))
-        bbl = bm_h.verts.new((-hw_h, y_back,  zb_bot))
-        bm_h.faces.new([ftl, ftr, btr, btl])          # top
-        bm_h.faces.new([fbl, fbr, ftr, ftl])          # front
-        bm_h.faces.new([bbl, btl, btr, bbr])          # back
-        bm_h.faces.new([fbl, ftl, btl, bbl])          # left
-        bm_h.faces.new([fbr, bbr, btr, ftr])          # right
-        bm_h.faces.new([fbl, bbl, bbr, fbr])          # bottom (sloped)
+        hw = hole_hw
+        ys  = [y_cut_front, front_y,          rear_back,   y_cut_back]
+        zbs = [hole_front_zbot, hole_front_zbot, hole_z_bot, hole_z_bot]
+        layers = []
+        for y, zb in zip(ys, zbs):
+            tl = bm_h.verts.new((-hw, y, hole_z_top))
+            tr = bm_h.verts.new(( hw, y, hole_z_top))
+            br = bm_h.verts.new(( hw, y, zb))
+            bl = bm_h.verts.new((-hw, y, zb))
+            layers.append((tl, tr, br, bl))
+        tl, tr, br, bl = layers[0]
+        bm_h.faces.new([tl, bl, br, tr])              # front cap
+        tl, tr, br, bl = layers[-1]
+        bm_h.faces.new([tl, tr, br, bl])              # back cap
+        for i in range(len(layers) - 1):
+            a_tl, a_tr, a_br, a_bl = layers[i]
+            b_tl, b_tr, b_br, b_bl = layers[i + 1]
+            bm_h.faces.new([a_tl, a_tr, b_tr, b_tl])  # top
+            bm_h.faces.new([a_bl, b_bl, b_br, a_br])  # bottom
+            bm_h.faces.new([a_tl, b_tl, b_bl, a_bl])  # left
+            bm_h.faces.new([a_tr, a_br, b_br, b_tr])  # right
         bmesh.ops.recalc_face_normals(bm_h, faces=bm_h.faces[:])
         m_h = bpy.data.meshes.new(name)
         bm_h.to_mesh(m_h)
@@ -4005,7 +4017,6 @@ def build_flush_bracket(M):
     # hole bottom to rear plate bottom).  No taper.
     # Concave fillets at both ends (plate and anchor).
     # Positioned so the fillet disc just touches the rear plate bottom edge.
-    hole_z_bot  = hole_z_top - hole_h
     dist_to_bot = hole_z_bot - rear_z_bot
     bar_r_base  = (dist_to_bot * 477 / 667) / 2
     bar_r       = bar_r_base * 0.80               # 80 % of original diameter
@@ -4346,8 +4357,8 @@ def build_flush_bracket(M):
     ba_bot_w = 0.0084                             # 8.4 mm bottom width
     ba_len   = 0.0361                             # 36.1 mm leg length
     ba_d     = 0.0045                             # 4.5 mm protrusion
-    ba_z_top = ba_z_top_                            # set in hole section (52.8 mm below bead)
-    ba_z_bot = ba_z_top - ba_len
+    # ba_z_top, ba_z_bot: computed once in the hole section above.
+    ba_z_bot = ba_z_top - ba_len                     # verify: matches hole section definition
     ba_spread = 0.0313 / 2                        # 15.65 mm half outer-spread
     ba_yb    = front_y - 0.001                    # back Y (overlap into plate)
     ba_yf    = front_y + ba_d                     # front Y (protrusion surface)
@@ -4491,6 +4502,28 @@ def build_flush_bracket(M):
         fill_obj = bpy.data.objects.new(f"_ba_fill_{sign}", m_f)
         bpy.context.collection.objects.link(fill_obj)
         _union_into(ba_main, fill_obj)
+
+    # Side pyramids — thin wedges on the hole walls connecting the
+    # rectangular hole edges to the trapezoid back corners.
+    for sign in (1, -1):
+        bm_p = bmesh.new()
+        p1 = bm_p.verts.new((sign * hole_hw, front_y,   hole_z_top))    # front top
+        p2 = bm_p.verts.new((sign * hole_hw, front_y,   ba_z_bot))      # front bottom
+        p3 = bm_p.verts.new((sign * hole_hw, rear_back,  hole_z_bot))   # back bottom
+        p4 = bm_p.verts.new((sign * hole_hw, rear_back,  hole_z_top))   # back top
+        apex = bm_p.verts.new((sign * cap_back_hw, cap_y_back, ba_z_top))
+        bm_p.faces.new([p1, p2, p3, p4])              # base (hole wall)
+        bm_p.faces.new([p1, p4, apex])                 # top
+        bm_p.faces.new([p1, apex, p2])                 # front
+        bm_p.faces.new([p2, apex, p3])                 # bottom
+        bm_p.faces.new([p3, apex, p4])                 # back
+        bmesh.ops.recalc_face_normals(bm_p, faces=bm_p.faces[:])
+        m_p = bpy.data.meshes.new(f"_ba_side_pyr_{sign}")
+        bm_p.to_mesh(m_p)
+        bm_p.free()
+        pyr_obj = bpy.data.objects.new(f"_ba_side_pyr_{sign}", m_p)
+        bpy.context.collection.objects.link(pyr_obj)
+        _union_into(ba_main, pyr_obj)
 
     _bevel_sharp_edges(ba_main, width=0.0005, segments=2)
 
