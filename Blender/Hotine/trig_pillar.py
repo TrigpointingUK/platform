@@ -4211,16 +4211,40 @@ def build_flush_bracket(M):
         mod.angle_limit = math.radians(30)
         bpy.ops.object.modifier_apply(modifier="_bvl")
 
-    # ── Raised letters "O" and "S" ────────────────────────────
+    # ── Raised letters "O", "S", "B", "M" ──────────────────────
     letter_objs = []
-    let_w     = 0.016                                # 16 mm wide per letter
-    let_h     = 0.024                                # 24 mm tall
-    let_d     = 0.0045                               # 4.5 mm protrusion
-    let_z_top = z_top - br - 0.0484                  # 48.4 mm below bottom of top bead
-    let_sep   = 0.056                                # 56 mm centre-to-centre
+    let_d     = 0.0045                               # 4.5 mm protrusion (all letters)
 
-    for letter, side in (("S", -1), ("O", 1)):
-        lx = side * let_sep / 2
+    # O and S: 16 mm wide × 24 mm tall, 48.4 mm below bottom of top bead,
+    # 56 mm centre-to-centre horizontal spacing.
+    os_z_top  = z_top - br - 0.0484                  # top of O and S
+    os_z_bot  = os_z_top - 0.024                     # bottom of O and S
+    let_sep   = 0.056
+
+    # B (beneath O, on the left): 16.7 mm × 24.9 mm, protrusion same.
+    # 4.9 mm gap between left edge of B and inner edge of left bead.
+    # Top is 13.6 mm below bottom of O.
+    bead_inner_l = hw - br                           # left bead inner edge X
+    b_left_x  = bead_inner_l - 0.0049                # 4.9 mm gap inward
+    b_cx      = b_left_x - 0.0167 / 2               # centre X
+    b_z_top   = os_z_bot - 0.0136                    # 13.6 mm below bottom of O
+
+    # M (beneath S, on the right): 17.6 mm × 24.5 mm, protrusion same.
+    # 2.9 mm gap between right edge of M and inner edge of right bead.
+    # Top is 14.7 mm below bottom of S.
+    bead_inner_r = -(hw - br)                        # right bead inner edge X
+    m_right_x = bead_inner_r + 0.0029                # 2.9 mm gap inward
+    m_cx      = m_right_x + 0.0176 / 2              # centre X
+    m_z_top   = os_z_bot - 0.0147                    # 14.7 mm below bottom of S
+
+    letter_specs = [
+        ("O",  let_sep / 2,  0.016,  0.024,  os_z_top),
+        ("S", -let_sep / 2,  0.016,  0.024,  os_z_top),
+        ("B",  b_cx,         0.0167, 0.0249, b_z_top),
+        ("M",  m_cx,         0.0176, 0.0245, m_z_top),
+    ]
+
+    for letter, lx, let_w, let_h, let_z_top in letter_specs:
         lz_mid = let_z_top - let_h / 2
 
         bpy.ops.object.text_add(location=(0, 0, 0))
