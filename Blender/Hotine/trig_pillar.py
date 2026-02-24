@@ -4201,7 +4201,18 @@ def build_flush_bracket(M):
     bpy.context.collection.objects.link(assembly)
     bpy.context.view_layer.update()
 
+    def _bevel_sharp_edges(obj, width=0.001, segments=2):
+        """Bevel all sharp edges using a modifier (robust for any mesh)."""
+        activate(obj)
+        mod = obj.modifiers.new("_bvl", 'BEVEL')
+        mod.width = width
+        mod.segments = segments
+        mod.limit_method = 'ANGLE'
+        mod.angle_limit = math.radians(30)
+        bpy.ops.object.modifier_apply(modifier="_bvl")
+
     # ── Raised letters "O" and "S" ────────────────────────────
+    letter_objs = []
     let_w     = 0.016                                # 16 mm wide per letter
     let_h     = 0.024                                # 24 mm tall
     let_d     = 0.0045                               # 4.5 mm protrusion
@@ -4245,19 +4256,119 @@ def build_flush_bracket(M):
             v.co.z = fy + lz_mid
         mesh.update()
 
-        mod = txt.modifiers.new("_bvl", 'BEVEL')
-        mod.width = 0.0004
-        mod.segments = 2
-        mod.limit_method = 'ANGLE'
-        mod.angle_limit = math.radians(30)
-        activate(txt)
-        bpy.ops.object.modifier_apply(modifier="_bvl")
+        _bevel_sharp_edges(txt, width=0.0005, segments=2)
 
         assign(txt, M['brass'])
-        _union_into(plate, txt)
+        smooth(txt)
+        txt.name = f"FlushBracket_Letter_{letter}"
+        letter_objs.append(txt)
+
+    # ── Broad Arrow ──────────────────────────────────────────
+    # Three-legged Government broad arrow below the horizontal hole.
+    # The top surface is a 6.8 mm horizontal line.  Legs taper from
+    # 6.8 mm at the top to 8.4 mm at the bottom.  Side legs are angled
+    # so their outer bottom corners are 31.3 mm apart; their bottom edges
+    # are perpendicular to their long sides, so the bottoms lie on an arc.
+    ba_top_w = 0.0068                             # 6.8 mm top width
+    ba_bot_w = 0.0084                             # 8.4 mm bottom width
+    ba_len   = 0.0361                             # 36.1 mm leg length
+    ba_d     = 0.0045                             # 4.5 mm protrusion
+    ba_z_top = hole_z_top - 0.0112                # 11.2 mm below top of hole
+    ba_z_bot = ba_z_top - ba_len
+    ba_spread = 0.0313 / 2                        # 15.65 mm half outer-spread
+    ba_yb    = front_y - 0.001                    # back Y (overlap into plate)
+    ba_yf    = front_y + ba_d                     # front Y (protrusion surface)
+
+    def _ba_leg_from_outer(name, x_outer_top, x_outer_bot, w_top, w_bot):
+        dx = x_outer_bot - x_outer_top
+        dz = math.sqrt(max(0.0, ba_len * ba_len - dx * dx))
+        z_outer_bot = ba_z_top - dz
+        length = math.hypot(dx, dz)
+        if length < 1e-9:
+            return None
+        # Inner top corner aimed past centre for clean boolean overlap.
+        sign = -1 if x_outer_top > 0 else 1
+        x_inner_top = sign * 0.002
+        z_inner_top = ba_z_top
+
+        # Perpendicular to axis (dx, -dz), oriented inward.
+        if x_outer_top > 0:
+            px = -dz
+            pz = -dx
+        else:
+            px = dz
+            pz = dx
+        plen = math.hypot(px, pz)
+        if plen < 1e-9:
+            return None
+        px /= plen
+        pz /= plen
+        x_inner_bot = x_outer_bot + px * w_bot
+        z_inner_bot = z_outer_bot + pz * w_bot
+
+        bm = bmesh.new()
+        vb = [bm.verts.new((x_outer_top, ba_yb, ba_z_top)),
+              bm.verts.new((x_inner_top, ba_yb, z_inner_top)),
+              bm.verts.new((x_inner_bot, ba_yb, z_inner_bot)),
+              bm.verts.new((x_outer_bot, ba_yb, z_outer_bot))]
+        vf = [bm.verts.new((x_outer_top, ba_yf, ba_z_top)),
+              bm.verts.new((x_inner_top, ba_yf, z_inner_top)),
+              bm.verts.new((x_inner_bot, ba_yf, z_inner_bot)),
+              bm.verts.new((x_outer_bot, ba_yf, z_outer_bot))]
+        bm.faces.new(list(reversed(vb)))
+        bm.faces.new(vf)
+        for i in range(4):
+            j = (i + 1) % 4
+            bm.faces.new([vb[i], vb[j], vf[j], vf[i]])
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+        m = bpy.data.meshes.new(name)
+        bm.to_mesh(m)
+        bm.free()
+        obj = bpy.data.objects.new(name, m)
+        bpy.context.collection.objects.link(obj)
+        return obj
+
+    # Central vertical leg
+    ba_hw_top = ba_top_w / 2
+    ba_hw_bot = ba_bot_w / 2
+    bm = bmesh.new()
+    vb = [bm.verts.new((-ba_hw_top, ba_yb, ba_z_top)),
+          bm.verts.new(( ba_hw_top, ba_yb, ba_z_top)),
+          bm.verts.new(( ba_hw_bot, ba_yb, ba_z_bot)),
+          bm.verts.new((-ba_hw_bot, ba_yb, ba_z_bot))]
+    vf = [bm.verts.new((-ba_hw_top, ba_yf, ba_z_top)),
+          bm.verts.new(( ba_hw_top, ba_yf, ba_z_top)),
+          bm.verts.new(( ba_hw_bot, ba_yf, ba_z_bot)),
+          bm.verts.new((-ba_hw_bot, ba_yf, ba_z_bot))]
+    bm.faces.new(list(reversed(vb)))
+    bm.faces.new(vf)
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new([vb[i], vb[j], vf[j], vf[i]])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    m = bpy.data.meshes.new("_ba_center")
+    bm.to_mesh(m)
+    bm.free()
+    ba_main = bpy.data.objects.new("_ba_center", m)
+    bpy.context.collection.objects.link(ba_main)
+
+    # Side legs: steeper splay so the top width is 6.8 mm
+    x_top_outer = ba_top_w / 2
+    ba_right = _ba_leg_from_outer("_ba_right", x_top_outer, ba_spread,
+                                  ba_top_w, ba_bot_w)
+    ba_left  = _ba_leg_from_outer("_ba_left", -x_top_outer, -ba_spread,
+                                  ba_top_w, ba_bot_w)
+    _union_into(ba_main, ba_right)
+    _union_into(ba_main, ba_left)
+
+    _bevel_sharp_edges(ba_main, width=0.0005, segments=2)
+
+    assign(ba_main, M['brass'])
+    smooth(ba_main)
+    ba_main.name = "FlushBracket_BroadArrow"
 
     smooth(plate)
-    for child in (plate, rear_plate, bar, anchor, bead):
+    for child in [plate, rear_plate, bar, anchor, bead, ba_main] + letter_objs:
         child.parent = assembly
         child.matrix_parent_inverse = assembly.matrix_world.inverted()
 
