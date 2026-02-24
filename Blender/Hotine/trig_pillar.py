@@ -198,8 +198,8 @@ FB_ANCHOR_DEPTH     = 0.010     # [D] anchor block depth (10 mm)
 LOGO_SVG            = 'TUK-Logo.svg'   # SVG file in ../../res/ relative to script
 LOGO_RELIEF         = 0.0048    # [E] maximum relief height (4.8 mm, bright green UK)
 LOGO_MARGIN         = 0.014     # [E] 8 mm margin inside plate edges
-LOGO_V_STRETCH      = 1.30      # [E] vertical stretch factor (20 % taller)
-LOGO_BTM_OFFSET     = 0.020     # [E] bottom of logo 10 mm above plate bottom
+LOGO_V_STRETCH      = 1.00      # [E] vertical stretch factor (20 % taller)
+LOGO_BTM_OFFSET     = 0.010     # [E] bottom of logo 10 mm above plate bottom
 LOGO_BEVEL_FRAC     = 0.10      # [E] bevel width as fraction of layer relief
 LOGO_BEVEL_SEGS     = 1         # [E] bevel segments (1 = flat chamfer, 2+ = rounded)
 
@@ -4256,7 +4256,15 @@ def build_flush_bracket(M):
             v.co.z = fy + lz_mid
         mesh.update()
 
-        _bevel_sharp_edges(txt, width=0.0005, segments=2)
+        bm_clean = bmesh.new()
+        bm_clean.from_mesh(mesh)
+        bmesh.ops.remove_doubles(bm_clean, verts=bm_clean.verts, dist=0.0001)
+        bmesh.ops.recalc_face_normals(bm_clean, faces=bm_clean.faces[:])
+        bm_clean.to_mesh(mesh)
+        bm_clean.free()
+        mesh.update()
+
+        _bevel_sharp_edges(txt, width=0.001, segments=2)
 
         assign(txt, M['brass'])
         smooth(txt)
