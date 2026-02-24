@@ -3948,15 +3948,17 @@ def build_flush_bracket(M):
     assign(rear_plate, M['brass'])
 
     # ── Hole through both plates ────────────────────────────────
-    # The back of the hole is rectangular.  The front extends down to
-    # the bottom of the broad arrow; the bottom surface slopes between
-    # the two, forming a wedge.
+    # The back of the hole is rectangular; its bottom aligns with the
+    # top of the broad arrow.  The front extends down to the bottom of
+    # the broad arrow; the bottom surface slopes between the two.
+    # The top of the hole sits just below the hemisphere bottoms of
+    # the two vertical holes to avoid any overlap.
     hole_w     = 0.0334                               # 33.4 mm wide
-    hole_h     = rear_h * 270 / 1764                  # rectangular portion height
-    hole_z_top = z_top - br - 0.0416                  # 41.6 mm below bottom of top bead
-    hole_z_bot = hole_z_top - hole_h                  # back-face bottom
-    ba_z_top_  = hole_z_top - 0.0112                  # broad arrow top
+    ba_z_top_  = z_top - br - 0.0528                  # broad arrow top (52.8 mm below bead)
     ba_z_bot_  = ba_z_top_ - 0.0361                   # broad arrow bottom (front bottom)
+    hole_z_top = sh_z_bot - sh_r - 0.001              # 1 mm below hemisphere bottoms
+    hole_z_bot = ba_z_top_                            # back-face bottom = broad arrow top
+    hole_h     = hole_z_top - hole_z_bot              # derived height
 
     eps_h   = 0.002                                   # boolean margin
     hw_h    = hole_w / 2 + eps_h
@@ -4344,7 +4346,7 @@ def build_flush_bracket(M):
     ba_bot_w = 0.0084                             # 8.4 mm bottom width
     ba_len   = 0.0361                             # 36.1 mm leg length
     ba_d     = 0.0045                             # 4.5 mm protrusion
-    ba_z_top = hole_z_top - 0.0112                # 11.2 mm below top of hole
+    ba_z_top = ba_z_top_                            # set in hole section (52.8 mm below bead)
     ba_z_bot = ba_z_top - ba_len
     ba_spread = 0.0313 / 2                        # 15.65 mm half outer-spread
     ba_yb    = front_y - 0.001                    # back Y (overlap into plate)
