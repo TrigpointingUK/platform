@@ -527,3 +527,40 @@ class TestAuth0Service:
         )
 
         assert result is None
+
+    @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
+    @patch("api.services.auth0_service.settings")
+    def test_update_user_picture_success(self, mock_settings, mock_request):
+        """Test successful picture URL update."""
+        mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
+        mock_settings.AUTH0_SECRET_NAME = "test-secret"
+
+        mock_request.return_value = {"picture": "https://example.com/avatar.jpg"}
+
+        service = Auth0Service()
+        result = service.update_user_picture(
+            "auth0|123456789", "https://example.com/avatar.jpg"
+        )
+
+        assert result is True
+        mock_request.assert_called_once_with(
+            "PATCH",
+            "users/auth0|123456789",
+            {"picture": "https://example.com/avatar.jpg"},
+        )
+
+    @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
+    @patch("api.services.auth0_service.settings")
+    def test_update_user_picture_failure(self, mock_settings, mock_request):
+        """Test picture URL update failure."""
+        mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
+        mock_settings.AUTH0_SECRET_NAME = "test-secret"
+
+        mock_request.return_value = None
+
+        service = Auth0Service()
+        result = service.update_user_picture(
+            "auth0|123456789", "https://example.com/avatar.jpg"
+        )
+
+        assert result is False

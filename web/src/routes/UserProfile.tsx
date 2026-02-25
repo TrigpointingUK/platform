@@ -10,6 +10,7 @@ import EditableField from "../components/ui/EditableField";
 import LogList from "../components/logs/LogList";
 import AreaBreakdown from "../components/profile/AreaBreakdown";
 import AnimatedUserMap from "../components/profile/AnimatedUserMap";
+import AvatarUploadModal from "../components/profile/AvatarUploadModal";
 import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
@@ -43,6 +44,7 @@ export default function UserProfile() {
   const queryClient = useQueryClient();
   const { getAccessTokenSilently, user: authUser } = useAuth0();
   const [tokenScopes, setTokenScopes] = useState<string[]>([]);
+  const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState<string | null>(null);
   
   // If no userId in URL, fetch "me", otherwise fetch the specified user
   const targetUserId = userId || "me";
@@ -57,6 +59,9 @@ export default function UserProfile() {
 
   // Own profile if: no userId param, or userId matches the logged-in user's ID
   const isOwnProfile = !userId || (authUser && userId === authUser.sub);
+
+  // Use uploaded avatar if set (for immediate feedback), otherwise fall back to Auth0 picture
+  const avatarUrl = uploadedAvatarUrl ?? authUser?.picture ?? null;
 
   // Extract scopes from JWT token
   useEffect(() => {
@@ -180,15 +185,31 @@ export default function UserProfile() {
           <div className="flex flex-col xl:flex-row gap-6">
             {/* Left column: All user info */}
             <div className="flex-1">
-              {/* Top: Username, Member Since, and Statistics */}
+              {/* Top: Avatar, Username, Member Since, and Statistics */}
               <div className="flex items-start gap-6 flex-col sm:flex-row mb-6">
-                <div className="flex-shrink-0">
-                  <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                    {user.name}
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Member since {memberSince}
-                  </p>
+                <div className="flex items-center gap-4 flex-shrink-0">
+                  {isOwnProfile ? (
+                    <AvatarUploadModal
+                      currentPictureUrl={avatarUrl || undefined}
+                      onUploaded={(newUrl) => setUploadedAvatarUrl(newUrl)}
+                    />
+                  ) : (
+                    authUser?.picture && (
+                      <img
+                        src={authUser.picture}
+                        alt={user.name}
+                        className="w-20 h-20 rounded-full object-cover"
+                      />
+                    )
+                  )}
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                      {user.name}
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Member since {memberSince}
+                    </p>
+                  </div>
                 </div>
 
                 {user.stats && (

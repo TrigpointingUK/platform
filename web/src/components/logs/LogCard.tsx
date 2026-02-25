@@ -214,7 +214,14 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
               </Link>
             )}
             <div className="flex flex-wrap items-center gap-2 text-base text-gray-600 dark:text-gray-400">
-              <span>
+              <span className="inline-flex items-center gap-1.5">
+                <img
+                  src={`https://trigpointinguk-avatars.s3.amazonaws.com/U${log.user_id.toString().padStart(5, "0")}.jpg`}
+                  alt=""
+                  className="w-6 h-6 rounded-full object-cover hidden"
+                  onLoad={(e) => e.currentTarget.classList.remove("hidden")}
+                  onError={(e) => e.currentTarget.classList.add("hidden")}
+                />
                 {displayUserName ? (
                   <Link
                     to={`/profile/${log.user_id}`}
