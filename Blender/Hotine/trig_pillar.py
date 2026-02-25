@@ -127,6 +127,17 @@ THREAD_ROUNDNESS       = 0.10   # [T] 0 = triangle wave, 1 = cosine (try 0.05–
 SPIDER_FLANGE_H        = 0.008   # [E] ~4 mm bottom flange thickness
 SPIDER_FLANGE_OVERHANG = 0.012   # [E] ~5 mm shelf width beyond main body
 
+# Spider anchor bolts — one per arm, halfway along, screwed into arm bottom.
+# Hole depth is limited to 2 mm clear of the V-groove; thread length is
+# computed as hole_depth + half the visible shaft below the spider.
+SPIDER_BOLT_DIA        = 0.012   # [E] M12 nominal thread diameter
+SPIDER_BOLT_LENGTH     = 0.075   # [E] 75 mm total length under head
+SPIDER_BOLT_HEAD_AF    = 0.019   # [S] M12 hex head, 19 mm across flats
+SPIDER_BOLT_HEAD_H     = 0.0075  # [S] M12 hex head height 7.5 mm
+SPIDER_BOLT_PITCH      = 0.00175 # [S] M12 coarse thread pitch 1.75 mm
+SPIDER_BOLT_DEPTH      = 0.001   # [E] cosmetic thread depth for rendering
+SPIDER_BOLT_GROOVE_CLR = 0.002   # [E] 2 mm clearance between hole top and V-groove
+
 # --- Brass Loops ---
 LOOP_R              = 0.015     # [D] 30 mm upper loop dia / 2
 LOOP_LOWER_R        = 0.022     # [E] 44 mm lower (buried) loop dia / 2
@@ -2632,13 +2643,105 @@ def _make_threaded_bore_cutter(radius, depth, z_center,
     return obj
 
 
+def _make_anchor_bolt(x, y, z_entry, embed_depth, thread_len, M):
+    """Create an M12 hex bolt oriented vertically, threaded end up.
+
+    The bolt is fully screwed in: *embed_depth* of thread is hidden inside
+    the spider arm above *z_entry*.  The remaining visible thread, then
+    plain shank, then hex head hang below.
+
+    Args:
+        x, y:         horizontal position of bolt centre
+        z_entry:      Z coordinate where the bolt enters the arm (bottom of
+                      flange)
+        embed_depth:  how much thread is buried in the arm
+        thread_len:   total thread length (embedded + visible)
+        M:            materials dict
+    """
+    bolt_r     = SPIDER_BOLT_DIA / 2
+    head_h     = SPIDER_BOLT_HEAD_H
+    head_r     = SPIDER_BOLT_HEAD_AF / (2 * math.cos(math.radians(30)))
+    shank_len  = SPIDER_BOLT_LENGTH - thread_len
+    vis_thread = thread_len - embed_depth
+
+    # Z layout (thread at top, head at bottom):
+    #   z_entry ──────────────── bolt enters spider (top of visible part)
+    #   z_entry - vis_thread ─── bottom of visible thread / top of shank
+    #   ... - shank_len ──────── bottom of shank / top of head
+    #   ... - head_h ─────────── bottom of head
+    z_thread_bot = z_entry - vis_thread
+    z_shank_bot  = z_thread_bot - shank_len
+
+    # ── Hex head (6-sided prism) ──────────────────────────────────
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=6, radius=head_r, depth=head_h,
+        location=(x, y, z_shank_bot - head_h / 2))
+    bolt = bpy.context.active_object
+    bolt.name = "_anchor_bolt"
+
+    # ── Plain shank ───────────────────────────────────────────────
+    if shank_len > 0.001:
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=24, radius=bolt_r, depth=shank_len,
+            location=(x, y, z_shank_bot + shank_len / 2))
+        _union_into(bolt, bpy.context.active_object)
+
+    # ── Visible threaded portion (external V-thread) ──────────────
+    if vis_thread > 0.001:
+        pitch = SPIDER_BOLT_PITCH
+        tdepth = SPIDER_BOLT_DEPTH
+        n_angular = 24
+        n_rings = max(4, int(math.ceil(vis_thread / pitch) * 8) + 1)
+
+        bm = bmesh.new()
+        rings = []
+        for i in range(n_rings + 1):
+            z = z_thread_bot + vis_thread * i / n_rings
+            tri = abs((z / pitch % 1.0) - 0.5) * 2.0
+            r = bolt_r - tdepth + tdepth * tri
+            ring = []
+            for j in range(n_angular):
+                a = 2 * math.pi * j / n_angular
+                ring.append(bm.verts.new((
+                    x + r * math.cos(a),
+                    y + r * math.sin(a), z)))
+            rings.append(ring)
+
+        for i in range(len(rings) - 1):
+            for j in range(n_angular):
+                j2 = (j + 1) % n_angular
+                bm.faces.new([rings[i][j], rings[i][j2],
+                               rings[i + 1][j2], rings[i + 1][j]])
+
+        tc = bm.verts.new((x, y, z_entry))
+        bc = bm.verts.new((x, y, z_thread_bot))
+        for j in range(n_angular):
+            j2 = (j + 1) % n_angular
+            bm.faces.new([rings[-1][j2], rings[-1][j], tc])
+            bm.faces.new([rings[0][j], rings[0][j2], bc])
+
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+        tmesh = bpy.data.meshes.new("_bolt_thread")
+        bm.to_mesh(tmesh)
+        bm.free()
+
+        tobj = bpy.data.objects.new("_bolt_thread", tmesh)
+        bpy.context.collection.objects.link(tobj)
+        _union_into(bolt, tobj)
+
+    assign(bolt, M['fixings'])
+    smooth(bolt)
+    return bolt
+
+
 def build_spider(M):
     """Brass spider fitting at the top of the pillar.
 
     Three-armed spider with central annulus ring.  The annulus has bevelled
     top edges (inner 45° × 3 mm, outer 45° × 1 mm).  Each arm carries a
     90° V-groove down its centre.  Arm-to-annulus junctions have rounded
-    fillets (20 mm radius).
+    fillets (20 mm radius).  Each arm has an M12 anchor bolt screwed into
+    its underside at the midpoint, protruding downward into the concrete.
     """
     print("  Spider ...")
 
@@ -2897,6 +3000,39 @@ def build_spider(M):
 
     # Union flange with the spider body
     _union_into(spider, flange)
+
+    # ── Anchor bolts (M12, one per arm at midpoint) ────────────────
+    # Each arm has a tapped hole in its underside, with a hex bolt
+    # fully screwed in.  The hole stops 2 mm clear of the V-groove
+    # bottom.  Thread extends from the bolt tip (inside the arm)
+    # down to halfway along the visible shaft below the spider.
+    bolt_r       = SPIDER_BOLT_DIA / 2
+    mid_r        = inner_r + SPIDER_ARM_LEN / 2
+    z_flange_bot = zb - flange_h
+    hole_depth   = thick + flange_h - gd - SPIDER_BOLT_GROOVE_CLR
+    visible_len  = SPIDER_BOLT_LENGTH - hole_depth
+    thread_len   = hole_depth + visible_len / 2
+
+    for ai in range(3):
+        theta = arm_angles[ai]
+        bx = mid_r * math.cos(theta)
+        by = mid_r * math.sin(theta)
+
+        # Tapped hole in the arm bottom (from flange bottom up to
+        # 2 mm below the V-groove)
+        tap = _make_threaded_bore_cutter(
+            radius=bolt_r,
+            depth=hole_depth + 0.001,
+            z_center=z_flange_bot + hole_depth / 2,
+            thread_depth=SPIDER_BOLT_DEPTH,
+            thread_pitch=SPIDER_BOLT_PITCH,
+            n_angular=24, n_per_pitch=8)
+        tap.location = (bx, by, 0)
+        activate(tap)
+        bpy.ops.object.transform_apply(location=True)
+        boolean_cut(spider, tap)
+
+        _make_anchor_bolt(bx, by, z_flange_bot, hole_depth, thread_len, M)
 
     assign(spider, M['brass'])
     smooth(spider)
