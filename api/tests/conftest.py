@@ -250,7 +250,10 @@ def setup_test_tables(setup_worker_schema):
             connection.execute(text("DROP TABLE IF EXISTS tphoto CASCADE"))
             connection.execute(text("DROP TABLE IF EXISTS tlog CASCADE"))
 
-        Base.metadata.create_all(bind=engine)
+        # Exclude cross-schema tables (e.g. chat.document_chunk) — they are
+        # shared across xdist workers and cause race conditions in create_all.
+        worker_tables = [t for t in Base.metadata.sorted_tables if t.schema is None]
+        Base.metadata.create_all(bind=engine, tables=worker_tables)
         with engine.begin() as connection:
             _install_upd_timestamp_triggers(connection, TEST_SCHEMA)
             for statement in DROP_USER_ACTIVITY_SUMMARY_VIEW_STATEMENTS:

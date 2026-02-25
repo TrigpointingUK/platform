@@ -99,8 +99,8 @@ UCM_FILLET_R        = 0.005     # [E] fillet radius at stem-disc junctions (5 mm
 UCM_BASE_H          = 0.008     # [E] base disc height (8 mm)
 
 # --- Base Slab (Foundation) ---
-BASE_TOP_HW         = 0.380     # [E] ~2'6" / 2 — wider overhang around pillar
-BASE_BTM_HW         = 0.457     # [D] 3'0" / 2
+BASE_TOP_HW         = 0.380     # [E] ~2'6" / 2 — overhang around pillar
+BASE_BTM_HW         = 0.350     # [E] slightly narrower at bottom (tapers inward)
 BASE_HEIGHT         = 0.305     # [E] ~12" thick
 
 # --- Angle Irons ---
@@ -121,11 +121,19 @@ SPIDER_ARM_LEN         = 0.115   # [D] 115 mm from inner dia of annulus
 SPIDER_ARM_W           = 0.030   # [D] 30 mm
 SPIDER_GROOVE_W        = 0.010   # [D] 10 mm wide, 90° V-groove
 SPIDER_FILLET_R        = 0.020   # [D] 20 mm fillet at arm-annulus junction
+SPIDER_THREAD_PITCH    = 0.003   # [E] ~3 mm thread pitch (3 threads across 10 mm)
+SPIDER_THREAD_DEPTH    = 0.003   # [E] ~2 mm thread depth
+THREAD_ROUNDNESS       = 0.10   # [T] 0 = triangle wave, 1 = cosine (try 0.05–0.15)
+SPIDER_FLANGE_H        = 0.008   # [E] ~4 mm bottom flange thickness
+SPIDER_FLANGE_OVERHANG = 0.012   # [E] ~5 mm shelf width beyond main body
 
 # --- Brass Loops ---
-LOOP_R              = 0.015     # [D] 30 mm loop dia / 2
+LOOP_R              = 0.015     # [D] 30 mm upper loop dia / 2
+LOOP_LOWER_R        = 0.022     # [E] 44 mm lower (buried) loop dia / 2
 LOOP_WIRE_R         = 0.002     # [D] 4 mm wire dia / 2
 LOOP_DEPTH          = 0.003     # [D] top of loop 3 mm below pillar surface
+LOOP_WAIST_R        = 0.008     # [E] 16 mm waist blend radius (≈ ½ upper loop)
+LOOP_WAIST_DROP     = 0.005     # [E] 5 mm vertical separation at the waist
 LOOP_RECESS_L       = 0.070     # [E] 70 mm total recess length (tangential)
 LOOP_RECESS_W       = 0.020     # [E] 20 mm U-trough width (radial)
 LOOP_RECESS_D       = 0.015     # [D] 15 mm recess depth
@@ -146,7 +154,7 @@ PLUG_HOLE_SPACING   = 0.077     # [D] 77 mm apart (matches spider screwholes)
 
 # --- Inner Plug ---
 IPLUG_R             = 0.0189    # [D] ~37.8 mm dia / 2 (fraction under 38 mm)
-IPLUG_H             = 0.023     # [D] 23 mm thick
+IPLUG_H             = 0.022     # [D] 22 mm thick
 IPLUG_BEVEL         = 0.001     # [D] 1 mm chamfer on top edge
 IPLUG_HOLE_R        = 0.003     # [D] 6 mm blind holes / 2
 IPLUG_CENTRE_DEPTH  = 0.016     # [D] centre hole 16 mm deep
@@ -163,12 +171,16 @@ SCREW_SOCKET_DEPTH  = 0.003     # [D] 3 mm deep
 SCREW_SPACING       = 0.077     # [D] 77 mm apart (matches spider/plug)
 
 PEG_R               = 0.0015    # [D] 3 mm peg dia / 2
-PEG_LENGTH          = 0.030     # [D] 30 mm long
-PEG_OVERHANG        = 0.010     # [D] 10 mm outside plug annulus
+PEG_LENGTH          = 0.030     # [D] 30 mm long (shaft only)
+PEG_OVERHANG        = 0.002     # [E] 2 mm shaft outside plug annulus
+PEG_EYE_R           = 0.0025    # [E] 2.5 mm eye (teardrop loop) radius
+PEG_EYE_GAP         = 0.0008    # [E] 0.8 mm gap (split) in the cotter loop
+# Max radial extent: PLUG_LOWER_R + OVERHANG + 2·EYE_R + wire ≈ 31 mm
+# Must stay inside PLUG_MIDDLE_R (31.9 mm) to clear the spider bore.
 
 # --- Flush Bracket ---
-FB_W                = 0.100     # [D] 100 mm wide
-FB_H                = 0.180     # [D] 180 mm high
+FB_W                = 0.0855    # [D] 85.5 mm wide
+FB_H                = 0.172     # [D] 172 mm high
 FB_D                = 0.008     # [D] plate thickness behind beading
 FB_BEAD_R           = 0.005     # [D] 5 mm semicircular beading radius
 FB_SETBACK          = 0.023     # [D] bead peak ~10 mm behind pillar face at top
@@ -176,7 +188,7 @@ FB_BTM_Z            = 0.172     # [D] 30 mm above sighting tube top edge
 FB_RECESS_MARGIN    = 0.020     # [E] recess outer edge this far beyond plate edge
 
 # --- Flush Bracket Keying Structure ---
-FB_REAR_H_FRAC     = 0.90      # [E] rear plate height as fraction of front
+FB_REAR_H_FRAC     = 1902 / 3220  # [D] rear plate height as fraction of front (top-aligned)
 FB_BAR_H            = 0.010     # [D] keying bar height (10 mm)
 FB_BAR_DEPTH        = 0.025     # [D] keying bar protrusion behind rear plate (25 mm)
 FB_ANCHOR_H         = 0.035     # [D] anchor block height (35 mm)
@@ -186,18 +198,18 @@ FB_ANCHOR_DEPTH     = 0.010     # [D] anchor block depth (10 mm)
 LOGO_SVG            = 'TUK-Logo.svg'   # SVG file in ../../res/ relative to script
 LOGO_RELIEF         = 0.0048    # [E] maximum relief height (4.8 mm, bright green UK)
 LOGO_MARGIN         = 0.014     # [E] 8 mm margin inside plate edges
-LOGO_V_STRETCH      = 1.30      # [E] vertical stretch factor (20 % taller)
-LOGO_BTM_OFFSET     = 0.020     # [E] bottom of logo 10 mm above plate bottom
+LOGO_V_STRETCH      = 1.00      # [E] vertical stretch factor (20 % taller)
+LOGO_BTM_OFFSET     = 0.010     # [E] bottom of logo 10 mm above plate bottom
 LOGO_BEVEL_FRAC     = 0.10      # [E] bevel width as fraction of layer relief
 LOGO_BEVEL_SEGS     = 1         # [E] bevel segments (1 = flat chamfer, 2+ = rounded)
 
 # --- Lower Wooden Box ---
-LB_HW               = 0.127     # [E] ~10" / 2
+LB_HW               = 0.152     # [D] 12" / 2 — matches lower block
 LB_HEIGHT           = 0.102     # [E] ~4"
 LB_WALL             = 0.025     # [E] 1"
 
 # --- Lower Block ---
-LBLOCK_HW           = 0.152     # [D] 1'0" / 2
+LBLOCK_HW           = 0.157     # [E] ~5 mm oversize per side vs wooden box
 LBLOCK_H            = 0.305     # [E] ~12"
 
 # --- Lower Centre Mark ---
@@ -742,10 +754,12 @@ def make_brass_material():
     PATINA_AMOUNT  = 0.40
     PATINA_SCALE   = 8.0
     METALLIC       = 0.55
-    ROUGHNESS_BASE = 0.50
-    ROUGHNESS_VAR  = 0.05
-    BUMP_STRENGTH  = 0.02
+    ROUGHNESS_BASE = 0.52
+    ROUGHNESS_VAR  = 0.10
+    BUMP_STRENGTH  = 0.04
     BUMP_SCALE     = 50.0
+    FINE_BUMP_STR  = 0.06
+    FINE_BUMP_SCALE = 300.0
 
     mat = bpy.data.materials.new("Brass")
     mat.use_nodes = True
@@ -790,14 +804,217 @@ def make_brass_material():
     map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
     map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
 
-    # ── Bump ──────────────────────────────────────────────────────
-    voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[1], -500),
+    # ── Fine surface-wear bump (aged/weathered look) ───────────────
+    noise_fine = _new_node(tree, 'ShaderNodeTexNoise', (C[1], -450),
+                           "Fine Wear")
+    noise_fine.inputs['Scale'].default_value = FINE_BUMP_SCALE
+    noise_fine.inputs['Detail'].default_value = 6.0
+    noise_fine.inputs['Roughness'].default_value = 0.7
+
+    bump_fine = _new_node(tree, 'ShaderNodeBump', (C[2], -450),
+                          "Fine Bump")
+    bump_fine.inputs['Strength'].default_value = FINE_BUMP_STR
+
+    # ── Coarse surface-wear bump (patina-scale pitting) ──────────
+    voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[1], -600),
                         "Surface Wear")
     voronoi.inputs['Scale'].default_value = BUMP_SCALE
     voronoi.voronoi_dimensions = '3D'
+    voronoi.feature = 'SMOOTH_F1'
+    voronoi.inputs['Smoothness'].default_value = 0.7
 
-    bump = _new_node(tree, 'ShaderNodeBump', (C[3], -400), "Bump")
-    bump.inputs['Strength'].default_value = BUMP_STRENGTH
+    bump_wear = _new_node(tree, 'ShaderNodeBump', (C[3], -500),
+                          "Wear Bump")
+    bump_wear.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── Thread bump (procedural, coordinate-masked) ──────────────
+    # Sawtooth wave at the thread pitch, restricted to the vertical
+    # cylindrical bore/annulus surfaces of the spider and plug via
+    # an object-space coordinate mask.
+    #
+    # Object-space coords (TexCoord → Object) are used so the pattern
+    # travels with each object during animation (the plug unscrews and
+    # rotates away).  The Spider has its origin at the world origin so
+    # its object coords equal world coords.  The Plug's origin was
+    # shifted by origin_set(center='BOUNDS'), so its Z bounds are
+    # expressed relative to its bounding-box centre.
+    #
+    # The wave is built from plain Math nodes (MULTIPLY + FRACT)
+    # instead of the Wave Texture to avoid Blender's undocumented
+    # internal ×20 coordinate multiplier that made pitch control
+    # unreliable.
+    THREAD_PITCH    = SPIDER_THREAD_PITCH
+    THREAD_BUMP_STR = 4.0
+    THREAD_BUMP_DIST = 0.0008            # fine sampling for sharp crests
+
+    z_shelf = PILLAR_HEIGHT - SPIDER_THICK / 2
+
+    # Spider zone — object space = world space (origin at 0,0,0).
+    # Z bounds are pulled 1 mm inward from the horizontal shelf/bottom
+    # faces so the bump only appears on the vertical bore wall.
+    spider_zone = (
+        SPIDER_LOWER_BORE_R - 0.003,
+        SPIDER_LOWER_BORE_R + 0.003,
+        z_shelf - SPIDER_THICK / 2 + 0.001,
+        z_shelf - 0.001,
+    )
+
+    # Plug zone — object space is relative to the plug's bounding-box
+    # centre, which sits at z = (plug_top + plug_bot) / 2 in world.
+    # Z bounds are pulled 1 mm inward so the bump stays strictly on
+    # the middle ring's vertical outer surface, avoiding the step
+    # faces at the top (shared with upper ring) and bottom.
+    plug_top_z = z_shelf + PLUG_UPPER_H
+    plug_bot_z = z_shelf - PLUG_MIDDLE_H - PLUG_LOWER_H
+    plug_origin_z = (plug_top_z + plug_bot_z) / 2
+    plug_zone = (
+        PLUG_MIDDLE_R - 0.003,
+        PLUG_MIDDLE_R + 0.003,
+        (z_shelf - PLUG_MIDDLE_H) - plug_origin_z + 0.001,
+        z_shelf - plug_origin_z - 0.001,
+    )
+
+    # Object-space position → Separate XYZ
+    sep = _new_node(tree, 'ShaderNodeSeparateXYZ', (C[0], -700),
+                    "Separate Pos")
+
+    # Radial distance: sqrt(x² + y²)
+    pow_x = _new_node(tree, 'ShaderNodeMath', (C[0] + 150, -600), "X²")
+    pow_x.operation = 'POWER'
+    pow_x.inputs[1].default_value = 2.0
+
+    pow_y = _new_node(tree, 'ShaderNodeMath', (C[0] + 150, -750), "Y²")
+    pow_y.operation = 'POWER'
+    pow_y.inputs[1].default_value = 2.0
+
+    add_xy = _new_node(tree, 'ShaderNodeMath', (C[0] + 300, -670),
+                       "X²+Y²")
+    add_xy.operation = 'ADD'
+
+    sqrt_r = _new_node(tree, 'ShaderNodeMath', (C[0] + 450, -670),
+                       "Radius")
+    sqrt_r.operation = 'SQRT'
+
+    def _zone_mask(zone, label_prefix, y_offset):
+        """Build four range-check nodes for one threaded zone."""
+        r_min, r_max, z_min, z_max = zone
+
+        r_lo = _new_node(tree, 'ShaderNodeMath',
+                         (C[1], y_offset), f"{label_prefix} R≥min")
+        r_lo.operation = 'GREATER_THAN'
+        r_lo.inputs[1].default_value = r_min
+
+        r_hi = _new_node(tree, 'ShaderNodeMath',
+                         (C[1], y_offset - 80), f"{label_prefix} R≤max")
+        r_hi.operation = 'LESS_THAN'
+        r_hi.inputs[1].default_value = r_max
+
+        z_lo = _new_node(tree, 'ShaderNodeMath',
+                         (C[1], y_offset - 160), f"{label_prefix} Z≥min")
+        z_lo.operation = 'GREATER_THAN'
+        z_lo.inputs[1].default_value = z_min
+
+        z_hi = _new_node(tree, 'ShaderNodeMath',
+                         (C[1], y_offset - 240), f"{label_prefix} Z≤max")
+        z_hi.operation = 'LESS_THAN'
+        z_hi.inputs[1].default_value = z_max
+
+        # r_lo AND r_hi
+        m1 = _new_node(tree, 'ShaderNodeMath',
+                       (C[1] + 200, y_offset - 40),
+                       f"{label_prefix} R ok")
+        m1.operation = 'MULTIPLY'
+
+        # z_lo AND z_hi
+        m2 = _new_node(tree, 'ShaderNodeMath',
+                       (C[1] + 200, y_offset - 200),
+                       f"{label_prefix} Z ok")
+        m2.operation = 'MULTIPLY'
+
+        # R ok AND Z ok
+        m3 = _new_node(tree, 'ShaderNodeMath',
+                       (C[1] + 400, y_offset - 120),
+                       f"{label_prefix} Mask")
+        m3.operation = 'MULTIPLY'
+
+        L.new(sqrt_r.outputs['Value'], r_lo.inputs[0])
+        L.new(sqrt_r.outputs['Value'], r_hi.inputs[0])
+        L.new(sep.outputs['Z'], z_lo.inputs[0])
+        L.new(sep.outputs['Z'], z_hi.inputs[0])
+        L.new(r_lo.outputs['Value'], m1.inputs[0])
+        L.new(r_hi.outputs['Value'], m1.inputs[1])
+        L.new(z_lo.outputs['Value'], m2.inputs[0])
+        L.new(z_hi.outputs['Value'], m2.inputs[1])
+        L.new(m1.outputs['Value'], m3.inputs[0])
+        L.new(m2.outputs['Value'], m3.inputs[1])
+        return m3
+
+    # Thread profile: lerp(triangle, cosine, THREAD_ROUNDNESS).
+    # THREAD_ROUNDNESS = 0 → pure triangle wave (sharp V-thread)
+    # THREAD_ROUNDNESS = 1 → pure cosine (fully rounded)
+    # Small values (0.05–0.15) add just enough curvature for
+    # smooth shading on the plug's regular spin topology.
+
+    # Triangle wave: abs(frac(Z/pitch) − 0.5) × 2
+    t_div_p = _new_node(tree, 'ShaderNodeMath', (C[1], -1200),
+                         "Z÷pitch")
+    t_div_p.operation = 'MULTIPLY'
+    t_div_p.inputs[1].default_value = 1.0 / THREAD_PITCH
+
+    t_frac = _new_node(tree, 'ShaderNodeMath', (C[1] + 160, -1200),
+                        "frac")
+    t_frac.operation = 'FRACT'
+
+    t_sub = _new_node(tree, 'ShaderNodeMath', (C[1] + 320, -1200),
+                       "−0.5")
+    t_sub.operation = 'SUBTRACT'
+    t_sub.inputs[1].default_value = 0.5
+
+    t_abs = _new_node(tree, 'ShaderNodeMath', (C[1] + 480, -1200),
+                       "|x|")
+    t_abs.operation = 'ABSOLUTE'
+
+    t_x2 = _new_node(tree, 'ShaderNodeMath', (C[1] + 640, -1200),
+                      "×2 tri")
+    t_x2.operation = 'MULTIPLY'
+    t_x2.inputs[1].default_value = 2.0
+
+    # Cosine wave: (1 + cos(Z÷pitch × 2π)) / 2
+    c_freq = _new_node(tree, 'ShaderNodeMath', (C[1] + 160, -1350),
+                        "×2π")
+    c_freq.operation = 'MULTIPLY'
+    c_freq.inputs[1].default_value = 2.0 * math.pi
+
+    c_cos = _new_node(tree, 'ShaderNodeMath', (C[1] + 320, -1350),
+                       "cos")
+    c_cos.operation = 'COSINE'
+
+    c_add1 = _new_node(tree, 'ShaderNodeMath', (C[1] + 480, -1350),
+                        "+1")
+    c_add1.operation = 'ADD'
+    c_add1.inputs[1].default_value = 1.0
+
+    c_half = _new_node(tree, 'ShaderNodeMath', (C[1] + 640, -1350),
+                        "÷2 cos")
+    c_half.operation = 'MULTIPLY'
+    c_half.inputs[1].default_value = 0.5
+
+    # Blend: lerp(triangle, cosine, roundness)
+    thread_blend = _new_node(tree, 'ShaderNodeMix', (C[1] + 820, -1270),
+                             "Tri↔Cos")
+    thread_blend.data_type = 'FLOAT'
+    thread_blend.inputs[0].default_value = THREAD_ROUNDNESS
+
+    bump_thread = _new_node(tree, 'ShaderNodeBump', (C[3], -700),
+                            "Thread Bump")
+    bump_thread.inputs['Strength'].default_value = THREAD_BUMP_STR
+    bump_thread.inputs['Distance'].default_value = THREAD_BUMP_DIST
+
+    # Mix the two bump normals: wear everywhere, thread only in masked zones
+    bump_mix = _new_node(tree, 'ShaderNodeMix', (C[3] + 200, -500),
+                         "Wear ↔ Thread Bump")
+    bump_mix.data_type = 'VECTOR'
+    bump_mix.clamp_factor = True
 
     # ── BSDF ──────────────────────────────────────────────────────
     bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[4], 0))
@@ -810,6 +1027,7 @@ def make_brass_material():
     L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
     L.new(mapping.outputs['Vector'], noise_pat.inputs['Vector'])
     L.new(mapping.outputs['Vector'], noise_rgh.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_fine.inputs['Vector'])
     L.new(mapping.outputs['Vector'], voronoi.inputs['Vector'])
 
     L.new(noise_pat.outputs['Fac'], ramp_pat.inputs['Fac'])
@@ -819,8 +1037,180 @@ def make_brass_material():
     L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
     L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
 
-    L.new(voronoi.outputs['Distance'], bump.inputs['Height'])
-    L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+    # Bump chain: fine wear → coarse wear (chained via Normal input)
+    L.new(noise_fine.outputs['Fac'], bump_fine.inputs['Height'])
+    L.new(voronoi.outputs['Distance'], bump_wear.inputs['Height'])
+    L.new(bump_fine.outputs['Normal'], bump_wear.inputs['Normal'])
+
+    # Thread profile: triangle + cosine chains → blend → bump
+    L.new(sep.outputs['Z'], t_div_p.inputs[0])
+    L.new(t_div_p.outputs['Value'], t_frac.inputs[0])
+    L.new(t_frac.outputs['Value'], t_sub.inputs[0])
+    L.new(t_sub.outputs['Value'], t_abs.inputs[0])
+    L.new(t_abs.outputs['Value'], t_x2.inputs[0])
+
+    L.new(t_div_p.outputs['Value'], c_freq.inputs[0])
+    L.new(c_freq.outputs['Value'], c_cos.inputs[0])
+    L.new(c_cos.outputs['Value'], c_add1.inputs[0])
+    L.new(c_add1.outputs['Value'], c_half.inputs[0])
+
+    L.new(t_x2.outputs['Value'], thread_blend.inputs[2])      # A (float)
+    L.new(c_half.outputs['Value'], thread_blend.inputs[3])     # B (float)
+    L.new(thread_blend.outputs[0], bump_thread.inputs['Height'])
+    L.new(bump_wear.outputs['Normal'], bump_thread.inputs['Normal'])
+
+    # Coordinate mask: object coords → separate → radial distance
+    L.new(tex_coord.outputs['Object'], sep.inputs['Vector'])
+    L.new(sep.outputs['X'], pow_x.inputs[0])
+    L.new(sep.outputs['Y'], pow_y.inputs[0])
+    L.new(pow_x.outputs['Value'], add_xy.inputs[0])
+    L.new(pow_y.outputs['Value'], add_xy.inputs[1])
+    L.new(add_xy.outputs['Value'], sqrt_r.inputs[0])
+
+    # Build zone masks (must come after L is defined)
+    spider_mask = _zone_mask(spider_zone, "Spider", -700)
+    plug_mask   = _zone_mask(plug_zone,   "Plug",   -1050)
+
+    # Combine: either zone triggers the thread
+    zone_or = _new_node(tree, 'ShaderNodeMath', (C[2] + 200, -900),
+                        "Any Thread Zone")
+    zone_or.operation = 'MAXIMUM'
+    zone_or.use_clamp = True
+    L.new(spider_mask.outputs['Value'], zone_or.inputs[0])
+    L.new(plug_mask.outputs['Value'], zone_or.inputs[1])
+
+    # Mix wear bump ↔ thread bump, controlled by zone mask
+    L.new(zone_or.outputs['Value'], bump_mix.inputs[0])
+    L.new(bump_wear.outputs['Normal'], bump_mix.inputs[4])     # A (vector)
+    L.new(bump_thread.outputs['Normal'], bump_mix.inputs[5])   # B (vector)
+
+    L.new(bump_mix.outputs[1], bsdf.inputs['Normal'])
+
+    L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    return mat
+
+
+def make_brass_cast_material():
+    """Rough-cast brass — unfinished surface with coarse sand-cast texture.
+
+    Used for the rear plate of the flush bracket, hole interiors, and
+    any other surfaces that were not machined smooth after casting.
+    Shares the same base colour scheme as the polished brass material
+    but with higher roughness and an aggressive bump.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    Colour:
+      BASE_COLOUR      (R,G,B)    Slightly darker tarnished brass.
+                                    Default: (0.22, 0.16, 0.05)
+      PATINA_COLOUR    (R,G,B)    Darker patina in recesses.
+                                    Default: (0.08, 0.07, 0.02)
+      PATINA_AMOUNT    (0.0–1.0)  More patina in sheltered rear areas.
+                                    Default: 0.50
+
+    Surface:
+      METALLIC         (0.0–1.0)  Less metallic (not polished).
+                                    Default: 0.45
+      ROUGHNESS_BASE   (0.0–1.0)  Matte, unfinished surface.
+                                    Default: 0.72
+      ROUGHNESS_VAR    (0.0–0.3)  Roughness variation.
+                                    Default: 0.10
+      CAST_BUMP_SCALE  (float)    ~1 mm features (1/0.001 m).
+                                    Default: 1000.0
+      CAST_BUMP_STR    (0.0–2.0)  Strong surface texture.
+                                    Default: 0.35
+      CAST_DETAIL      (float)    Noise detail octaves.
+                                    Default: 8.0
+    """
+    BASE_COLOUR     = (0.22, 0.16, 0.05)
+    PATINA_COLOUR   = (0.08, 0.07, 0.02)
+    PATINA_AMOUNT   = 0.50
+    PATINA_SCALE    = 6.0
+    METALLIC        = 0.45
+    ROUGHNESS_BASE  = 0.72
+    ROUGHNESS_VAR   = 0.10
+    CAST_BUMP_SCALE = 1000.0
+    CAST_BUMP_STR   = 0.35
+    CAST_DETAIL     = 8.0
+
+    mat = bpy.data.materials.new("BrassCast")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    C = [-800, -500, -200, 100]
+
+    tex_coord = _new_node(tree, 'ShaderNodeTexCoord', (C[0], 200))
+    mapping = _new_node(tree, 'ShaderNodeMapping', (C[1], 200))
+
+    # ── Patina distribution ─────────────────────────────────────
+    noise_pat = _new_node(tree, 'ShaderNodeTexNoise', (C[1], 0),
+                          "Patina Pattern")
+    noise_pat.inputs['Scale'].default_value = PATINA_SCALE
+    noise_pat.inputs['Detail'].default_value = 5.0
+    noise_pat.inputs['Roughness'].default_value = 0.7
+
+    ramp_pat = _new_node(tree, 'ShaderNodeValToRGB', (C[2], 0),
+                         "Patina Threshold")
+    lo = max(0.001, PATINA_AMOUNT - 0.10)
+    hi = min(0.999, PATINA_AMOUNT + 0.10)
+    ramp_pat.color_ramp.elements[0].position = lo
+    ramp_pat.color_ramp.elements[1].position = hi
+
+    mix_col = _new_node(tree, 'ShaderNodeMix', (C[2] + 150, 0),
+                        "Base ↔ Patina")
+    mix_col.data_type = 'RGBA'
+    mix_col.inputs[6].default_value = (*BASE_COLOUR, 1.0)
+    mix_col.inputs[7].default_value = (*PATINA_COLOUR, 1.0)
+
+    # ── Roughness variation ─────────────────────────────────────
+    noise_rgh = _new_node(tree, 'ShaderNodeTexNoise', (C[1], -300),
+                          "Roughness Noise")
+    noise_rgh.inputs['Scale'].default_value = 20.0
+    noise_rgh.inputs['Detail'].default_value = 3.0
+
+    map_rng = _new_node(tree, 'ShaderNodeMapRange', (C[2], -300),
+                        "Roughness Range")
+    map_rng.inputs['From Min'].default_value = 0.0
+    map_rng.inputs['From Max'].default_value = 1.0
+    map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
+    map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
+
+    # ── Cast bump — coarse noise for sand-cast texture ──────────
+    noise_cast = _new_node(tree, 'ShaderNodeTexNoise', (C[1], -500),
+                           "Cast Texture")
+    noise_cast.inputs['Scale'].default_value = CAST_BUMP_SCALE
+    noise_cast.inputs['Detail'].default_value = CAST_DETAIL
+    noise_cast.inputs['Roughness'].default_value = 0.6
+
+    bump_cast = _new_node(tree, 'ShaderNodeBump', (C[2], -500),
+                          "Cast Bump")
+    bump_cast.inputs['Strength'].default_value = CAST_BUMP_STR
+
+    # ── BSDF ────────────────────────────────────────────────────
+    bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[3], -200))
+    bsdf.inputs['Metallic'].default_value = METALLIC
+
+    output = _new_node(tree, 'ShaderNodeOutputMaterial',
+                       (C[3] + 300, -200))
+
+    # ── Links ───────────────────────────────────────────────────
+    L = tree.links
+    L.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_pat.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_rgh.inputs['Vector'])
+    L.new(mapping.outputs['Vector'], noise_cast.inputs['Vector'])
+
+    L.new(noise_pat.outputs['Fac'], ramp_pat.inputs['Fac'])
+    L.new(ramp_pat.outputs['Color'], mix_col.inputs[0])
+    L.new(mix_col.outputs[2], bsdf.inputs['Base Color'])
+
+    L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
+    L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
+
+    L.new(noise_cast.outputs['Fac'], bump_cast.inputs['Height'])
+    L.new(bump_cast.outputs['Normal'], bsdf.inputs['Normal'])
 
     L.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
 
@@ -915,7 +1305,7 @@ def make_rusted_steel_material():
     return mat
 
 
-def make_aged_steel_material():
+def make_fixings_material():
     """Aged steel with surface grime — dark grey, still metallic.
 
     Used for screws and pegs which are somewhat protected from weather
@@ -2192,6 +2582,56 @@ def _spider_outline():
     return cleaned
 
 
+def _make_threaded_bore_cutter(radius, depth, z_center,
+                               thread_depth, thread_pitch,
+                               n_angular=64, n_per_pitch=12):
+    """Create a V-threaded cylinder for boolean bore-cutting.
+
+    The outer radius varies with Z following a triangle wave: at thread
+    roots it equals *radius* (maximum material removal); at crests it
+    equals *radius - thread_depth* (material left behind forms the
+    thread ridges protruding into the bore).
+    """
+    bm = bmesh.new()
+    z_top = z_center + depth / 2
+    z_bot = z_center - depth / 2
+    n_vert = max(4, int(math.ceil(depth / thread_pitch) * n_per_pitch) + 1)
+
+    rings = []
+    for i in range(n_vert + 1):
+        z = z_bot + (z_top - z_bot) * i / n_vert
+        tri = abs((z / thread_pitch % 1.0) - 0.5) * 2.0
+        r = radius - thread_depth * tri
+        ring = []
+        for j in range(n_angular):
+            a = 2 * math.pi * j / n_angular
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), z)))
+        rings.append(ring)
+
+    for i in range(len(rings) - 1):
+        for j in range(n_angular):
+            j2 = (j + 1) % n_angular
+            bm.faces.new([rings[i][j], rings[i][j2],
+                          rings[i + 1][j2], rings[i + 1][j]])
+
+    tc = bm.verts.new((0, 0, z_top))
+    bc = bm.verts.new((0, 0, z_bot))
+    for j in range(n_angular):
+        j2 = (j + 1) % n_angular
+        bm.faces.new([rings[-1][j2], rings[-1][j], tc])
+        bm.faces.new([rings[0][j], rings[0][j2], bc])
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+    mesh = bpy.data.meshes.new("_threaded_bore")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    obj = bpy.data.objects.new("_threaded_bore", mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
 def build_spider(M):
     """Brass spider fitting at the top of the pillar.
 
@@ -2295,13 +2735,65 @@ def build_spider(M):
         location=(0, 0, z_shelf + upper_h / 2))
     boolean_cut(spider, bpy.context.active_object)
 
-    # Lower half: 64 mm dia bore from bottom to shelf (forms shelf).
+    # Lower half: V-threaded bore from bottom to shelf (forms shelf).
     lower_h = thick / 2 + 0.002
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=lower_r, depth=lower_h,
-        vertices=64,
-        location=(0, 0, z_shelf - lower_h / 2))
-    boolean_cut(spider, bpy.context.active_object)
+    threaded_cutter = _make_threaded_bore_cutter(
+        lower_r, lower_h, z_shelf - lower_h / 2,
+        SPIDER_THREAD_DEPTH, SPIDER_THREAD_PITCH)
+    boolean_cut(spider, threaded_cutter)
+
+    # ── Ground-off thread flats ────────────────────────────────────
+    # Two diametrically opposite segments where the thread has been
+    # roughly ground away.  The back (outer) face follows the bore
+    # curvature; the front extends past the thread crests so no
+    # thread remnants remain.  Random bearing.
+    grind_arc   = 0.014                              # 14 mm circumferential
+    grind_depth = 0.003                              # 3 mm radial (thread + extra)
+    grind_h     = thick / 2 + 0.002                  # full lower-bore height
+    grind_angle = random.Random(77).uniform(0, 2 * math.pi)
+
+    crest_r   = lower_r - SPIDER_THREAD_DEPTH
+    grind_ir  = crest_r - 0.001                      # 1 mm past crests into bore
+    grind_or  = crest_r + grind_depth                # 3 mm deep into solid brass
+    arc_outer = grind_arc / crest_r                  # angular span at crest radius
+    splay     = math.radians(10)                      # edges angle outward ~4°
+    arc_inner = arc_outer + 2 * splay                # wider at the bore face
+    grind_zm  = z_shelf - thick / 4
+    n_arc     = 20
+
+    for offset in (0, math.pi):
+        bearing = grind_angle + offset
+        bm = bmesh.new()
+        z_lo = grind_zm - grind_h / 2
+        z_hi = grind_zm + grind_h / 2
+        rings = []
+        for z in (z_lo, z_hi):
+            ring = []
+            for i in range(n_arc + 1):
+                t = bearing - arc_outer / 2 + arc_outer * i / n_arc
+                ring.append(bm.verts.new((
+                    grind_or * math.cos(t),
+                    grind_or * math.sin(t), z)))
+            for i in range(n_arc, -1, -1):
+                t = bearing - arc_inner / 2 + arc_inner * i / n_arc
+                ring.append(bm.verts.new((
+                    grind_ir * math.cos(t),
+                    grind_ir * math.sin(t), z)))
+            rings.append(ring)
+        bot, top = rings
+        n_verts = len(bot)
+        bm.faces.new(bot)
+        bm.faces.new(list(reversed(top)))
+        for i in range(n_verts):
+            j = (i + 1) % n_verts
+            bm.faces.new([bot[i], bot[j], top[j], top[i]])
+        bm.normal_update()
+        mesh = bpy.data.meshes.new("grind_cutter")
+        bm.to_mesh(mesh)
+        bm.free()
+        g = bpy.data.objects.new("grind_cutter", mesh)
+        bpy.context.collection.objects.link(g)
+        boolean_cut(spider, g)
 
     # ── Inner bevel (45° × 3 mm on top of inner edge) ────────────
     bevel_h = ib + 0.001
@@ -2359,27 +2851,257 @@ def build_spider(M):
         bpy.ops.object.transform_apply(rotation=True)
         boolean_cut(spider, groove)
 
+    # ── Bottom flange (wider shelf around the underside) ─────────
+    # A thin slab wider than the main body, forming a shelf around
+    # the annulus and arm sides.  The arm tips show an inverted-T
+    # cross-section (flange wider than the arm, but no shelf at the
+    # very end).
+    #
+    # The centre hole matches the CentrePipe OD + 1 mm clearance.
+    # TODO: verify what actually happens to the flange in the central
+    #       bore area — this clearance hole is a placeholder assumption.
+    flange_h  = SPIDER_FLANGE_H
+    flange_oh = SPIDER_FLANGE_OVERHANG
+    flange_zm = zb - flange_h / 2
+
+    # Start with a wider annulus disk
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=outer_r + flange_oh, depth=flange_h,
+        vertices=64, location=(0, 0, flange_zm))
+    flange = bpy.context.active_object
+    flange.name = "_flange"
+
+    # Add wider arm rectangles (extend from centre outward to tip_r)
+    for ai in range(3):
+        rot_angle = arm_angles[ai] - math.pi / 2
+        arm_length = tip_r
+        theta = arm_angles[ai]
+        cx = (arm_length / 2) * math.cos(theta)
+        cy = (arm_length / 2) * math.sin(theta)
+        bpy.ops.mesh.primitive_cube_add(
+            size=1,
+            location=(cx, cy, flange_zm))
+        arm_box = bpy.context.active_object
+        arm_box.scale = ((arm_hw + flange_oh) * 2, arm_length, flange_h)
+        arm_box.rotation_euler.z = rot_angle
+        activate(arm_box)
+        bpy.ops.object.transform_apply(scale=True, rotation=True)
+        _union_into(flange, arm_box)
+
+    # Cut the centre hole (CentrePipe OD + 1 mm clearance)
+    pipe_clearance_r = CP_OUTER_R + 0.001
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=pipe_clearance_r, depth=flange_h + 0.002,
+        vertices=64, location=(0, 0, flange_zm))
+    boolean_cut(flange, bpy.context.active_object)
+
+    # Union flange with the spider body
+    _union_into(spider, flange)
+
     assign(spider, M['brass'])
     smooth(spider)
     return spider
 
 
+def _gourd_loop_centreline(upper_r, lower_r, waist_r, waist_drop,
+                           n_upper=28, n_lower=28, n_waist=8):
+    """Return a list of (x, z) points tracing a gourd-shaped centreline.
+
+    The shape sits in the XZ plane, centred on X = 0, with:
+      - an upper arc (radius *upper_r*) spanning the top,
+      - concave circular blend arcs (radius *waist_r*) at the waist,
+      - a lower, wider arc (radius *lower_r*) forming the buried bulb,
+        offset *waist_drop* below where the circles would otherwise touch.
+
+    All four arcs meet with G1 (tangent) continuity — the blend arc
+    centres are found by solving the external-tangency constraint against
+    both the upper and lower circles.
+
+    Convention:  +Z is up.  The top of the upper arc is shifted to
+    z = 0 before returning.
+    """
+
+    # ── Circle centres (before final Z shift) ──────────────────
+    # Upper circle — centre at (0, upper_r), top at z = 2·upper_r.
+    cu_z = upper_r
+
+    # Lower circle — centre placed so there is *waist_drop* of
+    # vertical daylight between the bottom of the upper circle
+    # (z = 0) and the top of the lower circle.
+    cl_z = -(waist_drop + lower_r)
+
+    # ── Blend-circle centres (right & left, symmetric) ─────────
+    # External tangency with BOTH main circles:
+    #   |C_blend − C_upper| = upper_r + waist_r   … (1)
+    #   |C_blend − C_lower| = lower_r + waist_r   … (2)
+    # Both main centres are on x = 0, so subtract (2) from (1)
+    # to get bz, then solve for bx.
+    d_u = upper_r + waist_r
+    d_l = lower_r + waist_r
+    dz_ul = cl_z - cu_z                           # negative
+    bz = (d_u ** 2 - d_l ** 2 - cu_z ** 2 + cl_z ** 2) / (2 * dz_ul)
+    bx = math.sqrt(max(0.0, d_u ** 2 - (bz - cu_z) ** 2))
+
+    # ── Tangent points ─────────────────────────────────────────
+    def _tang(cx, cz, r, tx, tz):
+        """Point on circle (cx,cz,r) in the direction of (tx,tz)."""
+        dx, dz = tx - cx, tz - cz
+        d = math.hypot(dx, dz)
+        return (cx + r * dx / d, cz + r * dz / d)
+
+    def _ang(cx, cz, px, pz):
+        return math.atan2(pz - cz, px - cx)
+
+    # Right-side tangent points
+    t_ur = _tang(0, cu_z, upper_r, bx, bz)        # upper → right blend
+    t_lr = _tang(0, cl_z, lower_r, bx, bz)        # lower → right blend
+    # Left-side (mirror in x)
+    t_ul = _tang(0, cu_z, upper_r, -bx, bz)       # upper → left blend
+    t_ll = _tang(0, cl_z, lower_r, -bx, bz)       # lower → left blend
+
+    # ── Arc-point helper ───────────────────────────────────────
+    def _arc(cx, cz, r, a0, a1, n, cw):
+        """n+1 points along a circular arc.
+
+        *cw* = True  → clockwise  (decreasing angle).
+        *cw* = False → counter-clockwise (increasing angle).
+        The sweep always takes the short way if < π, else the
+        long way — caller must pick the correct *cw* flag.
+        """
+        if cw:
+            sweep = (a0 - a1) % (2 * math.pi)
+        else:
+            sweep = (a1 - a0) % (2 * math.pi)
+        if sweep < 1e-10:
+            sweep = 2 * math.pi          # degenerate → full circle
+        out = []
+        for i in range(n + 1):
+            t = i / n
+            a = (a0 - t * sweep) if cw else (a0 + t * sweep)
+            out.append((cx + r * math.cos(a), cz + r * math.sin(a)))
+        return out
+
+    # ── Trace the four arcs (clockwise overall) ────────────────
+    # 1) Upper arc  – CW around C_upper from T_ul to T_ur
+    #    (sweeps through the top of the circle).
+    a_ul = _ang(0, cu_z, *t_ul)
+    a_ur = _ang(0, cu_z, *t_ur)
+    upper_pts = _arc(0, cu_z, upper_r, a_ul, a_ur, n_upper, cw=True)
+
+    # 2) Right blend – CCW around C_blend_right from T_ur to T_lr
+    #    (traces the concave inner face of the blend circle).
+    a_br0 = _ang(bx, bz, *t_ur)
+    a_br1 = _ang(bx, bz, *t_lr)
+    rblend_pts = _arc(bx, bz, waist_r, a_br0, a_br1, n_waist, cw=False)
+
+    # 3) Lower arc  – CW around C_lower from T_lr to T_ll
+    #    (sweeps through the bottom).
+    a_lr = _ang(0, cl_z, *t_lr)
+    a_ll = _ang(0, cl_z, *t_ll)
+    lower_pts = _arc(0, cl_z, lower_r, a_lr, a_ll, n_lower, cw=True)
+
+    # 4) Left blend – CCW around C_blend_left from T_ll to T_ul
+    a_bl0 = _ang(-bx, bz, *t_ll)
+    a_bl1 = _ang(-bx, bz, *t_ul)
+    lblend_pts = _arc(-bx, bz, waist_r, a_bl0, a_bl1, n_waist, cw=False)
+
+    # Concatenate, skipping duplicate junction vertices.
+    full = (upper_pts
+            + rblend_pts[1:]
+            + lower_pts[1:]
+            + lblend_pts[1:])
+
+    # Shift so the topmost point sits at z = 0.
+    z_max = max(p[1] for p in full)
+    full = [(p[0], p[1] - z_max) for p in full]
+
+    return full
+
+
+def _sweep_tube_along_path(path_xz, wire_r, name, n_circ=12):
+    """Create a closed tube mesh by sweeping a circle along an XZ path.
+
+    *path_xz* is a list of (x, z) centre-line points (the path is closed —
+    the last point connects back to the first).  *wire_r* is the radius
+    of the circular cross-section.  The tube is built in the XZ plane
+    (Y = 0 for the centre-line) so the caller can rotate it into place.
+
+    Returns a Blender mesh object (not yet linked to a collection).
+    """
+    n_pts = len(path_xz)
+    bm = bmesh.new()
+    rings = []
+
+    for i in range(n_pts):
+        # Tangent direction (forward difference, wrapping)
+        i_next = (i + 1) % n_pts
+        i_prev = (i - 1) % n_pts
+        tx = path_xz[i_next][0] - path_xz[i_prev][0]
+        tz = path_xz[i_next][1] - path_xz[i_prev][1]
+        tlen = math.sqrt(tx * tx + tz * tz)
+        if tlen < 1e-12:
+            tx, tz = 1.0, 0.0
+        else:
+            tx /= tlen
+            tz /= tlen
+
+        # Normal to tangent in the XZ plane (points outward from curve)
+        nx, nz = -tz, tx
+
+        # The binormal is always Y (out-of-plane)
+        cx, cz = path_xz[i]
+
+        ring = []
+        for j in range(n_circ):
+            a = 2 * math.pi * j / n_circ
+            cos_a = math.cos(a)
+            sin_a = math.sin(a)
+            # Position: centre + cos_a * normal * r + sin_a * binormal * r
+            px = cx + wire_r * (cos_a * nx)
+            py = wire_r * sin_a              # Y axis = binormal
+            pz = cz + wire_r * (cos_a * nz)
+            ring.append(bm.verts.new((px, py, pz)))
+        rings.append(ring)
+
+    # Connect rings with quad faces
+    for i in range(n_pts):
+        i_next = (i + 1) % n_pts
+        for j in range(n_circ):
+            j_next = (j + 1) % n_circ
+            bm.faces.new([
+                rings[i][j], rings[i][j_next],
+                rings[i_next][j_next], rings[i_next][j],
+            ])
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    return mesh
+
+
 def build_brass_loops(M):
     """Three brass loops embedded in the pillar top, with carved recesses.
 
-    Each loop is a 30 mm torus (4 mm wire) standing vertically with its
-    plane radially aligned (passing through the pillar centre axis).
-    The top of the wire is 3 mm below the pillar surface.
+    Each loop is a gourd-shaped ring of 4 mm brass wire standing
+    vertically with its plane radially aligned.  The upper portion
+    (radius 15 mm) is visible in the recess; below the concrete
+    surface the two legs converge through smooth concave blend arcs
+    (radius 8 mm) forming a waist, then flare out into a wider buried
+    loop (radius 22 mm) that anchors the fitting in the concrete.
 
-    A round-bottomed recess (40 × 15 × 15 mm) with stadium plan shape
-    and chamfered top edges is carved into the concrete.  The recess long
-    axis runs tangentially (across the loop).  The upper portion of the
-    loop and part of the inner hole are exposed; the bottom and sides
+    The top of the wire sits 3 mm below the pillar surface.
+
+    A round-bottomed recess (70 × 20 × 15 mm) with stadium plan shape
+    and chamfered top edges is carved into the concrete.  The upper arc
+    and part of the inner hole are exposed; the waist and lower bulb
     remain embedded.
     """
     print("  Brass loops ...")
 
-    R       = LOOP_R                              # major radius (15 mm)
+    R       = LOOP_R                              # upper loop radius (15 mm)
+    R_low   = LOOP_LOWER_R                        # lower loop radius (20 mm)
     r       = LOOP_WIRE_R                         # wire radius (2 mm)
     rl      = LOOP_RECESS_L                       # recess length (40 mm)
     rw      = LOOP_RECESS_W                       # recess width  (15 mm)
@@ -2387,12 +3109,16 @@ def build_brass_loops(M):
     hw      = rw / 2                              # half width (7.5 mm)
     z_surf  = PILLAR_HEIGHT                       # pillar surface
 
-    # Loop centre Z: top of wire = surface - LOOP_DEPTH
-    z_loop = z_surf - LOOP_DEPTH - R - r          # PILLAR_HEIGHT - 0.020
-
     r_pos   = LOOP_POS_R                          # 120 mm from centre
     pillar  = bpy.data.objects['Pillar']
     loops   = []
+
+    # Generate the gourd-shaped centreline once (in the XZ plane,
+    # top of loop at z = 0).
+    gourd_path = _gourd_loop_centreline(
+        upper_r=R, lower_r=R_low,
+        waist_r=LOOP_WAIST_R,
+        waist_drop=LOOP_WAIST_DROP)
 
     # Recess geometry parameters
     # Local frame: length along X (tangential), width along Y (radial),
@@ -2450,19 +3176,20 @@ def build_brass_loops(M):
         cx = r_pos * math.cos(angle)
         cy = r_pos * math.sin(angle)
 
-        # ── Brass loop (torus standing vertically) ────────────────
-        bpy.ops.mesh.primitive_torus_add(
-            major_radius=R, minor_radius=r,
-            major_segments=32, minor_segments=12,
-            location=(cx, cy, z_loop))
-        lp = bpy.context.active_object
-        lp.name = f"BrassLoop_{i}"
+        # ── Brass loop (gourd-shaped, standing vertically) ────────
+        # The centreline sits in XZ with top at z = 0.  We offset
+        # so the top of the wire = surface - LOOP_DEPTH.
+        z_top = z_surf - LOOP_DEPTH - r      # top of wire centre
+        loop_mesh = _sweep_tube_along_path(
+            gourd_path, r, f"_gourd_mesh_{i}")
+        lp = bpy.data.objects.new(f"BrassLoop_{i}", loop_mesh)
+        bpy.context.collection.objects.link(lp)
 
-        # Stand upright with plane passing through Z axis:
-        # Rx(90°) tilts ring into XZ plane, Rz(angle) aligns radially.
-        lp.rotation_euler = (math.pi / 2, 0, angle)
+        # Move so local z = 0 maps to z_top, then rotate into radial plane.
+        lp.location = (cx, cy, z_top)
+        lp.rotation_euler.z = angle
         activate(lp)
-        bpy.ops.object.transform_apply(rotation=True)
+        bpy.ops.object.transform_apply(location=True, rotation=True)
 
         assign(lp, M['brass'])
         smooth(lp)
@@ -2571,19 +3298,38 @@ def build_plug(M):
     z_bot     = z_mid_bot - PLUG_LOWER_H         # bottom of plug
 
     # ── Stepped profile (XZ half-plane, spun 360° around Z) ──────
-    # Ten vertices trace the cross-section clockwise from top-inner.
+    # The middle ring's outer wall carries the thread profile.
+    # THREAD_ROUNDNESS blends between a triangle wave (0 = sharp V)
+    # and a cosine wave (1 = fully rounded).  A small value like 0.08
+    # adds just enough curvature for smooth shading on the regular
+    # spin topology, without losing the aggressive V-thread look.
+    td = SPIDER_THREAD_DEPTH
+    tp = SPIDER_THREAD_PITCH
+    rnd = THREAD_ROUNDNESS
+    ip_td = td * 8 / 13              # inner-plug thread: 13/8 × finer
+    ip_tp = tp * 8 / 13
+    n_thread = int(math.ceil(PLUG_MIDDLE_H / tp) * 20) + 1
+    thread_pts = []
+    for i in range(n_thread):
+        frac_i = i / (n_thread - 1)
+        z = z_shelf - PLUG_MIDDLE_H * frac_i
+        t = z / tp % 1.0
+        tri = abs(t - 0.5) * 2.0
+        cos_v = (1.0 + math.cos(2.0 * math.pi * t)) / 2.0
+        blended = tri + rnd * (cos_v - tri)
+        thread_pts.append((mid_r + td * blended, z))
+
     bm = bmesh.new()
     profile = [
         (bore_r,            z_top - bore_bv), # 0  bore wall, below inner chamfer
         (bore_r + bore_bv,  z_top),           # 1  inner chamfer end (top surface)
         (up_r - chm,        z_top),           # 2  top surface → outer chamfer
-        (up_r,          z_top - chm),         # 2  chamfer end (outer wall)
-        (up_r,          z_shelf),             # 3  upper ring outer, bottom
-        (mid_r,         z_shelf),             # 4  step to middle ring
-        (mid_r,         z_mid_bot),           # 5  middle ring outer, bottom
-        (low_r,         z_mid_bot),           # 6  step to lower ring
-        (low_r,         z_bot),               # 7  lower ring bottom outer
-        (bore_r,        z_bot),               # 8  lower ring bottom inner
+        (up_r,          z_top - chm),         #    chamfer end (outer wall)
+        (up_r,          z_shelf),             #    upper ring outer, bottom
+        *thread_pts,                          #    V-threaded middle ring
+        (low_r,         z_mid_bot),           #    step to lower ring
+        (low_r,         z_bot),               #    lower ring bottom outer
+        (bore_r,        z_bot),               #    lower ring bottom inner
     ]
 
     verts = [bm.verts.new((r, 0, z)) for r, z in profile]
@@ -2618,6 +3364,28 @@ def build_plug(M):
             location=(hx, hy, z_shelf + PLUG_UPPER_H / 2))
         boolean_cut(plug, bpy.context.active_object)
 
+    # ── Internal bore thread (matches inner plug, bottom 3 mm plain) ──
+    bore_thread_top = z_top - bore_bv
+    bore_thread_bot = z_bot + 0.003
+    bore_thread_h   = bore_thread_top - bore_thread_bot
+    bore_thread_zc  = (bore_thread_top + bore_thread_bot) / 2
+    bore_cutter = _make_threaded_bore_cutter(
+        bore_r + ip_td, bore_thread_h, bore_thread_zc,
+        ip_td, ip_tp)
+    boolean_cut(plug, bore_cutter)
+
+    # ── Cotter-pin hole through the lower annulus ─────────────────
+    # Horizontal through-hole along +X at the same position and radius
+    # as the cotter pin, so the hole is visible once the pin is removed.
+    cp_z = z_shelf - 0.013                          # matches z_peg in build_fixings
+    cp_len = low_r - bore_r + ip_td + 0.004         # spans annulus wall with margin
+    cp_mid_x = (low_r + bore_r - ip_td) / 2
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=PEG_R + 0.0002, depth=cp_len, vertices=16,
+        location=(cp_mid_x, 0, cp_z),
+        rotation=(0, math.pi / 2, 0))
+    boolean_cut(plug, bpy.context.active_object)
+
     assign(plug, M['brass'])
     smooth(plug)
     # Centre the plug origin so rotations happen around its body.
@@ -2627,43 +3395,61 @@ def build_plug(M):
     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
     # ── Inner plug ─────────────────────────────────────────────────
-    # Solid cylinder (~37.8 mm dia) with 1 mm chamfer on top edge and
-    # three blind holes drilled into the bottom.  Sits inside the plug
-    # bore with its top flush with the plug top.
+    # Solid cylinder (~37.8 mm dia) with 1 mm chamfer on top edge,
+    # external V-threads on the outer wall, and three blind holes
+    # drilled into the bottom.  Sits inside the plug bore with its
+    # top flush with the plug top.
+    #
+    # Built via bmesh spin of a 2-D profile (same technique as the
+    # Plug's threaded middle ring).  Thread crests sit at ip_r,
+    # troughs at ip_r − SPIDER_THREAD_DEPTH.
     ip_r    = IPLUG_R
     ip_h    = IPLUG_H
     ip_bv   = IPLUG_BEVEL
     z_ip_top = z_top
     z_ip_bot = z_ip_top - ip_h
-    z_ip_mid = z_ip_top - ip_h / 2
 
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=ip_r, depth=ip_h, vertices=64,
-        location=(0, 0, z_ip_mid))
-    ip = bpy.context.active_object
-    ip.name = "InnerPlug"
+    # Thread profile points along the outer wall, below the chamfer.
+    # ip_td / ip_tp (13/8 × finer) are computed above alongside td / tp.
+    ip_thread_top = z_ip_top - ip_bv
+    ip_thread_h   = ip_thread_top - z_ip_bot
+    n_ip_thread   = int(math.ceil(ip_thread_h / ip_tp) * 20) + 1
+    ip_thread_pts = []
+    for i in range(n_ip_thread):
+        frac_i = i / (n_ip_thread - 1)
+        z = ip_thread_top - ip_thread_h * frac_i
+        t = z / ip_tp % 1.0
+        tri = abs(t - 0.5) * 2.0
+        cos_v = (1.0 + math.cos(2.0 * math.pi * t)) / 2.0
+        blended = tri + rnd * (cos_v - tri)
+        ip_thread_pts.append((ip_r - ip_td + ip_td * blended, z))
 
-    # Chamfer on top edge (1 mm, 45°) — revolved triangular cutter
-    eps = 0.0005
-    bm_c = bmesh.new()
-    cv = [
-        bm_c.verts.new((ip_r - ip_bv - eps, 0, z_ip_top + eps)),
-        bm_c.verts.new((ip_r + eps,          0, z_ip_top + eps)),
-        bm_c.verts.new((ip_r + eps,          0, z_ip_top - ip_bv - eps)),
+    bm_ip = bmesh.new()
+    ip_profile = [
+        (0,              z_ip_top),          # centre of top face
+        (ip_r - ip_bv,   z_ip_top),          # top surface → chamfer start
+        (ip_r,           ip_thread_top),      # chamfer end (thread start)
+        *ip_thread_pts,                       # V-threaded outer wall
+        (0,              z_ip_bot),           # centre of bottom face
     ]
-    bm_c.faces.new(cv)
-    geom_c = bm_c.faces[:] + bm_c.edges[:] + bm_c.verts[:]
-    bmesh.ops.spin(bm_c, geom=geom_c,
+
+    ip_verts = [bm_ip.verts.new((r, 0, z)) for r, z in ip_profile]
+    bm_ip.faces.new(ip_verts)
+
+    geom_ip = bm_ip.faces[:] + bm_ip.edges[:] + bm_ip.verts[:]
+    bmesh.ops.spin(bm_ip, geom=geom_ip,
                    cent=(0, 0, 0), axis=(0, 0, 1),
                    angle=2 * math.pi, steps=64)
-    bmesh.ops.remove_doubles(bm_c, verts=bm_c.verts, dist=0.0001)
-    mesh_c = bpy.data.meshes.new("_iplug_chamfer")
-    bm_c.to_mesh(mesh_c)
-    bm_c.free()
+    bmesh.ops.remove_doubles(bm_ip, verts=bm_ip.verts, dist=0.0001)
 
-    chamfer_cut = bpy.data.objects.new("_iplug_chamfer", mesh_c)
-    bpy.context.collection.objects.link(chamfer_cut)
-    boolean_cut(ip, chamfer_cut)
+    ip_mesh = bpy.data.meshes.new("InnerPlug")
+    bm_ip.to_mesh(ip_mesh)
+    bm_ip.free()
+
+    ip = bpy.data.objects.new("InnerPlug", ip_mesh)
+    bpy.context.collection.objects.link(ip)
+    bpy.context.view_layer.objects.active = ip
+    ip.select_set(True)
 
     # Three blind holes drilled into the bottom face
     bh_r = IPLUG_HOLE_R
@@ -2687,8 +3473,112 @@ def build_plug(M):
             location=(sx, sy, z_ip_bot + sd / 2))
         boolean_cut(ip, bpy.context.active_object)
 
+    # Horizontal through-hole — 1.5 mm radius, 3.5 mm above bottom,
+    # drilled radially from the outer surface to the central blind hole.
+    # Bearing is 90° around from the side blind holes (which are at
+    # 90°/270°), so this sits at 0° (along +X).
+    th_r = 0.0015
+    th_z = z_ip_bot + 0.0035
+    th_angle = math.radians(0)
+    th_len = ip_r + 0.002
+    th_cx = (th_len / 2) * math.cos(th_angle)
+    th_cy = (th_len / 2) * math.sin(th_angle)
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=th_r, depth=th_len, vertices=16,
+        location=(th_cx, th_cy, th_z),
+        rotation=(0, math.pi / 2, th_angle))
+    boolean_cut(ip, bpy.context.active_object)
+
+    # Grubscrew stepped hole — 10 mm above bottom, 60° from the 90°
+    # side blind hole (bearing 150°).  Outer section 3 mm radius for
+    # 10 mm depth, then 1.5 mm radius for the remainder to the
+    # central blind hole.
+    gs_z = z_ip_bot + 0.010
+    gs_angle = math.radians(150)
+    gs_dir_x = math.cos(gs_angle)
+    gs_dir_y = math.sin(gs_angle)
+
+    # Outer section: 3 mm radius, 10 mm long, starting at outer surface
+    gs_outer_r = 0.003
+    gs_outer_len = 0.010
+    gs_outer_start = ip_r + 0.001
+    gs_outer_mid = gs_outer_start - gs_outer_len / 2
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=gs_outer_r, depth=gs_outer_len + 0.002, vertices=16,
+        location=(gs_outer_mid * gs_dir_x, gs_outer_mid * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    boolean_cut(ip, bpy.context.active_object)
+
+    # Inner section: 1.5 mm radius, from 10 mm depth to central hole
+    gs_inner_r = 0.0015
+    gs_inner_start = gs_outer_start - gs_outer_len
+    gs_inner_end = 0.0
+    gs_inner_len = gs_inner_start - gs_inner_end
+    gs_inner_mid = (gs_inner_start + gs_inner_end) / 2
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=gs_inner_r, depth=gs_inner_len + 0.002, vertices=16,
+        location=(gs_inner_mid * gs_dir_x, gs_inner_mid * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    boolean_cut(ip, bpy.context.active_object)
+
     assign(ip, M['brass'])
     smooth(ip)
+
+    # ── Grub screw (sits inside the grubscrew hole) ───────────────
+    # 13 mm total: bottom 10 mm shaft at 1.5 mm radius, top 3 mm head
+    # at 3 mm radius (6 mm dia).  Radii reduced slightly for clearance.
+    # A 1 mm wide rectangular slot runs across the top face.
+    gs_screw_shaft_r = 0.00140       # 1.5 mm - 0.1 mm clearance
+    gs_screw_head_r  = 0.00290       # 3.0 mm - 0.1 mm clearance
+    gs_screw_shaft_l = 0.010         # 10 mm
+    gs_screw_head_l  = 0.003         # 3 mm
+    gs_slot_w        = 0.001         # 1 mm slot width
+
+    # Head recessed 2 mm inside the outer surface of the inner plug.
+    gs_recess    = 0.002
+    head_start   = ip_r - gs_recess
+    head_end     = head_start - gs_screw_head_l
+    shaft_end    = head_end - gs_screw_shaft_l
+
+    head_mid  = (head_start + head_end) / 2
+    shaft_mid = (head_end + shaft_end) / 2
+
+    # Head cylinder
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=gs_screw_head_r, depth=gs_screw_head_l, vertices=24,
+        location=(head_mid * gs_dir_x, head_mid * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    screw = bpy.context.active_object
+    screw.name = "GrubScrew"
+
+    # Shaft cylinder — union into the screw
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=gs_screw_shaft_r, depth=gs_screw_shaft_l, vertices=16,
+        location=(shaft_mid * gs_dir_x, shaft_mid * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    _union_into(screw, bpy.context.active_object)
+
+    # Slot across the top (outer) face of the head.
+    # The cutter straddles the face so the boolean is clean.
+    slot_depth = 0.0015
+    slot_len   = gs_screw_head_r * 2 + 0.001
+    slot_cx    = head_start - slot_depth / 2
+    bpy.ops.mesh.primitive_cube_add(
+        size=1,
+        location=(slot_cx * gs_dir_x, slot_cx * gs_dir_y, gs_z))
+    slot = bpy.context.active_object
+    slot.scale = (slot_depth, slot_len, gs_slot_w)
+    slot.rotation_euler.z = gs_angle
+    activate(slot)
+    bpy.ops.object.transform_apply(scale=True, rotation=True)
+    boolean_cut(screw, slot)
+
+    assign(screw, M['fixings'])
+    smooth(screw)
+
+    # Parent to inner plug so it follows during animation.
+    screw.parent = ip
+    screw.matrix_parent_inverse = ip.matrix_world.inverted()
 
     return plug, ip
 
@@ -2814,16 +3704,124 @@ def build_plug_text(M):
     smooth(plug)
 
 
+def _make_cotter_pin(wire_r, shaft_x0, shaft_x1, eye_r, eye_gap, z,
+                     n_circ=12, n_eye=32):
+    """Build a cotter-pin mesh: shaft cylinder + teardrop eye with gap.
+
+    The shaft is a solid 3 mm cylinder from *shaft_x0* to *shaft_x1*
+    along the X axis at height *z* (the part hidden inside the plug).
+
+    At the outer end a teardrop-shaped wire loop (the eye) extends in
+    the +X direction.  The eye wire is slightly thinner than the shaft.
+    A gap (split) runs horizontally through the eye at Z = z, giving
+    the characteristic cotter-pin appearance.
+
+    The eye is in the XZ plane (vertical loop, visible from the side).
+    """
+    bm = bmesh.new()
+    half_gap = eye_gap / 2
+    eye_wire_r = wire_r * 0.65
+    elongation = 0.3
+
+    # Place eye centre so the shaft-side point (θ = π) lands at shaft_x1.
+    eye_cx = shaft_x1 + eye_r * (1 - elongation)
+
+    r_at_gap = eye_r * (1 - elongation)
+    gap_half_a = math.asin(min(half_gap / max(r_at_gap, 1e-6), 0.99))
+
+    def _connect(r1, r2):
+        for j in range(n_circ):
+            j2 = (j + 1) % n_circ
+            bm.faces.new([r1[j], r1[j2], r2[j2], r2[j]])
+
+    def _cap(ring, cx, cy, cz, inward):
+        c = bm.verts.new((cx, cy, cz))
+        for j in range(n_circ):
+            j2 = (j + 1) % n_circ
+            if inward:
+                bm.faces.new([ring[j2], ring[j], c])
+            else:
+                bm.faces.new([ring[j], ring[j2], c])
+
+    # ── Shaft (cylinder along X) ──────────────────────────────────
+    n_shaft = max(4, int(abs(shaft_x1 - shaft_x0) / (wire_r * 3)))
+    shaft_rings = []
+    for i in range(n_shaft + 1):
+        t = i / n_shaft
+        x = shaft_x0 + t * (shaft_x1 - shaft_x0)
+        ring = []
+        for j in range(n_circ):
+            a = 2 * math.pi * j / n_circ
+            ring.append(bm.verts.new((
+                x, wire_r * math.cos(a), z + wire_r * math.sin(a))))
+        shaft_rings.append(ring)
+
+    for i in range(n_shaft):
+        _connect(shaft_rings[i], shaft_rings[i + 1])
+    _cap(shaft_rings[0], shaft_x0, 0, z, inward=True)
+    _cap(shaft_rings[-1], shaft_x1, 0, z, inward=False)
+
+    # ── Eye (torus arc with teardrop modulation) ──────────────────
+    # θ = 0  → +X  (outer, round end of teardrop)
+    # θ = π  → −X  (shaft side, gap location)
+    # Arc sweeps from just past the gap CW to just before the gap,
+    # traversing through 0 (the apex).
+    start_a = math.pi + gap_half_a
+    end_a = 3 * math.pi - gap_half_a
+
+    eye_rings = []
+    for i in range(n_eye + 1):
+        t = i / n_eye
+        theta = start_a + t * (end_a - start_a)
+        r_eff = eye_r * (1 + elongation * math.cos(theta))
+        cx = eye_cx + r_eff * math.cos(theta)
+        cz = z + r_eff * math.sin(theta)
+        nx = math.cos(theta)
+        nz = math.sin(theta)
+        ring = []
+        for j in range(n_circ):
+            a = 2 * math.pi * j / n_circ
+            cos_a, sin_a = math.cos(a), math.sin(a)
+            ring.append(bm.verts.new((
+                cx + eye_wire_r * cos_a * nx,
+                eye_wire_r * sin_a,
+                cz + eye_wire_r * cos_a * nz)))
+        eye_rings.append(ring)
+
+    for i in range(n_eye):
+        _connect(eye_rings[i], eye_rings[i + 1])
+
+    # Cap both open ends of the eye arc (the gap edges)
+    for end_i in (0, -1):
+        ring = eye_rings[end_i]
+        theta = start_a if end_i == 0 else end_a
+        r_eff = eye_r * (1 + elongation * math.cos(theta))
+        cx = eye_cx + r_eff * math.cos(theta)
+        cz = z + r_eff * math.sin(theta)
+        _cap(ring, cx, 0, cz, inward=(end_i == 0))
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+    mesh = bpy.data.meshes.new("_cotter_pin")
+    bm.to_mesh(mesh)
+    bm.free()
+
+    obj = bpy.data.objects.new("_cotter_pin", mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
 def build_fixings(M):
-    """Steel machine screws and anti-rotation peg.
+    """Steel machine screws and cotter pin.
 
     Two stylised allen bolts hold the plug to the spider shelf.  Each has
     a <4 mm shaft threaded into the shelf, a 7 mm head sitting inside
     the plug's clearance hole, and a 3 mm allen socket in the top.
 
-    A horizontal 3 mm peg passes through the bottom plug annulus into
-    the inner plug, preventing it from rotating.  The peg is perpendicular
-    to the line of the inner plug's blind holes (i.e. along the X axis).
+    A horizontal 3 mm cotter pin passes through the bottom plug annulus
+    into the inner plug, preventing it from rotating.  The pin has a
+    teardrop-shaped eye with a split gap at the protruding end.  It is
+    perpendicular to the inner plug's blind holes (i.e. along the X axis).
     """
     print("  Steel fixings ...")
 
@@ -2860,37 +3858,31 @@ def build_fixings(M):
             location=(sx, sy, z_head_top - SCREW_SOCKET_DEPTH / 2))
         boolean_cut(screw, bpy.context.active_object)
 
-        assign(screw, M['aged_steel'])
+        assign(screw, M['fixings'])
         smooth(screw)
 
-    # ── Anti-rotation peg ─────────────────────────────────────────
-    # Horizontal 3 mm steel peg through the bottom plug annulus,
+    # ── Cotter pin ─────────────────────────────────────────────────
+    # Horizontal 3 mm cotter pin through the bottom plug annulus,
     # perpendicular to the inner plug's blind holes (which run along Y).
-    # 10 mm hangs outside the bottom annulus.
+    # The protruding end has a teardrop eye with a split gap.
     plug_low_r = PLUG_LOWER_R
 
-    # Z position: mid-height of overlap between bottom annulus and
-    # inner plug.  Bottom annulus: z_shelf-9 mm to z_shelf-18 mm.
-    # Inner plug bottom: z_shelf+6 mm - 23 mm = z_shelf-17 mm.
-    # Overlap: z_shelf-9 mm to z_shelf-17 mm → midpoint z_shelf-13 mm.
     z_peg = z_shelf - 0.013
 
-    # Peg along +X: outer tip at plug_low_r + overhang
     peg_outer_x = plug_low_r + PEG_OVERHANG
     peg_inner_x = peg_outer_x - PEG_LENGTH
-    peg_cx = (peg_outer_x + peg_inner_x) / 2
 
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=PEG_R, depth=PEG_LENGTH,
-        vertices=16,
-        location=(peg_cx, 0, z_peg))
-    peg = bpy.context.active_object
-    peg.name = "AntiRotationPeg"
-    peg.rotation_euler.y = math.pi / 2       # rotate to lie along X
-    activate(peg)
-    bpy.ops.object.transform_apply(rotation=True)
+    peg = _make_cotter_pin(
+        wire_r=PEG_R,
+        shaft_x0=peg_inner_x,
+        shaft_x1=peg_outer_x,
+        eye_r=PEG_EYE_R,
+        eye_gap=PEG_EYE_GAP,
+        z=z_peg,
+    )
+    peg.name = "CotterPin"
 
-    assign(peg, M['aged_steel'])
+    assign(peg, M['fixings'])
     smooth(peg)
     activate(peg)
     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
@@ -2927,31 +3919,166 @@ def build_flush_bracket(M):
     z_mid   = z_bot + h / 2                       # centre Z
     hw      = w / 2                               # 50 mm half width
 
-    # Bracket plate Y: set back from pillar face at the top
+    # Bracket plate Y: set back from pillar face at the top.
+    # Plate thicknesses sized so rear plate back aligns with the broad-arrow
+    # trapezoidal cap back (cap_depth 25.4 mm minus ba_d 4.5 mm = 20.9 mm
+    # total plate depth), with NearPlate = 0.5× RearPlate.
     face_top = pillar_hw_at(z_top)
-    plate_y  = face_top - setback                 # back face of plate
-    front_y  = plate_y + d                        # plate front face Y
+    front_y  = face_top - setback + d             # plate front face Y
+    total_plate_d = 0.0254 - 0.0045               # trap depth − protrusion = 20.9 mm
+    rear_d   = total_plate_d * 2 / 3              # ≈ 13.93 mm
+    near_d   = total_plate_d / 3                  # ≈ 6.97 mm (0.5× rear_d)
+    plate_y  = front_y - near_d                   # back of near plate = front of rear plate
 
     # ── Plate (simple box) ────────────────────────────────────
     bpy.ops.mesh.primitive_cube_add(
-        size=1, location=(0, plate_y + d / 2, z_mid))
+        size=1, location=(0, front_y - near_d / 2, z_mid))
     plate = bpy.context.active_object
-    plate.name = "FlushBracket"
-    plate.scale = (w, d, h)
+    plate.name = "FlushBracket_NearPlate"
+    plate.scale = (w, near_d, h)
     activate(plate)
     bpy.ops.object.transform_apply(scale=True)
     assign(plate, M['brass'])
 
+    # ── Shaped holes near top of plate ──────────────────────
+    # Two keyhole-style cutouts with hemisphere-rounded bottoms.
+    # Measured: hole width 16.9 mm, gap between holes 21.1 mm,
+    # margin from inner bead edge 10.3 mm (adjusted from 10.7 mm
+    # to absorb 0.8 mm casting tolerance).
+    sh_w    = 0.0169                                # 16.9 mm wide
+    sh_h    = 0.028                                 # 28 mm cuboid height
+    sh_d    = 0.0121                                # 12.1 mm deep
+    sh_r    = sh_w / 2                              # 8.45 mm hemisphere radius
+    sh_gap  = 0.0211                                # 21.1 mm gap between holes
+    sh_z_top = z_top - br - 0.005                   # 5 mm below bottom of top bead
+    sh_z_bot = sh_z_top - sh_h
+    sh_z_mid = (sh_z_top + sh_z_bot) / 2
+    sh_y_mid = front_y - sh_d / 2
+
+    # Bridge parameters (horizontal rib across each hole)
+    br_h    = 0.0115                                # 11.5 mm tall
+    br_d    = 0.005                                 # 5 mm max thickness
+    br_bv   = 0.002                                 # 2 mm convex bevel radius
+    br_z_top = sh_z_top - 0.0116                    # 11.6 mm below hole top
+    br_z_mid = br_z_top - br_h / 2
+
+    for side in (-1, 1):
+        sh_cx = side * (sh_gap / 2 + sh_w / 2)     # centred on gap
+
+        # Cuboid portion
+        bpy.ops.mesh.primitive_cube_add(
+            size=1, location=(sh_cx, sh_y_mid, sh_z_mid))
+        cub = bpy.context.active_object
+        cub.scale = (sh_w, sh_d + 0.002, sh_h)
+        activate(cub)
+        bpy.ops.object.transform_apply(scale=True)
+        boolean_cut(plate, cub)
+
+        # Ellipsoidal scoop at the bottom — centered on the front face
+        # so the back wall is a smooth sculpted curve.  Each Z-level
+        # cross-section is an ellipse centered at (sh_cx, front_y)
+        # with X semi-axis = (sh_w/2)·cos(t), Y semi-axis = sh_d·cos(t).
+        # At z = sh_z_bot the Y semi-axis equals sh_d, matching the
+        # cuboid depth exactly — no shelf at the back.  The forward
+        # half of the ellipse extends into air (no material) and has
+        # no effect on the boolean.
+        # A collar ring 2 mm above sh_z_bot ensures clean overlap.
+        n_erings = 16
+        n_ecirc  = 24
+        e_overlap = 0.002
+        bm_e = bmesh.new()
+        erings = []
+        # Collar ring (inside cuboid space)
+        collar = []
+        for ej in range(n_ecirc):
+            ea = 2 * math.pi * ej / n_ecirc
+            collar.append(bm_e.verts.new((
+                sh_cx + (sh_w / 2) * math.cos(ea),
+                front_y + sh_d * math.sin(ea),
+                sh_z_bot + e_overlap)))
+        erings.append(collar)
+        # Ellipsoidal rings tapering from sh_z_bot downward
+        for ei in range(n_erings):
+            t = math.pi / 2 * ei / n_erings
+            ez = sh_z_bot - sh_r * math.sin(t)
+            sx = (sh_w / 2) * math.cos(t)
+            sy = sh_d * math.cos(t)
+            ring = []
+            for ej in range(n_ecirc):
+                ea = 2 * math.pi * ej / n_ecirc
+                ring.append(bm_e.verts.new((
+                    sh_cx + sx * math.cos(ea),
+                    front_y + sy * math.sin(ea), ez)))
+            erings.append(ring)
+        ebot = bm_e.verts.new((sh_cx, front_y, sh_z_bot - sh_r))
+        for ei in range(len(erings) - 1):
+            for ej in range(n_ecirc):
+                ej2 = (ej + 1) % n_ecirc
+                bm_e.faces.new([erings[ei][ej], erings[ei][ej2],
+                                erings[ei + 1][ej2], erings[ei + 1][ej]])
+        last = erings[-1]
+        for ej in range(n_ecirc):
+            ej2 = (ej + 1) % n_ecirc
+            bm_e.faces.new([last[ej], last[ej2], ebot])
+        bm_e.faces.new(list(reversed(erings[0])))
+        bmesh.ops.recalc_face_normals(bm_e, faces=bm_e.faces[:])
+        emesh = bpy.data.meshes.new("_ellipsoid_scoop")
+        bm_e.to_mesh(emesh)
+        bm_e.free()
+        scoop = bpy.data.objects.new("_ellipsoid_scoop", emesh)
+        bpy.context.collection.objects.link(scoop)
+        smooth(scoop)
+        boolean_cut(plate, scoop)
+
+        # Convex bridge across the hole — a rib spanning the slot,
+        # flush with the front face, with rounded top/bottom edges.
+        # Built as a bmesh extrusion of a rounded-rectangle YZ profile
+        # so the left/right faces stay perfectly flat (no side bevel).
+        br_zt = br_z_mid + br_h / 2
+        br_zb = br_z_mid - br_h / 2
+        br_yf = front_y
+        br_yb = front_y - br_d
+        n_seg = 4
+        corners = [
+            (br_yf - br_bv, br_zt - br_bv, 0),
+            (br_yb + br_bv, br_zt - br_bv, math.pi / 2),
+            (br_yb + br_bv, br_zb + br_bv, math.pi),
+            (br_yf - br_bv, br_zb + br_bv, 3 * math.pi / 2),
+        ]
+        profile_yz = []
+        for cy, cz, a0 in corners:
+            for k in range(n_seg):
+                a = a0 + math.pi / 2 * k / n_seg
+                profile_yz.append((cy + br_bv * math.cos(a),
+                                   cz + br_bv * math.sin(a)))
+        n_prof = len(profile_yz)
+        x_lo = sh_cx - sh_w / 2 - 0.001
+        x_hi = sh_cx + sh_w / 2 + 0.001
+        bm_br = bmesh.new()
+        ring_lo = [bm_br.verts.new((x_lo, y, z)) for y, z in profile_yz]
+        ring_hi = [bm_br.verts.new((x_hi, y, z)) for y, z in profile_yz]
+        for k in range(n_prof):
+            k2 = (k + 1) % n_prof
+            bm_br.faces.new([ring_lo[k], ring_lo[k2],
+                             ring_hi[k2], ring_hi[k]])
+        bm_br.faces.new(ring_lo)
+        bm_br.faces.new(list(reversed(ring_hi)))
+        bmesh.ops.recalc_face_normals(bm_br, faces=bm_br.faces[:])
+        br_mesh = bpy.data.meshes.new("_bridge")
+        bm_br.to_mesh(br_mesh)
+        bm_br.free()
+        bridge = bpy.data.objects.new("_bridge", br_mesh)
+        bpy.context.collection.objects.link(bridge)
+        _union_into(plate, bridge)
+
     # ── Rear plate & keying structure ────────────────────────
-    # Behind the front plate a second plate (90 % of front height,
-    # bottom-aligned) carries a T-shaped keying piece that anchors
-    # the assembly into the concrete.  The key is a thin horizontal
-    # bar (10 mm high, 25 mm deep) widening sharply to an anchor
-    # block (35 mm high, 10 mm deep).
-    rear_h     = h * FB_REAR_H_FRAC               # 162 mm
-    rear_d     = d                                 # same thickness as front plate
-    rear_z_bot = z_bot
-    rear_z_top = z_bot + rear_h
+    # Behind the front plate a second plate (top-aligned, extending
+    # 1902/3220 of the way down the near plate) carries a keying
+    # piece that anchors the assembly into the concrete.
+    rear_h     = h * FB_REAR_H_FRAC
+    # rear_d already computed above (≈ 13.93 mm); near_d = 0.5× rear_d
+    rear_z_top = z_top                             # top-aligned with near plate
+    rear_z_bot = z_top - rear_h
     rear_z_mid = (rear_z_bot + rear_z_top) / 2
     rear_back  = plate_y - rear_d                  # back face of rear plate
 
@@ -2962,59 +4089,167 @@ def build_flush_bracket(M):
     rear_plate.scale = (w, rear_d, rear_h)
     activate(rear_plate)
     bpy.ops.object.transform_apply(scale=True)
-    assign(rear_plate, M['brass'])
+    assign(rear_plate, M['brass_cast'])
 
-    # Keying bar — tapered square-section bar protruding from rear plate.
-    # Square at the rear-plate end (bar_h × bar_h), 25 % narrower at the
-    # anchor end.  Built with bmesh for the trapezoidal plan shape.
-    bar_h      = FB_BAR_H                          # 10 mm
-    bar_depth  = FB_BAR_DEPTH                      # 25 mm
-    bar_z_mid  = rear_z_mid                        # centred on rear plate
-    bar_back   = rear_back - bar_depth             # back face of bar
-    bar_w_front = bar_h                            # square at rear plate
-    bar_w_back  = bar_h * 0.75                     # 25 % narrower at anchor
+    # ── Hole through both plates ────────────────────────────────
+    # A wedge-shaped opening whose back face (at rear_back) is
+    # rectangular with its bottom aligned to the broad-arrow top,
+    # and whose front face (at front_y) extends down to the
+    # broad-arrow bottom.  The bottom slopes between these two.
+    #
+    # Broad-arrow Z positions (also used by the arrow section below).
+    ba_z_top        = z_top - br - 0.0528              # arrow top, 52.8 mm below bead
+    ba_z_bot        = ba_z_top - 0.0361                # arrow bottom (36.1 mm leg length)
 
+    hole_w          = 0.0314                           # 31.4 mm (1 mm inset each side)
+    hole_hw         = hole_w / 2                       # half-width
+    hole_z_top      = sh_z_bot - sh_r - 0.001          # 1 mm below hemisphere bottoms
+    hole_z_bot      = ba_z_top                         # back-face bottom = broad-arrow top
+    hole_h          = hole_z_top - hole_z_bot
+    hole_front_zbot = ba_z_bot                         # front-face bottom = broad-arrow bottom
+
+    # Y-direction boolean overshoot — extends the cutter slightly
+    # past each plate face for a clean boolean.  The four-layer
+    # vertex layout keeps the slope only between the real plate
+    # faces (front_y → rear_back), so the overshoot regions have
+    # flat bottoms and don't shift the visible hole edges.
+    y_margin    = 0.002
+    y_cut_front = front_y + y_margin
+    y_cut_back  = rear_back - y_margin
+
+    def _make_wedge_cutter(name):
+        bm_h = bmesh.new()
+        hw = hole_hw
+        ys  = [y_cut_front, front_y,          rear_back,   y_cut_back]
+        zbs = [hole_front_zbot, hole_front_zbot, hole_z_bot, hole_z_bot]
+        layers = []
+        for y, zb in zip(ys, zbs):
+            tl = bm_h.verts.new((-hw, y, hole_z_top))
+            tr = bm_h.verts.new(( hw, y, hole_z_top))
+            br = bm_h.verts.new(( hw, y, zb))
+            bl = bm_h.verts.new((-hw, y, zb))
+            layers.append((tl, tr, br, bl))
+        tl, tr, br, bl = layers[0]
+        bm_h.faces.new([tl, bl, br, tr])              # front cap
+        tl, tr, br, bl = layers[-1]
+        bm_h.faces.new([tl, tr, br, bl])              # back cap
+        for i in range(len(layers) - 1):
+            a_tl, a_tr, a_br, a_bl = layers[i]
+            b_tl, b_tr, b_br, b_bl = layers[i + 1]
+            bm_h.faces.new([a_tl, a_tr, b_tr, b_tl])  # top
+            bm_h.faces.new([a_bl, b_bl, b_br, a_br])  # bottom
+            bm_h.faces.new([a_tl, b_tl, b_bl, a_bl])  # left
+            bm_h.faces.new([a_tr, a_br, b_br, b_tr])  # right
+        bmesh.ops.recalc_face_normals(bm_h, faces=bm_h.faces[:])
+        m_h = bpy.data.meshes.new(name)
+        bm_h.to_mesh(m_h)
+        bm_h.free()
+        obj = bpy.data.objects.new(name, m_h)
+        bpy.context.collection.objects.link(obj)
+        return obj
+
+    hole_cut = _make_wedge_cutter("_hole_wedge_1")
+    activate(hole_cut)
+    boolean_cut(plate, hole_cut)
+
+    hole_cut2 = _make_wedge_cutter("_hole_wedge_2")
+    activate(hole_cut2)
+    boolean_cut(rear_plate, hole_cut2)
+
+    # Keying bar — uniform circular-section bar protruding from rear plate.
+    # Diameter = 80 % of the proportional value (477/667 of distance from
+    # hole bottom to rear plate bottom).  No taper.
+    # Concave fillets at both ends (plate and anchor).
+    # Positioned so the fillet disc just touches the rear plate bottom edge.
+    dist_to_bot = hole_z_bot - rear_z_bot
+    bar_r_base  = (dist_to_bot * 477 / 667) / 2
+    bar_r       = bar_r_base * 0.80               # 80 % of original diameter
+    bar_depth   = FB_BAR_DEPTH * 1.25             # 25 % longer
+    fillet_r    = bar_r * 0.25                    # tighter fillet than before
+    bar_z_mid   = rear_z_bot + bar_r + fillet_r   # fillet edge touches plate bottom
+    bar_back    = rear_back - bar_depth
+
+    # Build bar + fillets as a single solid of revolution.
+    # Profile in the (R, Y) plane, spun around the bar's Y axis.
+    n_fillet = 8
     bm_bar = bmesh.new()
-    bhf = bar_h / 2
-    bwf = bar_w_front / 2
-    bwb = bar_w_back / 2
-    # Front face (y = rear_back, touching rear plate)
-    bf0 = bm_bar.verts.new((-bwf, rear_back, bar_z_mid - bhf))
-    bf1 = bm_bar.verts.new(( bwf, rear_back, bar_z_mid - bhf))
-    bf2 = bm_bar.verts.new(( bwf, rear_back, bar_z_mid + bhf))
-    bf3 = bm_bar.verts.new((-bwf, rear_back, bar_z_mid + bhf))
-    # Back face (y = bar_back, touching anchor)
-    bb0 = bm_bar.verts.new((-bwb, bar_back, bar_z_mid - bhf))
-    bb1 = bm_bar.verts.new(( bwb, bar_back, bar_z_mid - bhf))
-    bb2 = bm_bar.verts.new(( bwb, bar_back, bar_z_mid + bhf))
-    bb3 = bm_bar.verts.new((-bwb, bar_back, bar_z_mid + bhf))
-    bm_bar.faces.new([bf3, bf2, bf1, bf0])                # front
-    bm_bar.faces.new([bb0, bb1, bb2, bb3])                # back
-    bm_bar.faces.new([bf3, bb3, bb2, bf2])                # top
-    bm_bar.faces.new([bf0, bf1, bb1, bb0])                # bottom
-    bm_bar.faces.new([bf0, bb0, bb3, bf3])                # left
-    bm_bar.faces.new([bf2, bb2, bb1, bf1])                # right
-    bmesh.ops.recalc_face_normals(bm_bar, faces=bm_bar.faces[:])
+    profile_pts = [
+        (0, rear_back),                            # centre at plate surface
+    ]
+    # Plate-end fillet (concave: widens from bar_r to bar_r + fillet_r at plate)
+    for i in range(n_fillet + 1):
+        t = (math.pi / 2) * i / n_fillet
+        r = (bar_r + fillet_r) - fillet_r * math.sin(t)
+        y = (rear_back - fillet_r) + fillet_r * math.cos(t)
+        profile_pts.append((r, y))
+    # Anchor-end fillet (matching concave: widens from bar_r to bar_r + fillet_r)
+    anchor_y_f = bar_back
+    for i in range(n_fillet + 1):
+        t = (math.pi / 2) * i / n_fillet
+        r = bar_r + fillet_r * (1 - math.cos(t))
+        y = (anchor_y_f + fillet_r) - fillet_r * math.sin(t)
+        profile_pts.append((r, y))
+    profile_pts.append((0, anchor_y_f))            # centre at anchor face
+
+    bar_verts = [bm_bar.verts.new((r, y, bar_z_mid)) for r, y in profile_pts]
+    bm_bar.faces.new(bar_verts)
+
+    geom_bar = bm_bar.faces[:] + bm_bar.edges[:] + bm_bar.verts[:]
+    bmesh.ops.spin(bm_bar, geom=geom_bar,
+                   cent=(0, 0, bar_z_mid), axis=(0, 1, 0),
+                   angle=2 * math.pi, steps=32)
+    bmesh.ops.remove_doubles(bm_bar, verts=bm_bar.verts, dist=0.0001)
+
     mesh_bar = bpy.data.meshes.new("FlushBracket_Bar")
     bm_bar.to_mesh(mesh_bar)
     bm_bar.free()
     bar = bpy.data.objects.new("FlushBracket_Bar", mesh_bar)
     bpy.context.collection.objects.link(bar)
-    assign(bar, M['brass'])
+    assign(bar, M['brass_cast'])
+    smooth(bar)
 
-    # Anchor block — square cross-section at back of bar
-    anchor_h     = FB_ANCHOR_H                     # 35 mm
+    # Anchor block — circular cross-section with bevelled edges.
+    # 50 % larger diameter than the base constant; built via bmesh spin
+    # so we can include quarter-circle bevels on both flat faces.
+    anchor_r     = (FB_ANCHOR_H * 1.5) / 2
     anchor_depth = FB_ANCHOR_DEPTH                 # 10 mm
-    anchor_w     = anchor_h                        # square
+    anchor_bv    = min(anchor_r * 0.15, anchor_depth * 0.25)
+    anchor_y_front = bar_back
+    anchor_y_back  = bar_back - anchor_depth
+    n_bevel = 6
 
-    bpy.ops.mesh.primitive_cube_add(
-        size=1, location=(0, bar_back - anchor_depth / 2, bar_z_mid))
-    anchor = bpy.context.active_object
-    anchor.name = "FlushBracket_Anchor"
-    anchor.scale = (anchor_w, anchor_depth, anchor_h)
-    activate(anchor)
-    bpy.ops.object.transform_apply(scale=True)
-    assign(anchor, M['brass'])
+    bm_a = bmesh.new()
+    a_pts = [(0, anchor_y_back)]                   # centre of back face
+    a_pts.append((anchor_r - anchor_bv, anchor_y_back))
+    for i in range(1, n_bevel + 1):
+        t = (math.pi / 2) * i / n_bevel
+        a_pts.append((
+            anchor_r - anchor_bv + anchor_bv * math.sin(t),
+            anchor_y_back + anchor_bv - anchor_bv * math.cos(t)))
+    a_pts.append((anchor_r, anchor_y_front - anchor_bv))
+    for i in range(1, n_bevel + 1):
+        t = (math.pi / 2) * i / n_bevel
+        a_pts.append((
+            anchor_r - anchor_bv + anchor_bv * math.cos(t),
+            anchor_y_front - anchor_bv + anchor_bv * math.sin(t)))
+    a_pts.append((0, anchor_y_front))              # centre of front face
+
+    a_verts = [bm_a.verts.new((r, y, bar_z_mid)) for r, y in a_pts]
+    bm_a.faces.new(a_verts)
+
+    geom_a = bm_a.faces[:] + bm_a.edges[:] + bm_a.verts[:]
+    bmesh.ops.spin(bm_a, geom=geom_a,
+                   cent=(0, 0, bar_z_mid), axis=(0, 1, 0),
+                   angle=2 * math.pi, steps=32)
+    bmesh.ops.remove_doubles(bm_a, verts=bm_a.verts, dist=0.0001)
+
+    mesh_a = bpy.data.meshes.new("FlushBracket_Anchor")
+    bm_a.to_mesh(mesh_a)
+    bm_a.free()
+    anchor = bpy.data.objects.new("FlushBracket_Anchor", mesh_a)
+    bpy.context.collection.objects.link(anchor)
+    assign(anchor, M['brass_cast'])
+    smooth(anchor)
 
     # ── Beading (D-shaped tube around front face perimeter) ───
     # A semicircular cross-section (flat against plate, dome forward)
@@ -3154,10 +4389,341 @@ def build_flush_bracket(M):
     bpy.context.collection.objects.link(recess)
     boolean_cut(pillar, recess)
 
-    return plate
+    # ── Group under an Empty parent ─────────────────────────────
+    assembly = bpy.data.objects.new("FlushBracketAssembly", None)
+    assembly.empty_display_type = 'PLAIN_AXES'
+    assembly.empty_display_size = 0.02
+    assembly.location = (0, front_y, z_mid)
+    bpy.context.collection.objects.link(assembly)
+    bpy.context.view_layer.update()
+
+    def _bevel_sharp_edges(obj, width=0.001, segments=2):
+        """Bevel all sharp edges using a modifier (robust for any mesh)."""
+        activate(obj)
+        mod = obj.modifiers.new("_bvl", 'BEVEL')
+        mod.width = width
+        mod.segments = segments
+        mod.limit_method = 'ANGLE'
+        mod.angle_limit = math.radians(30)
+        bpy.ops.object.modifier_apply(modifier="_bvl")
+
+    # ── Raised letters "O", "S", "B", "M" ──────────────────────
+    letter_objs = []
+    let_d     = 0.0045                               # 4.5 mm protrusion (all letters)
+
+    # O and S: 16 mm wide × 24 mm tall, 48.4 mm below bottom of top bead,
+    # 56 mm centre-to-centre horizontal spacing.
+    os_z_top  = z_top - br - 0.0484                  # top of O and S
+    os_z_bot  = os_z_top - 0.024                     # bottom of O and S
+    let_sep   = 0.056
+
+    # B (beneath O, on the left): 16.7 mm × 24.9 mm, protrusion same.
+    # 4.9 mm gap between left edge of B and inner edge of left bead.
+    # Top is 13.6 mm below bottom of O.
+    bead_inner_l = hw - br                           # left bead inner edge X
+    b_left_x  = bead_inner_l - 0.0049                # 4.9 mm gap inward
+    b_cx      = b_left_x - 0.0167 / 2               # centre X
+    b_z_top   = os_z_bot - 0.0136                    # 13.6 mm below bottom of O
+
+    # M (beneath S, on the right): 17.6 mm × 24.5 mm, protrusion same.
+    # 2.9 mm gap between right edge of M and inner edge of right bead.
+    # Top is 14.7 mm below bottom of S.
+    bead_inner_r = -(hw - br)                        # right bead inner edge X
+    m_right_x = bead_inner_r + 0.0029                # 2.9 mm gap inward
+    m_cx      = m_right_x + 0.0176 / 2              # centre X
+    m_z_top   = os_z_bot - 0.0147                    # 14.7 mm below bottom of S
+
+    letter_specs = [
+        ("O",  let_sep / 2,  0.016,  0.024,  os_z_top),
+        ("S", -let_sep / 2,  0.016,  0.024,  os_z_top),
+        ("B",  b_cx,         0.0167, 0.0249, b_z_top),
+        ("M",  m_cx,         0.0176, 0.0245, m_z_top),
+    ]
+
+    for letter, lx, let_w, let_h, let_z_top in letter_specs:
+        lz_mid = let_z_top - let_h / 2
+
+        bpy.ops.object.text_add(location=(0, 0, 0))
+        txt = bpy.context.active_object
+        txt.data.body = letter
+        txt.data.align_x = 'CENTER'
+        txt.data.align_y = 'CENTER'
+        txt.data.extrude = 0.01
+        activate(txt)
+        bpy.ops.object.convert(target='MESH')
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+        mesh = txt.data
+        verts = mesh.vertices
+        xs = [v.co.x for v in verts]
+        ys = [v.co.y for v in verts]
+        zs = [v.co.z for v in verts]
+        fmin = Vector((min(xs), min(ys), min(zs)))
+        fmax = Vector((max(xs), max(ys), max(zs)))
+        fctr = (fmin + fmax) / 2
+        fsz  = fmax - fmin
+
+        sc_w = let_w / fsz.x
+        sc_h = let_h / fsz.y
+        sc_d = let_d / fsz.z
+
+        for v in verts:
+            fx = (v.co.x - fctr.x) * sc_w
+            fy = (v.co.y - fctr.y) * sc_h
+            fz = (v.co.z - fctr.z) * sc_d
+            v.co.x = -fx + lx
+            v.co.y = fz + front_y + let_d / 2 - 0.001
+            v.co.z = fy + lz_mid
+        mesh.update()
+
+        bm_clean = bmesh.new()
+        bm_clean.from_mesh(mesh)
+        bmesh.ops.remove_doubles(bm_clean, verts=bm_clean.verts, dist=0.0001)
+        bmesh.ops.recalc_face_normals(bm_clean, faces=bm_clean.faces[:])
+        bm_clean.to_mesh(mesh)
+        bm_clean.free()
+        mesh.update()
+
+        _bevel_sharp_edges(txt, width=0.001, segments=2)
+
+        assign(txt, M['brass'])
+        smooth(txt)
+        txt.name = f"FlushBracket_Letter_{letter}"
+        letter_objs.append(txt)
+
+    # ── Broad Arrow ──────────────────────────────────────────
+    # Three-legged Government broad arrow below the horizontal hole.
+    # The top surface is a 6.8 mm horizontal line.  Legs taper from
+    # 6.8 mm at the top to 8.4 mm at the bottom.  Side legs are angled
+    # so their outer bottom corners are 31.3 mm apart; their bottom edges
+    # are perpendicular to their long sides, so the bottoms lie on an arc.
+    ba_top_w = 0.0068                             # 6.8 mm top width
+    ba_bot_w = 0.0084                             # 8.4 mm bottom width
+    ba_len   = 0.0361                             # 36.1 mm leg length
+    ba_d     = 0.0045                             # 4.5 mm protrusion
+    # ba_z_top, ba_z_bot: computed once in the hole section above.
+    ba_z_bot = ba_z_top - ba_len                     # verify: matches hole section definition
+    ba_spread = 0.0313 / 2                        # 15.65 mm half outer-spread
+    ba_yb    = front_y - 0.001                    # back Y (overlap into plate)
+    ba_yf    = front_y + ba_d                     # front Y (protrusion surface)
+
+    def _ba_leg_from_outer(name, x_outer_top, x_outer_bot, w_top, w_bot):
+        dx = x_outer_bot - x_outer_top
+        dz = math.sqrt(max(0.0, ba_len * ba_len - dx * dx))
+        z_outer_bot = ba_z_top - dz
+        length = math.hypot(dx, dz)
+        if length < 1e-9:
+            return None
+        # Inner top corner aimed past centre for clean boolean overlap.
+        sign = -1 if x_outer_top > 0 else 1
+        x_inner_top = sign * 0.002
+        z_inner_top = ba_z_top
+
+        # Perpendicular to axis (dx, -dz), oriented inward.
+        if x_outer_top > 0:
+            px = -dz
+            pz = -dx
+        else:
+            px = dz
+            pz = dx
+        plen = math.hypot(px, pz)
+        if plen < 1e-9:
+            return None
+        px /= plen
+        pz /= plen
+        x_inner_bot = x_outer_bot + px * w_bot
+        z_inner_bot = z_outer_bot + pz * w_bot
+
+        bm = bmesh.new()
+        vb = [bm.verts.new((x_outer_top, ba_yb, ba_z_top)),
+              bm.verts.new((x_inner_top, ba_yb, z_inner_top)),
+              bm.verts.new((x_inner_bot, ba_yb, z_inner_bot)),
+              bm.verts.new((x_outer_bot, ba_yb, z_outer_bot))]
+        vf = [bm.verts.new((x_outer_top, ba_yf, ba_z_top)),
+              bm.verts.new((x_inner_top, ba_yf, z_inner_top)),
+              bm.verts.new((x_inner_bot, ba_yf, z_inner_bot)),
+              bm.verts.new((x_outer_bot, ba_yf, z_outer_bot))]
+        bm.faces.new(list(reversed(vb)))
+        bm.faces.new(vf)
+        for i in range(4):
+            j = (i + 1) % 4
+            bm.faces.new([vb[i], vb[j], vf[j], vf[i]])
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+        m = bpy.data.meshes.new(name)
+        bm.to_mesh(m)
+        bm.free()
+        obj = bpy.data.objects.new(name, m)
+        bpy.context.collection.objects.link(obj)
+        return obj
+
+    # Central vertical leg
+    ba_hw_top = ba_top_w / 2
+    ba_hw_bot = ba_bot_w / 2
+    bm = bmesh.new()
+    vb = [bm.verts.new((-ba_hw_top, ba_yb, ba_z_top)),
+          bm.verts.new(( ba_hw_top, ba_yb, ba_z_top)),
+          bm.verts.new(( ba_hw_bot, ba_yb, ba_z_bot)),
+          bm.verts.new((-ba_hw_bot, ba_yb, ba_z_bot))]
+    vf = [bm.verts.new((-ba_hw_top, ba_yf, ba_z_top)),
+          bm.verts.new(( ba_hw_top, ba_yf, ba_z_top)),
+          bm.verts.new(( ba_hw_bot, ba_yf, ba_z_bot)),
+          bm.verts.new((-ba_hw_bot, ba_yf, ba_z_bot))]
+    bm.faces.new(list(reversed(vb)))
+    bm.faces.new(vf)
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new([vb[i], vb[j], vf[j], vf[i]])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    m = bpy.data.meshes.new("_ba_center")
+    bm.to_mesh(m)
+    bm.free()
+    ba_main = bpy.data.objects.new("_ba_center", m)
+    bpy.context.collection.objects.link(ba_main)
+
+    # Side legs: steeper splay so the top width is 6.8 mm
+    x_top_outer = ba_top_w / 2
+    ba_right = _ba_leg_from_outer("_ba_right", x_top_outer, ba_spread,
+                                  ba_top_w, ba_bot_w)
+    ba_left  = _ba_leg_from_outer("_ba_left", -x_top_outer, -ba_spread,
+                                  ba_top_w, ba_bot_w)
+    _union_into(ba_main, ba_right)
+    _union_into(ba_main, ba_left)
+
+    # Trapezoidal top cap — plan-view (from +Z) the top of the arrow is
+    # a trapezium: 6.8 mm wide at the front face, 27.0 mm wide at the back,
+    # 25.4 mm deep (Y) between the parallel edges.
+    cap_front_hw = ba_top_w / 2                    # 3.4 mm half-width at front
+    cap_back_hw  = 0.0270 / 2                      # 13.5 mm half-width at back
+    cap_depth    = 0.0254                           # 25.4 mm front-to-back
+    cap_z_thick  = 0.008                            # Z thickness for solid overlap
+    cap_y_front  = ba_yf
+    cap_y_back   = ba_yf - cap_depth
+
+    bm_cap = bmesh.new()
+    vt = [bm_cap.verts.new((-cap_front_hw, cap_y_front, ba_z_top)),
+          bm_cap.verts.new(( cap_front_hw, cap_y_front, ba_z_top)),
+          bm_cap.verts.new(( cap_back_hw,  cap_y_back,  ba_z_top)),
+          bm_cap.verts.new((-cap_back_hw,  cap_y_back,  ba_z_top))]
+    vb = [bm_cap.verts.new((-cap_front_hw, cap_y_front, ba_z_top - cap_z_thick)),
+          bm_cap.verts.new(( cap_front_hw, cap_y_front, ba_z_top - cap_z_thick)),
+          bm_cap.verts.new(( cap_back_hw,  cap_y_back,  ba_z_top - cap_z_thick)),
+          bm_cap.verts.new((-cap_back_hw,  cap_y_back,  ba_z_top - cap_z_thick))]
+    bm_cap.faces.new(vt)
+    bm_cap.faces.new(list(reversed(vb)))
+    for i in range(4):
+        j = (i + 1) % 4
+        bm_cap.faces.new([vt[i], vb[i], vb[j], vt[j]])
+    bmesh.ops.recalc_face_normals(bm_cap, faces=bm_cap.faces[:])
+
+    m_cap = bpy.data.meshes.new("_ba_cap")
+    bm_cap.to_mesh(m_cap)
+    bm_cap.free()
+    cap_obj = bpy.data.objects.new("_ba_cap", m_cap)
+    bpy.context.collection.objects.link(cap_obj)
+    _union_into(ba_main, cap_obj)
+
+    # Side fill volumes — tetrahedra connecting the broad arrow outer edge,
+    # the trapezoid diagonal, and the sloping hole wall.  One per side.
+    # These are the sloped "ramps" between the narrow front and wide back.
+    dx_side  = ba_spread - ba_top_w / 2
+    dz_side  = math.sqrt(ba_len ** 2 - dx_side ** 2)
+    z_out_bt = ba_z_top - dz_side                  # outer-bottom Z of side leg
+
+    for sign in (1, -1):
+        bm_f = bmesh.new()
+        va = bm_f.verts.new((sign * ba_top_w / 2,  ba_yf,      ba_z_top))
+        vb = bm_f.verts.new((sign * ba_spread,      ba_yf,      z_out_bt))
+        vc = bm_f.verts.new((sign * cap_back_hw,    cap_y_back, ba_z_top))
+        vd = bm_f.verts.new((sign * hole_w / 2,     rear_back,  hole_z_bot))
+        bm_f.faces.new([va, vb, vc])
+        bm_f.faces.new([va, vc, vd])
+        bm_f.faces.new([va, vd, vb])
+        bm_f.faces.new([vb, vd, vc])
+        bmesh.ops.recalc_face_normals(bm_f, faces=bm_f.faces[:])
+        m_f = bpy.data.meshes.new(f"_ba_fill_{sign}")
+        bm_f.to_mesh(m_f)
+        bm_f.free()
+        fill_obj = bpy.data.objects.new(f"_ba_fill_{sign}", m_f)
+        bpy.context.collection.objects.link(fill_obj)
+        _union_into(ba_main, fill_obj)
+
+    # Side pyramids — tetrahedra on the hole walls connecting the
+    # front hole edge to the back-bottom corner and the trapezoid
+    # apex.  The back face of the hole stays rectangular.
+    for sign in (1, -1):
+        bm_p = bmesh.new()
+        p1 = bm_p.verts.new((sign * hole_hw, front_y,   hole_z_top))    # front top
+        p2 = bm_p.verts.new((sign * hole_hw, front_y,   ba_z_bot))      # front bottom
+        p3 = bm_p.verts.new((sign * hole_hw, rear_back,  hole_z_bot))   # back bottom
+        apex = bm_p.verts.new((sign * cap_back_hw, cap_y_back, ba_z_top))
+        bm_p.faces.new([p1, p3, p2])                  # base (hole wall)
+        bm_p.faces.new([p1, p2, apex])                 # front
+        bm_p.faces.new([p2, p3, apex])                 # bottom
+        bm_p.faces.new([p3, p1, apex])                 # top/back
+        bmesh.ops.recalc_face_normals(bm_p, faces=bm_p.faces[:])
+        m_p = bpy.data.meshes.new(f"_ba_side_pyr_{sign}")
+        bm_p.to_mesh(m_p)
+        bm_p.free()
+        pyr_obj = bpy.data.objects.new(f"_ba_side_pyr_{sign}", m_p)
+        bpy.context.collection.objects.link(pyr_obj)
+        _union_into(ba_main, pyr_obj)
+
+    _bevel_sharp_edges(ba_main, width=0.0005, segments=2)
+
+    # Front face and trapezoidal cap top stay polished brass;
+    # everything else (leg sides, rear, cavity walls) gets brass_cast.
+    assign(ba_main, M['brass'])
+    ba_main.data.materials.append(M['brass_cast'])
+    bm_ba = bmesh.new()
+    bm_ba.from_mesh(ba_main.data)
+    bm_ba.faces.ensure_lookup_table()
+    for f in bm_ba.faces:
+        if f.normal.y <= 0.5 and f.normal.z <= 0.9:
+            f.material_index = 1
+    bm_ba.to_mesh(ba_main.data)
+    bm_ba.free()
+    smooth(ba_main)
+    ba_main.name = "FlushBracket_BroadArrow"
+
+    _bevel_sharp_edges(rear_plate, width=0.0012, segments=3)
+    _bevel_sharp_edges(plate, width=0.0012, segments=3)
+
+    # Assign brass_cast to non-front-facing faces of the near plate
+    # (hole interiors, back face, top/bottom edges).  Front-facing
+    # faces (normal.y > 0.5) keep the polished brass in slot 0.
+    plate.data.materials.append(M['brass_cast'])
+    bm_mat = bmesh.new()
+    bm_mat.from_mesh(plate.data)
+    bm_mat.faces.ensure_lookup_table()
+    for f in bm_mat.faces:
+        if f.normal.y < 0.5:
+            f.material_index = 1
+    bm_mat.to_mesh(plate.data)
+    bm_mat.free()
+
+    # Join near plate and rear plate into one object to eliminate
+    # Z-fighting at the shared face (Y = plate_y), then weld the
+    # coincident vertices.
+    activate(plate)
+    rear_plate.select_set(True)
+    bpy.ops.object.join()
+    bm_j = bmesh.new()
+    bm_j.from_mesh(plate.data)
+    bmesh.ops.remove_doubles(bm_j, verts=bm_j.verts, dist=0.0002)
+    bm_j.to_mesh(plate.data)
+    bm_j.free()
+
+    smooth(plate)
+    plate.name = "FlushBracket_Plates"
+
+    for child in [plate, bar, anchor, bead, ba_main] + letter_objs:
+        child.parent = assembly
+        child.matrix_parent_inverse = assembly.matrix_world.inverted()
+
+    return assembly
 
 
-def build_flush_bracket_logo(M):
+def build_flush_bracket_logo(M, fb_assembly=None):
     """Add the TrigpointingUK logo as a multi-layer brass relief on the
     flush bracket front face.
 
@@ -3371,19 +4937,44 @@ def build_flush_bracket_logo(M):
         if mat.name.startswith('SVGMat') and mat.users == 0:
             bpy.data.materials.remove(mat)
 
+    if fb_assembly:
+        inv = fb_assembly.matrix_world.inverted()
+        for obj in logo_objs:
+            obj.parent = fb_assembly
+            obj.matrix_parent_inverse = inv
+
     print(f"    {len(logo_objs)} logo relief pieces placed.")
 
 
 def build_base_slab(M):
-    """Concrete foundation base — rough-sided to suggest a hand-dug hole, flat on top."""
-    print("  Base slab ...")
-    base = make_frustum(
-        "BaseSlab", BASE_BTM_HW, BASE_TOP_HW, BASE_HEIGHT,
-        base_z=-BASE_HEIGHT)
+    """Concrete foundation base — rough-sided to suggest a hand-dug hole, flat on top.
 
-    # Subdivide to add geometry, then roughen sides and bottom
+    The slab extends LB_HEIGHT/2 below the nominal base to embed
+    the upper half of the lower wooden box.  A box-shaped void is
+    boolean-subtracted from the underside so the wooden box fits
+    snugly into a recess.
+    """
+    print("  Base slab ...")
+    embed = LB_HEIGHT / 2
+    total_h = BASE_HEIGHT + embed
+    base = make_frustum(
+        "BaseSlab", BASE_BTM_HW, BASE_TOP_HW, total_h,
+        base_z=-(BASE_HEIGHT + embed))
+
+    # Subdivide and roughen the exterior first so soil-facing surfaces
+    # get irregular edges, then boolean-cut the box recess so its
+    # interior faces stay perfectly flat.
     subdivide_mesh(base, cuts=3)
     roughen_mesh(base, amount=0.020, seed=123, protect_top=True)
+
+    box_zt = -BASE_HEIGHT
+    bpy.ops.mesh.primitive_cube_add(
+        size=1, location=(0, 0, box_zt - LB_HEIGHT / 2))
+    cutter = bpy.context.active_object
+    cutter.scale = (LB_HW * 2, LB_HW * 2, LB_HEIGHT)
+    activate(cutter)
+    bpy.ops.object.transform_apply(scale=True)
+    boolean_cut(base, cutter)
 
     assign(base, M['concrete'])
     return base
@@ -3505,7 +5096,7 @@ def build_lower_box(M):
 
 
 def build_lower_block(M):
-    """Lower concrete block — rough-sided to suggest a hand-dug hole, flat on top."""
+    """Lower concrete block — hand-poured, rough-sided with ~10 mm imperfections."""
     print("  Lower block ...")
     zt = -BASE_HEIGHT - LB_HEIGHT
     bpy.ops.mesh.primitive_cube_add(
@@ -3516,9 +5107,8 @@ def build_lower_block(M):
     activate(blk)
     bpy.ops.object.transform_apply(scale=True)
 
-    # Subdivide to add geometry, then roughen sides and bottom
     subdivide_mesh(blk, cuts=3)
-    roughen_mesh(blk, amount=0.015, seed=42, protect_top=True)
+    roughen_mesh(blk, amount=0.010, seed=42, protect_top=True)
 
     assign(blk, M['concrete'])
     return blk
@@ -5475,7 +7065,7 @@ def setup_camera_animation():
       631–705   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
                 (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
       706–885   Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
-      886–975   Peg removal: extract along axis, arc to pillar top
+      886–975   Cotter pin removal: extract along axis, arc to pillar top
       976–1155  Inner plug removal: 12 turns unscrew, arc to -X/+Y corner
       1156–1245 Plug arc to rest on +X/+Y corner
       1246–1335 Slew to centre pipe + hold: SPIDER_0 → PIPE_0
@@ -5865,7 +7455,7 @@ def setup_camera_animation():
     # =================================================================
     # SEGMENT 6 — Plug removal  (frames 706 → 885,  6 s)
     # =================================================================
-    # The plug, inner plug, and anti-rotation peg move as a single unit.
+    # The plug, inner plug, and cotter pin move as a single unit.
     # The inner plug is parented to an animated Empty ("PlugAssembly");
     # the plug and peg follow via Child Of constraints so we can
     # release them later without duplication.
@@ -5900,7 +7490,7 @@ def setup_camera_animation():
         inner_plug.matrix_parent_inverse = assembly.matrix_world.inverted()
 
     plug = bpy.data.objects.get("Plug")
-    peg = bpy.data.objects.get("AntiRotationPeg")
+    peg = bpy.data.objects.get("CotterPin")
     plug_bind_world = plug.matrix_world.copy() if plug else None
     peg_bind_world = peg.matrix_world.copy() if peg else None
     plug_con = add_child_of(plug, assembly) if plug else None
@@ -6025,7 +7615,7 @@ def setup_camera_animation():
 
 
     # =================================================================
-    # SEGMENT 7 — Anti-rotation peg removal  (frames 886 → 975,  3 s)
+    # SEGMENT 7 — Cotter pin removal  (frames 886 → 975,  3 s)
     # =================================================================
     # The peg slides out along its axis (local X in the tilted
     # assembly), then arcs down to rest on the pillar top near the
@@ -6034,7 +7624,7 @@ def setup_camera_animation():
     #   Phase 1  886–915   Extract: slide +3 cm along axis (1 s)
     #   Phase 2  916–975   Arc down to pillar top surface  (2 s)
 
-    peg = bpy.data.objects["AntiRotationPeg"]
+    peg = bpy.data.objects["CotterPin"]
 
     # ── Phase 1: Extract along peg axis (3 cm, 1 s) ──────────────
     # Detach at segment start so we can move along the peg's own axis
@@ -6579,7 +8169,7 @@ def setup_camera_animation():
     print(f"      {F3_END+1}–{F4_END}:  Hold + rise (PROFILE_0 → SPIDER_0)")
     print(f"      {F4_END+1}–{F5_END}:  Screw removal (Screw_0 then Screw_180)")
     print(f"      {F5_END+1}–{F6_END}:  Plug removal (unscrew + tilt)")
-    print(f"      {F6_END+1}–{F7_END}:  Peg removal (extract + arc)")
+    print(f"      {F6_END+1}–{F7_END}:  Cotter pin removal (extract + arc)")
     print(f"      {F7_END+1}–{F8_END}:  Inner plug removal (unscrew + arc)")
     print(f"      {F8_END+1}–{F9_END}:  Plug arc to rest (+X, +Y corner)")
     print(f"      {F9_END+1}–{F10_END}:  Slew to pipe + hold (SPIDER_0 → PIPE_0)")
@@ -6879,6 +8469,186 @@ def setup_final_render():
     print(f"    Overwrite:  off (resume-safe)")
 
 
+def setup_flush_bracket_orbit():
+    """Set up a turntable camera orbit around the flush bracket.
+
+    Creates a 5-second, 24 fps, 120-frame seamlessly looping orbit
+    at slight elevation — suitable for APNG output on a webpage.
+
+    The camera tracks the bracket centre via a Track To constraint.
+    A parent empty at the bracket centre rotates 360° with linear
+    interpolation, giving constant angular velocity.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    FPS          — frames per second (24 for efficient APNG)
+    DURATION_S   — orbit duration in seconds
+    ORBIT_R      — horizontal distance from bracket centre (metres)
+    ORBIT_ELEV   — camera height above bracket centre (metres)
+    LENS_MM      — focal length (50 mm for moderate product-style framing)
+    """
+    print("  Flush bracket orbit animation ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    FPS          = 24
+    DURATION_S   = 5.0
+    ORBIT_R      = 0.30       # horizontal orbit radius
+    ORBIT_ELEV   = 0.03       # slight elevation above bracket centre
+    LENS_MM      = 50
+    CLIP_START   = 0.01
+    # ─────────────────────────────────────────────────────────────
+
+    TOTAL_FRAMES = int(FPS * DURATION_S)             # 120
+
+    # ── Bracket centre (matches FlushBracketAssembly location) ───
+    z_top   = FB_BTM_Z + FB_H
+    face_top = pillar_hw_at(z_top)
+    front_y  = face_top - FB_SETBACK + FB_D
+    z_mid   = FB_BTM_Z + FB_H / 2
+    centre  = (0.0, front_y, z_mid)
+
+    # ── Remove any existing camera / orbit empties ───────────────
+    for name in ("Camera", "FlyCamera", "CameraTarget",
+                 "BracketOrbitPivot", "BracketOrbitCam"):
+        old = bpy.data.objects.get(name)
+        if old:
+            for child in list(old.children):
+                child.parent = None
+            bpy.data.objects.remove(old, do_unlink=True)
+
+    # ── Orbit pivot empty at bracket centre ──────────────────────
+    pivot = bpy.data.objects.new("BracketOrbitPivot", None)
+    pivot.empty_display_type = 'PLAIN_AXES'
+    pivot.empty_display_size = 0.05
+    pivot.location = centre
+    bpy.context.collection.objects.link(pivot)
+
+    # ── Camera (parented to pivot so it orbits automatically) ────
+    cam_data = bpy.data.cameras.new("BracketOrbitCam")
+    cam_data.lens = LENS_MM
+    cam_data.clip_start = CLIP_START
+    cam_data.passepartout_alpha = 0.98
+    cam = bpy.data.objects.new("BracketOrbitCam", cam_data)
+    bpy.context.collection.objects.link(cam)
+    bpy.context.scene.camera = cam
+
+    cam.parent = pivot
+    cam.location = (0, ORBIT_R, ORBIT_ELEV)
+
+    # Track To — camera always faces the pivot (= bracket centre)
+    track = cam.constraints.new('TRACK_TO')
+    track.target = pivot
+    track.track_axis = 'TRACK_NEGATIVE_Z'
+    track.up_axis = 'UP_Y'
+
+    # ── Timeline ─────────────────────────────────────────────────
+    scene = bpy.context.scene
+    scene.render.fps = FPS
+    scene.frame_start = 1
+    scene.frame_end = TOTAL_FRAMES
+
+    # ── Animate pivot rotation (360° CW viewed from above) ───────
+    # Keyframe at frame 1 and TOTAL+1 with LINEAR interpolation.
+    # Frame TOTAL+1 is never rendered (frame_end = TOTAL), so the
+    # last rendered frame is one step before a full revolution —
+    # when the APNG loops, frame 1 follows seamlessly.
+    pivot.rotation_euler = (0, 0, 0)
+    pivot.keyframe_insert(data_path="rotation_euler", frame=1)
+    pivot.rotation_euler = (0, 0, -2 * math.pi)
+    pivot.keyframe_insert(data_path="rotation_euler",
+                          frame=TOTAL_FRAMES + 1)
+
+    for fc in pivot.animation_data.action.fcurves:
+        for kp in fc.keyframe_points:
+            kp.interpolation = 'LINEAR'
+
+    print(f"    FPS:        {FPS}")
+    print(f"    Duration:   {DURATION_S}s ({TOTAL_FRAMES} frames)")
+    print(f"    Orbit:      R={ORBIT_R}m, elev={ORBIT_ELEV}m")
+    print(f"    Centre:     ({centre[0]:.3f}, {centre[1]:.3f}, {centre[2]:.3f})")
+    print(f"    Lens:       {LENS_MM}mm")
+
+
+def setup_bracket_render():
+    """Configure Cycles for transparent flush-bracket renders (APNG output).
+
+    Renders at 2× the target APNG resolution with transparent RGBA
+    background.  Non-bracket objects are hidden for render.  The
+    existing Nishita sky still provides full lighting — Cycles'
+    film_transparent only affects the alpha channel, not the world
+    shader's lighting contribution.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    SAMPLES        — Cycles samples per pixel
+    RESOLUTION     — render resolution (2× target; downsized in APNG assembly)
+    """
+    print("  Bracket render settings (transparent RGBA) ...")
+
+    SAMPLES    = 128
+    RESOLUTION = (800, 800)
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    gpu_type = _setup_cycles_common(scene, render)
+
+    scene.cycles.samples = SAMPLES
+    scene.cycles.adaptive_threshold = 0.02
+
+    denoiser_name = _setup_denoiser(scene, samples_fallback=256)
+
+    scene.cycles.max_bounces = 6
+    scene.cycles.diffuse_bounces = 3
+    scene.cycles.glossy_bounces = 3
+    scene.cycles.transmission_bounces = 4
+    scene.cycles.transparent_max_bounces = 32
+    scene.cycles.sample_clamp_indirect = 10.0
+
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    render.film_transparent = True
+
+    frames_dir = _setup_output(render, subdir="bracket")
+    render.image_settings.color_mode = 'RGBA'
+
+    render.use_persistent_data = True
+    if gpu_type == 'OPTIX':
+        scene.cycles.tile_size = 2048
+    else:
+        scene.cycles.tile_size = 256
+
+    # ── Hide everything except the flush bracket assembly ────────
+    assembly = bpy.data.objects.get("FlushBracketAssembly")
+    bracket_names = set()
+    if assembly:
+        def _collect(obj):
+            bracket_names.add(obj.name)
+            for child in obj.children:
+                _collect(child)
+        _collect(assembly)
+
+    hidden_count = 0
+    for obj in bpy.data.objects:
+        if obj.name in bracket_names:
+            continue
+        if obj.type in ('CAMERA', 'LIGHT', 'EMPTY'):
+            continue
+        obj.hide_render = True
+        hidden_count += 1
+
+    print(f"    Engine:     Cycles ({gpu_type})")
+    print(f"    Samples:    {scene.cycles.samples} (adaptive)")
+    print(f"    Denoiser:   {denoiser_name}")
+    print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]} (2× oversample)")
+    print(f"    Background: transparent (RGBA)")
+    print(f"    Hidden:     {hidden_count} non-bracket objects")
+    print(f"    Output:     {frames_dir}")
+    print(f"    Overwrite:  off (resume-safe)")
+
+
 # =====================================================================
 # MAIN
 # =====================================================================
@@ -6891,8 +8661,9 @@ def main():
     M = {
         'concrete':     make_concrete_material(),
         'brass':        make_brass_material(),
+        'brass_cast':   make_brass_cast_material(),
         'rusted_steel': make_rusted_steel_material(),
-        'aged_steel':   make_aged_steel_material(),
+        'fixings':      make_fixings_material(),
         'wood':         make_wood_material(),
         'terrain':      make_terrain_material(),
         'landscape':    make_landscape_material(),
@@ -6913,7 +8684,7 @@ def main():
     # (arms, annulus, fillets) so grooves, bore, etc. are air.
     print("  Cutting spider cavity from pillar ...")
     outline = _spider_outline()
-    spider_base_z = PILLAR_HEIGHT - SPIDER_THICK
+    spider_base_z = PILLAR_HEIGHT - SPIDER_THICK - SPIDER_FLANGE_H
     n = len(outline)
 
     bm = bmesh.new()
@@ -6938,8 +8709,8 @@ def main():
     build_plug_text(M)
     build_fixings(M)
     build_brass_loops(M)
-    build_flush_bracket(M)
-    build_flush_bracket_logo(M)
+    fb_assembly = build_flush_bracket(M)
+    build_flush_bracket_logo(M, fb_assembly)
     build_base_slab(M)
     build_angle_irons(M)
     build_lower_box(M)
@@ -6952,15 +8723,21 @@ def main():
     # Scene (lights, viewport settings)
     setup_scene()
 
-    # Camera flythrough trajectory
-    setup_camera_animation()
+    # Animation and render — selected by TRIG_ANIMATION env var.
+    #   'flythrough' (default) — full pillar flythrough + quality dispatch
+    #   'bracket'              — flush bracket turntable orbit + RGBA output
+    animation = os.environ.get('TRIG_ANIMATION', 'flythrough')
 
-    # Render settings — draft (fast preview) or final (high quality)
-    quality = os.environ.get('TRIG_RENDER_QUALITY', 'final')
-    if quality == 'draft':
-        setup_draft_render()
+    if animation == 'bracket':
+        setup_flush_bracket_orbit()
+        setup_bracket_render()
     else:
-        setup_final_render()
+        setup_camera_animation()
+        quality = os.environ.get('TRIG_RENDER_QUALITY', 'final')
+        if quality == 'draft':
+            setup_draft_render()
+        else:
+            setup_final_render()
 
     # Make helper functions available in Blender's Python console.
     # Script functions live in their own module namespace, which the
@@ -6968,6 +8745,22 @@ def main():
     import builtins
     builtins.print_camera_state = print_camera_state
     builtins.goto = goto
+
+    # Optionally hide the terrain for faster viewport iteration.
+    # Must clear any animation keyframes on hide_viewport / hide_render
+    # that the camera-animation pass inserted, otherwise they override.
+    if os.environ.get('TRIG_HIDE_TERRAIN'):
+        for name in ('Terrain',):
+            obj = bpy.data.objects.get(name)
+            if obj:
+                obj.hide_viewport = True
+                obj.hide_render = True
+                if obj.animation_data and obj.animation_data.action:
+                    act = obj.animation_data.action
+                    for dp in ('hide_viewport', 'hide_render'):
+                        fc = act.fcurves.find(dp)
+                        if fc:
+                            act.fcurves.remove(fc)
 
     bpy.ops.object.select_all(action='DESELECT')
     n = len(bpy.data.objects)

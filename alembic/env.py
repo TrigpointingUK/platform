@@ -37,6 +37,7 @@ from api.models.location import Town, Postcode
 from api.models.attr import Attr, AttrSource, AttrVal, AttrSet, AttrSetAttrVal
 from api.models.tphoto import TPhoto
 from api.models.server import Server
+from api.models.document_chunk import DocumentChunk
 
 # Set target metadata for autogenerate support
 target_metadata = Base.metadata
@@ -89,7 +90,9 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_schemas=True,
         )
 
         with context.begin_transaction():

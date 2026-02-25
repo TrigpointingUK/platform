@@ -1,0 +1,89 @@
+You are analysing a single page from *History of the Retriangulation of Great Britain* (HMSO, 1967), the definitive Ordnance Survey technical reference on the re-triangulation programme carried out between 1935 and 1962.
+
+The book contains prose chapters, statistical tables, network diagrams showing triangulation chains, maps, photographs, and an index.  Many pages name specific trigonometric stations (trig points) — hilltop pillars and other survey markers used to establish the national coordinate system.
+
+Your task is to extract ALL information from this page into a structured JSON object.  Be thorough: every word of text, every name in a diagram, every row in a table matters.
+
+──────────────────────────────────────────────────
+OUTPUT FORMAT — return a single JSON object:
+──────────────────────────────────────────────────
+
+{
+  "page_number": <integer — the printed page number if visible, otherwise the sequence number given in the user message>,
+  "page_type": "<one of: prose, table, diagram, map, photograph, front_matter, index, blank, mixed>",
+  "chapter": "<chapter title if identifiable from headers/running heads, or null>",
+  "sections": [
+    // One object per distinct content region on the page, in reading order.
+    // Use the appropriate type for each:
+
+    // For prose:
+    {"type": "prose", "heading": "<section heading or null>", "text": "<full text, preserving paragraph breaks as \\n\\n>"},
+
+    // For tables:
+    {"type": "table", "table_number": "<e.g. Table 4.1 or null>", "caption": "<table caption or null>", "description": "<one-sentence summary of what the table contains>", "columns": ["<col1>", "<col2>", "..."], "rows": [{"<col1>": "<val>", "<col2>": "<val>"}, ...]},
+
+    // For diagrams or maps:
+    {"type": "diagram", "figure_number": "<e.g. Fig 4.3 or null>", "caption": "<caption if present or null>", "description": "<detailed description of what the diagram shows, including its purpose and any geographic area covered>", "annotations": ["<any text labels, dates, distances, or notes visible in the diagram>"]},
+
+    // For photographs:
+    {"type": "photograph", "figure_number": "<or null>", "caption": "<caption or null>", "description": "<what the photograph shows>"},
+
+    // For footnotes:
+    {"type": "footnote", "marker": "<footnote number or symbol>", "text": "<footnote text>"}
+  ],
+  "trig_points_mentioned": [
+    // Every trigonometric station name found ANYWHERE on the page —
+    // in prose, table cells, diagram labels, captions, footnotes.
+    // Trig point names are typically place names like "Leith Hill",
+    // "Great Whernside", "Herstmonceux", "Dunnose", "Kellie Law".
+    // Do NOT include generic geographic features or towns unless they
+    // are clearly referring to a survey station.
+    {
+      "name": "<station name exactly as printed>",
+      "confidence": <float 0.0–1.0, where 1.0 = clearly legible>,
+      "context": "<brief note: 'in prose', 'diagram label', 'table row', etc.>"
+    }
+  ],
+  "trig_connections": [
+    // Only for diagram/map pages: pairs of trig points connected by
+    // lines in the diagram.  These represent survey observation lines
+    // or sides of triangulation figures.
+    {
+      "from": "<station name>",
+      "to": "<station name>",
+      "type": "<one of: triangulation_side, observation_line, traverse_leg, bracing_line, unknown>"
+    }
+  ],
+  "tables": [
+    // Duplicate of any table data from sections, kept at top level
+    // for convenient downstream processing.  Same structure as the
+    // table objects in sections[].  Empty array if no tables on page.
+  ],
+  "raw_text": "<ALL text on the page concatenated into a single string, including table cell values and diagram labels, separated by spaces.  This is for full-text search indexing.>"
+}
+
+──────────────────────────────────────────────────
+IMPORTANT GUIDELINES:
+──────────────────────────────────────────────────
+
+1. COMPLETENESS: Extract every word.  Do not summarise or abbreviate prose.  Reproduce the original text faithfully, including archaic spellings.
+
+2. TABLES: Preserve every row.  If a table spans multiple pages, extract what is visible on THIS page.  Use null for cells that are blank.
+
+3. DIAGRAMS: This is the highest-value extraction.  Carefully list every station name visible, even if partially legible (note low confidence).  Trace every line connecting two named stations.  The triangulation network topology is the key information.
+
+4. TRIG POINT NAMES: These are proper nouns — typically British place names (hills, churches, towers, landmarks).  Common patterns:
+   - Single words: "Dunnose", "Herstmonceux", "Snowdon"
+   - Two words: "Leith Hill", "Black Down", "Great Whernside"
+   - With qualifiers: "Kellie Law", "Ben Nevis", "St Kilda"
+   - Abbreviated: "Gt. Whernside", "N. Berwick Law"
+   Do not confuse these with generic geographic references.
+
+5. PAGE NUMBERS: The printed page number is usually at the top or bottom of the page.  If it's a Roman numeral (front matter), record it as-is.
+
+6. OCR AWARENESS: The source is a 1960s print scanned at high resolution.  Text is generally clear but watch for:
+   - Ligatures (fi, fl, ff) that may render oddly
+   - Thin/broken characters in small print
+   - Table grid lines merging with text
+
+7. Return ONLY the JSON object.  No markdown fences, no commentary.

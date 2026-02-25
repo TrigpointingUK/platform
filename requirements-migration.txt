@@ -19,6 +19,6 @@ geoalchemy2>=0.14.0,<1.0.0
 
 # Configuration management (Python 3.9 compatible versions)
 pydantic>=2.0.0,<3.0.0
-pydantic-settings>=2.0.0,<2.13.0
+pydantic-settings>=2.0.0,<2.14.0
 python-dotenv>=1.0.0,<2.0.0
 
