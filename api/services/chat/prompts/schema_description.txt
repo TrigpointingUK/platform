@@ -33,8 +33,8 @@ Generate a single SELECT query to answer the user's question. Return ONLY the SQ
 ### "user" — User accounts (MUST quote as "user" — reserved word)
 - id (INTEGER PK)
 - name (VARCHAR 30, unique) — display name
-- firstname, surname (VARCHAR 30)
 - crt_date (DATE) — registration date
+NOTE: Personal data columns (firstname, surname, email) exist but MUST NOT be selected. Only use "name" (the public display name).
 
 ### trigstats — Aggregated statistics per trig point (1:1 with trig)
 - id (INTEGER PK/FK → trig.id)

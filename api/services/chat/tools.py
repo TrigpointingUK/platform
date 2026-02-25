@@ -31,6 +31,10 @@ _DISALLOWED_SQL = re.compile(
     r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|COPY)\b",
     re.IGNORECASE,
 )
+_PII_COLUMNS = re.compile(
+    r"\b(firstname|surname|email|cryptpw|auth0_user_id)\b",
+    re.IGNORECASE,
+)
 
 
 def _get_openai_client() -> OpenAI:
@@ -103,13 +107,17 @@ def _generate_sql(question: str) -> str:
 
 
 def _validate_sql(sql: str) -> None:
-    """Raise ValueError if the SQL contains mutations or multiple statements."""
+    """Raise ValueError if the SQL contains mutations, multiple statements, or PII access."""
     if ";" in sql.rstrip(";"):
         raise ValueError("Multiple statements are not allowed.")
     if _DISALLOWED_SQL.search(sql):
         raise ValueError("Only SELECT queries are permitted.")
     if not sql.strip().upper().startswith("SELECT"):
         raise ValueError("Query must be a SELECT statement.")
+    if _PII_COLUMNS.search(sql):
+        raise ValueError(
+            "Query references personal data columns which are not permitted."
+        )
 
 
 def _format_results(columns: list[str], rows: Any, sql: str) -> str:

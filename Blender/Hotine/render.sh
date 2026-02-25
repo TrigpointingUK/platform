@@ -7,6 +7,8 @@
 #   ./render.sh --draft      # Fast Cycles preview (low samples, half-res,
 #                            #   every 5th frame) — good for checking flow
 #   ./render.sh --preview    # Render every 10th frame for a quick preview
+#   ./render.sh --bracket    # Flush bracket turntable orbit → transparent
+#                            #   APNG (24 fps, 5 s, 2× oversampled PNGs)
 #
 # The script is resume-safe: already-rendered frames are skipped
 # (Blender's use_overwrite is off).  If a render is interrupted,
@@ -20,7 +22,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BLEND_SCRIPT="${SCRIPT_DIR}/trig_pillar.py"
-FPS=30
 
 # ── Locate Blender ─────────────────────────────────────────────
 # Prefer the official Blender (which includes OIDN denoiser) over
@@ -38,29 +39,44 @@ fi
 ASSEMBLE_ONLY=false
 PREVIEW=false
 DRAFT=false
+BRACKET=false
 for arg in "$@"; do
     case "$arg" in
         --assemble) ASSEMBLE_ONLY=true ;;
         --preview)  PREVIEW=true ;;
         --draft)    DRAFT=true ;;
+        --bracket)  BRACKET=true ;;
         *) echo "Unknown argument: $arg"; exit 1 ;;
     esac
 done
 
-# ── Determine output paths and frame jump ────────────────────────
-if [ "$DRAFT" = true ]; then
+# ── Determine output paths, frame rate, and frame jump ───────────
+ANIMATION_MODE="flythrough"
+
+if [ "$BRACKET" = true ]; then
+    FPS=24
+    FRAMES_DIR="${SCRIPT_DIR}/bracket"
+    OUTPUT="${SCRIPT_DIR}/bracket_orbit.apng"
+    FRAME_JUMP=1
+    RENDER_QUALITY="final"
+    ANIMATION_MODE="bracket"
+    echo "  Mode: BRACKET ORBIT (${FPS} fps, transparent RGBA → APNG)"
+elif [ "$DRAFT" = true ]; then
+    FPS=30
     FRAMES_DIR="${SCRIPT_DIR}/draft"
     OUTPUT="${SCRIPT_DIR}/trig_draft.mp4"
     FRAME_JUMP=5
     RENDER_QUALITY="draft"
     echo "  Mode: DRAFT (${FRAME_JUMP}× frame skip, low samples, half-res)"
 elif [ "$PREVIEW" = true ]; then
+    FPS=30
     FRAMES_DIR="${SCRIPT_DIR}/preview"
     OUTPUT="${SCRIPT_DIR}/trig_preview.mp4"
     FRAME_JUMP=10
     RENDER_QUALITY="final"
     echo "  Mode: PREVIEW (${FRAME_JUMP}× frame skip, full quality)"
 else
+    FPS=30
     FRAMES_DIR="${SCRIPT_DIR}/frames"
     OUTPUT="${SCRIPT_DIR}/trig_flythrough.mp4"
     FRAME_JUMP=1
@@ -102,8 +118,9 @@ if [ "$ASSEMBLE_ONLY" = false ]; then
 
     RENDER_ARGS+=(--render-anim)
 
-    # Tell the Python script which quality level to configure
+    # Tell the Python script which quality level and animation to configure
     export TRIG_RENDER_QUALITY="${RENDER_QUALITY}"
+    export TRIG_ANIMATION="${ANIMATION_MODE}"
 
     echo ""
     time "${RENDER_ARGS[@]}"
@@ -119,46 +136,64 @@ if [ "$FRAME_COUNT" -eq 0 ]; then
     exit 1
 fi
 
-# ── Assemble video with FFmpeg ───────────────────────────────────
+# ── Assemble output ──────────────────────────────────────────────
 echo ""
 echo "============================================="
-echo "  Assembling video"
-echo "  Output: ${OUTPUT}"
-echo "============================================="
-echo ""
 
-if [ "$FRAME_JUMP" -gt 1 ]; then
-    # Sparse frames (every Nth).  Feed at 1/N of the real FPS so each
-    # rendered frame is held for the correct duration, giving a jerky
-    # but correctly-timed preview.
-    INPUT_FPS=$((FPS / FRAME_JUMP))
-    echo "  Sparse frames: input at ${INPUT_FPS} fps, output at ${FPS} fps"
-    ffmpeg -y \
-        -framerate "${INPUT_FPS}" \
-        -pattern_type glob -i "${FRAMES_DIR}/*.png" \
-        -c:v libx264 \
-        -r "${FPS}" \
-        -preset slow \
-        -crf 18 \
-        -pix_fmt yuv420p \
-        -movflags +faststart \
-        "${OUTPUT}"
-else
-    # Consecutive frames — use the standard sequential pattern
+if [ "$BRACKET" = true ]; then
+    # Assemble APNG — downsample 2× with Lanczos and set infinite loop.
+    echo "  Assembling APNG"
+    echo "  Output: ${OUTPUT}"
+    echo "============================================="
+    echo ""
+
     ffmpeg -y \
         -framerate "${FPS}" \
         -i "${FRAMES_DIR}/%04d.png" \
-        -c:v libx264 \
-        -preset slow \
-        -crf 18 \
-        -pix_fmt yuv420p \
-        -movflags +faststart \
+        -vf "scale=iw/2:ih/2:flags=lanczos" \
+        -plays 0 \
+        -f apng \
         "${OUTPUT}"
+else
+    # Assemble MP4 video
+    echo "  Assembling video"
+    echo "  Output: ${OUTPUT}"
+    echo "============================================="
+    echo ""
+
+    if [ "$FRAME_JUMP" -gt 1 ]; then
+        # Sparse frames (every Nth).  Feed at 1/N of the real FPS so each
+        # rendered frame is held for the correct duration, giving a jerky
+        # but correctly-timed preview.
+        INPUT_FPS=$((FPS / FRAME_JUMP))
+        echo "  Sparse frames: input at ${INPUT_FPS} fps, output at ${FPS} fps"
+        ffmpeg -y \
+            -framerate "${INPUT_FPS}" \
+            -pattern_type glob -i "${FRAMES_DIR}/*.png" \
+            -c:v libx264 \
+            -r "${FPS}" \
+            -preset slow \
+            -crf 18 \
+            -pix_fmt yuv420p \
+            -movflags +faststart \
+            "${OUTPUT}"
+    else
+        # Consecutive frames — use the standard sequential pattern
+        ffmpeg -y \
+            -framerate "${FPS}" \
+            -i "${FRAMES_DIR}/%04d.png" \
+            -c:v libx264 \
+            -preset slow \
+            -crf 18 \
+            -pix_fmt yuv420p \
+            -movflags +faststart \
+            "${OUTPUT}"
+    fi
 fi
 
 echo ""
 echo "============================================="
 echo "  Done!"
-echo "  Video: ${OUTPUT}"
-echo "  Size:  $(du -h "${OUTPUT}" | cut -f1)"
+echo "  Output: ${OUTPUT}"
+echo "  Size:   $(du -h "${OUTPUT}" | cut -f1)"
 echo "============================================="

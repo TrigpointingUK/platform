@@ -2748,13 +2748,13 @@ def build_spider(M):
     # curvature; the front extends past the thread crests so no
     # thread remnants remain.  Random bearing.
     grind_arc   = 0.014                              # 14 mm circumferential
-    grind_depth = 0.003                              # 5 mm radial (thread + extra)
+    grind_depth = 0.003                              # 3 mm radial (thread + extra)
     grind_h     = thick / 2 + 0.002                  # full lower-bore height
     grind_angle = random.Random(77).uniform(0, 2 * math.pi)
 
     crest_r   = lower_r - SPIDER_THREAD_DEPTH
     grind_ir  = crest_r - 0.001                      # 1 mm past crests into bore
-    grind_or  = crest_r + grind_depth                # 5 mm deep into solid brass
+    grind_or  = crest_r + grind_depth                # 3 mm deep into solid brass
     arc_outer = grind_arc / crest_r                  # angular span at crest radius
     splay     = math.radians(10)                      # edges angle outward ~4°
     arc_inner = arc_outer + 2 * splay                # wider at the bore face
@@ -8469,6 +8469,186 @@ def setup_final_render():
     print(f"    Overwrite:  off (resume-safe)")
 
 
+def setup_flush_bracket_orbit():
+    """Set up a turntable camera orbit around the flush bracket.
+
+    Creates a 5-second, 24 fps, 120-frame seamlessly looping orbit
+    at slight elevation — suitable for APNG output on a webpage.
+
+    The camera tracks the bracket centre via a Track To constraint.
+    A parent empty at the bracket centre rotates 360° with linear
+    interpolation, giving constant angular velocity.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    FPS          — frames per second (24 for efficient APNG)
+    DURATION_S   — orbit duration in seconds
+    ORBIT_R      — horizontal distance from bracket centre (metres)
+    ORBIT_ELEV   — camera height above bracket centre (metres)
+    LENS_MM      — focal length (50 mm for moderate product-style framing)
+    """
+    print("  Flush bracket orbit animation ...")
+
+    # ── TUNEABLE VALUES ──────────────────────────────────────────
+    FPS          = 24
+    DURATION_S   = 5.0
+    ORBIT_R      = 0.30       # horizontal orbit radius
+    ORBIT_ELEV   = 0.03       # slight elevation above bracket centre
+    LENS_MM      = 50
+    CLIP_START   = 0.01
+    # ─────────────────────────────────────────────────────────────
+
+    TOTAL_FRAMES = int(FPS * DURATION_S)             # 120
+
+    # ── Bracket centre (matches FlushBracketAssembly location) ───
+    z_top   = FB_BTM_Z + FB_H
+    face_top = pillar_hw_at(z_top)
+    front_y  = face_top - FB_SETBACK + FB_D
+    z_mid   = FB_BTM_Z + FB_H / 2
+    centre  = (0.0, front_y, z_mid)
+
+    # ── Remove any existing camera / orbit empties ───────────────
+    for name in ("Camera", "FlyCamera", "CameraTarget",
+                 "BracketOrbitPivot", "BracketOrbitCam"):
+        old = bpy.data.objects.get(name)
+        if old:
+            for child in list(old.children):
+                child.parent = None
+            bpy.data.objects.remove(old, do_unlink=True)
+
+    # ── Orbit pivot empty at bracket centre ──────────────────────
+    pivot = bpy.data.objects.new("BracketOrbitPivot", None)
+    pivot.empty_display_type = 'PLAIN_AXES'
+    pivot.empty_display_size = 0.05
+    pivot.location = centre
+    bpy.context.collection.objects.link(pivot)
+
+    # ── Camera (parented to pivot so it orbits automatically) ────
+    cam_data = bpy.data.cameras.new("BracketOrbitCam")
+    cam_data.lens = LENS_MM
+    cam_data.clip_start = CLIP_START
+    cam_data.passepartout_alpha = 0.98
+    cam = bpy.data.objects.new("BracketOrbitCam", cam_data)
+    bpy.context.collection.objects.link(cam)
+    bpy.context.scene.camera = cam
+
+    cam.parent = pivot
+    cam.location = (0, ORBIT_R, ORBIT_ELEV)
+
+    # Track To — camera always faces the pivot (= bracket centre)
+    track = cam.constraints.new('TRACK_TO')
+    track.target = pivot
+    track.track_axis = 'TRACK_NEGATIVE_Z'
+    track.up_axis = 'UP_Y'
+
+    # ── Timeline ─────────────────────────────────────────────────
+    scene = bpy.context.scene
+    scene.render.fps = FPS
+    scene.frame_start = 1
+    scene.frame_end = TOTAL_FRAMES
+
+    # ── Animate pivot rotation (360° CW viewed from above) ───────
+    # Keyframe at frame 1 and TOTAL+1 with LINEAR interpolation.
+    # Frame TOTAL+1 is never rendered (frame_end = TOTAL), so the
+    # last rendered frame is one step before a full revolution —
+    # when the APNG loops, frame 1 follows seamlessly.
+    pivot.rotation_euler = (0, 0, 0)
+    pivot.keyframe_insert(data_path="rotation_euler", frame=1)
+    pivot.rotation_euler = (0, 0, -2 * math.pi)
+    pivot.keyframe_insert(data_path="rotation_euler",
+                          frame=TOTAL_FRAMES + 1)
+
+    for fc in pivot.animation_data.action.fcurves:
+        for kp in fc.keyframe_points:
+            kp.interpolation = 'LINEAR'
+
+    print(f"    FPS:        {FPS}")
+    print(f"    Duration:   {DURATION_S}s ({TOTAL_FRAMES} frames)")
+    print(f"    Orbit:      R={ORBIT_R}m, elev={ORBIT_ELEV}m")
+    print(f"    Centre:     ({centre[0]:.3f}, {centre[1]:.3f}, {centre[2]:.3f})")
+    print(f"    Lens:       {LENS_MM}mm")
+
+
+def setup_bracket_render():
+    """Configure Cycles for transparent flush-bracket renders (APNG output).
+
+    Renders at 2× the target APNG resolution with transparent RGBA
+    background.  Non-bracket objects are hidden for render.  The
+    existing Nishita sky still provides full lighting — Cycles'
+    film_transparent only affects the alpha channel, not the world
+    shader's lighting contribution.
+
+    TUNEABLE PARAMETERS
+    -------------------
+    SAMPLES        — Cycles samples per pixel
+    RESOLUTION     — render resolution (2× target; downsized in APNG assembly)
+    """
+    print("  Bracket render settings (transparent RGBA) ...")
+
+    SAMPLES    = 128
+    RESOLUTION = (800, 800)
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    gpu_type = _setup_cycles_common(scene, render)
+
+    scene.cycles.samples = SAMPLES
+    scene.cycles.adaptive_threshold = 0.02
+
+    denoiser_name = _setup_denoiser(scene, samples_fallback=256)
+
+    scene.cycles.max_bounces = 6
+    scene.cycles.diffuse_bounces = 3
+    scene.cycles.glossy_bounces = 3
+    scene.cycles.transmission_bounces = 4
+    scene.cycles.transparent_max_bounces = 32
+    scene.cycles.sample_clamp_indirect = 10.0
+
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    render.film_transparent = True
+
+    frames_dir = _setup_output(render, subdir="bracket")
+    render.image_settings.color_mode = 'RGBA'
+
+    render.use_persistent_data = True
+    if gpu_type == 'OPTIX':
+        scene.cycles.tile_size = 2048
+    else:
+        scene.cycles.tile_size = 256
+
+    # ── Hide everything except the flush bracket assembly ────────
+    assembly = bpy.data.objects.get("FlushBracketAssembly")
+    bracket_names = set()
+    if assembly:
+        def _collect(obj):
+            bracket_names.add(obj.name)
+            for child in obj.children:
+                _collect(child)
+        _collect(assembly)
+
+    hidden_count = 0
+    for obj in bpy.data.objects:
+        if obj.name in bracket_names:
+            continue
+        if obj.type in ('CAMERA', 'LIGHT', 'EMPTY'):
+            continue
+        obj.hide_render = True
+        hidden_count += 1
+
+    print(f"    Engine:     Cycles ({gpu_type})")
+    print(f"    Samples:    {scene.cycles.samples} (adaptive)")
+    print(f"    Denoiser:   {denoiser_name}")
+    print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]} (2× oversample)")
+    print(f"    Background: transparent (RGBA)")
+    print(f"    Hidden:     {hidden_count} non-bracket objects")
+    print(f"    Output:     {frames_dir}")
+    print(f"    Overwrite:  off (resume-safe)")
+
+
 # =====================================================================
 # MAIN
 # =====================================================================
@@ -8543,15 +8723,21 @@ def main():
     # Scene (lights, viewport settings)
     setup_scene()
 
-    # Camera flythrough trajectory
-    setup_camera_animation()
+    # Animation and render — selected by TRIG_ANIMATION env var.
+    #   'flythrough' (default) — full pillar flythrough + quality dispatch
+    #   'bracket'              — flush bracket turntable orbit + RGBA output
+    animation = os.environ.get('TRIG_ANIMATION', 'flythrough')
 
-    # Render settings — draft (fast preview) or final (high quality)
-    quality = os.environ.get('TRIG_RENDER_QUALITY', 'final')
-    if quality == 'draft':
-        setup_draft_render()
+    if animation == 'bracket':
+        setup_flush_bracket_orbit()
+        setup_bracket_render()
     else:
-        setup_final_render()
+        setup_camera_animation()
+        quality = os.environ.get('TRIG_RENDER_QUALITY', 'final')
+        if quality == 'draft':
+            setup_draft_render()
+        else:
+            setup_final_render()
 
     # Make helper functions available in Blender's Python console.
     # Script functions live in their own module namespace, which the

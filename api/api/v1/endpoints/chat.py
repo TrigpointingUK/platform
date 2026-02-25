@@ -11,8 +11,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from api.api.deps import get_current_user
 from api.core.config import settings
 from api.db.database import get_db
+from api.models.user import User
 from api.services.chat.agent import stream_response
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,7 @@ def _check_rate_limit(key: str) -> bool:
 async def chat(
     body: ChatRequest,
     request: Request,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Stream a chat response as Server-Sent Events."""

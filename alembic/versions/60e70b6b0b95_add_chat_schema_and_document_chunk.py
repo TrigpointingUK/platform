@@ -11,6 +11,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB
 
 logger = logging.getLogger("alembic.runtime.migration")
 
@@ -35,7 +36,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("source", sa.Text(), nullable=False),
         sa.Column("text", sa.Text(), nullable=False),
-        sa.Column("metadata_", sa.JSON(), nullable=True),
+        sa.Column("metadata_", JSONB(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

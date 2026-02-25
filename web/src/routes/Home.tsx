@@ -13,27 +13,39 @@ import { useUserProfile } from "../hooks/useUserProfile";
 function WelcomeSection() {
   return (
     <Card className="mb-6">
-      <h1 className="text-4xl font-bold text-trig-green-600 dark:text-trig-green-400 mb-4">
-        Welcome to TrigpointingUK
-      </h1>
-      <p className="text-lg text-gray-700 dark:text-gray-300 mb-4">
-        The UK's premier resource for triangulation pillars and survey markers.
-        Join thousands of enthusiasts exploring Britain's geodetic heritage.
-      </p>
-      <div className="flex gap-3 flex-wrap w-full">
-        <Button variant="primary" className="flex-1 min-w-[140px]">
-          <Link
-            to="/trigs"
-            className="block w-full text-center text-current"
-          >
-            Nearest
-          </Link>
-        </Button>
-        <Button variant="primary" className="flex-1 min-w-[140px]">
-          <Link to="/map" className="block w-full text-center text-current">
-            Map
-          </Link>
-        </Button>
+      <div className="flex items-center gap-6">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-4xl font-bold text-trig-green-600 dark:text-trig-green-400 mb-4">
+            Welcome to TrigpointingUK
+          </h1>
+          <p className="text-lg text-gray-700 dark:text-gray-300 mb-4">
+            The UK's premier resource for triangulation pillars and survey markers.
+            Join thousands of enthusiasts exploring Britain's geodetic heritage.
+          </p>
+          <div className="flex gap-3 flex-wrap w-full">
+            <Button variant="primary" className="flex-1 min-w-[140px]">
+              <Link
+                to="/trigs"
+                className="block w-full text-center text-current"
+              >
+                Nearest
+              </Link>
+            </Button>
+            <Button variant="primary" className="flex-1 min-w-[140px]">
+              <Link to="/map" className="block w-full text-center text-current">
+                Map
+              </Link>
+            </Button>
+          </div>
+        </div>
+        <picture className="hidden sm:block flex-shrink-0">
+          <source srcSet="/img/flush-bracket.webp" type="image/webp" />
+          <img
+            src="/img/flush-bracket.apng"
+            alt="Rotating 3D model of an Ordnance Survey flush bracket"
+            className="w-32 h-32 md:w-40 md:h-40 object-contain"
+          />
+        </picture>
       </div>
     </Card>
   );
