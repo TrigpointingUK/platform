@@ -13,7 +13,22 @@ import { useUserProfile } from "../hooks/useUserProfile";
 function WelcomeSection() {
   return (
     <Card className="mb-6">
-      <div className="flex items-center gap-6">
+      {/* Small screens: image beside heading only */}
+      <div className="flex items-center gap-4 mb-4 sm:hidden">
+        <h1 className="text-4xl font-bold text-trig-green-600 dark:text-trig-green-400 flex-1 min-w-0">
+          Welcome to TrigpointingUK
+        </h1>
+        <picture className="flex-shrink-0">
+          <source srcSet="/img/flush-bracket.webp" type="image/webp" />
+          <img
+            src="/img/flush-bracket.apng"
+            alt="Rotating 3D model of an Ordnance Survey flush bracket"
+            className="w-24 h-24 object-contain"
+          />
+        </picture>
+      </div>
+      {/* Larger screens: image as full column beside all content */}
+      <div className="hidden sm:flex items-center gap-6">
         <div className="flex-1 min-w-0">
           <h1 className="text-4xl font-bold text-trig-green-600 dark:text-trig-green-400 mb-4">
             Welcome to TrigpointingUK
@@ -38,7 +53,7 @@ function WelcomeSection() {
             </Button>
           </div>
         </div>
-        <picture className="hidden sm:block flex-shrink-0">
+        <picture className="flex-shrink-0">
           <source srcSet="/img/flush-bracket.webp" type="image/webp" />
           <img
             src="/img/flush-bracket.apng"
@@ -46,6 +61,28 @@ function WelcomeSection() {
             className="w-32 h-32 md:w-40 md:h-40 object-contain"
           />
         </picture>
+      </div>
+      {/* Description and buttons below heading on small screens */}
+      <div className="sm:hidden">
+        <p className="text-lg text-gray-700 dark:text-gray-300 mb-4">
+          The UK's premier resource for triangulation pillars and survey markers.
+          Join thousands of enthusiasts exploring Britain's geodetic heritage.
+        </p>
+        <div className="flex gap-3 flex-wrap w-full">
+          <Button variant="primary" className="flex-1 min-w-[140px]">
+            <Link
+              to="/trigs"
+              className="block w-full text-center text-current"
+            >
+              Nearest
+            </Link>
+          </Button>
+          <Button variant="primary" className="flex-1 min-w-[140px]">
+            <Link to="/map" className="block w-full text-center text-current">
+              Map
+            </Link>
+          </Button>
+        </div>
       </div>
     </Card>
   );
