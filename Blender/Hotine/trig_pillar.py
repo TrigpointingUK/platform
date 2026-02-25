@@ -69,6 +69,8 @@ PILLAR_TOP_HW       = 0.180     # [D] 36 cm / 2 — half-width at top
 PILLAR_BTM_HW       = 0.305     # [D] 61 cm / 2 — half-width at base
 BEVEL_RADIUS        = 0.025     # [E] ~1" chamfer on vertical edges
 BEVEL_SEGMENTS      = 1         # 1 = flat 45° mitre, >1 = rounded arc
+PILLAR_EDGE_R       = 0.002     # [E] 2 mm rounded bevel on all sharp edges
+PILLAR_EDGE_SEGS    = 3         # arc segments for the edge rounding
 
 # --- Centre Pipe ---
 CP_OUTER_R          = 0.038     # [E] 3" OD / 2
@@ -579,10 +581,14 @@ def make_concrete_material():
                                       Default: 0.85
       ROUGHNESS_VAR       (0.0–0.3)  Roughness variation (±).
                                       Default: 0.10
-      BUMP_STRENGTH       (0.0–2.0)  Fine surface bump intensity.
-                                      Default: 0.15
-      BUMP_SCALE          (float)    Bump detail scale.
-                                      Default: 25.0
+      BUMP_STRENGTH       (0.0–2.0)  Medium-scale bump intensity (~12 mm).
+                                      Default: 0.03
+      BUMP_SCALE          (float)    Medium bump Voronoi scale.
+                                      Default: 80.0
+      FINE_BUMP_STRENGTH  (0.0–1.0)  Fine-grain bump intensity (~1 mm).
+                                      Default: 0.04
+      FINE_BUMP_SCALE     (float)    Fine bump noise scale.
+                                      Default: 1000.0
     """
     # ── Tuneable values (edit these) ──────────────────────────────
     WHITEWASH_COVERAGE = 0.40
@@ -597,6 +603,8 @@ def make_concrete_material():
     ROUGHNESS_VAR      = 0.10
     BUMP_STRENGTH      = 0.03
     BUMP_SCALE         = 80.0
+    FINE_BUMP_STRENGTH = 0.22
+    FINE_BUMP_SCALE    = 2000.0
 
     mat = bpy.data.materials.new("Concrete")
     mat.use_nodes = True
@@ -680,7 +688,7 @@ def make_concrete_material():
     map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
     map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
 
-    # ── Bump map (fine surface texture) ───────────────────────────
+    # ── Bump map (medium surface texture, ~12 mm features) ────────
     voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[2], -750),
                         "Surface Texture")
     voronoi.inputs['Scale'].default_value = BUMP_SCALE
@@ -688,6 +696,17 @@ def make_concrete_material():
 
     bump = _new_node(tree, 'ShaderNodeBump', (C[4], -650), "Bump")
     bump.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── Fine bump (aggregate grain / formwork texture, ~1 mm) ────
+    noise_fine = _new_node(tree, 'ShaderNodeTexNoise', (C[2], -950),
+                           "Fine Grain")
+    noise_fine.inputs['Scale'].default_value = FINE_BUMP_SCALE
+    noise_fine.inputs['Detail'].default_value = 4.0
+    noise_fine.inputs['Roughness'].default_value = 0.7
+
+    bump_fine = _new_node(tree, 'ShaderNodeBump', (C[3], -850),
+                          "Fine Bump")
+    bump_fine.inputs['Strength'].default_value = FINE_BUMP_STRENGTH
 
     # ── Principled BSDF & output ──────────────────────────────────
     bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[5], 0))
@@ -721,8 +740,11 @@ def make_concrete_material():
     L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
     L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
 
-    # Bump
+    # Fine bump → medium bump chain (layered normals)
+    L.new(mapping.outputs['Vector'], noise_fine.inputs['Vector'])
+    L.new(noise_fine.outputs['Fac'], bump_fine.inputs['Height'])
     L.new(voronoi.outputs['Distance'], bump.inputs['Height'])
+    L.new(bump_fine.outputs['Normal'], bump.inputs['Normal'])
     L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
 
     # Output
@@ -2050,6 +2072,26 @@ def build_pillar(M):
         "Pillar", PILLAR_BTM_HW, PILLAR_TOP_HW, PILLAR_HEIGHT,
         base_z=0, bevel_r=BEVEL_RADIUS, bevel_n=BEVEL_SEGMENTS)
 
+    # Round off the top and bottom perimeter edges while the mesh is
+    # still clean (before boolean cuts introduce complex topology).
+    pmesh = pillar.data
+    pmesh.update()
+    bm = bmesh.new()
+    bm.from_mesh(pmesh)
+    bm.edges.ensure_lookup_table()
+    angle_thresh = math.radians(30)
+    sharp = [e for e in bm.edges
+             if len(e.link_faces) == 2
+             and e.calc_face_angle(0) >= angle_thresh]
+    if sharp:
+        bmesh.ops.bevel(
+            bm, geom=sharp,
+            offset=PILLAR_EDGE_R, offset_type='OFFSET',
+            segments=PILLAR_EDGE_SEGS, profile=0.5, affect='EDGES')
+    bm.to_mesh(pmesh)
+    bm.free()
+    pmesh.update()
+
     # --- Rectangular void for the upper wooden box ---
     # The box sits inside the pillar; the concrete must have a matching
     # cavity so the box, cavity air, and concrete are distinct volumes.
@@ -3273,9 +3315,9 @@ def build_brass_loops(M):
     half_flat   = 0.010                             # 10 mm → 20 mm flat section
     ramp_L      = half_L - half_flat                # 25 mm ramp at each end
     bevel_r     = 0.005                             # 5 mm bevel (narrow dir)
-    BEVEL_N     = 6                                 # bevel arc segments
-    SEMI_N      = 8                                 # bottom semicircle segments
-    N_SLICES    = 28                                # slices along length
+    BEVEL_N     = 12                                # bevel arc segments
+    SEMI_N      = 16                                # bottom semicircle segments
+    N_SLICES    = 40                                # slices along length
     EPS         = 0.001                             # overshoot above surface
 
     # Build base cross-section profile once (full depth, full width).
@@ -8845,6 +8887,7 @@ def main():
     build_plug_text(M)
     build_fixings(M)
     build_brass_loops(M)
+    smooth(bpy.data.objects['Pillar'])
     fb_assembly = build_flush_bracket(M)
     build_flush_bracket_logo(M, fb_assembly)
     build_base_slab(M)
