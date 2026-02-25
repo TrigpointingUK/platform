@@ -55,6 +55,6 @@ openai>=1.82.0
 
 # Development dependencies
 black==26.1.0
-isort==7.0.0
+isort==8.0.0
 flake8==7.3.0
 mypy==1.19.1
