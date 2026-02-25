@@ -194,13 +194,13 @@ export default function UserProfile() {
                       onUploaded={(newUrl) => setUploadedAvatarUrl(newUrl)}
                     />
                   ) : (
-                    authUser?.picture && (
-                      <img
-                        src={authUser.picture}
-                        alt={user.name}
-                        className="w-20 h-20 rounded-full object-cover"
-                      />
-                    )
+                    <img
+                      src={`https://trigpointinguk-avatars.s3.amazonaws.com/U${user.id.toString().padStart(5, "0")}.jpg`}
+                      alt={user.name}
+                      className="w-20 h-20 rounded-full object-cover hidden"
+                      onLoad={(e) => e.currentTarget.classList.remove("hidden")}
+                      onError={(e) => e.currentTarget.classList.add("hidden")}
+                    />
                   )}
                   <div>
                     <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
