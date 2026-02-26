@@ -7365,9 +7365,9 @@ def setup_camera_animation():
     F12_END = F11_END + 90    # 3 s assembly return
     F13_END = F12_END + 45    # 1.5 s screw insert
     F14_END = F13_END + 70    # 1 s pillar fade (after 40-frame gap)
-    F15_END = F14_END + 30    # 1 s surroundings fade
-    F16_END = F15_END + 30    # 1 s internal structure fade
-    F17_START = F16_END + 30  # after 1 s hold
+    F15_END = F14_END + 60    # 1 s pause + 1 s surroundings fade
+    F16_END = F15_END + 60    # 1 s pause + 1 s internal structure fade
+    F17_START = F16_END + 30  # after 1 s post-fade hold
     F17_END = F17_START + 120 # 4 s orbit + unfade
     TOTAL_FRAMES = F17_END
 
@@ -8103,26 +8103,63 @@ def setup_camera_animation():
     # phase actually starts.
     kf_world(inner_plug, F11_IP_START - 1, ip_rest_world)
 
-    # Camera move to PROFILE_1 (slowly, through to F13_END)
+    # Camera/target fly-back as one continuous smooth motion
+    # (PIPE_0 -> PROFILE_1), avoiding piecewise direction changes.
     cam_start = Vector(PIPE_0_CAM)
     cam_end = Vector(PROFILE_1_CAM)
-    cam_span = F13_END - F11_START
-    CAM_EASE_EXP = 1.7
-    t1 = ((F11_END - F11_START) / cam_span) ** CAM_EASE_EXP
-    t2 = ((F12_END - F11_START) / cam_span) ** CAM_EASE_EXP
-    cam_mid1 = tuple(cam_start.lerp(cam_end, t1))
-    cam_mid2 = tuple(cam_start.lerp(cam_end, t2))
+    tgt_start = Vector(PIPE_0_TGT)
+    tgt_end = Vector(PROFILE_1_TGT)
+    TUBE_TOP_Z = PILLAR_HEIGHT - SPIDER_THICK
+    TGT_PEAK_Z = TUBE_TOP_Z + 0.10          # ~10 cm above tube top
+    TGT_MID_Z = PILLAR_HEIGHT * 0.50        # halfway down the tube
+    TGT_END_Z = PROFILE_1_TGT[2]            # must match fade-start framing
+    TGT_RISE_FRAC = 0.30                    # rise quickly, descend slowly
+    TGT_MID_FRAC = 0.82                     # linger near mid-depth, then settle
 
-    # Target rises early so the plug stays in frame, then settles.
-    kf(target, F11_START + 23, (0.00, 0.00, 1.22))
-    kf(target, F11_START + 41, (0.00, 0.00, 1.23))
-    kf(target, F11_START + 54, (0.00, 0.00, 1.23))
-    kf(target, F11_START + 94, (0.00, 0.00, 1.15))
-    kf(target, F11_START + 164, (0.00, 0.00, 0.70))
-    kf(target, F13_END, PROFILE_1_TGT)
+    def _smoothstep(t):
+        return 3.0 * t * t - 2.0 * t * t * t
 
-    # Camera positions along the slow pull-back
+    def _cam_tgt_at(frame):
+        t = max(0.0, min(1.0, (frame - F11_START) / (F13_END - F11_START)))
+        s = _smoothstep(t)
+        c = cam_start.lerp(cam_end, s)
+        g = tgt_start.lerp(tgt_end, s)
+
+        # Keep aim near the centre axis; remove tiny inherited XY drift.
+        g.x = 0.0
+        g.y = tgt_start.y * (1.0 - s)
+
+        # Parameterised Z curve:
+        # - quick rise from start to 10 cm above tube top
+        # - slower descent to halfway down tube
+        # - final smooth settle to PROFILE_1_TGT to avoid a fade-boundary jerk.
+        if s <= TGT_RISE_FRAC:
+            u = s / TGT_RISE_FRAC
+            z = tgt_start.z + (TGT_PEAK_Z - tgt_start.z) * (1.0 - (1.0 - u) ** 3)
+        elif s <= TGT_MID_FRAC:
+            u = (s - TGT_RISE_FRAC) / (TGT_MID_FRAC - TGT_RISE_FRAC)
+            z = TGT_PEAK_Z + (TGT_MID_Z - TGT_PEAK_Z) * (3.0 * u * u - 2.0 * u * u * u)
+        else:
+            u = (s - TGT_MID_FRAC) / (1.0 - TGT_MID_FRAC)
+            z = TGT_MID_Z + (TGT_END_Z - TGT_MID_Z) * (3.0 * u * u - 2.0 * u * u * u)
+        g.z = z
+        return (c.x, c.y, c.z), (g.x, g.y, g.z)
+
+    for fr in range(F11_START, F13_END + 1, 10):
+        cam_loc, tgt_loc = _cam_tgt_at(fr)
+        kf(cam, fr, cam_loc)
+        kf(target, fr, tgt_loc)
+
+    # Key explicit values at segment boundaries used below.
+    cam_mid1, _tgt_mid1 = _cam_tgt_at(F11_END)
+    cam_mid2, tgt_mid2 = _cam_tgt_at(F12_END)
+    cam_end_fb, _tgt_end_fb = _cam_tgt_at(F13_END)
     kf(cam, F11_END, cam_mid1)
+    kf(target, F11_END, _tgt_mid1)
+    kf(cam, F12_END, cam_mid2)
+    kf(target, F12_END, tgt_mid2)
+    kf(cam, F13_END, cam_end_fb)
+    kf(target, F13_END, PROFILE_1_TGT)
 
     # Light fades out during the reassembly
     light.data.energy = 20
@@ -8246,9 +8283,9 @@ def setup_camera_animation():
     kf(assembly,     F12_END, (0, 0, z_pc))
     kf_rot(assembly, F12_END, (0, 0, 0))
 
-    # Camera continues pulling back to PROFILE_1
+    # Camera continues the same smooth pull-back to PROFILE_1
     kf(cam, F12_END, cam_mid2)
-    kf(target, F12_END, (0.00, 0.00, 0.55))
+    kf(target, F12_END, tgt_mid2)
 
     # =================================================================
     # SEGMENT 13 — Screws reinsert  (1.5 s)
@@ -8320,13 +8357,13 @@ def setup_camera_animation():
     _hide_at(pillar, F14_END)
 
     # =================================================================
-    # SEGMENT 15 — Surroundings fade  (1 s)
+    # SEGMENT 15 — Surroundings fade  (1 s, after 1 s pause)
     # =================================================================
     # After the pillar is transparent, terrain, landscape, grass, stones,
     # base slab, and angle irons all fade to fully transparent and are
     # then hidden from the render so dense geometry can't leave residue
     # from exhausted transparent-bounce limits.
-    F15_START = F14_END
+    F15_START = F14_END + 30
     kf(cam, F15_START, PROFILE_1_CAM)
     kf(target, F15_START, PROFILE_1_TGT)
     kf(cam, F15_END, PROFILE_1_CAM)
@@ -8373,11 +8410,11 @@ def setup_camera_animation():
         _hide_at(obj, F15_END)
 
     # =================================================================
-    # SEGMENT 16 — Internal structure fade  (1 s)
+    # SEGMENT 16 — Internal structure fade  (1 s, after 1 s pause)
     # =================================================================
     # Concrete fill, lower block, lower/upper box, sighting tubes, and
     # centre pipe fade out — leaving only brass internals visible.
-    F16_START = F15_END
+    F16_START = F15_END + 30
     kf(cam, F16_START, PROFILE_1_CAM)
     kf(target, F16_START, PROFILE_1_TGT)
     kf(cam, F16_END, PROFILE_1_CAM)
