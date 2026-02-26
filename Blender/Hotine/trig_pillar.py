@@ -69,6 +69,8 @@ PILLAR_TOP_HW       = 0.180     # [D] 36 cm / 2 — half-width at top
 PILLAR_BTM_HW       = 0.305     # [D] 61 cm / 2 — half-width at base
 BEVEL_RADIUS        = 0.025     # [E] ~1" chamfer on vertical edges
 BEVEL_SEGMENTS      = 1         # 1 = flat 45° mitre, >1 = rounded arc
+PILLAR_EDGE_R       = 0.002     # [E] 2 mm rounded bevel on all sharp edges
+PILLAR_EDGE_SEGS    = 3         # arc segments for the edge rounding
 
 # --- Centre Pipe ---
 CP_OUTER_R          = 0.038     # [E] 3" OD / 2
@@ -126,6 +128,17 @@ SPIDER_THREAD_DEPTH    = 0.003   # [E] ~2 mm thread depth
 THREAD_ROUNDNESS       = 0.10   # [T] 0 = triangle wave, 1 = cosine (try 0.05–0.15)
 SPIDER_FLANGE_H        = 0.008   # [E] ~4 mm bottom flange thickness
 SPIDER_FLANGE_OVERHANG = 0.012   # [E] ~5 mm shelf width beyond main body
+
+# Spider anchor bolts — one per arm, halfway along, screwed into arm bottom.
+# Hole depth is limited to 2 mm clear of the V-groove; thread length is
+# computed as hole_depth + half the visible shaft below the spider.
+SPIDER_BOLT_DIA        = 0.012   # [E] M12 nominal thread diameter
+SPIDER_BOLT_LENGTH     = 0.075   # [E] 75 mm total length under head
+SPIDER_BOLT_HEAD_AF    = 0.019   # [S] M12 hex head, 19 mm across flats
+SPIDER_BOLT_HEAD_H     = 0.0075  # [S] M12 hex head height 7.5 mm
+SPIDER_BOLT_PITCH      = 0.00175 # [S] M12 coarse thread pitch 1.75 mm
+SPIDER_BOLT_DEPTH      = 0.001   # [E] cosmetic thread depth for rendering
+SPIDER_BOLT_GROOVE_CLR = 0.002   # [E] 2 mm clearance between hole top and V-groove
 
 # --- Brass Loops ---
 LOOP_R              = 0.015     # [D] 30 mm upper loop dia / 2
@@ -568,10 +581,14 @@ def make_concrete_material():
                                       Default: 0.85
       ROUGHNESS_VAR       (0.0–0.3)  Roughness variation (±).
                                       Default: 0.10
-      BUMP_STRENGTH       (0.0–2.0)  Fine surface bump intensity.
-                                      Default: 0.15
-      BUMP_SCALE          (float)    Bump detail scale.
-                                      Default: 25.0
+      BUMP_STRENGTH       (0.0–2.0)  Medium-scale bump intensity (~12 mm).
+                                      Default: 0.03
+      BUMP_SCALE          (float)    Medium bump Voronoi scale.
+                                      Default: 80.0
+      FINE_BUMP_STRENGTH  (0.0–1.0)  Fine-grain bump intensity (~1 mm).
+                                      Default: 0.04
+      FINE_BUMP_SCALE     (float)    Fine bump noise scale.
+                                      Default: 1000.0
     """
     # ── Tuneable values (edit these) ──────────────────────────────
     WHITEWASH_COVERAGE = 0.40
@@ -586,6 +603,8 @@ def make_concrete_material():
     ROUGHNESS_VAR      = 0.10
     BUMP_STRENGTH      = 0.03
     BUMP_SCALE         = 80.0
+    FINE_BUMP_STRENGTH = 0.22
+    FINE_BUMP_SCALE    = 2000.0
 
     mat = bpy.data.materials.new("Concrete")
     mat.use_nodes = True
@@ -669,7 +688,7 @@ def make_concrete_material():
     map_rng.inputs['To Min'].default_value = ROUGHNESS_BASE - ROUGHNESS_VAR
     map_rng.inputs['To Max'].default_value = ROUGHNESS_BASE + ROUGHNESS_VAR
 
-    # ── Bump map (fine surface texture) ───────────────────────────
+    # ── Bump map (medium surface texture, ~12 mm features) ────────
     voronoi = _new_node(tree, 'ShaderNodeTexVoronoi', (C[2], -750),
                         "Surface Texture")
     voronoi.inputs['Scale'].default_value = BUMP_SCALE
@@ -677,6 +696,17 @@ def make_concrete_material():
 
     bump = _new_node(tree, 'ShaderNodeBump', (C[4], -650), "Bump")
     bump.inputs['Strength'].default_value = BUMP_STRENGTH
+
+    # ── Fine bump (aggregate grain / formwork texture, ~1 mm) ────
+    noise_fine = _new_node(tree, 'ShaderNodeTexNoise', (C[2], -950),
+                           "Fine Grain")
+    noise_fine.inputs['Scale'].default_value = FINE_BUMP_SCALE
+    noise_fine.inputs['Detail'].default_value = 4.0
+    noise_fine.inputs['Roughness'].default_value = 0.7
+
+    bump_fine = _new_node(tree, 'ShaderNodeBump', (C[3], -850),
+                          "Fine Bump")
+    bump_fine.inputs['Strength'].default_value = FINE_BUMP_STRENGTH
 
     # ── Principled BSDF & output ──────────────────────────────────
     bsdf = _new_node(tree, 'ShaderNodeBsdfPrincipled', (C[5], 0))
@@ -710,8 +740,11 @@ def make_concrete_material():
     L.new(noise_rgh.outputs['Fac'], map_rng.inputs['Value'])
     L.new(map_rng.outputs['Result'], bsdf.inputs['Roughness'])
 
-    # Bump
+    # Fine bump → medium bump chain (layered normals)
+    L.new(mapping.outputs['Vector'], noise_fine.inputs['Vector'])
+    L.new(noise_fine.outputs['Fac'], bump_fine.inputs['Height'])
     L.new(voronoi.outputs['Distance'], bump.inputs['Height'])
+    L.new(bump_fine.outputs['Normal'], bump.inputs['Normal'])
     L.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
 
     # Output
@@ -2039,6 +2072,26 @@ def build_pillar(M):
         "Pillar", PILLAR_BTM_HW, PILLAR_TOP_HW, PILLAR_HEIGHT,
         base_z=0, bevel_r=BEVEL_RADIUS, bevel_n=BEVEL_SEGMENTS)
 
+    # Round off the top and bottom perimeter edges while the mesh is
+    # still clean (before boolean cuts introduce complex topology).
+    pmesh = pillar.data
+    pmesh.update()
+    bm = bmesh.new()
+    bm.from_mesh(pmesh)
+    bm.edges.ensure_lookup_table()
+    angle_thresh = math.radians(30)
+    sharp = [e for e in bm.edges
+             if len(e.link_faces) == 2
+             and e.calc_face_angle(0) >= angle_thresh]
+    if sharp:
+        bmesh.ops.bevel(
+            bm, geom=sharp,
+            offset=PILLAR_EDGE_R, offset_type='OFFSET',
+            segments=PILLAR_EDGE_SEGS, profile=0.5, affect='EDGES')
+    bm.to_mesh(pmesh)
+    bm.free()
+    pmesh.update()
+
     # --- Rectangular void for the upper wooden box ---
     # The box sits inside the pillar; the concrete must have a matching
     # cavity so the box, cavity air, and concrete are distinct volumes.
@@ -2632,13 +2685,105 @@ def _make_threaded_bore_cutter(radius, depth, z_center,
     return obj
 
 
+def _make_anchor_bolt(x, y, z_entry, embed_depth, thread_len, M):
+    """Create an M12 hex bolt oriented vertically, threaded end up.
+
+    The bolt is fully screwed in: *embed_depth* of thread is hidden inside
+    the spider arm above *z_entry*.  The remaining visible thread, then
+    plain shank, then hex head hang below.
+
+    Args:
+        x, y:         horizontal position of bolt centre
+        z_entry:      Z coordinate where the bolt enters the arm (bottom of
+                      flange)
+        embed_depth:  how much thread is buried in the arm
+        thread_len:   total thread length (embedded + visible)
+        M:            materials dict
+    """
+    bolt_r     = SPIDER_BOLT_DIA / 2
+    head_h     = SPIDER_BOLT_HEAD_H
+    head_r     = SPIDER_BOLT_HEAD_AF / (2 * math.cos(math.radians(30)))
+    shank_len  = SPIDER_BOLT_LENGTH - thread_len
+    vis_thread = thread_len - embed_depth
+
+    # Z layout (thread at top, head at bottom):
+    #   z_entry ──────────────── bolt enters spider (top of visible part)
+    #   z_entry - vis_thread ─── bottom of visible thread / top of shank
+    #   ... - shank_len ──────── bottom of shank / top of head
+    #   ... - head_h ─────────── bottom of head
+    z_thread_bot = z_entry - vis_thread
+    z_shank_bot  = z_thread_bot - shank_len
+
+    # ── Hex head (6-sided prism) ──────────────────────────────────
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=6, radius=head_r, depth=head_h,
+        location=(x, y, z_shank_bot - head_h / 2))
+    bolt = bpy.context.active_object
+    bolt.name = "_anchor_bolt"
+
+    # ── Plain shank ───────────────────────────────────────────────
+    if shank_len > 0.001:
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=24, radius=bolt_r, depth=shank_len,
+            location=(x, y, z_shank_bot + shank_len / 2))
+        _union_into(bolt, bpy.context.active_object)
+
+    # ── Visible threaded portion (external V-thread) ──────────────
+    if vis_thread > 0.001:
+        pitch = SPIDER_BOLT_PITCH
+        tdepth = SPIDER_BOLT_DEPTH
+        n_angular = 24
+        n_rings = max(4, int(math.ceil(vis_thread / pitch) * 8) + 1)
+
+        bm = bmesh.new()
+        rings = []
+        for i in range(n_rings + 1):
+            z = z_thread_bot + vis_thread * i / n_rings
+            tri = abs((z / pitch % 1.0) - 0.5) * 2.0
+            r = bolt_r - tdepth + tdepth * tri
+            ring = []
+            for j in range(n_angular):
+                a = 2 * math.pi * j / n_angular
+                ring.append(bm.verts.new((
+                    x + r * math.cos(a),
+                    y + r * math.sin(a), z)))
+            rings.append(ring)
+
+        for i in range(len(rings) - 1):
+            for j in range(n_angular):
+                j2 = (j + 1) % n_angular
+                bm.faces.new([rings[i][j], rings[i][j2],
+                               rings[i + 1][j2], rings[i + 1][j]])
+
+        tc = bm.verts.new((x, y, z_entry))
+        bc = bm.verts.new((x, y, z_thread_bot))
+        for j in range(n_angular):
+            j2 = (j + 1) % n_angular
+            bm.faces.new([rings[-1][j2], rings[-1][j], tc])
+            bm.faces.new([rings[0][j], rings[0][j2], bc])
+
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+        tmesh = bpy.data.meshes.new("_bolt_thread")
+        bm.to_mesh(tmesh)
+        bm.free()
+
+        tobj = bpy.data.objects.new("_bolt_thread", tmesh)
+        bpy.context.collection.objects.link(tobj)
+        _union_into(bolt, tobj)
+
+    assign(bolt, M['fixings'])
+    smooth(bolt)
+    return bolt
+
+
 def build_spider(M):
     """Brass spider fitting at the top of the pillar.
 
     Three-armed spider with central annulus ring.  The annulus has bevelled
     top edges (inner 45° × 3 mm, outer 45° × 1 mm).  Each arm carries a
     90° V-groove down its centre.  Arm-to-annulus junctions have rounded
-    fillets (20 mm radius).
+    fillets (20 mm radius).  Each arm has an M12 anchor bolt screwed into
+    its underside at the midpoint, protruding downward into the concrete.
     """
     print("  Spider ...")
 
@@ -2898,6 +3043,39 @@ def build_spider(M):
     # Union flange with the spider body
     _union_into(spider, flange)
 
+    # ── Anchor bolts (M12, one per arm at midpoint) ────────────────
+    # Each arm has a tapped hole in its underside, with a hex bolt
+    # fully screwed in.  The hole stops 2 mm clear of the V-groove
+    # bottom.  Thread extends from the bolt tip (inside the arm)
+    # down to halfway along the visible shaft below the spider.
+    bolt_r       = SPIDER_BOLT_DIA / 2
+    mid_r        = inner_r + SPIDER_ARM_LEN / 2
+    z_flange_bot = zb - flange_h
+    hole_depth   = thick + flange_h - gd - SPIDER_BOLT_GROOVE_CLR
+    visible_len  = SPIDER_BOLT_LENGTH - hole_depth
+    thread_len   = hole_depth + visible_len / 2
+
+    for ai in range(3):
+        theta = arm_angles[ai]
+        bx = mid_r * math.cos(theta)
+        by = mid_r * math.sin(theta)
+
+        # Tapped hole in the arm bottom (from flange bottom up to
+        # 2 mm below the V-groove)
+        tap = _make_threaded_bore_cutter(
+            radius=bolt_r,
+            depth=hole_depth + 0.001,
+            z_center=z_flange_bot + hole_depth / 2,
+            thread_depth=SPIDER_BOLT_DEPTH,
+            thread_pitch=SPIDER_BOLT_PITCH,
+            n_angular=24, n_per_pitch=8)
+        tap.location = (bx, by, 0)
+        activate(tap)
+        bpy.ops.object.transform_apply(location=True)
+        boolean_cut(spider, tap)
+
+        _make_anchor_bolt(bx, by, z_flange_bot, hole_depth, thread_len, M)
+
     assign(spider, M['brass'])
     smooth(spider)
     return spider
@@ -3137,9 +3315,9 @@ def build_brass_loops(M):
     half_flat   = 0.010                             # 10 mm → 20 mm flat section
     ramp_L      = half_L - half_flat                # 25 mm ramp at each end
     bevel_r     = 0.005                             # 5 mm bevel (narrow dir)
-    BEVEL_N     = 6                                 # bevel arc segments
-    SEMI_N      = 8                                 # bottom semicircle segments
-    N_SLICES    = 28                                # slices along length
+    BEVEL_N     = 12                                # bevel arc segments
+    SEMI_N      = 16                                # bottom semicircle segments
+    N_SLICES    = 40                                # slices along length
     EPS         = 0.001                             # overshoot above surface
 
     # Build base cross-section profile once (full depth, full width).
@@ -8709,6 +8887,7 @@ def main():
     build_plug_text(M)
     build_fixings(M)
     build_brass_loops(M)
+    smooth(bpy.data.objects['Pillar'])
     fb_assembly = build_flush_bracket(M)
     build_flush_bracket_logo(M, fb_assembly)
     build_base_slab(M)

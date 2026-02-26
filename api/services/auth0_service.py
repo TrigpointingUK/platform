@@ -1454,6 +1454,46 @@ class Auth0Service:
             )
             return False
 
+    def update_user_picture(self, user_id: str, picture_url: str) -> bool:
+        """
+        Update a user's profile picture URL in Auth0.
+
+        Args:
+            user_id: Auth0 user ID
+            picture_url: Publicly accessible URL of the avatar image
+
+        Returns:
+            True if successful, False otherwise
+        """
+        response = self._make_auth0_request(
+            "PATCH", f"users/{user_id}", {"picture": picture_url}
+        )
+
+        if response:
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "auth0_user_picture_updated",
+                        "user_id": user_id,
+                        "picture_url": picture_url,
+                        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                    }
+                )
+            )
+            return True
+        else:
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "auth0_user_picture_update_failed",
+                        "user_id": user_id,
+                        "picture_url": picture_url,
+                        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                    }
+                )
+            )
+            return False
+
     def update_user_profile(
         self,
         user_id: str,
@@ -1750,6 +1790,18 @@ class DisabledAuth0Service:
                     "user_id": user_id,
                     "email": email,
                     "username": username,
+                }
+            )
+        )
+        return False
+
+    def update_user_picture(self, user_id: str, picture_url: str) -> bool:
+        logger.warning(
+            json.dumps(
+                {
+                    "event": "auth0_disabled_update_user_picture",
+                    "user_id": user_id,
+                    "picture_url": picture_url,
                 }
             )
         )

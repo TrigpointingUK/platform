@@ -207,3 +207,9 @@ variable "photos_server_id" {
   description = "Server ID for photo uploads (references server table)"
   type        = number
 }
+
+variable "avatars_s3_bucket" {
+  description = "S3 bucket name for user avatar uploads"
+  type        = string
+  default     = "trigpointinguk-avatars"
+}

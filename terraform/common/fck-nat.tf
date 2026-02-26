@@ -49,6 +49,11 @@ data "aws_ami" "fck_nat" {
     name   = "virtualization-type"
     values = ["hvm"]
   }
+
+  filter {
+    name   = "architecture"
+    values = ["arm64"]
+  }
 }
 
 # fck-nat instance (single instance in first AZ)
@@ -56,7 +61,7 @@ resource "aws_instance" "fck_nat" {
   count = 1
 
   ami                    = data.aws_ami.fck_nat.id
-  instance_type          = "t3.nano" # Minimal instance type for cost efficiency
+  instance_type          = "t4g.nano" # Graviton arm64, same price as t3.nano
   subnet_id              = aws_subnet.public[0].id
   vpc_security_group_ids = [aws_security_group.fck_nat.id]
   source_dest_check      = false # Required for NAT functionality

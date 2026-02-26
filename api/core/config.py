@@ -116,6 +116,11 @@ class Settings(BaseSettings):
     MAX_IMAGE_DIMENSION: int = 4000
     THUMBNAIL_SIZE: int = 120
 
+    # Avatar upload configuration
+    AVATARS_S3_BUCKET: str = "trigpointinguk-avatars"
+    AVATAR_MAX_SIZE: int = 2 * 1024 * 1024  # 2MB
+    AVATAR_DIMENSION: int = 200  # Output as 200x200 square
+
     # Redis/ElastiCache Configuration
     REDIS_URL: Optional[str] = None  # e.g., redis://host:6379
     CACHE_ENABLED: bool = True  # Enable/disable caching globally

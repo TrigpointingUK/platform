@@ -125,6 +125,7 @@ module "ecs_service" {
   efs_access_point_id          = data.terraform_remote_state.common.outputs.tiles_efs_access_point_id
   photos_s3_bucket             = var.photos_s3_bucket
   photos_server_id             = var.photos_server_id
+  avatars_s3_bucket            = var.avatars_s3_bucket
 }
 
 module "monitoring" {

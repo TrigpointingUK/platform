@@ -6,13 +6,14 @@ import base64
 import io
 import json
 import os
+import time
 from datetime import date as date_type
 from datetime import datetime
 from typing import Any, Dict, Mapping, Optional, Union
 
 import numpy as np
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
@@ -666,6 +667,66 @@ def update_current_user_profile(
     )
 
     return result
+
+
+@router.post(
+    "/me/avatar",
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Upload a profile avatar image. Accepts JPEG, PNG, or WebP. "
+        "Image is resized to 200x200 and stored in S3. Auth0 picture field is updated.",
+    ),
+)
+def upload_avatar(
+    file: UploadFile = File(..., description="Image file (JPEG, PNG, or WebP)"),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, str]:
+    """
+    Upload or replace the current user's avatar image.
+
+    The image is validated, resized to 200x200 JPEG, uploaded to S3 with a
+    public URL, and the Auth0 picture claim is updated to point at it.
+    """
+    from api.core.logging import get_logger
+    from api.services.auth0_service import auth0_service
+    from api.services.avatar_service import AvatarService
+
+    logger = get_logger(__name__)
+
+    file_contents = file.file.read()
+    if not file_contents:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    avatar_service = AvatarService()
+    is_valid, message = avatar_service.validate_image(file_contents)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
+
+    processed = avatar_service.process_image(file_contents)
+    if processed is None:
+        raise HTTPException(status_code=400, detail="Failed to process image")
+
+    avatar_url = avatar_service.upload(int(current_user.id), processed)
+    if avatar_url is None:
+        raise HTTPException(status_code=500, detail="Failed to upload avatar")
+
+    versioned_url = f"{avatar_url}?v={int(time.time())}"
+
+    auth0_user_id = getattr(current_user, "auth0_user_id", None)
+    if auth0_user_id:
+        success = auth0_service.update_user_picture(auth0_user_id, versioned_url)
+        if not success:
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "avatar_auth0_sync_failed",
+                        "user_id": current_user.id,
+                        "auth0_user_id": auth0_user_id,
+                    }
+                )
+            )
+
+    return {"avatar_url": versioned_url}
 
 
 @router.get(

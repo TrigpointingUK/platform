@@ -98,6 +98,10 @@ resource "aws_ecs_task_definition" "app" {
         {
           name  = "PHOTOS_SERVER_ID"
           value = tostring(var.photos_server_id)
+        },
+        {
+          name  = "AVATARS_S3_BUCKET"
+          value = var.avatars_s3_bucket
         }
         ],
         # Optional base environment variables

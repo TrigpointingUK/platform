@@ -79,7 +79,7 @@ export default function Header() {
                     <img
                       src={user.picture}
                       alt={user.name || "User"}
-                      className="h-8 w-8 rounded-full border-2 border-white"
+                      className="h-8 w-8 rounded-full"
                     />
                   )}
                   <span className="hidden md:inline text-sm font-medium">

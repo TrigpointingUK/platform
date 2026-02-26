@@ -231,5 +231,69 @@ describe('LogCard', () => {
     const trigLink = links.find(link => link.getAttribute('href') === '/trigs/12345');
     expect(trigLink).toBeInTheDocument();
   });
+
+  describe('avatar image', () => {
+    it('should render an avatar img with the correct S3 URL based on user_id', () => {
+      renderWithProviders(<LogCard log={mockLog} />);
+
+      const avatarImg = document.querySelector(
+        'img[src*="trigpointinguk-avatars.s3.amazonaws.com"]'
+      ) as HTMLImageElement;
+      expect(avatarImg).not.toBeNull();
+      expect(avatarImg.src).toContain('U00100.jpg');
+    });
+
+    it('should zero-pad user_id to 5 digits in the avatar URL', () => {
+      const logWithSmallId = { ...mockLog, user_id: 7 };
+      renderWithProviders(<LogCard log={logWithSmallId} />);
+
+      const avatarImg = document.querySelector(
+        'img[src*="trigpointinguk-avatars"]'
+      ) as HTMLImageElement;
+      expect(avatarImg.src).toContain('U00007.jpg');
+    });
+
+    it('should render the avatar img as hidden initially', () => {
+      renderWithProviders(<LogCard log={mockLog} />);
+
+      const avatarImg = document.querySelector(
+        'img[src*="trigpointinguk-avatars"]'
+      ) as HTMLImageElement;
+      expect(avatarImg.classList.contains('hidden')).toBe(true);
+    });
+
+    it('should remove hidden class on successful image load', () => {
+      renderWithProviders(<LogCard log={mockLog} />);
+
+      const avatarImg = document.querySelector(
+        'img[src*="trigpointinguk-avatars"]'
+      ) as HTMLImageElement;
+      avatarImg.dispatchEvent(new Event('load'));
+      expect(avatarImg.classList.contains('hidden')).toBe(false);
+    });
+
+    it('should add hidden class back on image load error', () => {
+      renderWithProviders(<LogCard log={mockLog} />);
+
+      const avatarImg = document.querySelector(
+        'img[src*="trigpointinguk-avatars"]'
+      ) as HTMLImageElement;
+      // Simulate successful load then error (e.g. re-render with invalid URL)
+      avatarImg.dispatchEvent(new Event('load'));
+      expect(avatarImg.classList.contains('hidden')).toBe(false);
+
+      avatarImg.dispatchEvent(new Event('error'));
+      expect(avatarImg.classList.contains('hidden')).toBe(true);
+    });
+
+    it('should have empty alt text for the avatar (decorative)', () => {
+      renderWithProviders(<LogCard log={mockLog} />);
+
+      const avatarImg = document.querySelector(
+        'img[src*="trigpointinguk-avatars"]'
+      ) as HTMLImageElement;
+      expect(avatarImg.alt).toBe('');
+    });
+  });
 });
 
