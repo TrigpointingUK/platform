@@ -89,13 +89,13 @@ if [ "$ASSEMBLE_ONLY" = false ]; then
     # For draft/preview renders, wipe old frames to prevent stale files
     # from a different render configuration contaminating the video.
     # Full renders are resume-safe (Blender skips existing frames).
-    if [ "$FRAME_JUMP" -gt 1 ] && [ -d "${FRAMES_DIR}" ]; then
-        STALE=$(find "${FRAMES_DIR}" -maxdepth 1 -name '*.png' | wc -l)
-        if [ "$STALE" -gt 0 ]; then
-            echo "  Clearing ${STALE} stale frames from ${FRAMES_DIR}/"
-            rm -f "${FRAMES_DIR}"/*.png
-        fi
-    fi
+    # if [ "$FRAME_JUMP" -gt 1 ] && [ -d "${FRAMES_DIR}" ]; then
+    #     STALE=$(find "${FRAMES_DIR}" -maxdepth 1 -name '*.png' | wc -l)
+    #     if [ "$STALE" -gt 0 ]; then
+    #         echo "  Clearing ${STALE} stale frames from ${FRAMES_DIR}/"
+    #         rm -f "${FRAMES_DIR}"/*.png
+    #     fi
+    # fi
 
     mkdir -p "${FRAMES_DIR}"
 

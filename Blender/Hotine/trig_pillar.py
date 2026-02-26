@@ -7361,7 +7361,8 @@ def setup_camera_animation():
     F8_END = F7_END + 126     # 4.2 s inner plug removal (was 6 s, −30%)
     F9_END = F8_END + 30      # 1.0 s plug arc to rest (faster landing)
     F10_END = F9_END + 90     # 3 s slew to pipe
-    F11_END = F10_END + 90    # 3 s slew + reassemble
+    F11_REASM_DELAY = 60      # 2 s hold before reassembly starts
+    F11_END = F10_END + 90 + F11_REASM_DELAY  # 5 s slew + delayed reassemble
     F12_END = F11_END + 90    # 3 s assembly return
     F13_END = F12_END + 45    # 1.5 s screw insert
     F14_END = F13_END + 70    # 1 s pillar fade (after 40-frame gap)
@@ -8052,7 +8053,9 @@ def setup_camera_animation():
         kf_world(plug, F8_END, plug_world)
 
     plug_ws_start = plug.matrix_world.translation.copy()
-    plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + PLUG_MIDDLE_R))
+    plug_rest_clear = 0.0005
+    plug_half_h = (PLUG_UPPER_H + PLUG_MIDDLE_H + PLUG_LOWER_H) / 2
+    plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + plug_half_h + plug_rest_clear))
     arc_kf_world(plug, F8_END, F9_END, plug_ws_start, plug_ws_end,
                  arc_height=0.05)
 
@@ -8088,10 +8091,11 @@ def setup_camera_animation():
     kf(target, F10_END, PIPE_0_TGT)
 
     # =================================================================
-    # SEGMENT 11 — Slew to profile + reassemble  (3 s)
+    # SEGMENT 11 — Slew to profile + delayed reassemble  (5 s)
     # =================================================================
     F11_START = F10_END + 1
-    F11_PLUG_END = F11_START + 29
+    F11_PLUG_START = F11_START + F11_REASM_DELAY
+    F11_PLUG_END = F11_PLUG_START + 29
     F11_IP_START = F11_PLUG_END + 1
     F11_IP_END = F11_IP_START + 29
     F11_PEG_START = F11_IP_END + 1
@@ -8186,7 +8190,7 @@ def setup_camera_animation():
     plug_end_q = plug_home_world.to_quaternion()
     for i in range(16):
         t = i / 15
-        frame = int(round(F11_START + t * (F11_PLUG_END - F11_START)))
+        frame = int(round(F11_PLUG_START + t * (F11_PLUG_END - F11_PLUG_START)))
         loc = plug_ws_rest.lerp(plug_home_world.translation, t)
         loc.z += 0.05 * 4.0 * t * (1.0 - t)
         rot = plug_start_q.slerp(plug_end_q, t)
@@ -8194,7 +8198,7 @@ def setup_camera_animation():
         mat.translation = loc
         kf_world(plug, frame, mat)
     if plug_con:
-        kf_influence(plug_con, F11_START, 0.0)
+        kf_influence(plug_con, F11_PLUG_START, 0.0)
         kf_influence(plug_con, F11_PLUG_END, 0.0)
         bpy.context.scene.frame_set(int(F11_PLUG_END + 1))
         bpy.context.view_layer.update()
