@@ -3701,6 +3701,11 @@ def build_plug(M):
 
     assign(ip, M['brass'])
     smooth(ip)
+    # Match Plug/CotterPin: keep InnerPlug origin at its own body centre.
+    # This avoids metre-scale orbital jumps when world-space rotations are
+    # keyed during the flythrough.
+    activate(ip)
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
     # ── Grub screw (sits inside the grubscrew hole) ───────────────
     # 13 mm total: bottom 10 mm shaft at 1.5 mm radius, top 3 mm head
@@ -7864,7 +7869,7 @@ def setup_camera_animation():
 
     peg = bpy.data.objects["CotterPin"]
 
-    # ── Phase 1: Extract along peg axis (3 cm, ~0.37 s) ──────────
+    # ── Phase 1: Axial extraction to full clearance (~0.37 s) ─────
     # Detach at segment start so we can move along the peg's own axis
     # in world space (assembly is pinned after F6_END).
     F7_START = F6_END + 1
@@ -7886,10 +7891,24 @@ def setup_camera_animation():
     peg_ws_start = peg.matrix_world.translation.copy()
     peg_axis = peg.matrix_world.to_3x3() @ Vector((1, 0, 0))
     peg_axis.normalize()
-    peg_ws_extract = peg_ws_start + peg_axis * 0.03
-    kf(peg, F7_EXTRACT, (peg_ws_extract.x,
-                         peg_ws_extract.y,
-                         peg_ws_extract.z))
+
+    # Force extraction to move OUT of the plug body (never inward).
+    plug_centre_ws = plug.matrix_world.translation.copy() if plug else Vector((0, 0, 0))
+    peg_outward = peg_ws_start - plug_centre_ws
+    if peg_outward.length > 1e-9:
+        peg_outward.normalize()
+        if peg_axis.dot(peg_outward) < 0:
+            peg_axis.negate()
+
+    # Slide straight along the pin axis until fully clear of the plug.
+    PEG_EXTRACT_MARGIN = 0.003
+    PEG_EXTRACT_DIST = PEG_LENGTH + PEG_EXTRACT_MARGIN
+    peg_ws_extract = peg_ws_start + peg_axis * PEG_EXTRACT_DIST
+    extract_span = max(1, F7_EXTRACT - F7_START)
+    for i in range(extract_span + 1):
+        t = i / extract_span
+        p = peg_ws_start.lerp(peg_ws_extract, t)
+        kf(peg, F7_START + i, (p.x, p.y, p.z))
     kf_rot(peg, F7_EXTRACT, tuple(peg.rotation_euler))
 
     # ── Phase 2: Arc down to pillar top (~0.7 s) ─────────────────
@@ -7922,7 +7941,11 @@ def setup_camera_animation():
     kf(inner_plug, F7_END, ip_home)
     kf_rot(inner_plug, F7_END, (0, 0, 0))
 
-    IPLUG_UNSCREW = 12 * 2 * math.pi       # 12 anticlockwise turns
+    IPLUG_UNSCREW_TURNS = 12.0
+    # Extra phase at full extraction so the grub screw is camera-visible
+    # at touchdown; tweak this value to fine-tune final presentation.
+    IPLUG_UNSCREW_PHASE = math.radians(285)
+    IPLUG_UNSCREW = IPLUG_UNSCREW_TURNS * 2 * math.pi + IPLUG_UNSCREW_PHASE
 
     # ── Phase 1: Unscrew + rise 3 cm  (2.8 s) ───────────────────
     F8_CLEAR = F7_END + 84
@@ -7936,23 +7959,45 @@ def setup_camera_animation():
     kf_rot(inner_plug, F8_CLEAR, (0, 0, IPLUG_UNSCREW))
 
     # ── Phase 2: Arc to rest on pillar top (1.4 s) ───────────────
-    # Place the inner plug just inside the brass loop radius.
-    # Key in explicit world space while parented so it cannot drift into
-    # the pillar when local-space curves are evaluated.
+    # Keep the landing close to the bore, add only a slight opposite
+    # directional backoff, and force a flat touchdown.
     bpy.context.scene.frame_set(int(F8_CLEAR))
     bpy.context.view_layer.update()
-    ip_ws_start = inner_plug.matrix_world.translation.copy()
-    ip_rot_world = inner_plug.matrix_world.to_3x3().copy()
-    ip_dir = Vector((-0.13, 0.15, 0)).normalized()
-    ip_r = LOOP_POS_R - 0.005  # 5 mm inside loop radius
-    ip_xy = ip_dir * ip_r
-    ip_ws_end = Vector((ip_xy.x, ip_xy.y, PILLAR_HEIGHT + IPLUG_H / 2))
-    arc_kf_world_matrix(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
-                        arc_height=0.06, world_rot=ip_rot_world, n_steps=20)
+    ip_start_world = inner_plug.matrix_world.copy()
+    ip_ws_start = ip_start_world.translation.copy()
+    ip_q_start = ip_start_world.to_quaternion()
 
-    # Keep the existing orientation at touchdown.  For this object the
-    # origin offset means forcing a final 180° rest flip can throw the
-    # visible mesh sideways off the pillar.
+    # Land near the bore: ~4 cm travel to the -X/+Y side, then settle on top.
+    ip_ws_end = ip_ws_start + Vector((-0.03, 0.025, 0.0))
+    ip_ws_end.z = PILLAR_HEIGHT + IPLUG_H / 2
+
+    # Flatten onto the pillar: local +Z points down so the blind-hole face
+    # (local -Z) remains uppermost at rest.
+    ip_z_world = (ip_q_start @ Vector((0, 0, 1))).normalized()
+    ip_flatten_q = ip_z_world.rotation_difference(Vector((0, 0, -1)))
+    ip_q_flat = (ip_flatten_q @ ip_q_start).normalized()
+
+    # Small opposite-direction presentation backoff around world Z.
+    IP_LAND_BACKOFF = math.radians(-10)
+    ip_backoff_q = Matrix.Rotation(IP_LAND_BACKOFF, 3, Vector((0, 0, 1))).to_quaternion()
+    ip_q_end = (ip_backoff_q @ ip_q_flat).normalized()
+
+    IP_ARC_HEIGHT = 0.02
+    IP_ARC_STEPS = 20
+
+    def ip_phase2_world_mat(t):
+        """World transform for segment-8 phase-2 at parametric time t."""
+        pos = ip_ws_start.lerp(ip_ws_end, t)
+        pos.z += IP_ARC_HEIGHT * 4.0 * t * (1.0 - t)
+        rot = ip_q_start.slerp(ip_q_end, t)
+        mat = rot.to_matrix().to_4x4()
+        mat.translation = pos
+        return mat
+
+    for i in range(IP_ARC_STEPS + 1):
+        t = i / IP_ARC_STEPS
+        frame = int(round(F8_CLEAR + t * (F8_END - F8_CLEAR)))
+        kf_world(inner_plug, frame, ip_phase2_world_mat(t))
 
     # Hard-pin the final world transform and hold it through segment 9 so
     # the inner plug clearly lands on the pillar top and does not drift.
@@ -8078,8 +8123,6 @@ def setup_camera_animation():
     asm_world = assembly.matrix_world.copy()
     plug_ws_rest = plug.matrix_world.translation.copy()
     peg_ws_rest = peg.matrix_world.translation.copy()
-    ip_ws_rest = inner_plug.matrix_world.translation.copy()
-    ip_rest_rot = tuple(inner_plug.rotation_euler)
 
     # Compute assembled world matrices for plug/peg
     asm_bind_inv = assembly_bind_world.inverted()
@@ -8107,35 +8150,60 @@ def setup_camera_animation():
         bpy.context.view_layer.update()
         reattach_child_of(plug, plug_con, plug_home_world, F11_PLUG_END + 1)
 
-    # ── Inner plug reassemble (second): reverse of seg 8
-    ip_w2l = make_w2l(inner_plug)
-    ip_child_combined = assembly.matrix_world @ inner_plug.matrix_parent_inverse
-    ip_ws_clear = ip_child_combined @ Vector(ip_clear_loc)
-    kf(inner_plug, F11_IP_START, tuple(inner_plug.location))
-    kf_rot(inner_plug, F11_IP_START, ip_rest_rot)
-    arc_kf(inner_plug, F11_IP_START, F11_IP_CLEAR, ip_ws_rest, ip_ws_clear,
-           arc_height=0.04, w2l=ip_w2l)
+    # ── Inner plug reassemble (second): exact reverse of seg 8
+    # Replay segment-8 phase-2 world transforms in reverse (retimed),
+    # then reverse the threaded drop-in with matching midpoint spin.
+    ip_reassm_span = max(1, F11_IP_CLEAR - F11_IP_START)
+    for i in range(ip_reassm_span + 1):
+        t = i / ip_reassm_span
+        frame = F11_IP_START + i
+        kf_world(inner_plug, frame, ip_phase2_world_mat(1.0 - t))
+
     kf(inner_plug, F11_IP_CLEAR, ip_clear_loc)
     kf_rot(inner_plug, F11_IP_CLEAR, (0, 0, IPLUG_UNSCREW))
+    F11_IP_MID = int(round((F11_IP_CLEAR + F11_IP_END) / 2))
+    kf(inner_plug, F11_IP_MID,
+       (ip_home[0], ip_home[1], ip_home[2] + 0.015))
+    kf_rot(inner_plug, F11_IP_MID, (0, 0, IPLUG_UNSCREW / 2))
     kf(inner_plug, F11_IP_END, ip_home)
     kf_rot(inner_plug, F11_IP_END, (0, 0, 0))
 
     # ── Peg reassemble (third): reverse of seg 7
-    peg_axis = asm_world.to_3x3() @ Vector((1, 0, 0))
+    peg_axis = peg_home_world.to_3x3() @ Vector((1, 0, 0))
     peg_axis.normalize()
-    peg_ws_extract = peg_home_world.translation + peg_axis * 0.03
-    peg_start_world = peg.matrix_world.copy()
-    peg_start_q = peg_start_world.to_quaternion()
-    peg_end_q = peg_home_world.to_quaternion()
-    for i in range(16):
-        t = i / 15
-        frame = int(round(F11_PEG_START + t * (F11_PEG_ARC_END - F11_PEG_START)))
+    peg_outward = peg_home_world.translation - plug_home_world.translation
+    if peg_outward.length > 1e-9:
+        peg_outward.normalize()
+        if peg_axis.dot(peg_outward) < 0:
+            peg_axis.negate()
+    peg_ws_extract = peg_home_world.translation + peg_axis * PEG_EXTRACT_DIST
+    peg_rest_world = peg.matrix_world.copy()
+    peg_rest_q = peg_rest_world.to_quaternion()
+    peg_extract_q = peg_home_world.to_quaternion()
+
+    # Phase A (reverse of seg-7 phase 2): arc from rest -> extracted.
+    peg_arc_span = max(1, F11_PEG_ARC_END - F11_PEG_START)
+    for i in range(peg_arc_span + 1):
+        t = i / peg_arc_span
+        frame = F11_PEG_START + i
         loc = peg_ws_rest.lerp(peg_ws_extract, t)
         loc.z += 0.03 * 4.0 * t * (1.0 - t)
-        rot = peg_start_q.slerp(peg_end_q, t)
+        rot = peg_rest_q.slerp(peg_extract_q, t)
         mat = rot.to_matrix().to_4x4()
         mat.translation = loc
         kf_world(peg, frame, mat)
+
+    # Phase B (reverse of seg-7 phase 1): straight axial insertion.
+    peg_insert_span = max(1, F11_END - F11_PEG_ARC_END)
+    for i in range(peg_insert_span + 1):
+        t = i / peg_insert_span
+        frame = F11_PEG_ARC_END + i
+        loc = peg_ws_extract.lerp(peg_home_world.translation, t)
+        rot = peg_extract_q.slerp(peg_home_world.to_quaternion(), t)
+        mat = rot.to_matrix().to_4x4()
+        mat.translation = loc
+        kf_world(peg, frame, mat)
+
     kf_world(peg, F11_END, peg_home_world)
     if peg_con:
         kf_influence(peg_con, F11_PEG_START, 0.0)
