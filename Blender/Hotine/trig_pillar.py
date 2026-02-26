@@ -5150,6 +5150,20 @@ def build_base_slab(M):
     subdivide_mesh(base, cuts=3)
     roughen_mesh(base, amount=0.020, seed=123, protect_top=True)
 
+    # Cut a minimal pillar seat to avoid coplanar z-fighting where the
+    # pillar base meets the slab top at z=0.
+    seat_depth = 0.001        # 1 mm — smallest robust recess
+    seat_clear = 0.0005       # 0.5 mm radial clearance
+    seat = make_frustum(
+        "_PillarSeat",
+        PILLAR_BTM_HW + seat_clear,
+        PILLAR_BTM_HW + seat_clear,
+        seat_depth,
+        base_z=-seat_depth,
+        bevel_r=BEVEL_RADIUS,
+        bevel_n=BEVEL_SEGMENTS)
+    boolean_cut(base, seat)
+
     box_zt = -BASE_HEIGHT
     bpy.ops.mesh.primitive_cube_add(
         size=1, location=(0, 0, box_zt - LB_HEIGHT / 2))
@@ -7312,7 +7326,7 @@ def setup_camera_animation():
     CAMERA_POSITIONS["PIPE_0"] = (
         0,                                   # frame — set by F10_END at runtime
         ( 0.0004, -0.0003,  1.4249),        # cam — overhead
-        ( 0.0000,  0.0000,  PIPE_LOOK_Z),   # tgt — 1/4 down pipe
+        ( 0.0000,  0.00022,  PIPE_LOOK_Z),   # tgt — 1/4 down pipe (tiny +Y bias avoids end snap)
     )
     CAMERA_POSITIONS["PROFILE_1"] = (
         0,                                   # frame — set by F11_END at runtime
@@ -8060,7 +8074,6 @@ def setup_camera_animation():
     # Add a small orbit in the final frames to smooth yaw roll.
     kf(cam, F10_START + 30, ( 0.030, -0.040,  1.55))
     kf(cam, F10_START + 36, ( 0.015, -0.020,  1.47))
-    kf(cam, F10_START + 40, ( 0.008, -0.010,  1.44))
     kf(cam, F10_SLEW_END, PIPE_0_CAM)
     # Ease the target down gradually; end 1/4 of the way down the pipe.
     kf(target, F10_START, SPIDER_0_TGT)
