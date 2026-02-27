@@ -208,7 +208,7 @@ FB_ANCHOR_H         = 0.035     # [D] anchor block height (35 mm)
 FB_ANCHOR_DEPTH     = 0.010     # [D] anchor block depth (10 mm)
 
 # --- Flush Bracket Logo Relief ---
-LOGO_SVG            = 'TUK-Logo.svg'   # SVG file in ../../res/ relative to script
+LOGO_SVG            = 'TUK-Logo.svg'   # default SVG name (resource roots are auto-probed; TRIG_RES_DIR override supported)
 LOGO_RELIEF         = 0.0048    # [E] maximum relief height (4.8 mm, bright green UK)
 LOGO_MARGIN         = 0.014     # [E] 8 mm margin inside plate edges
 LOGO_V_STRETCH      = 1.00      # [E] vertical stretch factor (20 % taller)
@@ -4930,14 +4930,82 @@ def build_flush_bracket_logo(M, fb_assembly=None):
     print("  Flush bracket logo ...")
 
     # ── Locate SVG ──────────────────────────────────────────────
+    # Execution context varies (CLI script, Blender text editor, cloud
+    # worker), so probe several candidate resource roots.
+    env_res_dir = os.environ.get('TRIG_RES_DIR', '').strip()
+    logo_name = os.environ.get('TRIG_LOGO_SVG', LOGO_SVG).strip() or LOGO_SVG
+
+    candidate_dirs = []
+    if env_res_dir:
+        candidate_dirs.append(env_res_dir)
+
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
+        candidate_dirs.extend([
+            os.path.join(script_dir, 'res'),
+            os.path.join(script_dir, '..', 'res'),
+            os.path.join(script_dir, '..', '..', 'res'),
+        ])
     except NameError:
-        script_dir = os.getcwd()
-    svg_path = os.path.normpath(
-        os.path.join(script_dir, '..', '..', 'res', LOGO_SVG))
-    if not os.path.isfile(svg_path):
-        print(f"    WARNING: {svg_path} not found — skipping logo.")
+        pass
+
+    cwd = os.getcwd()
+    candidate_dirs.extend([
+        os.path.join(cwd, 'res'),
+        os.path.join(cwd, '..', 'res'),
+        os.path.join(cwd, '..', '..', 'res'),
+    ])
+
+    if bpy.data.filepath:
+        blend_dir = os.path.dirname(bpy.data.filepath)
+        candidate_dirs.extend([
+            os.path.join(blend_dir, 'res'),
+            os.path.join(blend_dir, '..', 'res'),
+            os.path.join(blend_dir, '..', '..', 'res'),
+        ])
+
+    # Running from Blender's text editor may not define __file__.
+    # If this script is loaded as a text datablock from disk, use its path.
+    for text in bpy.data.texts:
+        text_path = getattr(text, 'filepath', '')
+        if not text_path:
+            continue
+        if os.path.basename(text_path) != 'trig_pillar.py':
+            continue
+        text_dir = os.path.dirname(os.path.abspath(bpy.path.abspath(text_path)))
+        candidate_dirs.extend([
+            os.path.join(text_dir, 'res'),
+            os.path.join(text_dir, '..', 'res'),
+            os.path.join(text_dir, '..', '..', 'res'),
+        ])
+        break
+
+    unique_dirs = []
+    seen_dirs = set()
+    for d in candidate_dirs:
+        nd = os.path.normpath(os.path.abspath(d))
+        if nd in seen_dirs:
+            continue
+        seen_dirs.add(nd)
+        unique_dirs.append(nd)
+
+    search_paths = []
+    if os.path.isabs(logo_name):
+        search_paths.append(logo_name)
+    else:
+        for d in unique_dirs:
+            search_paths.append(os.path.join(d, logo_name))
+
+    svg_path = ''
+    for p in search_paths:
+        if os.path.isfile(p):
+            svg_path = p
+            break
+
+    if not svg_path:
+        print("    WARNING: logo SVG not found — skipping logo.")
+        print(f"    Tried: {', '.join(search_paths[:4])}"
+              f"{' ...' if len(search_paths) > 4 else ''}")
         return
 
     # ── Colour → relief fraction ────────────────────────────────
@@ -8841,6 +8909,56 @@ def setup_final_render():
     print(f"    Overwrite:  off (resume-safe)")
 
 
+def setup_final_4k_render():
+    """Configure Cycles GPU rendering for 4K UHD output.
+
+    Uses the same quality settings as setup_final_render(), but raises
+    output resolution to 3840×2160 and writes frames into 'frames_4k/'.
+    """
+    print("  Render settings (4K UHD) ...")
+
+    SAMPLES    = 256
+    RESOLUTION = (3840, 2160)
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    gpu_type = _setup_cycles_common(scene, render)
+
+    scene.cycles.samples = SAMPLES
+    scene.cycles.adaptive_threshold = 0.01
+
+    denoiser_name = _setup_denoiser(scene, samples_fallback=512)
+
+    # Light path optimisation
+    scene.cycles.max_bounces = 8
+    scene.cycles.diffuse_bounces = 4
+    scene.cycles.glossy_bounces = 4
+    scene.cycles.transmission_bounces = 8
+    scene.cycles.transparent_max_bounces = 128   # see draft comment — must be
+                                                  # high for dense geometry
+    scene.cycles.sample_clamp_indirect = 10.0    # reduce fireflies
+
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    frames_dir = _setup_output(render, subdir="frames_4k")
+
+    render.use_persistent_data = True
+    if gpu_type == 'OPTIX':
+        scene.cycles.tile_size = 2048
+    else:
+        scene.cycles.tile_size = 256
+
+    print(f"    Engine:     Cycles ({gpu_type})  [4K UHD]")
+    print(f"    Samples:    {scene.cycles.samples} (adaptive)")
+    print(f"    Denoiser:   {denoiser_name}")
+    print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]}")
+    print(f"    Output:     {frames_dir}")
+    print(f"    Overwrite:  off (resume-safe)")
+
+
 def setup_flush_bracket_orbit():
     """Set up a turntable camera orbit around the flush bracket.
 
@@ -9109,6 +9227,8 @@ def main():
         quality = os.environ.get('TRIG_RENDER_QUALITY', 'final')
         if quality == 'draft':
             setup_draft_render()
+        elif quality in ('final_4k', '4k', 'uhd'):
+            setup_final_4k_render()
         else:
             setup_final_render()
 

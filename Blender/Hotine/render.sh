@@ -4,6 +4,7 @@
 # Usage:
 #   ./render.sh              # Render all frames, then assemble MP4
 #   ./render.sh --assemble   # Skip rendering, just assemble existing frames
+#   ./render.sh --4k         # Full-quality 4K UHD render (3840×2160)
 #   ./render.sh --draft      # Fast Cycles preview (low samples, half-res,
 #                            #   every 5th frame) — good for checking flow
 #   ./render.sh --preview    # Render every 10th frame for a quick preview
@@ -40,9 +41,11 @@ ASSEMBLE_ONLY=false
 PREVIEW=false
 DRAFT=false
 BRACKET=false
+UHD=false
 for arg in "$@"; do
     case "$arg" in
         --assemble) ASSEMBLE_ONLY=true ;;
+        --4k)       UHD=true ;;
         --preview)  PREVIEW=true ;;
         --draft)    DRAFT=true ;;
         --bracket)  BRACKET=true ;;
@@ -75,6 +78,13 @@ elif [ "$PREVIEW" = true ]; then
     FRAME_JUMP=10
     RENDER_QUALITY="final"
     echo "  Mode: PREVIEW (${FRAME_JUMP}× frame skip, full quality)"
+elif [ "$UHD" = true ]; then
+    FPS=30
+    FRAMES_DIR="${SCRIPT_DIR}/frames_4k"
+    OUTPUT="${SCRIPT_DIR}/trig_flythrough_4k.mp4"
+    FRAME_JUMP=1
+    RENDER_QUALITY="final_4k"
+    echo "  Mode: FULL RENDER (4K UHD 3840×2160)"
 else
     FPS=30
     FRAMES_DIR="${SCRIPT_DIR}/frames"
