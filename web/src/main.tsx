@@ -59,15 +59,19 @@ const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
 // Production: /app/
 const baseUrl = import.meta.env.BASE_URL || '/';
 const redirectUri = window.location.origin + baseUrl;
+const androidAuthCallbackPathPattern = /^\/android\/uk\.trigpointing\.android(?:\.debug)?\/callback$/;
+const isAndroidAuthCallbackPath = androidAuthCallbackPathPattern.test(window.location.pathname);
 
 // Debug logging for development
-console.log('Auth0 Configuration:', {
-  domain,
-  clientId,
-  audience,
-  redirectUri,
-  baseUrl,
-});
+if (import.meta.env.DEV) {
+  console.log('Auth0 Configuration:', {
+    domain,
+    clientId,
+    audience,
+    redirectUri,
+    baseUrl,
+  });
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -76,6 +80,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Auth0Provider
           domain={domain}
           clientId={clientId}
+          skipRedirectCallback={isAndroidAuthCallbackPath}
           authorizationParams={{
             audience,
             redirect_uri: redirectUri,
@@ -85,7 +90,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           useRefreshTokensFallback
           cacheLocation="localstorage"
           onRedirectCallback={(appState?: AppState) => {
-            console.log('Auth0 redirect callback:', appState);
             // Save the return path to sessionStorage so Auth0CallbackHandler can navigate
             const targetUrl = appState?.returnTo || window.location.pathname;
             if (targetUrl && targetUrl !== '/' && targetUrl !== baseUrl) {
@@ -96,7 +100,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Auth0ErrorBoundary>
             <QueryClientProvider client={queryClient}>
               <AppRouter />
-              <ChatWidget />
+              {!isAndroidAuthCallbackPath && <ChatWidget />}
               <Toaster
                 position="top-right"
                 containerStyle={{

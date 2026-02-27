@@ -38,6 +38,7 @@ const Experiments = lazy(() => import("./routes/Experiments"));
 const ExperimentIndex = lazy(() => import("./routes/ExperimentIndex"));
 const TrigsV2 = lazy(() => import("./routes/experiment/TrigsV2"));
 const TrigModel = lazy(() => import("./routes/experiment/TrigModel"));
+const AndroidAuthCallback = lazy(() => import("./routes/AndroidAuthCallback"));
 
 // Redirect component for old /trig/ URLs
 function TrigRedirect() {
@@ -364,6 +365,22 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <AdminIrelandImport />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/android/uk.trigpointing.android/callback",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AndroidAuthCallback />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/android/uk.trigpointing.android.debug/callback",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <AndroidAuthCallback />
         </Suspense>
       ),
     },
