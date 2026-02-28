@@ -24,7 +24,7 @@ RUN set -eux; \
 COPY composer.local.json /var/www/html/
 RUN php -r "copy('https://getcomposer.org/installer','composer-setup.php');" \
  && php composer-setup.php --install-dir=/usr/local/bin --filename=composer \
- && composer update -n --no-dev
+ && composer update -n --no-dev --no-security-blocking
 
 RUN a2enmod rewrite
 COPY apache-shorturl-root.conf /etc/apache2/conf-available/shorturl-root.conf
@@ -33,5 +33,6 @@ RUN a2enconf shorturl-root
 
 # Bake parameterised LocalSettings.php into image
 COPY LocalSettings.php /var/www/html/LocalSettings.php
+COPY trig-assets/ /var/www/html/trig-assets/
 
 EXPOSE 80

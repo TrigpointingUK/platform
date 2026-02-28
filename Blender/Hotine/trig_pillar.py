@@ -208,7 +208,7 @@ FB_ANCHOR_H         = 0.035     # [D] anchor block height (35 mm)
 FB_ANCHOR_DEPTH     = 0.010     # [D] anchor block depth (10 mm)
 
 # --- Flush Bracket Logo Relief ---
-LOGO_SVG            = 'TUK-Logo.svg'   # SVG file in ../../res/ relative to script
+LOGO_SVG            = 'TUK-Logo.svg'   # default SVG name (resource roots are auto-probed; TRIG_RES_DIR override supported)
 LOGO_RELIEF         = 0.0048    # [E] maximum relief height (4.8 mm, bright green UK)
 LOGO_MARGIN         = 0.014     # [E] 8 mm margin inside plate edges
 LOGO_V_STRETCH      = 1.00      # [E] vertical stretch factor (20 % taller)
@@ -3701,6 +3701,11 @@ def build_plug(M):
 
     assign(ip, M['brass'])
     smooth(ip)
+    # Match Plug/CotterPin: keep InnerPlug origin at its own body centre.
+    # This avoids metre-scale orbital jumps when world-space rotations are
+    # keyed during the flythrough.
+    activate(ip)
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
     # ── Grub screw (sits inside the grubscrew hole) ───────────────
     # 13 mm total: bottom 10 mm shaft at 1.5 mm radius, top 3 mm head
@@ -4925,14 +4930,82 @@ def build_flush_bracket_logo(M, fb_assembly=None):
     print("  Flush bracket logo ...")
 
     # ── Locate SVG ──────────────────────────────────────────────
+    # Execution context varies (CLI script, Blender text editor, cloud
+    # worker), so probe several candidate resource roots.
+    env_res_dir = os.environ.get('TRIG_RES_DIR', '').strip()
+    logo_name = os.environ.get('TRIG_LOGO_SVG', LOGO_SVG).strip() or LOGO_SVG
+
+    candidate_dirs = []
+    if env_res_dir:
+        candidate_dirs.append(env_res_dir)
+
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
+        candidate_dirs.extend([
+            os.path.join(script_dir, 'res'),
+            os.path.join(script_dir, '..', 'res'),
+            os.path.join(script_dir, '..', '..', 'res'),
+        ])
     except NameError:
-        script_dir = os.getcwd()
-    svg_path = os.path.normpath(
-        os.path.join(script_dir, '..', '..', 'res', LOGO_SVG))
-    if not os.path.isfile(svg_path):
-        print(f"    WARNING: {svg_path} not found — skipping logo.")
+        pass
+
+    cwd = os.getcwd()
+    candidate_dirs.extend([
+        os.path.join(cwd, 'res'),
+        os.path.join(cwd, '..', 'res'),
+        os.path.join(cwd, '..', '..', 'res'),
+    ])
+
+    if bpy.data.filepath:
+        blend_dir = os.path.dirname(bpy.data.filepath)
+        candidate_dirs.extend([
+            os.path.join(blend_dir, 'res'),
+            os.path.join(blend_dir, '..', 'res'),
+            os.path.join(blend_dir, '..', '..', 'res'),
+        ])
+
+    # Running from Blender's text editor may not define __file__.
+    # If this script is loaded as a text datablock from disk, use its path.
+    for text in bpy.data.texts:
+        text_path = getattr(text, 'filepath', '')
+        if not text_path:
+            continue
+        if os.path.basename(text_path) != 'trig_pillar.py':
+            continue
+        text_dir = os.path.dirname(os.path.abspath(bpy.path.abspath(text_path)))
+        candidate_dirs.extend([
+            os.path.join(text_dir, 'res'),
+            os.path.join(text_dir, '..', 'res'),
+            os.path.join(text_dir, '..', '..', 'res'),
+        ])
+        break
+
+    unique_dirs = []
+    seen_dirs = set()
+    for d in candidate_dirs:
+        nd = os.path.normpath(os.path.abspath(d))
+        if nd in seen_dirs:
+            continue
+        seen_dirs.add(nd)
+        unique_dirs.append(nd)
+
+    search_paths = []
+    if os.path.isabs(logo_name):
+        search_paths.append(logo_name)
+    else:
+        for d in unique_dirs:
+            search_paths.append(os.path.join(d, logo_name))
+
+    svg_path = ''
+    for p in search_paths:
+        if os.path.isfile(p):
+            svg_path = p
+            break
+
+    if not svg_path:
+        print("    WARNING: logo SVG not found — skipping logo.")
+        print(f"    Tried: {', '.join(search_paths[:4])}"
+              f"{' ...' if len(search_paths) > 4 else ''}")
         return
 
     # ── Colour → relief fraction ────────────────────────────────
@@ -5144,6 +5217,20 @@ def build_base_slab(M):
     # interior faces stay perfectly flat.
     subdivide_mesh(base, cuts=3)
     roughen_mesh(base, amount=0.020, seed=123, protect_top=True)
+
+    # Cut a minimal pillar seat to avoid coplanar z-fighting where the
+    # pillar base meets the slab top at z=0.
+    seat_depth = 0.001        # 1 mm — smallest robust recess
+    seat_clear = 0.0005       # 0.5 mm radial clearance
+    seat = make_frustum(
+        "_PillarSeat",
+        PILLAR_BTM_HW + seat_clear,
+        PILLAR_BTM_HW + seat_clear,
+        seat_depth,
+        base_z=-seat_depth,
+        bevel_r=BEVEL_RADIUS,
+        bevel_n=BEVEL_SEGMENTS)
+    boolean_cut(base, seat)
 
     box_zt = -BASE_HEIGHT
     bpy.ops.mesh.primitive_cube_add(
@@ -7238,23 +7325,24 @@ def setup_camera_animation():
     Segment map (30 fps):
       1–180     Arc approach: START_0 → SIGHTING_0
       181–360   Tube fly-through: SIGHTING_0 → SIGHTING_1
-      361–510   Sweep to profile: SIGHTING_1 → PROFILE_0
+      340–510   Sweep to profile: SIGHTING_1 → PROFILE_0 (overlaps seg 2)
       511–630   Hold + rise to spider: PROFILE_0 → SPIDER_0
       631–705   Screw removal: Screw_0 + Screw_180 unscrew, arc, place
                 (sub-segs: 5a rise, 5b arc, 5c rise, 5d arc)
       706–885   Plug removal: unscrew 3 turns + rise, then rise + tilt 120°
-      886–975   Cotter pin removal: extract along axis, arc to pillar top
-      976–1155  Inner plug removal: 12 turns unscrew, arc to -X/+Y corner
-      1156–1245 Plug arc to rest on +X/+Y corner
-      1246–1335 Slew to centre pipe + hold: SPIDER_0 → PIPE_0
-      1336–1425 Slew to profile: PIPE_0 → PROFILE_1 + reassemble
-      1426–1515 Plug assembly return: tilt back + screw in
-      1516–1560 Screws reinsert: Screw_180 then Screw_0
-      1600–1630 Pillar fades to transparent
-      1630–1660 Surroundings fade (terrain, landscape, grass, stones, base, irons)
-      1660–1690 Internal structure fade (fill, boxes, tubes, pipe)
-      1690–1720 Hold (brass internals exposed)
-      1720–1840 Orbit + unfade: PROFILE_1 → START_0 (all objects restore)
+      886–917   Cotter pin removal: extract along axis, arc to pillar top (halved)
+      918–1043  Inner plug removal: 12 turns unscrew, arc to -X/+Y corner (−30%)
+      1044–1073 Plug arc to rest on +X/+Y corner (faster landing)
+      (subsequent segments cascade from here)
+      Slew to centre pipe + hold: SPIDER_0 → PIPE_0
+      Slew to profile: PIPE_0 → PROFILE_1 + reassemble
+      Plug assembly return: tilt back + screw in
+      Screws reinsert: Screw_180 then Screw_0
+      Pillar fades to transparent
+      Surroundings fade (terrain, landscape, grass, stones, base, irons)
+      Internal structure fade (fill, boxes, tubes, pipe)
+      Hold (brass internals exposed)
+      Orbit + unfade: PROFILE_1 → START_0 (all objects restore)
 
     TUNEABLE PARAMETERS
     -------------------
@@ -7304,12 +7392,12 @@ def setup_camera_animation():
     )
     PIPE_LOOK_Z = PILLAR_HEIGHT * 0.75      # 1/4 down the centre pipe
     CAMERA_POSITIONS["PIPE_0"] = (
-        1335,
+        0,                                   # frame — set by F10_END at runtime
         ( 0.0004, -0.0003,  1.4249),        # cam — overhead
-        ( 0.0000,  0.0000,  PIPE_LOOK_Z),   # tgt — 1/4 down pipe
+        ( 0.0000,  0.00022,  PIPE_LOOK_Z),   # tgt — 1/4 down pipe (tiny +Y bias avoids end snap)
     )
     CAMERA_POSITIONS["PROFILE_1"] = (
-        1425,
+        0,                                   # frame — set by F11_END at runtime
         ( 2.5277, -1.7177,  1.9225),        # cam — high profile
         ( 0.0000,  0.0000,  0.3650),        # tgt — mid-pillar
     )
@@ -7337,19 +7425,20 @@ def setup_camera_animation():
     F4_END = 630              # end of segment 4 (4 s: 1 s hold + 3 s flight)
     F5_END = 705              # end of segment 5 (2.5 s: screw removal)
     F6_END = 885              # end of segment 6 (6 s: plug removal)
-    F7_END = 975              # end of segment 7 (3 s: peg removal)
-    F8_END = 1155             # end of segment 8 (6 s: inner plug removal)
-    F9_END = 1245             # end of segment 9 (3 s: plug arc to rest)
-    F10_END = 1335            # end of segment 10 (3 s: slew to pipe)
-    F11_END = 1425            # end of segment 11 (3 s: slew + reassemble)
-    F12_END = 1515            # end of segment 12 (3 s: assembly return)
-    F13_END = 1560            # end of segment 13 (1.5 s: screw insert)
-    F14_END = 1630            # end of segment 14 (1 s: pillar fades to transparent)
-    F15_END = 1660            # end of segment 15 (1 s: surroundings fade)
-    F16_END = 1690            # end of segment 16 (1 s: internal structure fade)
-    F17_START = 1720          # start of segment 17 (after 1 s hold)
-    F17_END = 1840            # end of segment 17 (4 s: orbit + unfade)
-    TOTAL_FRAMES = F17_END    # extended as segments are added
+    F7_END = F6_END + 32      # 1.1 s peg removal (halved from current timing)
+    F8_END = F7_END + 126     # 4.2 s inner plug removal (was 6 s, −30%)
+    F9_END = F8_END + 30      # 1.0 s plug arc to rest (faster landing)
+    F10_END = F9_END + 90     # 3 s slew to pipe
+    F11_REASM_DELAY = 60      # 2 s hold before reassembly starts
+    F11_END = F10_END + 90 + F11_REASM_DELAY  # 5 s slew + delayed reassemble
+    F12_END = F11_END + 90    # 3 s assembly return
+    F13_END = F12_END + 45    # 1.5 s screw insert
+    F14_END = F13_END + 70    # 1 s pillar fade (after 40-frame gap)
+    F15_END = F14_END + 60    # 1 s pause + 1 s surroundings fade
+    F16_END = F15_END + 60    # 1 s pause + 1 s internal structure fade
+    F17_START = F16_END + 30  # after 1 s post-fade hold
+    F17_END = F17_START + 120 # 4 s orbit + unfade
+    TOTAL_FRAMES = F17_END
 
     # ── Remove any existing camera / target / assembly empties ─────
     for name in ("Camera", "FlyCamera", "CameraTarget", "PlugAssembly"):
@@ -7498,27 +7587,74 @@ def setup_camera_animation():
     light.data.keyframe_insert(data_path="energy", frame=F1_END + 15)
 
     # =================================================================
-    # SEGMENT 3 — Sweep to profile view  (frames 361 → 510,  5 s)
+    # SEGMENT 3 — Sweep to profile view  (frames 340 → 510,  5.7 s)
     # =================================================================
     # Camera sweeps from the -Y tube exit around to a classic profile
-    # view from the south-east, rising to ~1.5 m.  The rotation is
-    # spread over the first ~100 frames and overlaps with the outward/
-    # upward movement so it reads as a single smooth sweep rather than
-    # a snap-then-glide.
+    # view from the south-east, rising to ~1.5 m.  Camera position
+    # keyframes are placed every 20 frames along the flight path.
+    # Target positions are COMPUTED every 10 frames from a smooth
+    # yaw profile (smoothstep: 3t²−2t³) to avoid the non-linear
+    # yaw whip that occurs when X=0 targets cross the camera's Y.
+    # Pitch holds level through the first half then eases down.
     #
-    # Camera path — starts moving backward and up immediately while
-    # the target swings gradually from -Y look direction to pillar:
-    kf(cam, 385, ( 0.05, -0.70,  0.20))               # barely moved
-    kf(cam, 420, ( 0.15, -1.10,  0.45))               # rotating + rising
-    kf(cam, 460, ( 0.35, -1.90,  0.85))               # mid-sweep SE
+    # Camera path — gentle S-curve arc from tube exit to profile:
+    kf(cam, 340, ( 0.00, -0.37,  SH_Z))               # just clear of tube
+    kf(cam, 360, ( 0.02, -0.48,  0.17))               # curve barely started
+    kf(cam, 380, ( 0.08, -0.77,  0.31))               # gentle curve SE + up
+    kf(cam, 400, ( 0.16, -1.18,  0.51))               # accelerating into arc
+    kf(cam, 420, ( 0.26, -1.62,  0.73))               # mid-sweep
+    kf(cam, 440, ( 0.35, -2.02,  0.95))               # past midpoint
+    kf(cam, 460, ( 0.43, -2.37,  1.14))               # approaching profile
+    kf(cam, 480, ( 0.50, -2.65,  1.31))               # nearly there
     kf(cam, F3_END, PROFILE_0_CAM)                     # final position
 
-    # Target swings slowly from the -Y direction back to the pillar,
-    # spread over ~100 frames so the rotation feels gradual:
-    kf(target, 385, ( 0.00, -1.50,  0.25))             # still mostly -Y
-    kf(target, 420, ( 0.00, -0.60,  0.35))             # swinging back
-    kf(target, 460, ( 0.00, -0.30,  0.50))             # nearly settled
-    kf(target, F3_END, PROFILE_0_TGT)                  # profile target
+    # Target: computed from a smooth angular profile.  Hand-placed
+    # X=0 targets cause violent yaw whip when the target's Y crosses
+    # the camera's Y.  Instead we derive the target position every
+    # 10 frames from a smoothstep yaw curve, placing it at a fixed
+    # distance along the desired look direction.
+    _cam_kfs = [
+        (340, (0.00, -0.37, SH_Z)), (360, (0.02, -0.48, 0.17)),
+        (380, (0.08, -0.77, 0.31)), (400, (0.16, -1.18, 0.51)),
+        (420, (0.26, -1.62, 0.73)), (440, (0.35, -2.02, 0.95)),
+        (460, (0.43, -2.37, 1.14)), (480, (0.50, -2.65, 1.31)),
+        (F3_END, PROFILE_0_CAM),
+    ]
+
+    def _lerp_cam(fr):
+        for i in range(len(_cam_kfs) - 1):
+            f0, p0 = _cam_kfs[i]
+            f1, p1 = _cam_kfs[i + 1]
+            if f0 <= fr <= f1:
+                t = (fr - f0) / (f1 - f0)
+                return tuple(p0[j] + t * (p1[j] - p0[j]) for j in range(3))
+        return _cam_kfs[-1][1]
+
+    _yaw0 = math.atan2(-1, 0)                              # -π/2, south
+    _pdx = PROFILE_0_TGT[0] - PROFILE_0_CAM[0]
+    _pdy = PROFILE_0_TGT[1] - PROFILE_0_CAM[1]
+    _pdz = PROFILE_0_TGT[2] - PROFILE_0_CAM[2]
+    _yaw1 = math.atan2(_pdy, _pdx)
+    _pitch0 = math.radians(2)                               # slightly above horizon
+    _pitch1 = math.atan2(_pdz, math.sqrt(_pdx**2 + _pdy**2))
+    _d_tgt = 2.5
+
+    for _fr in range(340, F3_END, 10):
+        _t = (_fr - 340) / (F3_END - 340)
+        _s = 3 * _t**2 - 2 * _t**3
+        _yaw = _yaw0 + (_yaw1 - _yaw0) * _s
+        if _fr <= 420:
+            _pitch = _pitch0
+        else:
+            _tp = (_fr - 420) / (F3_END - 420)
+            _sp = 3 * _tp**2 - 2 * _tp**3
+            _pitch = _pitch0 + (_pitch1 - _pitch0) * _sp
+        _cx, _cy, _cz = _lerp_cam(_fr)
+        kf(target, _fr, (
+            _cx + _d_tgt * math.cos(_pitch) * math.cos(_yaw),
+            _cy + _d_tgt * math.cos(_pitch) * math.sin(_yaw),
+            _cz + _d_tgt * math.sin(_pitch)))
+    kf(target, F3_END, PROFILE_0_TGT)
 
     # =================================================================
     # SEGMENT 4 — Hold + rise to spider  (frames 511 → 630,  4 s)
@@ -7717,10 +7853,10 @@ def setup_camera_animation():
     kf(assembly,     F6_END, (0, 0, z_pc + 0.015 + 0.10))  # 10 cm up
     kf_rot(assembly, F6_END, ROT_PLUG_FULL_TILT)            # 120° tilt
 
-    # Camera: subtle target rise to follow the elevated plug
-    kf(cam,    F6_END, SPIDER_0_CAM)                        # camera holds
-    kf(target, F6A_END, SPIDER_0_TGT)                       # hold during spin
-    kf(target, F6_END, (0.00, 0.00, 1.30))                 # follow plug up
+    # Camera: stay fixed on pillar top while plug rises out of frame
+    kf(cam,    F6_END, SPIDER_0_CAM)
+    kf(target, F6A_END, SPIDER_0_TGT)
+    kf(target, F6_END, SPIDER_0_TGT)
 
     # ── Evaluate assembly at F6_END for segments 7–9 ────────────
     # Pin assembly FIRMLY at F6_END position.  The extra keyframe at
@@ -7791,24 +7927,36 @@ def setup_camera_animation():
             obj.location = (w.x, w.y, w.z)
             obj.keyframe_insert(data_path="location", frame=frame)
 
+    def arc_kf_world_matrix(obj, f_start, f_end, ws_start, ws_end, arc_height,
+                            world_rot, n_steps=15):
+        """Insert world-space arc keyframes while locking world rotation."""
+        for i in range(n_steps + 1):
+            t = i / n_steps
+            frame = int(round(f_start + t * (f_end - f_start)))
+            w = ws_start.lerp(ws_end, t)
+            w.z += arc_height * 4.0 * t * (1.0 - t)
+            mat = world_rot.to_4x4()
+            mat.translation = w
+            kf_world(obj, frame, mat)
+
 
     # =================================================================
-    # SEGMENT 7 — Cotter pin removal  (frames 886 → 975,  3 s)
+    # SEGMENT 7 — Cotter pin removal  (frames 886 → F7_END,  ~1.1 s)
     # =================================================================
     # The peg slides out along its axis (local X in the tilted
     # assembly), then arcs down to rest on the pillar top near the
     # screws.
     #
-    #   Phase 1  886–915   Extract: slide +3 cm along axis (1 s)
-    #   Phase 2  916–975   Arc down to pillar top surface  (2 s)
+    #   Phase 1  quick extract along axis (~0.37 s)
+    #   Phase 2  quick arc to pillar top surface (~0.7 s)
 
     peg = bpy.data.objects["CotterPin"]
 
-    # ── Phase 1: Extract along peg axis (3 cm, 1 s) ──────────────
+    # ── Phase 1: Axial extraction to full clearance (~0.37 s) ─────
     # Detach at segment start so we can move along the peg's own axis
     # in world space (assembly is pinned after F6_END).
     F7_START = F6_END + 1
-    F7_EXTRACT = F6_END + 30
+    F7_EXTRACT = F6_END + 11
     peg_home_local = tuple(peg.location)
     peg_home_rot = tuple(peg.rotation_euler)
     kf(peg, 1, peg_home_local)
@@ -7826,13 +7974,27 @@ def setup_camera_animation():
     peg_ws_start = peg.matrix_world.translation.copy()
     peg_axis = peg.matrix_world.to_3x3() @ Vector((1, 0, 0))
     peg_axis.normalize()
-    peg_ws_extract = peg_ws_start + peg_axis * 0.03
-    kf(peg, F7_EXTRACT, (peg_ws_extract.x,
-                         peg_ws_extract.y,
-                         peg_ws_extract.z))
+
+    # Force extraction to move OUT of the plug body (never inward).
+    plug_centre_ws = plug.matrix_world.translation.copy() if plug else Vector((0, 0, 0))
+    peg_outward = peg_ws_start - plug_centre_ws
+    if peg_outward.length > 1e-9:
+        peg_outward.normalize()
+        if peg_axis.dot(peg_outward) < 0:
+            peg_axis.negate()
+
+    # Slide straight along the pin axis until fully clear of the plug.
+    PEG_EXTRACT_MARGIN = 0.003
+    PEG_EXTRACT_DIST = PEG_LENGTH + PEG_EXTRACT_MARGIN
+    peg_ws_extract = peg_ws_start + peg_axis * PEG_EXTRACT_DIST
+    extract_span = max(1, F7_EXTRACT - F7_START)
+    for i in range(extract_span + 1):
+        t = i / extract_span
+        p = peg_ws_start.lerp(peg_ws_extract, t)
+        kf(peg, F7_START + i, (p.x, p.y, p.z))
     kf_rot(peg, F7_EXTRACT, tuple(peg.rotation_euler))
 
-    # ── Phase 2: Arc down to pillar top (2 s) ────────────────────
+    # ── Phase 2: Arc down to pillar top (~0.7 s) ─────────────────
     peg_ws_end = Vector((0.04, -0.06, PILLAR_HEIGHT + PEG_R))
     arc_kf_world(peg, F7_EXTRACT, F7_END, peg_ws_extract,
                  peg_ws_end, arc_height=0.03)
@@ -7840,18 +8002,18 @@ def setup_camera_animation():
 
     # Camera: hold at SPIDER_0
     kf(cam, F7_END, SPIDER_0_CAM)
-    kf(target, F7_END, (0.00, 0.00, 1.30))
+    kf(target, F7_END, SPIDER_0_TGT)
 
     # =================================================================
-    # SEGMENT 8 — Inner plug removal  (frames 976 → 1155,  6 s)
+    # SEGMENT 8 — Inner plug removal  (F7_END+1 → F8_END,  4.2 s)
     # =================================================================
     # The inner plug unscrews 12 anticlockwise turns while rising
     # along its axis until clear of the plug bore.  Then it arcs to
     # rest upside-down on the pillar top near the -X/+Y beveled edge,
     # with the three blind holes facing up.
     #
-    #   Phase 1   976–1095  Unscrew 12 turns + rise 3 cm (4 s)
-    #   Phase 2  1096–1155  Arc to pillar top near edge   (2 s)
+    #   Phase 1  unscrew 12 turns + rise 3 cm  (2.8 s)
+    #   Phase 2  arc to pillar top near edge   (1.4 s)
 
     inner_plug = bpy.data.objects["InnerPlug"]
     ip_home = tuple(inner_plug.location)
@@ -7862,46 +8024,80 @@ def setup_camera_animation():
     kf(inner_plug, F7_END, ip_home)
     kf_rot(inner_plug, F7_END, (0, 0, 0))
 
-    IPLUG_UNSCREW = 12 * 2 * math.pi       # 12 anticlockwise turns
+    IPLUG_UNSCREW_TURNS = 12.0
+    # Extra phase at full extraction so the grub screw is camera-visible
+    # at touchdown; tweak this value to fine-tune final presentation.
+    IPLUG_UNSCREW_PHASE = math.radians(285)
+    IPLUG_UNSCREW = IPLUG_UNSCREW_TURNS * 2 * math.pi + IPLUG_UNSCREW_PHASE
 
-    # ── Phase 1: Unscrew + rise 3 cm  (976 → 1095,  4 s) ────────
-    F8_CLEAR = F7_END + 120
+    # ── Phase 1: Unscrew + rise 3 cm  (2.8 s) ───────────────────
+    F8_CLEAR = F7_END + 84
     # Mid-unscrew
-    kf(inner_plug, F7_END + 60,
+    kf(inner_plug, F7_END + 42,
        (ip_home[0], ip_home[1], ip_home[2] + 0.015))
-    kf_rot(inner_plug, F7_END + 60, (0, 0, IPLUG_UNSCREW / 2))
+    kf_rot(inner_plug, F7_END + 42, (0, 0, IPLUG_UNSCREW / 2))
     # Fully clear of bore
     ip_clear_loc = (ip_home[0], ip_home[1], ip_home[2] + 0.03)
     kf(inner_plug, F8_CLEAR, ip_clear_loc)
     kf_rot(inner_plug, F8_CLEAR, (0, 0, IPLUG_UNSCREW))
 
-    # ── Phase 2: Arc to rest on pillar top (2 s) ─────────────────
-    # Place the inner plug just inside the brass loop radius.
+    # ── Phase 2: Arc to rest on pillar top (1.4 s) ───────────────
+    # Keep the landing close to the bore, add only a slight opposite
+    # directional backoff, and force a flat touchdown.
     bpy.context.scene.frame_set(int(F8_CLEAR))
     bpy.context.view_layer.update()
-    ip_w2l = make_w2l(inner_plug)
-    ip_ws_start = inner_plug.matrix_world.translation.copy()
-    ip_dir = Vector((-0.13, 0.15, 0)).normalized()
-    ip_r = LOOP_POS_R - 0.005  # 5 mm inside loop radius
-    ip_xy = ip_dir * ip_r
-    ip_ws_end = Vector((ip_xy.x, ip_xy.y, PILLAR_HEIGHT + IPLUG_H / 2))
-    arc_kf(inner_plug, F8_CLEAR, F8_END, ip_ws_start, ip_ws_end,
-           arc_height=0.04, w2l=ip_w2l)
+    ip_start_world = inner_plug.matrix_world.copy()
+    ip_ws_start = ip_start_world.translation.copy()
+    ip_q_start = ip_start_world.to_quaternion()
 
-    # Rest rotation: upside down (180° around X) so the blind holes
-    # face upward.  Keep accumulated Z turns.
-    world_flip = Matrix.Rotation(math.pi, 3, 'X')  # 180° flip
-    ip_rest_base = world_rot_to_local(world_flip)
-    ip_rest_rot = (ip_rest_base[0], ip_rest_base[1],
-                   ip_rest_base[2] + IPLUG_UNSCREW)
-    kf_rot(inner_plug, F8_END, ip_rest_rot)
+    # Land near the bore: ~4 cm travel to the -X/+Y side, then settle on top.
+    ip_ws_end = ip_ws_start + Vector((-0.03, 0.025, 0.0))
+    ip_ws_end.z = PILLAR_HEIGHT + IPLUG_H / 2
+
+    # Flatten onto the pillar: local +Z points down so the blind-hole face
+    # (local -Z) remains uppermost at rest.
+    ip_z_world = (ip_q_start @ Vector((0, 0, 1))).normalized()
+    ip_flatten_q = ip_z_world.rotation_difference(Vector((0, 0, -1)))
+    ip_q_flat = (ip_flatten_q @ ip_q_start).normalized()
+
+    # Small opposite-direction presentation backoff around world Z.
+    IP_LAND_BACKOFF = math.radians(-10)
+    ip_backoff_q = Matrix.Rotation(IP_LAND_BACKOFF, 3, Vector((0, 0, 1))).to_quaternion()
+    ip_q_end = (ip_backoff_q @ ip_q_flat).normalized()
+
+    IP_ARC_HEIGHT = 0.02
+    IP_ARC_STEPS = 20
+
+    def ip_phase2_world_mat(t):
+        """World transform for segment-8 phase-2 at parametric time t."""
+        pos = ip_ws_start.lerp(ip_ws_end, t)
+        pos.z += IP_ARC_HEIGHT * 4.0 * t * (1.0 - t)
+        rot = ip_q_start.slerp(ip_q_end, t)
+        mat = rot.to_matrix().to_4x4()
+        mat.translation = pos
+        return mat
+
+    for i in range(IP_ARC_STEPS + 1):
+        t = i / IP_ARC_STEPS
+        frame = int(round(F8_CLEAR + t * (F8_END - F8_CLEAR)))
+        kf_world(inner_plug, frame, ip_phase2_world_mat(t))
+
+    # Hard-pin the final world transform and hold it through segment 9 so
+    # the inner plug clearly lands on the pillar top and does not drift.
+    bpy.context.scene.frame_set(int(F8_END))
+    bpy.context.view_layer.update()
+    ip_rest_world = inner_plug.matrix_world.copy()
+    kf_world(inner_plug, F8_END, ip_rest_world)
+    kf_world(inner_plug, F8_END + 1, ip_rest_world)
+    kf_world(inner_plug, F9_END, ip_rest_world)
+    kf_world(inner_plug, F10_END, ip_rest_world)
 
     # Camera: hold
     kf(cam, F8_END, SPIDER_0_CAM)
-    kf(target, F8_END, (0.00, 0.00, 1.30))
+    kf(target, F8_END, SPIDER_0_TGT)
 
     # =================================================================
-    # SEGMENT 9 — Plug arc to rest  (frames 1156 → 1245,  3 s)
+    # SEGMENT 9 — Plug arc to rest  (F8_END+1 → F9_END,  1.0 s)
     # =================================================================
     # The plug arcs from its tilted assembly position to rest near the
     # +X, +Y corner of the pillar top.
@@ -7925,7 +8121,9 @@ def setup_camera_animation():
         kf_world(plug, F8_END, plug_world)
 
     plug_ws_start = plug.matrix_world.translation.copy()
-    plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + PLUG_MIDDLE_R))
+    plug_rest_clear = 0.0005
+    plug_half_h = (PLUG_UPPER_H + PLUG_MIDDLE_H + PLUG_LOWER_H) / 2
+    plug_ws_end = Vector((0.06, 0.06, PILLAR_HEIGHT + plug_half_h + plug_rest_clear))
     arc_kf_world(plug, F8_END, F9_END, plug_ws_start, plug_ws_end,
                  arc_height=0.05)
 
@@ -7934,10 +8132,10 @@ def setup_camera_animation():
 
     # Camera: hold
     kf(cam, F9_END, SPIDER_0_CAM)
-    kf(target, F9_END, (0.00, 0.00, 1.25))             # drift down slightly
+    kf(target, F9_END, SPIDER_0_TGT)
 
     # =================================================================
-    # SEGMENT 10 — Slew to centre pipe + hold  (frames 1246 → 1335,  3 s)
+    # SEGMENT 10 — Slew to centre pipe + hold  (3 s)
     # =================================================================
     # 1.5 s slew to overhead, then 1.5 s hold before reassembly.
     F10_START = F9_END + 1
@@ -7945,16 +8143,15 @@ def setup_camera_animation():
 
     # Graceful move to an overhead view looking down the centre pipe.
     # Add a small orbit in the final frames to smooth yaw roll.
-    kf(cam, 1276, ( 0.030, -0.040,  1.55))
-    kf(cam, 1282, ( 0.015, -0.020,  1.47))
-    kf(cam, 1286, ( 0.008, -0.010,  1.44))
+    kf(cam, F10_START + 30, ( 0.030, -0.040,  1.55))
+    kf(cam, F10_START + 36, ( 0.015, -0.020,  1.47))
     kf(cam, F10_SLEW_END, PIPE_0_CAM)
     # Ease the target down gradually; end 1/4 of the way down the pipe.
-    kf(target, 1246, (0.00, 0.00, 1.25))
-    kf(target, 1256, (0.00, 0.00, 1.25))
-    kf(target, 1266, (0.00, 0.00, 1.22))
-    kf(target, 1276, (0.00, 0.00, 1.09))
-    kf(target, 1286, (0.00, 0.00, 1.00))
+    kf(target, F10_START, SPIDER_0_TGT)
+    kf(target, F10_START + 10, SPIDER_0_TGT)
+    kf(target, F10_START + 20, (0.00, 0.00, 1.18))
+    kf(target, F10_START + 30, (0.00, 0.00, 1.09))
+    kf(target, F10_START + 40, (0.00, 0.00, 1.00))
     kf(target, F10_SLEW_END, PIPE_0_TGT)
 
     # Hold at PIPE_0
@@ -7962,10 +8159,11 @@ def setup_camera_animation():
     kf(target, F10_END, PIPE_0_TGT)
 
     # =================================================================
-    # SEGMENT 11 — Slew to profile + reassemble  (frames 1336 → 1425,  3 s)
+    # SEGMENT 11 — Slew to profile + delayed reassemble  (5 s)
     # =================================================================
     F11_START = F10_END + 1
-    F11_PLUG_END = F11_START + 29
+    F11_PLUG_START = F11_START + F11_REASM_DELAY
+    F11_PLUG_END = F11_PLUG_START + 29
     F11_IP_START = F11_PLUG_END + 1
     F11_IP_END = F11_IP_START + 29
     F11_PEG_START = F11_IP_END + 1
@@ -7973,26 +8171,67 @@ def setup_camera_animation():
     F11_IP_CLEAR = F11_IP_START + 15
     F11_PEG_ARC_END = F11_PEG_START + 20
 
-    # Camera move to PROFILE_1 (slowly, through to frame 1560)
+    # Keep the inner plug parked on the pillar top until its reassembly
+    # phase actually starts.
+    kf_world(inner_plug, F11_IP_START - 1, ip_rest_world)
+
+    # Camera/target fly-back as one continuous smooth motion
+    # (PIPE_0 -> PROFILE_1), avoiding piecewise direction changes.
     cam_start = Vector(PIPE_0_CAM)
     cam_end = Vector(PROFILE_1_CAM)
-    cam_span = F13_END - F11_START
-    CAM_EASE_EXP = 1.7
-    t1 = ((F11_END - F11_START) / cam_span) ** CAM_EASE_EXP
-    t2 = ((F12_END - F11_START) / cam_span) ** CAM_EASE_EXP
-    cam_mid1 = tuple(cam_start.lerp(cam_end, t1))
-    cam_mid2 = tuple(cam_start.lerp(cam_end, t2))
+    tgt_start = Vector(PIPE_0_TGT)
+    tgt_end = Vector(PROFILE_1_TGT)
+    TUBE_TOP_Z = PILLAR_HEIGHT - SPIDER_THICK
+    TGT_PEAK_Z = TUBE_TOP_Z + 0.10          # ~10 cm above tube top
+    TGT_MID_Z = PILLAR_HEIGHT * 0.50        # halfway down the tube
+    TGT_END_Z = PROFILE_1_TGT[2]            # must match fade-start framing
+    TGT_RISE_FRAC = 0.30                    # rise quickly, descend slowly
+    TGT_MID_FRAC = 0.82                     # linger near mid-depth, then settle
 
-    # Target rises early so the plug stays in frame, then settles.
-    kf(target, 1359, (0.00, 0.00, 1.22))
-    kf(target, 1377, (0.00, 0.00, 1.23))
-    kf(target, 1390, (0.00, 0.00, 1.23))
-    kf(target, 1430, (0.00, 0.00, 1.15))
-    kf(target, 1500, (0.00, 0.00, 0.70))
-    kf(target, F13_END, PROFILE_1_TGT)
+    def _smoothstep(t):
+        return 3.0 * t * t - 2.0 * t * t * t
 
-    # Camera positions along the slow pull-back
+    def _cam_tgt_at(frame):
+        t = max(0.0, min(1.0, (frame - F11_START) / (F13_END - F11_START)))
+        s = _smoothstep(t)
+        c = cam_start.lerp(cam_end, s)
+        g = tgt_start.lerp(tgt_end, s)
+
+        # Keep aim near the centre axis; remove tiny inherited XY drift.
+        g.x = 0.0
+        g.y = tgt_start.y * (1.0 - s)
+
+        # Parameterised Z curve:
+        # - quick rise from start to 10 cm above tube top
+        # - slower descent to halfway down tube
+        # - final smooth settle to PROFILE_1_TGT to avoid a fade-boundary jerk.
+        if s <= TGT_RISE_FRAC:
+            u = s / TGT_RISE_FRAC
+            z = tgt_start.z + (TGT_PEAK_Z - tgt_start.z) * (1.0 - (1.0 - u) ** 3)
+        elif s <= TGT_MID_FRAC:
+            u = (s - TGT_RISE_FRAC) / (TGT_MID_FRAC - TGT_RISE_FRAC)
+            z = TGT_PEAK_Z + (TGT_MID_Z - TGT_PEAK_Z) * (3.0 * u * u - 2.0 * u * u * u)
+        else:
+            u = (s - TGT_MID_FRAC) / (1.0 - TGT_MID_FRAC)
+            z = TGT_MID_Z + (TGT_END_Z - TGT_MID_Z) * (3.0 * u * u - 2.0 * u * u * u)
+        g.z = z
+        return (c.x, c.y, c.z), (g.x, g.y, g.z)
+
+    for fr in range(F11_START, F13_END + 1, 10):
+        cam_loc, tgt_loc = _cam_tgt_at(fr)
+        kf(cam, fr, cam_loc)
+        kf(target, fr, tgt_loc)
+
+    # Key explicit values at segment boundaries used below.
+    cam_mid1, _tgt_mid1 = _cam_tgt_at(F11_END)
+    cam_mid2, tgt_mid2 = _cam_tgt_at(F12_END)
+    cam_end_fb, _tgt_end_fb = _cam_tgt_at(F13_END)
     kf(cam, F11_END, cam_mid1)
+    kf(target, F11_END, _tgt_mid1)
+    kf(cam, F12_END, cam_mid2)
+    kf(target, F12_END, tgt_mid2)
+    kf(cam, F13_END, cam_end_fb)
+    kf(target, F13_END, PROFILE_1_TGT)
 
     # Light fades out during the reassembly
     light.data.energy = 20
@@ -8006,8 +8245,6 @@ def setup_camera_animation():
     asm_world = assembly.matrix_world.copy()
     plug_ws_rest = plug.matrix_world.translation.copy()
     peg_ws_rest = peg.matrix_world.translation.copy()
-    ip_ws_rest = inner_plug.matrix_world.translation.copy()
-    ip_rest_rot = tuple(inner_plug.rotation_euler)
 
     # Compute assembled world matrices for plug/peg
     asm_bind_inv = assembly_bind_world.inverted()
@@ -8021,7 +8258,7 @@ def setup_camera_animation():
     plug_end_q = plug_home_world.to_quaternion()
     for i in range(16):
         t = i / 15
-        frame = int(round(F11_START + t * (F11_PLUG_END - F11_START)))
+        frame = int(round(F11_PLUG_START + t * (F11_PLUG_END - F11_PLUG_START)))
         loc = plug_ws_rest.lerp(plug_home_world.translation, t)
         loc.z += 0.05 * 4.0 * t * (1.0 - t)
         rot = plug_start_q.slerp(plug_end_q, t)
@@ -8029,41 +8266,66 @@ def setup_camera_animation():
         mat.translation = loc
         kf_world(plug, frame, mat)
     if plug_con:
-        kf_influence(plug_con, F11_START, 0.0)
+        kf_influence(plug_con, F11_PLUG_START, 0.0)
         kf_influence(plug_con, F11_PLUG_END, 0.0)
         bpy.context.scene.frame_set(int(F11_PLUG_END + 1))
         bpy.context.view_layer.update()
         reattach_child_of(plug, plug_con, plug_home_world, F11_PLUG_END + 1)
 
-    # ── Inner plug reassemble (second): reverse of seg 8
-    ip_w2l = make_w2l(inner_plug)
-    ip_child_combined = assembly.matrix_world @ inner_plug.matrix_parent_inverse
-    ip_ws_clear = ip_child_combined @ Vector(ip_clear_loc)
-    kf(inner_plug, F11_IP_START, tuple(inner_plug.location))
-    kf_rot(inner_plug, F11_IP_START, ip_rest_rot)
-    arc_kf(inner_plug, F11_IP_START, F11_IP_CLEAR, ip_ws_rest, ip_ws_clear,
-           arc_height=0.04, w2l=ip_w2l)
+    # ── Inner plug reassemble (second): exact reverse of seg 8
+    # Replay segment-8 phase-2 world transforms in reverse (retimed),
+    # then reverse the threaded drop-in with matching midpoint spin.
+    ip_reassm_span = max(1, F11_IP_CLEAR - F11_IP_START)
+    for i in range(ip_reassm_span + 1):
+        t = i / ip_reassm_span
+        frame = F11_IP_START + i
+        kf_world(inner_plug, frame, ip_phase2_world_mat(1.0 - t))
+
     kf(inner_plug, F11_IP_CLEAR, ip_clear_loc)
     kf_rot(inner_plug, F11_IP_CLEAR, (0, 0, IPLUG_UNSCREW))
+    F11_IP_MID = int(round((F11_IP_CLEAR + F11_IP_END) / 2))
+    kf(inner_plug, F11_IP_MID,
+       (ip_home[0], ip_home[1], ip_home[2] + 0.015))
+    kf_rot(inner_plug, F11_IP_MID, (0, 0, IPLUG_UNSCREW / 2))
     kf(inner_plug, F11_IP_END, ip_home)
     kf_rot(inner_plug, F11_IP_END, (0, 0, 0))
 
     # ── Peg reassemble (third): reverse of seg 7
-    peg_axis = asm_world.to_3x3() @ Vector((1, 0, 0))
+    peg_axis = peg_home_world.to_3x3() @ Vector((1, 0, 0))
     peg_axis.normalize()
-    peg_ws_extract = peg_home_world.translation + peg_axis * 0.03
-    peg_start_world = peg.matrix_world.copy()
-    peg_start_q = peg_start_world.to_quaternion()
-    peg_end_q = peg_home_world.to_quaternion()
-    for i in range(16):
-        t = i / 15
-        frame = int(round(F11_PEG_START + t * (F11_PEG_ARC_END - F11_PEG_START)))
+    peg_outward = peg_home_world.translation - plug_home_world.translation
+    if peg_outward.length > 1e-9:
+        peg_outward.normalize()
+        if peg_axis.dot(peg_outward) < 0:
+            peg_axis.negate()
+    peg_ws_extract = peg_home_world.translation + peg_axis * PEG_EXTRACT_DIST
+    peg_rest_world = peg.matrix_world.copy()
+    peg_rest_q = peg_rest_world.to_quaternion()
+    peg_extract_q = peg_home_world.to_quaternion()
+
+    # Phase A (reverse of seg-7 phase 2): arc from rest -> extracted.
+    peg_arc_span = max(1, F11_PEG_ARC_END - F11_PEG_START)
+    for i in range(peg_arc_span + 1):
+        t = i / peg_arc_span
+        frame = F11_PEG_START + i
         loc = peg_ws_rest.lerp(peg_ws_extract, t)
         loc.z += 0.03 * 4.0 * t * (1.0 - t)
-        rot = peg_start_q.slerp(peg_end_q, t)
+        rot = peg_rest_q.slerp(peg_extract_q, t)
         mat = rot.to_matrix().to_4x4()
         mat.translation = loc
         kf_world(peg, frame, mat)
+
+    # Phase B (reverse of seg-7 phase 1): straight axial insertion.
+    peg_insert_span = max(1, F11_END - F11_PEG_ARC_END)
+    for i in range(peg_insert_span + 1):
+        t = i / peg_insert_span
+        frame = F11_PEG_ARC_END + i
+        loc = peg_ws_extract.lerp(peg_home_world.translation, t)
+        rot = peg_extract_q.slerp(peg_home_world.to_quaternion(), t)
+        mat = rot.to_matrix().to_4x4()
+        mat.translation = loc
+        kf_world(peg, frame, mat)
+
     kf_world(peg, F11_END, peg_home_world)
     if peg_con:
         kf_influence(peg_con, F11_PEG_START, 0.0)
@@ -8073,7 +8335,7 @@ def setup_camera_animation():
         reattach_child_of(peg, peg_con, peg_home_world, F11_END + 1)
 
     # =================================================================
-    # SEGMENT 12 — Plug assembly return  (frames 1426 → 1515,  3 s)
+    # SEGMENT 12 — Plug assembly return  (3 s)
     # =================================================================
     F12_START = F11_END + 1
     F12_END = F12_START + 89
@@ -8093,12 +8355,12 @@ def setup_camera_animation():
     kf(assembly,     F12_END, (0, 0, z_pc))
     kf_rot(assembly, F12_END, (0, 0, 0))
 
-    # Camera continues pulling back to PROFILE_1
+    # Camera continues the same smooth pull-back to PROFILE_1
     kf(cam, F12_END, cam_mid2)
-    kf(target, F12_END, (0.00, 0.00, 0.55))
+    kf(target, F12_END, tgt_mid2)
 
     # =================================================================
-    # SEGMENT 13 — Screws reinsert  (frames 1516 → 1560,  1.5 s)
+    # SEGMENT 13 — Screws reinsert  (1.5 s)
     # =================================================================
     F13_START = F12_END + 1
     F13_END = F13_START + 44
@@ -8151,10 +8413,10 @@ def setup_camera_animation():
             obj.keyframe_insert(prop, frame=frame)
 
     # =================================================================
-    # SEGMENT 14 — Pillar fades to transparent  (frames 1600 → 1630,  1 s)
+    # SEGMENT 14 — Pillar fades to transparent  (1 s)
     # =================================================================
     # Camera holds at PROFILE_1 while the pillar concrete fades out.
-    F14_START = 1600
+    F14_START = F13_END + 40
     kf(cam, F14_START, PROFILE_1_CAM)
     kf(target, F14_START, PROFILE_1_TGT)
     kf(cam, F14_END, PROFILE_1_CAM)
@@ -8167,13 +8429,13 @@ def setup_camera_animation():
     _hide_at(pillar, F14_END)
 
     # =================================================================
-    # SEGMENT 15 — Surroundings fade  (frames 1630 → 1660,  1 s)
+    # SEGMENT 15 — Surroundings fade  (1 s, after 1 s pause)
     # =================================================================
     # After the pillar is transparent, terrain, landscape, grass, stones,
     # base slab, and angle irons all fade to fully transparent and are
     # then hidden from the render so dense geometry can't leave residue
     # from exhausted transparent-bounce limits.
-    F15_START = F14_END
+    F15_START = F14_END + 30
     kf(cam, F15_START, PROFILE_1_CAM)
     kf(target, F15_START, PROFILE_1_TGT)
     kf(cam, F15_END, PROFILE_1_CAM)
@@ -8220,11 +8482,11 @@ def setup_camera_animation():
         _hide_at(obj, F15_END)
 
     # =================================================================
-    # SEGMENT 16 — Internal structure fade  (frames 1660 → 1690,  1 s)
+    # SEGMENT 16 — Internal structure fade  (1 s, after 1 s pause)
     # =================================================================
     # Concrete fill, lower block, lower/upper box, sighting tubes, and
     # centre pipe fade out — leaving only brass internals visible.
-    F16_START = F15_END
+    F16_START = F15_END + 30
     kf(cam, F16_START, PROFILE_1_CAM)
     kf(target, F16_START, PROFILE_1_TGT)
     kf(cam, F16_END, PROFILE_1_CAM)
@@ -8244,7 +8506,7 @@ def setup_camera_animation():
         _hide_at(obj, F16_END)
 
     # =================================================================
-    # HOLD — 1 s pause with brass internals exposed (1690 → 1720)
+    # HOLD — 1 s pause with brass internals exposed
     # =================================================================
     kf(cam, F16_END, PROFILE_1_CAM)
     kf(target, F16_END, PROFILE_1_TGT)
@@ -8252,7 +8514,7 @@ def setup_camera_animation():
     kf(target, F17_START, PROFILE_1_TGT)
 
     # =================================================================
-    # SEGMENT 17 — Orbit + unfade  (frames 1720 → 1840,  4 s)
+    # SEGMENT 17 — Orbit + unfade  (4 s)
     # =================================================================
     # Camera sweeps clockwise (viewed from above) around the trigpoint
     # from PROFILE_1 back to START_0 — a ~204° arc that reveals every
@@ -8343,7 +8605,7 @@ def setup_camera_animation():
     print("    Segments:")
     print(f"      1–{F1_END}:    Arc approach (START_0 → SIGHTING_0)")
     print(f"      {F1_END+1}–{F2_END}:  Tube fly-through (SIGHTING_0 → SIGHTING_1)")
-    print(f"      {F2_END+1}–{F3_END}:  Sweep to profile (SIGHTING_1 → PROFILE_0)")
+    print(f"      340–{F3_END}:  Sweep to profile (SIGHTING_1 → PROFILE_0)")
     print(f"      {F3_END+1}–{F4_END}:  Hold + rise (PROFILE_0 → SPIDER_0)")
     print(f"      {F4_END+1}–{F5_END}:  Screw removal (Screw_0 then Screw_180)")
     print(f"      {F5_END+1}–{F6_END}:  Plug removal (unscrew + tilt)")
@@ -8647,6 +8909,56 @@ def setup_final_render():
     print(f"    Overwrite:  off (resume-safe)")
 
 
+def setup_final_4k_render():
+    """Configure Cycles GPU rendering for 4K UHD output.
+
+    Uses the same quality settings as setup_final_render(), but raises
+    output resolution to 3840×2160 and writes frames into 'frames_4k/'.
+    """
+    print("  Render settings (4K UHD) ...")
+
+    SAMPLES    = 256
+    RESOLUTION = (3840, 2160)
+
+    scene  = bpy.context.scene
+    render = scene.render
+
+    gpu_type = _setup_cycles_common(scene, render)
+
+    scene.cycles.samples = SAMPLES
+    scene.cycles.adaptive_threshold = 0.01
+
+    denoiser_name = _setup_denoiser(scene, samples_fallback=512)
+
+    # Light path optimisation
+    scene.cycles.max_bounces = 8
+    scene.cycles.diffuse_bounces = 4
+    scene.cycles.glossy_bounces = 4
+    scene.cycles.transmission_bounces = 8
+    scene.cycles.transparent_max_bounces = 128   # see draft comment — must be
+                                                  # high for dense geometry
+    scene.cycles.sample_clamp_indirect = 10.0    # reduce fireflies
+
+    render.resolution_x = RESOLUTION[0]
+    render.resolution_y = RESOLUTION[1]
+    render.resolution_percentage = 100
+
+    frames_dir = _setup_output(render, subdir="frames_4k")
+
+    render.use_persistent_data = True
+    if gpu_type == 'OPTIX':
+        scene.cycles.tile_size = 2048
+    else:
+        scene.cycles.tile_size = 256
+
+    print(f"    Engine:     Cycles ({gpu_type})  [4K UHD]")
+    print(f"    Samples:    {scene.cycles.samples} (adaptive)")
+    print(f"    Denoiser:   {denoiser_name}")
+    print(f"    Resolution: {RESOLUTION[0]}×{RESOLUTION[1]}")
+    print(f"    Output:     {frames_dir}")
+    print(f"    Overwrite:  off (resume-safe)")
+
+
 def setup_flush_bracket_orbit():
     """Set up a turntable camera orbit around the flush bracket.
 
@@ -8915,6 +9227,8 @@ def main():
         quality = os.environ.get('TRIG_RENDER_QUALITY', 'final')
         if quality == 'draft':
             setup_draft_render()
+        elif quality in ('final_4k', '4k', 'uhd'):
+            setup_final_4k_render()
         else:
             setup_final_render()
 
