@@ -259,8 +259,8 @@ $wgHooks['BeforePageDisplay'][] = static function ( $out, $skin ) {
     }
 
     $assetBasePath = rtrim( $wgScriptPath, '/' );
-    $cssHref = $assetBasePath . '/trig-assets/trig-home-video.css?v=1';
-    $jsHref = $assetBasePath . '/trig-assets/trig-home-video.js?v=1';
+    $cssHref = $assetBasePath . '/trig-assets/trig-home-video.css?v=2';
+    $jsHref = $assetBasePath . '/trig-assets/trig-home-video.js?v=2';
 
     $out->addHeadItem(
         'trig-home-video-css',
