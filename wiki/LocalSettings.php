@@ -235,3 +235,67 @@ $wgNamespacesToBeSearchedDefault[NS_ARCHIVE] = true;
 # Enable subpages in the main and archive namespace
 $wgNamespacesWithSubpages[NS_MAIN] = true;
 $wgNamespacesWithSubpages[NS_ARCHIVE] = true;
+
+# -- Homepage video (HLS via Video.js) --
+# Usage on the main page content: <trigvideo /> or <trigvideo src=".../master.m3u8" poster="...jpg" />
+$wgTrigHomeVideoHlsUrl = getenv('MW_HOME_HLS_URL') ?: 'https://trigpointinguk-videos.s3.eu-west-1.amazonaws.com/hls/hotine/v1/master.m3u8';
+$wgTrigHomeVideoPosterUrl = getenv('MW_HOME_HLS_POSTER_URL') ?: '';
+
+$wgHooks['ParserFirstCallInit'][] = static function ( $parser ) {
+    $parser->setHook( 'trigvideo', 'wfTrigpointingRenderHomeVideoTag' );
+    return true;
+};
+
+$wgHooks['BeforePageDisplay'][] = static function ( $out, $skin ) {
+    global $wgTrigHomeVideoHlsUrl, $wgScriptPath;
+
+    if ( $wgTrigHomeVideoHlsUrl === '' ) {
+        return true;
+    }
+
+    $title = $out->getTitle();
+    if ( !$title || !$title->isMainPage() ) {
+        return true;
+    }
+
+    $assetBasePath = rtrim( $wgScriptPath, '/' );
+    $cssHref = $assetBasePath . '/trig-assets/trig-home-video.css?v=1';
+    $jsHref = $assetBasePath . '/trig-assets/trig-home-video.js?v=1';
+
+    $out->addHeadItem(
+        'trig-home-video-css',
+        '<link rel="stylesheet" href="' . htmlspecialchars( $cssHref, ENT_QUOTES ) . '">'
+    );
+    $out->addHeadItem(
+        'trig-home-video-js',
+        '<script defer src="' . htmlspecialchars( $jsHref, ENT_QUOTES ) . '"></script>'
+    );
+
+    return true;
+};
+
+function wfTrigpointingRenderHomeVideoTag( $input, array $args, $parser, $frame ) {
+    global $wgTrigHomeVideoHlsUrl, $wgTrigHomeVideoPosterUrl;
+
+    $hlsUrlValue = $wgTrigHomeVideoHlsUrl;
+    if ( isset( $args['src'] ) && trim( $args['src'] ) !== '' ) {
+        $hlsUrlValue = trim( $args['src'] );
+    }
+
+    if ( $hlsUrlValue === '' ) {
+        return '';
+    }
+
+    $posterUrlValue = $wgTrigHomeVideoPosterUrl;
+    if ( isset( $args['poster'] ) && trim( $args['poster'] ) !== '' ) {
+        $posterUrlValue = trim( $args['poster'] );
+    }
+
+    $hlsUrl = htmlspecialchars( $hlsUrlValue, ENT_QUOTES );
+    $posterAttr = '';
+    if ( $posterUrlValue !== '' ) {
+        $posterAttr = ' data-poster="' . htmlspecialchars( $posterUrlValue, ENT_QUOTES ) . '"';
+    }
+
+    return '<div class="trig-home-video" data-hls-src="' . $hlsUrl . '"' . $posterAttr . '></div>';
+}

@@ -33,5 +33,6 @@ RUN a2enconf shorturl-root
 
 # Bake parameterised LocalSettings.php into image
 COPY LocalSettings.php /var/www/html/LocalSettings.php
+COPY trig-assets/ /var/www/html/trig-assets/
 
 EXPOSE 80

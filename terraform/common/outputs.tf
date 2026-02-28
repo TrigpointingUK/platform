@@ -158,6 +158,21 @@ output "api_production_record_id" {
 # Note: S3 bucket is managed externally
 # Bucket: tuk-terraform-state (in eu-west-1)
 
+output "videos_bucket_name" {
+  description = "Name of the public videos S3 bucket"
+  value       = aws_s3_bucket.videos.bucket
+}
+
+output "videos_bucket_regional_domain_name" {
+  description = "Regional domain name of the public videos S3 bucket"
+  value       = aws_s3_bucket.videos.bucket_regional_domain_name
+}
+
+output "videos_hls_public_base_url" {
+  description = "Public base URL for HLS assets in the videos bucket"
+  value       = "https://${aws_s3_bucket.videos.bucket}.s3.${var.aws_region}.amazonaws.com/hls"
+}
+
 # HTTPS Listener ARN for environments to use
 output "https_listener_arn" {
   description = "ARN of the shared HTTPS listener"
