@@ -105,13 +105,13 @@ class TestEuclideanDistance:
         assert _euclidean_distance(0.0, 0.0, 3.0, 4.0) == pytest.approx(5.0)
 
     def test_within_threshold(self):
-        """Test distance within 100m threshold."""
+        """Test distance within 500m threshold."""
         dist = _euclidean_distance(193100.0, 332100.0, 193150.0, 332160.0)
         assert dist < MATCH_THRESHOLD_METRES
 
     def test_outside_threshold(self):
-        """Test distance outside 100m threshold."""
-        dist = _euclidean_distance(193100.0, 332100.0, 193200.0, 332200.0)
+        """Test distance outside 500m threshold."""
+        dist = _euclidean_distance(193100.0, 332100.0, 193500.0, 332500.0)
         assert dist > MATCH_THRESHOLD_METRES
 
 
@@ -702,7 +702,7 @@ class TestCompareIrelandCSVWithDB:
     @patch("api.services.ireland_import_service.get_irish_trigs_from_db")
     @patch("api.services.ireland_import_service.parse_csv")
     def test_outside_threshold_no_match(self, mock_parse, mock_db):
-        """Test that points >100m apart are not matched."""
+        """Test that points >500m apart are not matched."""
         mock_parse.return_value = [
             CSVRow(
                 row_index=0,
@@ -727,8 +727,8 @@ class TestCompareIrelandCSVWithDB:
                 name="Far Away DB",
                 fb_number="1234",
                 stn_number="OSI",
-                osgb_eastings=200200.0,  # 200m away
-                osgb_northings=300200.0,
+                osgb_eastings=200400.0,  # ~566m away (400^2 + 400^2)
+                osgb_northings=300400.0,
                 osgb_gridref="N 000 000",
                 osgb_height=100.0,
                 condition="G",
