@@ -57,9 +57,27 @@ Added "Original location" field for moved trigpoints
 Small map on trig detail pages can now be expanded to fullscreen
 
 
-xx Feb 2026
+01 Mar 2026
 
+Eye candy
+Added rotating Flush Bracket to homepage
+Added Hotine pillar disassembly video to Wiki homepage
+
+Data cleansing
 More accurate coastline for the RoI, so eg islands off the Cork coastline are now recognised as being in Ireland
 New admin screen comparing the TrigpointingUK database of Irish trigpoints with Clochandichter's curated spreadsheet.  Thousands of discrepancies shown, which I'll work on cleaning up over the coming weeks.
-Started work on a more user-friendly trigpoint list, which has finer-grained filtering, while hopefully not increasing complexity.  Feedback welcomed!
 
+UI improvements
+Started work on a more <link> user-friendly trigpoint list, which has finer-grained filtering, while hopefully not increasing complexity.  Feedback welcomed!
+
+Android app
+GPS coordinates must be explicitly added
+Bug fix for login sequence where open links in app is disabled
+Bug fix (hopefully!) for session timeouts requiring re-authentication
+
+Known bugs
+Mapping of trigpoints to map sheets not trustworthy - investigating
+
+?? Mar 2026
+
+User profile avatar can now be updated

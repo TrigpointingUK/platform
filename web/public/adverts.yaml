@@ -28,7 +28,7 @@
   photo: /img/c20society.png
   link: https://c20society.org.uk/
   startDate: '2025-11-01'
-  endDate: '2026-12-31'
+  endDate: '2026-03-01'
 
 
 - id: 5
@@ -50,7 +50,7 @@
 - id: 7
   title: TrigFigs
   text: Personalised OS Trigpoint models
-  photo: https://i.etsystatic.com/28257372/r/isla/b792c7/69168107/isla_200x200.69168107_984pzy9b.jpg
-  link: https://www.etsy.com/uk/shop/TrigFigs
+  photo: /img/trigfigs.jpg
+  link: https://trigfigs.co.uk
   startDate: null
   endDate: '2028-02-16'

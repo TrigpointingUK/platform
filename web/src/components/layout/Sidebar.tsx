@@ -11,7 +11,13 @@ export default function Sidebar() {
       <Card>
         <h3 className="font-bold text-lg mb-3 text-gray-800 dark:text-gray-100">Quick Links</h3>
         <nav className="space-y-2">
-          <a
+        <a
+            href="/experiment"
+            className="block text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline"
+          >
+            🧪 TrigpointingUK Experiments page
+          </a>
+        <a
             href="https://www.ordnancesurvey.co.uk"
             target="_blank"
             rel="noopener noreferrer"
@@ -43,12 +49,7 @@ export default function Sidebar() {
           >
             🗺️ Harold Street
           </a>
-          <a
-            href="/legacy-migration"
-            className="block text-trig-green-600 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300 hover:underline"
-          >
-            🔧 Solve your Login problems here!
-          </a>        </nav>
+        </nav>
       </Card>
     </aside>
   );
