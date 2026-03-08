@@ -581,7 +581,7 @@ def build_trig_data_from_csv(csv_row: CSVRow) -> dict:
         "stn_number_active": "",
         "stn_number_passive": "",
         "stn_number_osgb36": "",
-        "status_id": 1,  # Default status
+        "status_id": 10,  # 10 = "Pillar"
         "type_id": None,
         "current_use": "none",
         "historic_use": historic_use,
