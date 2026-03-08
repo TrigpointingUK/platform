@@ -12,7 +12,7 @@ crypt-r>=1.0  # Replacement for removed crypt module (Python 3.13+)
 python-multipart==0.0.22
 pydantic[email]==2.12.5
 pydantic-settings==2.13.1
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 alembic==1.18.4
 
 # Testing dependencies

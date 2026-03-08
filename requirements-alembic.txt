@@ -7,7 +7,7 @@ alembic==1.18.4
 
 sqlalchemy==2.0.48
 psycopg2-binary==2.9.11
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 
 # GeoAlchemy2 0.14.7 is the last version supporting Python 3.9
 # (0.18+ requires Python 3.10+)
