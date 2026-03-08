@@ -25,6 +25,7 @@ import {
   fetchIrelandImportComparison,
   applyIrelandImportCSV,
   createTrigFromIrelandCSV,
+  bulkCreateTrigsFromIrelandCSV,
 } from "../../lib/api";
 
 const AUTH0_AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE as string | undefined;
@@ -505,12 +506,46 @@ export default function IrelandImport() {
       });
       const result = await createTrigFromIrelandCSV(token, csvRowIndex);
       toast.success(`Created trig ${result.waypoint}`);
-      // Refresh comparison data
       await fetchData();
     } catch (err) {
       console.error("Error creating trig:", err);
       toast.error(
         err instanceof Error ? err.message : "Failed to create trig"
+      );
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleBulkCreate = async () => {
+    if (
+      !comparison ||
+      !window.confirm(
+        `Create ${comparison.new_in_csv_count} new trigpoints from all unmatched CSV rows?`
+      )
+    )
+      return;
+
+    try {
+      setApplying(true);
+      const token = await getAccessTokenSilently({
+        authorizationParams: ADMIN_AUTH_PARAMS,
+      });
+      const result = await bulkCreateTrigsFromIrelandCSV(token);
+      if (result.failed_count > 0) {
+        toast.error(
+          `Created ${result.created_count}, failed ${result.failed_count} of ${result.total_new_in_csv}`
+        );
+      } else {
+        toast.success(
+          `Created ${result.created_count} new trigpoints`
+        );
+      }
+      await fetchData();
+    } catch (err) {
+      console.error("Error bulk creating trigs:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Failed to bulk create trigs"
       );
     } finally {
       setApplying(false);
@@ -601,6 +636,22 @@ export default function IrelandImport() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {comparison && comparison.new_in_csv_count > 0 && (
+              <Button
+                onClick={handleBulkCreate}
+                disabled={loading || applying}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {applying ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Create All {comparison.new_in_csv_count} New
+                  </>
+                )}
+              </Button>
+            )}
             <Button onClick={() => fetchData()} disabled={loading}>
               Refresh
             </Button>

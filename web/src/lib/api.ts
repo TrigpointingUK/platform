@@ -1817,6 +1817,42 @@ export async function createTrigFromIrelandCSV(
   return response.json();
 }
 
+export interface IrelandBulkCreateResponse {
+  created_count: number;
+  failed_count: number;
+  total_new_in_csv: number;
+  created: { csv_row_index: number; station_name: string; trig_id: number; waypoint: string }[];
+  failed: { csv_row_index: number; station_name: string; error: string }[];
+}
+
+/**
+ * Bulk-create all unmatched Ireland25 CSV rows as new trigs (admin)
+ */
+export async function bulkCreateTrigsFromIrelandCSV(
+  token: string,
+  adminComment: string = "Ireland25 import: bulk created from CSV"
+): Promise<IrelandBulkCreateResponse> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(
+    `${apiBase}/v1/admin/ireland-import/bulk-create`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        admin_comment: adminComment,
+      }),
+    }
+  );
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+  return response.json();
+}
+
 // ============================================================================
 // Experiment Endpoints
 // ============================================================================

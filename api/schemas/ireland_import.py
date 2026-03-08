@@ -142,3 +142,39 @@ class IrelandImportCreateRequest(BaseModel):
         min_length=1,
         description="Admin comment for the audit trail",
     )
+
+
+class IrelandImportBulkCreateRequest(BaseModel):
+    """Request to bulk-create all unmatched CSV rows as new trigs."""
+
+    admin_comment: str = Field(
+        default="Ireland25 import: bulk created from CSV",
+        min_length=1,
+        description="Admin comment for the audit trail",
+    )
+
+
+class BulkCreateResultItem(BaseModel):
+    """Result of creating (or failing to create) a single trig."""
+
+    csv_row_index: int
+    station_name: str
+    trig_id: int | None = None
+    waypoint: str | None = None
+    error: str | None = None
+
+
+class IrelandImportBulkCreateResponse(BaseModel):
+    """Response from the bulk-create endpoint."""
+
+    created_count: int = Field(..., description="Number of trigs successfully created")
+    failed_count: int = Field(..., description="Number of rows that failed")
+    total_new_in_csv: int = Field(
+        ..., description="Total new_in_csv rows identified by comparison"
+    )
+    created: list[dict] = Field(
+        default_factory=list, description="Details of created trigs"
+    )
+    failed: list[dict] = Field(
+        default_factory=list, description="Details of failed rows"
+    )

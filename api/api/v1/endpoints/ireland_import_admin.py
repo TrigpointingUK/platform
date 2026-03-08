@@ -24,6 +24,8 @@ from api.schemas.ireland_import import (
     DBTrigData,
     FieldDifference,
     IrelandImportApplyRequest,
+    IrelandImportBulkCreateRequest,
+    IrelandImportBulkCreateResponse,
     IrelandImportComparisonResponse,
     IrelandImportCreateRequest,
 )
@@ -396,3 +398,120 @@ def create_trig_from_csv(
     )
 
     return TrigAdminDetail.model_validate(new_trig)
+
+
+@router.post(
+    "/bulk-create",
+    response_model=IrelandImportBulkCreateResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Bulk-create new trigpoints from all unmatched Ireland25 CSV rows.",
+    ),
+)
+def bulk_create_trigs_from_csv(
+    bulk_request: IrelandImportBulkCreateRequest,
+    request: Request,
+    admin_user: User = Depends(ADMIN_SCOPE_DEPENDENCY),
+    db: Session = Depends(get_db),
+) -> IrelandImportBulkCreateResponse:
+    """
+    Bulk-create new trigpoints from unmatched Ireland25 CSV rows.
+
+    Runs the comparison, identifies all 'new_in_csv' items, and creates
+    a trig for each one. Returns a summary of created and failed rows.
+
+    Requires `api:admin` scope.
+    """
+    from api.utils.ip_address import get_client_ip_normalized
+
+    raw_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip_normalized(raw_ip)
+
+    result = compare_ireland_csv_with_db(db)
+    new_items = [i for i in result.items if i.category == "new_in_csv" and i.csv_row]
+
+    created: list[dict] = []
+    failed: list[dict] = []
+
+    for item in new_items:
+        csv_row = item.csv_row
+        assert csv_row is not None
+
+        try:
+            trig_data = build_trig_data_from_csv(csv_row)
+            waypoint = trig_crud.get_next_waypoint(db)
+
+            postcode_result = location_crud.find_nearest_postcode(
+                db,
+                float(trig_data["wgs_lat"]),
+                float(trig_data["wgs_long"]),
+                max_distance_m=5000.0,
+            )
+            trig_data["postcode"] = postcode_result[0] if postcode_result else None
+
+            timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+            trig_data["attention_comment"] = (
+                f"{timestamp_str} - {admin_user.name} - {admin_user.email} - "
+                f"IRELAND25 BULK CREATE: {bulk_request.admin_comment}"
+            )
+
+            if db.bind and db.bind.dialect.name != "sqlite":  # type: ignore[union-attr]
+                from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
+
+                trig_data["location"] = ST_SetSRID(
+                    ST_MakePoint(
+                        float(trig_data["wgs_long"]), float(trig_data["wgs_lat"])
+                    ),
+                    4326,
+                )
+
+            new_trig = trig_crud.create_trig_admin(
+                db, waypoint, int(admin_user.id), client_ip, trig_data
+            )
+
+            created.append(
+                {
+                    "csv_row_index": csv_row.row_index,
+                    "station_name": csv_row.station_name,
+                    "trig_id": int(new_trig.id),
+                    "waypoint": new_trig.waypoint,
+                }
+            )
+        except Exception as e:
+            logger.error(
+                "Bulk create failed for CSV row %d (%s): %s",
+                csv_row.row_index,
+                csv_row.station_name,
+                str(e),
+                exc_info=True,
+            )
+            db.rollback()
+            failed.append(
+                {
+                    "csv_row_index": csv_row.row_index,
+                    "station_name": csv_row.station_name,
+                    "error": str(e),
+                }
+            )
+
+    if created:
+        invalidate_patterns(["trigs:*:export*"])
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "ireland_import_bulk_create",
+                "admin_user_id": int(admin_user.id),
+                "created_count": len(created),
+                "failed_count": len(failed),
+            }
+        )
+    )
+
+    return IrelandImportBulkCreateResponse(
+        created_count=len(created),
+        failed_count=len(failed),
+        total_new_in_csv=len(new_items),
+        created=created,
+        failed=failed,
+    )
