@@ -54,7 +54,7 @@ opentelemetry-exporter-otlp-proto-http==1.39.1
 openai>=1.82.0
 
 # Development dependencies
-black==26.1.0
+black==26.3.0
 isort==8.0.0
 flake8==7.3.0
 mypy==1.19.1
