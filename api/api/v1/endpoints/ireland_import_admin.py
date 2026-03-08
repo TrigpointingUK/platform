@@ -99,12 +99,12 @@ def get_ireland_import_comparison(
 
     Irish trigs are identified via the trig_area table where area_type_id=3
     and area_id IN (339, 342). Matching uses Euclidean distance on Irish Grid
-    coordinates with a 100m threshold.
+    coordinates with a 500m threshold.
 
     Categories:
     - **matched_identical**: CSV and DB agree on all fields
     - **matched_different**: Matched by proximity but with field differences
-    - **ambiguous**: Multiple DB records within 100m of a CSV row
+    - **ambiguous**: Multiple DB records within 500m of a CSV row
     - **new_in_csv**: CSV row with no DB match
     - **orphan_in_db**: DB trig with no CSV match
 

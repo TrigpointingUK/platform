@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 CSV_PATH = Path(__file__).resolve().parent.parent / "data" / "ireland25.csv"
 
 # Proximity threshold in metres for matching
-MATCH_THRESHOLD_METRES = 100.0
+MATCH_THRESHOLD_METRES = 500.0
 
 # Area IDs for Irish trigs (area_type_id = 3 = country)
 AREA_ID_NORTHERN_IRELAND = 339
@@ -388,7 +388,7 @@ def compare_ireland_csv_with_db(db: Session) -> FullComparisonResult:
 
     Matching strategy:
     - Euclidean distance on Irish Grid eastings/northings
-    - Threshold: 100 metres
+    - Threshold: 500 metres
     - Multiple matches flagged as ambiguous
 
     Returns:

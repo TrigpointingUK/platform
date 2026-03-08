@@ -83,7 +83,7 @@ class ComparisonItem(BaseModel):
     )
     additional_db_matches: list[DBTrigData] = Field(
         default_factory=list,
-        description="Extra DB records within 100m (for ambiguous matches)",
+        description="Extra DB records within 500m (for ambiguous matches)",
     )
     differences: list[FieldDifference] = Field(
         default_factory=list,
@@ -107,7 +107,7 @@ class IrelandImportComparisonResponse(BaseModel):
         ..., description="CSV rows matched with field differences"
     )
     ambiguous_count: int = Field(
-        ..., description="CSV rows with multiple DB matches within 100m"
+        ..., description="CSV rows with multiple DB matches within 500m"
     )
     new_in_csv_count: int = Field(..., description="CSV rows with no DB match")
     orphan_in_db_count: int = Field(..., description="DB trigs with no CSV match")

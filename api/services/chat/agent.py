@@ -141,7 +141,8 @@ def stream_response(
                     if event_type == "response.output_item.added":
                         item = event.item  # type: ignore[union-attr]
                         if item.type == "function_call":
-                            pending_tool_calls[item.id or item.call_id] = {  # type: ignore[union-attr]
+                            tool_call_id: str = item.id or item.call_id  # type: ignore[union-attr]
+                            pending_tool_calls[tool_call_id] = {  # type: ignore[union-attr]
                                 "name": item.name,  # type: ignore[union-attr]
                                 "arguments": "",
                                 "call_id": item.call_id,  # type: ignore[union-attr]

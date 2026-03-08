@@ -55,7 +55,7 @@ const CATEGORY_CONFIG: Record<
     bgColour: "bg-red-50 dark:bg-red-900/20",
     borderColour: "border-red-200 dark:border-red-800",
     label: "Ambiguous",
-    description: "Multiple DB records within 100m of this CSV row",
+    description: "Multiple DB records within 500m of this CSV row",
   },
   matched_different: {
     icon: AlertTriangle,
@@ -71,7 +71,7 @@ const CATEGORY_CONFIG: Record<
     bgColour: "bg-blue-50 dark:bg-blue-900/20",
     borderColour: "border-blue-200 dark:border-blue-800",
     label: "New in CSV",
-    description: "CSV row with no DB match within 100m (can be created)",
+    description: "CSV row with no DB match within 500m (can be created)",
   },
   orphan_in_db: {
     icon: HelpCircle,
@@ -79,7 +79,7 @@ const CATEGORY_CONFIG: Record<
     bgColour: "bg-purple-50 dark:bg-purple-900/20",
     borderColour: "border-purple-200 dark:border-purple-800",
     label: "DB Only",
-    description: "Irish DB trig with no CSV match within 100m",
+    description: "Irish DB trig with no CSV match within 500m",
   },
   matched_identical: {
     icon: CheckCircle2,
