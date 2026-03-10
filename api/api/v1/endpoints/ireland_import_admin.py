@@ -246,23 +246,19 @@ def apply_csv_to_trig(
         else new_comment
     )
 
-    # Build update dict - include all mapped fields plus original_* fields
+    # Build update dict - metadata fields from CSV, but preserve existing
+    # DB coordinates/gridref as they are generally more accurate than the
+    # CSV values (many of which derive from 6-figure grid references).
     updates: dict = {
         "name": trig_data["name"],
         "fb_number": trig_data["fb_number"],
         "stn_number": trig_data["stn_number"],
         "historic_use": trig_data["historic_use"],
         "condition": trig_data["condition"],
-        "wgs_lat": trig_data["wgs_lat"],
-        "wgs_long": trig_data["wgs_long"],
-        "wgs_height": trig_data["wgs_height"],
-        "osgb_eastings": trig_data["osgb_eastings"],
-        "osgb_northings": trig_data["osgb_northings"],
-        "osgb_gridref": trig_data["osgb_gridref"],
-        "osgb_height": trig_data["osgb_height"],
         "postcode": nearest_postcode,
         "attention_comment": updated_attention_comment,
-        # Original location provenance
+        # Original location provenance (records CSV source data without
+        # overwriting the trig's current, more precise coordinates)
         "original_osgb_eastings": trig_data["original_osgb_eastings"],
         "original_osgb_northings": trig_data["original_osgb_northings"],
         "original_osgb_gridref": trig_data["original_osgb_gridref"],
@@ -273,15 +269,6 @@ def apply_csv_to_trig(
         "original_grid_system": trig_data["original_grid_system"],
         "original_provenance": trig_data["original_provenance"],
     }
-
-    # Update PostGIS location from WGS84 coordinates (PostgreSQL only)
-    if db.bind and db.bind.dialect.name != "sqlite":  # type: ignore[union-attr]
-        from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
-
-        updates["location"] = ST_SetSRID(
-            ST_MakePoint(float(trig_data["wgs_long"]), float(trig_data["wgs_lat"])),
-            4326,
-        )
 
     # Apply update with admin tracking
     updated_trig = trig_crud.update_trig_admin(
