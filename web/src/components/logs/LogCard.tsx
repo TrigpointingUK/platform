@@ -6,7 +6,7 @@ import { Photo } from "../../lib/api";
 import { osgbToWGS84 } from "../../lib/coordinates";
 import { Link2 } from "lucide-react";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
-import FacebookShareButton from "../ui/FacebookShareButton";
+import FacebookShareButton, { getCanonicalOrigin } from "../ui/FacebookShareButton";
 
 interface Log {
   id: number;
@@ -264,7 +264,7 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
               )}
 
               {isCurrentUserLog && (
-                <FacebookShareButton url={`${window.location.origin}/logs/${log.id}`} />
+                <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
               )}
 
               {isAdmin && (
@@ -272,7 +272,7 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                   onClick={(e) => {
                     e.stopPropagation();
                     const apiBase = import.meta.env.VITE_API_BASE as string;
-                    window.open(`${apiBase}/v1/logs/${log.id}/opengraph-image`, "_blank", "noopener,noreferrer");
+                    window.open(`${apiBase}/v1/logs/${log.id}/opengraph-image?refresh=1`, "_blank", "noopener,noreferrer");
                   }}
                   title="Preview OG image"
                   className="inline-flex items-center text-gray-400 hover:text-trig-green-600 dark:text-gray-500 dark:hover:text-trig-green-400 transition-colors"

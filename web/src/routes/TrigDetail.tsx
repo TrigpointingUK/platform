@@ -227,7 +227,7 @@ export default function TrigDetail() {
     <Layout>
       <div className="max-w-7xl mx-auto">
         {/* Main Info Section */}
-        <TrigInfoSection trig={trig} />
+        <TrigInfoSection trig={trig} isAdmin={hasAdminRole} />
 
         {/* Interactive Map and Official Data */}
         <div className={`grid grid-cols-1 gap-6 mb-6 ${trig.attrs && trig.attrs.length > 0 ? 'lg:grid-cols-2' : ''}`}>

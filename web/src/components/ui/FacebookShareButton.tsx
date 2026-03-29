@@ -3,6 +3,16 @@ interface FacebookShareButtonProps {
   className?: string;
 }
 
+function getCanonicalOrigin(): string {
+  const host = window.location.hostname;
+  if (host === "trigpointing.me" || host.endsWith(".trigpointing.me")) {
+    return "https://trigpointing.me";
+  }
+  return "https://trigpointing.uk";
+}
+
+export { getCanonicalOrigin };
+
 export default function FacebookShareButton({
   url,
   className = "",

@@ -6,6 +6,7 @@ on-demand image generation for preview cards.
 """
 
 import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -78,6 +79,7 @@ def get_trig_opengraph_html(
 )
 def get_trig_opengraph_image(
     trig_id: int,
+    refresh: bool = False,
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     """Generate the OG image if needed and redirect to the S3 URL."""
@@ -87,11 +89,15 @@ def get_trig_opengraph_image(
 
     svc = OpenGraphService()
     try:
+        if refresh:
+            svc.delete_image("trigs", trig_id)
         image_url = svc.get_or_create_trig_image(trig_id, db)
     except Exception as e:
         logger.error("Failed to generate OG image for trig %d: %s", trig_id, e)
         raise HTTPException(status_code=500, detail="Image generation failed")
 
+    if refresh:
+        image_url += f"?t={int(time.time())}"
     return RedirectResponse(url=image_url, status_code=302)
 
 
@@ -147,6 +153,7 @@ def get_log_opengraph_html(
 )
 def get_log_opengraph_image(
     log_id: int,
+    refresh: bool = False,
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     """Generate the OG image if needed and redirect to the S3 URL."""
@@ -156,9 +163,13 @@ def get_log_opengraph_image(
 
     svc = OpenGraphService()
     try:
+        if refresh:
+            svc.delete_image("logs", log_id)
         image_url = svc.get_or_create_log_image(log_id, db)
     except Exception as e:
         logger.error("Failed to generate OG image for log %d: %s", log_id, e)
         raise HTTPException(status_code=500, detail="Image generation failed")
 
+    if refresh:
+        image_url += f"?t={int(time.time())}"
     return RedirectResponse(url=image_url, status_code=302)

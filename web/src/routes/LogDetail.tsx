@@ -25,7 +25,7 @@ import {
   moveTrigToLogLocation,
   setTrigConditionFromLog,
 } from "../lib/api";
-import FacebookShareButton from "../components/ui/FacebookShareButton";
+import FacebookShareButton, { getCanonicalOrigin } from "../components/ui/FacebookShareButton";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
@@ -269,12 +269,12 @@ export default function LogDetail() {
             ← Back
           </button>
           {log && (
-            <FacebookShareButton url={`${window.location.origin}/logs/${log.id}`} />
+            <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
           )}
         </div>
 
         {/* Trig Info Section - show if trig data is loaded */}
-        {trig && <TrigInfoSection trig={trig} />}
+        {trig && <TrigInfoSection trig={trig} isAdmin={hasAdminRole} />}
 
         {/* Edit/View Toggle */}
         {!isEditing ? (

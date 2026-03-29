@@ -9,8 +9,7 @@ from unittest.mock import Mock, patch
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from api.models import TLog, TPhoto, Trig
-from api.models.user import User
+from api.models import TLog, TPhoto
 from api.services.opengraph_service import (
     HEIGHT,
     WIDTH,
@@ -223,7 +222,7 @@ class TestOpenGraphService:
         mock_select.return_value = []
         mock_download.return_value = None
 
-        mock_trig = Mock(spec=Trig)
+        mock_trig = Mock()
         mock_trig.id = 1
         mock_trig.name = "Test Hill"
         mock_trig.waypoint = "TP0001"
@@ -233,6 +232,11 @@ class TestOpenGraphService:
         mock_trig.wgs_long = -0.1
         mock_trig.type_name = "Pillar"
         mock_trig.condition = "G"
+        mock_trig.fb_number = "S5432"
+        mock_trig.stn_number = ""
+        mock_trig.stn_number_active = "12345"
+        mock_trig.stn_number_passive = ""
+        mock_trig.stn_number_osgb36 = ""
 
         mock_db = Mock(spec=Session)
 
@@ -255,7 +259,7 @@ class TestOpenGraphService:
         mock_download_photo.return_value = None
         mock_download_avatar.return_value = None
 
-        mock_trig = Mock(spec=Trig)
+        mock_trig = Mock()
         mock_trig.id = 1
         mock_trig.name = "Test Hill"
         mock_trig.waypoint = "TP0001"
@@ -263,15 +267,20 @@ class TestOpenGraphService:
         mock_trig.osgb_height = 100.0
         mock_trig.wgs_lat = 51.5
         mock_trig.wgs_long = -0.1
+        mock_trig.fb_number = "S5432"
+        mock_trig.stn_number = ""
+        mock_trig.stn_number_active = ""
+        mock_trig.stn_number_passive = "P98765"
+        mock_trig.stn_number_osgb36 = ""
 
-        mock_log = Mock(spec=TLog)
+        mock_log = Mock()
         mock_log.id = 42
         mock_log.trig_id = 1
         mock_log.user_id = 7
         mock_log.date = date(2024, 3, 15)
         mock_log.condition = "G"
 
-        mock_user = Mock(spec=User)
+        mock_user = Mock()
         mock_user.id = 7
         mock_user.name = "TestUser"
 

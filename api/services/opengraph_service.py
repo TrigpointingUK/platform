@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from api.core.config import settings
 from api.models import TLog, TPhoto, Trig
+from api.models.condition import Condition
 from api.models.server import Server
 from api.models.user import User
 from api.utils.condition_mapping import get_condition_description
@@ -134,6 +135,37 @@ def _make_circular(img: Image.Image) -> Image.Image:
     draw.ellipse([0, 0, img.size[0], img.size[1]], fill=255)
     img.putalpha(mask)
     return img
+
+
+def _load_condition_icon(
+    condition_code: str, db: Session, size: int = 20
+) -> Optional[Image.Image]:
+    """Load a condition icon PNG from the path stored in the database."""
+    code = str(condition_code).upper()
+    condition = db.query(Condition).filter(Condition.code == code).first()
+    if not condition or not condition.icon_file:
+        return None
+    filename = str(condition.icon_file)
+    res = _find_res_dir()
+    icon_path = res / "icons" / "conditions" / filename
+    if not icon_path.exists():
+        return None
+    try:
+        icon = Image.open(icon_path).convert("RGBA")
+        return icon.resize((size, size), Image.Resampling.LANCZOS)
+    except Exception:
+        return None
+
+
+def _get_station_number(trig: Trig) -> str:
+    """Return the best available station number from the trig's variants."""
+    for attr in ("stn_number_active", "stn_number_passive", "stn_number_osgb36"):
+        val = getattr(trig, attr, None)
+        if val and str(val).strip():
+            return str(val).strip()
+    if trig.stn_number and str(trig.stn_number).strip():
+        return str(trig.stn_number).strip()
+    return ""
 
 
 def _draw_uk_map(trig: Trig) -> Image.Image:
@@ -343,6 +375,17 @@ class OpenGraphService:
         logger.info("Uploaded OG image: %s", key)
         return self.get_image_url(entity_type, entity_id)
 
+    def delete_image(self, entity_type: str, entity_id: int) -> None:
+        """Delete a cached OG image from S3."""
+        if not self.s3_client:
+            return
+        key = self._s3_key(entity_type, entity_id)
+        try:
+            self.s3_client.delete_object(Bucket=self.bucket, Key=key)
+            logger.info("Deleted OG image: %s", key)
+        except ClientError as e:
+            logger.warning("S3 DELETE failed for %s: %s", key, e)
+
     def get_or_create_trig_image(self, trig_id: int, db: Session) -> str:
         """Return the S3 URL for the trig's OG image, generating if needed."""
         if self.check_image_fresh("trigs", trig_id):
@@ -378,6 +421,7 @@ class OpenGraphService:
         font_title = _load_font(42, bold=True)
         font_subtitle = _load_font(24)
         font_meta = _load_font(20)
+        font_detail = _load_font(18)
         font_brand = _load_font(16)
 
         draw = ImageDraw.Draw(canvas)
@@ -390,36 +434,61 @@ class OpenGraphService:
         # T:UK logo (top-right)
         self._draw_logo(canvas)
 
-        # Title: trig name
+        # Title: waypoint - name
         text_x = map_x + uk_map.size[0] + 30
         text_y = PADDING + 5
-        draw.text(
-            (text_x, text_y), str(trig.name), font=font_title, fill=(255, 255, 255)
-        )
+        title = f"{trig.waypoint} \u2013 {trig.name}"
+        draw.text((text_x, text_y), str(title), font=font_title, fill=(255, 255, 255))
 
-        # Subtitle: waypoint . gridref . height
+        # Subtitle: gridref . height (3dp)
         text_y += 52
-        parts: list[str] = [str(trig.waypoint), str(trig.osgb_gridref)]
+        parts: list[str] = [str(trig.osgb_gridref)]
         if trig.osgb_height:
-            parts.append(f"{float(trig.osgb_height):.0f}m")
+            parts.append(f"{float(trig.osgb_height):.3f}m")
         subtitle = "  \u00b7  ".join(parts)
         draw.text((text_x, text_y), subtitle, font=font_subtitle, fill=(180, 200, 220))
 
-        # Meta: type, condition
+        # Meta line: type, "Condition:" icon + text
         text_y += 34
-        meta_parts: list[str] = []
+        meta_x = text_x
         if trig.type_name:
-            meta_parts.append(str(trig.type_name))
+            type_text = str(trig.type_name)
+            draw.text((meta_x, text_y), type_text, font=font_meta, fill=(140, 160, 180))
+            bbox = draw.textbbox((meta_x, text_y), type_text, font=font_meta)
+            meta_x = int(bbox[2]) + 20
+
         if trig.condition:
-            cond_desc = get_condition_description(str(trig.condition))
-            meta_parts.append(f"Condition: {cond_desc}")
-        if meta_parts:
+            cond_label = "Condition: "
             draw.text(
-                (text_x, text_y),
-                "  \u00b7  ".join(meta_parts),
-                font=font_meta,
-                fill=(140, 160, 180),
+                (meta_x, text_y), cond_label, font=font_meta, fill=(140, 160, 180)
             )
+            bbox = draw.textbbox((meta_x, text_y), cond_label, font=font_meta)
+            meta_x = int(bbox[2]) + 2
+            cond_icon = _load_condition_icon(str(trig.condition), db, size=20)
+            if cond_icon:
+                canvas.paste(cond_icon, (meta_x, text_y + 1), mask=cond_icon)
+                meta_x += 24
+            cond_desc = get_condition_description(str(trig.condition))
+            draw.text((meta_x, text_y), cond_desc, font=font_meta, fill=(140, 160, 180))
+
+        # Detail line: WGS84 coords, flush bracket, station number
+        text_y += 30
+        detail_parts: list[str] = []
+        detail_parts.append(
+            f"WGS84: {float(trig.wgs_lat):.8f}, {float(trig.wgs_long):.8f}"
+        )
+        fb = str(trig.fb_number).strip() if trig.fb_number else ""
+        if fb:
+            detail_parts.append(f"Flush Bracket: {fb}")
+        stn = _get_station_number(trig)
+        if stn:
+            detail_parts.append(f"Station: {stn}")
+        draw.text(
+            (text_x, text_y),
+            "  \u00b7  ".join(detail_parts),
+            font=font_detail,
+            fill=(120, 140, 160),
+        )
 
         # Photo strip
         photos_db = _select_photos_for_trig(db, int(trig.id), limit=4)
@@ -441,9 +510,12 @@ class OpenGraphService:
             )
 
         # Branding footer
+        footer_url = f"trigpointing.uk/trigs/{int(trig.id)}"
+        footer_bbox = draw.textbbox((0, 0), footer_url, font=font_brand)
+        footer_w = footer_bbox[2] - footer_bbox[0]
         draw.text(
-            (WIDTH - PADDING - 140, HEIGHT - 35),
-            "trigpointing.uk",
+            (WIDTH - PADDING - footer_w, HEIGHT - 35),
+            footer_url,
             font=font_brand,
             fill=(100, 120, 150),
         )
@@ -469,6 +541,7 @@ class OpenGraphService:
         font_title = _load_font(38, bold=True)
         font_subtitle = _load_font(22)
         font_meta = _load_font(20)
+        font_detail = _load_font(16)
         font_user = _load_font(22, bold=True)
         font_brand = _load_font(16)
 
@@ -485,25 +558,49 @@ class OpenGraphService:
         # Logo (top-right)
         self._draw_logo(canvas)
 
-        # Trig name
+        # Trig name with waypoint
         text_x = map_x + uk_map.size[0] + 30
         text_y = PADDING
-        trig_name = str(trig.name) if trig else "Unknown Trig"
-        draw.text((text_x, text_y), trig_name, font=font_title, fill=(255, 255, 255))
+        if trig:
+            trig_title = f"{trig.waypoint} \u2013 {trig.name}"
+        else:
+            trig_title = "Unknown Trig"
+        draw.text(
+            (text_x, text_y), str(trig_title), font=font_title, fill=(255, 255, 255)
+        )
 
-        # Waypoint . gridref . height
+        # Gridref . height (3dp)
         text_y += 46
         if trig:
-            parts: list[str] = [str(trig.waypoint), str(trig.osgb_gridref)]
+            parts: list[str] = [str(trig.osgb_gridref)]
             if trig.osgb_height:
-                parts.append(f"{float(trig.osgb_height):.0f}m")
+                parts.append(f"{float(trig.osgb_height):.3f}m")
             subtitle = "  \u00b7  ".join(parts)
             draw.text(
                 (text_x, text_y), subtitle, font=font_subtitle, fill=(180, 200, 220)
             )
 
+        # Detail line: WGS84, flush bracket, station number
+        text_y += 30
+        if trig:
+            detail_parts: list[str] = [
+                f"WGS84: {float(trig.wgs_lat):.8f}, {float(trig.wgs_long):.8f}"
+            ]
+            fb = str(trig.fb_number).strip() if trig.fb_number else ""
+            if fb:
+                detail_parts.append(f"Flush Bracket: {fb}")
+            stn = _get_station_number(trig)
+            if stn:
+                detail_parts.append(f"Station: {stn}")
+            draw.text(
+                (text_x, text_y),
+                "  \u00b7  ".join(detail_parts),
+                font=font_detail,
+                fill=(120, 140, 160),
+            )
+
         # User avatar + name + date + condition
-        text_y += 38
+        text_y += 28
         avatar_size = 48
         avatar_drawn = False
         if user:
@@ -526,21 +623,28 @@ class OpenGraphService:
                 fill=(220, 230, 240),
             )
 
-        # Date and condition on second line
+        # Date and "Condition:" icon + text on second line
         info_y = text_y + 28
-        info_parts: list[str] = []
+        info_x = name_x
         if log.date:
-            info_parts.append(log.date.strftime("%-d %B %Y"))
+            date_text = log.date.strftime("%-d %B %Y")
+            draw.text((info_x, info_y), date_text, font=font_meta, fill=(140, 160, 180))
+            bbox = draw.textbbox((info_x, info_y), date_text, font=font_meta)
+            info_x = int(bbox[2]) + 20
+
         if log.condition:
-            cond_desc = get_condition_description(str(log.condition))
-            info_parts.append(cond_desc)
-        if info_parts:
+            cond_label = "Condition: "
             draw.text(
-                (name_x, info_y),
-                "  \u00b7  ".join(info_parts),
-                font=font_meta,
-                fill=(140, 160, 180),
+                (info_x, info_y), cond_label, font=font_meta, fill=(140, 160, 180)
             )
+            bbox = draw.textbbox((info_x, info_y), cond_label, font=font_meta)
+            info_x = int(bbox[2]) + 2
+            cond_icon = _load_condition_icon(str(log.condition), db, size=20)
+            if cond_icon:
+                canvas.paste(cond_icon, (info_x, info_y + 1), mask=cond_icon)
+                info_x += 24
+            cond_desc = get_condition_description(str(log.condition))
+            draw.text((info_x, info_y), cond_desc, font=font_meta, fill=(140, 160, 180))
 
         # Photo strip
         trig_id = int(trig.id) if trig else int(log.trig_id or 0)
@@ -556,9 +660,12 @@ class OpenGraphService:
             _compose_photo_strip(canvas, photo_images, photo_y)
 
         # Branding
+        footer_url = f"trigpointing.uk/logs/{int(log.id)}"
+        footer_bbox = draw.textbbox((0, 0), footer_url, font=font_brand)
+        footer_w = footer_bbox[2] - footer_bbox[0]
         draw.text(
-            (WIDTH - PADDING - 140, HEIGHT - 35),
-            "trigpointing.uk",
+            (WIDTH - PADDING - footer_w, HEIGHT - 35),
+            footer_url,
             font=font_brand,
             fill=(100, 120, 150),
         )
@@ -571,19 +678,37 @@ class OpenGraphService:
         return buf.getvalue()
 
     def _draw_logo(self, canvas: Image.Image) -> None:
-        """Draw the T:UK logo in the top-right corner."""
+        """Draw the T:UK logo with 'TrigpointingUK' text below it."""
         res = _find_res_dir()
         logo_path = res / "tuk_logo.png"
         if not logo_path.exists():
             return
         try:
             logo = Image.open(logo_path).convert("RGBA")
-            max_h = 60
+            max_h = 90
             ratio = max_h / logo.height
             logo = logo.resize(
                 (int(logo.width * ratio), max_h), Image.Resampling.LANCZOS
             )
-            canvas.paste(logo, (WIDTH - PADDING - logo.width, PADDING), mask=logo)
+            logo_x = WIDTH - PADDING - logo.width
+            logo_y = PADDING
+            canvas.paste(logo, (logo_x, logo_y), mask=logo)
+
+            brand_text = "TrigpointingUK"
+            logo_w = logo.width
+            font_size = 36
+            font = _load_font(font_size, bold=True)
+            draw = ImageDraw.Draw(canvas)
+            bbox = draw.textbbox((0, 0), brand_text, font=font)
+            text_w = bbox[2] - bbox[0]
+            while text_w > logo_w and font_size > 8:
+                font_size -= 1
+                font = _load_font(font_size, bold=True)
+                bbox = draw.textbbox((0, 0), brand_text, font=font)
+                text_w = bbox[2] - bbox[0]
+            text_x = logo_x + (logo_w - text_w) // 2
+            text_y = logo_y + max_h + 4
+            draw.text((text_x, text_y), brand_text, font=font, fill=(200, 215, 230))
         except Exception as e:
             logger.warning("Could not draw logo: %s", e)
 

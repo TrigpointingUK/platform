@@ -9,7 +9,8 @@ import { useUserProfile, type MapLinkOption } from "../../hooks/useUserProfile";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
 import { generateMapUrl, getTrigpointingUKMapPath, isInternalMapLink, MAP_LINK_DEFAULTS } from "../../lib/mapLinks";
 import { calculateDistance, calculateBearing } from "../../lib/coordinates";
-import FacebookShareButton from "../ui/FacebookShareButton";
+import FacebookShareButton, { getCanonicalOrigin } from "../ui/FacebookShareButton";
+import { Link2 } from "lucide-react";
 
 interface TrigInfoSectionProps {
   trig: Trig;
@@ -17,12 +18,15 @@ interface TrigInfoSectionProps {
   showNearbyDropdown?: boolean;
   /** Custom className for the Card wrapper */
   className?: string;
+  /** Show admin OG preview link */
+  isAdmin?: boolean;
 }
 
 export default function TrigInfoSection({ 
   trig, 
   showNearbyDropdown = true,
-  className = "mb-6"
+  className = "mb-6",
+  isAdmin = false,
 }: TrigInfoSectionProps) {
   const trigIdNum = trig.id;
   
@@ -85,7 +89,19 @@ export default function TrigInfoSection({
             >
               {trig.waypoint} - {trig.name}
             </Link>
-            <FacebookShareButton url={`${window.location.origin}/trigs/${trigIdNum}`} />
+            <FacebookShareButton url={`${getCanonicalOrigin()}/trigs/${trigIdNum}`} />
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  const apiBase = import.meta.env.VITE_API_BASE as string;
+                  window.open(`${apiBase}/v1/trigs/${trigIdNum}/opengraph-image?refresh=1`, "_blank", "noopener,noreferrer");
+                }}
+                title="Preview OG image"
+                className="inline-flex items-center text-gray-400 hover:text-trig-green-600 dark:text-gray-500 dark:hover:text-trig-green-400 transition-colors"
+              >
+                <Link2 className="w-4 h-4" />
+              </button>
+            )}
           </h1>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
