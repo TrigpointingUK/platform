@@ -26,7 +26,7 @@ factory-boy==3.3.3
 # Auth0 dependencies
 requests==2.33.0
 boto3==1.42.63
-types-requests==2.32.4.20260107
+types-requests==2.33.0.20260327
 
 # Redis/ElastiCache for token caching
 redis==7.4.0
