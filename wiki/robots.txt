@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /Special:
+Disallow: /index.php?
+Disallow: /api.php
+Disallow: /rest.php
+Disallow: /load.php
+
+Sitemap: https://wiki.trigpointing.uk/rest.php/site/v1/sitemap/0

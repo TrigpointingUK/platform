@@ -1,4 +1,4 @@
-FROM mediawiki:1.43
+FROM mediawiki:1.45
 
 WORKDIR /var/www/html
 
@@ -14,10 +14,10 @@ docker-php-ext-enable redis; \
 # Clone MediaWiki extensions
 RUN set -eux; \
   cd extensions; \
-  git clone -b REL1_43 https://gerrit.wikimedia.org/r/mediawiki/extensions/PluggableAuth; \
-  git clone -b REL1_43 https://gerrit.wikimedia.org/r/mediawiki/extensions/OpenIDConnect; \
-  git clone -b REL1_43 https://gerrit.wikimedia.org/r/mediawiki/extensions/ChangeAuthor; \
-  git clone -b REL1_43 https://gerrit.wikimedia.org/r/mediawiki/extensions/MobileFrontend; \
+  git clone -b REL1_45 https://gerrit.wikimedia.org/r/mediawiki/extensions/PluggableAuth; \
+  git clone -b REL1_45 https://gerrit.wikimedia.org/r/mediawiki/extensions/OpenIDConnect; \
+  git clone -b REL1_45 https://gerrit.wikimedia.org/r/mediawiki/extensions/ChangeAuthor; \
+  git clone -b REL1_45 https://gerrit.wikimedia.org/r/mediawiki/extensions/MobileFrontend; \
   git clone https://github.com/edwardspec/mediawiki-aws-s3 AWS
 
 # Install composer and update dependencies for OIDC/AWS extensions
@@ -34,5 +34,8 @@ RUN a2enconf shorturl-root
 # Bake parameterised LocalSettings.php into image
 COPY LocalSettings.php /var/www/html/LocalSettings.php
 COPY trig-assets/ /var/www/html/trig-assets/
+
+# Static robots.txt
+COPY robots.txt /var/www/html/robots.txt
 
 EXPOSE 80

@@ -236,6 +236,9 @@ $wgNamespacesToBeSearchedDefault[NS_ARCHIVE] = true;
 $wgNamespacesWithSubpages[NS_MAIN] = true;
 $wgNamespacesWithSubpages[NS_ARCHIVE] = true;
 
+# -- Sitemap (REST API, available from MediaWiki 1.45+) --
+$wgSitemapApiConfig['enabled'] = true;
+
 # -- Homepage video (HLS via Video.js) --
 # Usage on the main page content: <trigvideo /> or <trigvideo src=".../master.m3u8" poster="...jpg" />
 $wgTrigHomeVideoHlsUrl = getenv('MW_HOME_HLS_URL') ?: 'https://trigpointinguk-videos.s3.eu-west-1.amazonaws.com/hls/hotine/v1/master.m3u8';
