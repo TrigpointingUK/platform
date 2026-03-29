@@ -126,6 +126,7 @@ module "ecs_service" {
   photos_s3_bucket             = var.photos_s3_bucket
   photos_server_id             = var.photos_server_id
   avatars_s3_bucket            = var.avatars_s3_bucket
+  opengraph_s3_bucket          = var.opengraph_s3_bucket
 }
 
 module "monitoring" {

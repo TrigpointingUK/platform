@@ -121,6 +121,10 @@ class Settings(BaseSettings):
     AVATAR_MAX_SIZE: int = 2 * 1024 * 1024  # 2MB
     AVATAR_DIMENSION: int = 200  # Output as 200x200 square
 
+    # Open Graph image configuration
+    OPENGRAPH_S3_BUCKET: str = "trigpointinguk-opengraph"
+    OPENGRAPH_IMAGE_TTL_DAYS: int = 7
+
     # Redis/ElastiCache Configuration
     REDIS_URL: Optional[str] = None  # e.g., redis://host:6379
     CACHE_ENABLED: bool = True  # Enable/disable caching globally

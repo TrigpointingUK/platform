@@ -9,6 +9,7 @@ import { useUserProfile, type MapLinkOption } from "../../hooks/useUserProfile";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
 import { generateMapUrl, getTrigpointingUKMapPath, isInternalMapLink, MAP_LINK_DEFAULTS } from "../../lib/mapLinks";
 import { calculateDistance, calculateBearing } from "../../lib/coordinates";
+import FacebookShareButton from "../ui/FacebookShareButton";
 
 interface TrigInfoSectionProps {
   trig: Trig;
@@ -77,13 +78,14 @@ export default function TrigInfoSection({
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Info Grid */}
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-trig-green-600 mb-4">
+          <h1 className="text-3xl font-bold text-trig-green-600 mb-4 flex items-center gap-2">
             <Link 
               to={`/trigs/${trigIdNum}`}
               className="hover:underline"
             >
               {trig.waypoint} - {trig.name}
             </Link>
+            <FacebookShareButton url={`${window.location.origin}/trigs/${trigIdNum}`} />
           </h1>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">

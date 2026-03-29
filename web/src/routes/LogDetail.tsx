@@ -25,6 +25,7 @@ import {
   moveTrigToLogLocation,
   setTrigConditionFromLog,
 } from "../lib/api";
+import FacebookShareButton from "../components/ui/FacebookShareButton";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
@@ -259,14 +260,17 @@ export default function LogDetail() {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
-        {/* Breadcrumb */}
-        <div className="mb-4">
+        {/* Breadcrumb + Share */}
+        <div className="mb-4 flex items-center gap-3">
           <button 
             onClick={() => navigate(-1)} 
             className="text-trig-green-600 hover:underline"
           >
             ← Back
           </button>
+          {log && (
+            <FacebookShareButton url={`${window.location.origin}/logs/${log.id}`} />
+          )}
         </div>
 
         {/* Trig Info Section - show if trig data is loaded */}
@@ -276,7 +280,7 @@ export default function LogDetail() {
         {!isEditing ? (
           <>
             {/* Read-only view */}
-            <LogCard log={log} showTrigCondition={showTrigCondition} showTrigInfo={false} />
+            <LogCard log={log} showTrigCondition={showTrigCondition} showTrigInfo={false} isAdmin={hasAdminRole} />
             
             {/* Edit and Delete buttons - only show if user owns this log */}
             {isOwner && (

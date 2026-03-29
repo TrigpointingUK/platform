@@ -4,7 +4,9 @@ import StarRating from "../ui/StarRating";
 import DirectionArrow from "../ui/DirectionArrow";
 import { Photo } from "../../lib/api";
 import { osgbToWGS84 } from "../../lib/coordinates";
+import { Link2 } from "lucide-react";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
+import FacebookShareButton from "../ui/FacebookShareButton";
 
 interface Log {
   id: number;
@@ -46,6 +48,8 @@ interface LogCardProps {
   showTrigCondition?: boolean;
   /** Show the trig header line (waypoint, name, type). Default: true */
   showTrigInfo?: boolean;
+  /** Show admin OG preview link */
+  isAdmin?: boolean;
 }
 
 
@@ -78,7 +82,7 @@ function getStatusInfo(statusName?: string | null): { icon?: string; abbrev: str
   return { abbrev: "?" };
 }
 
-export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false, showTrigInfo = true }: LogCardProps) {
+export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false, showTrigInfo = true, isAdmin = false }: LogCardProps) {
   const navigate = useNavigate();
   const { getConditionInfo } = useConditionInfo();
   const conditionInfo = getConditionInfo(log.condition);
@@ -258,7 +262,25 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
               {log.time && log.time !== "12:00:00" && (
                 <span className="text-gray-500 dark:text-gray-400">{log.time}</span>
               )}
-              
+
+              {isCurrentUserLog && (
+                <FacebookShareButton url={`${window.location.origin}/logs/${log.id}`} />
+              )}
+
+              {isAdmin && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const apiBase = import.meta.env.VITE_API_BASE as string;
+                    window.open(`${apiBase}/v1/logs/${log.id}/opengraph-image`, "_blank", "noopener,noreferrer");
+                  }}
+                  title="Preview OG image"
+                  className="inline-flex items-center text-gray-400 hover:text-trig-green-600 dark:text-gray-500 dark:hover:text-trig-green-400 transition-colors"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+
               {/* Distance from filter center point */}
               {showDistance && log.distance_km != null && (
                 <>

@@ -19,6 +19,7 @@ from api.api.v1.endpoints import (
     locations,
     logs,
     maps,
+    opengraph,
     osnet_admin,
     photos,
     reference,
@@ -71,5 +72,7 @@ api_router.include_router(
     tags=["admin-ireland-import"],
 )
 api_router.include_router(experiment.router, prefix="/experiment", tags=["experiment"])
+api_router.include_router(opengraph.trigs_router, prefix="/trigs", tags=["opengraph"])
+api_router.include_router(opengraph.logs_router, prefix="/logs", tags=["opengraph"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(sitemap.router, prefix="/sitemap", tags=["sitemap"])

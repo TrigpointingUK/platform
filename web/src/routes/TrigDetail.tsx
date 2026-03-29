@@ -442,6 +442,7 @@ export default function TrigDetail() {
               currentUserId={currentUser?.id}
               showTrigCondition={showTrigCondition}
               showTrigInfo={false}
+              isAdmin={hasAdminRole}
             />
           </Card>
         )}
@@ -465,6 +466,7 @@ export default function TrigDetail() {
                 currentUserId={currentUser?.id}
                 showTrigCondition={showTrigCondition}
                 showTrigInfo={false}
+                isAdmin={hasAdminRole}
               />
 
               {/* Load More Trigger */}
