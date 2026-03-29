@@ -115,7 +115,7 @@ wfLoadExtension( 'OpenIDConnect' );
 # Since we use Auth0 for authentication, MediaWiki's built-in throttling
 # is not needed and creates a vulnerability where bad actors can lock out
 # legitimate users by triggering failed login attempts
-$wgPasswordAttemptThrottle = false;
+$wgPasswordAttemptThrottle = [];
 
 $providerURL   = getenv('OIDC_PROVIDER_URL') ?: '';
 $clientID      = getenv('OIDC_CLIENT_ID') ?: '';
