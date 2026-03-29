@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import Button from "../components/ui/Button";
+import { useNoIndex } from "../hooks/useNoIndex";
 
 export default function NotFound() {
+  useNoIndex(true);
+
   return (
     <Layout>
       <title>Page Not Found | TrigpointingUK</title>

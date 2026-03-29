@@ -22,6 +22,7 @@ from api.api.v1.endpoints import (
     osnet_admin,
     photos,
     reference,
+    sitemap,
     stats,
     status_admin,
     tiles,
@@ -71,3 +72,4 @@ api_router.include_router(
 )
 api_router.include_router(experiment.router, prefix="/experiment", tags=["experiment"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
+api_router.include_router(sitemap.router, prefix="/sitemap", tags=["sitemap"])

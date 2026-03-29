@@ -15,6 +15,7 @@ import { useUserProfile, updateUserProfile } from "../hooks/useUserProfile";
 import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useCanonical } from "../hooks/useCanonical";
+import { useNoIndex } from "../hooks/useNoIndex";
 
 // Helper function to decode JWT payload
 interface JWTPayload {
@@ -58,6 +59,7 @@ export default function UserProfile() {
   // Update document title when user data loads
   useDocumentTitle(user ? `${user.name}'s Profile` : null);
   useCanonical(userId ? `/profile/${userId}` : null);
+  useNoIndex(!!error);
 
   // Own profile if: no userId param, or userId matches the logged-in user's ID
   const isOwnProfile = !userId || (authUser && userId === authUser.sub);
