@@ -135,6 +135,7 @@ def custom_openapi():
         f"{settings.API_V1_STR}/logs/{{log_id}}/photos",
         f"{settings.API_V1_STR}/stats/site",
         f"{settings.API_V1_STR}/coordinates/convert",
+        f"{settings.API_V1_STR}/sitemap",
     }
 
     # Define endpoints that are public regardless of HTTP method
