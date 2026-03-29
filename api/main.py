@@ -136,6 +136,9 @@ def custom_openapi():
         f"{settings.API_V1_STR}/stats/site",
         f"{settings.API_V1_STR}/coordinates/convert",
         f"{settings.API_V1_STR}/sitemap",
+        f"{settings.API_V1_STR}/sitemap/static",
+        f"{settings.API_V1_STR}/sitemap/trigs",
+        f"{settings.API_V1_STR}/sitemap/photos",
     }
 
     # Define endpoints that are public regardless of HTTP method
