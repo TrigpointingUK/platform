@@ -5,6 +5,7 @@ import Layout from '../components/layout/Layout';
 import Spinner from '../components/ui/Spinner';
 import { usePhotoSwipe } from '../hooks/usePhotoSwipe';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useCanonical } from '../hooks/useCanonical';
 import { Photo } from '../lib/api';
 import 'photoswipe/style.css';
 import '../components/photos/photoswipe-custom.css';
@@ -143,6 +144,7 @@ export default function PhotoDetail() {
       ? `${photoForViewer.trig_name} by ${photoForViewer.user_name}`
       : null
   );
+  useCanonical(photoIdNum ? `/photos/${photoIdNum}` : null);
 
   // Open PhotoSwipe when we have a photo
   usePhotoSwipe({

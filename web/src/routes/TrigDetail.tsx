@@ -21,6 +21,7 @@ import { useCreateDraftLog } from "../hooks/useCreateDraftLog";
 import { usePublishLog } from "../hooks/usePublishLog";
 import { useCancelDraftLog } from "../hooks/useCancelDraftLog";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { useCanonical } from "../hooks/useCanonical";
 import { Log, LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
 
 export default function TrigDetail() {
@@ -46,6 +47,7 @@ export default function TrigDetail() {
 
   // Update document title when trig data loads
   useDocumentTitle(trig ? `${trig.waypoint} - ${trig.name}` : null);
+  useCanonical(trigIdNum ? `/trigs/${trigIdNum}` : null);
 
   const {
     data: logsData,

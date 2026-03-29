@@ -16,6 +16,7 @@ import { useDeleteLog } from "../hooks/useDeleteLog";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { useCanonical } from "../hooks/useCanonical";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import {
   LogUpdateInput,
@@ -49,6 +50,7 @@ export default function LogDetail() {
 
   // Update document title when log data loads
   useDocumentTitle(log ? `Log #${log.id} - ${log.trig_name}` : null);
+  useCanonical(logIdNum ? `/logs/${logIdNum}` : null);
 
   // Get current user's database profile
   const { data: currentUser } = useCurrentUser();

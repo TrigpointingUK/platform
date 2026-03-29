@@ -9,6 +9,7 @@ import PhotoGrid from "../components/photos/PhotoGrid";
 import { useUserPhotos } from "../hooks/useUserPhotos";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { useCanonical } from "../hooks/useCanonical";
 import { Photo } from "../lib/api";
 
 interface PhotosResponse {
@@ -38,6 +39,7 @@ export default function UserPhotos() {
 
   // Update document title when user data loads
   useDocumentTitle(user?.name ? `${user.name}'s Photos` : null);
+  useCanonical(userId ? `/profile/${userId}/photos` : null);
 
   // Intersection observer for infinite scroll
   const { ref: loadMoreRef, inView } = useInView({

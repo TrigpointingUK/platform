@@ -9,6 +9,7 @@ import PhotoGrid from "../components/photos/PhotoGrid";
 import { useTrigPhotos } from "../hooks/useTrigPhotos";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { useCanonical } from "../hooks/useCanonical";
 import { Photo } from "../lib/api";
 
 interface PhotosResponse {
@@ -40,6 +41,7 @@ export default function TrigPhotos() {
 
   // Update document title when trig data loads
   useDocumentTitle(trig ? `Photos: ${trig.name}` : null);
+  useCanonical(trigIdNum ? `/trigs/${trigIdNum}/photos` : null);
 
   // Intersection observer for infinite scroll
   const { ref: loadMoreRef, inView } = useInView({
