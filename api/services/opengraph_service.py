@@ -227,7 +227,17 @@ def _select_photos_for_trig(db: Session, trig_id: int, limit: int = 4) -> list[T
                 used_types.add(ptype)
                 break
 
-    for p in photos:
+    # Fill remaining slots, preferring types not yet represented
+    remaining = [p for p in photos if p.id not in {s.id for s in selected}]
+    for p in remaining:
+        if len(selected) >= limit:
+            break
+        if p.type not in used_types:
+            selected.append(p)
+            used_types.add(str(p.type))
+
+    # Last resort: allow duplicate types if we still need more
+    for p in remaining:
         if len(selected) >= limit:
             break
         if p.id not in {s.id for s in selected}:
@@ -538,11 +548,12 @@ class OpenGraphService:
         canvas = Image.new("RGBA", (WIDTH, HEIGHT))
         _draw_gradient(canvas)
 
-        font_title = _load_font(38, bold=True)
+        font_trig_name = _load_font(30, bold=True)
         font_subtitle = _load_font(22)
         font_meta = _load_font(20)
         font_detail = _load_font(16)
-        font_user = _load_font(22, bold=True)
+        font_user = _load_font(34, bold=True)
+        font_user_label = _load_font(28)
         font_brand = _load_font(16)
 
         draw = ImageDraw.Draw(canvas)
@@ -566,11 +577,14 @@ class OpenGraphService:
         else:
             trig_title = "Unknown Trig"
         draw.text(
-            (text_x, text_y), str(trig_title), font=font_title, fill=(255, 255, 255)
+            (text_x, text_y),
+            str(trig_title),
+            font=font_trig_name,
+            fill=(200, 215, 230),
         )
 
         # Gridref . height (3dp)
-        text_y += 46
+        text_y += 38
         if trig:
             parts: list[str] = [str(trig.osgb_gridref)]
             if trig.osgb_height:
@@ -599,7 +613,7 @@ class OpenGraphService:
                 fill=(120, 140, 160),
             )
 
-        # User avatar + name + date + condition
+        # User avatar + "Logged by:" name
         text_y += 28
         avatar_size = 48
         avatar_drawn = False
@@ -616,15 +630,25 @@ class OpenGraphService:
 
         name_x = text_x + (avatar_size + 12 if avatar_drawn else 0)
         if user:
+            label = "Logged by: "
             draw.text(
-                (name_x, text_y + 2),
+                (name_x, text_y + 4),
+                label,
+                font=font_user_label,
+                fill=(160, 175, 190),
+            )
+            label_bbox = draw.textbbox(
+                (name_x, text_y + 4), label, font=font_user_label
+            )
+            draw.text(
+                (int(label_bbox[2]) + 2, text_y),
                 str(user.name),
                 font=font_user,
-                fill=(220, 230, 240),
+                fill=(255, 255, 255),
             )
 
         # Date and "Condition:" icon + text on second line
-        info_y = text_y + 28
+        info_y = text_y + 42
         info_x = name_x
         if log.date:
             date_text = log.date.strftime("%-d %B %Y")
@@ -655,7 +679,7 @@ class OpenGraphService:
             if img:
                 photo_images.append(img)
 
-        photo_y = PADDING + uk_map.size[0] + 50
+        photo_y = PADDING + uk_map.size[0] + 90
         if photo_images:
             _compose_photo_strip(canvas, photo_images, photo_y)
 
