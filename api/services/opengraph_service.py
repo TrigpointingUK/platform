@@ -175,7 +175,7 @@ def _draw_uk_map(trig: Trig) -> Image.Image:
     calib_path = res / "stretched53_default.json"
 
     if not map_path.exists() or not calib_path.exists():
-        placeholder = Image.new("RGBA", (140, 140), (30, 50, 80, 255))
+        placeholder = Image.new("RGBA", (200, 200), (30, 50, 80, 255))
         return placeholder
 
     base = Image.open(map_path).convert("RGBA")
@@ -187,7 +187,7 @@ def _draw_uk_map(trig: Trig) -> Image.Image:
     x = affine[0][0] * lon + affine[0][1] * lat + affine[0][2]
     y = affine[1][0] * lon + affine[1][1] * lat + affine[1][2]
 
-    target_size = 140
+    target_size = 200
     scale = target_size / max(base.size)
     base = base.resize(
         (int(base.size[0] * scale), int(base.size[1] * scale)),
@@ -195,9 +195,13 @@ def _draw_uk_map(trig: Trig) -> Image.Image:
     )
     x, y = x * scale, y * scale
 
+    tint = Image.new("RGBA", base.size, (250, 220, 200, 70))
+    tint.putalpha(base.split()[3])
+    base = Image.alpha_composite(base, tint)
+
     draw = ImageDraw.Draw(base)
-    r = 4
-    draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 80, 80, 255))
+    r = 8
+    draw.ellipse([x - r, y - r, x + r, y + r], fill=(234, 40, 40, 255))
 
     return base
 
@@ -309,6 +313,110 @@ def _download_avatar(user: User) -> Optional[Image.Image]:
         data = resp["Body"].read()
         return Image.open(io.BytesIO(data))
     except Exception:
+        return None
+
+
+_BNG_ORIGIN = (-238375.0, 1376256.0)
+_BNG_RESOLUTIONS = [
+    896,
+    448,
+    224,
+    112,
+    56,
+    28,
+    14,
+    7,
+    3.5,
+    1.75,
+    0.875,
+    0.4375,
+    0.21875,
+    0.109375,
+]
+
+
+def _fetch_os_map_tile(lat: float, lon: float, zoom: int = 8) -> Optional[Image.Image]:
+    """Fetch a 2x2 grid of OS Paper (Leisure_27700) tiles centred on lat/lon."""
+    if not settings.OS_API_KEY:
+        return None
+
+    from api.services.coordinate_service import convert_wgs84_to_osgb
+
+    easting, northing, _ = convert_wgs84_to_osgb(lon, lat)
+
+    tile_cache_dir = Path(settings.TILE_CACHE_DIR) if settings.TILE_CACHE_DIR else None
+    layer = "Leisure_27700"
+    zoom = min(zoom, len(_BNG_RESOLUTIONS) - 1)
+    res = _BNG_RESOLUTIONS[zoom]
+    tile_span = res * 256
+
+    center_x = (easting - _BNG_ORIGIN[0]) / tile_span
+    center_y = (_BNG_ORIGIN[1] - northing) / tile_span
+
+    base_tx = int(center_x)
+    base_ty = int(center_y)
+    frac_x = center_x - base_tx
+    frac_y = center_y - base_ty
+    tx_start = base_tx - 1 if frac_x < 0.5 else base_tx
+    ty_start = base_ty - 1 if frac_y < 0.5 else base_ty
+
+    tiles: list[Image.Image] = []
+    for dy in range(2):
+        for dx in range(2):
+            tx, ty = tx_start + dx, ty_start + dy
+            tile_img = _fetch_single_tile(layer, zoom, tx, ty, tile_cache_dir)
+            if tile_img is None:
+                return None
+            tiles.append(tile_img)
+
+    composite = Image.new("RGB", (512, 512))
+    composite.paste(tiles[0], (0, 0))
+    composite.paste(tiles[1], (256, 0))
+    composite.paste(tiles[2], (0, 256))
+    composite.paste(tiles[3], (256, 256))
+
+    px_x = int((center_x - tx_start) * 256)
+    px_y = int((center_y - ty_start) * 256)
+    half = 200
+    left = max(0, min(px_x - half, 512 - 2 * half))
+    top = max(0, min(px_y - half, 512 - 2 * half))
+
+    return composite.crop((left, top, left + 2 * half, top + 2 * half))
+
+
+def _fetch_single_tile(
+    layer: str, z: int, x: int, y: int, cache_dir: Optional[Path]
+) -> Optional[Image.Image]:
+    """Fetch a single OS tile, using EFS cache if available."""
+    if cache_dir:
+        cached = cache_dir / layer / str(z) / str(x) / f"{y}.png"
+        if cached.exists():
+            try:
+                return Image.open(cached).convert("RGB")
+            except Exception:  # nosec B110 - fallback to API fetch
+                pass
+
+    import urllib.request
+
+    url = (
+        f"https://api.os.uk/maps/raster/v1/zxy/{layer}/{z}/{x}/{y}.png"
+        f"?key={settings.OS_API_KEY}"
+    )
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310
+            data = resp.read()
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        if cache_dir:
+            try:
+                tile_path = cache_dir / layer / str(z) / str(x) / f"{y}.png"
+                tile_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(tile_path, "wb") as f:
+                    f.write(data)
+            except Exception:  # nosec B110 - caching is best-effort
+                pass
+        return img
+    except Exception as e:
+        logger.warning("Failed to fetch OS tile z=%d x=%d y=%d: %s", z, x, y, e)
         return None
 
 
@@ -428,11 +536,11 @@ class OpenGraphService:
         canvas = Image.new("RGBA", (WIDTH, HEIGHT))
         _draw_gradient(canvas)
 
-        font_title = _load_font(42, bold=True)
-        font_subtitle = _load_font(24)
-        font_meta = _load_font(20)
-        font_detail = _load_font(18)
-        font_brand = _load_font(16)
+        font_title = _load_font(56, bold=True)
+        font_subtitle = _load_font(32)
+        font_meta = _load_font(26)
+        font_detail = _load_font(24)
+        font_brand = _load_font(32)
 
         draw = ImageDraw.Draw(canvas)
 
@@ -446,46 +554,46 @@ class OpenGraphService:
 
         # Title: waypoint - name
         text_x = map_x + uk_map.size[0] + 30
-        text_y = PADDING + 5
+        text_y = PADDING + 15
         title = f"{trig.waypoint} \u2013 {trig.name}"
         draw.text((text_x, text_y), str(title), font=font_title, fill=(255, 255, 255))
 
         # Subtitle: gridref . height (3dp)
-        text_y += 52
+        text_y += 74
         parts: list[str] = [str(trig.osgb_gridref)]
         if trig.osgb_height:
             parts.append(f"{float(trig.osgb_height):.3f}m")
         subtitle = "  \u00b7  ".join(parts)
-        draw.text((text_x, text_y), subtitle, font=font_subtitle, fill=(180, 200, 220))
+        draw.text((text_x, text_y), subtitle, font=font_subtitle, fill=(220, 235, 245))
 
         # Meta line: type, "Condition:" icon + text
-        text_y += 34
+        text_y += 50
         meta_x = text_x
         if trig.type_name:
             type_text = str(trig.type_name)
-            draw.text((meta_x, text_y), type_text, font=font_meta, fill=(140, 160, 180))
+            draw.text((meta_x, text_y), type_text, font=font_meta, fill=(190, 210, 225))
             bbox = draw.textbbox((meta_x, text_y), type_text, font=font_meta)
             meta_x = int(bbox[2]) + 20
 
         if trig.condition:
             cond_label = "Condition: "
             draw.text(
-                (meta_x, text_y), cond_label, font=font_meta, fill=(140, 160, 180)
+                (meta_x, text_y), cond_label, font=font_meta, fill=(190, 210, 225)
             )
             bbox = draw.textbbox((meta_x, text_y), cond_label, font=font_meta)
             meta_x = int(bbox[2]) + 2
-            cond_icon = _load_condition_icon(str(trig.condition), db, size=20)
+            cond_icon = _load_condition_icon(str(trig.condition), db, size=26)
             if cond_icon:
                 canvas.paste(cond_icon, (meta_x, text_y + 1), mask=cond_icon)
-                meta_x += 24
+                meta_x += 30
             cond_desc = get_condition_description(str(trig.condition))
-            draw.text((meta_x, text_y), cond_desc, font=font_meta, fill=(140, 160, 180))
+            draw.text((meta_x, text_y), cond_desc, font=font_meta, fill=(190, 210, 225))
 
         # Detail line: WGS84 coords, flush bracket, station number
-        text_y += 30
+        text_y += 44
         detail_parts: list[str] = []
         detail_parts.append(
-            f"WGS84: {float(trig.wgs_lat):.8f}, {float(trig.wgs_long):.8f}"
+            f"WGS84: {float(trig.wgs_lat):.7f}, {float(trig.wgs_long):.7f}"
         )
         fb = str(trig.fb_number).strip() if trig.fb_number else ""
         if fb:
@@ -497,18 +605,22 @@ class OpenGraphService:
             (text_x, text_y),
             "  \u00b7  ".join(detail_parts),
             font=font_detail,
-            fill=(120, 140, 160),
+            fill=(170, 190, 210),
         )
 
-        # Photo strip
-        photos_db = _select_photos_for_trig(db, int(trig.id), limit=4)
+        # Photo strip: 3 photos + OS map tile on the right
+        photos_db = _select_photos_for_trig(db, int(trig.id), limit=3)
         photo_images = []
         for p in photos_db:
             img = _download_photo(db, p)
             if img:
                 photo_images.append(img)
 
-        photo_y = PADDING + uk_map.size[1] + 50
+        os_tile = _fetch_os_map_tile(float(trig.wgs_lat), float(trig.wgs_long))
+        if os_tile:
+            photo_images.append(os_tile)
+
+        photo_y = PADDING + uk_map.size[1] + 40
         if photo_images:
             _compose_photo_strip(canvas, photo_images, photo_y)
         else:
@@ -516,18 +628,18 @@ class OpenGraphService:
                 (PADDING, photo_y + 80),
                 "No photos yet \u2014 be the first to add one!",
                 font=font_meta,
-                fill=(100, 120, 140),
+                fill=(150, 170, 190),
             )
 
         # Branding footer
-        footer_url = f"trigpointing.uk/trigs/{int(trig.id)}"
+        footer_url = f"https://trigpointing.uk/trigs/{int(trig.id)}"
         footer_bbox = draw.textbbox((0, 0), footer_url, font=font_brand)
         footer_w = footer_bbox[2] - footer_bbox[0]
         draw.text(
-            (WIDTH - PADDING - footer_w, HEIGHT - 35),
+            (WIDTH - PADDING - footer_w, HEIGHT - 50),
             footer_url,
             font=font_brand,
-            fill=(100, 120, 150),
+            fill=(255, 255, 255),
         )
 
         flat = Image.new("RGB", (WIDTH, HEIGHT), (20, 30, 50))
@@ -548,13 +660,13 @@ class OpenGraphService:
         canvas = Image.new("RGBA", (WIDTH, HEIGHT))
         _draw_gradient(canvas)
 
-        font_trig_name = _load_font(30, bold=True)
-        font_subtitle = _load_font(22)
-        font_meta = _load_font(20)
-        font_detail = _load_font(16)
-        font_user = _load_font(34, bold=True)
-        font_user_label = _load_font(28)
-        font_brand = _load_font(16)
+        font_trig_name = _load_font(38, bold=True)
+        font_subtitle = _load_font(28)
+        font_meta = _load_font(28)
+        font_detail = _load_font(22)
+        font_user = _load_font(44, bold=True)
+        font_user_label = _load_font(38)
+        font_brand = _load_font(32)
 
         draw = ImageDraw.Draw(canvas)
 
@@ -562,16 +674,73 @@ class OpenGraphService:
         if trig:
             uk_map = _draw_uk_map(trig)
         else:
-            uk_map = Image.new("RGBA", (140, 140), (30, 50, 80, 255))
+            uk_map = Image.new("RGBA", (200, 200), (30, 50, 80, 255))
         map_x, map_y = PADDING, PADDING
         canvas.paste(uk_map, (map_x, map_y), mask=uk_map)
 
         # Logo (top-right)
         self._draw_logo(canvas)
 
-        # Trig name with waypoint
         text_x = map_x + uk_map.size[0] + 30
         text_y = PADDING
+
+        # User avatar + "Logged by:" name (top line)
+        avatar_size = 48
+        avatar_drawn = False
+        if user:
+            avatar_img = _download_avatar(user)
+            if avatar_img:
+                avatar_img = _make_circular(
+                    avatar_img.resize(
+                        (avatar_size, avatar_size), Image.Resampling.LANCZOS
+                    )
+                )
+                canvas.paste(avatar_img, (text_x, text_y + 4), mask=avatar_img)
+                avatar_drawn = True
+
+        name_x = text_x + (avatar_size + 12 if avatar_drawn else 0)
+        if user:
+            label = "Logged by: "
+            label_y = text_y + 5
+            draw.text(
+                (name_x, label_y),
+                label,
+                font=font_user_label,
+                fill=(200, 215, 228),
+            )
+            label_bbox = draw.textbbox((name_x, label_y), label, font=font_user_label)
+            draw.text(
+                (int(label_bbox[2]) + 2, text_y),
+                str(user.name),
+                font=font_user,
+                fill=(74, 222, 128),
+            )
+
+        # Date and "Condition:" icon + text
+        info_y = text_y + 60
+        info_x = name_x
+        if log.date:
+            date_text = log.date.strftime("%-d %B %Y")
+            draw.text((info_x, info_y), date_text, font=font_meta, fill=(190, 210, 225))
+            bbox = draw.textbbox((info_x, info_y), date_text, font=font_meta)
+            info_x = int(bbox[2]) + 20
+
+        if log.condition:
+            cond_label = "Condition: "
+            draw.text(
+                (info_x, info_y), cond_label, font=font_meta, fill=(190, 210, 225)
+            )
+            bbox = draw.textbbox((info_x, info_y), cond_label, font=font_meta)
+            info_x = int(bbox[2]) + 2
+            cond_icon = _load_condition_icon(str(log.condition), db, size=26)
+            if cond_icon:
+                canvas.paste(cond_icon, (info_x, info_y + 1), mask=cond_icon)
+                info_x += 30
+            cond_desc = get_condition_description(str(log.condition))
+            draw.text((info_x, info_y), cond_desc, font=font_meta, fill=(190, 210, 225))
+
+        # Trig name with waypoint
+        text_y = info_y + 44
         if trig:
             trig_title = f"{trig.waypoint} \u2013 {trig.name}"
         else:
@@ -580,25 +749,25 @@ class OpenGraphService:
             (text_x, text_y),
             str(trig_title),
             font=font_trig_name,
-            fill=(200, 215, 230),
+            fill=(230, 240, 248),
         )
 
         # Gridref . height (3dp)
-        text_y += 38
+        text_y += 48
         if trig:
             parts: list[str] = [str(trig.osgb_gridref)]
             if trig.osgb_height:
                 parts.append(f"{float(trig.osgb_height):.3f}m")
             subtitle = "  \u00b7  ".join(parts)
             draw.text(
-                (text_x, text_y), subtitle, font=font_subtitle, fill=(180, 200, 220)
+                (text_x, text_y), subtitle, font=font_subtitle, fill=(210, 225, 238)
             )
 
         # Detail line: WGS84, flush bracket, station number
-        text_y += 30
+        text_y += 38
         if trig:
             detail_parts: list[str] = [
-                f"WGS84: {float(trig.wgs_lat):.8f}, {float(trig.wgs_long):.8f}"
+                f"WGS84: {float(trig.wgs_lat):.7f}, {float(trig.wgs_long):.7f}"
             ]
             fb = str(trig.fb_number).strip() if trig.fb_number else ""
             if fb:
@@ -610,88 +779,36 @@ class OpenGraphService:
                 (text_x, text_y),
                 "  \u00b7  ".join(detail_parts),
                 font=font_detail,
-                fill=(120, 140, 160),
+                fill=(170, 190, 210),
             )
 
-        # User avatar + "Logged by:" name
-        text_y += 28
-        avatar_size = 48
-        avatar_drawn = False
-        if user:
-            avatar_img = _download_avatar(user)
-            if avatar_img:
-                avatar_img = _make_circular(
-                    avatar_img.resize(
-                        (avatar_size, avatar_size), Image.Resampling.LANCZOS
-                    )
-                )
-                canvas.paste(avatar_img, (text_x, text_y), mask=avatar_img)
-                avatar_drawn = True
-
-        name_x = text_x + (avatar_size + 12 if avatar_drawn else 0)
-        if user:
-            label = "Logged by: "
-            draw.text(
-                (name_x, text_y + 4),
-                label,
-                font=font_user_label,
-                fill=(160, 175, 190),
-            )
-            label_bbox = draw.textbbox(
-                (name_x, text_y + 4), label, font=font_user_label
-            )
-            draw.text(
-                (int(label_bbox[2]) + 2, text_y),
-                str(user.name),
-                font=font_user,
-                fill=(255, 255, 255),
-            )
-
-        # Date and "Condition:" icon + text on second line
-        info_y = text_y + 42
-        info_x = name_x
-        if log.date:
-            date_text = log.date.strftime("%-d %B %Y")
-            draw.text((info_x, info_y), date_text, font=font_meta, fill=(140, 160, 180))
-            bbox = draw.textbbox((info_x, info_y), date_text, font=font_meta)
-            info_x = int(bbox[2]) + 20
-
-        if log.condition:
-            cond_label = "Condition: "
-            draw.text(
-                (info_x, info_y), cond_label, font=font_meta, fill=(140, 160, 180)
-            )
-            bbox = draw.textbbox((info_x, info_y), cond_label, font=font_meta)
-            info_x = int(bbox[2]) + 2
-            cond_icon = _load_condition_icon(str(log.condition), db, size=20)
-            if cond_icon:
-                canvas.paste(cond_icon, (info_x, info_y + 1), mask=cond_icon)
-                info_x += 24
-            cond_desc = get_condition_description(str(log.condition))
-            draw.text((info_x, info_y), cond_desc, font=font_meta, fill=(140, 160, 180))
-
-        # Photo strip
+        # Photo strip: 3 photos + OS map tile on the right
         trig_id = int(trig.id) if trig else int(log.trig_id or 0)
-        photos_db = _select_photos_for_log(db, log, trig_id, limit=4)
+        photos_db = _select_photos_for_log(db, log, trig_id, limit=3)
         photo_images = []
         for p in photos_db:
             img = _download_photo(db, p)
             if img:
                 photo_images.append(img)
 
-        photo_y = PADDING + uk_map.size[0] + 90
+        if trig:
+            os_tile = _fetch_os_map_tile(float(trig.wgs_lat), float(trig.wgs_long))
+            if os_tile:
+                photo_images.append(os_tile)
+
+        photo_y = PADDING + uk_map.size[0] + 70
         if photo_images:
             _compose_photo_strip(canvas, photo_images, photo_y)
 
         # Branding
-        footer_url = f"trigpointing.uk/logs/{int(log.id)}"
+        footer_url = f"https://trigpointing.uk/logs/{int(log.id)}"
         footer_bbox = draw.textbbox((0, 0), footer_url, font=font_brand)
         footer_w = footer_bbox[2] - footer_bbox[0]
         draw.text(
-            (WIDTH - PADDING - footer_w, HEIGHT - 35),
+            (WIDTH - PADDING - footer_w, HEIGHT - 50),
             footer_url,
             font=font_brand,
-            fill=(100, 120, 150),
+            fill=(255, 255, 255),
         )
 
         flat = Image.new("RGB", (WIDTH, HEIGHT), (20, 30, 50))
@@ -709,7 +826,7 @@ class OpenGraphService:
             return
         try:
             logo = Image.open(logo_path).convert("RGBA")
-            max_h = 90
+            max_h = 130
             ratio = max_h / logo.height
             logo = logo.resize(
                 (int(logo.width * ratio), max_h), Image.Resampling.LANCZOS
@@ -732,7 +849,7 @@ class OpenGraphService:
                 text_w = bbox[2] - bbox[0]
             text_x = logo_x + (logo_w - text_w) // 2
             text_y = logo_y + max_h + 4
-            draw.text((text_x, text_y), brand_text, font=font, fill=(200, 215, 230))
+            draw.text((text_x, text_y), brand_text, font=font, fill=(230, 240, 248))
         except Exception as e:
             logger.warning("Could not draw logo: %s", e)
 
