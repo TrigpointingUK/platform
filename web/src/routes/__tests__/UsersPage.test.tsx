@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { ThemeProvider } from "../../contexts/ThemeContext";
+import { ThemeProvider } from "../../contexts/ThemeProvider";
 import UsersPage from "../UsersPage";
 import { useUsersDirectory } from "../../hooks/useUsersDirectory";
 import { useAuth0 } from "@auth0/auth0-react";

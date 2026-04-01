@@ -171,10 +171,9 @@ export default function TrigsV2() {
     const typesParam = searchParams.get("types");
     if (typesParam) {
       const urlTypes = typesParam.split(",").filter((t) => allTypeCodes.includes(t));
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initializing state from URL params
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initialising state from URL params on first data load
       setSelectedTypes(urlTypes.length > 0 ? urlTypes : allTypeCodes);
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initializing state from async API data
       setSelectedTypes(allTypeCodes);
     }
     

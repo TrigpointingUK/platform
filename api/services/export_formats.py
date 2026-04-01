@@ -7,7 +7,7 @@ Supports CSV, GeoJSON, KML, and GPX formats.
 import csv
 import io
 import zipfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -263,7 +263,7 @@ def trigs_to_geojson(
     return {
         "type": "FeatureCollection",
         "features": features,
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -306,7 +306,7 @@ def trigs_to_gpx(
         '     http://www.topografix.com/GPX/1/1/gpx.xsd">',
         "  <metadata>",
         "    <name>TrigpointingUK Export</name>",
-        f"    <time>{datetime.utcnow().isoformat()}Z</time>",
+        f"    <time>{datetime.now(UTC).isoformat()}Z</time>",
         "  </metadata>",
     ]
 
@@ -395,7 +395,7 @@ def trigs_to_kml(
         '<kml xmlns="http://www.opengis.net/kml/2.2">',
         "  <Document>",
         "    <name>TrigpointingUK Export</name>",
-        f"    <description>Generated {datetime.utcnow().isoformat()}Z</description>",
+        f"    <description>Generated {datetime.now(UTC).isoformat()}Z</description>",
         # Define styles for different conditions
         '    <Style id="logged">',
         "      <IconStyle>",
@@ -702,7 +702,7 @@ def trigs_to_kmz(
         '<kml xmlns="http://www.opengis.net/kml/2.2">',
         "  <Document>",
         "    <name>TrigpointingUK</name>",
-        f"    <description>Generated {datetime.utcnow().isoformat()}Z</description>",
+        f"    <description>Generated {datetime.now(UTC).isoformat()}Z</description>",
     ]
 
     for family in _KMZ_ICON_FAMILIES:

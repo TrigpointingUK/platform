@@ -27,7 +27,7 @@ from api.db.database import Base
 
 # Note: MEDIUMINT and TINYINT are MySQL-specific, using Integer/SmallInteger for PostgreSQL
 
-# Tests now use PostgreSQL with PostGIS, so always use Geography type
+# Always use Geography type (PostgreSQL with PostGIS)
 _IS_SQLITE = False
 
 

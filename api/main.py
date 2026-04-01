@@ -3,6 +3,7 @@ Main FastAPI application entry point
 """
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,11 +27,33 @@ logger = logging.getLogger(__name__)
 # Configure logging first
 setup_logging()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown lifecycle hook."""
+    import sys
+
+    from api.services.coordinate_service import verify_ostn15_available
+
+    try:
+        verify_ostn15_available()
+    except RuntimeError as e:
+        logger.critical(f"OSTN15/OSGM15 verification failed: {e}")
+        logger.critical(
+            "Container will exit. Ensure PROJ grid files are installed. "
+            "See Dockerfile for required grid file downloads."
+        )
+        sys.exit(1)
+
+    yield
+
+
 # Create FastAPI app instance
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     debug=settings.DEBUG,
+    lifespan=lifespan,
     swagger_ui_oauth2_redirect_url="/docs/oauth2-redirect",
     swagger_ui_init_oauth={
         "clientId": settings.AUTH0_SPA_CLIENT_ID or "",
@@ -398,30 +421,6 @@ elif settings.PROFILING_ENABLED and not should_enable_profiling(settings.ENVIRON
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
-
-
-@app.on_event("startup")
-async def verify_ostn15_on_startup():
-    """
-    Verify OSTN15/OSGM15 transformation is available at startup.
-
-    This ensures the coordinate conversion grid files are properly loaded.
-    If OSTN15 is not available, the application will exit with an error.
-    See: docs/decisions/0001-ostn15-coordinate-conversion.md
-    """
-    import sys
-
-    from api.services.coordinate_service import verify_ostn15_available
-
-    try:
-        verify_ostn15_available()
-    except RuntimeError as e:
-        logger.critical(f"OSTN15/OSGM15 verification failed: {e}")
-        logger.critical(
-            "Container will exit. Ensure PROJ grid files are installed. "
-            "See Dockerfile for required grid file downloads."
-        )
-        sys.exit(1)
 
 
 @app.get("/health")

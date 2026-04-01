@@ -39,7 +39,6 @@ export default function PhotoManager({ logId, photos, isEditing }: PhotoManagerP
   useEffect(() => {
     if (prevDefaultLicenseRef.current !== defaultLicense) {
       prevDefaultLicenseRef.current = defaultLicense;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Responding to async user profile load
       setUploadForm((prev) => ({ ...prev, license: defaultLicense }));
     }
   }, [defaultLicense]);

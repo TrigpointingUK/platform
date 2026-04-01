@@ -6,7 +6,8 @@ import { Photo } from "../../lib/api";
 import { osgbToWGS84 } from "../../lib/coordinates";
 import { Link2 } from "lucide-react";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
-import FacebookShareButton, { getCanonicalOrigin } from "../ui/FacebookShareButton";
+import FacebookShareButton from "../ui/FacebookShareButton";
+import { getCanonicalOrigin } from "../../lib/canonicalOrigin";
 
 interface Log {
   id: number;

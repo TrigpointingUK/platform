@@ -7,7 +7,7 @@ import AppRouter from "./router";
 import ChatWidget from "./components/chat/ChatWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Auth0ErrorBoundary from "./components/Auth0ErrorBoundary";
-import { ThemeProvider } from "./contexts/ThemeContext";
+import { ThemeProvider } from "./contexts/ThemeProvider";
 import { AuthenticationError } from "./lib/authenticatedFetch";
 import { isAuth0Error } from "./lib/auth0ErrorHandler";
 import "./app.css";

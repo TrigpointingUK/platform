@@ -107,10 +107,4 @@ export function ConditionChip({
   );
 }
 
-// Helper to get all condition codes
-export function getAllConditionCodes(conditions: Condition[] | undefined): string[] {
-  if (!conditions) return [];
-  return conditions.map((c) => c.code);
-}
-
 export default ConditionChip;

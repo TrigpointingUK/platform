@@ -232,7 +232,7 @@ def require_scopes(*required_scopes: str):
         token_payload = ctx.token_payload
         token_type = token_payload.get("token_type")
 
-        if token_type == "auth0":  # nosec B105 - token type, not password
+        if token_type == "auth0":  # nosec B105
             scopes = extract_scopes(token_payload)
             missing = [s for s in required_scopes if s not in scopes]
             if missing:

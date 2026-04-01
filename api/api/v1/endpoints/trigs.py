@@ -7,6 +7,7 @@ import io
 import json
 import os
 import time
+from datetime import UTC
 from datetime import date as date_type
 from datetime import datetime
 from typing import Any, Optional
@@ -128,7 +129,7 @@ def _generate_export_data(db: Session, limit: Optional[int] = None) -> dict:
     return {
         "items": items_serialized,
         "total": len(items_serialized),
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -199,7 +200,7 @@ def export_trigs(
             },
         )
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     if_none_match = request.headers.get("If-None-Match")
 
     if cached_entry and _should_revalidate(last_validation, now):
@@ -365,7 +366,7 @@ def _generate_geojson_data(db: Session, limit: Optional[int] = None) -> dict:
         }
 
     # Add metadata
-    result["generated_at"] = datetime.utcnow().isoformat()
+    result["generated_at"] = datetime.now(UTC).isoformat()
 
     return result
 
@@ -505,7 +506,7 @@ def _generate_and_cache_payload(
                 wrapper = _wrap_cache_payload(payload, timestamp_str)
                 _write_cache_entry(cache_key, wrapper)
                 metadata = {
-                    "last_validation": datetime.utcnow().isoformat(),
+                    "last_validation": datetime.now(UTC).isoformat(),
                     "cache_version": CACHE_VERSION,
                 }
                 _set_cache_metadata(cache_key, metadata)
@@ -546,7 +547,7 @@ def _maybe_refresh_cache_entry(
             current_timestamp_str = _current_timestamp_str(db)
             db_duration_ms = (time.perf_counter() - db_start) * 1000
             cached_timestamp = cached_entry.get("_data_timestamp")
-            now_iso = datetime.utcnow().isoformat()
+            now_iso = datetime.now(UTC).isoformat()
 
             if cached_timestamp == current_timestamp_str:
                 metadata["last_validation"] = now_iso
@@ -660,7 +661,7 @@ def export_trigs_geojson(
             },
         )
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     if_none_match = request.headers.get("If-None-Match")
 
     if cached_entry and _should_revalidate(last_validation, now):

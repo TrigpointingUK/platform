@@ -46,7 +46,7 @@ resource "aws_instance" "bastion" {
     http_put_response_hop_limit = 1
   }
 
-  user_data = base64encode(templatefile("${path.module}/bastion_user_data.sh", {
+  user_data_base64 = base64encode(templatefile("${path.module}/bastion_user_data.sh", {
     motd = "Please run the Ansible playbook to configure the bastion host."
   }))
 
@@ -55,9 +55,7 @@ resource "aws_instance" "bastion" {
   }
 
   lifecycle {
-    # Ignore changes to public IP/DNS as they're managed by EIP association
-    # AWS provider v6 incorrectly detects these as changes
-    ignore_changes = [public_ip, public_dns, ami]
+    ignore_changes = [ami]
   }
 }
 

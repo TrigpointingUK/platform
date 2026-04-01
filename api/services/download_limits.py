@@ -73,7 +73,7 @@ def get_redis_client() -> Optional[redis.Redis]:
             socket_connect_timeout=5,
             socket_timeout=5,
         )
-        # Test connection
+        # Verify connection
         client.ping()
         return client
     except RedisError as e:

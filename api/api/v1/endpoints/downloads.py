@@ -5,7 +5,7 @@ Supports multiple formats (CSV, GeoJSON, KML, GPX) with optional filtering
 and user-personalised data inclusion.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -208,7 +208,7 @@ def download_trigs(
     county_names = get_county_names_for_trigs(db, trig_ids)
 
     # Generate output in requested format
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     content: str | bytes
 
     if format == "csv":
@@ -518,7 +518,7 @@ def download_my_data(
     logger.info(f"My-data download: user={user_id}, log_count={count}, format={format}")
 
     # Generate output
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     username = current_user.name or f"user_{user_id}"
 
     if format == "csv":
@@ -534,7 +534,7 @@ def download_my_data(
                 "id": user_id,
                 "username": current_user.name,
             },
-            "export_date": datetime.utcnow().isoformat(),
+            "export_date": datetime.now(UTC).isoformat(),
             "log_count": count,
             "logs": _logs_to_json(db, logs, include_photos),
         }

@@ -100,7 +100,7 @@ def get_redis_client() -> Optional[redis.Redis]:
                 retry_on_timeout=True,
             )
 
-        # Test connection
+        # Verify connection
         _redis_client.ping()
         logger.info(
             json.dumps(
@@ -168,11 +168,9 @@ def generate_cache_key(
     if params:
         # Sort keys for consistent hashing, use custom encoder for date objects
         params_str = json.dumps(params, sort_keys=True, cls=CacheKeyEncoder)
-        params_hash = (
-            hashlib.md5(  # nosec B303, B324 - used for cache keys, not security
-                params_str.encode(), usedforsecurity=False
-            ).hexdigest()[:8]
-        )
+        params_hash = hashlib.md5(  # nosec B303,B324
+            params_str.encode(), usedforsecurity=False
+        ).hexdigest()[:8]
         parts.append(f"params_{params_hash}")
 
     parts.append(version)

@@ -4,7 +4,6 @@ Test configuration and fixtures.
 
 import os
 import uuid
-import warnings
 from contextvars import ContextVar
 from typing import Generator
 
@@ -45,14 +44,6 @@ from api.models import (  # noqa: F401
 )
 
 # Legacy JWT tokens removed - Auth0 only
-
-
-# Filter out deprecation warnings that are not actionable
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="pydantic.*")
-warnings.filterwarnings(
-    "ignore", category=PendingDeprecationWarning, module="starlette.*"
-)
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="passlib.*")
 
 
 def get_test_database_url():

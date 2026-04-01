@@ -24,7 +24,8 @@ import {
   moveTrigToLogLocation,
   setTrigConditionFromLog,
 } from "../lib/api";
-import FacebookShareButton, { getCanonicalOrigin } from "../components/ui/FacebookShareButton";
+import FacebookShareButton from "../components/ui/FacebookShareButton";
+import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();

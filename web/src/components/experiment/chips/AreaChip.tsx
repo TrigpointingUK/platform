@@ -11,7 +11,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { MapIcon, SortAsc, Navigation, Loader2 } from "lucide-react";
 import { FilterChip, FilterListItem } from "../FilterChip";
-import { useAreaTypes, useAreasByType, type Area } from "../../../hooks/useReferenceData";
+import { useAreaTypes, useAreasByType } from "../../../hooks/useReferenceData";
 
 type SortMode = "name" | "distance";
 
@@ -226,12 +226,6 @@ export function AreaChip({
       )}
     </FilterChip>
   );
-}
-
-// Helper to get all area IDs from a list
-export function getAllAreaIds(areas: Area[] | undefined): number[] {
-  if (!areas) return [];
-  return areas.map((a) => a.id);
 }
 
 export default AreaChip;

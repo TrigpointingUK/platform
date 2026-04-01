@@ -10,9 +10,7 @@ The sitemap protocol limits each file to 50,000 URLs, so we split into:
 
 import logging
 from datetime import date, datetime
-from xml.sax.saxutils import (
-    escape as escape_xml,  # nosec B406 - used for XML generation, not parsing untrusted input
-)
+from xml.sax.saxutils import escape as escape_xml  # nosec B406
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import text

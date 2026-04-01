@@ -242,6 +242,42 @@ def list_logs_filtered(
     return q.offset(skip).limit(limit).all()
 
 
+def list_recent_activity_logs(
+    db: Session,
+    *,
+    min_count: int = 10,
+) -> List[TLog]:
+    """Return all published logs from today and yesterday, with a guaranteed
+    minimum of *min_count* rows.  If today+yesterday yields fewer than
+    *min_count*, older logs are fetched to fill the gap.
+    """
+    from datetime import timedelta
+
+    yesterday = DateType.today() - timedelta(days=1)
+
+    recent = (
+        db.query(TLog)
+        .filter(TLog.status == "P", TLog.date >= yesterday)
+        .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
+        .all()
+    )
+
+    if len(recent) >= min_count:
+        return recent
+
+    shortfall = min_count - len(recent)
+
+    backfill = (
+        db.query(TLog)
+        .filter(TLog.status == "P", TLog.date < yesterday)
+        .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
+        .limit(shortfall)
+        .all()
+    )
+
+    return recent + backfill
+
+
 def count_logs_filtered(
     db: Session,
     *,
@@ -1109,9 +1145,9 @@ def delete_abandoned_drafts(
     Returns:
         Count of drafts deleted
     """
-    from datetime import datetime, timedelta
+    from datetime import UTC, datetime, timedelta
 
-    cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
+    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
 
     # Find all abandoned drafts
     drafts = (

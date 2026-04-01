@@ -7,7 +7,7 @@ from CSV rows.
 """
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -235,7 +235,7 @@ def apply_csv_to_trig(
     nearest_postcode = postcode_result[0] if postcode_result else None
 
     # Format timestamp for attention_comment
-    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    timestamp_str = datetime.now(UTC).strftime("%d %b %Y %H:%M:%S")
     new_comment = (
         f"{timestamp_str} - {admin_user.name} - {admin_user.email} - "
         f"IRELAND25 APPLY: {apply_request.admin_comment}"
@@ -348,7 +348,7 @@ def create_trig_from_csv(
     trig_data["postcode"] = postcode_result[0] if postcode_result else None
 
     # Format attention_comment
-    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    timestamp_str = datetime.now(UTC).strftime("%d %b %Y %H:%M:%S")
     trig_data["attention_comment"] = (
         f"{timestamp_str} - {admin_user.name} - {admin_user.email} - "
         f"IRELAND25 CREATE: {create_request.admin_comment}"
@@ -436,7 +436,7 @@ def bulk_create_trigs_from_csv(
             )
             trig_data["postcode"] = postcode_result[0] if postcode_result else None
 
-            timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+            timestamp_str = datetime.now(UTC).strftime("%d %b %Y %H:%M:%S")
             trig_data["attention_comment"] = (
                 f"{timestamp_str} - {admin_user.name} - {admin_user.email} - "
                 f"IRELAND25 BULK CREATE: {bulk_request.admin_comment}"

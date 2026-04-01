@@ -60,7 +60,6 @@ vi.mock('../../../lib/projections', () => ({
 
 vi.mock('leaflet', () => ({
   default: { CRS: { EPSG3857: { code: 'EPSG:3857' } } },
-  // eslint-disable-next-line @typescript-eslint/no-extraneous-class
   Icon: class { options: unknown; constructor(opts: unknown) { this.options = opts; } },
   CRS: { EPSG3857: { code: 'EPSG:3857' } },
 }));

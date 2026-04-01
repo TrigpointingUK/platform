@@ -6,7 +6,7 @@
 
 import { History, Loader2 } from "lucide-react";
 import { FilterChip, FilterListItem, FilterSelectionButtons } from "../FilterChip";
-import { useHistoricUseValues, type ReferenceValue } from "../../../hooks/useReferenceData";
+import { useHistoricUseValues } from "../../../hooks/useReferenceData";
 
 export interface HistoricUseChipProps {
   selectedValues: string[];
@@ -83,12 +83,6 @@ export function HistoricUseChip({
       )}
     </FilterChip>
   );
-}
-
-// Helper to get all historic use values
-export function getAllHistoricUseValues(values: ReferenceValue[] | undefined): string[] {
-  if (!values) return [];
-  return values.map((v) => v.value);
 }
 
 export default HistoricUseChip;

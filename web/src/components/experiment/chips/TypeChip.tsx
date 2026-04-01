@@ -249,10 +249,4 @@ export function TypeChip({
   );
 }
 
-// Helper to get all type codes - now needs to be called with categories data
-export function getAllTypeCodes(categories: TrigCategory[] | undefined): string[] {
-  if (!categories) return [];
-  return categories.flatMap((c) => c.types.map((t) => t.code));
-}
-
 export default TypeChip;

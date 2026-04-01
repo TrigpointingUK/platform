@@ -1,14 +1,5 @@
-import { createContext, useEffect, useState, ReactNode } from 'react';
-
-export type Theme = 'light' | 'dark' | 'system';
-
-export interface ThemeContextType {
-  theme: Theme;
-  resolvedTheme: 'light' | 'dark';
-  setTheme: (theme: Theme) => void;
-}
-
-export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+import { useEffect, useState, type ReactNode } from 'react';
+import { ThemeContext, type Theme } from './ThemeContext';
 
 const THEME_STORAGE_KEY = 'tuk-theme';
 
@@ -37,13 +28,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     return stored === 'system' ? getSystemTheme() : stored;
   });
 
-  // Update resolved theme when theme changes or system preference changes
   useEffect(() => {
     const updateResolvedTheme = () => {
       const resolved = theme === 'system' ? getSystemTheme() : theme;
       setResolvedTheme(resolved);
       
-      // Apply or remove dark class on document root
       if (resolved === 'dark') {
         document.documentElement.classList.add('dark');
       } else {
@@ -53,7 +42,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
     updateResolvedTheme();
 
-    // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
       if (theme === 'system') {

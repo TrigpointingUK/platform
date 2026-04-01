@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import LogForm from "../LogForm";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "../../../contexts/ThemeContext";
+import { ThemeProvider } from "../../../contexts/ThemeProvider";
 
 // Mock the hooks
 vi.mock("../../../hooks/useLogPhotos", () => ({

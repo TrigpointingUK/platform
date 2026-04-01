@@ -44,7 +44,7 @@ def get_auth0_debug(
     database_username: Optional[str] = None
     database_email: Optional[str] = None
 
-    if token_type == "auth0" and auth0_user_id:  # nosec B105 - token type
+    if token_type == "auth0" and auth0_user_id:  # nosec B105
         user = get_user_by_auth0_id(db, auth0_user_id=auth0_user_id)
         if user:
             database_user_found = True
