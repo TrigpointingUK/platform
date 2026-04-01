@@ -51,6 +51,13 @@ vi.mock('react-leaflet', () => ({
   useMap: () => mockMapInstance,
 }));
 
+// Prevent the heavy proj4leaflet module from loading in this worker thread
+vi.mock('../../../lib/projections', () => ({
+  getCRS: vi.fn((id: string) => ({ code: id || 'EPSG:3857' })),
+  EPSG27700: { code: 'EPSG:27700' },
+  EPSG3857: { code: 'EPSG:3857' },
+}));
+
 describe('BaseMap', () => {
   beforeEach(() => {
     vi.clearAllMocks();

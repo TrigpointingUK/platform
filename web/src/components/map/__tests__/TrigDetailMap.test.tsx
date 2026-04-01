@@ -1,18 +1,3 @@
-/**
- * TrigDetailMap Tests
- * 
- * NOTE: These tests may fail with "Worker terminated due to reaching memory limit"
- * when run in isolation (e.g., `npm test TrigDetailMap`). This is due to:
- * - The proj4leaflet library being memory-heavy during module initialization
- * - Node.js worker threads having a fixed heap limit that can't be configured with threads pool
- * 
- * The tests pass successfully when run as part of the full test suite because
- * the modules are cached across tests, reducing memory pressure.
- * 
- * Switching to 'forks' pool would allow execArgv to increase memory, but causes
- * significant slowdown of the overall test suite.
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -26,7 +11,28 @@ const renderWithRouter = (component: React.ReactElement) => {
   return render(<BrowserRouter>{component}</BrowserRouter>);
 };
 
-// Mock Leaflet components
+// useMap() must return a STABLE reference each time, otherwise MapReadyNotifier's
+// useEffect triggers onMapReady → setMapInstance → re-render → new ref → infinite loop → OOM.
+const { stableMapInstance } = vi.hoisted(() => {
+  const fn = () => vi.fn();
+  return {
+    stableMapInstance: {
+      setView: fn(),
+      setMinZoom: fn(),
+      setMaxZoom: fn(),
+      invalidateSize: fn(),
+      getZoom: fn().mockReturnValue(14),
+      setZoom: fn(),
+      dragging: { enable: fn(), disable: fn() },
+      touchZoom: { enable: fn(), disable: fn() },
+      doubleClickZoom: { enable: fn(), disable: fn() },
+      boxZoom: { enable: fn(), disable: fn() },
+      keyboard: { enable: fn(), disable: fn() },
+      scrollWheelZoom: { enable: fn(), disable: fn() },
+    },
+  };
+});
+
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children, ...props }: { children?: React.ReactNode; center: unknown; zoom: number; crs?: { code?: string } }) => (
     <div data-testid="map-container" data-center={JSON.stringify(props.center)} data-zoom={props.zoom} data-crs={props.crs?.code || 'default'}>
@@ -41,21 +47,28 @@ vi.mock('react-leaflet', () => ({
   ),
   Tooltip: ({ children }: { children?: React.ReactNode }) => <div data-testid="tooltip">{children}</div>,
   Popup: ({ children }: { children?: React.ReactNode }) => <div data-testid="popup">{children}</div>,
-  useMap: () => ({
-    setView: vi.fn(),
-    setMinZoom: vi.fn(),
-    setMaxZoom: vi.fn(),
-    invalidateSize: vi.fn(),
-    getZoom: vi.fn().mockReturnValue(14),
-    setZoom: vi.fn(),
-    dragging: { enable: vi.fn(), disable: vi.fn() },
-    touchZoom: { enable: vi.fn(), disable: vi.fn() },
-    doubleClickZoom: { enable: vi.fn(), disable: vi.fn() },
-    boxZoom: { enable: vi.fn(), disable: vi.fn() },
-    keyboard: { enable: vi.fn(), disable: vi.fn() },
-    scrollWheelZoom: { enable: vi.fn(), disable: vi.fn() },
-  }),
+  useMap: () => stableMapInstance,
   ScaleControl: () => <div data-testid="scale-control" />,
+}));
+
+// Prevent heavy leaflet/proj4leaflet modules from loading in this worker thread
+vi.mock('../../../lib/projections', () => ({
+  getCRS: vi.fn(() => ({ code: 'EPSG:3857' })),
+  EPSG27700: { code: 'EPSG:27700' },
+  EPSG3857: { code: 'EPSG:3857' },
+}));
+
+vi.mock('leaflet', () => ({
+  default: { CRS: { EPSG3857: { code: 'EPSG:3857' } } },
+  // eslint-disable-next-line @typescript-eslint/no-extraneous-class
+  Icon: class { options: unknown; constructor(opts: unknown) { this.options = opts; } },
+  CRS: { EPSG3857: { code: 'EPSG:3857' } },
+}));
+
+vi.mock('../MiniMap', () => ({
+  default: ({ lat, lng }: { lat: number; lng: number }) => (
+    <div data-testid="mini-map" data-lat={lat} data-lng={lng}>Mini Map</div>
+  ),
 }));
 
 describe('TrigDetailMap', () => {
