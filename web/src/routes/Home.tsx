@@ -271,6 +271,7 @@ function RecentLogsSection() {
           isLoading={isLoading}
           emptyMessage="No recent activity"
           showTrigCondition={showTrigCondition}
+          currentUserId={userProfile?.id}
         />
       )}
     </Card>

@@ -454,6 +454,7 @@ export default function UserProfile() {
               isLoading={isLoadingLogs}
               emptyMessage="No logs found"
               showTrigCondition={showTrigCondition}
+              currentUserId={currentUserProfile?.id}
             />
           </Card>
         </div>

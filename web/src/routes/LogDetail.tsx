@@ -280,7 +280,7 @@ export default function LogDetail() {
         {!isEditing ? (
           <>
             {/* Read-only view */}
-            <LogCard log={log} showTrigCondition={showTrigCondition} showTrigInfo={false} isAdmin={hasAdminRole} />
+            <LogCard log={log} isCurrentUserLog={isOwner} showTrigCondition={showTrigCondition} showTrigInfo={false} isAdmin={hasAdminRole} />
             
             {/* Edit and Delete buttons - only show if user owns this log */}
             {isOwner && (
