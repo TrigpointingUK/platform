@@ -102,6 +102,10 @@ resource "aws_ecs_task_definition" "app" {
         {
           name  = "AVATARS_S3_BUCKET"
           value = var.avatars_s3_bucket
+        },
+        {
+          name  = "OPENGRAPH_S3_BUCKET"
+          value = var.opengraph_s3_bucket
         }
         ],
         # Optional base environment variables

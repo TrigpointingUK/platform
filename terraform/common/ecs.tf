@@ -120,7 +120,8 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
         Resource = [
           "arn:aws:s3:::trigpointinguk-photos",
           "arn:aws:s3:::trigpointinguk-test",
-          "arn:aws:s3:::trigpointinguk-avatars"
+          "arn:aws:s3:::trigpointinguk-avatars",
+          "arn:aws:s3:::trigpointinguk-opengraph"
         ]
       },
       {
@@ -136,7 +137,8 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
         Resource = [
           "arn:aws:s3:::trigpointinguk-photos/*",
           "arn:aws:s3:::trigpointinguk-test/*",
-          "arn:aws:s3:::trigpointinguk-avatars/*"
+          "arn:aws:s3:::trigpointinguk-avatars/*",
+          "arn:aws:s3:::trigpointinguk-opengraph/*"
         ]
       },
       {

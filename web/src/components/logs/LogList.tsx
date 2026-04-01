@@ -24,6 +24,8 @@ interface LogListProps {
   showTrigCondition?: boolean;
   /** Show the trig header line (waypoint, name, type). Default: true */
   showTrigInfo?: boolean;
+  /** Show admin OG preview link on every card */
+  isAdmin?: boolean;
 }
 
 export default function LogList({
@@ -33,6 +35,7 @@ export default function LogList({
   currentUserId,
   showTrigCondition = false,
   showTrigInfo = true,
+  isAdmin = false,
 }: LogListProps) {
   if (isLoading) {
     return (
@@ -60,6 +63,7 @@ export default function LogList({
           isCurrentUserLog={currentUserId !== undefined && log.user_id === currentUserId}
           showTrigCondition={showTrigCondition}
           showTrigInfo={showTrigInfo}
+          isAdmin={isAdmin}
         />
       ))}
     </div>

@@ -31,6 +31,37 @@ resource "aws_s3_bucket_public_access_block" "avatars" {
   restrict_public_buckets = true
 }
 
+# S3 bucket for Open Graph preview images (publicly readable)
+
+resource "aws_s3_bucket" "opengraph" {
+  bucket        = "trigpointinguk-opengraph"
+  force_destroy = false
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "opengraph" {
+  bucket = aws_s3_bucket.opengraph.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_ownership_controls" "opengraph" {
+  bucket = aws_s3_bucket.opengraph.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "opengraph" {
+  bucket                  = aws_s3_bucket.opengraph.id
+  block_public_acls       = false
+  ignore_public_acls      = false
+  block_public_policy     = true
+  restrict_public_buckets = true
+}
+
 # S3 bucket for public video streaming assets (HLS playlists + segments)
 resource "aws_s3_bucket" "videos" {
   bucket        = "trigpointinguk-videos"

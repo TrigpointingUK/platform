@@ -960,6 +960,7 @@ export default function Logs() {
                   >
                     <LogCard
                       log={log}
+                      isCurrentUserLog={!!userProfile && log.user_id === userProfile.id}
                       showDistance={centerLat !== null && centerLon !== null}
                       showTrigCondition={showTrigCondition}
                     />

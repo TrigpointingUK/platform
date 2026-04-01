@@ -208,3 +208,9 @@ variable "avatars_s3_bucket" {
   type        = string
   default     = "trigpointinguk-avatars"
 }
+
+variable "opengraph_s3_bucket" {
+  description = "S3 bucket name for Open Graph preview images"
+  type        = string
+  default     = "trigpointinguk-opengraph"
+}
