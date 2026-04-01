@@ -195,7 +195,7 @@ def _draw_uk_map(trig: Trig) -> Image.Image:
     )
     x, y = x * scale, y * scale
 
-    tint = Image.new("RGBA", base.size, (250, 220, 200, 70))
+    tint = Image.new("RGBA", base.size, (240, 240, 220, 70))
     tint.putalpha(base.split()[3])
     base = Image.alpha_composite(base, tint)
 
