@@ -37,6 +37,10 @@ updates:
         patterns:
           - "@typescript-eslint/*"
           - "typescript-eslint"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
     
   - package-ecosystem: "terraform"
     directory: "/terraform/staging"
