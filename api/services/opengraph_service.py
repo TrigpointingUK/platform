@@ -213,7 +213,6 @@ def _select_photos_for_trig(db: Session, trig_id: int, limit: int = 4) -> list[T
         .join(TLog, TPhoto.tlog_id == TLog.id)
         .filter(TLog.trig_id == trig_id)
         .filter(TPhoto.deleted_ind != "Y")
-        .filter(TPhoto.public_ind == "Y")
         .order_by(TPhoto.crt_timestamp.desc())
         .limit(200)
         .all()
@@ -253,12 +252,11 @@ def _select_photos_for_trig(db: Session, trig_id: int, limit: int = 4) -> list[T
 def _select_photos_for_log(
     db: Session, log: TLog, trig_id: int, limit: int = 4
 ) -> list[TPhoto]:
-    """Select photos for a log, prioritising the log's own photos."""
+    """Select photos for a log, prioritising the log's own photos then same user."""
     log_photos = (
         db.query(TPhoto)
         .filter(TPhoto.tlog_id == log.id)
         .filter(TPhoto.deleted_ind != "Y")
-        .filter(TPhoto.public_ind == "Y")
         .order_by(TPhoto.crt_timestamp.desc())
         .all()
     )
@@ -267,8 +265,40 @@ def _select_photos_for_log(
     if len(selected) >= limit:
         return selected
 
-    remaining = limit - len(selected)
     used_ids = {p.id for p in selected}
+    used_types = {str(p.type) for p in selected}
+
+    # Prefer other photos by the same user on this trig
+    if log.user_id:
+        user_photos = (
+            db.query(TPhoto)
+            .join(TLog, TPhoto.tlog_id == TLog.id)
+            .filter(TLog.trig_id == trig_id)
+            .filter(TLog.user_id == log.user_id)
+            .filter(TPhoto.id.notin_(used_ids))
+            .filter(TPhoto.deleted_ind != "Y")
+            .order_by(TPhoto.crt_timestamp.desc())
+            .limit(50)
+            .all()
+        )
+        for p in user_photos:
+            if len(selected) >= limit:
+                break
+            if str(p.type) not in used_types:
+                selected.append(p)
+                used_ids.add(p.id)
+                used_types.add(str(p.type))
+        for p in user_photos:
+            if len(selected) >= limit:
+                break
+            if p.id not in used_ids:
+                selected.append(p)
+                used_ids.add(p.id)
+
+    if len(selected) >= limit:
+        return selected[:limit]
+
+    remaining = limit - len(selected)
     supplement = _select_photos_for_trig(db, trig_id, limit=remaining + 10)
     for p in supplement:
         if len(selected) >= limit:
