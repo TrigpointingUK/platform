@@ -263,24 +263,6 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                 <span className="text-gray-500 dark:text-gray-400">{log.time}</span>
               )}
 
-              {isCurrentUserLog && (
-                <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
-              )}
-
-              {isAdmin && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const apiBase = import.meta.env.VITE_API_BASE as string;
-                    window.open(`${apiBase}/v1/logs/${log.id}/opengraph-image?refresh=1`, "_blank", "noopener,noreferrer");
-                  }}
-                  title="Preview OG image"
-                  className="inline-flex items-center text-gray-400 hover:text-trig-green-600 dark:text-gray-500 dark:hover:text-trig-green-400 transition-colors"
-                >
-                  <Link2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-
               {/* Distance from filter center point */}
               {showDistance && log.distance_km != null && (
                 <>
@@ -301,6 +283,24 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                   <span className="text-gray-400 dark:text-gray-500">·</span>
                   <span className="text-sm">{formatDistance(log.location_distance_m)}</span>
                 </>
+              )}
+
+              {isCurrentUserLog && (
+                <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
+              )}
+
+              {isAdmin && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const apiBase = import.meta.env.VITE_API_BASE as string;
+                    window.open(`${apiBase}/v1/logs/${log.id}/opengraph-image?refresh=1`, "_blank", "noopener,noreferrer");
+                  }}
+                  title="Preview OG image"
+                  className="inline-flex items-center text-gray-400 hover:text-trig-green-600 dark:text-gray-500 dark:hover:text-trig-green-400 transition-colors"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
           </div>

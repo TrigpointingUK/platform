@@ -826,7 +826,7 @@ class OpenGraphService:
             if os_tile:
                 photo_images.append(os_tile)
 
-        photo_y = PADDING + uk_map.size[0] + 70
+        photo_y = PADDING + uk_map.size[1] + 70
         if photo_images:
             _compose_photo_strip(canvas, photo_images, photo_y)
 
