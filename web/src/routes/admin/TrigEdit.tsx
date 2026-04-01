@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import Layout from "../../components/layout/Layout";
 import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
@@ -271,7 +270,7 @@ export default function TrigEdit() {
 
   if (!hasAdminRole) {
     return (
-      <Layout>
+      <>
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="text-center py-12">
@@ -284,14 +283,14 @@ export default function TrigEdit() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   // Show loading state while checking admin scope
   if (isAuthLoading || !hasAdminScope) {
     return (
-      <Layout>
+      <>
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="flex flex-col items-center justify-center py-12">
@@ -302,13 +301,13 @@ export default function TrigEdit() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (isLoading) {
     return (
-      <Layout>
+      <>
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="flex items-center justify-center py-12">
@@ -317,13 +316,13 @@ export default function TrigEdit() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (error || !trig) {
     return (
-      <Layout>
+      <>
         <div className="max-w-6xl mx-auto">
           <Card>
             <div className="text-center py-12">
@@ -337,12 +336,12 @@ export default function TrigEdit() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6">
           <div className="flex items-center justify-between">
@@ -786,7 +785,7 @@ export default function TrigEdit() {
           </div>
         </form>
       </div>
-    </Layout>
+    </>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import Layout from "../components/layout/Layout";
+
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import {
@@ -147,7 +147,7 @@ export default function UsersPage() {
   };
 
   return (
-    <Layout>
+    <>
       <title>Users | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
         <div className="space-y-2">
@@ -397,7 +397,7 @@ export default function UsersPage() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 

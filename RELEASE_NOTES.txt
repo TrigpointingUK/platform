@@ -78,6 +78,18 @@ Bug fix (hopefully!) for session timeouts requiring re-authentication
 Known bugs
 Mapping of trigpoints to map sheets not trustworthy - investigating
 
-?? Mar 2026
 
+?? Apr 2026
+
+Frontend
 User profile avatar can now be updated
+Added facebook links for trigs and logs
+Support for more legacy URLs
+
+Database
+Refined data for Irish trigpoints (ongoing)
+
+Backend
+Improved automated tests
+
+

@@ -553,6 +553,9 @@ export default function TrigInfoSection({
                 src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
                 alt={`Map thumbnail for ${trig.name}`}
                 className="w-[110px] h-[110px] border border-gray-300 rounded hover:border-trig-green-500 hover:shadow-md transition-all cursor-pointer"
+                width={110}
+                height={110}
+                fetchPriority="high"
               />
             </Link>
           ) : (
@@ -571,6 +574,9 @@ export default function TrigInfoSection({
                 src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
                 alt={`Map thumbnail for ${trig.name}`}
                 className="w-[110px] h-[110px] border border-gray-300 rounded hover:border-trig-green-500 hover:shadow-md transition-all cursor-pointer"
+                width={110}
+                height={110}
+                fetchPriority="high"
               />
             </a>
           )}

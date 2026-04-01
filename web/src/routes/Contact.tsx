@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import toast from "react-hot-toast";
-import Layout from "../components/layout/Layout";
+
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
@@ -161,7 +161,7 @@ export default function Contact() {
   const isFormValid = validateForm();
 
   return (
-    <Layout>
+    <>
       <title>Contact | TrigpointingUK</title>
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">Contact Us</h1>
@@ -276,7 +276,7 @@ export default function Contact() {
           </form>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 

@@ -26,7 +26,7 @@ import {
 import { latLonToScaledPixel, MAP_DIMENSIONS } from "../lib/mapCalibration";
 import { useTheme } from "../hooks/useTheme";
 import Spinner from "../components/ui/Spinner";
-import Layout from "../components/layout/Layout";
+
 
 /** Map colour schemes for light and dark modes */
 const MAP_COLOURS = {
@@ -653,7 +653,7 @@ export default function SurveyTimeline() {
   const lastDate = orderedDates[orderedDates.length - 1];
 
   return (
-    <Layout>
+    <>
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
@@ -892,7 +892,7 @@ export default function SurveyTimeline() {
           </p>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 

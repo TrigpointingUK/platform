@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-import Layout from "../../components/layout/Layout";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Spinner from "../../components/ui/Spinner";
@@ -571,7 +570,7 @@ export default function IrelandImport() {
   // Render
   if (!isAuthenticated) {
     return (
-      <Layout>
+      <>
         <div className="max-w-4xl mx-auto py-8 px-4">
           <Card className="p-8 text-center">
             <h2 className="text-xl font-semibold mb-4">
@@ -583,13 +582,13 @@ export default function IrelandImport() {
             <Button onClick={() => loginWithRedirect()}>Log In</Button>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <title>Ireland Import | Admin | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto py-8 px-4">
           <div className="flex items-center justify-center py-12">
@@ -599,13 +598,13 @@ export default function IrelandImport() {
             </span>
           </div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (error) {
     return (
-      <Layout>
+      <>
         <title>Ireland Import | Admin | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto py-8 px-4">
           <Card className="p-8 text-center">
@@ -614,12 +613,12 @@ export default function IrelandImport() {
             <Button onClick={() => fetchData()}>Retry</Button>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <title>Ireland Import | Admin | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto py-8 px-4">
         {/* Header */}
@@ -798,7 +797,7 @@ export default function IrelandImport() {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 

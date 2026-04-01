@@ -3,7 +3,6 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, GripVertical, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 
-import Layout from "../../components/layout/Layout";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Spinner from "../../components/ui/Spinner";
@@ -688,7 +687,7 @@ export default function TypesAdmin() {
 
   if (isLoading) {
     return (
-      <Layout>
+      <>
         <title>Types Admin | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
@@ -700,13 +699,13 @@ export default function TypesAdmin() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (error) {
     return (
-      <Layout>
+      <>
         <title>Types Admin | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
@@ -716,12 +715,12 @@ export default function TypesAdmin() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <title>Types Admin | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
@@ -1043,7 +1042,7 @@ export default function TypesAdmin() {
           (deleteTarget?.usageCount !== undefined && deleteTarget.usageCount > 0)
         }
       />
-    </Layout>
+    </>
   );
 }
 

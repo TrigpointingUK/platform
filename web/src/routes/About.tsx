@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 
 interface BuildInfo {
@@ -58,7 +57,7 @@ export default function About() {
 
   if (error) {
     return (
-      <Layout>
+      <>
         <title>About | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">About</h1>
@@ -68,13 +67,13 @@ export default function About() {
             </p>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!buildInfo) {
     return (
-      <Layout>
+      <>
         <title>About | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">About</h1>
@@ -82,12 +81,12 @@ export default function About() {
             <p className="text-gray-600 dark:text-gray-400">Loading build information...</p>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <title>About | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">About Trigpointing UK</h1>
@@ -283,7 +282,7 @@ export default function About() {
           </Card>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 

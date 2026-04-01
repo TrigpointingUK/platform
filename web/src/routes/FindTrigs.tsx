@@ -13,7 +13,7 @@ import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUserProfile } from "../hooks/useUserProfile";
 import type { UserLogStatus } from "../lib/mapIcons";
-import Layout from "../components/layout/Layout";
+
 
 // Default location: Buxton
 const DEFAULT_LAT = 53.2585;
@@ -302,7 +302,7 @@ export default function FindTrigs() {
   };
 
   return (
-    <Layout>
+    <>
       <title>Find Trigpoints | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
@@ -547,7 +547,7 @@ export default function FindTrigs() {
         )}
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 

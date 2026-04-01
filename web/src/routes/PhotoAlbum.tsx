@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import { useQueryClient, InfiniteData } from "@tanstack/react-query";
-import Layout from "../components/layout/Layout";
 import PhotoGrid from "../components/photos/PhotoGrid";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
@@ -106,7 +105,7 @@ export default function PhotoAlbum() {
 
   if (error) {
     return (
-      <Layout>
+      <>
         <title>Photo Album | TrigpointingUK</title>
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">Photo Gallery</h1>
@@ -117,12 +116,12 @@ export default function PhotoAlbum() {
             <Button onClick={() => window.location.reload()}>Reload Page</Button>
           </div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <title>Photo Album | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -247,7 +246,7 @@ export default function PhotoAlbum() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 

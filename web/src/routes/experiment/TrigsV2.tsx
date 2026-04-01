@@ -10,7 +10,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Filter, RotateCcw, FlaskConical, HelpCircle, ArrowUpDown, Mountain, Trophy, SortAsc, MapPin } from "lucide-react";
-import Layout from "../../components/layout/Layout";
+
 import Card from "../../components/ui/Card";
 import { TrigCard } from "../../components/trigs/TrigCard";
 import { useInfiniteTrigs } from "../../hooks/useInfiniteTrigs";
@@ -499,7 +499,7 @@ export default function TrigsV2() {
   ]);
 
   return (
-    <Layout>
+    <>
       <title>Trigs v2 (Experiment) | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
@@ -782,6 +782,6 @@ export default function TrigsV2() {
           )}
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
