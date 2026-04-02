@@ -88,7 +88,7 @@ security_scheme = HTTPBearer()
 app.openapi_schema = None  # Clear the schema cache
 
 
-def custom_openapi():
+def custom_openapi() -> dict:
     if app.openapi_schema:
         return app.openapi_schema
     from fastapi.openapi.utils import get_openapi

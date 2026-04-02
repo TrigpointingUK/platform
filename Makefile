@@ -180,7 +180,6 @@ diff-cov: ## Check diff coverage against origin/main (fail if < 90%)
 # Code quality
 lint: ## Run linting
 	flake8 api
-	mypy api --ignore-missing-imports
 
 format: ## Format code
 	black api

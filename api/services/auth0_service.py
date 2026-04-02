@@ -26,6 +26,8 @@ from api.utils.username_sanitizer import sanitize_username_for_auth0
 
 logger = get_logger(__name__)
 
+_REDACTED = "***REDACTED***"
+
 
 class Auth0EmailAlreadyExistsError(Exception):
     """Raised when attempting to create an Auth0 user with an email that already exists."""
@@ -938,8 +940,7 @@ class Auth0Service:
 
         # Create safe user_data for logging (redact password)
         safe_user_data = user_data.copy()
-        redacted_text = "***REDACTED***"
-        safe_user_data["password"] = redacted_text
+        safe_user_data["password"] = _REDACTED
 
         log_data = {
             "event": "auth0_user_creation_api_call",
@@ -1091,7 +1092,7 @@ class Auth0Service:
             user_data["family_name"] = surname
 
         safe_user_data = user_data.copy()
-        safe_user_data["password"] = "***REDACTED***"  # nosec B105
+        safe_user_data["password"] = _REDACTED
 
         logger.info(
             json.dumps(
@@ -1378,8 +1379,7 @@ class Auth0Service:
 
         # Create safe user_data for logging (redact password)
         safe_user_data = user_data.copy()
-        redacted_text = "***REDACTED***"  # nosec B105
-        safe_user_data["password"] = redacted_text
+        safe_user_data["password"] = _REDACTED
 
         log_data = {
             "event": "auth0_migration_user_creation_started",

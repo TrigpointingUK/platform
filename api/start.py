@@ -13,9 +13,10 @@ import uvicorn
 
 from api.core.logging import get_uvicorn_log_config
 
+_DEFAULT_HOST = "0.0.0.0"  # nosec B104
+
 if __name__ == "__main__":
-    # Use 0.0.0.0 for Docker, configurable via env var
-    host = os.getenv("UVICORN_HOST", "0.0.0.0")  # nosec B104
+    host = os.getenv("UVICORN_HOST", _DEFAULT_HOST)
     port = int(os.getenv("UVICORN_PORT", "8000"))
 
     # Get log configuration

@@ -71,7 +71,7 @@ def _build_etag(data_timestamp: Optional[str]) -> str:
     Build a stable ETag from the data timestamp stored in the cache wrapper.
     """
     base = data_timestamp or "unknown"
-    return f'"{hashlib.md5(base.encode(), usedforsecurity=False).hexdigest()}"'  # nosec B324
+    return f'"{hashlib.md5(base.encode(), usedforsecurity=False).hexdigest()}"'
 
 
 def _should_revalidate(last_validation_iso: Optional[str], now: datetime) -> bool:

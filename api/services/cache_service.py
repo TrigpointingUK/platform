@@ -168,7 +168,7 @@ def generate_cache_key(
     if params:
         # Sort keys for consistent hashing, use custom encoder for date objects
         params_str = json.dumps(params, sort_keys=True, cls=CacheKeyEncoder)
-        params_hash = hashlib.md5(  # nosec B303,B324
+        params_hash = hashlib.md5(  # nosec B303
             params_str.encode(), usedforsecurity=False
         ).hexdigest()[:8]
         parts.append(f"params_{params_hash}")
