@@ -9,7 +9,8 @@ import { useUserProfile, type MapLinkOption } from "../../hooks/useUserProfile";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
 import { generateMapUrl, getTrigpointingUKMapPath, isInternalMapLink, MAP_LINK_DEFAULTS } from "../../lib/mapLinks";
 import { calculateDistance, calculateBearing } from "../../lib/coordinates";
-import FacebookShareButton, { getCanonicalOrigin } from "../ui/FacebookShareButton";
+import FacebookShareButton from "../ui/FacebookShareButton";
+import { getCanonicalOrigin } from "../../lib/canonicalOrigin";
 import { Link2 } from "lucide-react";
 
 interface TrigInfoSectionProps {
@@ -553,6 +554,9 @@ export default function TrigInfoSection({
                 src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
                 alt={`Map thumbnail for ${trig.name}`}
                 className="w-[110px] h-[110px] border border-gray-300 rounded hover:border-trig-green-500 hover:shadow-md transition-all cursor-pointer"
+                width={110}
+                height={110}
+                fetchPriority="high"
               />
             </Link>
           ) : (
@@ -571,6 +575,9 @@ export default function TrigInfoSection({
                 src={`${apiBase}/v1/trigs/${trigIdNum}/map`}
                 alt={`Map thumbnail for ${trig.name}`}
                 className="w-[110px] h-[110px] border border-gray-300 rounded hover:border-trig-green-500 hover:shadow-md transition-all cursor-pointer"
+                width={110}
+                height={110}
+                fetchPriority="high"
               />
             </a>
           )}

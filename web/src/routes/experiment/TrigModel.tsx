@@ -7,13 +7,13 @@
 
 import { Link } from "react-router-dom";
 import { ArrowLeft, RotateCcw } from "lucide-react";
-import Layout from "../../components/layout/Layout";
+
 import Card from "../../components/ui/Card";
 import TrigModelViewer from "../../components/experiment/TrigModelViewer";
 
 export default function TrigModel() {
   return (
-    <Layout>
+    <>
       <title>3D Trig Pillar | TrigpointingUK</title>
       <div className="max-w-5xl mx-auto">
         <Card>
@@ -51,7 +51,7 @@ export default function TrigModel() {
           </div>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 

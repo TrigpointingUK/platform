@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Link } from "react-router-dom";
-import Layout from "../../components/layout/Layout";
 import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
@@ -69,7 +68,7 @@ export default function NeedsAttention() {
 
   if (!hasAdminRole) {
     return (
-      <Layout>
+      <>
         <title>Needs Attention | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <Card>
@@ -83,14 +82,14 @@ export default function NeedsAttention() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   // Show loading state while checking admin scope
   if (isAuthLoading || !hasAdminScope) {
     return (
-      <Layout>
+      <>
         <title>Needs Attention | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <Card>
@@ -102,7 +101,7 @@ export default function NeedsAttention() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -115,7 +114,7 @@ export default function NeedsAttention() {
   };
 
   return (
-    <Layout>
+    <>
       <title>Needs Attention | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6">
@@ -237,7 +236,7 @@ export default function NeedsAttention() {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 

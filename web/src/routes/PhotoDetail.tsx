@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import Layout from '../components/layout/Layout';
 import Spinner from '../components/ui/Spinner';
 import { usePhotoSwipe } from '../hooks/usePhotoSwipe';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -159,43 +158,37 @@ export default function PhotoDetail() {
   // Show loading state while fetching
   if (isLoading && !cachedPhoto && !photoFromState) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-dvh">
-          <div className="text-center">
-            <Spinner size="lg" />
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading photo...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-dvh">
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading photo...</p>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   // Show error state or photo not found
   if ((error || (!photoForViewer && !isLoading)) && !cachedPhoto && !photoFromState) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-6 text-center">
-            <p className="text-red-600 dark:text-red-400 mb-4">
-              {error ? 'Failed to load photo.' : 'Photo not found.'}
-            </p>
-            <button
-              onClick={() => navigate('/photos')}
-              className="px-4 py-2 bg-trig-green-600 text-white rounded hover:bg-trig-green-700"
-            >
-              Back to Photos
-            </button>
-          </div>
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-6 text-center">
+          <p className="text-red-600 dark:text-red-400 mb-4">
+            {error ? 'Failed to load photo.' : 'Photo not found.'}
+          </p>
+          <button
+            onClick={() => navigate('/photos')}
+            className="px-4 py-2 bg-trig-green-600 text-white rounded hover:bg-trig-green-700"
+          >
+            Back to Photos
+          </button>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   // Render empty layout as background (PhotoSwipe will overlay)
   return (
-    <Layout>
-      <div className="max-w-7xl mx-auto" />
-    </Layout>
+    <div className="max-w-7xl mx-auto" />
   );
 }
 

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import toast from "react-hot-toast";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
@@ -36,7 +35,7 @@ export default function LegacyMigration() {
   if (isAuthenticated) {
     const username = user?.name || user?.nickname || user?.email || "there";
     return (
-      <Layout>
+      <>
         <title>Account Migration | TrigpointingUK</title>
         <div className="max-w-2xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
@@ -68,7 +67,7 @@ export default function LegacyMigration() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -161,7 +160,7 @@ export default function LegacyMigration() {
   const isFormValid = validateForm();
 
   return (
-    <Layout>
+    <>
       <title>Account Migration | TrigpointingUK</title>
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
@@ -329,7 +328,7 @@ export default function LegacyMigration() {
           )}
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 

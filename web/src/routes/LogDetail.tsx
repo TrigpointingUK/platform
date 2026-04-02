@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQueryClient } from "@tanstack/react-query";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
@@ -25,7 +24,8 @@ import {
   moveTrigToLogLocation,
   setTrigConditionFromLog,
 } from "../lib/api";
-import FacebookShareButton, { getCanonicalOrigin } from "../components/ui/FacebookShareButton";
+import FacebookShareButton from "../components/ui/FacebookShareButton";
+import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
@@ -198,69 +198,60 @@ export default function LogDetail() {
 
   if (!logIdNum) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <p className="text-red-600 dark:text-red-400">Invalid log ID</p>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <p className="text-red-600 dark:text-red-400">Invalid log ID</p>
+        </Card>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <p className="text-red-600 dark:text-red-400">Failed to load log details</p>
-            <Link
-              to="/"
-              className="text-trig-green-600 hover:underline mt-4 inline-block"
-            >
-              ← Back to Home
-            </Link>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <p className="text-red-600 dark:text-red-400">Failed to load log details</p>
+          <Link
+            to="/"
+            className="text-trig-green-600 hover:underline mt-4 inline-block"
+          >
+            ← Back to Home
+          </Link>
+        </Card>
+      </div>
     );
   }
 
   if (isLoading || isTrigLoading) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <Spinner size="lg" />
-            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading log...</p>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <Spinner size="lg" />
+          <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading log...</p>
+        </Card>
+      </div>
     );
   }
 
   if (!log) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <p className="text-red-600 dark:text-red-400">Log not found</p>
-            <Link
-              to="/"
-              className="text-trig-green-600 hover:underline mt-4 inline-block"
-            >
-              ← Back to Home
-            </Link>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <p className="text-red-600 dark:text-red-400">Log not found</p>
+          <Link
+            to="/"
+            className="text-trig-green-600 hover:underline mt-4 inline-block"
+          >
+            ← Back to Home
+          </Link>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="max-w-7xl mx-auto">
-        {/* Breadcrumb + Share */}
+    <div className="max-w-7xl mx-auto">
+      {/* Breadcrumb + Share */}
         <div className="mb-4 flex items-center gap-3">
           <button 
             onClick={() => navigate(-1)} 
@@ -497,8 +488,7 @@ export default function LogDetail() {
             </Card>
           </div>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 }
 

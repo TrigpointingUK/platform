@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from "react";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 
 interface Attribution {
@@ -149,7 +148,7 @@ export default function Attributions() {
 
   if (error) {
     return (
-      <Layout>
+      <>
         <title>Attributions | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
@@ -168,13 +167,13 @@ export default function Attributions() {
             </p>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!data) {
     return (
-      <Layout>
+      <>
         <title>Attributions | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">
@@ -184,12 +183,12 @@ export default function Attributions() {
             <p className="text-gray-600 dark:text-gray-400">Loading attribution data...</p>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <title>Attributions | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
@@ -412,7 +411,7 @@ export default function Attributions() {
           </p>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 

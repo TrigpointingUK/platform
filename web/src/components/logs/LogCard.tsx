@@ -6,7 +6,8 @@ import { Photo } from "../../lib/api";
 import { osgbToWGS84 } from "../../lib/coordinates";
 import { Link2 } from "lucide-react";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
-import FacebookShareButton, { getCanonicalOrigin } from "../ui/FacebookShareButton";
+import FacebookShareButton from "../ui/FacebookShareButton";
+import { getCanonicalOrigin } from "../../lib/canonicalOrigin";
 
 interface Log {
   id: number;
@@ -219,13 +220,17 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
             )}
             <div className="flex flex-wrap items-center gap-2 text-base text-gray-600 dark:text-gray-400">
               <span className="inline-flex items-center gap-1.5">
-                <img
-                  src={`https://trigpointinguk-avatars.s3.amazonaws.com/U${log.user_id.toString().padStart(5, "0")}.jpg`}
-                  alt=""
-                  className="w-6 h-6 rounded-full object-cover hidden"
-                  onLoad={(e) => e.currentTarget.classList.remove("hidden")}
-                  onError={(e) => e.currentTarget.classList.add("hidden")}
-                />
+                <span className="w-6 h-6 flex-shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 inline-block">
+                  <img
+                    src={`https://trigpointinguk-avatars.s3.amazonaws.com/U${log.user_id.toString().padStart(5, "0")}.jpg`}
+                    alt=""
+                    width={24}
+                    height={24}
+                    className="w-6 h-6 rounded-full object-cover opacity-0 transition-opacity duration-200"
+                    onLoad={(e) => e.currentTarget.classList.replace("opacity-0", "opacity-100")}
+                    onError={(e) => e.currentTarget.classList.add("hidden")}
+                  />
+                </span>
                 {displayUserName ? (
                   <Link
                     to={`/profile/${log.user_id}`}
@@ -330,6 +335,9 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                       alt={photo.caption}
                       className="h-full w-full object-cover rounded border border-gray-200 dark:border-gray-600 transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
                       title={photo.caption}
+                      width={80}
+                      height={80}
+                      loading="lazy"
                     />
                   </div>
                 ))}

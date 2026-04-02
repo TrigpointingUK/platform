@@ -3,7 +3,7 @@ Admin endpoints for cache management and contact form.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -715,7 +715,7 @@ def create_trig_admin(
     nearest_postcode = postcode_result[0] if postcode_result else None
 
     # Format timestamp for attention_comment
-    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    timestamp_str = datetime.now(UTC).strftime("%d %b %Y %H:%M:%S")
     attention_comment = f"{timestamp_str} - {admin_user.name} - {admin_user.email} - CREATED: {create_data.admin_comment}"
 
     # Prepare trig data
@@ -831,7 +831,7 @@ def update_trig_admin(
         needs_attention_value = int(trig.needs_attention)
 
     # Format timestamp in the legacy format: DD MMM YYYY HH:MM:SS
-    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    timestamp_str = datetime.now(UTC).strftime("%d %b %Y %H:%M:%S")
 
     # Append admin comment to attention_comment
     new_comment = f"{timestamp_str} - {admin_user.name} - {admin_user.email} - {update_data.admin_comment}"
@@ -979,7 +979,7 @@ def move_trig_to_log_location(
     )
 
     # Format timestamp for attention_comment
-    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    timestamp_str = datetime.now(UTC).strftime("%d %b %Y %H:%M:%S")
     new_comment = (
         f"{timestamp_str} - {admin_user.name} - {admin_user.email} - "
         f"MOVED: Location updated from log #{log_id} ({log.osgb_gridref})"
@@ -1096,7 +1096,7 @@ def set_trig_condition_from_log(
     client_ip = get_client_ip_normalized(raw_ip)
 
     # Format timestamp for attention_comment
-    timestamp_str = datetime.utcnow().strftime("%d %b %Y %H:%M:%S")
+    timestamp_str = datetime.now(UTC).strftime("%d %b %Y %H:%M:%S")
     new_comment = (
         f"{timestamp_str} - {admin_user.name} - {admin_user.email} - "
         f"CONDITION: Updated from log #{log_id} ('{trig.condition}' -> '{log.condition}')"

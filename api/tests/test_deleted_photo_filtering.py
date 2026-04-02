@@ -4,6 +4,7 @@ Tests to verify that deleted photos are properly filtered from all API endpoints
 
 from datetime import UTC, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -217,18 +218,13 @@ class TestDeletedPhotoFiltering:
             # Should count only 1 photo (the active one)
             assert body["stats"]["total_photos"] == 1
 
+    @pytest.mark.skip(
+        reason="Legacy endpoint has complex user lookup - fix confirmed manually"
+    )
     def test_legacy_user_stats_exclude_deleted_photos(
         self, client: TestClient, db: Session
     ):
-        """Test that legacy user endpoint excludes deleted photos from stats.
-
-        Note: Skipping this test as the legacy endpoint has complex user lookup
-        requirements that are harder to test. The fix is confirmed to be in place.
-        """
-        import pytest
-
-        pytest.skip("Legacy endpoint has complex user lookup - fix confirmed manually")
-
+        """Test that legacy user endpoint excludes deleted photos from stats."""
         user, tlog, active_photo, deleted_photo = create_test_data(db)
 
         resp = client.get(

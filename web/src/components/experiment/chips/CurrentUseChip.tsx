@@ -6,7 +6,7 @@
 
 import { Clock, Loader2 } from "lucide-react";
 import { FilterChip, FilterListItem, FilterSelectionButtons } from "../FilterChip";
-import { useCurrentUseValues, type ReferenceValue } from "../../../hooks/useReferenceData";
+import { useCurrentUseValues } from "../../../hooks/useReferenceData";
 
 export interface CurrentUseChipProps {
   selectedValues: string[];
@@ -83,12 +83,6 @@ export function CurrentUseChip({
       )}
     </FilterChip>
   );
-}
-
-// Helper to get all current use values
-export function getAllCurrentUseValues(values: ReferenceValue[] | undefined): string[] {
-  if (!values) return [];
-  return values.map((v) => v.value);
 }
 
 export default CurrentUseChip;

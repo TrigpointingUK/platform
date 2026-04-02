@@ -155,7 +155,12 @@ test-db-start: ## Start local PostgreSQL test database
 test-db-stop: ## Stop local PostgreSQL test database
 	docker compose -f docker-compose.test.yml down -v
 
-test: ## Run tests (requires test-db-start)
+proj-data: ## Download PROJ grid files needed for coordinate tests
+	@python -c "import pyproj" 2>/dev/null || { echo "⚠️  pyproj not installed, skipping grid download"; exit 0; }
+	@echo "📥 Ensuring PROJ grid files are available..."
+	@pyproj sync --source-id uk_os --file uk_os_OSGM15_Belfast.tif --file uk_os_OSGM15_Malin.tif 2>/dev/null || true
+
+test: proj-data ## Run tests (requires test-db-start)
 	@docker compose -f docker-compose.test.yml ps test-db | grep -qE "(Up|running)" || { echo "❌ Test database not running. Run 'make test-db-start' first."; exit 1; }
 	CACHE_ENABLED=false pytest -n auto
 

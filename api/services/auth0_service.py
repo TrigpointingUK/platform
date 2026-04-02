@@ -125,7 +125,7 @@ class Auth0Service:
                         socket_timeout=10,
                         retry_on_timeout=True,
                     )
-                # Test connection
+                # Verify connection
                 pong = self._redis_client.ping()
                 logger.info(
                     json.dumps(
@@ -1091,7 +1091,7 @@ class Auth0Service:
             user_data["family_name"] = surname
 
         safe_user_data = user_data.copy()
-        safe_user_data["password"] = "***REDACTED***"  # nosec B105 - redaction
+        safe_user_data["password"] = "***REDACTED***"  # nosec B105
 
         logger.info(
             json.dumps(

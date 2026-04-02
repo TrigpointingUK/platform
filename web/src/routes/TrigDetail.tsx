@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { useAuth0 } from "@auth0/auth0-react";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
@@ -174,63 +173,54 @@ export default function TrigDetail() {
 
   if (!trigIdNum) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <p className="text-red-600 dark:text-red-400">Invalid trigpoint ID</p>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <p className="text-red-600 dark:text-red-400">Invalid trigpoint ID</p>
+        </Card>
+      </div>
     );
   }
 
   if (trigError) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <p className="text-red-600 dark:text-red-400">Failed to load trigpoint details</p>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <p className="text-red-600 dark:text-red-400">Failed to load trigpoint details</p>
+        </Card>
+      </div>
     );
   }
 
   if (isTrigLoading) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <Spinner size="lg" />
-            <p className="text-center text-gray-600 dark:text-gray-400 mt-4">
-              Loading trigpoint details...
-            </p>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <Spinner size="lg" />
+          <p className="text-center text-gray-600 dark:text-gray-400 mt-4">
+            Loading trigpoint details...
+          </p>
+        </Card>
+      </div>
     );
   }
 
   if (!trig) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <p className="text-red-600 dark:text-red-400">Trigpoint not found</p>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <p className="text-red-600 dark:text-red-400">Trigpoint not found</p>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="max-w-7xl mx-auto">
-        {/* Main Info Section */}
+    <div className="max-w-7xl mx-auto">
+      {/* Main Info Section */}
         <TrigInfoSection trig={trig} isAdmin={hasAdminRole} />
 
         {/* Interactive Map and Official Data */}
-        <div className={`grid grid-cols-1 gap-6 mb-6 ${trig.attrs && trig.attrs.length > 0 ? 'lg:grid-cols-2' : ''}`}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Card className="p-0 overflow-hidden">
             <TrigDetailMap trig={trig} />
           </Card>
@@ -489,8 +479,7 @@ export default function TrigDetail() {
             </>
           )}
         </Card>
-      </div>
-    </Layout>
+    </div>
   );
 }
 

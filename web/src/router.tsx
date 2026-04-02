@@ -1,16 +1,20 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, RouterProvider, Navigate, useParams } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate, Outlet, useParams } from "react-router-dom";
+import Layout from "./components/layout/Layout";
 import Spinner from "./components/ui/Spinner";
 // NotFound is eagerly loaded to ensure it's always available, even if there are deployment issues
 import NotFound from "./routes/NotFound";
 
-const Home = lazy(() => import("./routes/Home"));
+// High-traffic routes loaded eagerly to eliminate the lazy-chunk round-trip for
+// pages that are the most common search-engine entry points.
+import Home from "./routes/Home";
+import TrigDetail from "./routes/TrigDetail";
+import LogDetail from "./routes/LogDetail";
+
 const Logs = lazy(() => import("./routes/Logs"));
 const PhotoAlbum = lazy(() => import("./routes/PhotoAlbum"));
 const PhotoDetail = lazy(() => import("./routes/PhotoDetail"));
-const TrigDetail = lazy(() => import("./routes/TrigDetail"));
 const TrigPhotos = lazy(() => import("./routes/TrigPhotos"));
-const LogDetail = lazy(() => import("./routes/LogDetail"));
 const UsersPage = lazy(() => import("./routes/UsersPage"));
 const UserProfile = lazy(() => import("./routes/UserProfile"));
 const UserPhotos = lazy(() => import("./routes/UserPhotos"));
@@ -56,7 +60,27 @@ function UserLogsRedirect() {
   return <Navigate to={`/logs?user=${userId}`} replace />;
 }
 
-function LoadingFallback() {
+/**
+ * Fallback shown in the content area while a lazy route chunk loads.
+ * Renders inside the already-visible Layout (header + footer stay painted),
+ * so the only visual change is in the main content area -- avoiding CLS.
+ */
+function ContentFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="text-center">
+        <Spinner size="lg" />
+        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Full-viewport fallback for routes that render their own layout
+ * (Search, AndroidAuthCallback) and don't sit inside the shared Layout.
+ */
+function FullPageFallback() {
   return (
     <div className="flex items-center justify-center min-h-dvh bg-gray-50 dark:bg-gray-900">
       <div className="text-center">
@@ -67,311 +91,84 @@ function LoadingFallback() {
   );
 }
 
+/**
+ * Root layout route: renders the shared Header + Footer eagerly, and wraps the
+ * child route's <Outlet /> in Suspense so the page chrome is always visible.
+ */
+function LayoutRoute() {
+  return (
+    <Layout>
+      <Suspense fallback={<ContentFallback />}>
+        <Outlet />
+      </Suspense>
+    </Layout>
+  );
+}
+
 const router = createBrowserRouter(
   [
+    // Routes that use the shared Layout (Header + content + Footer)
     {
-      path: "/",
+      element: <LayoutRoute />,
+      children: [
+        { path: "/", element: <Home /> },
+        { path: "/logs", element: <Logs /> },
+        { path: "/users", element: <UsersPage /> },
+        { path: "/trigs", element: <FindTrigs /> },
+        { path: "/map", element: <Map /> },
+        { path: "/logs/:logId", element: <LogDetail /> },
+        { path: "/photos", element: <PhotoAlbum /> },
+        { path: "/photos/:photo_id", element: <PhotoDetail /> },
+        // Redirect old /trig/ URLs to /trigs/ for backwards compatibility
+        { path: "/trig/:trigId", element: <TrigRedirect /> },
+        { path: "/trig/:trigId/photos", element: <TrigPhotosRedirect /> },
+        // New canonical /trigs/ routes
+        { path: "/trigs/:trigId", element: <TrigDetail /> },
+        { path: "/trigs/:trigId/photos", element: <TrigPhotos /> },
+        { path: "/profile/:userId", element: <UserProfile /> },
+        { path: "/profile/:userId/logs", element: <UserLogsRedirect /> },
+        { path: "/profile/:userId/photos", element: <UserPhotos /> },
+        { path: "/profile", element: <UserProfile /> },
+        { path: "/preferences", element: <Preferences /> },
+        { path: "/settings", element: <Navigate to="/preferences" replace /> },
+        { path: "/about", element: <About /> },
+        { path: "/app/:id", element: <AppDetail /> },
+        { path: "/legacy-migration", element: <LegacyMigration /> },
+        { path: "/contact", element: <Contact /> },
+        { path: "/attributions", element: <Attributions /> },
+        // Experimental routes
+        { path: "/experiment", element: <ExperimentIndex /> },
+        { path: "/experiment/survey-timeline", element: <SurveyTimeline /> },
+        { path: "/experiment/coordinates", element: <Experiments /> },
+        { path: "/experiment/trigs-v2", element: <TrigsV2 /> },
+        { path: "/experiment/3d-model", element: <TrigModel /> },
+        // Admin routes
+        { path: "/admin", element: <Admin /> },
+        { path: "/admin/needs-attention", element: <AdminNeedsAttention /> },
+        { path: "/admin/attention/logs", element: <AdminLogsNeedsAttention /> },
+        { path: "/admin/trigs/new", element: <AdminTrigCreate /> },
+        { path: "/admin/trigs/:trigId/edit", element: <AdminTrigEdit /> },
+        { path: "/admin/types", element: <AdminTypesAdmin /> },
+        { path: "/admin/status", element: <AdminStatusAdmin /> },
+        { path: "/admin/condition", element: <AdminConditionAdmin /> },
+        { path: "/admin/osnet", element: <AdminOSNetComparison /> },
+        { path: "/admin/ireland-import", element: <AdminIrelandImport /> },
+        { path: "*", element: <NotFound /> },
+      ],
+    },
+    // Routes that render their own layout (no shared Header/Footer)
+    {
+      path: "/search",
       element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <Home />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/logs",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <Logs />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/users",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <UsersPage />
-        </Suspense>
-      ),
-    },
-      {
-        path: "/trigs",
-        element: (
-          <Suspense fallback={<LoadingFallback />}>
-            <FindTrigs />
-          </Suspense>
-        ),
-      },
-      {
-        path: "/map",
-        element: (
-          <Suspense fallback={<LoadingFallback />}>
-            <Map />
-          </Suspense>
-        ),
-      },
-      {
-        path: "/search",
-        element: (
-          <Suspense fallback={<LoadingFallback />}>
-            <Search />
-          </Suspense>
-        ),
-      },
-    {
-      path: "/logs/:logId",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <LogDetail />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/photos",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <PhotoAlbum />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/photos/:photo_id",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <PhotoDetail />
-        </Suspense>
-      ),
-    },
-    // Redirect old /trig/ URLs to /trigs/ for backwards compatibility
-    {
-      path: "/trig/:trigId",
-      element: <TrigRedirect />,
-    },
-    {
-      path: "/trig/:trigId/photos",
-      element: <TrigPhotosRedirect />,
-    },
-    // New canonical /trigs/ routes
-    {
-      path: "/trigs/:trigId",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <TrigDetail />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/trigs/:trigId/photos",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <TrigPhotos />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/profile/:userId",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <UserProfile />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/profile/:userId/logs",
-      element: <UserLogsRedirect />,
-    },
-    {
-      path: "/profile/:userId/photos",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <UserPhotos />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/profile",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <UserProfile />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/preferences",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <Preferences />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/settings",
-      element: <Navigate to="/preferences" replace />,
-    },
-    {
-      path: "/about",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <About />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/app/:id",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AppDetail />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/legacy-migration",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <LegacyMigration />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/contact",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <Contact />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/attributions",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <Attributions />
-        </Suspense>
-      ),
-    },
-    // Experimental routes
-    {
-      path: "/experiment",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <ExperimentIndex />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/experiment/survey-timeline",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <SurveyTimeline />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/experiment/coordinates",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <Experiments />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/experiment/trigs-v2",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <TrigsV2 />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/experiment/3d-model",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <TrigModel />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <Admin />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/needs-attention",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminNeedsAttention />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/attention/logs",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminLogsNeedsAttention />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/trigs/new",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminTrigCreate />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/trigs/:trigId/edit",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminTrigEdit />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/types",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminTypesAdmin />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/status",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminStatusAdmin />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/condition",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminConditionAdmin />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/osnet",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminOSNetComparison />
-        </Suspense>
-      ),
-    },
-    {
-      path: "/admin/ireland-import",
-      element: (
-        <Suspense fallback={<LoadingFallback />}>
-          <AdminIrelandImport />
+        <Suspense fallback={<FullPageFallback />}>
+          <Search />
         </Suspense>
       ),
     },
     {
       path: "/android/uk.trigpointing.android/callback",
       element: (
-        <Suspense fallback={<LoadingFallback />}>
+        <Suspense fallback={<FullPageFallback />}>
           <AndroidAuthCallback />
         </Suspense>
       ),
@@ -379,14 +176,10 @@ const router = createBrowserRouter(
     {
       path: "/android/uk.trigpointing.android.debug/callback",
       element: (
-        <Suspense fallback={<LoadingFallback />}>
+        <Suspense fallback={<FullPageFallback />}>
           <AndroidAuthCallback />
         </Suspense>
       ),
-    },
-    {
-      path: "*",
-      element: <NotFound />,
     },
   ],
   {

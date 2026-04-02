@@ -1,5 +1,4 @@
 import LogCard from "./LogCard";
-import Spinner from "../ui/Spinner";
 import { Photo } from "../../lib/api";
 
 interface Log {
@@ -39,9 +38,27 @@ export default function LogList({
 }: LogListProps) {
   if (isLoading) {
     return (
-      <div className="py-12">
-        <Spinner size="lg" />
-        <p className="text-center text-gray-600 dark:text-gray-400 mt-4">Loading logs...</p>
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 animate-pulse"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-20 h-5 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="w-32 h-5 bg-gray-200 dark:bg-gray-700 rounded" />
+            </div>
+            <div className="space-y-2">
+              <div className="w-3/4 h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="w-1/2 h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+            </div>
+            <div className="flex items-center gap-2 mt-3">
+              <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded-full" />
+              <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

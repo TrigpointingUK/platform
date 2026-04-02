@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Link } from "react-router-dom";
-import Layout from "../../components/layout/Layout";
 import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
@@ -446,7 +445,7 @@ export default function LogsNeedsAttention() {
 
   if (!hasAdminRole) {
     return (
-      <Layout>
+      <>
         <title>Logs Needs Attention | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <Card>
@@ -460,14 +459,14 @@ export default function LogsNeedsAttention() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   // Show loading state while checking admin scope
   if (isAuthLoading || !hasAdminScope) {
     return (
-      <Layout>
+      <>
         <title>Logs Needs Attention | TrigpointingUK</title>
         <div className="max-w-6xl mx-auto">
           <Card>
@@ -479,7 +478,7 @@ export default function LogsNeedsAttention() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -492,7 +491,7 @@ export default function LogsNeedsAttention() {
   };
 
   return (
-    <Layout>
+    <>
       <title>Logs Needs Attention | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6">
@@ -600,6 +599,6 @@ export default function LogsNeedsAttention() {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

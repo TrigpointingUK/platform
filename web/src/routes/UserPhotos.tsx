@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { InfiniteData, useQueryClient } from "@tanstack/react-query";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import PhotoGrid from "../components/photos/PhotoGrid";
@@ -92,20 +91,17 @@ export default function UserPhotos() {
 
   if (error) {
     return (
-      <Layout>
-        <div className="max-w-7xl mx-auto">
-          <Card>
-            <p className="text-red-600 dark:text-red-400">Failed to load user photos</p>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-7xl mx-auto">
+        <Card>
+          <p className="text-red-600 dark:text-red-400">Failed to load user photos</p>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
@@ -163,9 +159,8 @@ export default function UserPhotos() {
               <p className="text-gray-600 dark:text-gray-400 text-lg">No photos found</p>
             </div>
           </Card>
-        )}
-      </div>
-    </Layout>
+      )}
+    </div>
   );
 }
 

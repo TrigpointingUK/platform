@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import EditableField from "../components/ui/EditableField";
@@ -131,30 +130,26 @@ export default function UserProfile() {
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="max-w-6xl mx-auto">
-          <div className="py-12 text-center">
-            <Spinner size="lg" />
-            <p className="text-gray-600 dark:text-gray-400 mt-4">Loading profile...</p>
-          </div>
+      <div className="max-w-6xl mx-auto">
+        <div className="py-12 text-center">
+          <Spinner size="lg" />
+          <p className="text-gray-600 dark:text-gray-400 mt-4">Loading profile...</p>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (error || !user) {
     return (
-      <Layout>
-        <div className="max-w-6xl mx-auto">
-          <Card>
-            <div className="text-center py-12">
-              <p className="text-red-600 dark:text-red-400 text-lg">
-                {error ? "Failed to load user profile" : "User not found"}
-              </p>
-            </div>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-6xl mx-auto">
+        <Card>
+          <div className="text-center py-12">
+            <p className="text-red-600 dark:text-red-400 text-lg">
+              {error ? "Failed to load user profile" : "User not found"}
+            </p>
+          </div>
+        </Card>
+      </div>
     );
   }
 
@@ -181,9 +176,8 @@ export default function UserProfile() {
   };
 
   return (
-    <Layout>
-      <div className="max-w-6xl mx-auto">
-        {/* Header Section */}
+    <div className="max-w-6xl mx-auto">
+      {/* Header Section */}
         <Card className="mb-6">
           {/* Main layout: Two columns on large screens */}
           <div className="flex flex-col xl:flex-row gap-6">
@@ -495,8 +489,7 @@ export default function UserProfile() {
             </div>
           </Card>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 }
 

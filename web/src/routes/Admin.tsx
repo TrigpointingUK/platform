@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
@@ -1395,7 +1394,7 @@ export default function Admin() {
   // User doesn't have admin role at all
   if (!hasAdminRole) {
     return (
-      <Layout>
+      <>
         <title>Admin | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
@@ -1409,14 +1408,14 @@ export default function Admin() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   // Loading or checking permissions
   if (isAuth0Loading || isCheckingScope || hasAdminScope === null) {
     return (
-      <Layout>
+      <>
         <title>Admin | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
@@ -1428,14 +1427,14 @@ export default function Admin() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   // Has role but not scope - showing message before redirect
   if (!hasAdminScope) {
     return (
-      <Layout>
+      <>
         <title>Admin | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
@@ -1450,13 +1449,13 @@ export default function Admin() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   // Has both role and scope - show admin page
   return (
-    <Layout>
+    <>
       <title>Admin | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6">
@@ -1568,7 +1567,7 @@ export default function Admin() {
           </Card>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 

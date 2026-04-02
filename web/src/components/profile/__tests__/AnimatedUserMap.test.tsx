@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AnimatedUserMap from "../AnimatedUserMap";
-import { ThemeProvider } from "../../../contexts/ThemeContext";
+import { ThemeProvider } from "../../../contexts/ThemeProvider";
 import type { ReactNode } from "react";
 
 // Mock the useUserLogTimeline hook

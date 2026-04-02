@@ -213,9 +213,91 @@ def list_logs(
         False,
         description="Exclude logs for trigpoints already logged by authenticated user",
     ),
+    mode: Optional[str] = Query(
+        None,
+        description="Special fetch mode. 'recent' returns all logs from today/yesterday with a minimum of `limit` rows.",
+    ),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
+    if mode == "recent":
+        items = tlog_crud.list_recent_activity_logs(db, min_count=limit)
+        items_serialized = enrich_logs_with_names(db, items)
+        if include:
+            tokens = {t.strip() for t in include.split(",") if t.strip()}
+            valid_includes = {"photos"}
+            invalid_tokens = tokens - valid_includes
+            if invalid_tokens:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid include parameter(s): {', '.join(sorted(invalid_tokens))}. Valid options: {', '.join(sorted(valid_includes))}",
+                )
+            if "photos" in tokens:
+                for out, orig in zip(items_serialized, items):
+                    photos = tphoto_crud.list_all_photos_for_log(
+                        db, log_id=int(orig.id)
+                    )
+                    out["photos"] = []
+                    trig = (
+                        db.query(Trig).filter(Trig.id == orig.trig_id).first()
+                        if orig.trig_id
+                        else None
+                    )
+                    for p in photos:
+                        photo_server: Server | None = (
+                            db.query(Server).filter(Server.id == p.server_id).first()
+                        )
+                        base_url = (
+                            str(photo_server.url)
+                            if photo_server and photo_server.url
+                            else ""
+                        )
+                        photo_type = str(p.type) if p.type and p.type.strip() else "O"
+                        out["photos"].append(
+                            TPhotoResponse(
+                                id=int(p.id),
+                                log_id=(int(p.tlog_id) if p.tlog_id is not None else 0),
+                                user_id=(
+                                    int(orig.user_id) if orig.user_id is not None else 0
+                                ),
+                                type=photo_type,
+                                filesize=int(p.filesize),
+                                height=int(p.height),
+                                width=int(p.width),
+                                icon_filesize=int(p.icon_filesize),
+                                icon_height=int(p.icon_height),
+                                icon_width=int(p.icon_width),
+                                name=str(p.name),
+                                text_desc=str(p.text_desc),
+                                public_ind=str(p.public_ind),
+                                photo_url=join_url(base_url, str(p.filename)),
+                                icon_url=join_url(base_url, str(p.icon_filename)),
+                                user_name=out.get("user_name"),
+                                trig_id=(int(orig.trig_id) if orig.trig_id else None),
+                                trig_name=(str(trig.name) if trig else None),
+                                log_date=(
+                                    date_type(
+                                        orig.date.year,
+                                        orig.date.month,
+                                        orig.date.day,
+                                    )
+                                    if orig.date
+                                    else None
+                                ),
+                            ).model_dump()
+                        )
+        total = len(items)
+        return {
+            "items": items_serialized,
+            "pagination": {
+                "total": total,
+                "limit": total,
+                "offset": 0,
+                "has_more": False,
+            },
+            "links": {"self": "/v1/logs?mode=recent", "next": None, "prev": None},
+        }
+
     # Parse groups from comma-separated string
     parsed_groups: Optional[List[str]] = None
     if groups:

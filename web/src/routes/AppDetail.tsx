@@ -1,12 +1,11 @@
 import { useParams } from "react-router-dom";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 
 export default function AppDetail() {
   const { id } = useParams<{ id: string }>();
 
   return (
-    <Layout>
+    <>
       <title>Trig #{id} | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto">
         <Card>
@@ -22,7 +21,7 @@ export default function AppDetail() {
           </p>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 

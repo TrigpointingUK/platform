@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
 import toast from "react-hot-toast";
-import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import {
@@ -155,7 +154,7 @@ export default function Preferences() {
 
   if (isLoading) {
     return (
-      <Layout>
+      <>
         <title>Preferences | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <div className="py-12 text-center">
@@ -163,13 +162,13 @@ export default function Preferences() {
             <p className="text-gray-600 dark:text-gray-400 mt-4">Loading preferences...</p>
           </div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (error || !user || !user.prefs) {
     return (
-      <Layout>
+      <>
         <title>Preferences | TrigpointingUK</title>
         <div className="max-w-4xl mx-auto">
           <Card>
@@ -182,12 +181,12 @@ export default function Preferences() {
             </div>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <title>Preferences | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
@@ -422,6 +421,6 @@ export default function Preferences() {
           </div>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }

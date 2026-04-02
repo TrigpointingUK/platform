@@ -3,7 +3,6 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQueryClient } from "@tanstack/react-query";
-import Layout from "../components/layout/Layout";
 import LogCard from "../components/logs/LogCard";
 import MiniTrigMap from "../components/map/MiniTrigMap";
 import Spinner from "../components/ui/Spinner";
@@ -618,7 +617,7 @@ export default function Logs() {
 
   if (error) {
     return (
-      <Layout>
+      <>
         <title>{pageTitle}</title>
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">{headerTitle}</h1>
@@ -629,12 +628,12 @@ export default function Logs() {
             <Button onClick={() => window.location.reload()}>Reload Page</Button>
           </div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <title>{pageTitle}</title>
       <div className="max-w-4xl mx-auto relative" ref={containerRef}>
         {/* Page Header */}
@@ -1036,6 +1035,6 @@ export default function Logs() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

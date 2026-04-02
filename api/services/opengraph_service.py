@@ -56,7 +56,7 @@ def _load_font(size: int, bold: bool = False) -> Union[ImageFont.FreeTypeFont, A
             if bold:
                 font.set_variation_by_axes([700])
             return font
-        except Exception:  # nosec B110 - intentional fallback to next font
+        except Exception:  # nosec B110
             pass
 
     for fallback in [
@@ -74,7 +74,7 @@ def _load_font(size: int, bold: bool = False) -> Union[ImageFont.FreeTypeFont, A
         if Path(fallback).exists():
             try:
                 return ImageFont.truetype(fallback, size)
-            except Exception:  # nosec B110 - intentional fallback to default font
+            except Exception:  # nosec B110
                 pass
 
     return ImageFont.load_default()
@@ -325,9 +325,7 @@ def _download_photo(db: Session, photo: TPhoto) -> Optional[Image.Image]:
                 import urllib.request
 
                 url = join_url(str(server.url), str(photo.filename))
-                with urllib.request.urlopen(
-                    url, timeout=10
-                ) as resp:  # nosec B310 - URL is constructed from trusted DB data
+                with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310
                     return Image.open(io.BytesIO(resp.read()))
         except Exception as e:
             logger.warning("Failed to download photo %d: %s", photo.id, e)
@@ -423,7 +421,7 @@ def _fetch_single_tile(
         if cached.exists():
             try:
                 return Image.open(cached).convert("RGB")
-            except Exception:  # nosec B110 - fallback to API fetch
+            except Exception:  # nosec B110
                 pass
 
     import urllib.request
@@ -442,7 +440,7 @@ def _fetch_single_tile(
                 tile_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(tile_path, "wb") as f:
                     f.write(data)
-            except Exception:  # nosec B110 - caching is best-effort
+            except Exception:  # nosec B110
                 pass
         return img
     except Exception as e:

@@ -8,7 +8,7 @@ Alembic migration (see api/tests/conftest.py).
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -112,7 +112,7 @@ def test_tlog_upd_timestamp_updates_on_update(client: TestClient, db: Session):
     assert after > before
 
     # Stored as naive UTC in the database (timestamp without time zone).
-    assert abs((datetime.utcnow() - after).total_seconds()) < 30
+    assert abs((datetime.now(UTC).replace(tzinfo=None) - after).total_seconds()) < 30
 
 
 def test_user_upd_timestamp_updates_on_me_patch(client: TestClient, db: Session):
@@ -139,7 +139,7 @@ def test_user_upd_timestamp_updates_on_me_patch(client: TestClient, db: Session)
     after = user.upd_timestamp
     assert after is not None
     assert after > before
-    assert abs((datetime.utcnow() - after).total_seconds()) < 30
+    assert abs((datetime.now(UTC).replace(tzinfo=None) - after).total_seconds()) < 30
 
 
 def test_trig_upd_timestamp_updates_on_admin_patch(client: TestClient, db: Session):
@@ -181,4 +181,4 @@ def test_trig_upd_timestamp_updates_on_admin_patch(client: TestClient, db: Sessi
     after = trig.upd_timestamp
     assert after is not None
     assert after > before
-    assert abs((datetime.utcnow() - after).total_seconds()) < 30
+    assert abs((datetime.now(UTC).replace(tzinfo=None) - after).total_seconds()) < 30

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import Layout from "../components/layout/Layout";
+
 import Sidebar from "../components/layout/Sidebar";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -24,6 +24,9 @@ function WelcomeSection() {
             src="/img/flush-bracket.apng"
             alt="Rotating 3D model of an Ordnance Survey flush bracket"
             className="w-24 h-24 object-contain"
+            width={96}
+            height={96}
+            fetchPriority="high"
           />
         </picture>
       </div>
@@ -59,6 +62,9 @@ function WelcomeSection() {
             src="/img/flush-bracket.apng"
             alt="Rotating 3D model of an Ordnance Survey flush bracket"
             className="w-32 h-32 md:w-40 md:h-40 object-contain"
+            width={160}
+            height={160}
+            fetchPriority="high"
           />
         </picture>
       </div>
@@ -280,7 +286,7 @@ function RecentLogsSection() {
 
 export default function Home() {
   return (
-    <Layout>
+    <>
       <title>TrigpointingUK</title>
       <div className="flex flex-col-reverse lg:flex-row gap-6">
         {/* Sidebar - bottom on mobile, left on desktop */}
@@ -294,6 +300,6 @@ export default function Home() {
           <RecentLogsSection />
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../../contexts/ThemeContext';
+import { ThemeProvider } from '../../contexts/ThemeProvider';
 import LogDetail from '../LogDetail';
 import { useLogDetail } from '../../hooks/useLogDetail';
 import { useTrigDetail } from '../../hooks/useTrigDetail';

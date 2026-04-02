@@ -590,7 +590,7 @@ def verify_ostn15_available() -> bool:
     expected_n = 180432.6360
     expected_osgb_h = -35.549
 
-    # Test 2D transformation
+    # Verify 2D transformation
     try:
         e, n, _ = convert_wgs84_to_osgb(test_lon, test_lat)
     except Exception as exc:
@@ -611,7 +611,7 @@ def verify_ostn15_available() -> bool:
             f"This may indicate OSTN15 grid files are not loaded."
         )
 
-    # Test 3D transformation (includes OSGM15 height)
+    # Verify 3D transformation (includes OSGM15 height)
     try:
         e3, n3, osgb_h = convert_wgs84_to_osgb(test_lon, test_lat, test_height)
     except Exception as exc:

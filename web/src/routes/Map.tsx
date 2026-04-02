@@ -13,7 +13,7 @@ import LocationButton from "../components/map/LocationButton";
 import { useAreaBoundary } from "../hooks/useAreaBoundary";
 import { StatusFilter } from "../components/trigs/StatusFilter";
 import { ColorFilter } from "../components/trigs/ColorFilter";
-import Layout from "../components/layout/Layout";
+
 import Spinner from "../components/ui/Spinner";
 import {
   useMapTrigsWithProgress,
@@ -622,7 +622,7 @@ export default function Map() {
   }, [mapInstance, preferredStatuses, searchParams, setSearchParams]);
 
   return (
-    <Layout>
+    <>
       <title>Map | TrigpointingUK</title>
       <div className="flex h-[calc(100dvh-4rem-7rem)] relative -mx-4 -mb-6">
         {/* Sidebar */}
@@ -935,6 +935,6 @@ export default function Map() {
           )}
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

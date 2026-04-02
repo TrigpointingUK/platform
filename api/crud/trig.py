@@ -626,7 +626,7 @@ def update_trig_admin(
     Returns:
         Updated Trig object or None if not found
     """
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     trig = get_trig_by_id(db, trig_id)
     if not trig:
@@ -639,7 +639,7 @@ def update_trig_admin(
 
     # Update admin tracking fields (stored on trig table)
     trig.admin_user_id = admin_user_id  # type: ignore
-    trig.admin_timestamp = datetime.utcnow()  # type: ignore
+    trig.admin_timestamp = datetime.now(UTC)  # type: ignore
     trig.admin_ip_addr = admin_ip_addr  # type: ignore
 
     db.commit()
@@ -707,9 +707,9 @@ def create_trig_admin(
     Returns:
         Newly created Trig object
     """
-    from datetime import date, datetime, time
+    from datetime import UTC, date, datetime, time
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     trig = Trig(
         waypoint="TEMP",  # Will be set from ID after flush

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import Layout from "../components/layout/Layout";
+
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
@@ -225,7 +225,7 @@ export default function Experiments() {
   };
 
   return (
-    <Layout>
+    <>
       <title>Experiments | TrigpointingUK</title>
       <div className="max-w-6xl mx-auto">
         <Card>
@@ -507,7 +507,7 @@ export default function Experiments() {
           </div>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 

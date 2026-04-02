@@ -15,7 +15,7 @@ import {
   Filter,
   Box,
 } from "lucide-react";
-import Layout from "../components/layout/Layout";
+
 import Card from "../components/ui/Card";
 
 interface ExperimentCardProps {
@@ -107,7 +107,7 @@ export default function ExperimentIndex() {
   ];
 
   return (
-    <Layout>
+    <>
       <title>Experiments | TrigpointingUK</title>
       <div className="max-w-4xl mx-auto">
         <Card>
@@ -162,7 +162,7 @@ export default function ExperimentIndex() {
           </div>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 

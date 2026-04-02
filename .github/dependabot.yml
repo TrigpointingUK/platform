@@ -15,6 +15,16 @@ updates:
       opentelemetry:
         patterns:
           - "opentelemetry*"
+      patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
     
   - package-ecosystem: "npm"
     directory: "/web"
@@ -37,6 +47,20 @@ updates:
         patterns:
           - "@typescript-eslint/*"
           - "typescript-eslint"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+      patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
     
   - package-ecosystem: "terraform"
     directory: "/terraform/staging"
@@ -44,3 +68,14 @@ updates:
       interval: "weekly"
     target-branch: "develop"
     open-pull-requests-limit: 50
+    groups:
+      patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"

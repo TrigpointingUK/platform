@@ -253,35 +253,33 @@ describe('LogCard', () => {
       expect(avatarImg.src).toContain('U00007.jpg');
     });
 
-    it('should render the avatar img as hidden initially', () => {
+    it('should render the avatar img as invisible initially', () => {
       renderWithProviders(<LogCard log={mockLog} />);
 
       const avatarImg = document.querySelector(
         'img[src*="trigpointinguk-avatars"]'
       ) as HTMLImageElement;
-      expect(avatarImg.classList.contains('hidden')).toBe(true);
+      expect(avatarImg.classList.contains('opacity-0')).toBe(true);
+      expect(avatarImg.classList.contains('opacity-100')).toBe(false);
     });
 
-    it('should remove hidden class on successful image load', () => {
+    it('should fade in on successful image load', () => {
       renderWithProviders(<LogCard log={mockLog} />);
 
       const avatarImg = document.querySelector(
         'img[src*="trigpointinguk-avatars"]'
       ) as HTMLImageElement;
       avatarImg.dispatchEvent(new Event('load'));
-      expect(avatarImg.classList.contains('hidden')).toBe(false);
+      expect(avatarImg.classList.contains('opacity-100')).toBe(true);
+      expect(avatarImg.classList.contains('opacity-0')).toBe(false);
     });
 
-    it('should add hidden class back on image load error', () => {
+    it('should add hidden class on image load error', () => {
       renderWithProviders(<LogCard log={mockLog} />);
 
       const avatarImg = document.querySelector(
         'img[src*="trigpointinguk-avatars"]'
       ) as HTMLImageElement;
-      // Simulate successful load then error (e.g. re-render with invalid URL)
-      avatarImg.dispatchEvent(new Event('load'));
-      expect(avatarImg.classList.contains('hidden')).toBe(false);
-
       avatarImg.dispatchEvent(new Event('error'));
       expect(avatarImg.classList.contains('hidden')).toBe(true);
     });
