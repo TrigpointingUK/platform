@@ -32,7 +32,7 @@ types-requests==2.33.0.20260327
 redis==7.4.0
 
 # Image processing
-Pillow==12.1.1
+Pillow==12.2.0
 numpy==2.4.4
 onnxruntime==1.24.4
 
