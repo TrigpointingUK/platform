@@ -91,5 +91,6 @@ Refined data for Irish trigpoints (ongoing)
 
 Backend
 Improved automated tests
+Sitemap for crawlers
 
 

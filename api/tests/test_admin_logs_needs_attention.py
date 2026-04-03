@@ -68,7 +68,9 @@ def _create_trig(db) -> Trig:
     return trig
 
 
-def test_admin_logs_needs_attention_returns_duplicate_groups(client, db, test_user):
+def test_admin_logs_needs_attention_returns_duplicate_groups(
+    client, db, test_user
+) -> None:
     _ensure_admin_user(db)
     trig = _create_trig(db)
 
@@ -138,8 +140,10 @@ def test_admin_logs_needs_attention_returns_duplicate_groups(client, db, test_us
 
 
 def test_admin_delete_duplicate_log_prevents_deleting_last_remaining(
-    client, db, test_user
-):
+    client,
+    db,
+    test_user,
+) -> None:
     _ensure_admin_user(db)
     trig = _create_trig(db)
 

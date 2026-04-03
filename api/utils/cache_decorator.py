@@ -8,7 +8,7 @@ including support for cache headers, bypass, and automatic serialization.
 import functools
 import inspect
 import json
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from fastapi import Request, Response
 from fastapi.encoders import jsonable_encoder
@@ -60,7 +60,7 @@ def cached(
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             # Try to get request from kwargs (may not exist in all endpoints)
             request: Optional[Request] = kwargs.get("request")
 
@@ -209,7 +209,7 @@ def cached(
                 )
 
         @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             # Try to get request from kwargs (may not exist in all endpoints)
             request: Optional[Request] = kwargs.get("request")
 
