@@ -5,11 +5,13 @@ Tests the GeoJSON structure with group keys, FeatureCollection metadata,
 and Redis cache fallback behavior.
 """
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from api.api.v1.endpoints.trigs import _should_revalidate
 from api.core.config import settings
 
 
@@ -226,3 +228,46 @@ class TestGeoJSONWithLimit:
                 and "features" in value
             ):
                 assert len(value["features"]) <= 1
+
+
+class TestShouldRevalidate:
+    """Tests for the _should_revalidate helper.
+
+    This function compares an ISO timestamp string (from cache) against
+    `now` (timezone-aware UTC). Cached strings may be naive (written by
+    older code using utcnow()) or aware (written by current code using
+    now(UTC)). Both must work without raising TypeError.
+    """
+
+    def test_none_input_triggers_revalidation(self) -> None:
+        assert _should_revalidate(None, datetime.now(UTC)) is True
+
+    def test_empty_string_triggers_revalidation(self) -> None:
+        assert _should_revalidate("", datetime.now(UTC)) is True
+
+    def test_invalid_iso_triggers_revalidation(self) -> None:
+        assert _should_revalidate("not-a-date", datetime.now(UTC)) is True
+
+    def test_recent_aware_timestamp_skips_revalidation(self) -> None:
+        """Aware ISO string written < 60s ago should NOT revalidate."""
+        recent = (datetime.now(UTC) - timedelta(seconds=10)).isoformat()
+        assert _should_revalidate(recent, datetime.now(UTC)) is False
+
+    def test_stale_aware_timestamp_triggers_revalidation(self) -> None:
+        """Aware ISO string written > 60s ago should revalidate."""
+        old = (datetime.now(UTC) - timedelta(seconds=120)).isoformat()
+        assert _should_revalidate(old, datetime.now(UTC)) is True
+
+    def test_recent_naive_timestamp_skips_revalidation(self) -> None:
+        """Naive ISO string (from legacy utcnow()) must not raise TypeError."""
+        recent_naive = (
+            datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=10)
+        ).isoformat()
+        assert _should_revalidate(recent_naive, datetime.now(UTC)) is False
+
+    def test_stale_naive_timestamp_triggers_revalidation(self) -> None:
+        """Stale naive ISO string (from legacy utcnow()) must not raise TypeError."""
+        old_naive = (
+            datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=120)
+        ).isoformat()
+        assert _should_revalidate(old_naive, datetime.now(UTC)) is True
