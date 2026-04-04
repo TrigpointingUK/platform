@@ -159,6 +159,8 @@ export function TrigCard({
                 src={categoryInfo.icon}
                 alt={categoryInfo.abbrev}
                 className="w-6 h-6 object-contain"
+                width={24}
+                height={24}
                 title={trig.category_name || categoryInfo.name}
               />
             ) : (
@@ -176,6 +178,8 @@ export function TrigCard({
               alt={conditionInfo.label}
               title={`Trig condition: ${conditionInfo.label}`}
               className="w-4 h-4"
+              width={16}
+              height={16}
             />
 
             {/* Name */}
@@ -190,6 +194,8 @@ export function TrigCard({
                 alt={getConditionInfo(logStatus.condition).label}
                 title={`Your log: ${getConditionInfo(logStatus.condition).label}`}
                 className="w-4 h-4"
+                width={16}
+                height={16}
               />
             )}
           </div>

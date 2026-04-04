@@ -29,6 +29,8 @@ function AdvertCard({ advert, isBlurred = false, isDarkMode = false }: AdvertCar
             src={photoSrc!}
             alt={advert.title || "Advertisement"}
             className="w-full h-full object-cover"
+            width={320}
+            height={320}
           />
           {needsOverlay && (
             <div className="absolute inset-0 bg-black/50 pointer-events-none" />

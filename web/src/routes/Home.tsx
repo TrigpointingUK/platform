@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import Sidebar from "../components/layout/Sidebar";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import Spinner from "../components/ui/Spinner";
 import LogList from "../components/logs/LogList";
 import { useSiteStats } from "../hooks/useSiteStats";
 import { useRecentLogs } from "../hooks/useRecentLogs";
@@ -116,7 +115,20 @@ function SiteStatsSection() {
           <h2 className="text-2xl font-bold text-trig-green-600 inline">Database Entries</h2>
           <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">(Click to browse)</span>
         </div>
-        <Spinner size="md" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex justify-center items-center h-12 mb-2">
+                <div className="h-12 w-12 bg-gray-200 dark:bg-gray-600 rounded" />
+              </div>
+              <div className="h-8 w-20 bg-gray-200 dark:bg-gray-600 rounded mx-auto mb-1" />
+              <div className="h-4 w-16 bg-gray-200 dark:bg-gray-600 rounded mx-auto" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex justify-center animate-pulse">
+          <div className="h-4 w-64 bg-gray-200 dark:bg-gray-600 rounded" />
+        </div>
       </Card>
     );
   }
@@ -175,6 +187,8 @@ function SiteStatsSection() {
                   src={item.icon} 
                   alt={item.label} 
                   className="h-12 w-12 object-contain"
+                  width={48}
+                  height={48}
                 />
               ) : (
                 <span>{item.icon}</span>
@@ -210,7 +224,19 @@ function NewsSection() {
     return (
       <Card className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Recent Site News</h2>
-        <Spinner size="sm" />
+        <div className="space-y-4 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="border-l-4 border-gray-200 dark:border-gray-600 pl-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="h-5 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div className="h-4 w-full max-w-sm bg-gray-200 dark:bg-gray-700 rounded mt-2" />
+                </div>
+                <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       </Card>
     );
   }
