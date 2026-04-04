@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -9,7 +9,6 @@ import LogList from "../components/logs/LogList";
 import LogForm from "../components/logs/LogForm";
 import OfficialDataSection from "../components/trig/OfficialDataSection";
 import TrigInfoSection from "../components/trig/TrigInfoSection";
-import TrigDetailMap from "../components/map/TrigDetailMap";
 import RichTextDisplay from "../components/ui/RichTextDisplay";
 import { useTrigDetail } from "../hooks/useTrigDetail";
 import { useTrigLogs } from "../hooks/useTrigLogs";
@@ -23,6 +22,8 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useCanonical } from "../hooks/useCanonical";
 import { useNoIndex } from "../hooks/useNoIndex";
 import { Log, LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
+
+const TrigDetailMap = lazy(() => import("../components/map/TrigDetailMap"));
 
 export default function TrigDetail() {
   const { trigId } = useParams<{ trigId: string }>();
@@ -222,7 +223,9 @@ export default function TrigDetail() {
         {/* Interactive Map and Official Data */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Card className="p-0 overflow-hidden">
-            <TrigDetailMap trig={trig} />
+            <Suspense fallback={<div className="h-[350px] bg-gray-100 dark:bg-gray-700 animate-pulse" />}>
+              <TrigDetailMap trig={trig} />
+            </Suspense>
           </Card>
 
           {trig.attrs && trig.attrs.length > 0 && (
