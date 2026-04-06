@@ -132,6 +132,81 @@
   cursor: zoom-in;
 }
 
+/* Photo rating widget in caption */
+.pswp__caption-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pswp__rating-stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pswp__rating-star {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.pswp__rating-stars[data-readonly="true"] .pswp__rating-star {
+  cursor: default;
+}
+
+.pswp__rating-star svg {
+  width: 24px;
+  height: 24px;
+  transition: color 0.1s ease;
+}
+
+.pswp__rating-star .star-empty {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.pswp__rating-star .star-filled {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: #fbbf24; /* amber-400 */
+}
+
+.pswp__rating-label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pswp__rating-aggregate {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pswp__rating-login {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .pswp__rating-star {
+    width: 20px;
+    height: 20px;
+  }
+
+  .pswp__rating-star svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .pswp__caption-rating {
+    gap: 0.5rem;
+  }
+}
+
 .pswp--zoomed-in .pswp__img {
   cursor: grab;
 }

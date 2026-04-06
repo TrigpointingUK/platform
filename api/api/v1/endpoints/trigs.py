@@ -2,6 +2,7 @@
 Trig endpoints for trigpoint data.
 """
 
+import base64
 import hashlib
 import io
 import json
@@ -16,7 +17,7 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import Request as FastAPIRequest
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from PIL import Image, ImageDraw
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import LockError
@@ -716,7 +717,12 @@ def export_trigs_geojson(
     )
 
 
-@cached(resource_type="trig", ttl=86400, resource_id_param="trig_id")  # 24 hours
+@cached(
+    resource_type="trig",
+    ttl=86400,
+    resource_id_param="trig_id",
+    cache_control="public, max-age=300, stale-while-revalidate=3600",
+)  # 24h Redis, 5min CDN fresh + 1h stale
 def _get_trig_cached(
     trig_id: int,
     include: Optional[str],
@@ -1163,9 +1169,6 @@ def list_trigs(
         ),
     ),
 )
-@cached(
-    resource_type="trig", ttl=14400, resource_id_param="trig_id", subresource="map"
-)  # 4 hours
 async def get_trig_map(
     trig_id: int,
     style: str = Query(
@@ -1184,7 +1187,35 @@ async def get_trig_map(
     This endpoint loads pre-styled [.png, .json] pairs from res/ directory.
     To create new styles, use scripts/make_styled_map.py.
     """
-    # Fetch trig
+    MAP_TTL = 14400  # 4 hours in Redis
+    cache_key = generate_cache_key(
+        resource_type="trig",
+        resource_id=str(trig_id),
+        subresource="map",
+        params={
+            "style": style,
+            "dot_colour": dot_colour,
+            "dot_diameter": str(dot_diameter),
+        },
+    )
+    cache_headers = {
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+    }
+
+    cached_b64, _cache_age = cache_get(cache_key)
+    if cached_b64 is not None:
+        png_bytes = base64.b64decode(cached_b64)
+        return Response(
+            content=png_bytes,
+            media_type="image/png",
+            headers={
+                **cache_headers,
+                "X-Cache-Status": "HIT",
+                "X-Cache-Key": cache_key,
+            },
+        )
+
+    # Cache miss — generate the image
     trig = trig_crud.get_trig_by_id(db, trig_id=trig_id)
     if trig is None:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
@@ -1247,11 +1278,22 @@ async def get_trig_map(
     ]
     draw.ellipse(bbox, fill=fill, outline=None)
 
-    # Return PNG
+    # Encode to PNG bytes
     buf = io.BytesIO()
     base.save(buf, format="PNG")
-    buf.seek(0)
-    return StreamingResponse(buf, media_type="image/png")
+    png_bytes = buf.getvalue()
+
+    # Store in Redis as base64
+    try:
+        cache_set(cache_key, base64.b64encode(png_bytes).decode("ascii"), MAP_TTL)
+    except Exception:
+        logger.warning("Failed to cache map image for trig %s", trig_id)
+
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={**cache_headers, "X-Cache-Status": "MISS", "X-Cache-Key": cache_key},
+    )
 
 
 @router.get(

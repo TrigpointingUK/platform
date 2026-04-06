@@ -72,7 +72,7 @@ class TestTrigOpengraphHtml:
         mock_svc.get_or_create_trig_image.return_value = (
             "https://bucket.s3.amazonaws.com/trigs/1.png"
         )
-        mock_svc.generate_og_html.return_value = (
+        mock_svc.generate_trig_seo_html.return_value = (
             '<html><meta property="og:title" content="TP0001"/></html>'
         )
 
@@ -82,13 +82,13 @@ class TestTrigOpengraphHtml:
         response = client.get("/v1/trigs/1/opengraph")
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
-        mock_svc.generate_og_html.assert_called_once()
+        mock_svc.generate_trig_seo_html.assert_called_once()
 
     @patch("api.api.v1.endpoints.opengraph.OpenGraphService")
     def test_returns_cache_header(self, MockService, client, db):
         mock_svc = MockService.return_value
         mock_svc.get_or_create_trig_image.return_value = "https://example.com/img.png"
-        mock_svc.generate_og_html.return_value = "<html></html>"
+        mock_svc.generate_trig_seo_html.return_value = "<html></html>"
 
         _create_trig(db, trig_id=10)
         db.commit()
@@ -103,14 +103,14 @@ class TestTrigOpengraphHtml:
     ):
         mock_svc = MockService.return_value
         mock_svc.get_or_create_trig_image.side_effect = Exception("S3 error")
-        mock_svc.generate_og_html.return_value = "<html></html>"
+        mock_svc.generate_trig_seo_html.return_value = "<html></html>"
 
         _create_trig(db, trig_id=11)
         db.commit()
 
         response = client.get("/v1/trigs/11/opengraph")
         assert response.status_code == 200
-        call_kwargs = mock_svc.generate_og_html.call_args[1]
+        call_kwargs = mock_svc.generate_trig_seo_html.call_args[1]
         assert call_kwargs["image_url"] == ""
 
     def test_trig_not_found(self, client):
@@ -121,7 +121,7 @@ class TestTrigOpengraphHtml:
     def test_trig_with_no_height(self, MockService, client, db):
         mock_svc = MockService.return_value
         mock_svc.get_or_create_trig_image.return_value = "https://example.com/img.png"
-        mock_svc.generate_og_html.return_value = "<html></html>"
+        mock_svc.generate_trig_seo_html.return_value = "<html></html>"
 
         trig = Trig(
             id=12,

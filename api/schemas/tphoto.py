@@ -44,6 +44,9 @@ class TPhotoResponse(TPhotoBase):
     trig_id: Optional[int] = None
     trig_name: Optional[str] = None
     log_date: Optional[date] = None
+    # Aggregate rating (populated when available)
+    average_score: Optional[float] = None
+    vote_count: Optional[int] = None
 
 
 class TPhotoUpdate(BaseModel):
@@ -133,6 +136,39 @@ class TPhotoRotateRequest(BaseModel):
         if v not in [90, 180, 270]:
             raise ValueError("angle must be 90, 180, or 270 degrees")
         return v
+
+
+class PhotoRatingRequest(BaseModel):
+    """Schema for submitting a photo rating."""
+
+    score: int = Field(
+        ...,
+        ge=1,
+        le=10,
+        description="Rating score from 1 to 10 (half-stars: 1=½☆, 2=1☆, ..., 10=5☆)",
+    )
+
+
+class PhotoRatingResponse(BaseModel):
+    """Aggregate rating for a photo, with optional per-user score."""
+
+    average_score: Optional[float] = None
+    vote_count: int = 0
+    user_score: Optional[int] = None
+
+
+class PhotoRatingsBatchRequest(BaseModel):
+    """Request to fetch ratings for multiple photos at once."""
+
+    photo_ids: List[int] = Field(
+        ..., min_length=1, max_length=200, description="Photo IDs to fetch ratings for"
+    )
+
+
+class PhotoRatingsBatchResponse(BaseModel):
+    """Batch response mapping photo IDs to their aggregate ratings."""
+
+    ratings: dict[int, PhotoRatingResponse]
 
 
 class TPhotoEvaluationResponse(BaseModel):

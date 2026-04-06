@@ -1,0 +1,106 @@
+version: 2
+
+sources:
+  - name: trigpointing
+    database: "{{ env_var('DBT_DATABASE', 'tuk_staging') }}"
+    schema: public
+    description: TrigpointingUK operational database
+
+    tables:
+      - name: tlog
+        description: User visit/log entries for trigpoints -- the core activity fact
+        loaded_at_field: upd_timestamp
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 72, period: hour}
+        columns:
+          - name: id
+            description: Primary key
+          - name: trig_id
+            description: FK to trig
+          - name: user_id
+            description: FK to user
+
+      - name: trig
+        description: Trigonometric stations (pillars, bolts, marks, etc.)
+        columns:
+          - name: id
+            description: Primary key
+
+      - name: user
+        description: Registered users
+        columns:
+          - name: id
+            description: Primary key
+
+      - name: tphoto
+        description: Photos attached to log entries
+        columns:
+          - name: id
+            description: Primary key
+          - name: tlog_id
+            description: FK to tlog
+
+      - name: tphotovote
+        description: User votes/scores on photos
+        columns:
+          - name: id
+            description: Primary key
+
+      - name: condition
+        description: Condition code lookup (Good, Damaged, Destroyed, etc.)
+        columns:
+          - name: code
+            description: Single-character primary key
+
+      - name: trig_type
+        description: Normalised trig physical type (Pillar, Bolt, Rivet, etc.)
+        columns:
+          - name: id
+            description: Primary key
+          - name: category_id
+            description: FK to trig_category
+
+      - name: trig_category
+        description: Trig type categories (Triangulation, Levelling, etc.)
+        columns:
+          - name: id
+            description: Primary key
+
+      - name: area
+        description: Administrative/geographic regions with PostGIS boundaries
+        columns:
+          - name: id
+            description: Primary key
+
+      - name: area_type
+        description: Taxonomy for area types (county, region, country, etc.)
+        columns:
+          - name: id
+            description: Primary key
+
+      - name: trig_area
+        description: Table mapping trigs to areas via spatial containment (converted from materialised view)
+        columns:
+          - name: trig_id
+            description: FK to trig
+          - name: area_id
+            description: FK to area
+
+      - name: trigstats
+        description: Denormalised per-trig aggregate statistics
+        columns:
+          - name: id
+            description: PK, matches trig.id
+
+      - name: postcodes
+        description: UK National Statistics Postcode Lookup reference data
+        columns:
+          - name: code
+            description: Postcode string primary key
+
+      - name: town
+        description: Named place/town lookup with coordinates
+        columns:
+          - name: name
+            description: Town name primary key

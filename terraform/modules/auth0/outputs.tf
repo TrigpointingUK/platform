@@ -20,6 +20,16 @@ output "api_identifier" {
   value       = auth0_resource_server.api.identifier
 }
 
+output "graphql_api_id" {
+  description = "Auth0 GraphQL API resource server ID"
+  value       = auth0_resource_server.graphql.id
+}
+
+output "graphql_api_identifier" {
+  description = "Auth0 GraphQL API identifier (audience)"
+  value       = auth0_resource_server.graphql.identifier
+}
+
 output "m2m_client_id" {
   description = "M2M client ID"
   value       = auth0_client.m2m_api.id

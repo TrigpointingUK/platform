@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import toast from "react-hot-toast";
 import { authenticatedPost, Photo } from "../../lib/api";
+import StarRating from "../ui/StarRating";
 
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
@@ -214,6 +215,16 @@ export default function PhotoThumbnail({
             {!isEmptyOrNone(photo.text_desc) && (
               <div className="text-xs text-white/90 line-clamp-2">
                 {photo.text_desc}
+              </div>
+            )}
+
+            {/* Aggregate rating (only shown when photo has votes) */}
+            {photo.vote_count != null && photo.vote_count > 0 && photo.average_score != null && (
+              <div className="flex items-center gap-1">
+                <StarRating rating={photo.average_score / 2} size="sm" />
+                <span className="text-xs text-white/70">
+                  ({photo.vote_count})
+                </span>
               </div>
             )}
           </div>

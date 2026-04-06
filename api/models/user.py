@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     Time,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import CHAR
@@ -128,6 +129,9 @@ class TPhotoVote(Base):
     """TPhotoVote model for the tphotovote table."""
 
     __tablename__ = "tphotovote"
+    __table_args__ = (
+        UniqueConstraint("tphoto_id", "user_id", name="uq_tphotovote_photo_user"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     tphoto_id = Column(

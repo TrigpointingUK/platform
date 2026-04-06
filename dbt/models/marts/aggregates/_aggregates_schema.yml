@@ -1,0 +1,97 @@
+version: 2
+
+models:
+  - name: agg_user_summary
+    description: >
+      Per-user summary of all activity. Replaces and extends the operational
+      user_activity_summary materialised view with streak data, photo votes,
+      and recency metrics. Only includes users with at least one log.
+    columns:
+      - name: user_id
+        description: User primary key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        description: User display name
+      - name: member_since_date
+        description: Registration date
+      - name: total_logs
+        description: Lifetime count of log entries
+      - name: total_distinct_trigs
+        description: Lifetime count of unique trigs visited
+      - name: total_photos
+        description: Lifetime count of non-deleted photos uploaded
+      - name: total_photo_votes_cast
+        description: Lifetime count of photo votes cast by this user
+      - name: first_log_date
+        description: Date of the user's first log
+      - name: last_log_date
+        description: Date of the user's most recent log
+      - name: days_since_last_log
+        description: Days between the most recent log and today
+      - name: current_weekly_streak
+        description: Current consecutive weeks with activity (0 if not currently active)
+      - name: longest_weekly_streak
+        description: Longest ever run of consecutive weeks with activity
+      - name: current_monthly_streak
+        description: Current consecutive months with activity
+      - name: longest_monthly_streak
+        description: Longest ever run of consecutive months with activity
+      - name: current_daily_streak
+        description: Current consecutive days with activity (0 if not currently active)
+      - name: longest_daily_streak
+        description: Longest ever run of consecutive days with activity
+
+  - name: agg_trig_summary
+    description: >
+      Per-trig summary of engagement. Replaces and extends the operational
+      trigstats table with distinct logger counts, median scores, and type/category names.
+    columns:
+      - name: trig_id
+        description: Trigpoint primary key
+        tests:
+          - unique
+          - not_null
+      - name: trig_name
+        description: Name of the trigpoint
+      - name: total_logs
+        description: Total number of log entries for this trig
+      - name: total_distinct_loggers
+        description: Number of unique users who have logged this trig
+      - name: total_photos
+        description: Number of non-deleted photos for this trig
+      - name: first_logged_date
+        description: Date this trig was first logged
+      - name: last_logged_date
+        description: Date this trig was most recently logged
+      - name: avg_score
+        description: Mean user score
+      - name: median_score
+        description: Median user score
+      - name: bayesian_score
+        description: >
+          Bayesian average score: pulls trigs with few ratings toward the global mean.
+          Formula: (C * m + sum_scores) / (C + n), where C is the median log count
+          across all trigs and m is the global mean score.
+
+  - name: agg_site_daily
+    description: >
+      Daily site-wide KPI aggregates: new logs, photos, users, votes, and
+      active user counts. One row per calendar date where any activity occurred.
+    columns:
+      - name: date_key
+        description: Calendar date (FK to dim_date)
+        tests:
+          - unique
+          - not_null
+      - name: new_logs
+        description: Logs created on this date
+      - name: active_users
+        description: Distinct users who logged on this date
+      - name: new_photos
+        description: Photos uploaded on this date
+      - name: new_users
+        description: Users who registered on this date
+      - name: new_photo_votes
+        description: Photo votes cast on this date

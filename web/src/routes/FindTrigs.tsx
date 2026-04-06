@@ -13,6 +13,7 @@ import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUserProfile } from "../hooks/useUserProfile";
 import type { UserLogStatus } from "../lib/mapIcons";
+import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
 
 // Default location: Buxton
@@ -301,17 +302,41 @@ export default function FindTrigs() {
       : { hasLogged: false };
   };
 
+  const origin = getCanonicalOrigin();
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": origin,
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Trig Points",
+        "item": `${origin}/trigs`,
+      },
+    ],
+  };
+
   return (
     <>
-      <title>Find Trigpoints | TrigpointingUK</title>
+      <title>Find Trig Points Near You | TrigpointingUK</title>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Browse Trig Points
+            Find Trig Points Near You
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Search and filter UK triangulation pillars and survey markers
+            Search and filter UK trig points, triangulation pillars and survey markers by location
           </p>
         </div>
 
@@ -369,15 +394,23 @@ export default function FindTrigs() {
                   }
                 />
               </div>
-              {/* First trigpoint map preview */}
-              {allTrigs.length > 0 && (
-                <img
-                  src={`${import.meta.env.VITE_API_BASE}/v1/trigs/${allTrigs[0].id}/map`}
-                  alt={`Map for ${allTrigs[0].name}`}
-                  title="The dot represents the first trigpoint in the list, not the searched location"
-                  className="w-[80px] h-[80px] rounded border-2 border-gray-300 shadow-sm cursor-help flex-shrink-0"
-                />
-              )}
+              {/* First trigpoint map preview -- always reserve space to avoid CLS */}
+              <div className="w-[80px] h-[80px] rounded border-2 border-gray-300 dark:border-gray-600 shadow-sm flex-shrink-0 overflow-hidden bg-gray-100 dark:bg-gray-700">
+                {allTrigs.length > 0 ? (
+                  <img
+                    src={`${import.meta.env.VITE_API_BASE}/v1/trigs/${allTrigs[0].id}/map`}
+                    alt={`Map for ${allTrigs[0].name}`}
+                    title="The dot represents the first trigpoint in the list, not the searched location"
+                    className="w-full h-full object-cover cursor-help"
+                    width={80}
+                    height={80}
+                  />
+                ) : (
+                  <svg className="w-full h-full p-5 text-gray-300 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                )}
+              </div>
             </div>
 
             {/* Status filter and distance filter */}

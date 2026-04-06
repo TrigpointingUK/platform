@@ -9,7 +9,8 @@ orientation-model:
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
 	migration-create migration-history \
-	migrate-staging migrate-production migrate-status downgrade-staging
+	migrate-staging migrate-production migrate-status downgrade-staging \
+	dbt-staging dbt-production
 
 # Default target
 help: ## Show this help message
@@ -272,6 +273,26 @@ migrate-status: ## Check migration status (ENV=staging|production)
 	DB_NAME=$$(echo "$$SECRET_JSON" | jq -r '.dbname') \
 	ENV_NAME=$$(echo $(ENV) | tr '[:lower:]' '[:upper:]') \
 	alembic current
+
+# ---------------------------------------------------------------------------
+# dbt analytics data mart (requires postgres-tunnel)
+# ---------------------------------------------------------------------------
+
+dbt-staging: ## Build dbt analytics models against staging (requires postgres-tunnel)
+	@echo "📊 Building dbt analytics (staging)"
+	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
+	@. venv/bin/activate && \
+	DBT_HOST=localhost DBT_PORT=$(LOCAL_DB_TUNNEL_PORT) \
+	dbt/run.sh staging
+
+dbt-production: ## Build dbt analytics models against production (requires postgres-tunnel, with confirmation)
+	@echo "⚠️  PRODUCTION dbt build ⚠️"
+	@read -p "Type 'production' to confirm: " confirm && [ "$$confirm" = "production" ] || { echo "❌ Cancelled"; exit 1; }
+	@echo "📊 Building dbt analytics (production)"
+	@command -v aws >/dev/null 2>&1 || { echo "❌ aws CLI not found."; exit 1; }
+	@. venv/bin/activate && \
+	DBT_HOST=localhost DBT_PORT=$(LOCAL_DB_TUNNEL_PORT) \
+	dbt/run.sh production
 
 # Application
 build: ## Build the application

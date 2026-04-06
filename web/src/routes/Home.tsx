@@ -3,12 +3,12 @@ import { Link } from "react-router-dom";
 import Sidebar from "../components/layout/Sidebar";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import Spinner from "../components/ui/Spinner";
 import LogList from "../components/logs/LogList";
 import { useSiteStats } from "../hooks/useSiteStats";
 import { useRecentLogs } from "../hooks/useRecentLogs";
 import { useNews } from "../hooks/useNews";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
 function WelcomeSection() {
   return (
@@ -37,8 +37,10 @@ function WelcomeSection() {
             Welcome to TrigpointingUK
           </h1>
           <p className="text-lg text-gray-700 dark:text-gray-300 mb-4">
-            The UK's premier resource for triangulation pillars and survey markers.
-            Join thousands of enthusiasts exploring Britain's geodetic heritage.
+            The UK's premier resource for trig points, triangulation pillars
+            and survey markers. Find trig points near you, log your visits,
+            and join thousands of enthusiasts exploring Britain's geodetic
+            heritage.
           </p>
           <div className="flex gap-3 flex-wrap w-full">
             <Button variant="primary" className="flex-1 min-w-[140px]">
@@ -46,7 +48,7 @@ function WelcomeSection() {
                 to="/trigs"
                 className="block w-full text-center text-current"
               >
-                Nearest
+                Trig Points Near Me
               </Link>
             </Button>
             <Button variant="primary" className="flex-1 min-w-[140px]">
@@ -71,8 +73,10 @@ function WelcomeSection() {
       {/* Description and buttons below heading on small screens */}
       <div className="sm:hidden">
         <p className="text-lg text-gray-700 dark:text-gray-300 mb-4">
-          The UK's premier resource for triangulation pillars and survey markers.
-          Join thousands of enthusiasts exploring Britain's geodetic heritage.
+          The UK's premier resource for trig points, triangulation pillars
+          and survey markers. Find trig points near you, log your visits,
+          and join thousands of enthusiasts exploring Britain's geodetic
+          heritage.
         </p>
         <div className="flex gap-3 flex-wrap w-full">
           <Button variant="primary" className="flex-1 min-w-[140px]">
@@ -80,7 +84,7 @@ function WelcomeSection() {
               to="/trigs"
               className="block w-full text-center text-current"
             >
-              Nearest
+              Trig Points Near Me
             </Link>
           </Button>
           <Button variant="primary" className="flex-1 min-w-[140px]">
@@ -116,7 +120,20 @@ function SiteStatsSection() {
           <h2 className="text-2xl font-bold text-trig-green-600 inline">Database Entries</h2>
           <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">(Click to browse)</span>
         </div>
-        <Spinner size="md" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex justify-center items-center h-12 mb-2">
+                <div className="h-12 w-12 bg-gray-200 dark:bg-gray-600 rounded" />
+              </div>
+              <div className="h-8 w-20 bg-gray-200 dark:bg-gray-600 rounded mx-auto mb-1" />
+              <div className="h-4 w-16 bg-gray-200 dark:bg-gray-600 rounded mx-auto" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex justify-center animate-pulse">
+          <div className="h-4 w-64 bg-gray-200 dark:bg-gray-600 rounded" />
+        </div>
       </Card>
     );
   }
@@ -175,6 +192,8 @@ function SiteStatsSection() {
                   src={item.icon} 
                   alt={item.label} 
                   className="h-12 w-12 object-contain"
+                  width={48}
+                  height={48}
                 />
               ) : (
                 <span>{item.icon}</span>
@@ -210,7 +229,19 @@ function NewsSection() {
     return (
       <Card className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Recent Site News</h2>
-        <Spinner size="sm" />
+        <div className="space-y-4 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="border-l-4 border-gray-200 dark:border-gray-600 pl-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="h-5 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div className="h-4 w-full max-w-sm bg-gray-200 dark:bg-gray-700 rounded mt-2" />
+                </div>
+                <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       </Card>
     );
   }
@@ -285,9 +316,29 @@ function RecentLogsSection() {
 }
 
 export default function Home() {
+  const origin = getCanonicalOrigin();
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "TrigpointingUK",
+    "alternateName": "Trigpointing UK",
+    "url": origin,
+    "description":
+      "Find trig points near you — the UK's premier resource for triangulation pillars and survey markers. Browse over 17,000 trig points with photos, maps, and visit logs.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": `${origin}/trigs?location={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <>
-      <title>TrigpointingUK</title>
+      <title>TrigpointingUK — Find Trig Points Near You</title>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       <div className="flex flex-col-reverse lg:flex-row gap-6">
         {/* Sidebar - bottom on mobile, left on desktop */}
         <Sidebar />

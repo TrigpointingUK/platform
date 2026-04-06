@@ -19,7 +19,7 @@ from fastapi import (
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from api.api.deps import get_current_user, get_db
+from api.api.deps import get_current_user, get_current_user_optional, get_db
 from api.api.lifecycle import openapi_lifecycle
 from api.core.config import settings
 from api.core.metrics import get_metrics_collector
@@ -28,6 +28,10 @@ from api.models.server import Server
 from api.models.trig import Trig
 from api.models.user import TLog, User
 from api.schemas.tphoto import (
+    PhotoRatingRequest,
+    PhotoRatingResponse,
+    PhotoRatingsBatchRequest,
+    PhotoRatingsBatchResponse,
     TPhotoEvaluationResponse,
     TPhotoResponse,
     TPhotoRotateRequest,
@@ -935,3 +939,93 @@ def rotate_photo(
         ),
         "log_date": tlog.date if tlog else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Photo rating endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/ratings",
+    response_model=PhotoRatingsBatchResponse,
+    openapi_extra=openapi_lifecycle("beta"),
+)
+def get_ratings_batch(
+    payload: PhotoRatingsBatchRequest,
+    db: Session = Depends(get_db),
+):
+    """Fetch aggregate ratings for multiple photos in a single request."""
+    ratings = tphoto_crud.get_photo_ratings_batch(db, payload.photo_ids)
+    return {"ratings": ratings}
+
+
+@router.get(
+    "/{photo_id}/rating",
+    response_model=PhotoRatingResponse,
+    openapi_extra=openapi_lifecycle("beta"),
+)
+def get_photo_rating(
+    photo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
+):
+    """Get aggregate rating for a photo, plus the caller's own score if authenticated."""
+    photo = tphoto_crud.get_photo_by_id(db, photo_id=photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    user_id = int(current_user.id) if current_user else None
+    return tphoto_crud.get_photo_rating(db, photo_id, user_id=user_id)
+
+
+@router.put(
+    "/{photo_id}/rating",
+    response_model=PhotoRatingResponse,
+    openapi_extra={
+        **openapi_lifecycle("beta"),
+        "security": [{"OAuth2": []}],
+    },
+)
+def rate_photo(
+    photo_id: int,
+    payload: PhotoRatingRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Submit or update a rating for a photo (1-10 scale)."""
+    photo = tphoto_crud.get_photo_by_id(db, photo_id=photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    return tphoto_crud.upsert_photo_rating(
+        db,
+        photo_id=photo_id,
+        user_id=int(current_user.id),
+        score=payload.score,
+    )
+
+
+@router.delete(
+    "/{photo_id}/rating",
+    response_model=PhotoRatingResponse,
+    openapi_extra={
+        **openapi_lifecycle("beta"),
+        "security": [{"OAuth2": []}],
+    },
+)
+def remove_photo_rating(
+    photo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove the caller's rating for a photo."""
+    photo = tphoto_crud.get_photo_by_id(db, photo_id=photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    return tphoto_crud.delete_photo_rating(
+        db,
+        photo_id=photo_id,
+        user_id=int(current_user.id),
+    )

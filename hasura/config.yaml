@@ -1,0 +1,3 @@
+version: 3
+endpoint: https://graphql.trigpointing.me
+metadata_directory: metadata

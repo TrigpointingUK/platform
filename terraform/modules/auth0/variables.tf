@@ -61,6 +61,16 @@ variable "api_token_lifetime" {
   }
 }
 
+variable "graphql_api_name" {
+  description = "Name of the GraphQL API resource server"
+  type        = string
+}
+
+variable "graphql_api_identifier" {
+  description = "GraphQL API identifier (audience)"
+  type        = string
+}
+
 variable "fastapi_url" {
   description = "FastAPI base URL for webhook"
   type        = string

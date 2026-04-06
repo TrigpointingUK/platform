@@ -2,8 +2,10 @@
 CRUD operations for tphoto table.
 """
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from api.models.tphoto import TPhoto
@@ -164,3 +166,124 @@ def create_photo(
         _get_trigstats_crud().update_trigstats(db, int(tlog.trig_id))
 
     return photo
+
+
+# ---------------------------------------------------------------------------
+# Photo rating CRUD
+# ---------------------------------------------------------------------------
+
+# Only new-scale votes (1-10) are included in aggregates; legacy data used a
+# different range and is excluded until explicitly migrated.
+_VALID_SCORE_MIN = 1
+_VALID_SCORE_MAX = 10
+
+
+def get_photo_rating(
+    db: Session,
+    photo_id: int,
+    user_id: Optional[int] = None,
+) -> dict:
+    """Return aggregate rating for a photo and optionally the caller's score."""
+    row = (
+        db.query(
+            func.avg(TPhotoVote.score).label("avg"),
+            func.count(TPhotoVote.id).label("cnt"),
+        )
+        .filter(
+            TPhotoVote.tphoto_id == photo_id,
+            TPhotoVote.score >= _VALID_SCORE_MIN,
+            TPhotoVote.score <= _VALID_SCORE_MAX,
+        )
+        .one()
+    )
+
+    user_score: Optional[int] = None
+    if user_id is not None:
+        vote = (
+            db.query(TPhotoVote.score)
+            .filter(
+                TPhotoVote.tphoto_id == photo_id,
+                TPhotoVote.user_id == user_id,
+            )
+            .first()
+        )
+        if vote:
+            user_score = int(vote.score)
+
+    avg_val = round(float(row.avg), 1) if row.avg is not None else None
+    return {
+        "average_score": avg_val,
+        "vote_count": int(row.cnt),
+        "user_score": user_score,
+    }
+
+
+def upsert_photo_rating(
+    db: Session,
+    photo_id: int,
+    user_id: int,
+    score: int,
+) -> dict:
+    """Create or update a user's rating for a photo. Returns updated aggregate."""
+    stmt = pg_insert(TPhotoVote).values(
+        tphoto_id=photo_id,
+        user_id=user_id,
+        score=score,
+    )
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_tphotovote_photo_user",
+        set_={"score": score},
+    )
+    db.execute(stmt)
+    db.commit()
+    return get_photo_rating(db, photo_id, user_id=user_id)
+
+
+def delete_photo_rating(
+    db: Session,
+    photo_id: int,
+    user_id: int,
+) -> dict:
+    """Remove a user's rating for a photo. Returns updated aggregate."""
+    db.query(TPhotoVote).filter(
+        TPhotoVote.tphoto_id == photo_id,
+        TPhotoVote.user_id == user_id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return get_photo_rating(db, photo_id, user_id=user_id)
+
+
+def get_photo_ratings_batch(
+    db: Session,
+    photo_ids: List[int],
+) -> Dict[int, dict]:
+    """Fetch aggregate ratings for multiple photos in a single query."""
+    rows = (
+        db.query(
+            TPhotoVote.tphoto_id,
+            func.avg(TPhotoVote.score).label("avg"),
+            func.count(TPhotoVote.id).label("cnt"),
+        )
+        .filter(
+            TPhotoVote.tphoto_id.in_(photo_ids),
+            TPhotoVote.score >= _VALID_SCORE_MIN,
+            TPhotoVote.score <= _VALID_SCORE_MAX,
+        )
+        .group_by(TPhotoVote.tphoto_id)
+        .all()
+    )
+
+    result: Dict[int, dict] = {}
+    for row in rows:
+        pid = int(row.tphoto_id)
+        result[pid] = {
+            "average_score": round(float(row.avg), 1) if row.avg is not None else None,
+            "vote_count": int(row.cnt),
+            "user_score": None,
+        }
+
+    for pid in photo_ids:
+        if pid not in result:
+            result[pid] = {"average_score": None, "vote_count": 0, "user_score": None}
+
+    return result

@@ -1,0 +1,145 @@
+version: 2
+
+models:
+  - name: int_user_daily_activity
+    description: >
+      One row per user per calendar day where they logged at least one trig.
+      Foundation for weekly/monthly/yearly rollups and streak detection.
+    columns:
+      - name: user_id
+        description: FK to dim_user
+        tests:
+          - not_null
+      - name: log_date
+        description: Calendar date of activity
+        tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: logs_count
+        description: Number of logs on this day
+      - name: distinct_trigs
+        description: Number of distinct trigs visited on this day
+      - name: logs_with_comments
+        description: Number of logs that included a comment
+
+  - name: int_user_weekly_activity
+    description: >
+      One row per user per ISO week with aggregated activity counts.
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+      - name: iso_year
+        description: ISO year
+      - name: iso_week
+        description: ISO week number (1-53)
+      - name: week_start_date
+        description: First day of activity in this week
+      - name: active_days_in_week
+        description: Number of distinct days with activity in this week
+
+  - name: int_user_monthly_activity
+    description: >
+      One row per user per calendar month with aggregated activity counts.
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+      - name: year
+        description: Calendar year
+      - name: month
+        description: Calendar month (1-12)
+      - name: year_month
+        description: "Year-month string (e.g. 2026-04)"
+      - name: active_days_in_month
+        description: Number of distinct days with activity in this month
+
+  - name: int_user_yearly_activity
+    description: >
+      One row per user per calendar year with aggregated activity counts.
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+      - name: year
+        description: Calendar year
+      - name: active_months
+        description: Number of distinct months with activity
+      - name: active_weeks
+        description: Number of distinct ISO weeks with activity
+      - name: active_days
+        description: Number of distinct days with activity
+
+  - name: int_user_streaks
+    description: >
+      Gap-and-island analysis producing one row per consecutive streak of activity.
+      Covers weekly, monthly, and yearly streak types. Used by agg_user_summary
+      to surface current and longest streaks per user.
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+      - name: streak_type
+        description: "'weekly', 'monthly', or 'yearly'"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['daily', 'weekly', 'monthly', 'yearly']
+      - name: streak_start
+        description: Encoded start of the streak period
+      - name: streak_end
+        description: Encoded end of the streak period
+      - name: streak_length
+        description: Number of consecutive periods in this streak
+      - name: is_current
+        description: Whether this streak extends to the current or immediately previous period
+
+  - name: int_user_medal_metrics
+    description: >
+      Long-format table of (user_id, metric_key, metric_value) containing every metric
+      referenced by medal_definitions. Unpivots values from agg_user_summary,
+      int_user_collection_progress, int_user_streaks, and inline computed special-event
+      metrics (e.g., christmas_day_count). Adding a new medal requires adding one UNION ALL
+      here plus rows to the seed CSVs.
+    columns:
+      - name: user_id
+        description: FK to dim_user
+        tests:
+          - not_null
+      - name: metric_key
+        description: Identifier matching medal_definitions.metric_key
+        tests:
+          - not_null
+      - name: metric_value
+        description: Integer value of the metric for this user
+        tests:
+          - not_null
+
+  - name: int_user_collection_progress
+    description: >
+      Per-user tracking of collection diversity: days of the week, months of the year,
+      trig name first letters, counties, trig types, categories, condition codes, and
+      areas visited. Powers quirky collection-based medals.
+    columns:
+      - name: user_id
+        description: FK to dim_user
+        tests:
+          - unique
+          - not_null
+      - name: distinct_days_of_week
+        description: "Count of distinct ISO days of the week logged on (0-7)"
+      - name: distinct_months_of_year
+        description: "Count of distinct months of the year logged in (0-12)"
+      - name: distinct_first_letters
+        description: Count of distinct first letters of trig names visited
+      - name: distinct_counties
+        description: Count of distinct counties visited
+      - name: distinct_trig_types
+        description: Count of distinct trig physical types logged
+      - name: distinct_trig_categories
+        description: Count of distinct trig type categories logged
+      - name: distinct_condition_names
+        description: Count of distinct conditions reported
+      - name: distinct_areas_by_type
+        description: "JSONB object mapping area_type_code to count of distinct areas visited"

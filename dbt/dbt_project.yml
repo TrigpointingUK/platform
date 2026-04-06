@@ -1,0 +1,31 @@
+name: trigpointing_analytics
+version: '1.0.0'
+
+profile: trigpointing
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  trigpointing_analytics:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: table
+    marts:
+      dimensions:
+        +materialized: table
+      facts:
+        +materialized: table
+      aggregates:
+        +materialized: table
+      medals:
+        +materialized: table

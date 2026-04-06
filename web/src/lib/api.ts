@@ -23,6 +23,7 @@ export {
   authenticatedFetch,
   authenticatedGet,
   authenticatedPost,
+  authenticatedPut,
   authenticatedPatch,
   authenticatedDelete,
   AuthenticationError,
@@ -188,6 +189,8 @@ export interface Photo {
   trig_id?: number;
   trig_name?: string;
   log_date?: string;
+  average_score?: number | null;
+  vote_count?: number;
 }
 
 /**
