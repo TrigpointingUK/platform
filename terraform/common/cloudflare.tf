@@ -127,6 +127,28 @@ resource "cloudflare_dns_record" "pgadmin" {
   comment = "pgAdmin subdomain for TrigpointingUK - managed by Terraform"
 }
 
+resource "cloudflare_dns_record" "metabase_production" {
+  zone_id = data.cloudflare_zones.production.result[0].id
+  name    = "data"
+  content = aws_lb.main.dns_name
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+
+  comment = "Metabase data exploration for TrigpointingUK - managed by Terraform"
+}
+
+resource "cloudflare_dns_record" "metabase_staging" {
+  zone_id = data.cloudflare_zones.staging.result[0].id
+  name    = "data"
+  content = aws_lb.main.dns_name
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+
+  comment = "Metabase data exploration for TrigpointingUK staging - managed by Terraform"
+}
+
 resource "cloudflare_dns_record" "wiki" {
   zone_id = data.cloudflare_zones.production.result[0].id
   name    = "wiki"
@@ -258,3 +280,42 @@ resource "cloudflare_list_item" "forum_redirect_forum" {
 }
 
 # Activation of the list is handled by the existing account-level Redirect ruleset in Cloudflare
+
+# Bulk Redirects: www → apex (canonical non-www domain)
+# Ensures a single origin for CORS, Auth0 callbacks, and SEO.
+resource "cloudflare_list" "www_redirects" {
+  account_id  = var.cloudflare_account_id
+  name        = "www_redirects"
+  description = "Redirect www.trigpointing.uk and www.trigpointing.me to their apex domains"
+  kind        = "redirect"
+}
+
+resource "cloudflare_list_item" "www_redirect_production" {
+  account_id = var.cloudflare_account_id
+  list_id    = cloudflare_list.www_redirects.id
+
+  redirect = {
+    source_url            = "https://www.trigpointing.uk/"
+    target_url            = "https://trigpointing.uk/"
+    status_code           = 301
+    include_subdomains    = false
+    subpath_matching      = true
+    preserve_query_string = true
+    preserve_path_suffix  = true
+  }
+}
+
+resource "cloudflare_list_item" "www_redirect_staging" {
+  account_id = var.cloudflare_account_id
+  list_id    = cloudflare_list.www_redirects.id
+
+  redirect = {
+    source_url            = "https://www.trigpointing.me/"
+    target_url            = "https://trigpointing.me/"
+    status_code           = 301
+    include_subdomains    = false
+    subpath_matching      = true
+    preserve_query_string = true
+    preserve_path_suffix  = true
+  }
+}

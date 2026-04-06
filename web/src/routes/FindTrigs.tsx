@@ -13,6 +13,7 @@ import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUserProfile } from "../hooks/useUserProfile";
 import type { UserLogStatus } from "../lib/mapIcons";
+import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
 
 // Default location: Buxton
@@ -301,17 +302,41 @@ export default function FindTrigs() {
       : { hasLogged: false };
   };
 
+  const origin = getCanonicalOrigin();
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": origin,
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Trig Points",
+        "item": `${origin}/trigs`,
+      },
+    ],
+  };
+
   return (
     <>
-      <title>Find Trigpoints | TrigpointingUK</title>
+      <title>Find Trig Points Near You | TrigpointingUK</title>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Browse Trig Points
+            Find Trig Points Near You
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Search and filter UK triangulation pillars and survey markers
+            Search and filter UK trig points, triangulation pillars and survey markers by location
           </p>
         </div>
 

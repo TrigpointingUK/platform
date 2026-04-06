@@ -1,0 +1,86 @@
+version: 2
+
+models:
+  - name: fct_logs
+    description: >
+      Central fact table: one row per user visit/log to a trigpoint.
+      Stripped of IP addresses and raw comment text (replaced with has_comment flag).
+      FK to dim_date via log_date, to dim_user via user_id, to dim_trig via trig_id.
+    columns:
+      - name: log_id
+        description: Log entry primary key
+        tests:
+          - unique
+          - not_null
+      - name: user_id
+        description: FK to dim_user
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_user')
+                field: user_id
+      - name: trig_id
+        description: FK to dim_trig
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_trig')
+                field: trig_id
+      - name: log_date
+        description: Date of the visit (FK to dim_date.date_key)
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: condition_name
+        description: Condition reported during visit (e.g. Good, Damaged, Destroyed)
+      - name: score
+        description: User-assigned score for the visit (1-10)
+      - name: has_comment
+        description: Whether the log includes a text comment
+
+  - name: fct_photos
+    description: >
+      Photo fact table: one row per uploaded photo. Linked to logs, users, and trigs.
+    columns:
+      - name: photo_id
+        description: Photo primary key
+        tests:
+          - unique
+          - not_null
+      - name: log_id
+        description: FK to the parent log entry
+      - name: user_id
+        description: FK to the uploading user
+      - name: trig_id
+        description: FK to the trigpoint
+      - name: photo_type
+        description: "Type of photo: T=trig shot, O=other, F=flush bracket, L=landscape"
+      - name: is_public
+        description: Whether the photo is in the Public Domain
+      - name: created_date
+        description: Date the photo was uploaded
+
+  - name: fct_photo_votes
+    description: >
+      Photo vote fact table: one row per user vote on a photo.
+    columns:
+      - name: vote_id
+        description: Vote primary key
+        tests:
+          - unique
+          - not_null
+      - name: photo_id
+        description: FK to fct_photos
+        tests:
+          - not_null
+      - name: user_id
+        description: FK to dim_user
+      - name: score
+        description: Vote score value

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -22,6 +22,7 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useCanonical } from "../hooks/useCanonical";
 import { useNoIndex } from "../hooks/useNoIndex";
 import { Log, LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
+import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
 const TrigDetailMap = lazy(() => import("../components/map/TrigDetailMap"));
 
@@ -47,9 +48,64 @@ export default function TrigDetail() {
   } = useTrigDetail(trigIdNum!);
 
   // Update document title when trig data loads
-  useDocumentTitle(trig ? `${trig.waypoint} - ${trig.name}` : null);
+  useDocumentTitle(trig ? `${trig.waypoint} - ${trig.name} | Trig Point | TrigpointingUK` : null);
   useCanonical(trigIdNum ? `/trigs/${trigIdNum}` : null);
   useNoIndex(!trigIdNum || !!trigError);
+
+  const placeJsonLd = useMemo(() => {
+    if (!trig) return null;
+    const origin = getCanonicalOrigin();
+    const descParts = [`Trig point ${trig.waypoint} (${trig.name})`];
+    if (trig.type_name) descParts.push(`a ${trig.type_name}`);
+    if (trig.details?.county && trig.details?.town)
+      descParts.push(`near ${trig.details.town}, ${trig.details.county}`);
+    else if (trig.details?.county)
+      descParts.push(`in ${trig.details.county}`);
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "Place",
+      "name": `${trig.waypoint} – ${trig.name}`,
+      "description": descParts.join(" — "),
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": Number(trig.wgs_lat),
+        "longitude": Number(trig.wgs_long),
+      },
+      "isAccessibleForFree": true,
+      "url": `${origin}/trigs/${trig.id}`,
+      "additionalType": "https://en.wikipedia.org/wiki/Triangulation_station",
+    };
+  }, [trig]);
+
+  const breadcrumbJsonLd = useMemo(() => {
+    if (!trig) return null;
+    const origin = getCanonicalOrigin();
+    return {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": origin,
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Trig Points",
+          "item": `${origin}/trigs`,
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": `${trig.waypoint} – ${trig.name}`,
+          "item": `${origin}/trigs/${trig.id}`,
+        },
+      ],
+    };
+  }, [trig]);
 
   const {
     data: logsData,
@@ -217,6 +273,18 @@ export default function TrigDetail() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      {placeJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(placeJsonLd) }}
+        />
+      )}
+      {breadcrumbJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+      )}
       {/* Main Info Section */}
         <TrigInfoSection trig={trig} isAdmin={hasAdminRole} />
 

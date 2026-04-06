@@ -921,3 +921,159 @@ class OpenGraphService:
 <script>window.location.replace("{u}");</script>
 </body>
 </html>"""
+
+    def generate_trig_seo_html(
+        self,
+        *,
+        trig: "Trig",
+        title: str,
+        description: str,
+        image_url: str,
+        canonical_url: str,
+        site_base: str,
+        county: str = "",
+        condition_label: str = "",
+    ) -> str:
+        """Generate a content-rich HTML page for search engine crawlers.
+
+        Includes OG meta tags, JSON-LD structured data, and semantic HTML
+        with actual page content so crawlers can index without executing JS.
+        """
+        import json
+        from html import escape
+
+        t = escape(title)
+        d = escape(description)
+        i = escape(image_url)
+        u = escape(canonical_url)
+
+        lat = float(trig.wgs_lat)
+        lon = float(trig.wgs_long)
+
+        desc_parts = [f"Trig point {trig.waypoint} ({trig.name})"]
+        if trig.type_name:
+            desc_parts.append(f"a {trig.type_name}")
+        if county and trig.town:
+            desc_parts.append(f"near {trig.town}, {county}")
+        elif county:
+            desc_parts.append(f"in {county}")
+        elif trig.town:
+            desc_parts.append(f"near {trig.town}")
+        seo_description = " \u2014 ".join(desc_parts)
+
+        place_jsonld = json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "Place",
+                "name": f"{trig.waypoint} \u2013 {trig.name}",
+                "description": seo_description,
+                "geo": {
+                    "@type": "GeoCoordinates",
+                    "latitude": lat,
+                    "longitude": lon,
+                },
+                "isAccessibleForFree": True,
+                "url": canonical_url,
+                "additionalType": "https://en.wikipedia.org/wiki/Triangulation_station",
+            }
+        )
+
+        breadcrumb_jsonld = json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "Home",
+                        "item": site_base,
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": "Trig Points",
+                        "item": f"{site_base}/trigs",
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 3,
+                        "name": f"{trig.waypoint} \u2013 {trig.name}",
+                        "item": canonical_url,
+                    },
+                ],
+            }
+        )
+
+        height_str = ""
+        if trig.osgb_height:
+            height_str = f"<dt>Height</dt><dd>{float(trig.osgb_height):.3f}m above sea level</dd>"
+
+        type_str = ""
+        if trig.type_name:
+            type_str = f"<dt>Type</dt><dd>{escape(str(trig.type_name))}</dd>"
+
+        condition_str = ""
+        if condition_label:
+            condition_str = f"<dt>Condition</dt><dd>{escape(condition_label)}</dd>"
+
+        county_str = ""
+        if county:
+            county_str = f"<dt>County</dt><dd>{escape(county)}</dd>"
+
+        town_str = ""
+        if trig.town:
+            town_str = f"<dt>Nearest town</dt><dd>{escape(str(trig.town))}</dd>"
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>{t} | Trig Point | TrigpointingUK</title>
+<meta name="description" content="{escape(seo_description)}"/>
+<link rel="canonical" href="{u}"/>
+<meta property="og:title" content="{t}"/>
+<meta property="og:description" content="{d}"/>
+<meta property="og:image" content="{i}"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta property="og:url" content="{u}"/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="TrigpointingUK"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="{t}"/>
+<meta name="twitter:description" content="{d}"/>
+<meta name="twitter:image" content="{i}"/>
+<meta name="geo.position" content="{lat};{lon}"/>
+<meta name="ICBM" content="{lat}, {lon}"/>
+<script type="application/ld+json">{place_jsonld}</script>
+<script type="application/ld+json">{breadcrumb_jsonld}</script>
+<meta http-equiv="refresh" content="0;url={u}"/>
+</head>
+<body>
+<header>
+<nav aria-label="Breadcrumb"><a href="{escape(site_base)}">TrigpointingUK</a> &rsaquo; <a href="{escape(site_base)}/trigs">Trig Points</a> &rsaquo; {t}</nav>
+</header>
+<main>
+<article>
+<h1>{t}</h1>
+<p>{escape(seo_description)}</p>
+<dl>
+<dt>Grid reference</dt><dd>{escape(str(trig.osgb_gridref))}</dd>
+<dt>Coordinates</dt><dd>{lat:.7f}, {lon:.7f}</dd>
+{height_str}
+{type_str}
+{condition_str}
+{county_str}
+{town_str}
+</dl>
+<p><a href="{escape(site_base)}/trigs/{int(trig.id)}/photos">View photos of this trig point</a></p>
+<p><a href="{escape(site_base)}/trigs">Find more trig points near you</a></p>
+</article>
+</main>
+<footer>
+<p>&copy; <a href="{escape(site_base)}">TrigpointingUK</a> &mdash; The UK's premier resource for trig points, triangulation pillars and survey markers.</p>
+</footer>
+<script>window.location.replace("{u}");</script>
+</body>
+</html>"""

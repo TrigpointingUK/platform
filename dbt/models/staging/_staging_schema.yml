@@ -1,0 +1,134 @@
+version: 2
+
+models:
+  - name: stg_users
+    description: Staged user records with PII removed (no email, password, auth0 ID, or real names)
+    columns:
+      - name: user_id
+        description: User primary key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        description: User display name
+      - name: member_since_date
+        description: Date the user registered
+
+  - name: stg_trigs
+    description: Staged trigpoint records with IP addresses removed. Filtered to active trigs only (status_id < 90).
+    columns:
+      - name: trig_id
+        description: Trigpoint primary key
+        tests:
+          - unique
+          - not_null
+      - name: trig_name
+        description: Name of the trigpoint
+      - name: waypoint
+        description: Waypoint code (e.g. TP0001)
+      - name: condition_code
+        description: Single-character condition code
+
+  - name: stg_logs
+    description: Staged log/visit entries with IP addresses removed
+    columns:
+      - name: log_id
+        description: Log entry primary key
+        tests:
+          - unique
+          - not_null
+      - name: trig_id
+        description: FK to trigpoint visited
+        tests:
+          - not_null
+      - name: user_id
+        description: FK to user who logged
+        tests:
+          - not_null
+      - name: log_date
+        description: Date of the visit
+        tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: condition_code
+        description: Condition reported during this visit
+
+  - name: stg_photos
+    description: Staged photo records with IP addresses removed, boolean flags for public/deleted
+    columns:
+      - name: photo_id
+        description: Photo primary key
+        tests:
+          - unique
+          - not_null
+      - name: log_id
+        description: FK to the log entry this photo belongs to
+      - name: photo_type
+        description: "Photo type code: T=trig, O=other view, F=flush bracket, L=landscape"
+      - name: is_public
+        description: Whether the photo is publicly visible
+      - name: is_deleted
+        description: Whether the photo has been soft-deleted
+
+  - name: stg_photo_votes
+    description: Staged photo vote/score records
+    columns:
+      - name: vote_id
+        description: Vote primary key
+        tests:
+          - unique
+          - not_null
+      - name: photo_id
+        description: FK to photo
+        tests:
+          - not_null
+      - name: user_id
+        description: FK to voting user
+
+  - name: stg_areas
+    description: Administrative/geographic areas joined with their type taxonomy
+    columns:
+      - name: area_id
+        description: Area primary key
+        tests:
+          - unique
+          - not_null
+      - name: area_type_code
+        description: Code for the area type (e.g. county, region)
+
+  - name: stg_trig_areas
+    description: Trig-to-area spatial membership
+    columns:
+      - name: trig_id
+        description: FK to trigpoint
+        tests:
+          - not_null
+      - name: area_id
+        description: FK to area
+        tests:
+          - not_null
+
+  - name: stg_conditions
+    description: Condition code lookup table
+    columns:
+      - name: condition_code
+        description: Single-character code primary key
+        tests:
+          - unique
+          - not_null
+      - name: condition_name
+        description: Human-readable condition name
+
+  - name: stg_trig_types
+    description: Trig physical types joined with their parent categories
+    columns:
+      - name: type_id
+        description: Type primary key
+        tests:
+          - unique
+          - not_null
+      - name: type_code
+        description: Short code for the type
+      - name: category_code
+        description: Short code for the parent category

@@ -1,0 +1,19 @@
+---
+description: Domain knowledge about TrigpointingUK database columns and their business meaning
+alwaysApply: true
+---
+
+# Database Domain Knowledge
+
+## Photo Licensing (`public_ind`)
+
+Both `user.public_ind` and `tphoto.public_ind` relate to **photo licensing**, not profile visibility.
+
+- `user.public_ind` is the **default** value applied to new photos uploaded by that user.
+- `tphoto.public_ind` is the **per-photo** licensing choice.
+
+When `public_ind = 'Y'`: the photo is in the **Public Domain** and may be used by anyone for any purpose.
+
+When `public_ind != 'Y'`: the photographer has granted TrigpointingUK a **non-transferable, non-exclusive licence** to display the photo. All other rights remain with the photographer.
+
+This column is a user preference default and should NOT be exposed in analytical/reporting contexts as if it were a profile visibility flag.

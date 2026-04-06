@@ -127,6 +127,10 @@ module "auth0" {
   api_identifier     = "https://api.trigpointing.me/"
   api_token_lifetime = 120 # 2 minutes - short for testing token refresh
 
+  # GraphQL API Configuration (for third-party developer access)
+  graphql_api_name       = "tme-graphql"
+  graphql_api_identifier = "https://graphql.trigpointing.me/"
+
   # FastAPI Configuration
   fastapi_url           = "https://api.trigpointing.me"
   webhook_shared_secret = var.webhook_shared_secret

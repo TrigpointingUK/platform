@@ -1,0 +1,72 @@
+version: 2
+
+seeds:
+  - name: medal_definitions
+    description: >
+      Seed table defining all available medals/achievements. Each row is one medal concept.
+      Three medal_type values control frontend rendering: "progressive" (multi-tier thresholds),
+      "counted" (single award with displayed count), "collection" (progress bar toward completion).
+    columns:
+      - name: medal_id
+        description: Primary key for the medal definition
+        tests:
+          - unique
+          - not_null
+      - name: code
+        description: Unique short code used for API references and medal_award lookups
+        tests:
+          - unique
+          - not_null
+      - name: name
+        description: Human-readable medal name for display
+        tests:
+          - not_null
+      - name: description
+        description: Brief description of how to earn this medal
+      - name: category
+        description: Grouping category for UI display
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['logging', 'photos', 'streaks', 'calendar', 'exploration', 'diversity', 'quirky']
+      - name: medal_type
+        description: "Rendering hint: progressive (multi-tier), counted (single + count), collection (progress bar)"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['progressive', 'counted', 'collection']
+      - name: metric_key
+        description: Maps to a metric_key in int_user_medal_metrics
+        tests:
+          - not_null
+      - name: icon
+        description: Icon identifier for frontend rendering
+      - name: sort_order
+        description: Display order within the medals grid
+
+  - name: medal_tiers
+    description: >
+      Seed table defining thresholds within each medal. Progressive medals have multiple tiers
+      (I, II, III, etc.), collection medals have Bronze/Silver/Gold, and counted medals have
+      a single "Awarded" tier at threshold 1.
+    columns:
+      - name: medal_id
+        description: FK to medal_definitions
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('medal_definitions')
+                field: medal_id
+      - name: tier_level
+        description: Ordinal tier number within the medal (1, 2, 3, ...)
+        tests:
+          - not_null
+      - name: tier_name
+        description: Display name for this tier (I, II, Bronze, Silver, Gold, Awarded, etc.)
+        tests:
+          - not_null
+      - name: threshold
+        description: Minimum metric value required to earn this tier
+        tests:
+          - not_null

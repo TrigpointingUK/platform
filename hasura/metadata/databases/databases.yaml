@@ -1,0 +1,11 @@
+- name: analytics
+  kind: postgres
+  configuration:
+    connection_info:
+      database_url:
+        from_env: HASURA_GRAPHQL_DATABASE_URL
+      pool_settings:
+        max_connections: 10
+        idle_timeout: 180
+        retries: 1
+  tables: "!include analytics/tables/tables.yaml"

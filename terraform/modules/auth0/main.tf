@@ -147,6 +147,32 @@ resource "auth0_resource_server_scopes" "api_scopes" {
 }
 
 # ============================================================================
+# GRAPHQL RESOURCE SERVER (for third-party developer API)
+# ============================================================================
+
+resource "auth0_resource_server" "graphql" {
+  name       = var.graphql_api_name
+  identifier = var.graphql_api_identifier
+
+  token_lifetime       = var.api_token_lifetime
+  signing_alg          = "RS256"
+  allow_offline_access = true
+
+  enforce_policies                                = true
+  token_dialect                                   = "access_token_authz"
+  skip_consent_for_verifiable_first_party_clients = true
+}
+
+resource "auth0_resource_server_scopes" "graphql_scopes" {
+  resource_server_identifier = auth0_resource_server.graphql.identifier
+
+  scopes {
+    name        = "data:read"
+    description = "Read access to the analytics data via GraphQL"
+  }
+}
+
+# ============================================================================
 # APPLICATIONS (CLIENTS)
 # ============================================================================
 
@@ -327,11 +353,17 @@ resource "auth0_client" "alb" {
       "https://cache.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
       "https://phpmyadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
       "https://pgadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
+      "https://data.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
+      "https://graphql.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}/oauth2/idpresponse",
     ],
     # Preview site only exists in production
     var.environment == "production" ? ["https://preview.trigpointing.uk/oauth2/idpresponse"] : [],
     # Staging site (trigpointing.me) protected by production tenant
-    var.environment == "production" ? ["https://trigpointing.me/oauth2/idpresponse"] : []
+    var.environment == "production" ? ["https://trigpointing.me/oauth2/idpresponse"] : [],
+    # Metabase on staging domain, protected by production tenant
+    var.environment == "production" ? ["https://data.trigpointing.me/oauth2/idpresponse"] : [],
+    # Hasura on staging domain, protected by production tenant
+    var.environment == "production" ? ["https://graphql.trigpointing.me/oauth2/idpresponse"] : []
   )
 
   allowed_logout_urls = concat(
@@ -339,11 +371,17 @@ resource "auth0_client" "alb" {
       "https://cache.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
       "https://phpmyadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
       "https://pgadmin.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
+      "https://data.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
+      "https://graphql.${var.environment == "production" ? "trigpointing.uk" : "trigpointing.me"}",
     ],
     # Preview site only exists in production
     var.environment == "production" ? ["https://preview.trigpointing.uk"] : [],
     # Staging site (trigpointing.me) protected by production tenant
-    var.environment == "production" ? ["https://trigpointing.me"] : []
+    var.environment == "production" ? ["https://trigpointing.me"] : [],
+    # Metabase on staging domain, protected by production tenant
+    var.environment == "production" ? ["https://data.trigpointing.me"] : [],
+    # Hasura on staging domain, protected by production tenant
+    var.environment == "production" ? ["https://graphql.trigpointing.me"] : []
   )
 
   grant_types = [

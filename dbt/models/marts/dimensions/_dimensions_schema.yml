@@ -1,0 +1,106 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: >
+      Calendar date dimension from 2000-01-01 to one year in the future.
+      Provides day-of-week, month, ISO week, and other temporal attributes
+      needed for streak calculations and calendar-based medal tracking.
+    columns:
+      - name: date_key
+        description: Calendar date (primary key)
+        tests:
+          - unique
+          - not_null
+      - name: year
+        description: Calendar year
+      - name: month
+        description: Month number (1-12)
+      - name: day_of_week
+        description: ISO day of week (1=Monday, 7=Sunday)
+      - name: day_of_week_name
+        description: Full name of the day
+      - name: is_weekend
+        description: Whether this is a Saturday or Sunday
+      - name: year_month
+        description: "Year-month string (e.g. 2026-04)"
+
+  - name: dim_user
+    description: >
+      User dimension with derived tenure and membership fields.
+      No PII -- sourced from stg_users which strips personal data.
+    columns:
+      - name: user_id
+        description: User primary key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        description: User display name
+      - name: member_since_date
+        description: Registration date
+      - name: member_since_year
+        description: Year of registration (for cohort analysis)
+      - name: tenure_days
+        description: Days since registration
+
+  - name: dim_trig
+    description: >
+      Fully denormalised trig dimension joining type, category, and condition
+      lookups. Only includes active trigs (status < 90).
+      Includes name_first_letter for alphabet collection medals.
+    columns:
+      - name: trig_id
+        description: Trigpoint primary key
+        tests:
+          - unique
+          - not_null
+      - name: waypoint
+        description: Waypoint code
+      - name: trig_name
+        description: Name of the trigpoint
+      - name: type_name
+        description: Physical type (e.g. Pillar, Bolt, Rivet)
+      - name: category_name
+        description: Type category (e.g. Triangulation, Levelling)
+      - name: condition_name
+        description: Current condition (e.g. Good, Damaged, Destroyed)
+      - name: county
+        description: County string
+      - name: name_first_letter
+        description: "Upper-cased first letter of trig name (for A-Z collection medal)"
+
+  - name: dim_area
+    description: Administrative/geographic area dimension with type hierarchy
+    columns:
+      - name: area_id
+        description: Area primary key
+        tests:
+          - unique
+          - not_null
+      - name: area_name
+        description: Area display name
+      - name: area_type_name
+        description: Type of area (e.g. Ceremonial County, Country, OS Explorer Map)
+
+  - name: dim_trig_area
+    description: Bridge table mapping trigs to areas (many-to-many via spatial containment)
+    columns:
+      - name: trig_id
+        description: FK to dim_trig
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_trig')
+                field: trig_id
+      - name: area_id
+        description: FK to dim_area
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_area')
+                field: area_id
+      - name: area_type_name
+        description: Area type for filtering by area hierarchy level

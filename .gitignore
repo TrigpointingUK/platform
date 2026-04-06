@@ -178,3 +178,9 @@ Blender/Scratch/
 
 # Extraction pipeline
 extraction/output/
+
+# dbt build artefacts
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml

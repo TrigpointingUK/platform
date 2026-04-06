@@ -2,7 +2,8 @@
 Open Graph endpoints for social media preview HTML and images.
 
 Provides OG meta tag HTML pages for social media crawlers and
-on-demand image generation for preview cards.
+on-demand image generation for preview cards. Also serves
+content-rich SEO HTML for search engine crawlers (Googlebot, bingbot).
 """
 
 import logging
@@ -12,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from api.crud.area import get_county_name_for_trig
 from api.db.database import get_db
 from api.models import TLog, Trig
 from api.models.user import User
@@ -42,7 +44,11 @@ def get_trig_opengraph_html(
     trig_id: int,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    """Return an HTML page with OG meta tags for a trig (consumed by social media crawlers)."""
+    """Return an HTML page with OG meta tags and structured data for a trig.
+
+    Consumed by social media crawlers and search engine bots (Googlebot, bingbot).
+    Includes JSON-LD Place/GeoCoordinates, semantic HTML content, and breadcrumbs.
+    """
     trig = db.query(Trig).filter(Trig.id == trig_id).first()
     if not trig:
         raise HTTPException(status_code=404, detail="Trigpoint not found")
@@ -61,14 +67,24 @@ def get_trig_opengraph_html(
         parts.append(str(trig.type_name))
     description = f"Trigpoint at {', '.join(parts)}"
 
-    canonical_url = f"{_canonical_base()}/trigs/{trig_id}"
+    site_base = _canonical_base()
+    canonical_url = f"{site_base}/trigs/{trig_id}"
     title = f"{trig.waypoint} \u2013 {trig.name}"
 
-    html = svc.generate_og_html(
+    county = get_county_name_for_trig(db, trig_id) or ""
+    condition_label = (
+        get_condition_description(str(trig.condition)) if trig.condition else ""
+    )
+
+    html = svc.generate_trig_seo_html(
+        trig=trig,
         title=title,
         description=description,
         image_url=image_url,
         canonical_url=canonical_url,
+        site_base=site_base,
+        county=county,
+        condition_label=condition_label,
     )
     return HTMLResponse(content=html, headers={"Cache-Control": "public, max-age=3600"})
 

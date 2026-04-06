@@ -1,0 +1,375 @@
+# Staging tables (normalised base data for developers)
+- table:
+    schema: analytics
+    name: stg_areas
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+
+- table:
+    schema: analytics
+    name: stg_conditions
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+
+- table:
+    schema: analytics
+    name: stg_logs
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: trig
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_trigs
+          column_mapping:
+            trig_id: trig_id
+    - name: user
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_users
+          column_mapping:
+            user_id: user_id
+
+- table:
+    schema: analytics
+    name: stg_photos
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: log
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_logs
+          column_mapping:
+            log_id: log_id
+
+- table:
+    schema: analytics
+    name: stg_photo_votes
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: photo
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_photos
+          column_mapping:
+            photo_id: photo_id
+    - name: user
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_users
+          column_mapping:
+            user_id: user_id
+
+- table:
+    schema: analytics
+    name: stg_trig_areas
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: trig
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_trigs
+          column_mapping:
+            trig_id: trig_id
+    - name: area
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_areas
+          column_mapping:
+            area_id: area_id
+
+- table:
+    schema: analytics
+    name: stg_trig_types
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+
+- table:
+    schema: analytics
+    name: stg_trigs
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  array_relationships:
+    - name: logs
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_logs
+          column_mapping:
+            trig_id: trig_id
+    - name: trig_areas
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_trig_areas
+          column_mapping:
+            trig_id: trig_id
+
+- table:
+    schema: analytics
+    name: stg_users
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  array_relationships:
+    - name: logs
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: stg_logs
+          column_mapping:
+            user_id: user_id
+
+# Dimension tables (pre-joined, beginner-friendly)
+- table:
+    schema: analytics
+    name: dim_area
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+
+- table:
+    schema: analytics
+    name: dim_date
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+
+- table:
+    schema: analytics
+    name: dim_trig
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+
+- table:
+    schema: analytics
+    name: dim_trig_area
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: trig
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_trig
+          column_mapping:
+            trig_id: trig_id
+    - name: area
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_area
+          column_mapping:
+            area_id: area_id
+
+- table:
+    schema: analytics
+    name: dim_user
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+
+# Fact tables
+- table:
+    schema: analytics
+    name: fct_logs
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: trig
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_trig
+          column_mapping:
+            trig_id: trig_id
+    - name: user
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_user
+          column_mapping:
+            user_id: user_id
+    - name: date
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_date
+          column_mapping:
+            log_date: date_key
+
+- table:
+    schema: analytics
+    name: fct_photos
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: trig
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_trig
+          column_mapping:
+            trig_id: trig_id
+    - name: user
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_user
+          column_mapping:
+            user_id: user_id
+
+- table:
+    schema: analytics
+    name: fct_photo_votes
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+
+# Aggregate tables
+- table:
+    schema: analytics
+    name: agg_site_daily
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: date
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_date
+          column_mapping:
+            date_key: date_key
+
+- table:
+    schema: analytics
+    name: agg_trig_summary
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: trig
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_trig
+          column_mapping:
+            trig_id: trig_id
+
+- table:
+    schema: analytics
+    name: agg_user_summary
+  select_permissions:
+    - role: user
+      permission:
+        columns: "*"
+        filter: {}
+        allow_aggregations: true
+  object_relationships:
+    - name: user
+      using:
+        manual_configuration:
+          remote_table:
+            schema: analytics
+            name: dim_user
+          column_mapping:
+            user_id: user_id

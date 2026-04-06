@@ -1,0 +1,30 @@
+medal_id,code,name,description,category,medal_type,metric_key,icon,sort_order
+1,logger,Logger,Total trigpoints logged,logging,progressive,total_logs,clipboard-list,100
+2,explorer,Explorer,Distinct trigpoints visited,logging,progressive,total_distinct_trigs,map-pin,110
+3,commentator,Commentator,Logs with comments,logging,progressive,total_logs_with_comments,message-square,120
+4,veteran,Veteran,Years with logging activity,logging,progressive,total_years_active,award,130
+5,photographer,Photographer,Photos uploaded,photos,progressive,total_photos,camera,200
+6,photo_critic,Photo Critic,Photo votes cast,photos,progressive,total_photo_votes_cast,thumbs-up,210
+7,photo_star,Photo Star,Photo votes received from other users,photos,progressive,total_photo_votes_received,star,220
+8,daily_streak,Daily Streak,Consecutive days logging,streaks,progressive,longest_daily_streak,flame,300
+9,weekly_streak,Weekly Streak,Consecutive weeks logging,streaks,progressive,longest_weekly_streak,trending-up,310
+10,monthly_streak,Monthly Streak,Consecutive months logging,streaks,progressive,longest_monthly_streak,calendar,320
+11,yearly_streak,Yearly Streak,Consecutive years logging,streaks,progressive,longest_yearly_streak,clock,330
+12,christmas_logger,Christmas Logger,Logged on Christmas Day,calendar,counted,christmas_day_count,gift,400
+13,new_year_logger,New Year Logger,Logged on New Year's Day,calendar,counted,new_years_day_count,party-popper,410
+14,leap_day_logger,Leap Day Logger,Logged on 29th February,calendar,counted,leap_day_count,zap,420
+15,weekday_collector,Every Day Logger,"Logged on every day of the week, Monday to Sunday",calendar,collection,distinct_days_of_week,calendar-days,430
+16,all_seasons,All Seasons,Logged in every month of the year,calendar,collection,distinct_months_of_year,sun,440
+17,county_explorer,County Explorer,Ceremonial counties with logged trigs,exploration,progressive,distinct_counties,map,500
+18,country_hopper,Country Hopper,Countries with logged trigs,exploration,collection,distinct_countries,globe,510
+19,os_explorer_collector,OS Explorer Collector,OS Explorer map sheets with logged trigs,exploration,progressive,distinct_os_explorer_maps,layers,520
+20,os_landranger_collector,OS Landranger Collector,OS Landranger map sheets with logged trigs,exploration,progressive,distinct_os_landranger_maps,layers,530
+21,historic_county_explorer,Historic County Explorer,Historic counties with logged trigs,exploration,progressive,distinct_historic_counties,landmark,540
+22,a_to_z,A to Z,Distinct first letters of trigpoint names logged,diversity,collection,distinct_first_letters,type,600
+23,type_collector,Type Collector,Distinct trig physical types logged,diversity,collection,distinct_trig_types,shapes,610
+24,category_collector,Category Collector,Distinct trig categories logged,diversity,collection,distinct_trig_categories,folder,620
+25,condition_reporter,Condition Reporter,Distinct conditions reported,diversity,collection,distinct_condition_names,clipboard-check,630
+26,weekend_warrior,Weekend Warrior,Logs on Saturdays and Sundays,quirky,progressive,total_weekend_logs,sunset,700
+27,multi_bagger,Multi-bagger,Days logging two or more distinct trigs,quirky,progressive,total_multi_trig_days,package,710
+28,high_scorer,High Scorer,Logs with a score of 8 or higher,quirky,progressive,total_high_score_logs,trophy,720
+29,decade_spanner,Decade Spanner,Distinct decades with logging activity,quirky,collection,distinct_decades_active,history,730

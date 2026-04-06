@@ -130,6 +130,10 @@ module "auth0" {
   api_name       = "tuk-api"
   api_identifier = "https://api.trigpointing.uk/"
 
+  # GraphQL API Configuration (for third-party developer access)
+  graphql_api_name       = "tuk-graphql"
+  graphql_api_identifier = "https://graphql.trigpointing.uk/"
+
   # FastAPI Configuration
   fastapi_url           = "https://api.trigpointing.uk"
   webhook_shared_secret = var.webhook_shared_secret

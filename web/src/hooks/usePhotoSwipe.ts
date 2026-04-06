@@ -3,7 +3,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import toast from 'react-hot-toast';
 import PhotoSwipe from 'photoswipe';
 import type { Photo } from '../lib/api';
-import { authenticatedPost } from '../lib/api';
+import { authenticatedPost, authenticatedPut, authenticatedDelete } from '../lib/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
@@ -14,15 +14,16 @@ export interface PhotoSwipeOptions {
   onPhotoRotated?: (updatedPhoto: Photo) => void;
 }
 
-// Helper function to check if a value is empty or "none"
 function isEmptyOrNone(value: string | null | undefined): boolean {
   if (!value) return true;
   const trimmed = value.trim().toLowerCase();
   return trimmed === '' || trimmed === 'none';
 }
 
-// Helper function to create metadata overlay HTML
-function createMetadataOverlay(photo: Photo): string {
+const STAR_SVG_PATH =
+  'M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z';
+
+function createMetadataOverlay(photo: Photo, authenticated: boolean): string {
   const photoTypes: Record<string, string> = {
     'T': 'Trigpoint',
     'F': 'Flush Bracket',
@@ -39,22 +40,22 @@ function createMetadataOverlay(photo: Photo): string {
 
   const typeLabel = photoTypes[photo.type] || photo.type;
   const licenseLabel = licenses[photo.license] || photo.license;
-  const filesize = (photo.filesize / 1024).toFixed(0); // Convert to KB
-  
-  // Format waypoint as TPxxxx with minimum 4 digits
-  // Check for null/undefined, not falsy (to allow trig_id = 0)
+  const filesize = (photo.filesize / 1024).toFixed(0);
+
   const waypoint = photo.trig_id != null ? `TP${String(photo.trig_id).padStart(4, '0')}` : null;
-  
-  // Format date if available
+
   const formattedDate = photo.log_date ? new Date(photo.log_date).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric'
   }) : null;
 
-  // Check if caption and description are meaningful (not empty or "none")
   const hasCaption = !isEmptyOrNone(photo.caption);
   const hasDescription = !isEmptyOrNone(photo.text_desc);
+
+  const starHtml = buildStarsHtml(0, null, !authenticated);
+  const ratingLabel = authenticated ? 'Rate this photo' : '';
+  const loginHint = !authenticated ? '<span class="pswp__rating-login">Log in to rate</span>' : '';
 
   return `
     <div class="pswp__custom-caption">
@@ -64,6 +65,14 @@ function createMetadataOverlay(photo: Photo): string {
         ${waypoint && photo.trig_name ? `<div class="pswp__caption-location">${waypoint} · ${photo.trig_name}</div>` : ''}
         ${photo.user_name ? `<div class="pswp__caption-user">By ${photo.user_name}</div>` : ''}
         ${formattedDate ? `<div class="pswp__caption-date">${formattedDate}</div>` : ''}
+        <div class="pswp__caption-rating" data-photo-id="${photo.id}">
+          <div class="pswp__rating-stars" data-readonly="${!authenticated}" data-score="0" data-user-score="0">
+            ${starHtml}
+          </div>
+          <span class="pswp__rating-label">${ratingLabel}</span>
+          <span class="pswp__rating-aggregate"></span>
+          ${loginHint}
+        </div>
         <div class="pswp__caption-meta">
           ${photo.type !== 'X' ? '<span class="pswp__caption-meta-item">Type: ' + typeLabel + '</span>' : ''}
           ${licenseLabel !== undefined ? '<span class="pswp__caption-meta-item">License: ' + licenseLabel + '</span>' : ''}
@@ -80,77 +89,161 @@ function createMetadataOverlay(photo: Photo): string {
   `;
 }
 
+function buildStarsHtml(displayScore: number, _hoverScore: number | null, readonly: boolean): string {
+  const effectiveScore = _hoverScore ?? displayScore;
+  const rating = effectiveScore / 2;
+  let html = '';
+  for (let i = 0; i < 5; i++) {
+    let fill: 'full' | 'half' | 'empty' = 'empty';
+    if (i < Math.floor(rating)) fill = 'full';
+    else if (i < rating && rating % 1 >= 0.5) fill = 'half';
+
+    const clipStyle = fill === 'half' ? ' style="clip-path: inset(0 50% 0 0)"' : '';
+    const filledSvg = fill !== 'empty'
+      ? `<svg class="star-filled" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"${clipStyle}><path d="${STAR_SVG_PATH}"/></svg>`
+      : '';
+
+    html += `<div class="pswp__rating-star" data-star-index="${i}" ${readonly ? '' : 'role="button"'}>` +
+      `<svg class="star-empty" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="${STAR_SVG_PATH}"/></svg>` +
+      filledSvg +
+      `</div>`;
+  }
+  return html;
+}
+
+function updateStarsDisplay(container: HTMLElement, displayScore: number, hoverScore: number | null) {
+  const readonly = container.dataset.readonly === 'true';
+  container.innerHTML = buildStarsHtml(displayScore, hoverScore, readonly);
+}
+
+interface RatingData {
+  average_score: number | null;
+  vote_count: number;
+  user_score: number | null;
+}
+
 export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotated }: PhotoSwipeOptions) {
   const pswpRef = useRef<PhotoSwipe | null>(null);
-  // Track if close was user-initiated to prevent double navigation
-  // When user closes PhotoSwipe, we navigate(-1) which unmounts the component.
-  // The cleanup would then call pswp.close() again, triggering another navigate(-1).
   const isClosingRef = useRef(false);
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  // Cache of fetched ratings keyed by photo ID
+  const ratingCacheRef = useRef<Map<number, RatingData>>(new Map());
 
   useEffect(() => {
     if (photos.length === 0) return;
 
-    // Convert Photo objects to PhotoSwipe data source format
     const dataSource = photos.map((photo) => ({
       src: photo.photo_url,
       width: photo.width,
       height: photo.height,
       alt: photo.caption,
-      // Store the full photo object for metadata display
       photo: photo,
     }));
 
-    // PhotoSwipe options
     const options = {
       dataSource,
       index: initialIndex,
-      
-      // Zoom configuration
-      maxZoomLevel: 4, // 400% max zoom
-      initialZoomLevel: 'fit' as const, // Start with image fitted to screen (shows full image)
-      secondaryZoomLevel: 1, // Double-click zooms to 1:1 (actual pixels)
-      
-      // UI configuration
-      padding: { top: 50, bottom: 120, left: 20, right: 20 }, // Extra bottom padding for metadata
+      maxZoomLevel: 4,
+      initialZoomLevel: 'fit' as const,
+      secondaryZoomLevel: 1,
+      padding: { top: 50, bottom: 120, left: 20, right: 20 },
       bgOpacity: 0.9,
-      
-      // Show navigation UI only when there are multiple photos
       zoom: true,
       close: true,
-      counter: photos.length > 1, // Show counter only with multiple photos
-      arrowPrev: photos.length > 1, // Show prev arrow only with multiple photos
-      arrowNext: photos.length > 1, // Show next arrow only with multiple photos
-      
-      // Click/tap behavior
+      counter: photos.length > 1,
+      arrowPrev: photos.length > 1,
+      arrowNext: photos.length > 1,
       clickToCloseNonZoomable: true,
-      tapAction: 'close' as const, // Single tap/click closes the viewer when not zoomed
-      doubleTapAction: 'zoom' as const, // Double-click/tap to zoom
-      
-      // Mouse wheel zoom
+      tapAction: 'close' as const,
+      doubleTapAction: 'zoom' as const,
       wheelToZoom: true,
-      
-      // Keyboard shortcuts
       keyboard: true,
-      
-      // Pinch to zoom on mobile
       pinchToClose: false,
-      
-      // Animation
-      showHideAnimationType: 'zoom' as const, // Zoom animation on open/close
-      
-      // Allow panning/swiping to next photo only when there are multiple photos
+      showHideAnimationType: 'zoom' as const,
       allowPanToNext: photos.length > 1,
-      
-      // Prevent closing when clicking outside if zoomed
       closeOnVerticalDrag: true,
     };
 
-    // Create and open PhotoSwipe
     const pswp = new PhotoSwipe(options);
     pswpRef.current = pswp;
 
-    // Add custom metadata overlay
+    // ---- Rating helpers ----
+
+    async function fetchRating(photoId: number): Promise<RatingData | null> {
+      try {
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        if (isAuthenticated) {
+          try {
+            const token = await getAccessTokenSilently();
+            headers['Authorization'] = `Bearer ${token}`;
+          } catch {
+            // Proceed without auth
+          }
+        }
+        const resp = await fetch(`${API_BASE}/v1/photos/${photoId}/rating`, { headers });
+        if (!resp.ok) return null;
+        return resp.json();
+      } catch {
+        return null;
+      }
+    }
+
+    function applyRatingToCaption(captionEl: HTMLElement, photoId: number, data: RatingData) {
+      const ratingDiv = captionEl.querySelector(`.pswp__caption-rating[data-photo-id="${photoId}"]`);
+      if (!ratingDiv) return;
+
+      const starsContainer = ratingDiv.querySelector('.pswp__rating-stars') as HTMLElement | null;
+      const labelEl = ratingDiv.querySelector('.pswp__rating-label') as HTMLElement | null;
+      const aggEl = ratingDiv.querySelector('.pswp__rating-aggregate') as HTMLElement | null;
+
+      if (starsContainer) {
+        const displayScore = data.user_score ?? (data.average_score ? Math.round(data.average_score) : 0);
+        starsContainer.dataset.score = String(displayScore);
+        starsContainer.dataset.userScore = String(data.user_score ?? 0);
+        updateStarsDisplay(starsContainer, displayScore, null);
+      }
+
+      if (labelEl) {
+        if (data.user_score != null && data.user_score > 0) {
+          labelEl.textContent = `Your rating: ${data.user_score}/10`;
+        } else if (isAuthenticated) {
+          labelEl.textContent = 'Rate this photo';
+        }
+      }
+
+      if (aggEl) {
+        if (data.vote_count > 0 && data.average_score != null) {
+          aggEl.textContent = `Average: ${data.average_score}/10 (${data.vote_count} vote${data.vote_count !== 1 ? 's' : ''})`;
+        } else {
+          aggEl.textContent = '';
+        }
+      }
+    }
+
+    async function submitRating(photoId: number, score: number, captionEl: HTMLElement) {
+      try {
+        let result: RatingData;
+        if (score === 0) {
+          result = await authenticatedDelete<RatingData>(
+            `${API_BASE}/v1/photos/${photoId}/rating`,
+            getAccessTokenSilently
+          );
+        } else {
+          result = await authenticatedPut<RatingData>(
+            `${API_BASE}/v1/photos/${photoId}/rating`,
+            { score },
+            getAccessTokenSilently
+          );
+        }
+        ratingCacheRef.current.set(photoId, result);
+        applyRatingToCaption(captionEl, photoId, result);
+      } catch {
+        toast.error('Failed to save rating');
+      }
+    }
+
+    // ---- PhotoSwipe UI registration ----
+
     pswp.on('uiRegister', () => {
       pswp.ui?.registerElement({
         name: 'custom-caption',
@@ -162,13 +255,74 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
           pswp.on('change', () => {
             const currSlideElement = pswp.currSlide?.data;
             if (currSlideElement && 'photo' in currSlideElement) {
-              el.innerHTML = createMetadataOverlay(currSlideElement.photo as Photo);
+              const photo = currSlideElement.photo as Photo;
+              el.innerHTML = createMetadataOverlay(photo, isAuthenticated);
+
+              // Fetch and apply rating
+              const cached = ratingCacheRef.current.get(photo.id);
+              if (cached) {
+                applyRatingToCaption(el, photo.id, cached);
+              }
+              fetchRating(photo.id).then((data) => {
+                if (data) {
+                  ratingCacheRef.current.set(photo.id, data);
+                  applyRatingToCaption(el, photo.id, data);
+                }
+              });
+
+              // Wire up star interaction via event delegation
+              if (isAuthenticated) {
+                const starsContainer = el.querySelector('.pswp__rating-stars') as HTMLElement | null;
+                if (starsContainer) {
+                  starsContainer.addEventListener('mousemove', (e: MouseEvent) => {
+                    const target = (e.target as HTMLElement).closest('.pswp__rating-star') as HTMLElement | null;
+                    if (!target) return;
+                    const idx = parseInt(target.dataset.starIndex ?? '0', 10);
+                    const rect = target.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const isLeft = x < rect.width / 2;
+                    const hoverScore = idx * 2 + (isLeft ? 1 : 2);
+                    const currentScore = parseInt(starsContainer.dataset.score ?? '0', 10);
+                    updateStarsDisplay(starsContainer, currentScore, hoverScore);
+                  });
+
+                  starsContainer.addEventListener('mouseleave', () => {
+                    const currentScore = parseInt(starsContainer.dataset.score ?? '0', 10);
+                    updateStarsDisplay(starsContainer, currentScore, null);
+                  });
+
+                  starsContainer.addEventListener('click', (e: MouseEvent) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const target = (e.target as HTMLElement).closest('.pswp__rating-star') as HTMLElement | null;
+                    if (!target) return;
+                    const idx = parseInt(target.dataset.starIndex ?? '0', 10);
+                    const rect = target.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const isLeft = x < rect.width / 2;
+                    const clickScore = idx * 2 + (isLeft ? 1 : 2);
+                    const userScore = parseInt(starsContainer.dataset.userScore ?? '0', 10);
+                    const newScore = clickScore === userScore ? 0 : clickScore;
+
+                    // Optimistic update
+                    starsContainer.dataset.score = String(newScore);
+                    starsContainer.dataset.userScore = String(newScore);
+                    updateStarsDisplay(starsContainer, newScore, null);
+                    const labelEl = el.querySelector('.pswp__rating-label') as HTMLElement | null;
+                    if (labelEl) {
+                      labelEl.textContent = newScore > 0 ? `Your rating: ${newScore}/10` : 'Rate this photo';
+                    }
+
+                    submitRating(photo.id, newScore, el);
+                  });
+                }
+              }
             }
           });
         },
       });
 
-      // Add rotation buttons (only if user is logged in)
+      // Rotation buttons (only if user is logged in)
       if (isAuthenticated) {
         pswp.ui?.registerElement({
           name: 'rotate-left-button',
@@ -200,43 +354,23 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
               const currSlideData = pswp.currSlide?.data;
               if (currSlideData && 'photo' in currSlideData) {
                 const photo = currSlideData.photo as Photo;
-                console.log('Rotate left clicked for photo:', photo.id);
                 try {
-                  console.log('Rotating photo left (270 degrees)...');
-                  
-                  // Use authenticatedPost which handles 401 retry automatically
                   const updatedPhoto = await authenticatedPost<Photo>(
                     `${API_BASE}/v1/photos/${photo.id}/rotate`,
                     { angle: 270 },
                     getAccessTokenSilently
                   );
-                  console.log('Photo rotated successfully:', updatedPhoto);
-                  
                   toast.success('Photo rotated successfully');
-                  
-                  // Update the current slide with the new photo URL
                   if (pswp.currSlide) {
                     pswp.currSlide.data.src = updatedPhoto.photo_url;
                     pswp.currSlide.data.width = updatedPhoto.width;
                     pswp.currSlide.data.height = updatedPhoto.height;
                     (pswp.currSlide.data as { photo: Photo }).photo = updatedPhoto;
-                    
-                    // Force PhotoSwipe to reload the image
                     pswp.refreshSlideContent(pswp.currSlide.index);
                   }
-                  
-                  // Call the callback if provided
-                  if (onPhotoRotated) {
-                    onPhotoRotated(updatedPhoto);
-                  }
+                  if (onPhotoRotated) onPhotoRotated(updatedPhoto);
                 } catch (error) {
                   console.error('Failed to rotate photo:', error);
-                  console.error('Error details:', {
-                    message: error instanceof Error ? error.message : String(error),
-                    stack: error instanceof Error ? error.stack : undefined,
-                    errorType: typeof error,
-                    errorConstructor: error?.constructor?.name,
-                  });
                   toast.error('Failed to rotate photo. Please try again.');
                 }
               }
@@ -274,43 +408,23 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
               const currSlideData = pswp.currSlide?.data;
               if (currSlideData && 'photo' in currSlideData) {
                 const photo = currSlideData.photo as Photo;
-                console.log('Rotate right clicked for photo:', photo.id);
                 try {
-                  console.log('Rotating photo right (90 degrees)...');
-                  
-                  // Use authenticatedPost which handles 401 retry automatically
                   const updatedPhoto = await authenticatedPost<Photo>(
                     `${API_BASE}/v1/photos/${photo.id}/rotate`,
                     { angle: 90 },
                     getAccessTokenSilently
                   );
-                  console.log('Photo rotated successfully:', updatedPhoto);
-                  
                   toast.success('Photo rotated successfully');
-                  
-                  // Update the current slide with the new photo URL
                   if (pswp.currSlide) {
                     pswp.currSlide.data.src = updatedPhoto.photo_url;
                     pswp.currSlide.data.width = updatedPhoto.width;
                     pswp.currSlide.data.height = updatedPhoto.height;
                     (pswp.currSlide.data as { photo: Photo }).photo = updatedPhoto;
-                    
-                    // Force PhotoSwipe to reload the image
                     pswp.refreshSlideContent(pswp.currSlide.index);
                   }
-                  
-                  // Call the callback if provided
-                  if (onPhotoRotated) {
-                    onPhotoRotated(updatedPhoto);
-                  }
+                  if (onPhotoRotated) onPhotoRotated(updatedPhoto);
                 } catch (error) {
                   console.error('Failed to rotate photo:', error);
-                  console.error('Error details:', {
-                    message: error instanceof Error ? error.message : String(error),
-                    stack: error instanceof Error ? error.stack : undefined,
-                    errorType: typeof error,
-                    errorConstructor: error?.constructor?.name,
-                  });
                   toast.error('Failed to rotate photo. Please try again.');
                 }
               }
@@ -320,20 +434,20 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
       }
     });
 
-    // Add keyboard event listeners for +/- zoom (PhotoSwipe handles ESC by default)
+    // Keyboard zoom
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!pswp.currSlide) return;
-      
+
       if (e.key === '+' || e.key === '=') {
         e.preventDefault();
         const currZoom = pswp.currSlide.currZoomLevel || 1;
-        const newZoom = Math.min(currZoom * 1.2, 4); // Increase by 20%, max 4x
+        const newZoom = Math.min(currZoom * 1.2, 4);
         pswp.currSlide.zoomTo(newZoom, { x: pswp.currSlide.bounds.center.x, y: pswp.currSlide.bounds.center.y }, 300);
       } else if (e.key === '-' || e.key === '_') {
         e.preventDefault();
         const currZoom = pswp.currSlide.currZoomLevel || 1;
         const initialZoom = pswp.currSlide.zoomLevels.initial || 1;
-        const newZoom = Math.max(currZoom / 1.2, initialZoom); // Decrease by 20%, min initial zoom
+        const newZoom = Math.max(currZoom / 1.2, initialZoom);
         pswp.currSlide.zoomTo(newZoom, { x: pswp.currSlide.bounds.center.x, y: pswp.currSlide.bounds.center.y }, 300);
       }
     };
@@ -342,39 +456,25 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
       document.addEventListener('keydown', handleKeyDown);
     });
 
-    // Handle close event (fires when close animation STARTS)
-    // We mark that this is a user-initiated close (X button, ESC, tap, etc.)
     pswp.on('close', () => {
       document.removeEventListener('keydown', handleKeyDown);
-      // Mark that user initiated the close (not browser back button)
       isClosingRef.current = true;
     });
 
-    // Handle destroy event (fires when close animation COMPLETES and DOM is removed)
     pswp.on('destroy', () => {
-      // Only navigate if this was a user-initiated close (X button, ESC, etc.)
-      // If destroy was triggered by our cleanup (browser back), navigation already happened
       if (isClosingRef.current && onClose) {
-        // Use requestAnimationFrame to ensure PhotoSwipe has fully cleaned up its DOM
-        // before we navigate away
         requestAnimationFrame(() => {
           onClose();
         });
       }
     });
 
-    // Open PhotoSwipe
     pswp.init();
 
-    // Cleanup on unmount (e.g., browser back button pressed)
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       if (pswpRef.current) {
-        // If browser back was pressed (not user closing via X/ESC), we need to
-        // clean up PhotoSwipe's DOM. Navigation already happened, so don't trigger
-        // the destroy event's onClose callback.
         if (!isClosingRef.current) {
-          // Directly remove PhotoSwipe's DOM element to avoid triggering events
           const pswpElement = document.querySelector('.pswp');
           if (pswpElement) {
             pswpElement.remove();
@@ -387,4 +487,3 @@ export function usePhotoSwipe({ photos, initialIndex = 0, onClose, onPhotoRotate
 
   return pswpRef;
 }
-

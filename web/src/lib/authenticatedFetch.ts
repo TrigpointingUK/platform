@@ -220,6 +220,38 @@ export async function authenticatedPost<T>(
 }
 
 /**
+ * Convenience function for authenticated PUT requests
+ */
+export async function authenticatedPut<T>(
+  url: string,
+  data: unknown,
+  getAccessTokenSilently: GetAccessTokenSilently,
+  options?: Omit<AuthenticatedFetchOptions, "method" | "body">
+): Promise<T> {
+  const response = await authenticatedFetch(
+    url,
+    {
+      ...options,
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+      body: JSON.stringify(data),
+    },
+    getAccessTokenSilently
+  );
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+/**
  * Convenience function for authenticated PATCH requests
  */
 export async function authenticatedPatch<T>(

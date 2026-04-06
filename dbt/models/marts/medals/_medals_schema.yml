@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: mart_user_medals
+    description: >
+      Evaluated medal state for every user x medal combination. Joins user metrics with
+      seed-defined medal definitions and tiers to produce current tier, next threshold,
+      and progress percentage. This single table serves the medals API endpoint.
+    columns:
+      - name: user_id
+        description: FK to dim_user
+        tests:
+          - not_null
+      - name: medal_id
+        description: FK to medal_definitions seed
+        tests:
+          - not_null
+      - name: code
+        description: Medal short code (e.g., "logger", "photographer")
+      - name: name
+        description: Human-readable medal name
+      - name: description
+        description: Brief description of how to earn this medal
+      - name: category
+        description: Grouping category for UI display
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['logging', 'photos', 'streaks', 'calendar', 'exploration', 'diversity', 'quirky']
+      - name: medal_type
+        description: "Rendering hint: progressive, counted, or collection"
+      - name: icon
+        description: Icon identifier for frontend rendering
+      - name: sort_order
+        description: Display order within the medals grid
+      - name: current_value
+        description: The user's current raw metric value for this medal
+      - name: highest_tier_level
+        description: Ordinal of the highest tier earned (NULL if no tier earned)
+      - name: highest_tier_name
+        description: Name of the highest tier earned (NULL if no tier earned)
+      - name: next_tier_threshold
+        description: Threshold for the next tier to work toward (NULL if maxed out)
+      - name: next_tier_name
+        description: Name of the next tier to work toward (NULL if maxed out)
+      - name: progress_pct
+        description: >
+          Progress toward the next tier as a percentage (0-100).
+          100 if all tiers are completed, 0 if no progress.
