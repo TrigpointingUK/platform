@@ -41,30 +41,40 @@ resource "aws_security_group_rule" "hasura_to_rds" {
 }
 
 # Fetch Hasura credentials from Secrets Manager
-data "aws_secretsmanager_secret" "hasura_credentials" {
+# Data source uses staging credentials; metadata uses production (owns hdb_catalog)
+data "aws_secretsmanager_secret" "hasura_data_credentials" {
+  name = "hasura-staging-postgres-credentials"
+}
+
+data "aws_secretsmanager_secret_version" "hasura_data_credentials" {
+  secret_id = data.aws_secretsmanager_secret.hasura_data_credentials.id
+}
+
+data "aws_secretsmanager_secret" "hasura_metadata_credentials" {
   name = "hasura-production-postgres-credentials"
 }
 
-data "aws_secretsmanager_secret_version" "hasura_credentials" {
-  secret_id = data.aws_secretsmanager_secret.hasura_credentials.id
+data "aws_secretsmanager_secret_version" "hasura_metadata_credentials" {
+  secret_id = data.aws_secretsmanager_secret.hasura_metadata_credentials.id
 }
 
 locals {
-  hasura_credentials = jsondecode(data.aws_secretsmanager_secret_version.hasura_credentials.secret_string)
-  hasura_rds_host    = split(":", aws_db_instance.postgres.endpoint)[0]
-  hasura_rds_port    = aws_db_instance.postgres.port
+  hasura_data_credentials     = jsondecode(data.aws_secretsmanager_secret_version.hasura_data_credentials.secret_string)
+  hasura_metadata_credentials = jsondecode(data.aws_secretsmanager_secret_version.hasura_metadata_credentials.secret_string)
+  hasura_rds_host             = split(":", aws_db_instance.postgres.endpoint)[0]
+  hasura_rds_port             = aws_db_instance.postgres.port
 
-  hasura_database_url = "postgres://${local.hasura_credentials.username}:${local.hasura_credentials.password}@${local.hasura_rds_host}:${local.hasura_rds_port}/${local.hasura_credentials.dbname}?options=-c%%20search_path%%3Danalytics"
-  hasura_metadata_url = "postgres://${local.hasura_credentials.username}:${local.hasura_credentials.password}@${local.hasura_rds_host}:${local.hasura_rds_port}/hasura"
+  hasura_database_url = "postgres://${local.hasura_data_credentials.username}:${local.hasura_data_credentials.password}@${local.hasura_rds_host}:${local.hasura_rds_port}/${local.hasura_data_credentials.dbname}?options=-c%20search_path%3Danalytics"
+  hasura_metadata_url = "postgres://${local.hasura_metadata_credentials.username}:${local.hasura_metadata_credentials.password}@${local.hasura_rds_host}:${local.hasura_rds_port}/hasura"
 
   hasura_jwt_secret = jsonencode({
     type    = "RS256"
     jwk_url = "https://auth.trigpointing.uk/.well-known/jwks.json"
     issuer  = "https://auth.trigpointing.uk/"
     claims_map = {
-      "x-hasura-default-role"  = { "default" = "user" }
-      "x-hasura-allowed-roles" = { "default" = ["user", "anonymous"] }
-      "x-hasura-user-id"       = { "path" = "$$.sub" }
+      "x-hasura-default-role"  = "user"
+      "x-hasura-allowed-roles" = ["user", "anonymous"]
+      "x-hasura-user-id"       = { "path" = "$.sub" }
     }
   })
 }
@@ -85,7 +95,7 @@ module "hasura" {
   cpu                         = 512
   memory                      = 1024
   desired_count               = 1
-  min_capacity                = 0
+  min_capacity                = 1
   max_capacity                = 1
   cpu_target_value            = 70
   ecs_cluster_id              = aws_ecs_cluster.main.id
