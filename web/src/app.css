@@ -4,6 +4,9 @@
 /* Configure dark mode to use class-based detection instead of media query */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Targets devices with hover capability (mouse/trackpad, not touch-only) */
+@custom-variant can-hover (@media (hover: hover));
+
 @layer theme {
   :root {
     /* Trig green palette */
