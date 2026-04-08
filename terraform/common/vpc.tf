@@ -109,9 +109,6 @@ resource "aws_service_discovery_service" "valkey" {
     }
   }
 
-  health_check_custom_config {
-  }
-
   tags = {
     Name = "${var.project_name}-valkey-discovery"
   }
