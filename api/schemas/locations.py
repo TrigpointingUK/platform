@@ -20,6 +20,8 @@ class LocationSearchResult(BaseModel):
                 "lat": 53.385,
                 "lon": -1.876,
                 "description": "TP0001 - Pillar",
+                "location": "Edale, Derbyshire",
+                "category_code": "PILLAR",
             }
         }
     )
@@ -36,6 +38,13 @@ class LocationSearchResult(BaseModel):
     )
     id: Optional[str] = Field(
         None, description="ID for routing (trig ID, user ID, etc.)"
+    )
+    location: Optional[str] = Field(
+        default=None, description="Human-readable location (town, county)"
+    )
+    category_code: Optional[str] = Field(
+        default=None,
+        description="Trig category code for icon selection (e.g. PILLAR, FBM)",
     )
 
 

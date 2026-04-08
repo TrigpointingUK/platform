@@ -516,6 +516,147 @@ class TestSearchLogsRegex:
         assert "items" in data
 
 
+class TestSearchResultNewFields:
+    """Tests for location, category_code, and town title-casing."""
+
+    def test_trig_result_includes_location_field(
+        self, client: TestClient, location_search_data, db
+    ):
+        """Test that trig search results include the location field."""
+        suffix = location_search_data["suffix"]
+        query = f"SearchTestTrig_{suffix}"
+
+        response = client.get(f"/v1/locations/search?q={query}")
+
+        assert response.status_code == 200
+        data = response.json()
+        trig_results = [r for r in data if r["type"] == "trigpoint"]
+        assert len(trig_results) > 0
+
+        item = trig_results[0]
+        assert "location" in item
+        # Trig was created with town="Westminster" so location should contain it
+        assert item["location"] is not None
+        assert "Westminster" in item["location"]
+
+    def test_trig_result_includes_category_code(
+        self, client: TestClient, location_search_data, db
+    ):
+        """Test that trig search results include category_code field."""
+        suffix = location_search_data["suffix"]
+        query = f"SearchTestTrig_{suffix}"
+
+        response = client.get(f"/v1/locations/search?q={query}")
+
+        assert response.status_code == 200
+        data = response.json()
+        trig_results = [r for r in data if r["type"] == "trigpoint"]
+        assert len(trig_results) > 0
+        # category_code should be present (may be None if no trig_type in test DB)
+        assert "category_code" in trig_results[0]
+
+    def test_trig_description_does_not_contain_town(
+        self, client: TestClient, location_search_data, db
+    ):
+        """Test that trig description contains waypoint/type, not town."""
+        suffix = location_search_data["suffix"]
+        query = f"SearchTestTrig_{suffix}"
+
+        response = client.get(f"/v1/locations/search?q={query}")
+
+        assert response.status_code == 200
+        data = response.json()
+        trig_results = [r for r in data if r["type"] == "trigpoint"]
+        assert len(trig_results) > 0
+
+        item = trig_results[0]
+        # Description should contain the waypoint
+        assert f"TP{suffix[:4]}" in item["description"]
+        # Town info should be in location, not description
+        assert "Westminster" not in item["description"]
+
+    def test_town_name_is_title_cased(
+        self, client: TestClient, location_search_data, db
+    ):
+        """Test that town names in search results are title-cased."""
+        suffix = location_search_data["suffix"]
+        query = f"SearchTestTown_{suffix}"
+
+        response = client.get(f"/v1/locations/search/places?q={query}")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        if data["items"]:
+            name = data["items"][0]["name"]
+            # Title case: first letter of each word capitalised
+            assert name == name.title()
+
+    def test_town_description_starts_with_uk_town(
+        self, client: TestClient, location_search_data, db
+    ):
+        """Test that town descriptions start with 'UK Town'."""
+        suffix = location_search_data["suffix"]
+        query = f"SearchTestTown_{suffix}"
+
+        response = client.get(f"/v1/locations/search/places?q={query}")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        if data["items"]:
+            desc = data["items"][0]["description"]
+            assert desc.startswith("UK Town")
+
+    def test_search_all_trig_results_have_location_and_category(
+        self, client: TestClient, location_search_data, db
+    ):
+        """Test search/all trig results include location and category_code."""
+        suffix = location_search_data["suffix"]
+        query = f"SearchTestTrig_{suffix}"
+
+        response = client.get(f"/v1/locations/search/all?q={query}")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        trig_items = data["trigpoints"]["items"]
+        assert len(trig_items) > 0
+        assert "location" in trig_items[0]
+        assert "category_code" in trig_items[0]
+
+    def test_station_number_results_have_location_and_category(
+        self, client: TestClient, location_search_data, db
+    ):
+        """Test station number results include location and category_code."""
+        suffix = location_search_data["suffix"][:4]
+        query = f"FB{suffix}"
+
+        response = client.get(f"/v1/locations/search/station-numbers?q={query}")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        if data["items"]:
+            assert "location" in data["items"][0]
+            assert "category_code" in data["items"][0]
+
+    def test_non_trig_results_have_null_location_and_category(
+        self, client: TestClient, db
+    ):
+        """Test that non-trig results have null location and category_code."""
+        response = client.get("/v1/locations/search?q=51.5,-0.1")
+
+        assert response.status_code == 200
+        data = response.json()
+        latlon_results = [r for r in data if r["type"] == "latlon"]
+        assert len(latlon_results) > 0
+
+        item = latlon_results[0]
+        assert item["location"] is None
+        assert item["category_code"] is None
+
+
 class TestLocationSearchResultStructure:
     """Tests for response structure validation."""
 
@@ -538,8 +679,9 @@ class TestLocationSearchResultStructure:
             assert "lat" in item
             assert "lon" in item
             assert "description" in item
-            # id is optional
             assert "id" in item
+            assert "location" in item
+            assert "category_code" in item
 
     def test_log_search_result_structure(
         self, client: TestClient, location_search_data, db

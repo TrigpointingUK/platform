@@ -8,6 +8,8 @@ export interface LocationSearchResult {
   lon: number;
   description?: string;
   id?: string;
+  location?: string;
+  category_code?: string;
 }
 
 export interface LogSearchResult {
