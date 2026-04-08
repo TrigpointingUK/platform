@@ -115,7 +115,7 @@ wfLoadExtension( 'OpenIDConnect' );
 # Since we use Auth0 for authentication, MediaWiki's built-in throttling
 # is not needed and creates a vulnerability where bad actors can lock out
 # legitimate users by triggering failed login attempts
-$wgPasswordAttemptThrottle = false;
+$wgPasswordAttemptThrottle = [];
 
 $providerURL   = getenv('OIDC_PROVIDER_URL') ?: '';
 $clientID      = getenv('OIDC_CLIENT_ID') ?: '';
@@ -235,6 +235,9 @@ $wgNamespacesToBeSearchedDefault[NS_ARCHIVE] = true;
 # Enable subpages in the main and archive namespace
 $wgNamespacesWithSubpages[NS_MAIN] = true;
 $wgNamespacesWithSubpages[NS_ARCHIVE] = true;
+
+# -- Sitemap (REST API, available from MediaWiki 1.45+) --
+$wgSitemapApiConfig['enabled'] = true;
 
 # -- Homepage video (HLS via Video.js) --
 # Usage on the main page content: <trigvideo /> or <trigvideo src=".../master.m3u8" poster="...jpg" />
