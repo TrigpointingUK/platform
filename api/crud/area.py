@@ -3,7 +3,7 @@ CRUD operations for area and area_type tables.
 Uses PostGIS spatial functions for containment queries.
 """
 
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 import sqlalchemy as sa
 from geoalchemy2 import Geometry
@@ -336,3 +336,77 @@ def get_county_name_for_trig(db: Session, trig_id: int) -> Optional[str]:
     )
 
     return str(result[0]) if result else None
+
+
+def get_county_names_for_trigs(db: Session, trig_ids: List[int]) -> Dict[int, str]:
+    """
+    Batch-fetch county names for multiple trigpoints in a single query.
+
+    Uses area_type_id = 7 (county_1991) to find counties.
+
+    Args:
+        db: Database session
+        trig_ids: List of trig IDs to look up
+
+    Returns:
+        Dict mapping trig_id to county name (only includes trigs with a county)
+    """
+    if not trig_ids:
+        return {}
+
+    if _is_sqlite(db):
+        return {}
+
+    try:
+        from typing import Any as AnyType
+        from typing import cast as type_cast
+
+        from sqlalchemy import inspect
+
+        inspector = type_cast(AnyType, inspect(db.bind))
+        if "trig_area" not in inspector.get_table_names():
+            return {}
+    except Exception:
+        return {}
+
+    results = (
+        db.query(TRIG_AREA.c.trig_id, Area.name)
+        .join(TRIG_AREA, TRIG_AREA.c.area_id == Area.id)
+        .filter(
+            TRIG_AREA.c.trig_id.in_(trig_ids),
+            TRIG_AREA.c.area_type_id == COUNTY_1991_AREA_TYPE_ID,
+        )
+        .all()
+    )
+
+    return {int(row[0]): str(row[1]) for row in results}
+
+
+def get_county_name_for_point(db: Session, lat: float, lon: float) -> Optional[str]:
+    """
+    Get the county_1991 name for a WGS84 lat/lon point via spatial lookup.
+
+    Args:
+        db: Database session
+        lat: WGS84 latitude
+        lon: WGS84 longitude
+
+    Returns:
+        County name, or None if not found / not supported
+    """
+    if _is_sqlite(db):
+        return None
+
+    try:
+        point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+        result = (
+            db.query(Area.name)
+            .filter(
+                Area.area_type_id == COUNTY_1991_AREA_TYPE_ID,
+                ST_Covers(cast(Area.boundary, Geometry), cast(point, Geometry)),
+            )
+            .first()
+        )
+        return str(result[0]) if result else None
+    except Exception:
+        return None

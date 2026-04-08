@@ -704,6 +704,16 @@ resource "postgresql_grant" "hasura_production_analytics_schema" {
   depends_on = [postgresql_schema.analytics_production]
 }
 
+resource "postgresql_grant" "hasura_production_analytics_tables" {
+  database    = postgresql_database.production.name
+  role        = postgresql_role.hasura_production.name
+  schema      = "analytics"
+  object_type = "table"
+  privileges  = ["SELECT"]
+
+  depends_on = [postgresql_schema.analytics_production]
+}
+
 resource "postgresql_default_privileges" "hasura_production_analytics_tables" {
   database    = postgresql_database.production.name
   role        = postgresql_role.hasura_production.name
@@ -730,6 +740,16 @@ resource "postgresql_grant" "hasura_staging_analytics_schema" {
   schema      = "analytics"
   object_type = "schema"
   privileges  = ["USAGE"]
+
+  depends_on = [postgresql_schema.analytics_staging]
+}
+
+resource "postgresql_grant" "hasura_staging_analytics_tables" {
+  database    = postgresql_database.staging.name
+  role        = postgresql_role.hasura_staging.name
+  schema      = "analytics"
+  object_type = "table"
+  privileges  = ["SELECT"]
 
   depends_on = [postgresql_schema.analytics_staging]
 }

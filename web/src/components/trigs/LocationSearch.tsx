@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Satellite } from "lucide-react";
 import { useLocationSearch } from "../../hooks/useLocationSearch";
 import { useDeviceLocation } from "../../hooks/useDeviceLocation";
+import { getTrigIconUrl } from "../../lib/searchIcons";
 
 interface LocationSearchResult {
   type: string;
@@ -9,6 +10,8 @@ interface LocationSearchResult {
   lat: number;
   lon: number;
   description?: string;
+  location?: string;
+  category_code?: string;
 }
 
 interface LocationSearchProps {
@@ -227,7 +230,15 @@ export function LocationSearch({
                     aria-selected={false}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">{getLocationTypeIcon(result.type)}</span>
+                      {result.type === "trigpoint" || result.type === "station_number" ? (
+                        <img
+                          src={getTrigIconUrl(result.category_code)}
+                          alt=""
+                          className="w-7 h-7 mt-0.5 flex-shrink-0"
+                        />
+                      ) : (
+                        <span className="text-2xl">{getLocationTypeIcon(result.type)}</span>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-gray-900 dark:text-gray-100">{result.name}</div>
                         {result.description && (
@@ -235,9 +246,15 @@ export function LocationSearch({
                             {result.description}
                           </div>
                         )}
-                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono">
-                          {result.lat.toFixed(5)}, {result.lon.toFixed(5)}
-                        </div>
+                        {result.location ? (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {result.location}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono">
+                            {result.lat.toFixed(5)}, {result.lon.toFixed(5)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>

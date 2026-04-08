@@ -7,6 +7,8 @@ interface LocationSearchResult {
   lat: number;
   lon: number;
   description?: string;
+  location?: string;
+  category_code?: string;
 }
 
 export function useLocationSearch(query: string, enabled: boolean = true) {

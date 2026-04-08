@@ -2,7 +2,7 @@
 Location search endpoints for finding trigpoints by various means.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import DatabaseError
@@ -10,10 +10,12 @@ from sqlalchemy.orm import Session
 
 from api.api.deps import get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
+from api.crud import area as area_crud
 from api.crud import locations as locations_crud
 from api.crud import tlog as tlog_crud
 from api.crud import trig as trig_crud
 from api.crud import user as user_crud
+from api.models.trig import Trig
 from api.models.user import User
 from api.schemas.locations import (
     LocationSearchResult,
@@ -24,6 +26,139 @@ from api.schemas.locations import (
 from api.utils.cache_decorator import cached
 
 router = APIRouter()
+
+
+def _trig_description(trig: Trig) -> str:
+    """Build a description string for a trig search result (waypoint + type)."""
+    parts = []
+    if trig.waypoint:
+        parts.append(str(trig.waypoint))
+    if trig.trig_type and trig.trig_type.name:
+        parts.append(str(trig.trig_type.name))
+    return " - ".join(parts) if parts else "Trigpoint"
+
+
+def _trig_location(trig: Trig, county_name: Optional[str] = None) -> Optional[str]:
+    """Build a human-readable location string (town, county) with title case."""
+    location_parts = []
+    town = str(trig.town).strip() if trig.town else ""
+    if town:
+        location_parts.append(town.title())
+    if county_name:
+        location_parts.append(county_name)
+    return ", ".join(location_parts) if location_parts else None
+
+
+def _trig_category_code(trig: Trig) -> Optional[str]:
+    """Get the category code for a trig (e.g. PILLAR, FBM)."""
+    if trig.trig_type and trig.trig_type.category:
+        return str(trig.trig_type.category.code)
+    return None
+
+
+def _trigs_to_search_results(
+    trigs: List[Trig],
+    db: Session,
+) -> List[LocationSearchResult]:
+    """Convert a list of Trig objects to LocationSearchResult items with county info."""
+    valid_trigs = [
+        t for t in trigs if t.name and t.wgs_lat is not None and t.wgs_long is not None
+    ]
+    trig_ids = [int(t.id) for t in valid_trigs]
+    county_map = area_crud.get_county_names_for_trigs(db, trig_ids)
+
+    items: List[LocationSearchResult] = []
+    for trig in valid_trigs:
+        county_name = county_map.get(int(trig.id))
+        items.append(
+            LocationSearchResult(
+                type="trigpoint",
+                name=str(trig.name).strip() or "Unnamed Trig",
+                lat=float(trig.wgs_lat),
+                lon=float(trig.wgs_long),
+                description=_trig_description(trig),
+                id=str(trig.id),
+                location=_trig_location(trig, county_name),
+                category_code=_trig_category_code(trig),
+            )
+        )
+    return items
+
+
+def _station_number_description(trig: Trig, query: str) -> str:
+    """Build a description for a station number search result."""
+    parts = []
+    if trig.waypoint:
+        parts.append(str(trig.waypoint))
+    query_upper = query.upper()
+    if trig.fb_number and query_upper in str(trig.fb_number).upper():
+        parts.append(f"FB: {trig.fb_number}")
+    if trig.stn_number_active and query_upper in str(trig.stn_number_active).upper():
+        parts.append(f"Active Stn: {trig.stn_number_active}")
+    if trig.stn_number_passive and query_upper in str(trig.stn_number_passive).upper():
+        parts.append(f"Passive Stn: {trig.stn_number_passive}")
+    if trig.stn_number_osgb36 and query_upper in str(trig.stn_number_osgb36).upper():
+        parts.append(f"OSGB36 Stn: {trig.stn_number_osgb36}")
+    return " - ".join(parts) if parts else "Station Number"
+
+
+def _station_trigs_to_search_results(
+    trigs: List[Trig],
+    query: str,
+    db: Session,
+) -> List[LocationSearchResult]:
+    """Convert station number trig results to LocationSearchResult items."""
+    valid_trigs = [
+        t for t in trigs if t.name and t.wgs_lat is not None and t.wgs_long is not None
+    ]
+    trig_ids = [int(t.id) for t in valid_trigs]
+    county_map = area_crud.get_county_names_for_trigs(db, trig_ids)
+
+    items: List[LocationSearchResult] = []
+    for trig in valid_trigs:
+        county_name = county_map.get(int(trig.id))
+        items.append(
+            LocationSearchResult(
+                type="station_number",
+                name=str(trig.name).strip() or "Unnamed Trig",
+                lat=float(trig.wgs_lat),
+                lon=float(trig.wgs_long),
+                description=_station_number_description(trig, query),
+                id=str(trig.id),
+                location=_trig_location(trig, county_name),
+                category_code=_trig_category_code(trig),
+            )
+        )
+    return items
+
+
+def _towns_to_search_results(
+    towns: list,
+    db: Session,
+) -> List[LocationSearchResult]:
+    """Convert Town objects to LocationSearchResult items with county lookup."""
+    from api.models.location import Town
+
+    valid_towns: list[Town] = [
+        t for t in towns if t.name and t.wgs_lat is not None and t.wgs_long is not None
+    ]
+    items: List[LocationSearchResult] = []
+    for town in valid_towns:
+        county_name = area_crud.get_county_name_for_point(
+            db, float(town.wgs_lat), float(town.wgs_long)
+        )
+        desc = f"UK Town - {county_name}" if county_name else "UK Town"
+        items.append(
+            LocationSearchResult(
+                type="town",
+                name=str(town.name).strip().title() or "Unknown Town",
+                lat=float(town.wgs_lat),
+                lon=float(town.wgs_long),
+                description=desc,
+                id=None,
+            )
+        )
+    return items
 
 
 @router.get(
@@ -92,91 +227,17 @@ def search_locations(
     trigs = locations_crud.search_trigpoints_by_name_or_waypoint(
         db, q, limit=min(5, limit)
     )
-    for trig in trigs:
-        # Skip if missing required fields
-        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
-            continue
-
-        # Build description safely
-        parts = []
-        if trig.waypoint:
-            parts.append(str(trig.waypoint))
-        if trig.trig_type and trig.trig_type.name:
-            parts.append(str(trig.trig_type.name))
-        description = " - ".join(parts) if parts else "Trigpoint"
-
-        results.append(
-            LocationSearchResult(
-                type="trigpoint",
-                name=str(trig.name).strip() or "Unnamed Trig",
-                lat=float(trig.wgs_lat),
-                lon=float(trig.wgs_long),
-                description=description,
-                id=str(trig.id),
-            )
-        )
+    results.extend(_trigs_to_search_results(trigs, db))
 
     # Search trigpoints by station numbers
     station_trigs = locations_crud.search_trigpoints_by_station_number(
         db, q, limit=min(3, limit)
     )
-    for trig in station_trigs:
-        # Skip if missing required fields
-        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
-            continue
-
-        # Build description with matched station numbers
-        parts = []
-        if trig.waypoint:
-            parts.append(str(trig.waypoint))
-        query_upper = q.upper()
-        if trig.fb_number and query_upper in str(trig.fb_number).upper():
-            parts.append(f"FB: {trig.fb_number}")
-        if (
-            trig.stn_number_active
-            and query_upper in str(trig.stn_number_active).upper()
-        ):
-            parts.append(f"Active Stn: {trig.stn_number_active}")
-        if (
-            trig.stn_number_passive
-            and query_upper in str(trig.stn_number_passive).upper()
-        ):
-            parts.append(f"Passive Stn: {trig.stn_number_passive}")
-        if (
-            trig.stn_number_osgb36
-            and query_upper in str(trig.stn_number_osgb36).upper()
-        ):
-            parts.append(f"OSGB36 Stn: {trig.stn_number_osgb36}")
-        description = " - ".join(parts) if parts else "Station Number"
-
-        results.append(
-            LocationSearchResult(
-                type="station_number",
-                name=str(trig.name).strip() or "Unnamed Trig",
-                lat=float(trig.wgs_lat),
-                lon=float(trig.wgs_long),
-                description=description,
-                id=str(trig.id),
-            )
-        )
+    results.extend(_station_trigs_to_search_results(station_trigs, q, db))
 
     # Search towns
     towns = locations_crud.search_towns(db, q, limit=min(5, limit))
-    for town in towns:
-        # Skip if missing required fields
-        if not town.name or town.wgs_lat is None or town.wgs_long is None:
-            continue
-
-        results.append(
-            LocationSearchResult(
-                type="town",
-                name=str(town.name).strip().title() or "Unknown Town",
-                lat=float(town.wgs_lat),
-                lon=float(town.wgs_long),
-                description="UK Town",
-                id=None,
-            )
-        )
+    results.extend(_towns_to_search_results(towns, db))
 
     # Search postcodes (NSPL dataset)
     postcodes_results = locations_crud.search_postcodes(db, q, limit=min(5, limit))
@@ -290,88 +351,19 @@ def search_all(
     # Trigpoints
     trigs = locations_crud.search_trigpoints_by_name_or_waypoint(db, q, limit=limit)
     trig_total = trig_crud.count_trigs_filtered(db, name=q)
-    trigpoint_items: List[LocationSearchResult] = []
-    for trig in trigs:
-        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
-            continue
-        parts = []
-        if trig.waypoint:
-            parts.append(str(trig.waypoint))
-        if trig.trig_type and trig.trig_type.name:
-            parts.append(str(trig.trig_type.name))
-        description = " - ".join(parts) if parts else "Trigpoint"
-        trigpoint_items.append(
-            LocationSearchResult(
-                type="trigpoint",
-                name=str(trig.name).strip() or "Unnamed Trig",
-                lat=float(trig.wgs_lat),
-                lon=float(trig.wgs_long),
-                description=description,
-                id=str(trig.id),
-            )
-        )
+    trigpoint_items = _trigs_to_search_results(trigs, db)
 
     # Station Numbers
     station_trigs = locations_crud.search_trigpoints_by_station_number(
         db, q, limit=limit
     )
     station_total = locations_crud.count_trigpoints_by_station_number(db, q)
-    station_number_items: List[LocationSearchResult] = []
-    for trig in station_trigs:
-        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
-            continue
-        # Build description with matched station numbers
-        parts = []
-        if trig.waypoint:
-            parts.append(str(trig.waypoint))
-        # Show which station number fields matched
-        query_upper = q.upper()
-        if trig.fb_number and query_upper in str(trig.fb_number).upper():
-            parts.append(f"FB: {trig.fb_number}")
-        if (
-            trig.stn_number_active
-            and query_upper in str(trig.stn_number_active).upper()
-        ):
-            parts.append(f"Active Stn: {trig.stn_number_active}")
-        if (
-            trig.stn_number_passive
-            and query_upper in str(trig.stn_number_passive).upper()
-        ):
-            parts.append(f"Passive Stn: {trig.stn_number_passive}")
-        if (
-            trig.stn_number_osgb36
-            and query_upper in str(trig.stn_number_osgb36).upper()
-        ):
-            parts.append(f"OSGB36 Stn: {trig.stn_number_osgb36}")
-        description = " - ".join(parts) if parts else "Station Number Match"
-        station_number_items.append(
-            LocationSearchResult(
-                type="station_number",
-                name=str(trig.name).strip() or "Unnamed Trig",
-                lat=float(trig.wgs_lat),
-                lon=float(trig.wgs_long),
-                description=description,
-                id=str(trig.id),
-            )
-        )
+    station_number_items = _station_trigs_to_search_results(station_trigs, q, db)
 
     # Places (Towns)
     towns = locations_crud.search_towns(db, q, limit=limit)
     town_total = db.query(User).filter(User.name.ilike(f"%{q}%")).count()  # Rough count
-    place_items: List[LocationSearchResult] = []
-    for town in towns:
-        if not town.name or town.wgs_lat is None or town.wgs_long is None:
-            continue
-        place_items.append(
-            LocationSearchResult(
-                type="town",
-                name=str(town.name).strip().title() or "Unknown Town",
-                lat=float(town.wgs_lat),
-                lon=float(town.wgs_long),
-                description="UK Town",
-                id=None,
-            )
-        )
+    place_items = _towns_to_search_results(towns, db)
 
     # Users
     users = user_crud.search_users_by_name(db, q, limit=limit)
@@ -539,27 +531,7 @@ def search_trigpoints_only(
         db, q, limit=skip + limit
     )[skip:]
     total = trig_crud.count_trigs_filtered(db, name=q)
-
-    items: List[LocationSearchResult] = []
-    for trig in trigs:
-        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
-            continue
-        parts = []
-        if trig.waypoint:
-            parts.append(str(trig.waypoint))
-        if trig.trig_type and trig.trig_type.name:
-            parts.append(str(trig.trig_type.name))
-        description = " - ".join(parts) if parts else "Trigpoint"
-        items.append(
-            LocationSearchResult(
-                type="trigpoint",
-                name=str(trig.name).strip() or "Unnamed Trig",
-                lat=float(trig.wgs_lat),
-                lon=float(trig.wgs_long),
-                description=description,
-                id=str(trig.id),
-            )
-        )
+    items = _trigs_to_search_results(trigs, db)
 
     return SearchCategoryResults(
         total=total, items=items, has_more=total > skip + len(items), query=q
@@ -584,44 +556,7 @@ def search_station_numbers_only(
         db, q, skip=skip, limit=limit
     )
     total = locations_crud.count_trigpoints_by_station_number(db, q)
-
-    items: List[LocationSearchResult] = []
-    for trig in trigs:
-        if not trig.name or trig.wgs_lat is None or trig.wgs_long is None:
-            continue
-        # Build description with matched station numbers
-        parts = []
-        if trig.waypoint:
-            parts.append(str(trig.waypoint))
-        query_upper = q.upper()
-        if trig.fb_number and query_upper in str(trig.fb_number).upper():
-            parts.append(f"FB: {trig.fb_number}")
-        if (
-            trig.stn_number_active
-            and query_upper in str(trig.stn_number_active).upper()
-        ):
-            parts.append(f"Active Stn: {trig.stn_number_active}")
-        if (
-            trig.stn_number_passive
-            and query_upper in str(trig.stn_number_passive).upper()
-        ):
-            parts.append(f"Passive Stn: {trig.stn_number_passive}")
-        if (
-            trig.stn_number_osgb36
-            and query_upper in str(trig.stn_number_osgb36).upper()
-        ):
-            parts.append(f"OSGB36 Stn: {trig.stn_number_osgb36}")
-        description = " - ".join(parts) if parts else "Station Number Match"
-        items.append(
-            LocationSearchResult(
-                type="station_number",
-                name=str(trig.name).strip() or "Unnamed Trig",
-                lat=float(trig.wgs_lat),
-                lon=float(trig.wgs_long),
-                description=description,
-                id=str(trig.id),
-            )
-        )
+    items = _station_trigs_to_search_results(trigs, q, db)
 
     return SearchCategoryResults(
         total=total, items=items, has_more=total > skip + len(items), query=q
@@ -642,27 +577,12 @@ def search_places_only(
     db: Session = Depends(get_db),
 ):
     """Search places (towns) by name."""
-    # Use offset/limit directly in query for efficiency
     from api.models.location import Town
 
     query_obj = db.query(Town).filter(Town.name.ilike(f"%{q}%"))
     total = query_obj.count()
     towns = query_obj.offset(skip).limit(limit).all()
-
-    items: List[LocationSearchResult] = []
-    for town in towns:
-        if not town.name or town.wgs_lat is None or town.wgs_long is None:
-            continue
-        items.append(
-            LocationSearchResult(
-                type="town",
-                name=str(town.name).strip().title() or "Unknown Town",
-                lat=float(town.wgs_lat),
-                lon=float(town.wgs_long),
-                description="UK Town",
-                id=None,
-            )
-        )
+    items = _towns_to_search_results(towns, db)
 
     return SearchCategoryResults(
         total=total, items=items, has_more=total > skip + len(items), query=q

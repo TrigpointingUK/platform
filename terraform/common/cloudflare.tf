@@ -1,5 +1,4 @@
-# CloudFlare DNS Records
-# Creates CNAME records for both staging and production domains
+# CloudFlare zone configuration for both staging and production domains
 
 # Data source to get zone information
 data "cloudflare_zones" "staging" {
@@ -10,6 +9,21 @@ data "cloudflare_zones" "production" {
   name = "trigpointing.uk"
 }
 
+# Force HTTPS: 301 redirect all HTTP requests to HTTPS at the Cloudflare edge.
+# Without this, Cloudflare will happily proxy plain HTTP to our HTTPS-only origin.
+resource "cloudflare_zone_setting" "always_use_https_production" {
+  zone_id    = data.cloudflare_zones.production.result[0].id
+  setting_id = "always_use_https"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "always_use_https_staging" {
+  zone_id    = data.cloudflare_zones.staging.result[0].id
+  setting_id = "always_use_https"
+  value      = "on"
+}
+
+# DNS Records
 # CNAME record for staging domain
 resource "cloudflare_dns_record" "api_staging" {
   zone_id = data.cloudflare_zones.staging.result[0].id

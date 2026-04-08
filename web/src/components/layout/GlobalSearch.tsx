@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocationSearch } from "../../hooks/useLocationSearch";
+import { getTrigIconUrl } from "../../lib/searchIcons";
 
 interface SearchResult {
   type: string;
@@ -9,6 +10,8 @@ interface SearchResult {
   lon: number;
   description?: string;
   id?: string;
+  location?: string;
+  category_code?: string;
 }
 
 interface GlobalSearchProps {
@@ -17,18 +20,13 @@ interface GlobalSearchProps {
   onSearch?: () => void;
 }
 
-function getResultTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    trigpoint: "📍",
-    station_number: "🔢",
-    town: "🏘️",
-    postcode: "📮",
-    gridref: "🗺️",
-    latlon: "🌐",
-    user: "👤",
-  };
-  return icons[type] || "📍";
-}
+const NON_TRIG_ICONS: Record<string, string> = {
+  town: "🏘️",
+  postcode: "📮",
+  gridref: "🗺️",
+  latlon: "🌐",
+  user: "👤",
+};
 
 export function GlobalSearch({
   className = "",
@@ -162,9 +160,17 @@ export function GlobalSearch({
                     aria-selected={false}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">
-                        {getResultTypeIcon(result.type)}
-                      </span>
+                      {result.type === "trigpoint" || result.type === "station_number" ? (
+                        <img
+                          src={getTrigIconUrl(result.category_code)}
+                          alt=""
+                          className="w-7 h-7 mt-0.5 flex-shrink-0"
+                        />
+                      ) : (
+                        <span className="text-2xl">
+                          {NON_TRIG_ICONS[result.type] || "📍"}
+                        </span>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-gray-900 dark:text-gray-100">
                           {result.name}
@@ -174,9 +180,9 @@ export function GlobalSearch({
                             {result.description}
                           </div>
                         )}
-                        {result.type !== "user" && (
-                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono">
-                            {result.lat.toFixed(5)}, {result.lon.toFixed(5)}
+                        {result.location && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {result.location}
                           </div>
                         )}
                       </div>

@@ -2,12 +2,26 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PhotoGrid from '../PhotoGrid';
 import { Photo } from '../../../lib/api';
 
-// Helper to render with router
-const renderWithRouter = (ui: React.ReactElement) => {
-  return render(<BrowserRouter>{ui}</BrowserRouter>);
+vi.mock('@auth0/auth0-react', () => ({
+  useAuth0: () => ({
+    isAuthenticated: false,
+    getAccessTokenSilently: vi.fn(),
+  }),
+}));
+
+const renderWithProviders = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>{ui}</BrowserRouter>
+    </QueryClientProvider>
+  );
 };
 
 describe('PhotoGrid', () => {
@@ -66,19 +80,19 @@ describe('PhotoGrid', () => {
   ];
 
   it('should render all photos', () => {
-    renderWithRouter(<PhotoGrid photos={mockPhotos} />);
+    renderWithProviders(<PhotoGrid photos={mockPhotos} />);
     const images = screen.getAllByRole('img');
     expect(images).toHaveLength(3);
   });
 
   it('should render empty state when no photos', () => {
-    renderWithRouter(<PhotoGrid photos={[]} />);
+    renderWithProviders(<PhotoGrid photos={[]} />);
     expect(screen.getByText('No photos found')).toBeInTheDocument();
   });
 
   it('should call onPhotoClick when a photo is clicked', () => {
     const handleClick = vi.fn();
-    renderWithRouter(<PhotoGrid photos={mockPhotos} onPhotoClick={handleClick} />);
+    renderWithProviders(<PhotoGrid photos={mockPhotos} onPhotoClick={handleClick} />);
     
     const firstPhoto = screen.getAllByRole('img')[0];
     fireEvent.click(firstPhoto);
@@ -88,14 +102,14 @@ describe('PhotoGrid', () => {
   });
 
   it('should not throw when onPhotoClick is not provided', () => {
-    renderWithRouter(<PhotoGrid photos={mockPhotos} />);
+    renderWithProviders(<PhotoGrid photos={mockPhotos} />);
     const firstPhoto = screen.getAllByRole('img')[0];
     
     expect(() => fireEvent.click(firstPhoto)).not.toThrow();
   });
 
   it('should render grid layout', () => {
-    const { container } = renderWithRouter(<PhotoGrid photos={mockPhotos} />);
+    const { container } = renderWithProviders(<PhotoGrid photos={mockPhotos} />);
     const grid = container.querySelector('.grid');
     expect(grid).toBeInTheDocument();
     expect(grid).toHaveClass('grid-cols-1');
@@ -104,12 +118,12 @@ describe('PhotoGrid', () => {
   });
 
   it('should handle null photos array', () => {
-    renderWithRouter(<PhotoGrid photos={null as unknown as Photo[]} />);
+    renderWithProviders(<PhotoGrid photos={null as unknown as Photo[]} />);
     expect(screen.getByText('No photos found')).toBeInTheDocument();
   });
 
   it('should pass correct props to PhotoThumbnail components', () => {
-    renderWithRouter(<PhotoGrid photos={mockPhotos} />);
+    renderWithProviders(<PhotoGrid photos={mockPhotos} />);
     const images = screen.getAllByRole('img');
     
     // PhotoThumbnail uses photo_url (not icon_url)
