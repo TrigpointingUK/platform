@@ -15,9 +15,7 @@ class TrigStats(Base):
     __tablename__ = "trigstats"
 
     # Primary key and FK to trig.id (not declared as FK due to legacy DB constraints)
-    id = Column(
-        INTEGER, ForeignKey("trig.id", ondelete="CASCADE"), primary_key=True, index=True
-    )
+    id = Column(INTEGER, ForeignKey("trig.id", ondelete="CASCADE"), primary_key=True)
 
     # Log related stats
     logged_first = Column(DATE, nullable=True)  # NULL if never logged

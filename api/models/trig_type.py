@@ -25,8 +25,8 @@ class TrigCategory(Base):
 
     __tablename__ = "trig_category"
 
-    id = Column(Integer, primary_key=True, index=True)
-    code = Column(String(20), nullable=False, unique=True, index=True)
+    id = Column(Integer, primary_key=True)
+    code = Column(String(20), nullable=False, unique=True)
     name = Column(String(30), nullable=False)
     description = Column(String(100), nullable=True)
     wiki_url = Column(String(255), nullable=True)
@@ -51,13 +51,13 @@ class TrigType(Base):
         Index("ix_trig_type_category_id", "category_id"),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     category_id = Column(
         Integer,
         ForeignKey("trig_category.id"),
         nullable=False,
     )
-    code = Column(String(20), nullable=False, unique=True, index=True)
+    code = Column(String(20), nullable=False, unique=True)
     name = Column(String(30), nullable=False)
     description = Column(String(100), nullable=True)
     wiki_url = Column(String(255), nullable=True)

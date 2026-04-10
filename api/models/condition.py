@@ -12,7 +12,7 @@ class Condition(Base):
 
     __tablename__ = "condition"
 
-    code = Column(CHAR(1), primary_key=True, index=True)
+    code = Column(CHAR(1), primary_key=True)
     name = Column(String(50), nullable=False, unique=True)
     description = Column(String(255), nullable=True)
     icon_file = Column(String(100), nullable=True)

@@ -12,7 +12,7 @@ class Status(Base):
 
     __tablename__ = "status"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     name = Column(CHAR(20), nullable=False)
     descr = Column(String(50), nullable=False)
     limit_descr = Column(String(255), nullable=False)
