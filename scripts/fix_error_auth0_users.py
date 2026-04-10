@@ -97,7 +97,7 @@ class MigrationStats:
         print("=" * 80)
 
 
-def get_aws_secret(secret_name: str, region: str = "eu-west-2") -> Dict:
+def get_aws_secret(secret_name: str, region: str = "eu-west-1") -> Dict:
     """
     Retrieve a secret from AWS Secrets Manager.
 
@@ -116,7 +116,7 @@ def get_aws_secret(secret_name: str, region: str = "eu-west-2") -> Dict:
 def get_database_connection(
     fetch_from_secrets: bool = False,
     secret_name: str = "fastapi-production-credentials",
-    region: str = "eu-west-2",
+    region: str = "eu-west-1",
 ) -> Session:
     """
     Create a database connection.
@@ -487,8 +487,8 @@ def main():
     )
     parser.add_argument(
         "--region",
-        default="eu-west-2",
-        help="AWS region (default: eu-west-2)",
+        default="eu-west-1",
+        help="AWS region (default: eu-west-1)",
     )
 
     args = parser.parse_args()

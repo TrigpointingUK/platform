@@ -41,7 +41,7 @@ export DB_PASSWORD="your_password"
 export DB_NAME="tuk_production"
 
 # AWS Configuration (Option 2: For --fetch-from-secrets)
-export AWS_DEFAULT_REGION="eu-west-2"
+export AWS_DEFAULT_REGION="eu-west-1"
 ```
 
 ### Required Python Packages
@@ -116,7 +116,7 @@ python scripts/fix_error_auth0_users.py --environment staging --limit 5
 | `--dry-run` | false | Preview changes without making them |
 | `--environment` | production | Target environment (production/staging) |
 | `--fetch-from-secrets` | false | Fetch DB credentials from AWS Secrets Manager |
-| `--region` | eu-west-2 | AWS region for Secrets Manager |
+| `--region` | eu-west-1 | AWS region for Secrets Manager |
 
 ## Output
 
