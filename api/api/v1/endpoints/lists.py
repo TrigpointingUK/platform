@@ -242,6 +242,19 @@ def toggle_trig_in_default_list(
         return {"action": "added", "list_id": default_list.id, "trig_id": trig_id}
 
 
+@router.post("/{list_id}/set-default", status_code=200)
+def set_default_list(
+    list_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Set a list as the user's default list for quick-add."""
+    trig_list = _require_list_owner(list_id, db, current_user)
+    current_user.default_list_id = trig_list.id  # type: ignore[assignment]
+    db.commit()
+    return {"default_list_id": trig_list.id}
+
+
 @router.post("/{list_id}/toggle/{trig_id}")
 def toggle_trig_in_list(
     list_id: int,

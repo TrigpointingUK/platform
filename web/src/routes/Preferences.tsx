@@ -1,6 +1,7 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
@@ -59,6 +60,16 @@ const DEFAULT_CATEGORIES = ["PILLAR", "FBM"];
 export default function Preferences() {
   const queryClient = useQueryClient();
   const { getAccessTokenSilently, user: auth0User } = useAuth0();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const el = document.getElementById(location.hash.slice(1));
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [location.hash]);
 
   const userRoles =
     (auth0User?.["https://trigpointing.uk/roles"] as string[]) || [];

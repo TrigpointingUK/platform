@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tansta
 import { useAuth0 } from "@auth0/auth0-react";
 import toast from "react-hot-toast";
 import {
+  authenticatedFetch,
   authenticatedGet,
   authenticatedPost,
   authenticatedPatch,
@@ -292,13 +293,16 @@ export function useUpdateList() {
 
 export function useListItems(listId: number | null) {
   const PAGE_SIZE = 50;
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigListItemsPage>({
     queryKey: ["trig-lists", "items", listId],
     queryFn: async ({ pageParam = 0 }) => {
-      const resp = await fetch(
-        `${API_BASE}/v1/lists/${listId}/items?skip=${pageParam}&limit=${PAGE_SIZE}`,
-      );
+      const url = `${API_BASE}/v1/lists/${listId}/items?skip=${pageParam}&limit=${PAGE_SIZE}`;
+      if (isAuthenticated) {
+        return authenticatedGet<TrigListItemsPage>(url, getAccessTokenSilently);
+      }
+      const resp = await fetch(url);
       if (!resp.ok) throw new Error("Failed to fetch list items");
       return resp.json();
     },
@@ -312,15 +316,67 @@ export function useListItems(listId: number | null) {
   });
 }
 
+export function useReorderLists() {
+  const queryClient = useQueryClient();
+  const { getAccessTokenSilently } = useAuth0();
+
+  return useMutation<void, Error, { ordering: { list_id: number; position: number }[] }>({
+    mutationFn: async ({ ordering }) => {
+      const response = await authenticatedFetch(
+        `${API_BASE}/v1/lists/reorder`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ordering }),
+        },
+        getAccessTokenSilently,
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trig-lists", "mine"] });
+    },
+    onError: () => {
+      toast.error("Failed to reorder lists");
+    },
+  });
+}
+
+export function useReorderItems(listId: number) {
+  const queryClient = useQueryClient();
+  const { getAccessTokenSilently } = useAuth0();
+
+  return useMutation<void, Error, { ordering: { item_id: number; position: number }[] }>({
+    mutationFn: async ({ ordering }) => {
+      const response = await authenticatedFetch(
+        `${API_BASE}/v1/lists/${listId}/items/reorder`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ordering }),
+        },
+        getAccessTokenSilently,
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trig-lists", "items", listId] });
+    },
+    onError: () => {
+      toast.error("Failed to reorder items");
+    },
+  });
+}
+
 export function useSetDefaultList() {
   const queryClient = useQueryClient();
   const { getAccessTokenSilently } = useAuth0();
 
   return useMutation<void, Error, number>({
     mutationFn: async (listId) => {
-      await authenticatedPatch(
-        `${API_BASE}/v1/users/me`,
-        { ui_prefs: { default_list_id: listId } },
+      await authenticatedPost(
+        `${API_BASE}/v1/lists/${listId}/set-default`,
+        {},
         getAccessTokenSilently,
       );
     },
