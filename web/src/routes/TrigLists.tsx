@@ -26,6 +26,7 @@ import {
   useMyLists,
   useListItems,
   useReorderItems,
+  useUpdateListItem,
   type TrigListFull,
   type TrigListItem,
 } from "../hooks/useTrigLists";
@@ -39,9 +40,13 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle";
 interface SortableItemRowProps {
   item: TrigListItem;
   distanceUnit: "K" | "M";
+  onUpdateDescription: (itemId: number, description: string | null) => void;
 }
 
-function SortableItemRow({ item, distanceUnit }: SortableItemRowProps) {
+function SortableItemRow({ item, distanceUnit, onUpdateDescription }: SortableItemRowProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(item.description ?? "");
+
   const {
     attributes,
     listeners,
@@ -56,6 +61,25 @@ function SortableItemRow({ item, distanceUnit }: SortableItemRowProps) {
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  const handleSave = useCallback(() => {
+    const trimmed = draft.trim();
+    onUpdateDescription(item.id, trimmed || null);
+    setEditing(false);
+  }, [draft, item.id, onUpdateDescription]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === "Escape") {
+        setDraft(item.description ?? "");
+        setEditing(false);
+      }
+    },
+    [handleSave, item.description],
+  );
 
   if (!item.trig) return null;
 
@@ -78,26 +102,84 @@ function SortableItemRow({ item, distanceUnit }: SortableItemRowProps) {
         </svg>
       </button>
       <div className="flex-1 min-w-0">
-        <TrigCard
-          trig={{
-            id: item.trig.id,
-            waypoint: item.trig.waypoint,
-            name: item.trig.name,
-            condition: item.trig.condition ?? "U",
-            wgs_lat: item.trig.wgs_lat ?? "0",
-            wgs_long: item.trig.wgs_long ?? "0",
-            osgb_gridref: item.trig.osgb_gridref ?? "",
-            type_code: item.trig.type_code ?? undefined,
-            type_name: item.trig.type_name ?? undefined,
-            category_code: item.trig.category_code ?? undefined,
-            category_name: item.trig.category_name ?? undefined,
-            status_name: item.trig.status_name ?? undefined,
-            wgs_height: item.trig.wgs_height ?? undefined,
-            score: item.trig.score ?? undefined,
-          }}
-          showDistance={false}
-          distanceUnit={distanceUnit}
-        />
+        <div className="flex items-start gap-1">
+          <div className="flex-1 min-w-0">
+            <TrigCard
+              trig={{
+                id: item.trig.id,
+                waypoint: item.trig.waypoint,
+                name: item.trig.name,
+                condition: item.trig.condition ?? "U",
+                wgs_lat: item.trig.wgs_lat ?? "0",
+                wgs_long: item.trig.wgs_long ?? "0",
+                osgb_gridref: item.trig.osgb_gridref ?? "",
+                type_code: item.trig.type_code ?? undefined,
+                type_name: item.trig.type_name ?? undefined,
+                category_code: item.trig.category_code ?? undefined,
+                category_name: item.trig.category_name ?? undefined,
+                status_name: item.trig.status_name ?? undefined,
+                wgs_height: item.trig.wgs_height ?? undefined,
+                score: item.trig.score ?? undefined,
+              }}
+              showDistance={false}
+              distanceUnit={distanceUnit}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(item.description ?? "");
+              setEditing(!editing);
+            }}
+            className={`mt-3 mr-2 p-1 flex-shrink-0 rounded transition-colors ${
+              item.description
+                ? "text-trig-green-600 dark:text-trig-green-400 hover:bg-trig-green-50 dark:hover:bg-trig-green-900/20"
+                : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+            title={item.description ? "Edit note" : "Add note"}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+            </svg>
+          </button>
+        </div>
+        {editing ? (
+          <div className="px-3 pb-3 flex gap-2 items-start">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Add a note..."
+              rows={2}
+              autoFocus
+              className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-trig-green-500 focus:border-trig-green-500 resize-none"
+              maxLength={500}
+            />
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={handleSave}
+                className="px-2 py-1 text-xs font-medium rounded-md bg-trig-green-600 text-white hover:bg-trig-green-700"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(item.description ?? "");
+                  setEditing(false);
+                }}
+                className="px-2 py-1 text-xs font-medium rounded-md bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : item.description ? (
+          <p className="px-3 pb-3 text-xs text-gray-500 dark:text-gray-400 italic">
+            {item.description}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -142,6 +224,14 @@ export default function TrigLists() {
   } = useListItems(selectedListId);
 
   const reorderItems = useReorderItems(selectedListId ?? 0);
+  const updateItem = useUpdateListItem(selectedListId ?? 0);
+
+  const handleUpdateDescription = useCallback(
+    (itemId: number, description: string | null) => {
+      updateItem.mutate({ itemId, data: { description } });
+    },
+    [updateItem],
+  );
 
   const { ref: loadMoreRef, inView } = useInView({ threshold: 0, rootMargin: "200px" });
 
@@ -245,7 +335,7 @@ export default function TrigLists() {
               >
                 {lists.map((list: TrigListFull) => (
                   <option key={list.id} value={list.id}>
-                    {list.name} ({list.item_count})
+                    {list.name} ({list.item_count}){list.is_default ? " ★ default" : ""}
                   </option>
                 ))}
               </select>
@@ -273,6 +363,7 @@ export default function TrigLists() {
                           key={item.id}
                           item={item}
                           distanceUnit={distanceUnit}
+                          onUpdateDescription={handleUpdateDescription}
                         />
                       ))}
 

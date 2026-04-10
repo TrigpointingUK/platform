@@ -511,6 +511,261 @@ class TestBatchMembership:
 # ---------------------------------------------------------------------------
 
 
+class TestSetDefault:
+    def test_set_default_list(self, client: TestClient, test_user):
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "First"},
+            headers=auth_header(test_user.id),
+        )
+        list_a = resp.json()["id"]
+
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Second"},
+            headers=auth_header(test_user.id),
+        )
+        list_b = resp.json()["id"]
+
+        resp = client.post(
+            f"/v1/lists/{list_b}/set-default",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["default_list_id"] == list_b
+
+        # Verify via list endpoint
+        resp = client.get("/v1/lists", headers=auth_header(test_user.id))
+        lists = resp.json()
+        for entry in lists:
+            if entry["id"] == list_b:
+                assert entry["is_default"] is True
+            elif entry["id"] == list_a:
+                assert entry["is_default"] is False
+
+    def test_set_default_other_user_forbidden(self, client: TestClient, make_user):
+        owner = make_user(auth0_user_id="auth0|def_owner")
+        other = make_user(auth0_user_id="auth0|def_other")
+
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Owned"},
+            headers={"Authorization": f"Bearer auth0_user_{owner.id}"},
+        )
+        list_id = resp.json()["id"]
+
+        resp = client.post(
+            f"/v1/lists/{list_id}/set-default",
+            headers={"Authorization": f"Bearer auth0_user_{other.id}"},
+        )
+        assert resp.status_code == 403
+
+
+class TestGetListDetail:
+    def test_get_own_private_list(self, client: TestClient, test_user):
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Mine"},
+            headers=auth_header(test_user.id),
+        )
+        list_id = resp.json()["id"]
+
+        resp = client.get(
+            f"/v1/lists/{list_id}",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Mine"
+
+    def test_get_nonexistent_list_returns_404(self, client: TestClient, test_user):
+        resp = client.get(
+            "/v1/lists/999999",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 404
+
+
+class TestItemReorder:
+    def test_reorder_items(self, client: TestClient, test_user, make_trig):
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Reorder"},
+            headers=auth_header(test_user.id),
+        )
+        list_id = resp.json()["id"]
+
+        item_ids = []
+        for _ in range(3):
+            trig = make_trig()
+            resp = client.post(
+                f"/v1/lists/{list_id}/items",
+                json={"trig_id": trig.id},
+                headers=auth_header(test_user.id),
+            )
+            item_ids.append(resp.json()["id"])
+
+        resp = client.post(
+            f"/v1/lists/{list_id}/items/reorder",
+            json={
+                "ordering": [
+                    {"item_id": item_ids[2], "position": 1000},
+                    {"item_id": item_ids[0], "position": 2000},
+                    {"item_id": item_ids[1], "position": 3000},
+                ]
+            },
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 204
+
+        # Verify new ordering
+        resp = client.get(
+            f"/v1/lists/{list_id}/items",
+            headers=auth_header(test_user.id),
+        )
+        items = resp.json()["items"]
+        assert items[0]["id"] == item_ids[2]
+        assert items[1]["id"] == item_ids[0]
+        assert items[2]["id"] == item_ids[1]
+
+    def test_reorder_items_respects_editability(
+        self, client: TestClient, make_user, make_trig
+    ):
+        owner = make_user(auth0_user_id="auth0|ro_owner")
+        other = make_user(auth0_user_id="auth0|ro_other")
+
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Locked", "visibility": "public", "editability": "private"},
+            headers={"Authorization": f"Bearer auth0_user_{owner.id}"},
+        )
+        list_id = resp.json()["id"]
+
+        resp = client.post(
+            f"/v1/lists/{list_id}/items/reorder",
+            json={"ordering": []},
+            headers={"Authorization": f"Bearer auth0_user_{other.id}"},
+        )
+        assert resp.status_code == 403
+
+
+class TestItemDescription:
+    def test_update_item_description(self, client: TestClient, test_user, make_trig):
+        trig = make_trig()
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Notes"},
+            headers=auth_header(test_user.id),
+        )
+        list_id = resp.json()["id"]
+
+        resp = client.post(
+            f"/v1/lists/{list_id}/items",
+            json={"trig_id": trig.id},
+            headers=auth_header(test_user.id),
+        )
+        item_id = resp.json()["id"]
+        assert resp.json()["description"] is None
+
+        resp = client.patch(
+            f"/v1/lists/{list_id}/items/{item_id}",
+            json={"description": "A great trig to visit in summer"},
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["description"] == "A great trig to visit in summer"
+        assert resp.json()["updated_by"] == test_user.id
+
+    def test_clear_item_description(self, client: TestClient, test_user, make_trig):
+        trig = make_trig()
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "ClearDesc"},
+            headers=auth_header(test_user.id),
+        )
+        list_id = resp.json()["id"]
+
+        resp = client.post(
+            f"/v1/lists/{list_id}/items",
+            json={"trig_id": trig.id, "description": "Initial note"},
+            headers=auth_header(test_user.id),
+        )
+        item_id = resp.json()["id"]
+
+        resp = client.patch(
+            f"/v1/lists/{list_id}/items/{item_id}",
+            json={"description": None},
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 200
+
+    def test_add_item_with_description(self, client: TestClient, test_user, make_trig):
+        trig = make_trig()
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "WithDesc"},
+            headers=auth_header(test_user.id),
+        )
+        list_id = resp.json()["id"]
+
+        resp = client.post(
+            f"/v1/lists/{list_id}/items",
+            json={"trig_id": trig.id, "description": "Planning a visit next week"},
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["description"] == "Planning a visit next week"
+
+
+class TestPublicListItems:
+    def test_public_list_items_visible_without_auth(
+        self, client: TestClient, make_user, make_trig
+    ):
+        owner = make_user(auth0_user_id="auth0|pubitem_owner")
+        trig = make_trig()
+
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Public Favs", "visibility": "public"},
+            headers={"Authorization": f"Bearer auth0_user_{owner.id}"},
+        )
+        list_id = resp.json()["id"]
+
+        client.post(
+            f"/v1/lists/{list_id}/items",
+            json={"trig_id": trig.id},
+            headers={"Authorization": f"Bearer auth0_user_{owner.id}"},
+        )
+
+        # Anonymous access
+        resp = client.get(f"/v1/lists/{list_id}/items")
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 1
+        assert resp.json()["items"][0]["trig"]["waypoint"] == trig.waypoint
+
+    def test_private_list_items_hidden_without_auth(
+        self, client: TestClient, make_user, make_trig
+    ):
+        owner = make_user(auth0_user_id="auth0|privitem_owner")
+        trig = make_trig()
+
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Private Favs", "visibility": "private"},
+            headers={"Authorization": f"Bearer auth0_user_{owner.id}"},
+        )
+        list_id = resp.json()["id"]
+
+        client.post(
+            f"/v1/lists/{list_id}/items",
+            json={"trig_id": trig.id},
+            headers={"Authorization": f"Bearer auth0_user_{owner.id}"},
+        )
+
+        # Anonymous access should return 404
+        resp = client.get(f"/v1/lists/{list_id}/items")
+        assert resp.status_code == 404
+
+
 class TestCascadeDelete:
     def test_deleting_list_removes_items(
         self, client: TestClient, test_user, make_trig

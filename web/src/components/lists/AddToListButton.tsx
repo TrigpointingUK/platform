@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   useMyLists,
   useToggleDefaultList,
@@ -97,8 +98,8 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
           focus:outline-none focus:ring-2 focus:ring-trig-green-500 focus:ring-offset-1
           ${
             isInDefaultList
-              ? "bg-amber-100 border-amber-300 text-amber-600 hover:bg-amber-200 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/60"
-              : "bg-white border-gray-300 text-gray-400 hover:bg-gray-50 hover:text-amber-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-amber-400"
+              ? "bg-trig-green-50 border-trig-green-300 text-trig-green-600 hover:bg-trig-green-100 dark:bg-trig-green-900/40 dark:border-trig-green-700 dark:text-trig-green-400 dark:hover:bg-trig-green-900/60"
+              : "bg-white border-gray-300 text-gray-400 hover:bg-gray-50 hover:text-trig-green-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-trig-green-400"
           }
         `}
         title={isInDefaultList ? "Remove from Marked" : "Add to Marked"}
@@ -189,6 +190,14 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
                 Add
               </button>
             </form>
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-1.5">
+            <Link
+              to="/lists"
+              className="text-xs text-trig-green-600 dark:text-trig-green-400 hover:underline"
+            >
+              View all lists →
+            </Link>
           </div>
         </div>
       )}

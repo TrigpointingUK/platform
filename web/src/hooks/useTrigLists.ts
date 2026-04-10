@@ -316,6 +316,30 @@ export function useListItems(listId: number | null) {
   });
 }
 
+export function useUpdateListItem(listId: number) {
+  const queryClient = useQueryClient();
+  const { getAccessTokenSilently } = useAuth0();
+
+  return useMutation<
+    TrigListItem,
+    Error,
+    { itemId: number; data: { description?: string | null } }
+  >({
+    mutationFn: ({ itemId, data }) =>
+      authenticatedPatch(
+        `${API_BASE}/v1/lists/${listId}/items/${itemId}`,
+        data,
+        getAccessTokenSilently,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trig-lists", "items", listId] });
+    },
+    onError: () => {
+      toast.error("Failed to update item");
+    },
+  });
+}
+
 export function useReorderLists() {
   const queryClient = useQueryClient();
   const { getAccessTokenSilently } = useAuth0();
