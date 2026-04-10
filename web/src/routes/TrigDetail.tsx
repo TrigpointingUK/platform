@@ -23,6 +23,7 @@ import { useCanonical } from "../hooks/useCanonical";
 import { useNoIndex } from "../hooks/useNoIndex";
 import { Log, LogCreateInput, LogUpdateInput, DuplicateLogError } from "../lib/api";
 import { getCanonicalOrigin } from "../lib/canonicalOrigin";
+import AddToListButton from "../components/lists/AddToListButton";
 
 const TrigDetailMap = lazy(() => import("../components/map/TrigDetailMap"));
 
@@ -430,6 +431,9 @@ export default function TrigDetail() {
                 <>📝 {userLogs && userLogs.length > 0 ? "Log This Trig Again" : "Log This Trig"}</>
               )}
             </Button>
+            {hasAdminRole && isAuthenticated && (
+              <AddToListButton trigId={trig.id} />
+            )}
             {hasAdminRole && (
               <Link to={`/admin/trigs/${trigId}/edit`}>
                 <Button variant="secondary" className="w-full md:w-auto">

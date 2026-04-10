@@ -38,6 +38,7 @@ const AdminConditionAdmin = lazy(() => import("./routes/admin/ConditionAdmin"));
 const AdminOSNetComparison = lazy(() => import("./routes/admin/OSNetComparison"));
 const AdminIrelandImport = lazy(() => import("./routes/admin/IrelandImport"));
 const SurveyTimeline = lazy(() => import("./routes/SurveyTimeline"));
+const TrigLists = lazy(() => import("./routes/TrigLists"));
 const Experiments = lazy(() => import("./routes/Experiments"));
 const ExperimentIndex = lazy(() => import("./routes/ExperimentIndex"));
 const TrigsV2 = lazy(() => import("./routes/experiment/TrigsV2"));
@@ -130,6 +131,8 @@ const router = createBrowserRouter(
         { path: "/profile/:userId/photos", element: <UserPhotos /> },
         { path: "/profile", element: <UserProfile /> },
         { path: "/preferences", element: <Preferences /> },
+        { path: "/lists", element: <TrigLists /> },
+        { path: "/lists/:listId", element: <TrigLists /> },
         { path: "/settings", element: <Navigate to="/preferences" replace /> },
         { path: "/about", element: <About /> },
         { path: "/app/:id", element: <AppDetail /> },

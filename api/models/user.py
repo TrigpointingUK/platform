@@ -29,10 +29,10 @@ class User(Base):
     __tablename__ = "user"
 
     # Primary identifier
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
 
     # Core identity fields
-    name = Column(String(30), nullable=False, index=True, unique=True)  # Username
+    name = Column(String(30), nullable=False, unique=True)  # Username
     firstname = Column(
         String(30), nullable=True, default=""
     )  # Nullable for PostgreSQL compatibility
@@ -76,6 +76,11 @@ class User(Base):
     # Auth0 integration
     auth0_user_id = Column(String(50), nullable=True, index=True)
 
+    # Default trig list (lazy-created on first use)
+    default_list_id = Column(
+        Integer, ForeignKey("trig_list.id", ondelete="SET NULL"), nullable=True
+    )
+
     # Timestamps
     crt_date = Column(
         Date, nullable=True, default=date(1900, 1, 1)
@@ -98,7 +103,7 @@ class TLog(Base):
         Index("ix_tlog_user_trig", "user_id", "trig_id"),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     trig_id = Column(
         Integer, ForeignKey("trig.id", ondelete="SET NULL"), index=True, nullable=True
     )  # Nullable for PostgreSQL compatibility
@@ -133,7 +138,7 @@ class TPhotoVote(Base):
         UniqueConstraint("tphoto_id", "user_id", name="uq_tphotovote_photo_user"),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     tphoto_id = Column(
         Integer, ForeignKey("tphoto.id", ondelete="SET NULL"), index=True, nullable=True
     )

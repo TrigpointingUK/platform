@@ -157,10 +157,11 @@ export function useAdminAuth(): UseAdminAuthResult {
               loginWithRedirect({
                 authorizationParams: {
                   ...adminAuthParams,
-                  prompt: "login", // Force re-authentication for security
-                  redirect_uri: `${window.location.origin}${location.pathname}?admin_auth_attempted=true`,
+                  prompt: "login",
                 },
-                appState: { returnTo: location.pathname },
+                appState: {
+                  returnTo: `${location.pathname}?admin_auth_attempted=true`,
+                },
               }).catch((error) => {
                 console.error("Failed to redirect for admin authentication:", error);
                 setIsActivelyChecking(false);
@@ -199,9 +200,10 @@ export function useAdminAuth(): UseAdminAuthResult {
                   authorizationParams: {
                     ...adminAuthParams,
                     prompt: "login",
-                    redirect_uri: `${window.location.origin}${location.pathname}?admin_auth_attempted=true`,
                   },
-                  appState: { returnTo: location.pathname },
+                  appState: {
+                    returnTo: `${location.pathname}?admin_auth_attempted=true`,
+                  },
                 }).catch((redirectError) => {
                   console.error("Failed to redirect:", redirectError);
                   setIsActivelyChecking(false);
