@@ -33,7 +33,7 @@ function AdvertCard({ advert, isBlurred = false, isDarkMode = false }: AdvertCar
             height={320}
           />
           {needsOverlay && (
-            <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+            <div className="absolute inset-0 bg-black/30 pointer-events-none" />
           )}
         </div>
       )}
