@@ -33,6 +33,7 @@ interface Log {
   osgb_northings?: number;
   location_distance_m?: number;
   distance_km?: number | null;
+  user_has_avatar?: boolean;
   photos?: Photo[];
 }
 
@@ -220,17 +221,19 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
             )}
             <div className="flex flex-wrap items-center gap-2 text-base text-gray-600 dark:text-gray-400">
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-6 h-6 flex-shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 inline-block">
-                  <img
-                    src={`https://trigpointinguk-avatars.s3.amazonaws.com/U${log.user_id.toString().padStart(5, "0")}.jpg`}
-                    alt=""
-                    width={24}
-                    height={24}
-                    className="w-6 h-6 rounded-full object-cover opacity-0 transition-opacity duration-200"
-                    onLoad={(e) => e.currentTarget.classList.replace("opacity-0", "opacity-100")}
-                    onError={(e) => e.currentTarget.classList.add("hidden")}
-                  />
-                </span>
+                {log.user_has_avatar && (
+                  <span className="w-6 h-6 flex-shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 inline-block">
+                    <img
+                      src={`https://trigpointinguk-avatars.s3.amazonaws.com/U${log.user_id.toString().padStart(5, "0")}.jpg`}
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 rounded-full object-cover opacity-0 transition-opacity duration-200"
+                      onLoad={(e) => e.currentTarget.classList.replace("opacity-0", "opacity-100")}
+                      onError={(e) => e.currentTarget.classList.add("hidden")}
+                    />
+                  </span>
+                )}
                 {displayUserName ? (
                   <Link
                     to={`/profile/${log.user_id}`}

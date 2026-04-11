@@ -334,9 +334,11 @@ def _download_photo(db: Session, photo: TPhoto) -> Optional[Image.Image]:
 
 def _download_avatar(user: User) -> Optional[Image.Image]:
     """Download a user's avatar from S3."""
+    if not user.has_avatar:
+        return None
     try:
         s3 = boto3.client("s3")
-        key = f"{user.id}.jpg"
+        key = f"U{int(user.id):05d}.jpg"
         resp = s3.get_object(Bucket=settings.AVATARS_S3_BUCKET, Key=key)
         data = resp["Body"].read()
         return Image.open(io.BytesIO(data))

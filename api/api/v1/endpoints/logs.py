@@ -98,7 +98,9 @@ def enrich_logs_with_names(
         else []
     )
     users = (
-        db.query(User.id, User.name).filter(User.id.in_(user_ids)).all()
+        db.query(User.id, User.name, User.has_avatar)
+        .filter(User.id.in_(user_ids))
+        .all()
         if user_ids
         else []
     )
@@ -117,6 +119,7 @@ def enrich_logs_with_names(
         for t in trigs
     }
     user_names = {u.id: u.name for u in users}
+    user_has_avatar = {u.id: bool(u.has_avatar) for u in users}
 
     # Convert to dicts and add denormalized fields
     result = []
@@ -133,6 +136,7 @@ def enrich_logs_with_names(
         log_dict["trig_category_code"] = trig_info.get("category_code")
         log_dict["trig_category_name"] = trig_info.get("category_name")
         log_dict["user_name"] = user_names.get(log.user_id)
+        log_dict["user_has_avatar"] = user_has_avatar.get(log.user_id, False)
 
         # Calculate distance if log has custom location
         if log.osgb_eastings is not None and log.osgb_northings is not None:

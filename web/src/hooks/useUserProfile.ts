@@ -64,6 +64,7 @@ export interface UserProfile {
   surname: string;
   homepage: string | null;
   about: string;
+  has_avatar: boolean;
   member_since: string | null;
   auth0_user_id?: string;
   roles?: string[];
