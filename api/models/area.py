@@ -27,8 +27,8 @@ class AreaType(Base):
 
     __tablename__ = "area_type"
 
-    id = Column(Integer, primary_key=True, index=True)
-    code = Column(String(50), unique=True, nullable=False, index=True)
+    id = Column(Integer, primary_key=True)
+    code = Column(String(50), unique=True, nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     source_url = Column(String(500), nullable=True)  # Attribution/data source
@@ -54,7 +54,7 @@ class Area(Base):
 
     __tablename__ = "area"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     area_type_id = Column(
         Integer, ForeignKey("area_type.id"), nullable=False, index=True
     )

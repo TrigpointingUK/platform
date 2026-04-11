@@ -7,6 +7,7 @@ from .server import Server
 from .status import Status
 from .tphoto import TPhoto
 from .trig import Trig
+from .trig_list import TrigList, TrigListItem
 from .trig_type import TrigCategory, TrigType
 from .user import TLog, TPhotoVote, User
 
@@ -21,6 +22,8 @@ __all__ = [
     "Status",
     "Trig",
     "TrigCategory",
+    "TrigList",
+    "TrigListItem",
     "TrigType",
     "TPhoto",
     "Server",

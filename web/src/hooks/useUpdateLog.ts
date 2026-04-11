@@ -21,6 +21,7 @@ export function useUpdateLog(logId: number) {
       queryClient.invalidateQueries({ queryKey: ["log", logId] });
       queryClient.invalidateQueries({ queryKey: ["logs", { trigId: updatedLog.trig_id }] });
       queryClient.invalidateQueries({ queryKey: ["trig", updatedLog.trig_id] });
+      queryClient.invalidateQueries({ queryKey: ["user", "logged-trigs"] });
     },
     onError: (error) => {
       // Handle authentication errors by redirecting to login

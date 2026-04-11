@@ -16,6 +16,7 @@ from api.api.v1.endpoints import (
     experiment,
     ireland_import_admin,
     legacy,
+    lists,
     locations,
     logs,
     maps,
@@ -36,6 +37,7 @@ from api.api.v1.endpoints import (
 api_router = APIRouter()
 
 api_router.include_router(trigs.router, prefix="/trigs", tags=["trig"])
+api_router.include_router(lists.router, prefix="/lists", tags=["list"])
 api_router.include_router(users.router, prefix="/users", tags=["user"])
 api_router.include_router(logs.router, prefix="/logs", tags=["log"])
 api_router.include_router(photos.router, prefix="/photos", tags=["photo"])

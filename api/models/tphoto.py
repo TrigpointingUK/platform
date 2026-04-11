@@ -17,7 +17,7 @@ class TPhoto(Base):
 
     __tablename__ = "tphoto"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     tlog_id = Column(
         Integer, ForeignKey("tlog.id", ondelete="SET NULL"), nullable=True, index=True
     )

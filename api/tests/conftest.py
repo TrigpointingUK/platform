@@ -39,6 +39,8 @@ from api.models import (  # noqa: F401
     TPhotoVote,
     Trig,
     TrigCategory,
+    TrigList,
+    TrigListItem,
     TrigType,
     User,
 )
@@ -240,6 +242,10 @@ def setup_test_tables(setup_worker_schema):
             connection.execute(text("DROP TABLE IF EXISTS tphotovote CASCADE"))
             connection.execute(text("DROP TABLE IF EXISTS tphoto CASCADE"))
             connection.execute(text("DROP TABLE IF EXISTS tlog CASCADE"))
+            # Drop trig list tables and user to pick up new columns (default_list_id)
+            connection.execute(text("DROP TABLE IF EXISTS trig_list_item CASCADE"))
+            connection.execute(text("DROP TABLE IF EXISTS trig_list CASCADE"))
+            connection.execute(text('DROP TABLE IF EXISTS "user" CASCADE'))
 
         # Exclude cross-schema tables (e.g. chat.document_chunk) — they are
         # shared across xdist workers and cause race conditions in create_all.

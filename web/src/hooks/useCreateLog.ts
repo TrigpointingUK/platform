@@ -20,6 +20,7 @@ export function useCreateLog(trigId: number) {
       // Invalidate logs query to refresh the list
       queryClient.invalidateQueries({ queryKey: ["logs", { trigId }] });
       queryClient.invalidateQueries({ queryKey: ["trig", trigId] });
+      queryClient.invalidateQueries({ queryKey: ["user", "logged-trigs"] });
     },
     onError: (error) => {
       // Handle authentication errors by redirecting to login

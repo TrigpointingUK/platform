@@ -117,7 +117,7 @@ export DB_PASSWORD="..."
 export DB_NAME="tuk_production"
 
 # AWS (if using --fetch-from-secrets)
-export AWS_DEFAULT_REGION="eu-west-2"
+export AWS_DEFAULT_REGION="eu-west-1"
 ```
 
 ## Testing Results

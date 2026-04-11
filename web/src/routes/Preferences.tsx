@@ -1,9 +1,11 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
+import ListsPreferencesPanel from "../components/lists/ListsPreferencesPanel";
 import {
   useUserProfile,
   updateUserProfile,
@@ -57,7 +59,21 @@ const DEFAULT_CATEGORIES = ["PILLAR", "FBM"];
 
 export default function Preferences() {
   const queryClient = useQueryClient();
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, user: auth0User } = useAuth0();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const el = document.getElementById(location.hash.slice(1));
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [location.hash]);
+
+  const userRoles =
+    (auth0User?.["https://trigpointing.uk/roles"] as string[]) || [];
+  const hasAdminRole = userRoles.includes("api-admin");
 
   // Fetch current user's profile with preferences
   const { data: user, isLoading, error } = useUserProfile("me");
@@ -420,6 +436,11 @@ export default function Preferences() {
             </div>
           </div>
         </Card>
+
+        {/* Trig Lists (admin-gated for phase 1) */}
+        {hasAdminRole && (
+          <ListsPreferencesPanel hasAdminRole={hasAdminRole} />
+        )}
       </div>
     </>
   );

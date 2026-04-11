@@ -41,7 +41,7 @@ class Trig(Base):
     )
 
     # Primary key
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     # Identifiers
     waypoint = Column(String(8), nullable=False, index=True)  # e.g., "TP0001"

@@ -9,6 +9,7 @@ Create Date: 2026-04-06 23:40:33.055011
 import logging
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 logger = logging.getLogger("alembic.runtime.migration")
@@ -21,12 +22,39 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add unique constraint on (tphoto_id, user_id) to support upsert ratings."""
+    """Deduplicate legacy votes then add unique constraint for upsert ratings."""
+    conn = op.get_bind()
+
+    # Remove duplicate (tphoto_id, user_id) rows, keeping the one with the
+    # highest id (most recent vote) in each group.
+    result = conn.execute(
+        sa.text(
+            """
+            DELETE FROM tphotovote
+            WHERE id NOT IN (
+                SELECT MAX(id)
+                FROM tphotovote
+                GROUP BY tphoto_id, user_id
+            )
+            """
+        )
+    )
+    logger.info("Deduplicated tphotovote: deleted %s duplicate rows", result.rowcount)
+
     op.create_unique_constraint(
         "uq_tphotovote_photo_user",
         "tphotovote",
         ["tphoto_id", "user_id"],
     )
+
+    # Resync the primary key sequence — legacy data was bulk-imported without
+    # advancing the serial, so nextval() would collide with existing rows.
+    conn.execute(
+        sa.text(
+            "SELECT setval('tphotovote_id_seq', COALESCE((SELECT MAX(id) FROM tphotovote), 1))"
+        )
+    )
+    logger.info("Resynced tphotovote_id_seq to max(id)")
 
 
 def downgrade() -> None:

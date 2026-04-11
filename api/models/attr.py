@@ -14,7 +14,7 @@ class AttrSource(Base):
 
     __tablename__ = "attrsource"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     name = Column(String(50), nullable=False)
     descr = Column(Text, nullable=True)
     url = Column(String(255), nullable=True)
@@ -30,7 +30,7 @@ class Attr(Base):
 
     __tablename__ = "attr"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     attrsource_id = Column(
         Integer, ForeignKey("attrsource.id", ondelete="RESTRICT"), nullable=False
     )
@@ -54,7 +54,7 @@ class AttrSet(Base):
 
     __tablename__ = "attrset"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     trig_id = Column(
         Integer, ForeignKey("trig.id", ondelete="RESTRICT"), nullable=False, index=True
     )
@@ -73,7 +73,7 @@ class AttrVal(Base):
 
     __tablename__ = "attrval"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     attr_id = Column(
         Integer, ForeignKey("attr.id", ondelete="RESTRICT"), nullable=False
     )

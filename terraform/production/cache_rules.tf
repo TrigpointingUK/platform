@@ -12,13 +12,14 @@ resource "cloudflare_ruleset" "cache_rules" {
   phase       = "http_request_cache_settings"
 
   rules = [
-    # Rule 1: Bypass cache for SPA routes (all non-asset paths under /app/)
+    # Rule 1: Bypass cache for SPA routes (all non-asset, non-API paths)
     # Priority: Highest - ensure HTML/SPA routes are never cached
-    # This covers all client-side routes like /app/trigs, /app/logs, /app/users, etc.
+    # This covers all client-side routes like /trigs, /logs, /users, /map, etc.
+    # Both root paths and /app/ paths are covered since the SPA serves at both.
     {
       action      = "set_cache_settings"
-      expression  = "(http.host in {\"trigpointing.uk\" \"www.trigpointing.uk\"}) and starts_with(http.request.uri.path, \"/app/\") and not starts_with(http.request.uri.path, \"/app/assets/\")"
-      description = "Bypass cache for SPA routes (all non-asset paths under /app/)"
+      expression  = "(http.host in {\"trigpointing.uk\" \"www.trigpointing.uk\"}) and not starts_with(http.request.uri.path, \"/assets/\") and not starts_with(http.request.uri.path, \"/app/assets/\") and not starts_with(http.request.uri.path, \"/v1/\")"
+      description = "Bypass cache for SPA routes (all non-asset, non-API paths)"
       enabled     = true
 
       action_parameters = {
