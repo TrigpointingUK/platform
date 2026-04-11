@@ -16,7 +16,9 @@ interface AddToListButtonProps {
 export default function AddToListButton({ trigId }: AddToListButtonProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
+  const containerRef = useRef<HTMLSpanElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownAlign, setDropdownAlign] = useState<"left" | "right">("left");
 
   const { data: lists } = useMyLists();
   const { data: memberships } = useTrigListMembership([trigId]);
@@ -35,7 +37,7 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     }
@@ -58,9 +60,13 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!dropdownOpen && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setDropdownAlign(rect.left > window.innerWidth / 2 ? "right" : "left");
+      }
       setDropdownOpen((prev) => !prev);
     },
-    [],
+    [dropdownOpen],
   );
 
   const handleListClick = useCallback(
@@ -85,24 +91,18 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
   );
 
   return (
-    <div className="relative inline-flex" ref={dropdownRef}>
-      {/* Star button -- toggle default list */}
+    <span className="relative inline-flex items-center" ref={containerRef}>
+      {/* Star — toggle default list */}
       <button
         type="button"
         onClick={handleToggleDefault}
         disabled={toggleDefault.isPending}
-        className={`
-          inline-flex items-center justify-center
-          rounded-l-md border border-r-0 px-2.5 py-1.5
-          text-sm font-medium transition-colors
-          focus:outline-none focus:ring-2 focus:ring-trig-green-500 focus:ring-offset-1
-          ${
-            isInDefaultList
-              ? "bg-trig-green-50 border-trig-green-300 text-trig-green-600 hover:bg-trig-green-100 dark:bg-trig-green-900/40 dark:border-trig-green-700 dark:text-trig-green-400 dark:hover:bg-trig-green-900/60"
-              : "bg-white border-gray-300 text-gray-400 hover:bg-gray-50 hover:text-trig-green-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-trig-green-400"
-          }
-        `}
-        title={isInDefaultList ? "Remove from Marked" : "Add to Marked"}
+        className={`inline-flex items-center justify-center transition-colors ${
+          isInDefaultList
+            ? "text-trig-green-500 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300"
+            : "text-gray-400 hover:text-trig-green-500 dark:text-gray-500 dark:hover:text-trig-green-400"
+        }`}
+        title={isInDefaultList ? "Remove from default list" : "Add to default list"}
       >
         {isInDefaultList ? (
           <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -115,29 +115,31 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
         )}
       </button>
 
-      {/* Dropdown toggle */}
+      {/* Chevron — open list dropdown */}
       <button
         type="button"
         onClick={handleToggleDropdown}
-        className={`
-          inline-flex items-center justify-center
-          rounded-r-md border px-1.5 py-1.5
-          text-sm font-medium transition-colors
-          focus:outline-none focus:ring-2 focus:ring-trig-green-500 focus:ring-offset-1
-          bg-white border-gray-300 text-gray-500 hover:bg-gray-50
-          dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700
-        `}
+        className={`inline-flex items-center justify-center transition-colors ml-0.5 ${
+          memberListIds.size > 0
+            ? "text-trig-green-500 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300"
+            : "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+        }`}
         title="Add to other lists"
         aria-expanded={dropdownOpen}
       >
-        <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
         </svg>
       </button>
 
       {/* Dropdown menu */}
       {dropdownOpen && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md bg-white shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-gray-700">
+        <div
+          ref={dropdownRef}
+          className={`absolute top-full z-50 mt-1 w-56 rounded-md bg-white shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-gray-700 ${
+            dropdownAlign === "right" ? "right-0" : "left-0"
+          }`}
+        >
           <div className="py-1 max-h-60 overflow-y-auto">
             {lists && lists.length > 0 ? (
               lists.map((list) => {
@@ -201,6 +203,6 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
           </div>
         </div>
       )}
-    </div>
+    </span>
   );
 }

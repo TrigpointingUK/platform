@@ -68,14 +68,14 @@ describe("AddToListButton", () => {
   it("renders star and dropdown toggle buttons", () => {
     render(<AddToListButton trigId={42} />, { wrapper: createWrapper() });
 
-    expect(screen.getByTitle("Remove from Marked")).toBeInTheDocument();
+    expect(screen.getByTitle("Remove from default list")).toBeInTheDocument();
     expect(screen.getByTitle("Add to other lists")).toBeInTheDocument();
   });
 
   it("shows filled star when trig is in default list", () => {
     render(<AddToListButton trigId={42} />, { wrapper: createWrapper() });
 
-    const starButton = screen.getByTitle("Remove from Marked");
+    const starButton = screen.getByTitle("Remove from default list");
     const svg = starButton.querySelector("svg");
     expect(svg).toBeInTheDocument();
     expect(svg?.getAttribute("fill")).toBe("currentColor");
@@ -84,7 +84,7 @@ describe("AddToListButton", () => {
   it("calls toggleDefault on star click", () => {
     render(<AddToListButton trigId={42} />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByTitle("Remove from Marked"));
+    fireEvent.click(screen.getByTitle("Remove from default list"));
     expect(mockMutate).toHaveBeenCalledTimes(1);
   });
 

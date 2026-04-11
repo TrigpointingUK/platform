@@ -25,12 +25,13 @@ import {
   setTrigConditionFromLog,
 } from "../lib/api";
 import FacebookShareButton from "../components/ui/FacebookShareButton";
+import AddToListButton from "../components/lists/AddToListButton";
 import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
   const logIdNum = logId ? parseInt(logId, 10) : null;
-  const { user: auth0User, getAccessTokenSilently } = useAuth0();
+  const { user: auth0User, getAccessTokenSilently, isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -260,7 +261,12 @@ export default function LogDetail() {
             ← Back
           </button>
           {log && (
-            <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
+            <>
+              <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
+              {hasAdminRole && isAuthenticated && (
+                <AddToListButton trigId={log.trig_id} />
+              )}
+            </>
           )}
         </div>
 

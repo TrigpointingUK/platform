@@ -12,6 +12,7 @@ import { DownloadButton } from "../components/trigs/DownloadButton";
 import { TrigCard } from "../components/trigs/TrigCard";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUserProfile } from "../hooks/useUserProfile";
+import AddToListButton from "../components/lists/AddToListButton";
 import type { UserLogStatus } from "../lib/mapIcons";
 import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
@@ -36,8 +37,12 @@ const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
 
 export default function FindTrigs() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth0();
+  const { isAuthenticated, user } = useAuth0();
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+
+  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
+  const hasAdminRole = userRoles.includes("api-admin");
+  const showListActions = hasAdminRole && isAuthenticated;
   
   // Fetch user profile to get default_groups preference
   const { data: userProfile } = useUserProfile("me");
@@ -554,6 +559,7 @@ export default function FindTrigs() {
                   centerLon={centerLon ?? 0}
                   distanceUnit={(userProfile?.prefs?.distance_ind as 'K' | 'M') || 'K'}
                   logStatus={getLogStatus(trig.id)}
+                  actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
                 />
               ))}
             </div>
