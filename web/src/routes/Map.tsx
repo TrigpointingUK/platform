@@ -8,6 +8,7 @@ import TrigMarker from "../components/map/TrigMarker";
 import HeatmapLayer from "../components/map/HeatmapLayer";
 import AreaBoundaryLayer from "../components/map/AreaBoundaryLayer";
 import TilesetSelector from "../components/map/TilesetSelector";
+import AddToListButton from "../components/lists/AddToListButton";
 import IconColorModeSelector from "../components/map/IconColorModeSelector";
 import LocationButton from "../components/map/LocationButton";
 import { useAreaBoundary } from "../hooks/useAreaBoundary";
@@ -157,7 +158,10 @@ function MapSizeInvalidator({ sidebarOpen }: { sidebarOpen: boolean }) {
 
 export default function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth0();
+  const { isAuthenticated, user } = useAuth0();
+  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
+  const hasAdminRole = userRoles.includes("api-admin");
+  const showListActions = hasAdminRole && isAuthenticated;
 
   // Fetch user profile to get default_groups preference
   const { data: userProfile } = useUserProfile("me");
@@ -867,6 +871,7 @@ export default function Map() {
                     trig={trig}
                     colorMode={iconColorMode}
                     logStatus={getLogStatus(trig.id)}
+                    actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
                   />
                 ))}
               </>

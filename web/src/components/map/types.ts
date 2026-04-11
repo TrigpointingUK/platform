@@ -5,6 +5,7 @@
  * Changes to these interfaces should be considered breaking changes.
  */
 
+import type { ReactNode } from "react";
 import type { LatLngExpression } from "leaflet";
 import type { IconColorMode, UserLogStatus } from "../../lib/mapIcons";
 
@@ -100,6 +101,8 @@ export interface TrigMarkerProps {
   onClick?: (trig: TrigData) => void;
   /** Whether to show the popup (default: true) */
   showPopup?: boolean;
+  /** Optional action elements rendered in the popup (e.g. add-to-list button) */
+  actions?: ReactNode;
 }
 
 /**

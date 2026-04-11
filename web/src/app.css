@@ -227,6 +227,11 @@ html, body, #root {
   color: inherit;
 }
 
+/* Allow list dropdown to overflow the popup boundary */
+.leaflet-popup-content-wrapper:has(.add-to-list-popup) {
+  overflow: visible;
+}
+
 /* Dark mode for native date/time inputs */
 .dark input[type="date"],
 .dark input[type="time"],
