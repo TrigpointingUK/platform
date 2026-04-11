@@ -38,7 +38,16 @@ const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
 export default function FindTrigs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuth0();
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(
+    () => localStorage.getItem("trigs-filter-collapsed") === "true",
+  );
+
+  const handleToggleFilter = useCallback(() => {
+    setIsFilterCollapsed((prev) => {
+      localStorage.setItem("trigs-filter-collapsed", String(!prev));
+      return !prev;
+    });
+  }, []);
 
   const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
   const hasAdminRole = userRoles.includes("api-admin");
@@ -351,7 +360,7 @@ export default function FindTrigs() {
           <div className={`flex items-center gap-3 ${isFilterCollapsed ? "" : "mb-2"}`}>
             <button
               type="button"
-              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
+              onClick={handleToggleFilter}
               className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               aria-label={isFilterCollapsed ? "Expand filters" : "Collapse filters"}
               title={isFilterCollapsed ? "Expand filters" : "Collapse filters"}

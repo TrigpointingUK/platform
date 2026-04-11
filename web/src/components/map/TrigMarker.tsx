@@ -109,7 +109,7 @@ export default function TrigMarker({
                 View Details
               </Link>
               {actions && (
-                <span className="flex-shrink-0 add-to-list-popup">{actions}</span>
+                <span className="flex-shrink-0">{actions}</span>
               )}
             </div>
           </div>

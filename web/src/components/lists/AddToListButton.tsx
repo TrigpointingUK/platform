@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   useMyLists,
@@ -13,12 +14,18 @@ interface AddToListButtonProps {
   trigId: number;
 }
 
+interface DropdownPosition {
+  top: number;
+  left?: number;
+  right?: number;
+}
+
 export default function AddToListButton({ trigId }: AddToListButtonProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
   const containerRef = useRef<HTMLSpanElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownAlign, setDropdownAlign] = useState<"left" | "right">("left");
+  const [dropdownPos, setDropdownPos] = useState<DropdownPosition>({ top: 0 });
 
   const { data: lists } = useMyLists();
   const { data: memberships } = useTrigListMembership([trigId]);
@@ -37,7 +44,12 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     }
@@ -62,7 +74,12 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
       e.stopPropagation();
       if (!dropdownOpen && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        setDropdownAlign(rect.left > window.innerWidth / 2 ? "right" : "left");
+        const alignRight = rect.left > window.innerWidth / 2;
+        setDropdownPos({
+          top: rect.bottom + 4,
+          left: alignRight ? undefined : rect.left,
+          right: alignRight ? window.innerWidth - rect.right : undefined,
+        });
       }
       setDropdownOpen((prev) => !prev);
     },
@@ -89,6 +106,89 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
     },
     [createList, newListName],
   );
+
+  const dropdown = dropdownOpen
+    ? createPortal(
+        <div
+          ref={dropdownRef}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            right: dropdownPos.right,
+            zIndex: 10000,
+          }}
+          className="w-56 rounded-md bg-white shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-gray-700 overflow-hidden"
+        >
+          <div className="py-1 max-h-60 overflow-y-auto">
+            {lists && lists.length > 0 ? (
+              lists.map((list) => {
+                const isInList = memberListIds.has(list.id);
+                return (
+                  <button
+                    key={list.id}
+                    type="button"
+                    onClick={(e) => handleListClick(list, e)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-left transition-colors text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <span
+                      className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
+                      ${isInList ? "bg-trig-green-600 border-trig-green-600" : "border-gray-300 dark:border-gray-600"}`}
+                    >
+                      {isInList && (
+                        <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="truncate">{list.name}</span>
+                    {list.is_default && (
+                      <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">default</span>
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                No lists yet
+              </div>
+            )}
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-700 p-2">
+            <form onSubmit={handleCreateList} className="flex gap-1">
+              <input
+                type="text"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                placeholder="New list name..."
+                className="min-w-0 flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-1 focus:ring-trig-green-500 focus:border-trig-green-500"
+                maxLength={100}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button
+                type="submit"
+                disabled={!newListName.trim() || createList.isPending}
+                className="flex-shrink-0 rounded-md bg-trig-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-trig-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </form>
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-1.5">
+            <Link
+              to="/lists"
+              className="text-xs text-trig-green-600 dark:text-trig-green-400 hover:underline"
+              onClick={() => setDropdownOpen(false)}
+            >
+              View all lists →
+            </Link>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
 
   return (
     <span className="relative inline-flex items-center" ref={containerRef}>
@@ -132,77 +232,7 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
         </svg>
       </button>
 
-      {/* Dropdown menu */}
-      {dropdownOpen && (
-        <div
-          ref={dropdownRef}
-          className={`absolute top-full z-50 mt-1 w-56 rounded-md bg-white shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-gray-700 ${
-            dropdownAlign === "right" ? "right-0" : "left-0"
-          }`}
-        >
-          <div className="py-1 max-h-60 overflow-y-auto">
-            {lists && lists.length > 0 ? (
-              lists.map((list) => {
-                const isInList = memberListIds.has(list.id);
-                return (
-                  <button
-                    key={list.id}
-                    type="button"
-                    onClick={(e) => handleListClick(list, e)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-left transition-colors text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <span className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
-                      ${isInList ? "bg-trig-green-600 border-trig-green-600" : "border-gray-300 dark:border-gray-600"}`}
-                    >
-                      {isInList && (
-                        <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className="truncate">{list.name}</span>
-                    {list.is_default && (
-                      <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">default</span>
-                    )}
-                  </button>
-                );
-              })
-            ) : (
-              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                No lists yet
-              </div>
-            )}
-          </div>
-          <div className="border-t border-gray-200 dark:border-gray-700 p-2">
-            <form onSubmit={handleCreateList} className="flex gap-1">
-              <input
-                type="text"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                placeholder="New list name..."
-                className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-1 focus:ring-trig-green-500 focus:border-trig-green-500"
-                maxLength={100}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <button
-                type="submit"
-                disabled={!newListName.trim() || createList.isPending}
-                className="rounded-md bg-trig-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-trig-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add
-              </button>
-            </form>
-          </div>
-          <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-1.5">
-            <Link
-              to="/lists"
-              className="text-xs text-trig-green-600 dark:text-trig-green-400 hover:underline"
-            >
-              View all lists →
-            </Link>
-          </div>
-        </div>
-      )}
+      {dropdown}
     </span>
   );
 }
