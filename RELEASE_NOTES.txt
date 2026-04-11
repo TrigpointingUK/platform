@@ -85,13 +85,25 @@ Frontend
 User profile avatar can now be updated
 Added facebook links for trigs and logs
 Support for more legacy URLs
+Added photo rating entry stars
+Added town/county to search bar result cards
 
 Database
 Refined data for Irish trigpoints (ongoing)
-Fixed map sheet errors
 
 Backend
 Improved automated tests
 Sitemap for crawlers
+
+Bugs squashed
+Fixed some caching errors
+Fixed errors for map sheets covering multiple areas
+
+Experiments
+Working on a better nearby trigpoints page
+Working on custom trigpoint lists
+Started work on an analytics schema for data mining
+
+
 
 

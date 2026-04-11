@@ -134,6 +134,17 @@ output "dynamodb_table_name" {
   value       = aws_dynamodb_table.terraform_state_lock.name
 }
 
+# Cloudflare Zone IDs
+output "cloudflare_zone_id_staging" {
+  description = "Cloudflare zone ID for trigpointing.me (staging)"
+  value       = data.cloudflare_zones.staging.result[0].id
+}
+
+output "cloudflare_zone_id_production" {
+  description = "Cloudflare zone ID for trigpointing.uk (production)"
+  value       = data.cloudflare_zones.production.result[0].id
+}
+
 # CloudFlare DNS Records
 output "api_staging_domain" {
   description = "Staging API domain (api.trigpointing.me)"
