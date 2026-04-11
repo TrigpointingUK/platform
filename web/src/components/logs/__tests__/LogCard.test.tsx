@@ -34,6 +34,7 @@ describe('LogCard', () => {
     condition: 'G',
     comment: 'Great condition, easy to find',
     score: 4,
+    user_has_avatar: true,
   };
 
   it('should render trig ID as TP format', () => {
@@ -244,7 +245,7 @@ describe('LogCard', () => {
     });
 
     it('should zero-pad user_id to 5 digits in the avatar URL', () => {
-      const logWithSmallId = { ...mockLog, user_id: 7 };
+      const logWithSmallId = { ...mockLog, user_id: 7, user_has_avatar: true };
       renderWithProviders(<LogCard log={logWithSmallId} />);
 
       const avatarImg = document.querySelector(
@@ -291,6 +292,27 @@ describe('LogCard', () => {
         'img[src*="trigpointinguk-avatars"]'
       ) as HTMLImageElement;
       expect(avatarImg.alt).toBe('');
+    });
+
+    it('should not render avatar img when user_has_avatar is false', () => {
+      const logNoAvatar = { ...mockLog, user_has_avatar: false };
+      renderWithProviders(<LogCard log={logNoAvatar} />);
+
+      const avatarImg = document.querySelector(
+        'img[src*="trigpointinguk-avatars"]'
+      );
+      expect(avatarImg).toBeNull();
+    });
+
+    it('should not render avatar img when user_has_avatar is undefined', () => {
+      const { user_has_avatar: _unused, ...logNoField } = mockLog;
+      void _unused;
+      renderWithProviders(<LogCard log={logNoField} />);
+
+      const avatarImg = document.querySelector(
+        'img[src*="trigpointinguk-avatars"]'
+      );
+      expect(avatarImg).toBeNull();
     });
   });
 });

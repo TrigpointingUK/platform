@@ -2,7 +2,7 @@
 CRUD operations for user merge functionality.
 """
 
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func
@@ -13,6 +13,13 @@ from api.models.tphoto import TPhoto
 from api.models.user import TLog, TPhotoVote, User
 
 logger = get_logger(__name__)
+
+
+def _combine_crt(crt_date: Optional[date], crt_time: Optional[time]) -> datetime:
+    """Combine crt_date and crt_time into a single datetime for comparison."""
+    d = crt_date if crt_date else date(1900, 1, 1)
+    t = crt_time if crt_time else time(0, 0, 0)
+    return datetime.combine(d, t)
 
 
 def find_users_by_email(db: Session, email: str) -> List[User]:
@@ -236,6 +243,11 @@ def merge_users_admin(
                 if field == "auth0_user_id":
                     auth0_will_update = True
 
+    # Determine the earliest member-since datetime
+    target_crt = _combine_crt(target_user.crt_date, target_user.crt_time)  # type: ignore[arg-type]
+    source_crt = _combine_crt(source_user.crt_date, source_user.crt_time)  # type: ignore[arg-type]
+    earliest_crt = min(target_crt, source_crt)
+
     # If dry run, return preview
     if dry_run:
         return {
@@ -255,6 +267,8 @@ def merge_users_admin(
                 "surname": str(target_user.surname) if target_user.surname else "",
                 "homepage": str(target_user.homepage) if target_user.homepage else "",
                 "about": str(target_user.about) if target_user.about else "",
+                "crt_date": str(target_user.crt_date) if target_user.crt_date else None,
+                "crt_time": str(target_user.crt_time) if target_user.crt_time else None,
             },
             "source_user": {
                 "id": int(source_user.id),
@@ -271,10 +285,13 @@ def merge_users_admin(
                 "surname": str(source_user.surname) if source_user.surname else "",
                 "homepage": str(source_user.homepage) if source_user.homepage else "",
                 "about": str(source_user.about) if source_user.about else "",
+                "crt_date": str(source_user.crt_date) if source_user.crt_date else None,
+                "crt_time": str(source_user.crt_time) if source_user.crt_time else None,
             },
             "estimated_records": source_counts,
             "profile_updates": profile_updates,
             "auth0_will_update": auth0_will_update,
+            "member_since": str(earliest_crt),
         }
 
     # Execute the merge
@@ -305,6 +322,12 @@ def merge_users_admin(
     # Note: tphoto records are linked via tlog_id, so they're automatically
     # reassigned when we update the tlog records above
 
+    # Update target user crt_date/crt_time to the earliest of the two accounts
+    if earliest_crt < target_crt:
+        target_user.crt_date = earliest_crt.date()  # type: ignore[assignment]
+        target_user.crt_time = earliest_crt.time()  # type: ignore[assignment]
+        logger.info(f"Updated target user crt_date/crt_time to {earliest_crt}")
+
     # Update target user profile with source values (only if target is blank)
     profile_updated = False
     auth0_transferred = False
@@ -317,7 +340,7 @@ def merge_users_admin(
                 auth0_transferred = True
             logger.info(f"Updated target user {field}")
 
-    if profile_updated:
+    if profile_updated or earliest_crt < target_crt:
         db.add(target_user)
 
     # Delete source user

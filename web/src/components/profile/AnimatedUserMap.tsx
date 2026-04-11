@@ -87,15 +87,35 @@ interface DisplayedDot {
 export default function AnimatedUserMap({
   userId,
   autoPlay = true,
-  height = 400,
+  height: preferredHeight = 400,
 }: AnimatedUserMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const mapImageRef = useRef<HTMLImageElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
   // Theme
   const { resolvedTheme } = useTheme();
   const mapColours = MAP_COLOURS[resolvedTheme];
+
+  // Measure available container width for responsive sizing
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const updateWidth = () => {
+      setContainerWidth(element.clientWidth);
+    };
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   // State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -133,10 +153,15 @@ export default function AnimatedUserMap({
   // Fetch timeline data
   const { data: timeline, isLoading, error } = useUserLogTimeline(userId);
 
-  // Calculate canvas dimensions maintaining aspect ratio
-  const canvasWidth = useMemo(() => {
-    return Math.round((height * MAP_DIMENSIONS.width) / MAP_DIMENSIONS.height);
-  }, [height]);
+  // Calculate canvas dimensions maintaining aspect ratio, capped to container width
+  const idealWidth = Math.round(
+    (preferredHeight * MAP_DIMENSIONS.width) / MAP_DIMENSIONS.height
+  );
+  const canvasWidth =
+    containerWidth ? Math.min(idealWidth, containerWidth) : idealWidth;
+  const height = Math.round(
+    (canvasWidth * MAP_DIMENSIONS.height) / MAP_DIMENSIONS.width
+  );
 
   // Group logs by date for batching
   const logsByDate = useMemo(() => {
@@ -682,11 +707,13 @@ export default function AnimatedUserMap({
   // Loading state
   if (isLoading) {
     return (
-      <div
-        className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg"
-        style={{ height, width: canvasWidth }}
-      >
-        <Spinner size="lg" />
+      <div ref={containerRef} className="w-full" style={{ maxWidth: idealWidth }}>
+        <div
+          className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg w-full"
+          style={{ aspectRatio: `${MAP_DIMENSIONS.width} / ${MAP_DIMENSIONS.height}` }}
+        >
+          <Spinner size="lg" />
+        </div>
       </div>
     );
   }
@@ -694,11 +721,13 @@ export default function AnimatedUserMap({
   // Error state
   if (error) {
     return (
-      <div
-        className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg text-red-500"
-        style={{ height, width: canvasWidth }}
-      >
-        Failed to load timeline
+      <div ref={containerRef} className="w-full" style={{ maxWidth: idealWidth }}>
+        <div
+          className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg text-red-500 w-full"
+          style={{ aspectRatio: `${MAP_DIMENSIONS.width} / ${MAP_DIMENSIONS.height}` }}
+        >
+          Failed to load timeline
+        </div>
       </div>
     );
   }
@@ -706,11 +735,13 @@ export default function AnimatedUserMap({
   // Empty state
   if (!timeline || timeline.length === 0) {
     return (
-      <div
-        className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400"
-        style={{ height, width: canvasWidth }}
-      >
-        No logs to display
+      <div ref={containerRef} className="w-full" style={{ maxWidth: idealWidth }}>
+        <div
+          className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 w-full"
+          style={{ aspectRatio: `${MAP_DIMENSIONS.width} / ${MAP_DIMENSIONS.height}` }}
+        >
+          No logs to display
+        </div>
       </div>
     );
   }
@@ -724,7 +755,7 @@ export default function AnimatedUserMap({
   const lastDate = orderedDates[orderedDates.length - 1];
 
   return (
-    <div className="relative" style={{ width: canvasWidth }}>
+    <div ref={containerRef} className="relative w-full" style={{ maxWidth: idealWidth }}>
       {/* Canvas */}
       <canvas
         ref={canvasRef}

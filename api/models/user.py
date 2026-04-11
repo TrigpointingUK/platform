@@ -5,6 +5,7 @@ Database models for the existing legacy database schema.
 from datetime import date, time
 
 from sqlalchemy import (
+    Boolean,
     Column,
     Date,
     DateTime,
@@ -75,6 +76,9 @@ class User(Base):
 
     # Auth0 integration
     auth0_user_id = Column(String(50), nullable=True, index=True)
+
+    # Avatar tracking
+    has_avatar = Column(Boolean, nullable=False, server_default="false")
 
     # Default trig list (lazy-created on first use)
     default_list_id = Column(

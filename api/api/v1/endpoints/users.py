@@ -680,6 +680,7 @@ def update_current_user_profile(
 def upload_avatar(
     file: UploadFile = File(..., description="Image file (JPEG, PNG, or WebP)"),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> Dict[str, str]:
     """
     Upload or replace the current user's avatar image.
@@ -711,6 +712,10 @@ def upload_avatar(
         raise HTTPException(status_code=500, detail="Failed to upload avatar")
 
     versioned_url = f"{avatar_url}?v={int(time.time())}"
+
+    if not current_user.has_avatar:
+        current_user.has_avatar = True  # type: ignore[assignment]
+        db.commit()
 
     auth0_user_id = getattr(current_user, "auth0_user_id", None)
     if auth0_user_id:
@@ -939,6 +944,7 @@ def browse_users(
     query = db.query(
         User.id.label("id"),
         User.name.label("name"),
+        User.has_avatar.label("has_avatar"),
         User.firstname,
         User.surname,
         member_since_column,
@@ -1034,6 +1040,7 @@ def browse_users(
             UserListItem(
                 id=int(data["id"]),
                 name=str(data["name"]),
+                has_avatar=bool(data.get("has_avatar", False)),
                 member_since=data["member_since"],
                 stats=stats,
                 profile_path=f"/profile/{int(data['id'])}",

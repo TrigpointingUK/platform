@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     surname: Optional[str] = None  # Nullable for PostgreSQL compatibility
     homepage: Optional[str] = Field(None, description="User homepage URL")
     about: Optional[str] = Field(None, description="About/description text")
+    has_avatar: bool = Field(False, description="Whether the user has a custom avatar")
     member_since: Optional[date] = Field(None, description="Date user joined")
     auth0_user_id: Optional[str] = Field(
         None, description="Auth0 user ID (own profile only)"
@@ -56,6 +57,7 @@ class UserListItem(BaseModel):
 
     id: int
     name: str
+    has_avatar: bool = False
     member_since: Optional[date] = None
     stats: UserStats
     profile_path: str

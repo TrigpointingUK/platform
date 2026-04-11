@@ -847,6 +847,7 @@ export interface AdminMergeUsersPreview {
   estimated_records: MergeRecordCounts;
   profile_updates: Record<string, string | null>;
   auth0_will_update: boolean;
+  member_since: string;
 }
 
 export interface AdminMergeUsersResponse {

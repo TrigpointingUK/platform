@@ -191,7 +191,7 @@ export default function UserProfile() {
                       currentPictureUrl={avatarUrl || undefined}
                       onUploaded={(newUrl) => setUploadedAvatarUrl(newUrl)}
                     />
-                  ) : (
+                  ) : user.has_avatar ? (
                     <img
                       src={`https://trigpointinguk-avatars.s3.amazonaws.com/U${user.id.toString().padStart(5, "0")}.jpg`}
                       alt={user.name}
@@ -199,7 +199,7 @@ export default function UserProfile() {
                       onLoad={(e) => e.currentTarget.classList.remove("hidden")}
                       onError={(e) => e.currentTarget.classList.add("hidden")}
                     />
-                  )}
+                  ) : null}
                   <div>
                     <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                       {user.name}
@@ -300,7 +300,7 @@ export default function UserProfile() {
             </div>
 
             {/* Right column: Animated Map and Badge */}
-            <div className="flex flex-col gap-6 xl:w-auto flex-shrink-0">
+            <div className="flex flex-col gap-6 xl:w-auto xl:flex-shrink-0 min-w-0">
               <AnimatedUserMap userId={displayUserId} height={400} autoPlay />
               <div className="flex justify-center items-center w-full">
                 <img 

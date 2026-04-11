@@ -83,6 +83,10 @@ class AdminMergeUsersPreview(BaseModel):
     auth0_will_update: bool = Field(
         ..., description="Whether Auth0 synchronization will occur"
     )
+    member_since: str = Field(
+        ...,
+        description="Earliest registration date/time across both accounts (YYYY-MM-DD HH:MM:SS)",
+    )
 
 
 class AdminMergeUsersResponse(BaseModel):

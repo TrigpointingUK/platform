@@ -1177,6 +1177,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
                     <div className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
                       <p><strong>Logs to transfer:</strong> {preview.estimated_records.tlog}</p>
                       <p><strong>Photo votes to transfer:</strong> {preview.estimated_records.tphotovote}</p>
+                      <p><strong>Member since:</strong> {preview.member_since}</p>
                       {Object.keys(preview.profile_updates).length > 0 && (
                         <>
                           <p className="mt-2"><strong>Profile fields to update:</strong></p>
