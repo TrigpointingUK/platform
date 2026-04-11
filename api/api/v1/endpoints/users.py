@@ -765,6 +765,7 @@ def get_current_user_logged_trigs(
     ttl=31536000,
     resource_id_param="user_id",
     subresource="logged-trigs",
+    cache_control="private, no-cache",
 )  # 1 year - invalidated by log CRUD operations
 def get_user_logged_trigs_cached(user_id: int, db: Session):
     """Cached implementation for getting user's logged trigs."""

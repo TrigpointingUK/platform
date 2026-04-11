@@ -22,6 +22,7 @@ export function useDeleteLog(logId: number, trigId: number) {
       queryClient.invalidateQueries({ queryKey: ["trig", trigId] });
       queryClient.invalidateQueries({ queryKey: ["recentLogs"] });
       queryClient.invalidateQueries({ queryKey: ["userLogs"] });
+      queryClient.invalidateQueries({ queryKey: ["user", "logged-trigs"] });
     },
     onError: (error) => {
       // Handle authentication errors by redirecting to login

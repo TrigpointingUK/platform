@@ -31,6 +31,7 @@ export function usePublishLog(logId: number, trigId: number) {
       queryClient.invalidateQueries({ queryKey: ["userLogs"] });
       // Also invalidate log photos since they're now part of a published log
       queryClient.invalidateQueries({ queryKey: ["logPhotos", logId] });
+      queryClient.invalidateQueries({ queryKey: ["user", "logged-trigs"] });
     },
     onError: (error) => {
       // Handle authentication errors by redirecting to login
