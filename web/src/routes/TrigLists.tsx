@@ -84,7 +84,7 @@ function SortableItemRow({ item, distanceUnit, onUpdateDescription }: SortableIt
   if (!item.trig) return null;
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-stretch">
+    <div ref={setNodeRef} style={style} className="flex items-stretch border-b border-gray-200 dark:border-gray-700">
       <button
         type="button"
         className="flex items-center px-2 cursor-grab touch-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 flex-shrink-0"
@@ -123,6 +123,7 @@ function SortableItemRow({ item, distanceUnit, onUpdateDescription }: SortableIt
               }}
               showDistance={false}
               distanceUnit={distanceUnit}
+              noBorder
             />
           </div>
           <button
@@ -176,9 +177,9 @@ function SortableItemRow({ item, distanceUnit, onUpdateDescription }: SortableIt
             </div>
           </div>
         ) : item.description ? (
-          <p className="px-3 pb-3 text-xs text-gray-500 dark:text-gray-400 italic">
+          <div className="mx-3 mb-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-md border-l-3 border-trig-green-400 dark:border-trig-green-600">
             {item.description}
-          </p>
+          </div>
         ) : null}
       </div>
     </div>

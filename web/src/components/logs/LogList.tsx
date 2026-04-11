@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import LogCard from "./LogCard";
 import { Photo } from "../../lib/api";
 
@@ -25,6 +26,8 @@ interface LogListProps {
   showTrigInfo?: boolean;
   /** Show admin OG preview link on every card */
   isAdmin?: boolean;
+  /** Render per-card actions (receives trig_id) */
+  renderActions?: (trigId: number) => ReactNode;
 }
 
 export default function LogList({
@@ -35,6 +38,7 @@ export default function LogList({
   showTrigCondition = false,
   showTrigInfo = true,
   isAdmin = false,
+  renderActions,
 }: LogListProps) {
   if (isLoading) {
     return (
@@ -81,6 +85,7 @@ export default function LogList({
           showTrigCondition={showTrigCondition}
           showTrigInfo={showTrigInfo}
           isAdmin={isAdmin}
+          actions={renderActions?.(log.trig_id)}
         />
       ))}
     </div>

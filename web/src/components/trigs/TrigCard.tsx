@@ -29,6 +29,7 @@ interface TrigCardProps {
   distanceUnit?: "K" | "M"; // K=km, M=miles
   logStatus?: UserLogStatus | null;
   actions?: ReactNode;
+  noBorder?: boolean;
 }
 
 // Helper to get category badge info (icon, abbrev and color) based on category_code
@@ -121,6 +122,7 @@ export function TrigCard({
   distanceUnit = "K",
   logStatus = null,
   actions,
+  noBorder = false,
 }: TrigCardProps) {
   const { getConditionInfo } = useConditionInfo();
 
@@ -150,7 +152,7 @@ export function TrigCard({
   return (
     <Link
       to={`/trigs/${trig.id}`}
-      className="block border-b border-gray-200 dark:border-gray-700 py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+      className={`block py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors${noBorder ? "" : " border-b border-gray-200 dark:border-gray-700"}`}
     >
       <div className="flex items-center justify-between gap-3">
         {/* Left side: Main info */}
