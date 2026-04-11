@@ -16,6 +16,7 @@ import { TrigCard } from "../../components/trigs/TrigCard";
 import { useInfiniteTrigs } from "../../hooks/useInfiniteTrigs";
 import { useUserLoggedTrigs } from "../../hooks/useUserLoggedTrigs";
 import { useUserProfile } from "../../hooks/useUserProfile";
+import AddToListButton from "../../components/lists/AddToListButton";
 import type { UserLogStatus } from "../../lib/mapIcons";
 
 // Import reference data hooks
@@ -55,7 +56,11 @@ const ALL_COUNTY_IDS = HISTORIC_COUNTIES.map((county) => county.id);
 
 export default function TrigsV2() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth0();
+  const { isAuthenticated, user } = useAuth0();
+  
+  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
+  const hasAdminRole = userRoles.includes("api-admin");
+  const showListActions = hasAdminRole && isAuthenticated;
   
   // Fetch user profile to get preferences
   const { data: userProfile } = useUserProfile("me");
@@ -755,6 +760,7 @@ export default function TrigsV2() {
                     centerLon={centerLon ?? 0}
                     distanceUnit={(userProfile?.prefs?.distance_ind as 'K' | 'M') || 'K'}
                     logStatus={getLogStatus(trig.id)}
+                    actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
                   />
                 ))}
               </div>
