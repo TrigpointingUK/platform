@@ -300,7 +300,7 @@ export default function UserProfile() {
             </div>
 
             {/* Right column: Animated Map and Badge */}
-            <div className="flex flex-col gap-6 xl:w-auto flex-shrink-0">
+            <div className="flex flex-col gap-6 xl:w-auto xl:flex-shrink-0 min-w-0">
               <AnimatedUserMap userId={displayUserId} height={400} autoPlay />
               <div className="flex justify-center items-center w-full">
                 <img 
