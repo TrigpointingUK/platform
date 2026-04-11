@@ -1264,6 +1264,7 @@ def merge_users_admin(
             estimated_records=MergeRecordCounts(**result["estimated_records"]),
             profile_updates=result["profile_updates"],
             auth0_will_update=result["auth0_will_update"],
+            member_since=result["member_since"],
         )
 
         logger.info(

@@ -194,6 +194,61 @@ class TestMergeUsersAdmin:
         assert target.firstname == "Alice"
         assert target.surname == "Smith"
 
+    def test_merge_uses_earliest_crt_date_time(self, db, make_user):
+        target = make_user(
+            name="tgt_date",
+            crt_date=date(2020, 6, 15),
+            crt_time=time(14, 30, 0),
+        )
+        source = make_user(
+            name="src_date",
+            crt_date=date(2018, 3, 1),
+            crt_time=time(9, 0, 0),
+        )
+
+        result = merge_users_admin(db, target.id, source.id, dry_run=False)
+        assert result["success"] is True
+        db.refresh(target)
+        assert target.crt_date == date(2018, 3, 1)
+        assert target.crt_time == time(9, 0, 0)
+
+    def test_merge_keeps_target_crt_date_when_earlier(self, db, make_user):
+        target = make_user(
+            name="tgt_early",
+            crt_date=date(2015, 1, 1),
+            crt_time=time(0, 0, 0),
+        )
+        source = make_user(
+            name="src_late",
+            crt_date=date(2022, 12, 31),
+            crt_time=time(23, 59, 59),
+        )
+
+        result = merge_users_admin(db, target.id, source.id, dry_run=False)
+        assert result["success"] is True
+        db.refresh(target)
+        assert target.crt_date == date(2015, 1, 1)
+        assert target.crt_time == time(0, 0, 0)
+
+    def test_dry_run_includes_member_since(self, db, make_user):
+        target = make_user(
+            name="tgt_since",
+            crt_date=date(2020, 6, 15),
+            crt_time=time(14, 30, 0),
+        )
+        source = make_user(
+            name="src_since",
+            crt_date=date(2018, 3, 1),
+            crt_time=time(9, 0, 0),
+        )
+
+        result = merge_users_admin(db, target.id, source.id, dry_run=True)
+        assert result["target_user"]["crt_date"] == "2020-06-15"
+        assert result["target_user"]["crt_time"] == "14:30:00"
+        assert result["source_user"]["crt_date"] == "2018-03-01"
+        assert result["source_user"]["crt_time"] == "09:00:00"
+        assert result["member_since"] == "2018-03-01 09:00:00"
+
     def test_dry_run_shows_auth0_will_update(self, db, make_user):
         target = make_user(name="tgt_auth", auth0_user_id=None)
         source = make_user(name="src_auth", auth0_user_id="auth0|12345")
