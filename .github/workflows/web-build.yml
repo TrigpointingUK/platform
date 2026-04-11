@@ -198,6 +198,21 @@ jobs:
           --service trigpointing-spa-staging \
           --force-new-deployment
 
+    - name: Wait for deployment to stabilise
+      run: |
+        echo "Waiting for ECS service to reach steady state..."
+        aws ecs wait services-stable \
+          --cluster trigpointing-cluster \
+          --services trigpointing-spa-staging
+
+    - name: Purge Cloudflare cache (staging)
+      run: |
+        curl -s -X POST \
+          "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID_STAGING }}/purge_cache" \
+          -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{"purge_everything":true}'
+
   deploy-production:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -222,4 +237,19 @@ jobs:
           --cluster trigpointing-cluster \
           --service trigpointing-spa-production \
           --force-new-deployment
+
+    - name: Wait for deployment to stabilise
+      run: |
+        echo "Waiting for ECS service to reach steady state..."
+        aws ecs wait services-stable \
+          --cluster trigpointing-cluster \
+          --services trigpointing-spa-production
+
+    - name: Purge Cloudflare cache (production)
+      run: |
+        curl -s -X POST \
+          "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID_PRODUCTION }}/purge_cache" \
+          -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{"purge_everything":true}'
 
