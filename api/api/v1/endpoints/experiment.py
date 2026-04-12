@@ -581,7 +581,7 @@ def get_coop_data(
     # Batch-fetch visit data for all selected users x returned trigs
     trig_ids = [int(t.id) for t in items]
     visit_rows = (
-        db.query(TLog.trig_id, TLog.user_id, TLog.condition, TLog.date)
+        db.query(TLog.id, TLog.trig_id, TLog.user_id, TLog.condition, TLog.date)
         .filter(
             TLog.user_id.in_(parsed_user_ids),
             TLog.trig_id.in_(trig_ids),
@@ -597,6 +597,7 @@ def get_coop_data(
         tid = int(row.trig_id)
         visit_uid = int(row.user_id)
         visit = CoopVisit(
+            log_id=int(row.id),
             condition=str(row.condition or "U"),
             date=row.date,
         )

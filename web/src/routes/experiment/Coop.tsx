@@ -436,13 +436,15 @@ function CoopGrid({
                         className="px-2 py-2 text-center"
                         title={`${visitCondInfo.label}${visit.date ? ` (${visit.date})` : ""}`}
                       >
-                        <img
-                          src={`/icons/conditions/${visitCondInfo.icon}`}
-                          alt={visitCondInfo.label}
-                          className="w-5 h-5 mx-auto"
-                          width={20}
-                          height={20}
-                        />
+                        <Link to={`/logs/${visit.log_id}`}>
+                          <img
+                            src={`/icons/conditions/${visitCondInfo.icon}`}
+                            alt={visitCondInfo.label}
+                            className="w-5 h-5 mx-auto hover:scale-125 transition-transform"
+                            width={20}
+                            height={20}
+                          />
+                        </Link>
                       </td>
                     );
                   }

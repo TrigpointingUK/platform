@@ -163,6 +163,8 @@ class TestCoopEndpointBasic:
         assert str(user_b.id) in trig_item["visits"]
         assert trig_item["visits"][str(user_a.id)]["condition"] == "G"
         assert trig_item["visits"][str(user_b.id)]["condition"] == "S"
+        assert "log_id" in trig_item["visits"][str(user_a.id)]
+        assert "log_id" in trig_item["visits"][str(user_b.id)]
 
     def test_unvisited_trig_has_null_visits(self, client, db, user_a, user_b, trigs):
         resp = client.get(
@@ -409,12 +411,13 @@ class TestCoopPydanticModels:
         assert user.name == "Alice"
 
     def test_coop_visit(self):
-        visit = CoopVisit(condition="G", date=date(2024, 1, 1))
+        visit = CoopVisit(log_id=100, condition="G", date=date(2024, 1, 1))
+        assert visit.log_id == 100
         assert visit.condition == "G"
         assert visit.date == date(2024, 1, 1)
 
     def test_coop_visit_no_date(self):
-        visit = CoopVisit(condition="G")
+        visit = CoopVisit(log_id=101, condition="G")
         assert visit.date is None
 
     def test_coop_trig_item(self):
@@ -426,7 +429,7 @@ class TestCoopPydanticModels:
             wgs_lat=51.5,
             wgs_long=-0.1,
             osgb_gridref="TQ 00000 00000",
-            visits={"1": CoopVisit(condition="G"), "2": None},
+            visits={"1": CoopVisit(log_id=50, condition="G"), "2": None},
         )
         assert item.id == 1
         assert item.visits["1"].condition == "G"
