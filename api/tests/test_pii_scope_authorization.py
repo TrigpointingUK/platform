@@ -1,5 +1,8 @@
 """
-Tests for PII scope authorization (api:read-pii).
+Tests for user profile email updates (previously gated by api:read-pii scope).
+
+Email updates on /me no longer require a special scope -- any authenticated
+user may update their own email address.
 """
 
 from unittest.mock import patch
@@ -29,26 +32,31 @@ def test_user(db: Session):
     return user
 
 
-def test_update_pii_without_scope_returns_403(db: Session, test_user):
-    """Test that updating PII fields without api:read-pii scope returns 403."""
+def test_update_email_without_pii_scope_succeeds(db: Session, test_user):
+    """Test that updating email on own profile succeeds without api:read-pii scope."""
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:8]
+
     with patch("api.api.deps.auth0_validator.validate_auth0_token") as mock:
-        # Mock token WITHOUT api:read-pii scope
         mock.return_value = {
             "token_type": "auth0",
             "auth0_user_id": test_user.auth0_user_id,
             "sub": test_user.auth0_user_id,
-            "scope": "api:write",  # Missing api:read-pii
+            "scope": "openid profile email",
         }
 
-        # Try to update email
-        response = client.patch(
-            "/v1/users/me",
-            json={"email": "newemail@example.com"},
-            headers={"Authorization": "Bearer mock_token"},
-        )
+        with patch("api.services.auth0_service.auth0_service") as mock_service:
+            mock_service.update_user_email.return_value = True
+            new_email = f"newemail_{unique_suffix}@example.com"
 
-        assert response.status_code == 403
-        assert "api:read-pii" in response.json()["detail"]
+            response = client.patch(
+                "/v1/users/me",
+                json={"email": new_email},
+                headers={"Authorization": "Bearer mock_token"},
+            )
+
+            assert response.status_code == 200
 
 
 def test_update_firstname_without_scope_succeeds(db: Session, test_user):
@@ -58,7 +66,7 @@ def test_update_firstname_without_scope_succeeds(db: Session, test_user):
             "token_type": "auth0",
             "auth0_user_id": test_user.auth0_user_id,
             "sub": test_user.auth0_user_id,
-            "scope": "api:write",  # No api:read-pii needed
+            "scope": "api:write",
         }
 
         response = client.patch(
@@ -78,7 +86,7 @@ def test_update_surname_without_scope_succeeds(db: Session, test_user):
             "token_type": "auth0",
             "auth0_user_id": test_user.auth0_user_id,
             "sub": test_user.auth0_user_id,
-            "scope": "api:write",  # No api:read-pii needed
+            "scope": "api:write",
         }
 
         response = client.patch(
@@ -102,7 +110,7 @@ def test_update_non_pii_fields_without_pii_scope_succeeds(db: Session, test_user
             "token_type": "auth0",
             "auth0_user_id": test_user.auth0_user_id,
             "sub": test_user.auth0_user_id,
-            "scope": "api:write",  # No api:read-pii needed for non-PII fields
+            "scope": "api:write",
         }
 
         with patch("api.services.auth0_service.auth0_service") as mock_service:
@@ -121,8 +129,8 @@ def test_update_non_pii_fields_without_pii_scope_succeeds(db: Session, test_user
             assert data["homepage"] == "https://example.com"
 
 
-def test_update_pii_with_scope_succeeds(db: Session, test_user):
-    """Test that updating PII fields with api:read-pii scope succeeds."""
+def test_update_email_with_scope_succeeds(db: Session, test_user):
+    """Test that updating email with api:read-pii scope also succeeds."""
     import uuid
 
     unique_suffix = uuid.uuid4().hex[:8]
@@ -132,7 +140,7 @@ def test_update_pii_with_scope_succeeds(db: Session, test_user):
             "token_type": "auth0",
             "auth0_user_id": test_user.auth0_user_id,
             "sub": test_user.auth0_user_id,
-            "scope": "api:write api:read-pii",  # Has required scope
+            "scope": "api:write api:read-pii",
         }
 
         with patch("api.services.auth0_service.auth0_service") as mock_service:
@@ -146,5 +154,3 @@ def test_update_pii_with_scope_succeeds(db: Session, test_user):
             )
 
             assert response.status_code == 200
-            # Email field may not be in response if it's excluded by default
-            # but the update should have succeeded

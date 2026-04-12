@@ -474,22 +474,6 @@ def update_current_user_profile(
     # Get update data
     update_data = user_updates.model_dump(exclude_unset=True)
 
-    # Verify api:read-pii scope for email updates only
-    # firstname and surname are part of the basic profile, not PII
-    if "email" in update_data:
-        token_payload = getattr(current_user, "_token_payload", None)
-        if not token_payload:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        from api.core.security import extract_scopes
-
-        scopes = extract_scopes(token_payload)
-        if "api:read-pii" not in scopes:
-            raise HTTPException(
-                status_code=403,
-                detail="Missing required scope: api:read-pii for email updates",
-            )
-
     if not update_data:
         # No updates provided, return current user
         user_response = UserResponse.model_validate(current_user)
