@@ -79,7 +79,7 @@ Known bugs
 Mapping of trigpoints to map sheets not trustworthy - investigating
 
 
-?? Apr 2026
+12 Apr 2026
 
 Frontend
 User profile avatar can now be updated
@@ -87,6 +87,7 @@ Added facebook links for trigs and logs
 Support for more legacy URLs
 Added photo rating entry stars
 Added town/county to search bar result cards
+Custom trigpoint lists (favorites, todo, etc)
 
 Database
 Refined data for Irish trigpoints (ongoing)
@@ -98,12 +99,12 @@ Sitemap for crawlers
 Bugs squashed
 Fixed some caching errors
 Fixed errors for map sheets covering multiple areas
+Fixed email address update error
 
 Experiments
 Working on a better nearby trigpoints page
-Working on custom trigpoint lists
 Started work on an analytics schema for data mining
-
+Added a page to compare logs for multiple users
 
 
 

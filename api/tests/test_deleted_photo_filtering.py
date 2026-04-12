@@ -294,3 +294,77 @@ class TestDeletedPhotoFiltering:
         # Our deleted photo should NOT be included
         assert deleted_photo.id not in photo_ids
         # Only assert about our specific photos, not the total count.
+
+    def test_trig_photos_use_aliased_keys(self, client: TestClient, db: Session):
+        """Test that trig photos use 'caption'/'license', not 'name'/'public_ind'."""
+        user, tlog, active_photo, deleted_photo = create_test_data(db)
+
+        resp = client.get(f"{settings.API_V1_STR}/trigs/{tlog.trig_id}/photos")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        photo_items = [p for p in body["items"] if p["id"] == active_photo.id]
+        assert len(photo_items) == 1
+        item = photo_items[0]
+
+        assert "caption" in item, "Expected 'caption' key in trig photo item"
+        assert "license" in item, "Expected 'license' key in trig photo item"
+        assert "name" not in item, "'name' should be aliased to 'caption'"
+        assert "public_ind" not in item, "'public_ind' should be aliased to 'license'"
+
+    def test_user_photos_use_aliased_keys(self, client: TestClient, db: Session):
+        """Test that user photos use 'caption'/'license', not 'name'/'public_ind'."""
+        user, tlog, active_photo, deleted_photo = create_test_data(db)
+
+        resp = client.get(f"{settings.API_V1_STR}/users/{user.id}/photos")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        photo_items = [p for p in body["items"] if p["id"] == active_photo.id]
+        assert len(photo_items) == 1
+        item = photo_items[0]
+
+        assert "caption" in item, "Expected 'caption' key in user photo item"
+        assert "license" in item, "Expected 'license' key in user photo item"
+        assert "name" not in item, "'name' should be aliased to 'caption'"
+        assert "public_ind" not in item, "'public_ind' should be aliased to 'license'"
+
+
+class TestOrphanedPhotoFiltering:
+    """Test that photos with null tlog_id are excluded from listings."""
+
+    def test_list_photos_excludes_null_tlog_id(self, client: TestClient, db: Session):
+        """Test that GET /v1/photos excludes photos with null tlog_id."""
+        user, tlog, active_photo, deleted_photo = create_test_data(db)
+
+        orphan = TPhoto(
+            tlog_id=None,
+            server_id=settings.PHOTOS_SERVER_ID,
+            type="T",
+            filename="orphan/P_orphan.jpg",
+            filesize=5000,
+            height=100,
+            width=100,
+            icon_filename="orphan/I_orphan.jpg",
+            icon_filesize=500,
+            icon_height=50,
+            icon_width=50,
+            name="Orphan Photo",
+            text_desc="No parent log",
+            ip_addr="127.0.0.1",
+            public_ind="Y",
+            deleted_ind="N",
+            source="W",
+            crt_timestamp=datetime.now(UTC),
+        )
+        db.add(orphan)
+        db.commit()
+        db.refresh(orphan)
+
+        resp = client.get(f"{settings.API_V1_STR}/photos")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        photo_ids = [p["id"] for p in body["items"]]
+        assert orphan.id not in photo_ids
+        assert active_photo.id in photo_ids

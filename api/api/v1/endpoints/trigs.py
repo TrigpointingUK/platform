@@ -1362,7 +1362,7 @@ def list_logs_for_trig(
                             public_ind=str(p.public_ind),
                             photo_url=join_url(base_url, str(p.filename)),
                             icon_url=join_url(base_url, str(p.icon_filename)),
-                        ).model_dump()
+                        ).model_dump(by_alias=True)
                     )
     has_more = (skip + len(items)) < total
     base = f"/v1/trigs/{trig_id}/logs"
@@ -1450,7 +1450,7 @@ def list_photos_for_trig(
                     if tlog and tlog.date
                     else None
                 ),
-            ).model_dump()
+            ).model_dump(by_alias=True)
         )
 
     has_more = (skip + len(items)) < total

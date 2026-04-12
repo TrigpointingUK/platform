@@ -67,7 +67,8 @@ def list_photos(
     else:
         # Need to count with same filters as list_photos_filtered
         total_query = db.query(tphoto_crud.TPhoto).filter(
-            tphoto_crud.TPhoto.deleted_ind != "Y"
+            tphoto_crud.TPhoto.deleted_ind != "Y",
+            tphoto_crud.TPhoto.tlog_id.isnot(None),
         )
         if log_id is not None:
             total_query = total_query.filter(tphoto_crud.TPhoto.tlog_id == log_id)
@@ -103,7 +104,7 @@ def list_photos(
         result_items.append(
             {
                 "id": int(p.id),
-                "log_id": int(p.tlog_id),
+                "log_id": int(p.tlog_id) if p.tlog_id is not None else 0,
                 "user_id": (
                     int(tlog.user_id) if tlog and tlog.user_id is not None else 0
                 ),

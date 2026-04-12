@@ -225,9 +225,10 @@ export default function PhotoThumbnail({
               </div>
             )}
 
-            {!isPublicDomain && photo.user_name && (
+            {photo.user_name && (
               <div className="text-xs text-white/90">
-                © <span className="font-semibold">{photo.user_name}</span>
+                {!isPublicDomain && "© "}
+                <span className="font-semibold">{photo.user_name}</span>
                 {photo.log_date && (
                   <span className="ml-1">{formatLogDate(photo.log_date)}</span>
                 )}
