@@ -14,6 +14,7 @@ import {
   Sparkles,
   Filter,
   Box,
+  Users,
 } from "lucide-react";
 
 import Card from "../components/ui/Card";
@@ -72,6 +73,14 @@ function ExperimentCard({
 
 export default function ExperimentIndex() {
   const experiments = [
+    {
+      to: "/experiment/coop",
+      icon: <Users className="w-6 h-6" />,
+      title: "Co-op Trigpointing",
+      description:
+        "Compare trigpoint visits across members. Find trigs that others have visited but you haven't, or discover trigs that are new for everyone.",
+      tags: ["Social", "Planning", "New"],
+    },
     {
       to: "/experiment/3d-model",
       icon: <Box className="w-6 h-6" />,

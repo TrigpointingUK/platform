@@ -43,6 +43,7 @@ const Experiments = lazy(() => import("./routes/Experiments"));
 const ExperimentIndex = lazy(() => import("./routes/ExperimentIndex"));
 const TrigsV2 = lazy(() => import("./routes/experiment/TrigsV2"));
 const TrigModel = lazy(() => import("./routes/experiment/TrigModel"));
+const Coop = lazy(() => import("./routes/experiment/Coop"));
 const AndroidAuthCallback = lazy(() => import("./routes/AndroidAuthCallback"));
 
 // Redirect component for old /trig/ URLs
@@ -145,6 +146,7 @@ const router = createBrowserRouter(
         { path: "/experiment/coordinates", element: <Experiments /> },
         { path: "/experiment/trigs-v2", element: <TrigsV2 /> },
         { path: "/experiment/3d-model", element: <TrigModel /> },
+        { path: "/experiment/coop", element: <Coop /> },
         // Admin routes
         { path: "/admin", element: <Admin /> },
         { path: "/admin/needs-attention", element: <AdminNeedsAttention /> },
