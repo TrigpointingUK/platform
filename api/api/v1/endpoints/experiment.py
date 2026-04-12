@@ -8,15 +8,17 @@ or changed without notice.
 from enum import Enum
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from api.api.deps import get_db
+from api.api.deps import get_current_user, get_db
 from api.api.lifecycle import openapi_lifecycle
 from api.models.condition import Condition
 from api.models.trig import Trig
 from api.models.trigstats import TrigStats
+from api.models.user import TLog, User
+from api.schemas.coop import CoopResponse, CoopTrigItem, CoopUser, CoopVisit
 
 router = APIRouter()
 
@@ -298,4 +300,357 @@ def get_coordinate_discrepancies(
         page=page,
         per_page=per_page,
         total_pages=total_pages,
+    )
+
+
+class CoopFilterMode(str, Enum):
+    """Filter modes for the co-op endpoint."""
+
+    all = "all"
+    unvisited_by_all = "unvisited_by_all"
+    visited_by_any = "visited_by_any"
+    unvisited_by_me = "unvisited_by_me"
+    visited_by_me = "visited_by_me"
+    only_visited_by_me = "only_visited_by_me"
+    visited_by_all = "visited_by_all"
+    visited_by_all_except_me = "visited_by_all_except_me"
+    visited_by_most = "visited_by_most"
+    not_visited_by_most = "not_visited_by_most"
+
+
+@router.get(
+    "/coop",
+    response_model=CoopResponse,
+    openapi_extra=openapi_lifecycle(
+        "alpha",
+        note="Co-op trigpointing: compare visits across selected members. "
+        "Returns trigs sorted by distance with per-user visit matrix.",
+    ),
+)
+def get_coop_data(
+    user_ids: str = Query(..., description="Comma-separated user IDs to compare"),
+    lat: Optional[float] = Query(None, description="Centre latitude"),
+    lon: Optional[float] = Query(None, description="Centre longitude"),
+    max_km: Optional[float] = Query(None, description="Maximum radius in km"),
+    categories: Optional[str] = Query(
+        None, description="Comma-separated category codes"
+    ),
+    types: Optional[str] = Query(None, description="Comma-separated type codes"),
+    filter_mode: CoopFilterMode = Query(
+        CoopFilterMode.all, description="Filter mode for visit status"
+    ),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Co-op trigpointing comparison grid.
+
+    Returns trigpoints sorted by distance from a centre point, with a per-user
+    visit matrix showing which of the selected users has logged each trig and
+    with what condition.
+
+    filter_mode controls which trigs are included:
+    - all: all trigs matching the location/type filters
+    - unvisited_by_all: only trigs not visited by any of the selected users
+    - unvisited_by_me: only trigs not visited by the authenticated user
+    - visited_by_all: only trigs visited by every selected user
+    """
+    from api.crud import trig as trig_crud
+
+    # Parse user IDs
+    parsed_user_ids = []
+    for uid in user_ids.split(","):
+        uid = uid.strip()
+        if uid:
+            try:
+                parsed_user_ids.append(int(uid))
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid user ID: {uid}")
+
+    if not parsed_user_ids:
+        raise HTTPException(status_code=400, detail="At least one user ID required")
+
+    if len(parsed_user_ids) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 users allowed")
+
+    # Ensure current user is included
+    current_user_id = int(current_user.id)
+    if current_user_id not in parsed_user_ids:
+        parsed_user_ids.insert(0, current_user_id)
+
+    # Validate that all user IDs exist and fetch names
+    users_db = db.query(User.id, User.name).filter(User.id.in_(parsed_user_ids)).all()
+    users_map = {int(u.id): u.name for u in users_db}
+
+    missing_ids = [uid for uid in parsed_user_ids if uid not in users_map]
+    if missing_ids:
+        raise HTTPException(
+            status_code=404,
+            detail=f"User(s) not found: {', '.join(str(i) for i in missing_ids)}",
+        )
+
+    # Parse filter params
+    type_codes_list = None
+    if types:
+        type_codes_list = [t.strip() for t in types.split(",") if t.strip()]
+
+    category_codes_list = None
+    if categories:
+        category_codes_list = [c.strip() for c in categories.split(",") if c.strip()]
+
+    # Determine exclude/include found based on filter_mode
+    exclude_found_by_user_id = None
+    only_found_by_user_id = None
+    if filter_mode == CoopFilterMode.unvisited_by_me:
+        exclude_found_by_user_id = current_user_id
+    elif filter_mode == CoopFilterMode.visited_by_me:
+        only_found_by_user_id = current_user_id
+
+    # Build the trig query - reuse the existing filtered query infrastructure
+    items_with_distance = trig_crud.list_trigs_filtered_with_distance(
+        db,
+        skip=skip,
+        limit=limit,
+        center_lat=lat,
+        center_lon=lon,
+        max_km=max_km,
+        order="distance" if lat and lon else "name",
+        type_codes=type_codes_list,
+        category_codes=category_codes_list,
+        exclude_found_by_user_id=exclude_found_by_user_id,
+        only_found_by_user_id=only_found_by_user_id,
+        exclude_soft_deleted=True,
+    )
+
+    items = [trig for trig, _ in items_with_distance]
+    distances_m = {trig.id: dist_m for trig, dist_m in items_with_distance}
+
+    # For unvisited_by_all, we need to exclude trigs visited by ANY of the
+    # selected users. For visited_by_all, we keep only trigs visited by EVERY
+    # selected user. Both require post-filtering.
+    post_filter_user_ids = None
+    if filter_mode == CoopFilterMode.unvisited_by_all:
+        post_filter_user_ids = parsed_user_ids
+    elif filter_mode == CoopFilterMode.visited_by_any:
+        post_filter_user_ids = parsed_user_ids
+    elif filter_mode == CoopFilterMode.visited_by_all:
+        post_filter_user_ids = parsed_user_ids
+    elif filter_mode in (
+        CoopFilterMode.visited_by_most,
+        CoopFilterMode.not_visited_by_most,
+        CoopFilterMode.only_visited_by_me,
+        CoopFilterMode.visited_by_all_except_me,
+    ):
+        post_filter_user_ids = parsed_user_ids
+
+    if post_filter_user_ids:
+        # Get visit counts per trig for the selected users
+        from sqlalchemy import func as sa_func
+
+        visit_data = (
+            db.query(TLog.trig_id, sa_func.count(sa_func.distinct(TLog.user_id)))
+            .filter(
+                TLog.user_id.in_(post_filter_user_ids),
+                TLog.status == "P",
+            )
+            .group_by(TLog.trig_id)
+            .all()
+        )
+
+        if filter_mode == CoopFilterMode.unvisited_by_all:
+            visited_trig_ids = {int(row[0]) for row in visit_data}
+
+            def keep_fn(trig_id: int) -> bool:
+                return trig_id not in visited_trig_ids
+
+        elif filter_mode == CoopFilterMode.visited_by_any:
+            visited_trig_ids = {int(row[0]) for row in visit_data}
+
+            def keep_fn(trig_id: int) -> bool:
+                return trig_id in visited_trig_ids
+
+        elif filter_mode == CoopFilterMode.visited_by_all:
+            num_users = len(post_filter_user_ids)
+            all_visited_trig_ids = {
+                int(row[0]) for row in visit_data if row[1] >= num_users
+            }
+
+            def keep_fn(trig_id: int) -> bool:
+                return trig_id in all_visited_trig_ids
+
+        elif filter_mode == CoopFilterMode.visited_by_most:
+            num_users = len(post_filter_user_ids)
+            visit_counts = {int(row[0]): int(row[1]) for row in visit_data}
+
+            def keep_fn(trig_id: int) -> bool:
+                return visit_counts.get(trig_id, 0) * 2 >= num_users
+
+        elif filter_mode == CoopFilterMode.not_visited_by_most:
+            num_users = len(post_filter_user_ids)
+            visit_counts = {int(row[0]): int(row[1]) for row in visit_data}
+
+            def keep_fn(trig_id: int) -> bool:
+                return visit_counts.get(trig_id, 0) * 2 < num_users
+
+        elif filter_mode == CoopFilterMode.only_visited_by_me:
+            visit_counts = {int(row[0]): int(row[1]) for row in visit_data}
+            my_visit_trig_ids = {
+                int(row[0])
+                for row in db.query(TLog.trig_id)
+                .filter(
+                    TLog.user_id == current_user_id,
+                    TLog.status == "P",
+                )
+                .distinct()
+                .all()
+            }
+
+            def keep_fn(trig_id: int) -> bool:
+                return (
+                    trig_id in my_visit_trig_ids and visit_counts.get(trig_id, 0) == 1
+                )
+
+        else:
+            # visited_by_all_except_me: every other user visited but I haven't
+            num_users = len(post_filter_user_ids)
+            visit_counts = {int(row[0]): int(row[1]) for row in visit_data}
+            my_visit_trig_ids = {
+                int(row[0])
+                for row in db.query(TLog.trig_id)
+                .filter(
+                    TLog.user_id == current_user_id,
+                    TLog.status == "P",
+                )
+                .distinct()
+                .all()
+            }
+
+            def keep_fn(trig_id: int) -> bool:
+                return (
+                    trig_id not in my_visit_trig_ids
+                    and visit_counts.get(trig_id, 0) >= num_users - 1
+                )
+
+        # Re-query without user-specific filters and apply our own
+        items_with_distance = trig_crud.list_trigs_filtered_with_distance(
+            db,
+            skip=0,
+            limit=limit + skip + 500,  # over-fetch to compensate for filtering
+            center_lat=lat,
+            center_lon=lon,
+            max_km=max_km,
+            order="distance" if lat and lon else "name",
+            type_codes=type_codes_list,
+            category_codes=category_codes_list,
+            exclude_soft_deleted=True,
+        )
+
+        filtered = [
+            (trig, dist) for trig, dist in items_with_distance if keep_fn(int(trig.id))
+        ]
+
+        total = len(filtered)
+        page_items = filtered[skip : skip + limit]
+        items = [trig for trig, _ in page_items]
+        distances_m = {trig.id: dist_m for trig, dist_m in page_items}
+    else:
+        total = trig_crud.count_trigs_filtered(
+            db,
+            center_lat=lat,
+            center_lon=lon,
+            max_km=max_km,
+            type_codes=type_codes_list,
+            category_codes=category_codes_list,
+            exclude_found_by_user_id=exclude_found_by_user_id,
+            only_found_by_user_id=only_found_by_user_id,
+            exclude_soft_deleted=True,
+        )
+
+    if not items:
+        return CoopResponse(
+            users=[CoopUser(id=uid, name=users_map[uid]) for uid in parsed_user_ids],
+            items=[],
+            total=total,
+            skip=skip,
+            limit=limit,
+            has_more=False,
+        )
+
+    # Batch-fetch visit data for all selected users x returned trigs
+    trig_ids = [int(t.id) for t in items]
+    visit_rows = (
+        db.query(TLog.trig_id, TLog.user_id, TLog.condition, TLog.date)
+        .filter(
+            TLog.user_id.in_(parsed_user_ids),
+            TLog.trig_id.in_(trig_ids),
+            TLog.status == "P",
+        )
+        .all()
+    )
+
+    # Build visits lookup: trig_id -> user_id -> CoopVisit
+    # When a user has multiple logs for the same trig, keep the most recent
+    visits_lookup: dict[int, dict[int, CoopVisit]] = {}
+    for row in visit_rows:
+        tid = int(row.trig_id)
+        visit_uid = int(row.user_id)
+        visit = CoopVisit(
+            condition=str(row.condition or "U"),
+            date=row.date,
+        )
+        if tid not in visits_lookup:
+            visits_lookup[tid] = {}
+        existing = visits_lookup[tid].get(visit_uid)
+        if existing is None or (
+            visit.date and (not existing.date or visit.date > existing.date)
+        ):
+            visits_lookup[tid][visit_uid] = visit
+
+    # Build response items
+    response_items = []
+    for trig in items:
+        trig_visits = visits_lookup.get(int(trig.id), {})
+        visits_dict: dict[str, Optional[CoopVisit]] = {}
+        for member_id in parsed_user_ids:
+            visits_dict[str(member_id)] = trig_visits.get(member_id)
+
+        dist_m = distances_m.get(trig.id)
+        distance_km = round(dist_m / 1000, 1) if dist_m is not None else None
+
+        item = CoopTrigItem(
+            id=int(trig.id),
+            waypoint=str(trig.waypoint or ""),
+            name=str(trig.name or ""),
+            condition=str(trig.condition or "U"),
+            type_code=str(trig.trig_type.code) if trig.trig_type else None,
+            type_name=str(trig.trig_type.name) if trig.trig_type else None,
+            category_code=(
+                str(trig.trig_type.category.code)
+                if trig.trig_type and trig.trig_type.category
+                else None
+            ),
+            category_name=(
+                str(trig.trig_type.category.name)
+                if trig.trig_type and trig.trig_type.category
+                else None
+            ),
+            wgs_lat=trig.wgs_lat,
+            wgs_long=trig.wgs_long,
+            osgb_gridref=str(trig.osgb_gridref or ""),
+            distance_km=distance_km,
+            visits=visits_dict,
+        )
+        response_items.append(item)
+
+    has_more = (skip + len(items)) < total
+
+    return CoopResponse(
+        users=[CoopUser(id=uid, name=users_map[uid]) for uid in parsed_user_ids],
+        items=response_items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
     )

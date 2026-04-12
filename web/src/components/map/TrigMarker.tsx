@@ -33,6 +33,7 @@ export default function TrigMarker({
   highlighted = false,
   onClick,
   showPopup = true,
+  actions,
 }: TrigMarkerProps) {
   const position: LatLngExpression = [
     typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat,
@@ -74,7 +75,7 @@ export default function TrigMarker({
         <span className="text-xs">{trig.name}</span>
       </Tooltip>
       {showPopup && (
-        <Popup>
+        <Popup closeOnClick={false}>
           <div className="min-w-[200px]">
             <MiniMap
               lat={typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat}
@@ -100,12 +101,17 @@ export default function TrigMarker({
               </div>
             </div>
             
-            <Link
-              to={`/trigs/${trig.id}`}
-              className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-gray-100 px-3 py-1 rounded text-sm font-medium transition-colors"
-            >
-              View Details
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to={`/trigs/${trig.id}`}
+                className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-gray-100 px-3 py-1 rounded text-sm font-medium transition-colors"
+              >
+                View Details
+              </Link>
+              {actions && (
+                <span className="flex-shrink-0">{actions}</span>
+              )}
+            </div>
           </div>
         </Popup>
       )}

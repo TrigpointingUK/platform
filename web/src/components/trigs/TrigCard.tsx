@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 import type { UserLogStatus } from "../../lib/mapIcons";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
 
@@ -27,6 +28,8 @@ interface TrigCardProps {
   centerLon?: number;
   distanceUnit?: "K" | "M"; // K=km, M=miles
   logStatus?: UserLogStatus | null;
+  actions?: ReactNode;
+  noBorder?: boolean;
 }
 
 // Helper to get category badge info (icon, abbrev and color) based on category_code
@@ -118,6 +121,8 @@ export function TrigCard({
   centerLon,
   distanceUnit = "K",
   logStatus = null,
+  actions,
+  noBorder = false,
 }: TrigCardProps) {
   const { getConditionInfo } = useConditionInfo();
 
@@ -147,7 +152,7 @@ export function TrigCard({
   return (
     <Link
       to={`/trigs/${trig.id}`}
-      className="block border-b border-gray-200 dark:border-gray-700 py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+      className={`block py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors${noBorder ? "" : " border-b border-gray-200 dark:border-gray-700"}`}
     >
       <div className="flex items-center justify-between gap-3">
         {/* Left side: Main info */}
@@ -186,6 +191,13 @@ export function TrigCard({
             <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
               {trig.name}
             </h3>
+
+            {/* Optional actions (e.g. add-to-list button) */}
+            {actions && (
+              <span className="flex-shrink-0" onClick={(e) => e.preventDefault()}>
+                {actions}
+              </span>
+            )}
 
             {/* User's logged condition indicator */}
             {logStatus?.hasLogged && logStatus.condition && (

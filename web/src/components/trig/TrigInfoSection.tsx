@@ -10,6 +10,7 @@ import { useConditionInfo } from "../../hooks/useConditionInfo";
 import { generateMapUrl, getTrigpointingUKMapPath, isInternalMapLink, MAP_LINK_DEFAULTS } from "../../lib/mapLinks";
 import { calculateDistance, calculateBearing } from "../../lib/coordinates";
 import FacebookShareButton from "../ui/FacebookShareButton";
+import AddToListButton from "../lists/AddToListButton";
 import { getCanonicalOrigin } from "../../lib/canonicalOrigin";
 import { Link2 } from "lucide-react";
 
@@ -21,6 +22,8 @@ interface TrigInfoSectionProps {
   className?: string;
   /** Show admin OG preview link */
   isAdmin?: boolean;
+  /** Whether user is authenticated (for list button) */
+  isAuthenticated?: boolean;
 }
 
 export default function TrigInfoSection({ 
@@ -28,6 +31,7 @@ export default function TrigInfoSection({
   showNearbyDropdown = true,
   className = "mb-6",
   isAdmin = false,
+  isAuthenticated = false,
 }: TrigInfoSectionProps) {
   const trigIdNum = trig.id;
   
@@ -91,6 +95,9 @@ export default function TrigInfoSection({
               {trig.waypoint} - {trig.name}
             </Link>
             <FacebookShareButton url={`${getCanonicalOrigin()}/trigs/${trigIdNum}`} />
+            {isAuthenticated && (
+              <AddToListButton trigId={trigIdNum} />
+            )}
             {isAdmin && (
               <button
                 onClick={() => {

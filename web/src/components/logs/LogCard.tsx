@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../ui/Card";
 import StarRating from "../ui/StarRating";
@@ -52,6 +53,10 @@ interface LogCardProps {
   showTrigInfo?: boolean;
   /** Show admin OG preview link */
   isAdmin?: boolean;
+  /** Always show the Facebook share button (for detail pages) */
+  showShareButton?: boolean;
+  /** Optional action elements rendered in the header (e.g. add-to-list button) */
+  actions?: ReactNode;
 }
 
 
@@ -84,7 +89,7 @@ function getStatusInfo(statusName?: string | null): { icon?: string; abbrev: str
   return { abbrev: "?" };
 }
 
-export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false, showTrigInfo = true, isAdmin = false }: LogCardProps) {
+export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false, showTrigInfo = true, isAdmin = false, showShareButton = false, actions }: LogCardProps) {
   const navigate = useNavigate();
   const { getConditionInfo } = useConditionInfo();
   const conditionInfo = getConditionInfo(log.condition);
@@ -219,6 +224,11 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                 )}
               </Link>
             )}
+            {actions && showTrigInfo && (
+              <span className="inline-flex items-center ml-2" onClick={(e) => e.stopPropagation()}>
+                {actions}
+              </span>
+            )}
             <div className="flex flex-wrap items-center gap-2 text-base text-gray-600 dark:text-gray-400">
               <span className="inline-flex items-center gap-1.5">
                 {log.user_has_avatar && (
@@ -293,7 +303,7 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                 </>
               )}
 
-              {isCurrentUserLog && (
+              {(isCurrentUserLog || showShareButton) && (
                 <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
               )}
 

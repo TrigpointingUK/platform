@@ -37,7 +37,7 @@ const VISIBILITY_OPTIONS: { value: string; label: string; adminOnly?: boolean }[
 
 const EDITABILITY_OPTIONS: { value: string; label: string; adminOnly?: boolean }[] = [
   { value: "private", label: "Owner only" },
-  { value: "public", label: "Any user" },
+  { value: "public", label: "Any user", adminOnly: true },
   { value: "admins", label: "Admins only", adminOnly: true },
 ];
 

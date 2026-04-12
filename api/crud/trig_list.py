@@ -33,6 +33,22 @@ def get_user_lists(db: Session, user_id: int) -> List[TrigList]:
     )
 
 
+def get_editable_lists(db: Session, user_id: int, is_admin: bool) -> List[TrigList]:
+    """Return lists the user can edit but does not own."""
+    from sqlalchemy import or_
+
+    conditions = [TrigList.editability == "public"]
+    if is_admin:
+        conditions.append(TrigList.editability == "admins")
+
+    return (
+        db.query(TrigList)
+        .filter(TrigList.owner_id != user_id, or_(*conditions))
+        .order_by(TrigList.name)
+        .all()
+    )
+
+
 def get_user_list_count(db: Session, user_id: int) -> int:
     return (
         db.query(func.count(TrigList.id)).filter(TrigList.owner_id == user_id).scalar()

@@ -193,6 +193,26 @@ class TestListVisibility:
         )
         assert resp.status_code == 403
 
+    def test_non_admin_cannot_set_public_editability(
+        self, client: TestClient, test_user
+    ):
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Nope", "editability": "public"},
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 403
+
+    def test_non_admin_cannot_set_admins_editability(
+        self, client: TestClient, test_user
+    ):
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Nope", "editability": "admins"},
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 403
+
 
 # ---------------------------------------------------------------------------
 # Item CRUD
@@ -338,15 +358,17 @@ class TestEditability:
     def test_public_editability_allows_other_users(
         self, client: TestClient, make_user, make_trig
     ):
-        owner = make_user(auth0_user_id="auth0|edit_owner")
+        make_user(auth0_user_id="auth0|edit_owner")
         other = make_user(auth0_user_id="auth0|edit_other")
         trig = make_trig()
 
+        # Must use admin to set editability="public"
         resp = client.post(
             "/v1/lists",
             json={"name": "Open", "visibility": "public", "editability": "public"},
-            headers={"Authorization": f"Bearer auth0_user_{owner.id}"},
+            headers=ADMIN_HEADER,
         )
+        assert resp.status_code == 201
         list_id = resp.json()["id"]
 
         # Other user can add items
@@ -378,6 +400,59 @@ class TestEditability:
             headers={"Authorization": f"Bearer auth0_user_{other.id}"},
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Editable lists endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestEditableLists:
+    def test_returns_publicly_editable_lists(self, client: TestClient, make_user):
+        make_user(auth0_user_id="auth0|edl_owner")
+        viewer = make_user(auth0_user_id="auth0|edl_viewer")
+
+        # Create a publicly editable list (requires admin)
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Open List", "editability": "public"},
+            headers=ADMIN_HEADER,
+        )
+        assert resp.status_code == 201
+
+        # Viewer should see it in editable lists
+        resp = client.get(
+            "/v1/lists/editable",
+            headers=auth_header(viewer.id),
+        )
+        assert resp.status_code == 200
+        names = [lst["name"] for lst in resp.json()]
+        assert "Open List" in names
+
+    def test_excludes_own_lists(self, client: TestClient, make_user):
+        make_user(auth0_user_id="auth0|edl_own")
+
+        # Create list as admin (owner will be first user = owner)
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "My Open", "editability": "public"},
+            headers=ADMIN_HEADER,
+        )
+        assert resp.status_code == 201
+        list_owner_id = resp.json()["owner_id"]
+
+        # Owner should not see their own list in editable lists
+        resp = client.get(
+            "/v1/lists/editable",
+            headers=auth_header(list_owner_id),
+        )
+        assert resp.status_code == 200
+        names = [lst["name"] for lst in resp.json()]
+        assert "My Open" not in names
+
+    def test_requires_authentication(self, client: TestClient):
+        resp = client.get("/v1/lists/editable")
+        assert resp.status_code == 401
 
 
 # ---------------------------------------------------------------------------

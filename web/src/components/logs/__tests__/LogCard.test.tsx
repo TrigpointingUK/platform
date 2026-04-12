@@ -315,5 +315,27 @@ describe('LogCard', () => {
       expect(avatarImg).toBeNull();
     });
   });
+
+  describe('showShareButton prop', () => {
+    it('should not show Facebook share button by default for non-owner', () => {
+      renderWithProviders(<LogCard log={mockLog} />);
+      expect(screen.queryByTitle('Share on Facebook')).not.toBeInTheDocument();
+    });
+
+    it('should show Facebook share button when isCurrentUserLog is true', () => {
+      renderWithProviders(<LogCard log={mockLog} isCurrentUserLog />);
+      expect(screen.getByTitle('Share on Facebook')).toBeInTheDocument();
+    });
+
+    it('should show Facebook share button when showShareButton is true', () => {
+      renderWithProviders(<LogCard log={mockLog} showShareButton />);
+      expect(screen.getByTitle('Share on Facebook')).toBeInTheDocument();
+    });
+
+    it('should show Facebook share button when showShareButton is true even without isCurrentUserLog', () => {
+      renderWithProviders(<LogCard log={mockLog} isCurrentUserLog={false} showShareButton />);
+      expect(screen.getByTitle('Share on Facebook')).toBeInTheDocument();
+    });
+  });
 });
 

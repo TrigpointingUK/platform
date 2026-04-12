@@ -59,7 +59,7 @@ const DEFAULT_CATEGORIES = ["PILLAR", "FBM"];
 
 export default function Preferences() {
   const queryClient = useQueryClient();
-  const { getAccessTokenSilently, user: auth0User } = useAuth0();
+  const { getAccessTokenSilently, user: auth0User, isAuthenticated } = useAuth0();
   const location = useLocation();
 
   useEffect(() => {
@@ -437,8 +437,8 @@ export default function Preferences() {
           </div>
         </Card>
 
-        {/* Trig Lists (admin-gated for phase 1) */}
-        {hasAdminRole && (
+        {/* Trig Lists */}
+        {isAuthenticated && (
           <ListsPreferencesPanel hasAdminRole={hasAdminRole} />
         )}
       </div>

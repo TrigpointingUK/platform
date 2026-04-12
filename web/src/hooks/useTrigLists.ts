@@ -25,6 +25,7 @@ export interface TrigListSummary {
 export interface TrigListFull {
   id: number;
   owner_id: number;
+  owner_name: string | null;
   name: string;
   description: string | null;
   metadata: Record<string, unknown> | null;
@@ -90,6 +91,34 @@ export function useMyLists() {
     queryKey: ["trig-lists", "mine"],
     queryFn: () => authenticatedGet<TrigListFull[]>(`${API_BASE}/v1/lists`, getAccessTokenSilently),
     enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+}
+
+export function useEditableLists() {
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  return useQuery<TrigListFull[]>({
+    queryKey: ["trig-lists", "editable"],
+    queryFn: () => authenticatedGet<TrigListFull[]>(`${API_BASE}/v1/lists/editable`, getAccessTokenSilently),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+}
+
+export function useListDetail(listId: number | null) {
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  return useQuery<TrigListFull>({
+    queryKey: ["trig-lists", "detail", listId],
+    queryFn: async () => {
+      const url = `${API_BASE}/v1/lists/${listId}`;
+      if (isAuthenticated) {
+        return authenticatedGet<TrigListFull>(url, getAccessTokenSilently);
+      }
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("Failed to fetch list");
+      return resp.json();
+    },
+    enabled: listId != null,
     staleTime: 30_000,
   });
 }

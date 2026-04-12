@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
 
 import Sidebar from "../components/layout/Sidebar";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import LogList from "../components/logs/LogList";
+import AddToListButton from "../components/lists/AddToListButton";
 import { useSiteStats } from "../hooks/useSiteStats";
 import { useRecentLogs } from "../hooks/useRecentLogs";
 import { useNews } from "../hooks/useNews";
@@ -287,7 +289,9 @@ function NewsSection() {
 function RecentLogsSection() {
   const { data: logsData, isLoading, error } = useRecentLogs(10);
   const { data: userProfile } = useUserProfile("me");
+  const { isAuthenticated } = useAuth0();
   const showTrigCondition = userProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
+  const showListActions = isAuthenticated;
 
   return (
     <Card>
@@ -309,6 +313,7 @@ function RecentLogsSection() {
           emptyMessage="No recent activity"
           showTrigCondition={showTrigCondition}
           currentUserId={userProfile?.id}
+          renderActions={showListActions ? (trigId) => <AddToListButton trigId={trigId} /> : undefined}
         />
       )}
     </Card>

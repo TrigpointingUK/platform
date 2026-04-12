@@ -13,6 +13,14 @@ vi.mock('../../../hooks/useUserProfile', () => ({
   })),
 }));
 
+vi.mock('../../../components/lists/AddToListButton', () => ({
+  default: ({ trigId }: { trigId: number }) => (
+    <button data-testid="add-to-list-button" data-trig-id={trigId}>
+      Add to list
+    </button>
+  ),
+}));
+
 vi.mock('../../../hooks/useAreasContaining', () => ({
   useAreasContaining: vi.fn(() => ({
     data: {
@@ -440,6 +448,44 @@ describe('TrigInfoSection', () => {
       // Should show at least one Irish grid label (both original and current have ie grid_system)
       const irishLabels = screen.getAllByText(/\(Irish\)/);
       expect(irishLabels.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('AddToListButton visibility', () => {
+    it('should not show AddToListButton when isAuthenticated is false', () => {
+      const mockTrig = createMockTrig();
+      renderWithProviders(<TrigInfoSection trig={mockTrig} isAuthenticated={false} />);
+
+      expect(screen.queryByTestId('add-to-list-button')).not.toBeInTheDocument();
+    });
+
+    it('should not show AddToListButton when isAuthenticated is not provided', () => {
+      const mockTrig = createMockTrig();
+      renderWithProviders(<TrigInfoSection trig={mockTrig} />);
+
+      expect(screen.queryByTestId('add-to-list-button')).not.toBeInTheDocument();
+    });
+
+    it('should show AddToListButton when isAuthenticated is true (non-admin)', () => {
+      const mockTrig = createMockTrig();
+      renderWithProviders(<TrigInfoSection trig={mockTrig} isAuthenticated isAdmin={false} />);
+
+      expect(screen.getByTestId('add-to-list-button')).toBeInTheDocument();
+    });
+
+    it('should show AddToListButton when isAuthenticated is true (admin)', () => {
+      const mockTrig = createMockTrig();
+      renderWithProviders(<TrigInfoSection trig={mockTrig} isAuthenticated isAdmin />);
+
+      expect(screen.getByTestId('add-to-list-button')).toBeInTheDocument();
+    });
+
+    it('should pass trig id to AddToListButton', () => {
+      const mockTrig = createMockTrig({ id: 99999 });
+      renderWithProviders(<TrigInfoSection trig={mockTrig} isAuthenticated />);
+
+      const btn = screen.getByTestId('add-to-list-button');
+      expect(btn).toHaveAttribute('data-trig-id', '99999');
     });
   });
 });

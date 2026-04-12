@@ -18,6 +18,7 @@ import { StatusFilter } from "../components/trigs/StatusFilter";
 import { AreaFilter } from "../components/trigs/AreaFilter";
 import { LoggedConditionFilter } from "../components/trigs/LoggedConditionFilter";
 import { DateRangePicker, type DateRange } from "../components/ui/DateRangePicker";
+import AddToListButton from "../components/lists/AddToListButton";
 import type { Log } from "../hooks/useInfiniteLogs";
 
 // All status levels (default: all enabled)
@@ -615,6 +616,8 @@ export default function Logs() {
     ? `${filteredUserProfile.name}'s Logs`
     : "Visit Logs";
 
+  const showListActions = isAuthenticated;
+
   if (error) {
     return (
       <>
@@ -962,6 +965,7 @@ export default function Logs() {
                       isCurrentUserLog={!!userProfile && log.user_id === userProfile.id}
                       showDistance={centerLat !== null && centerLon !== null}
                       showTrigCondition={showTrigCondition}
+                      actions={showListActions ? <AddToListButton trigId={log.trig_id} /> : undefined}
                     />
                   </div>
                 );
