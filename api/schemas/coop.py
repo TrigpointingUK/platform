@@ -19,6 +19,7 @@ class CoopUser(BaseModel):
 class CoopVisit(BaseModel):
     """A single user's visit record for a trigpoint."""
 
+    log_id: int = Field(..., description="ID of the log entry")
     condition: str = Field(..., description="Condition code logged by this user")
     date: Optional[datetime.date] = Field(None, description="Date of the log entry")
 

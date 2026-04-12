@@ -5,6 +5,7 @@ import { authenticatedFetch } from "../lib/api";
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
 export interface CoopVisit {
+  log_id: number;
   condition: string;
   date: string | null;
 }
