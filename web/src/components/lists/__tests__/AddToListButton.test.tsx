@@ -43,6 +43,7 @@ const mockMemberships = [{ trig_id: 42, list_ids: [1] }];
 
 vi.mock("../../../hooks/useTrigLists", () => ({
   useMyLists: () => ({ data: mockLists }),
+  useEditableLists: () => ({ data: [] }),
   useTrigListMembership: () => ({ data: mockMemberships }),
   useToggleDefaultList: () => ({ mutate: mockMutate, isPending: false }),
   useToggleListItem: () => ({ mutate: mockToggleItemMutate, isPending: false }),

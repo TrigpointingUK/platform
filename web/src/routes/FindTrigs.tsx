@@ -37,7 +37,7 @@ const GROUP_CODE_TO_STATUS_ID: Record<string, number> = {
 
 export default function FindTrigs() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, user } = useAuth0();
+  const { isAuthenticated } = useAuth0();
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(
     () => localStorage.getItem("trigs-filter-collapsed") === "true",
   );
@@ -49,9 +49,7 @@ export default function FindTrigs() {
     });
   }, []);
 
-  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
-  const hasAdminRole = userRoles.includes("api-admin");
-  const showListActions = hasAdminRole && isAuthenticated;
+  const showListActions = isAuthenticated;
   
   // Fetch user profile to get default_groups preference
   const { data: userProfile } = useUserProfile("me");

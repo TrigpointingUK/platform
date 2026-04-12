@@ -56,11 +56,9 @@ const ALL_COUNTY_IDS = HISTORIC_COUNTIES.map((county) => county.id);
 
 export default function TrigsV2() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, user } = useAuth0();
+  const { isAuthenticated } = useAuth0();
   
-  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
-  const hasAdminRole = userRoles.includes("api-admin");
-  const showListActions = hasAdminRole && isAuthenticated;
+  const showListActions = isAuthenticated;
   
   // Fetch user profile to get preferences
   const { data: userProfile } = useUserProfile("me");

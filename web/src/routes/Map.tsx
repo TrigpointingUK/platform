@@ -158,10 +158,8 @@ function MapSizeInvalidator({ sidebarOpen }: { sidebarOpen: boolean }) {
 
 export default function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, user } = useAuth0();
-  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
-  const hasAdminRole = userRoles.includes("api-admin");
-  const showListActions = hasAdminRole && isAuthenticated;
+  const { isAuthenticated } = useAuth0();
+  const showListActions = isAuthenticated;
 
   // Fetch user profile to get default_groups preference
   const { data: userProfile } = useUserProfile("me");

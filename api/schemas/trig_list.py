@@ -37,6 +37,7 @@ class TrigListResponse(BaseModel):
 
     id: int
     owner_id: int
+    owner_name: Optional[str] = None
     name: str
     description: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = Field(None, alias="metadata_")

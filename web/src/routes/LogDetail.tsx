@@ -24,9 +24,6 @@ import {
   moveTrigToLogLocation,
   setTrigConditionFromLog,
 } from "../lib/api";
-import FacebookShareButton from "../components/ui/FacebookShareButton";
-import AddToListButton from "../components/lists/AddToListButton";
-import { getCanonicalOrigin } from "../lib/canonicalOrigin";
 
 export default function LogDetail() {
   const { logId } = useParams<{ logId: string }>();
@@ -252,7 +249,7 @@ export default function LogDetail() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Breadcrumb + Share */}
+      {/* Breadcrumb */}
         <div className="mb-4 flex items-center gap-3">
           <button 
             onClick={() => navigate(-1)} 
@@ -260,24 +257,16 @@ export default function LogDetail() {
           >
             ← Back
           </button>
-          {log && (
-            <>
-              <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
-              {hasAdminRole && isAuthenticated && (
-                <AddToListButton trigId={log.trig_id} />
-              )}
-            </>
-          )}
         </div>
 
         {/* Trig Info Section - show if trig data is loaded */}
-        {trig && <TrigInfoSection trig={trig} isAdmin={hasAdminRole} />}
+        {trig && <TrigInfoSection trig={trig} isAdmin={hasAdminRole} isAuthenticated={isAuthenticated} />}
 
         {/* Edit/View Toggle */}
         {!isEditing ? (
           <>
             {/* Read-only view */}
-            <LogCard log={log} isCurrentUserLog={isOwner} showTrigCondition={showTrigCondition} showTrigInfo={false} isAdmin={hasAdminRole} />
+            <LogCard log={log} isCurrentUserLog={isOwner} showTrigCondition={showTrigCondition} showTrigInfo={false} isAdmin={hasAdminRole} showShareButton />
             
             {/* Edit and Delete buttons - only show if user owns this log */}
             {isOwner && (

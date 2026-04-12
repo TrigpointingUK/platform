@@ -397,5 +397,64 @@ describe('LogDetail', () => {
     // NaN conversion shows "Invalid log ID" error
     expect(screen.getByText(/Invalid log ID/i)).toBeInTheDocument();
   });
+
+  it('should show Facebook share button inside log card via showShareButton', async () => {
+    mockUseLogDetail.mockReturnValue({
+      data: mockLog,
+      isLoading: false,
+      error: null,
+    } as never);
+
+    mockUseTrigDetail.mockReturnValue({
+      data: mockTrig,
+      isLoading: false,
+    } as never);
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('TP0456 - Test Hill')).toBeInTheDocument();
+    });
+
+    // Facebook share button for the log should be in the card
+    const shareButtons = screen.getAllByTitle('Share on Facebook');
+    expect(shareButtons.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should not render AddToListButton in breadcrumb area', async () => {
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: true,
+      user: { sub: 'auth0|123' },
+      isLoading: false,
+      loginWithRedirect: vi.fn(),
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn(),
+    } as never);
+
+    mockUseLogDetail.mockReturnValue({
+      data: mockLog,
+      isLoading: false,
+      error: null,
+    } as never);
+
+    mockUseTrigDetail.mockReturnValue({
+      data: mockTrig,
+      isLoading: false,
+    } as never);
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('TP0456 - Test Hill')).toBeInTheDocument();
+    });
+
+    // The Back button should be alone in the breadcrumb
+    const backButton = screen.getByRole('button', { name: /Back/i });
+    const breadcrumb = backButton.parentElement!;
+    // AddToListButton renders buttons with title "Add to default list" or "Add to other lists"
+    // These should NOT be direct children of the breadcrumb
+    const listButtons = breadcrumb.querySelectorAll('[title*="list"]');
+    expect(listButtons.length).toBe(0);
+  });
 });
 

@@ -289,10 +289,9 @@ function NewsSection() {
 function RecentLogsSection() {
   const { data: logsData, isLoading, error } = useRecentLogs(10);
   const { data: userProfile } = useUserProfile("me");
-  const { isAuthenticated, user } = useAuth0();
+  const { isAuthenticated } = useAuth0();
   const showTrigCondition = userProfile?.prefs?.ui_prefs?.show_trig_condition ?? false;
-  const userRoles = (user?.["https://trigpointing.uk/roles"] as string[]) || [];
-  const showListActions = userRoles.includes("api-admin") && isAuthenticated;
+  const showListActions = isAuthenticated;
 
   return (
     <Card>

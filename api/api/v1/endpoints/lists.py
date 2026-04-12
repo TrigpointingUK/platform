@@ -73,17 +73,17 @@ def _can_edit_list_items(trig_list: TrigList, user: User) -> bool:
 def _validate_admin_fields(
     user: User, visibility: Optional[str], editability: Optional[str]
 ) -> None:
-    """Reject 'admins' value for non-admin users."""
+    """Reject non-private editability and 'admins' visibility for non-admin users."""
     is_admin = _user_is_admin(user)
     if visibility == "admins" and not is_admin:
         raise HTTPException(
             status_code=403,
             detail="Only admins can set visibility to 'admins'",
         )
-    if editability == "admins" and not is_admin:
+    if editability in ("admins", "public") and not is_admin:
         raise HTTPException(
             status_code=403,
-            detail="Only admins can set editability to 'admins'",
+            detail="Only admins can set editability to a shared value",
         )
 
 
@@ -124,9 +124,16 @@ def _list_to_response(
     is_default = False
     if user is not None:
         is_default = user.default_list_id == trig_list.id  # type: ignore[assignment]
+
+    owner_name = None
+    if user is None or trig_list.owner_id != user.id:
+        owner = db.query(User.name).filter(User.id == trig_list.owner_id).first()
+        owner_name = owner.name if owner else None
+
     return TrigListResponse(
         id=trig_list.id,  # type: ignore[arg-type]
         owner_id=trig_list.owner_id,  # type: ignore[arg-type]
+        owner_name=owner_name,
         name=trig_list.name,  # type: ignore[arg-type]
         description=trig_list.description,  # type: ignore[arg-type]
         metadata_=trig_list.metadata_,  # type: ignore[arg-type]
@@ -161,6 +168,19 @@ def get_my_lists(
     current_user: User = Depends(get_current_user),
 ):
     lists = trig_list_crud.get_user_lists(db, current_user.id)  # type: ignore[arg-type]
+    return [_list_to_response(tl, db, current_user) for tl in lists]
+
+
+@router.get("/editable", response_model=list[TrigListResponse])
+def get_editable_lists(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lists the user can edit but does not own (shared lists)."""
+    is_admin = _user_is_admin(current_user)
+    lists = trig_list_crud.get_editable_lists(
+        db, current_user.id, is_admin  # type: ignore[arg-type]
+    )
     return [_list_to_response(tl, db, current_user) for tl in lists]
 
 

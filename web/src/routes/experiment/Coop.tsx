@@ -53,8 +53,8 @@ const FILTER_MODE_LABELS: Record<CoopFilterMode, string> = {
   visited_by_all_except_me: "Visited by everyone except me",
   unvisited_by_all: "Not visited by anyone",
   visited_by_any: "Visited by anyone",
-  not_visited_by_most: "Not visited by most",
-  visited_by_most: "Visited by most",
+  not_visited_by_most: "Not visited by majority",
+  visited_by_most: "Visited by majority",
   visited_by_all: "Visited by everyone",
 };
 
@@ -383,11 +383,6 @@ function CoopGrid({
               >
                 <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 px-3 py-2">
                   <div className="flex items-start gap-2">
-                    {showListActions && (
-                      <div className="flex-shrink-0 mt-0.5">
-                        <AddToListButton trigId={item.id} />
-                      </div>
-                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <img
@@ -424,6 +419,11 @@ function CoopGrid({
                         )}
                       </div>
                     </div>
+                    {showListActions && (
+                      <div className="flex-shrink-0 mt-0.5">
+                        <AddToListButton trigId={item.id} />
+                      </div>
+                    )}
                   </div>
                 </td>
                 {users.map((user) => {
@@ -567,7 +567,6 @@ export default function Coop() {
         })),
       );
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization on profile load
       setSelectedUsers([{ id: userProfile.id, name: userProfile.name }]);
     }
   }, [userProfile, urlUsers]);
@@ -663,10 +662,7 @@ export default function Coop() {
   const distanceUnit =
     (userProfile?.prefs?.distance_ind as "K" | "M") || "K";
 
-  const userRoles =
-    (userProfile?.roles as string[]) || [];
-  const showListActions =
-    userRoles.includes("api-admin") && isAuthenticated;
+  const showListActions = isAuthenticated;
 
   // Fetch co-op data
   const {

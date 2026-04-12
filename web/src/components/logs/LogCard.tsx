@@ -53,6 +53,8 @@ interface LogCardProps {
   showTrigInfo?: boolean;
   /** Show admin OG preview link */
   isAdmin?: boolean;
+  /** Always show the Facebook share button (for detail pages) */
+  showShareButton?: boolean;
   /** Optional action elements rendered in the header (e.g. add-to-list button) */
   actions?: ReactNode;
 }
@@ -87,7 +89,7 @@ function getStatusInfo(statusName?: string | null): { icon?: string; abbrev: str
   return { abbrev: "?" };
 }
 
-export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false, showTrigInfo = true, isAdmin = false, actions }: LogCardProps) {
+export default function LogCard({ log, userName, trigName, isCurrentUserLog = false, showDistance = false, showTrigCondition = false, showTrigInfo = true, isAdmin = false, showShareButton = false, actions }: LogCardProps) {
   const navigate = useNavigate();
   const { getConditionInfo } = useConditionInfo();
   const conditionInfo = getConditionInfo(log.condition);
@@ -223,7 +225,7 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
               </Link>
             )}
             {actions && showTrigInfo && (
-              <span className="inline-flex items-center" onClick={(e) => e.stopPropagation()}>
+              <span className="inline-flex items-center ml-2" onClick={(e) => e.stopPropagation()}>
                 {actions}
               </span>
             )}
@@ -301,7 +303,7 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                 </>
               )}
 
-              {isCurrentUserLog && (
+              {(isCurrentUserLog || showShareButton) && (
                 <FacebookShareButton url={`${getCanonicalOrigin()}/logs/${log.id}`} />
               )}
 

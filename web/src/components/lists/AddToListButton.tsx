@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   useMyLists,
+  useEditableLists,
   useToggleDefaultList,
   useToggleListItem,
   useTrigListMembership,
@@ -28,6 +29,7 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
   const [dropdownPos, setDropdownPos] = useState<DropdownPosition>({ top: 0 });
 
   const { data: lists } = useMyLists();
+  const { data: editableLists } = useEditableLists();
   const { data: memberships } = useTrigListMembership([trigId]);
   const toggleDefault = useToggleDefaultList(trigId);
   const toggleItem = useToggleListItem(trigId);
@@ -41,6 +43,8 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
 
   const defaultList = lists?.find((l) => l.is_default);
   const isInDefaultList = defaultList ? memberListIds.has(defaultList.id) : false;
+
+  const hasSharedLists = editableLists && editableLists.length > 0;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -107,6 +111,42 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
     [createList, newListName],
   );
 
+  const renderListRow = (list: TrigListFull, isShared: boolean) => {
+    const isInList = memberListIds.has(list.id);
+    return (
+      <button
+        key={list.id}
+        type="button"
+        onClick={(e) => handleListClick(list, e)}
+        className={`flex w-full items-center gap-2 px-3 py-2 text-sm text-left transition-colors text-gray-700 dark:text-gray-200 ${
+          isShared
+            ? "bg-blue-50/60 dark:bg-blue-900/15 hover:bg-blue-100/80 dark:hover:bg-blue-900/30"
+            : "hover:bg-gray-100 dark:hover:bg-gray-700"
+        }`}
+      >
+        <span
+          className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
+          ${isInList ? "bg-trig-green-600 border-trig-green-600" : "border-gray-300 dark:border-gray-600"}`}
+        >
+          {isInList && (
+            <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          )}
+        </span>
+        <span className="truncate">{list.name}</span>
+        {list.is_default && (
+          <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">default</span>
+        )}
+        {isShared && list.owner_name && (
+          <span className="ml-auto text-xs text-blue-400 dark:text-blue-500 truncate max-w-[80px]" title={`Owned by ${list.owner_name}`}>
+            {list.owner_name}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   const dropdown = dropdownOpen
     ? createPortal(
         <div
@@ -124,36 +164,21 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
         >
           <div className="py-1 max-h-60 overflow-y-auto">
             {lists && lists.length > 0 ? (
-              lists.map((list) => {
-                const isInList = memberListIds.has(list.id);
-                return (
-                  <button
-                    key={list.id}
-                    type="button"
-                    onClick={(e) => handleListClick(list, e)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-left transition-colors text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <span
-                      className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
-                      ${isInList ? "bg-trig-green-600 border-trig-green-600" : "border-gray-300 dark:border-gray-600"}`}
-                    >
-                      {isInList && (
-                        <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className="truncate">{list.name}</span>
-                    {list.is_default && (
-                      <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">default</span>
-                    )}
-                  </button>
-                );
-              })
+              lists.map((list) => renderListRow(list, false))
             ) : (
               <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                 No lists yet
               </div>
+            )}
+            {hasSharedLists && (
+              <>
+                <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-1.5">
+                  <span className="text-xs font-medium text-blue-500 dark:text-blue-400">
+                    Shared lists
+                  </span>
+                </div>
+                {editableLists.map((list) => renderListRow(list, true))}
+              </>
             )}
           </div>
           <div className="border-t border-gray-200 dark:border-gray-700 p-2">

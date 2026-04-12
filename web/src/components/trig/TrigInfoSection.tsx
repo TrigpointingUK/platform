@@ -95,7 +95,7 @@ export default function TrigInfoSection({
               {trig.waypoint} - {trig.name}
             </Link>
             <FacebookShareButton url={`${getCanonicalOrigin()}/trigs/${trigIdNum}`} />
-            {isAdmin && isAuthenticated && (
+            {isAuthenticated && (
               <AddToListButton trigId={trigIdNum} />
             )}
             {isAdmin && (
