@@ -276,4 +276,17 @@ class TestGenerateArchiveZip:
             readme_name = [n for n in zf.namelist() if "README.txt" in n][0]
             readme = zf.read(readme_name).decode("utf-8")
             assert "index.html" in readme
-            assert "logs.json" not in readme
+            assert "JSON" in readme
+
+    def test_reader_format_has_json_download_button(self, db):
+        user = _make_user(db, name="jsonbtnuser")
+        trig = _make_trig(db, user, waypoint="TP0010")
+        _make_log(db, user, trig, comment="Button test")
+
+        zip_bytes = generate_archive_zip(db, user, archive_format="R")
+
+        with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
+            html_name = [n for n in zf.namelist() if "index.html" in n][0]
+            html = zf.read(html_name).decode("utf-8")
+            assert "downloadJson" in html
+            assert "application/json" in html

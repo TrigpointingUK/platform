@@ -323,6 +323,9 @@ def _build_readme(
         )
     elif archive_format == "R":
         lines.append("  index.html - Interactive viewer (open in any web browser)")
+        lines.append(
+            '              Use the "JSON" button to export the data as a JSON file'
+        )
 
     lines.extend(
         [

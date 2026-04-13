@@ -21,7 +21,7 @@ const FREQUENCY_OPTIONS = [
 const FORMAT_OPTIONS = [
   { value: "C", label: "CSV only" },
   { value: "J", label: "CSV + JSON" },
-  { value: "R", label: "CSV + JSON + HTML viewer" },
+  { value: "R", label: "CSV + HTML viewer" },
 ];
 
 const STATUS_LABELS: Record<string, { text: string; className: string }> = {
@@ -33,7 +33,7 @@ const STATUS_LABELS: Record<string, { text: string; className: string }> = {
 const FORMAT_LABELS: Record<string, string> = {
   C: "CSV",
   J: "CSV+JSON",
-  R: "CSV+JSON+reader",
+  R: "CSV+viewer",
 };
 
 interface ArchiveRecord {
@@ -151,8 +151,9 @@ export default function ArchivePreferencesPanel({
         Data Archive Emails
       </h2>
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        Receive periodic email archives of your published logs as a zip file
-        containing CSV exports and optional JSON data with photo metadata.
+        Receive periodic email archives of your published logs as a zip file.
+        The HTML viewer option includes an interactive log browser with a JSON
+        download button.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">

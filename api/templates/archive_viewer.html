@@ -38,6 +38,10 @@ header .meta { font-size: .85rem; color: var(--fg2); }
   border-radius: 4px; background: var(--bg2); color: var(--fg); font-size: .9rem; }
 .controls input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .controls .count { font-size: .8rem; color: var(--fg2); white-space: nowrap; }
+.controls button { padding: .4rem .8rem; border: 1px solid var(--accent); border-radius: 4px;
+  background: var(--bg2); color: var(--accent); font-size: .82rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+.controls button:hover { background: var(--accent); color: #fff; }
 table { width: 100%; border-collapse: collapse; background: var(--bg2); border-radius: 6px;
   overflow: hidden; box-shadow: 0 1px 4px var(--shadow); font-size: .88rem; }
 thead th { background: var(--accent); color: #fff; padding: .55rem .6rem; text-align: left;
@@ -97,6 +101,7 @@ footer a { color: var(--accent); }
   <div class="controls">
     <input type="text" id="filter" placeholder="Filter by trig name, waypoint, or comment…" autocomplete="off">
     <div class="count" id="rowCount"></div>
+    <button id="downloadJson" type="button" title="Save the underlying data as a JSON file">⬇ JSON</button>
   </div>
   <table>
     <thead><tr id="thead"></tr></thead>
@@ -192,6 +197,18 @@ function init() {
   document.getElementById("filter").addEventListener("input", function() {
     filterText = this.value.toLowerCase();
     render();
+  });
+  document.getElementById("downloadJson").addEventListener("click", function() {
+    var json = JSON.stringify(DATA, null, 2);
+    var blob = new Blob([json], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "trigpointinguk_" + (DATA.user ? DATA.user.username : "archive") + "_logs.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 }
 
