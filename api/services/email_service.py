@@ -228,11 +228,11 @@ class EmailService:
             f"<p>Hello {display_name},</p>"
             f"<p>You are receiving this email because you are, or have been, "
             f"an active user of the TrigpointingUK website.</p>"
-            f"<p>All users are sent a backup archive of their data, once every "
+            f"<p>All users are sent a backup archive of all their logs, once every "
             f"year on an opt-out basis, or more frequently on an opt-in basis.</p>"
             f"<p>If you no longer wish to receive these emails, "
-            f'<a href="{unsubscribe_url}">click here to unsubscribe</a>. '
-            f"<br/>To change how often you receive these archives, or choose what they contain, visit your "
+            f'<a href="{unsubscribe_url}">click here to unsubscribe</a>.</p>'
+            f"<p>To change how often you receive these archives, or choose what they contain, visit your "
             f'<a href="{prefs_url}">preferences</a> page.</p>'
             f"<p>Please find attached your TrigpointingUK backup archive "
             f"containing <strong>{log_count}</strong> published log(s).</p>"
