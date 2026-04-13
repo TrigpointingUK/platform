@@ -232,7 +232,8 @@ class EmailService:
             f"year on an opt-out basis, or more frequently on an opt-in basis.</p>"
             f"<p>If you no longer wish to receive these emails, "
             f'<a href="{unsubscribe_url}">click here to unsubscribe</a>.</p>'
-            f"<p>To change how often you receive these archives, or choose what they contain, visit your "
+            f"<p>To change how often you receive these archives, choose what they contain, "
+            f"or request an adhoc email be sent with your latest logs, visit your "
             f'<a href="{prefs_url}">preferences</a> page.</p>'
             f"<p>Please find attached your TrigpointingUK backup archive "
             f"containing <strong>{log_count}</strong> published log(s).</p>"
