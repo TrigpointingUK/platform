@@ -233,6 +233,24 @@ class TestGenerateArchiveZip:
             assert "Reader Trig" in html
             assert "const DATA =" in html
             assert "<table" in html
+            assert "trigpointing.uk/trigs/" in html
+            assert "trigpointing.uk/logs/" in html
+            assert "trigpointing.uk/users/" in html
+            assert "tile.openstreetmap.org" in html
+
+    def test_json_includes_lat_lon(self, db):
+        user = _make_user(db, name="latlonuser")
+        trig = _make_trig(db, user, waypoint="TP0009", wgs_lat=52.0, wgs_long=-1.5)
+        _make_log(db, user, trig)
+
+        zip_bytes = generate_archive_zip(db, user, archive_format="J")
+
+        with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
+            json_name = [n for n in zf.namelist() if "logs.json" in n][0]
+            json_content = json.loads(zf.read(json_name))
+            log_entry = json_content["logs"][0]
+            assert log_entry["wgs_lat"] == 52.0
+            assert log_entry["wgs_lon"] == -1.5
 
     def test_reader_format_no_json_file(self, db):
         user = _make_user(db, name="nojsonuser")

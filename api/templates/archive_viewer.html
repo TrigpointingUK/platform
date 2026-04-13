@@ -64,6 +64,9 @@ tr.expanded + tr.detail { display: table-row; }
 .detail-photos .photo-fail { width: 120px; height: 120px; border-radius: 4px; border: 1px solid var(--border);
   background: var(--hover); display: flex; align-items: center; justify-content: center;
   font-size: .75rem; color: var(--fg2); text-align: center; padding: .3rem; }
+td.col-date { white-space: nowrap; min-width: 6.5rem; }
+a.trig-link, a.log-link { color: var(--accent); text-decoration: none; }
+a.trig-link:hover, a.log-link:hover { text-decoration: underline; }
 .cond { display: inline-block; padding: .1rem .4rem; border-radius: 3px; font-size: .78rem; font-weight: 600; }
 .score { font-weight: 600; }
 footer { margin-top: 1.5rem; padding: 1rem 0; border-top: 1px solid var(--border);
@@ -78,7 +81,7 @@ footer a { color: var(--accent); }
 </head>
 <body>
 <header><div class="container">
-  <h1><span>TrigpointingUK</span> Archive</h1>
+  <h1><a href="https://trigpointing.uk" style="color:inherit;text-decoration:none"><span>TrigpointingUK</span> Archive</a></h1>
   <div class="meta" id="headerMeta"></div>
 </div></header>
 
@@ -137,12 +140,23 @@ function condStyle(cls) {
   return "";
 }
 
+function osmTileUrl(lat, lon, zoom) {
+  if (lat == null || lon == null) return null;
+  zoom = zoom || 14;
+  var n = Math.pow(2, zoom);
+  var x = Math.floor((lon + 180) / 360 * n);
+  var latRad = lat * Math.PI / 180;
+  var y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+  return "https://tile.openstreetmap.org/" + zoom + "/" + x + "/" + y + ".png";
+}
+
 function init() {
   const logs = DATA.logs || [];
   const user = DATA.user || {};
 
-  document.getElementById("headerMeta").textContent =
-    user.username + " \u2014 " + (DATA.export_date || "").split("T")[0];
+  document.getElementById("headerMeta").innerHTML =
+    '<a href="https://trigpointing.uk/users/' + user.id + '" class="trig-link">' +
+    esc(user.username) + '</a> \u2014 ' + (DATA.export_date || "").split("T")[0];
   document.getElementById("footerDate").textContent =
     " on " + (DATA.export_date || "").split("T")[0];
 
@@ -227,9 +241,11 @@ function render() {
     var cs = condStyle(cc);
 
     html += '<tr data-idx="' + i + '">';
-    html += "<td>" + esc(l.date) + "</td>";
+    html += '<td class="col-date">' + esc(l.date) + "</td>";
     html += "<td>" + esc(l.trig_name) + "</td>";
-    html += '<td class="hide-mobile">' + esc(l.trig_waypoint) + "</td>";
+    html += '<td class="hide-mobile">' + (l.trig_id
+      ? '<a class="trig-link" href="https://trigpointing.uk/trigs/' + l.trig_id + '" target="_blank">' + esc(l.trig_waypoint) + '</a>'
+      : esc(l.trig_waypoint)) + "</td>";
     html += '<td class="hide-mobile">' + esc(l.trig_gridref || l.osgb_gridref) + "</td>";
     html += "<td>" + (l.condition ? '<span class="cond" style="' + cs + '">' + esc(l.condition) + "</span>" : "") + "</td>";
     html += "<td>" + (l.score != null ? '<span class="score">' + l.score + "</span>" : "") + "</td>";
@@ -241,18 +257,25 @@ function render() {
     html += '<div class="detail-text">';
     if (l.comment) html += '<p class="label">Comment</p><p>' + esc(l.comment) + "</p>";
     html += '<p class="label" style="margin-top:.5rem">Details</p>';
-    html += "<p>Log #" + l.log_id + " \u2014 " + esc(l.date) + (l.time ? " " + esc(l.time) : "");
+    html += '<p><a class="log-link" href="https://trigpointing.uk/logs/' + l.log_id + '" target="_blank">Log #' + l.log_id + '</a> \u2014 ' + esc(l.date) + (l.time ? " " + esc(l.time) : "");
     html += " \u2014 " + esc(l.trig_name) + " (" + esc(l.trig_waypoint) + ")</p>";
     if (l.osgb_gridref) html += "<p>Grid ref: " + esc(l.osgb_gridref) + "</p>";
     if (l.fb_number) html += "<p>Flush bracket: " + esc(l.fb_number) + "</p>";
     html += "</div>";
 
-    if (pc > 0) {
+    if (pc > 0 || l.wgs_lat) {
       html += '<div class="detail-photos">';
-      for (var j = 0; j < l.photos.length; j++) {
+      var mapUrl = osmTileUrl(l.wgs_lat, l.wgs_lon);
+      if (mapUrl) {
+        html += '<img src="' + mapUrl + '" alt="OS Map" title="Map location"' +
+          ' onerror="this.outerHTML=\'<div class=photo-fail>Map unavailable</div>\'" crossorigin="anonymous">';
+      }
+      for (var j = 0; j < (l.photos || []).length; j++) {
         var p = l.photos[j];
-        html += '<img src="' + esc(p.icon_url) + '" alt="' + esc(p.caption || "Photo") +
-          '" title="' + esc(p.caption || "") + '" onerror="this.outerHTML=\'<div class=photo-fail>Photo not available offline</div>\'">';
+        html += '<a href="' + esc(p.photo_url) + '" target="_blank">' +
+          '<img src="' + esc(p.icon_url) + '" alt="' + esc(p.caption || "Photo") +
+          '" title="' + esc(p.caption || "") + '" onerror="this.parentNode.outerHTML=\'<div class=photo-fail>Photo not available offline</div>\'">' +
+          '</a>';
       }
       html += "</div>";
     }

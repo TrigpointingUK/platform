@@ -173,6 +173,8 @@ def _logs_to_json_batch(
             "trig_waypoint": trig.waypoint if trig else None,
             "trig_name": trig.name if trig else None,
             "trig_gridref": trig.osgb_gridref if trig else None,
+            "wgs_lat": float(trig.wgs_lat) if trig and trig.wgs_lat else None,
+            "wgs_lon": float(trig.wgs_long) if trig and trig.wgs_long else None,
             "date": str(log.date) if log.date else None,
             "time": str(log.time) if log.time else None,
             "condition_code": code,
