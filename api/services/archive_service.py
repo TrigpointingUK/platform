@@ -10,6 +10,7 @@ import io
 import json
 import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -23,6 +24,26 @@ from api.models.user import TLog, User
 from api.utils.url import join_url
 
 logger = get_logger(__name__)
+
+_TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
+_VIEWER_TEMPLATE: str | None = None
+
+
+def _get_viewer_template() -> str:
+    global _VIEWER_TEMPLATE
+    if _VIEWER_TEMPLATE is None:
+        _VIEWER_TEMPLATE = (_TEMPLATE_DIR / "archive_viewer.html").read_text()
+    return _VIEWER_TEMPLATE
+
+
+def _build_viewer_html(json_data: dict[str, Any]) -> str:
+    """Embed JSON data into the self-contained HTML viewer template."""
+    template = _get_viewer_template()
+    username = json_data.get("user", {}).get("username", "")
+    compact_json = json.dumps(json_data, separators=(",", ":"))
+    html = template.replace("__ARCHIVE_DATA__", compact_json)
+    html = html.replace("__USERNAME__", username)
+    return html
 
 
 def _build_lookups(
@@ -239,9 +260,16 @@ def generate_archive_zip(db: Session, user: User, archive_format: str = "C") -> 
                     include_photos=True,
                 ),
             }
+
+        if archive_format == "J":
             json_content = json.dumps(json_data, indent=2)
             zf.writestr(
                 f"trigpointinguk_{username}_{timestamp}/logs.json", json_content
+            )
+        elif archive_format == "R":
+            viewer_html = _build_viewer_html(json_data)
+            zf.writestr(
+                f"trigpointinguk_{username}_{timestamp}/index.html", viewer_html
             )
 
         photo_count = sum(len(v) for v in photos_by_log.values())
@@ -287,10 +315,12 @@ def _build_readme(
         "  logs.csv  - All published logs in CSV format",
     ]
 
-    if archive_format in ("J", "R"):
+    if archive_format == "J":
         lines.append(
             "  logs.json - All published logs in JSON format with photo metadata"
         )
+    elif archive_format == "R":
+        lines.append("  index.html - Interactive viewer (open in any web browser)")
 
     lines.extend(
         [

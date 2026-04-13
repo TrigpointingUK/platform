@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrigpointingUK Archive — __USERNAME__</title>
+<style>
+:root {
+  --bg: #f8f9fa; --bg2: #fff; --fg: #1a1a1a; --fg2: #555;
+  --border: #ddd; --accent: #2e7d32; --accent-light: #e8f5e9;
+  --hover: #f0f0f0; --shadow: rgba(0,0,0,.08);
+  --good: #2e7d32; --poor: #c62828; --mid: #ef6c00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212; --bg2: #1e1e1e; --fg: #e0e0e0; --fg2: #999;
+    --border: #333; --accent: #66bb6a; --accent-light: #1b3a1b;
+    --hover: #2a2a2a; --shadow: rgba(0,0,0,.3);
+    --good: #66bb6a; --poor: #ef5350; --mid: #ffa726;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg); color: var(--fg); line-height: 1.5; }
+.container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+header { background: var(--bg2); border-bottom: 3px solid var(--accent); padding: 1.2rem 0; margin-bottom: 1rem;
+  box-shadow: 0 1px 4px var(--shadow); }
+header .container { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.5rem; }
+header h1 { font-size: 1.3rem; font-weight: 700; }
+header h1 span { color: var(--accent); }
+header .meta { font-size: .85rem; color: var(--fg2); }
+.stats { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+.stat { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+  padding: .5rem .9rem; font-size: .85rem; box-shadow: 0 1px 3px var(--shadow); }
+.stat strong { color: var(--accent); font-size: 1.1rem; margin-right: .25rem; }
+.controls { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; align-items: center; }
+.controls input[type="text"] { flex: 1; min-width: 200px; padding: .45rem .7rem; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--bg2); color: var(--fg); font-size: .9rem; }
+.controls input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.controls .count { font-size: .8rem; color: var(--fg2); white-space: nowrap; }
+table { width: 100%; border-collapse: collapse; background: var(--bg2); border-radius: 6px;
+  overflow: hidden; box-shadow: 0 1px 4px var(--shadow); font-size: .88rem; }
+thead th { background: var(--accent); color: #fff; padding: .55rem .6rem; text-align: left;
+  cursor: pointer; user-select: none; white-space: nowrap; font-weight: 600; font-size: .82rem; }
+thead th:hover { opacity: .9; }
+thead th .arrow { font-size: .7rem; margin-left: .25rem; opacity: .7; }
+thead th .arrow.active { opacity: 1; }
+tbody td { padding: .45rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--hover); }
+tbody tr.expanded { background: var(--accent-light); }
+.comment-short { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail { display: none; }
+tr.expanded + tr.detail { display: table-row; }
+.detail td { padding: .7rem; background: var(--accent-light); border-bottom: 2px solid var(--accent); }
+.detail-inner { display: flex; flex-wrap: wrap; gap: 1rem; }
+.detail-text { flex: 1; min-width: 250px; }
+.detail-text p { margin-bottom: .4rem; }
+.detail-text .label { font-weight: 600; color: var(--fg2); font-size: .8rem; text-transform: uppercase;
+  letter-spacing: .03em; }
+.detail-photos { display: flex; flex-wrap: wrap; gap: .5rem; }
+.detail-photos img { width: 120px; height: 120px; object-fit: cover; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--hover); }
+.detail-photos .photo-fail { width: 120px; height: 120px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--hover); display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; color: var(--fg2); text-align: center; padding: .3rem; }
+.cond { display: inline-block; padding: .1rem .4rem; border-radius: 3px; font-size: .78rem; font-weight: 600; }
+.score { font-weight: 600; }
+footer { margin-top: 1.5rem; padding: 1rem 0; border-top: 1px solid var(--border);
+  font-size: .78rem; color: var(--fg2); text-align: center; }
+footer a { color: var(--accent); }
+@media (max-width: 700px) {
+  .hide-mobile { display: none; }
+  table { font-size: .82rem; }
+  .comment-short { max-width: 120px; }
+}
+</style>
+</head>
+<body>
+<header><div class="container">
+  <h1><span>TrigpointingUK</span> Archive</h1>
+  <div class="meta" id="headerMeta"></div>
+</div></header>
+
+<div class="container">
+  <div class="stats" id="stats"></div>
+  <div class="controls">
+    <input type="text" id="filter" placeholder="Filter by trig name, waypoint, or comment…" autocomplete="off">
+    <div class="count" id="rowCount"></div>
+  </div>
+  <table>
+    <thead><tr id="thead"></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <footer>
+    Exported from <a href="https://trigpointing.uk">TrigpointingUK</a>
+    <span id="footerDate"></span>
+  </footer>
+</div>
+
+<script>
+const DATA = __ARCHIVE_DATA__;
+
+const COLS = [
+  { key: "date", label: "Date", sortable: true },
+  { key: "trig_name", label: "Trig", sortable: true },
+  { key: "trig_waypoint", label: "Waypoint", sortable: true, cls: "hide-mobile" },
+  { key: "trig_gridref", label: "Grid Ref", sortable: false, cls: "hide-mobile" },
+  { key: "condition", label: "Condition", sortable: true },
+  { key: "score", label: "Score", sortable: true },
+  { key: "comment", label: "Comment", sortable: false },
+  { key: "_photos", label: "Pics", sortable: true },
+];
+
+let sortCol = "date";
+let sortAsc = false;
+let filterText = "";
+
+function esc(s) {
+  if (s == null) return "";
+  const d = document.createElement("div");
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function condClass(code) {
+  if (!code) return "";
+  if ("GRC".includes(code)) return "good";
+  if ("SNTU".includes(code)) return "poor";
+  return "mid";
+}
+
+function condStyle(cls) {
+  if (cls === "good") return "background:#e8f5e9;color:#2e7d32;";
+  if (cls === "poor") return "background:#ffebee;color:#c62828;";
+  if (cls === "mid") return "background:#fff3e0;color:#ef6c00;";
+  return "";
+}
+
+function init() {
+  const logs = DATA.logs || [];
+  const user = DATA.user || {};
+
+  document.getElementById("headerMeta").textContent =
+    user.username + " \u2014 " + (DATA.export_date || "").split("T")[0];
+  document.getElementById("footerDate").textContent =
+    " on " + (DATA.export_date || "").split("T")[0];
+
+  const trigIds = new Set(logs.map(l => l.trig_id).filter(Boolean));
+  const photoCount = logs.reduce((n, l) => n + (l.photos ? l.photos.length : 0), 0);
+
+  const statsEl = document.getElementById("stats");
+  statsEl.innerHTML =
+    stat(logs.length, "published log" + (logs.length !== 1 ? "s" : "")) +
+    stat(trigIds.size, "trigpoint" + (trigIds.size !== 1 ? "s" : "")) +
+    stat(photoCount, "photo" + (photoCount !== 1 ? "s" : ""));
+
+  buildThead();
+  render();
+  document.getElementById("filter").addEventListener("input", function() {
+    filterText = this.value.toLowerCase();
+    render();
+  });
+}
+
+function stat(n, label) {
+  return '<div class="stat"><strong>' + n + "</strong> " + label + "</div>";
+}
+
+function buildThead() {
+  const tr = document.getElementById("thead");
+  tr.innerHTML = COLS.map(function(c) {
+    const arrow = c.sortable
+      ? ' <span class="arrow' + (sortCol === c.key ? " active" : "") + '">' +
+        (sortCol === c.key ? (sortAsc ? "\u25B2" : "\u25BC") : "\u25BC") + "</span>"
+      : "";
+    const cls = c.cls ? ' class="' + c.cls + '"' : "";
+    return "<th" + cls + ' data-key="' + c.key + '">' + c.label + arrow + "</th>";
+  }).join("");
+
+  tr.querySelectorAll("th").forEach(function(th) {
+    const key = th.getAttribute("data-key");
+    const col = COLS.find(function(c) { return c.key === key; });
+    if (col && col.sortable) {
+      th.addEventListener("click", function() {
+        if (sortCol === key) { sortAsc = !sortAsc; }
+        else { sortCol = key; sortAsc = key === "date" ? false : true; }
+        buildThead();
+        render();
+      });
+    }
+  });
+}
+
+function matchesFilter(log) {
+  if (!filterText) return true;
+  var hay = [log.trig_name, log.trig_waypoint, log.comment, log.condition, log.osgb_gridref]
+    .filter(Boolean).join(" ").toLowerCase();
+  return hay.indexOf(filterText) !== -1;
+}
+
+function render() {
+  var logs = (DATA.logs || []).filter(matchesFilter);
+
+  logs.sort(function(a, b) {
+    var va = a[sortCol], vb = b[sortCol];
+    if (sortCol === "_photos") { va = (a.photos || []).length; vb = (b.photos || []).length; }
+    if (va == null) va = "";
+    if (vb == null) vb = "";
+    if (typeof va === "number" && typeof vb === "number") return sortAsc ? va - vb : vb - va;
+    va = String(va); vb = String(vb);
+    return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+
+  var countEl = document.getElementById("rowCount");
+  var total = (DATA.logs || []).length;
+  countEl.textContent = logs.length === total
+    ? total + " logs"
+    : logs.length + " of " + total + " logs";
+
+  var tbody = document.getElementById("tbody");
+  var html = "";
+  for (var i = 0; i < logs.length; i++) {
+    var l = logs[i];
+    var pc = (l.photos || []).length;
+    var cc = condClass(l.condition_code);
+    var cs = condStyle(cc);
+
+    html += '<tr data-idx="' + i + '">';
+    html += "<td>" + esc(l.date) + "</td>";
+    html += "<td>" + esc(l.trig_name) + "</td>";
+    html += '<td class="hide-mobile">' + esc(l.trig_waypoint) + "</td>";
+    html += '<td class="hide-mobile">' + esc(l.trig_gridref || l.osgb_gridref) + "</td>";
+    html += "<td>" + (l.condition ? '<span class="cond" style="' + cs + '">' + esc(l.condition) + "</span>" : "") + "</td>";
+    html += "<td>" + (l.score != null ? '<span class="score">' + l.score + "</span>" : "") + "</td>";
+    html += '<td><div class="comment-short">' + esc(l.comment) + "</div></td>";
+    html += "<td>" + (pc > 0 ? pc : "") + "</td>";
+    html += "</tr>";
+
+    html += '<tr class="detail"><td colspan="' + COLS.length + '"><div class="detail-inner">';
+    html += '<div class="detail-text">';
+    if (l.comment) html += '<p class="label">Comment</p><p>' + esc(l.comment) + "</p>";
+    html += '<p class="label" style="margin-top:.5rem">Details</p>';
+    html += "<p>Log #" + l.log_id + " \u2014 " + esc(l.date) + (l.time ? " " + esc(l.time) : "");
+    html += " \u2014 " + esc(l.trig_name) + " (" + esc(l.trig_waypoint) + ")</p>";
+    if (l.osgb_gridref) html += "<p>Grid ref: " + esc(l.osgb_gridref) + "</p>";
+    if (l.fb_number) html += "<p>Flush bracket: " + esc(l.fb_number) + "</p>";
+    html += "</div>";
+
+    if (pc > 0) {
+      html += '<div class="detail-photos">';
+      for (var j = 0; j < l.photos.length; j++) {
+        var p = l.photos[j];
+        html += '<img src="' + esc(p.icon_url) + '" alt="' + esc(p.caption || "Photo") +
+          '" title="' + esc(p.caption || "") + '" onerror="this.outerHTML=\'<div class=photo-fail>Photo not available offline</div>\'">';
+      }
+      html += "</div>";
+    }
+    html += "</div></td></tr>";
+  }
+  tbody.innerHTML = html;
+
+  tbody.querySelectorAll("tr:not(.detail)").forEach(function(tr) {
+    tr.addEventListener("click", function() {
+      this.classList.toggle("expanded");
+    });
+  });
+}
+
+init();
+</script>
+</body>
+</html>

@@ -212,3 +212,49 @@ class TestGenerateArchiveZip:
             assert len(log_entry["photos"]) == 1
             assert log_entry["photos"][0]["caption"] == "Test Photo"
             assert "P00001.jpg" in log_entry["photos"][0]["photo_url"]
+
+    def test_reader_format_contains_html(self, db):
+        user = _make_user(db, name="readeruser")
+        trig = _make_trig(db, user, waypoint="TP0006", name="Reader Trig")
+        _make_log(db, user, trig, comment="Visible in viewer")
+
+        zip_bytes = generate_archive_zip(db, user, archive_format="R")
+
+        with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
+            names = zf.namelist()
+            assert any("index.html" in n for n in names)
+            assert any("logs.csv" in n for n in names)
+            assert any("README.txt" in n for n in names)
+            assert not any("logs.json" in n for n in names)
+
+            html_name = [n for n in names if "index.html" in n][0]
+            html = zf.read(html_name).decode("utf-8")
+            assert "Visible in viewer" in html
+            assert "Reader Trig" in html
+            assert "const DATA =" in html
+            assert "<table" in html
+
+    def test_reader_format_no_json_file(self, db):
+        user = _make_user(db, name="nojsonuser")
+        trig = _make_trig(db, user, waypoint="TP0007")
+        _make_log(db, user, trig)
+
+        zip_bytes = generate_archive_zip(db, user, archive_format="R")
+
+        with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
+            names = zf.namelist()
+            assert not any("logs.json" in n for n in names)
+            assert any("index.html" in n for n in names)
+
+    def test_reader_readme_mentions_viewer(self, db):
+        user = _make_user(db, name="readmevieweruser")
+        trig = _make_trig(db, user, waypoint="TP0008")
+        _make_log(db, user, trig)
+
+        zip_bytes = generate_archive_zip(db, user, archive_format="R")
+
+        with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
+            readme_name = [n for n in zf.namelist() if "README.txt" in n][0]
+            readme = zf.read(readme_name).decode("utf-8")
+            assert "index.html" in readme
+            assert "logs.json" not in readme
