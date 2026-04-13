@@ -9,7 +9,7 @@ import os
 import time
 from datetime import UTC
 from datetime import date as date_type
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, Mapping, Optional, Union
 
 import numpy as np
@@ -467,8 +467,6 @@ def update_current_user_profile(
 
     Auth0 sync failures are logged but don't fail the database update.
     """
-    from datetime import datetime, timezone
-
     from api.core.logging import get_logger
     from api.services.auth0_service import auth0_service
 
@@ -576,8 +574,7 @@ def update_current_user_profile(
                                 "user_id": current_user.id,
                                 "auth0_user_id": current_user.auth0_user_id,
                                 "new_username": current_user.name,
-                                "timestamp": datetime.now(timezone.utc).isoformat()
-                                + "Z",
+                                "timestamp": datetime.now(UTC).isoformat() + "Z",
                                 "action_required": "admin_review",
                             }
                         )
@@ -617,8 +614,7 @@ def update_current_user_profile(
                                 "user_id": current_user.id,
                                 "auth0_user_id": current_user.auth0_user_id,
                                 "email": current_user.email,
-                                "timestamp": datetime.now(timezone.utc).isoformat()
-                                + "Z",
+                                "timestamp": datetime.now(UTC).isoformat() + "Z",
                                 "action_required": "batch_retry_or_manual_sync",
                             }
                         )
@@ -706,9 +702,7 @@ def send_archive_now(
         is_admin = has_scope(token_payload, "api:admin")
 
     if not is_admin:
-        from datetime import datetime, timedelta, timezone
-
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
         recent = (
             db.query(UserArchive)
             .filter(

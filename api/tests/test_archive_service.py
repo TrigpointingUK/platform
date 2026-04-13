@@ -210,5 +210,5 @@ class TestGenerateArchiveZip:
             json_content = json.loads(zf.read(json_name))
             log_entry = json_content["logs"][0]
             assert len(log_entry["photos"]) == 1
-            assert log_entry["photos"][0]["name"] == "Test Photo"
+            assert log_entry["photos"][0]["caption"] == "Test Photo"
             assert "P00001.jpg" in log_entry["photos"][0]["photo_url"]

@@ -54,6 +54,8 @@ interface UserPrefs {
   online_map_type2: string;
   email: string;
   email_valid: string;
+  archive_frequency?: string;
+  archive_format?: string;
   ui_prefs?: UIPrefs;
 }
 

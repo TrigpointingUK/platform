@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import ListsPreferencesPanel from "../components/lists/ListsPreferencesPanel";
+import ArchivePreferencesPanel from "../components/archive/ArchivePreferencesPanel";
 import {
   useUserProfile,
   updateUserProfile,
@@ -440,6 +441,11 @@ export default function Preferences() {
         {/* Trig Lists */}
         {isAuthenticated && (
           <ListsPreferencesPanel hasAdminRole={hasAdminRole} />
+        )}
+
+        {/* Data Archive — admin-only until feature is ready for release */}
+        {isAuthenticated && hasAdminRole && user && (
+          <ArchivePreferencesPanel user={user} />
         )}
       </div>
     </>

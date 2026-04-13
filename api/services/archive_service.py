@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from api.core.logging import get_logger
+from api.models.condition import Condition
 from api.models.server import Server
 from api.models.tphoto import TPhoto
 from api.models.trig import Trig
@@ -26,8 +27,8 @@ logger = get_logger(__name__)
 
 def _build_lookups(
     db: Session, logs: list[TLog]
-) -> tuple[dict[int, Trig], dict[int, list[TPhoto]], dict[int, Server]]:
-    """Batch-load trigs, photos, and servers for a set of logs."""
+) -> tuple[dict[int, Trig], dict[int, list[TPhoto]], dict[int, Server], dict[str, str]]:
+    """Batch-load trigs, photos, servers, and condition names for a set of logs."""
     trig_ids = {int(log.trig_id) for log in logs if log.trig_id}
     log_ids = [int(log.id) for log in logs]
 
@@ -54,7 +55,12 @@ def _build_lookups(
         servers = db.query(Server).filter(Server.id.in_(server_ids)).all()
         servers_map = {int(s.id): s for s in servers}
 
-    return trigs_map, photos_by_log, servers_map
+    conditions = db.query(Condition).all()
+    conditions_map: dict[str, str] = {
+        str(c.code).strip(): str(c.name) for c in conditions
+    }
+
+    return trigs_map, photos_by_log, servers_map, conditions_map
 
 
 def _logs_to_csv_batch(
@@ -62,6 +68,7 @@ def _logs_to_csv_batch(
     trigs_map: dict[int, Trig],
     photos_by_log: dict[int, list[TPhoto]],
     servers_map: dict[int, Server],
+    conditions_map: dict[str, str],
     include_photos: bool = True,
 ) -> str:
     """Convert logs to CSV using pre-loaded lookup maps."""
@@ -74,6 +81,7 @@ def _logs_to_csv_batch(
         "trig_name",
         "date",
         "time",
+        "condition_code",
         "condition",
         "comment",
         "score",
@@ -88,6 +96,7 @@ def _logs_to_csv_batch(
 
     for log in logs:
         trig = trigs_map.get(int(log.trig_id)) if log.trig_id else None
+        code = str(log.condition or "").strip()
 
         row: dict[str, Any] = {
             "log_id": log.id,
@@ -96,7 +105,8 @@ def _logs_to_csv_batch(
             "trig_name": trig.name if trig else "",
             "date": str(log.date) if log.date else "",
             "time": str(log.time) if log.time else "",
-            "condition": log.condition or "",
+            "condition_code": code,
+            "condition": conditions_map.get(code, ""),
             "comment": log.comment or "",
             "score": log.score or "",
             "osgb_gridref": log.osgb_gridref or "",
@@ -126,6 +136,7 @@ def _logs_to_json_batch(
     trigs_map: dict[int, Trig],
     photos_by_log: dict[int, list[TPhoto]],
     servers_map: dict[int, Server],
+    conditions_map: dict[str, str],
     include_photos: bool = True,
 ) -> list[dict[str, Any]]:
     """Convert logs to JSON dicts using pre-loaded lookup maps."""
@@ -133,6 +144,7 @@ def _logs_to_json_batch(
 
     for log in logs:
         trig = trigs_map.get(int(log.trig_id)) if log.trig_id else None
+        code = str(log.condition or "").strip()
 
         log_data: dict[str, Any] = {
             "log_id": log.id,
@@ -142,7 +154,8 @@ def _logs_to_json_batch(
             "trig_gridref": trig.osgb_gridref if trig else None,
             "date": str(log.date) if log.date else None,
             "time": str(log.time) if log.time else None,
-            "condition": log.condition,
+            "condition_code": code,
+            "condition": conditions_map.get(code, None),
             "comment": log.comment,
             "score": log.score,
             "osgb_gridref": log.osgb_gridref,
@@ -158,8 +171,8 @@ def _logs_to_json_batch(
                 log_data["photos"].append(
                     {
                         "photo_id": p.id,
-                        "name": p.name,
-                        "text_desc": p.text_desc,
+                        "caption": p.name,
+                        "description": p.text_desc,
                         "type": p.type,
                         "photo_url": join_url(base_url, str(p.filename)),
                         "icon_url": join_url(base_url, str(p.icon_filename)),
@@ -197,10 +210,15 @@ def generate_archive_zip(db: Session, user: User, archive_format: str = "C") -> 
         .all()
     )
 
-    trigs_map, photos_by_log, servers_map = _build_lookups(db, logs)
+    trigs_map, photos_by_log, servers_map, conditions_map = _build_lookups(db, logs)
 
     csv_content = _logs_to_csv_batch(
-        logs, trigs_map, photos_by_log, servers_map, include_photos=True
+        logs,
+        trigs_map,
+        photos_by_log,
+        servers_map,
+        conditions_map,
+        include_photos=True,
     )
 
     buf = io.BytesIO()
@@ -213,7 +231,12 @@ def generate_archive_zip(db: Session, user: User, archive_format: str = "C") -> 
                 "export_date": export_time.isoformat(),
                 "log_count": len(logs),
                 "logs": _logs_to_json_batch(
-                    logs, trigs_map, photos_by_log, servers_map, include_photos=True
+                    logs,
+                    trigs_map,
+                    photos_by_log,
+                    servers_map,
+                    conditions_map,
+                    include_photos=True,
                 ),
             }
             json_content = json.dumps(json_data, indent=2)
