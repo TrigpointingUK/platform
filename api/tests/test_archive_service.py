@@ -236,7 +236,8 @@ class TestGenerateArchiveZip:
             assert "trigpointing.uk/trigs/" in html
             assert "trigpointing.uk/logs/" in html
             assert "trigpointing.uk/users/" in html
-            assert "tile.openstreetmap.org" in html
+            assert "trigpointing.uk/map?" in html
+            assert "stretched53_default.png" in html
 
     def test_json_includes_lat_lon(self, db):
         user = _make_user(db, name="latlonuser")

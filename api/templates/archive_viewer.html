@@ -58,12 +58,19 @@ tr.expanded + tr.detail { display: table-row; }
 .detail-text p { margin-bottom: .4rem; }
 .detail-text .label { font-weight: 600; color: var(--fg2); font-size: .8rem; text-transform: uppercase;
   letter-spacing: .03em; }
-.detail-photos { display: flex; flex-wrap: wrap; gap: .5rem; }
+.detail-photos { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-start; }
 .detail-photos img { width: 120px; height: 120px; object-fit: cover; border-radius: 4px;
   border: 1px solid var(--border); background: var(--hover); }
 .detail-photos .photo-fail { width: 120px; height: 120px; border-radius: 4px; border: 1px solid var(--border);
   background: var(--hover); display: flex; align-items: center; justify-content: center;
   font-size: .75rem; color: var(--fg2); text-align: center; padding: .3rem; }
+.mini-map { position: relative; width: 120px; height: 120px; border-radius: 4px;
+  border: 1px solid var(--border); overflow: hidden; flex-shrink: 0;
+  background: var(--hover); display: inline-block; }
+.mini-map img { width: 100%; height: 100%; object-fit: cover; display: block; border: none; }
+.mini-map .dot { position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  background: #2e7d32; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,.4);
+  transform: translate(-50%, -50%); pointer-events: none; }
 td.col-date { white-space: nowrap; min-width: 6.5rem; }
 a.trig-link, a.log-link { color: var(--accent); text-decoration: none; }
 a.trig-link:hover, a.log-link:hover { text-decoration: underline; }
@@ -140,14 +147,25 @@ function condStyle(cls) {
   return "";
 }
 
-function osmTileUrl(lat, lon, zoom) {
-  if (lat == null || lon == null) return null;
-  zoom = zoom || 14;
-  var n = Math.pow(2, zoom);
-  var x = Math.floor((lon + 180) / 360 * n);
-  var latRad = lat * Math.PI / 180;
-  var y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
-  return "https://tile.openstreetmap.org/" + zoom + "/" + x + "/" + y + ".png";
+var MINIMAP_IMG = "https://trigpointing.uk/maps/mini-map/stretched53_default.png";
+var MINIMAP_AFFINE = { ax: 5.945945945945946, tx: 83.24324324324324,
+  dy: -9.91306601410864, ty: 603.7057202592162 };
+var MINIMAP_SIZE = 110;
+
+function miniMapHtml(lat, lon, trigId) {
+  if (lat == null || lon == null) return "";
+  var px = MINIMAP_AFFINE.ax * lon + MINIMAP_AFFINE.tx;
+  var py = MINIMAP_AFFINE.dy * lat + MINIMAP_AFFINE.ty;
+  px = Math.max(0, Math.min(MINIMAP_SIZE, px));
+  py = Math.max(0, Math.min(MINIMAP_SIZE, py));
+  var xPct = (px / MINIMAP_SIZE * 100).toFixed(2);
+  var yPct = (py / MINIMAP_SIZE * 100).toFixed(2);
+  var mapHref = "https://trigpointing.uk/map?lat=" + lat + "&lon=" + lon +
+    (trigId ? "&trig=" + trigId : "") + "&zoom=14";
+  return '<a href="' + mapHref + '" target="_blank" class="mini-map" title="View on map">' +
+    '<img src="' + MINIMAP_IMG + '" alt="UK map"' +
+    ' onerror="this.parentNode.outerHTML=\'<div class=photo-fail>Map unavailable</div>\'">' +
+    '<div class="dot" style="left:' + xPct + '%;top:' + yPct + '%"></div></a>';
 }
 
 function init() {
@@ -265,11 +283,7 @@ function render() {
 
     if (pc > 0 || l.wgs_lat) {
       html += '<div class="detail-photos">';
-      var mapUrl = osmTileUrl(l.wgs_lat, l.wgs_lon);
-      if (mapUrl) {
-        html += '<img src="' + mapUrl + '" alt="OS Map" title="Map location"' +
-          ' onerror="this.outerHTML=\'<div class=photo-fail>Map unavailable</div>\'" crossorigin="anonymous">';
-      }
+      html += miniMapHtml(l.wgs_lat, l.wgs_lon, l.trig_id);
       for (var j = 0; j < (l.photos || []).length; j++) {
         var p = l.photos[j];
         html += '<a href="' + esc(p.photo_url) + '" target="_blank">' +
