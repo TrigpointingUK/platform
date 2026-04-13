@@ -126,6 +126,14 @@ class UserPrefs(BaseModel):
     email_valid: str = Field(
         ..., description="Email validation status (Y/N) - read-only"
     )
+    archive_frequency: str = Field(
+        "N",
+        description="Archive email frequency: N=never, Y=yearly, M=monthly-if-active-else-yearly, W=weekly-if-active-else-monthly",
+    )
+    archive_format: str = Field(
+        "C",
+        description="Archive email format: C=CSV only, J=CSV+JSON, R=CSV+JSON+reader",
+    )
     ui_prefs: Optional[Dict[str, Any]] = Field(
         None,
         description="UI preferences (distance_ind, show_trig_condition, default_groups, etc.)",
@@ -164,6 +172,16 @@ class UserUpdate(BaseModel):
     )
     public_ind: Optional[str] = Field(
         None, pattern="^[YN]$", description="Public visibility (Y/N)"
+    )
+    archive_frequency: Optional[str] = Field(
+        None,
+        pattern="^[NYMW]$",
+        description="Archive email frequency: N=never, Y=yearly, M=monthly-if-active, W=weekly-if-active",
+    )
+    archive_format: Optional[str] = Field(
+        None,
+        pattern="^[CJR]$",
+        description="Archive email format: C=CSV only, J=CSV+JSON, R=CSV+JSON+reader",
     )
     ui_prefs: Optional[Dict[str, Any]] = Field(
         None,

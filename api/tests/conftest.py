@@ -43,6 +43,7 @@ from api.models import (  # noqa: F401
     TrigListItem,
     TrigType,
     User,
+    UserArchive,
 )
 
 # Legacy JWT tokens removed - Auth0 only
@@ -245,6 +246,7 @@ def setup_test_tables(setup_worker_schema):
             # Drop trig list tables and user to pick up new columns (default_list_id)
             connection.execute(text("DROP TABLE IF EXISTS trig_list_item CASCADE"))
             connection.execute(text("DROP TABLE IF EXISTS trig_list CASCADE"))
+            connection.execute(text("DROP TABLE IF EXISTS user_archive CASCADE"))
             connection.execute(text('DROP TABLE IF EXISTS "user" CASCADE'))
 
         # Exclude cross-schema tables (e.g. chat.document_chunk) — they are

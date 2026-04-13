@@ -5,6 +5,7 @@ Database models for the existing legacy database schema.
 from datetime import date, time
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     Date,
@@ -17,6 +18,7 @@ from sqlalchemy import (
     Text,
     Time,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import CHAR
@@ -85,6 +87,13 @@ class User(Base):
         Integer, ForeignKey("trig_list.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Archive email preferences
+    # N=never, Y=yearly, M=monthly-if-active-else-yearly,
+    # W=weekly-if-active-else-monthly
+    archive_frequency = Column(CHAR(1), nullable=False, server_default="N")
+    # C=CSV only, J=CSV+JSON, R=CSV+JSON+reader
+    archive_format = Column(CHAR(1), nullable=False, server_default="C")
+
     # Timestamps
     crt_date = Column(
         Date, nullable=True, default=date(1900, 1, 1)
@@ -151,3 +160,24 @@ class TPhotoVote(Base):
     )
     score = Column(SmallInteger, nullable=False)
     upd_timestamp = Column(DateTime, nullable=True)
+
+
+class UserArchive(Base):
+    """Tracks archive emails sent to users."""
+
+    __tablename__ = "user_archive"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # S=success, F=failed, K=skipped (no new activity)
+    status = Column(CHAR(1), nullable=False)
+    frequency_at_send = Column(CHAR(1), nullable=False)
+    format_at_send = Column(CHAR(1), nullable=False)
+    log_count = Column(Integer, nullable=True)
+    file_size_bytes = Column(BigInteger, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

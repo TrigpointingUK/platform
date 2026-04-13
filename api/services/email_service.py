@@ -3,6 +3,9 @@ Email service for sending emails via AWS SES.
 """
 
 import json
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Optional
 
 import boto3
@@ -121,6 +124,120 @@ class EmailService:
             }
             logger.error(json.dumps(log_data))
 
+            return False
+
+    def send_archive_email(
+        self,
+        to_email: str,
+        username: str,
+        zip_bytes: bytes,
+        filename: str,
+        log_count: int,
+        user_id: Optional[int] = None,
+    ) -> bool:
+        """
+        Send an archive email with a zip file attachment via SES SendRawEmail.
+
+        In non-production environments, the recipient is always overridden to
+        test@teasel.org to prevent accidental emails to real users.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        from api.core.config import settings
+
+        if not self.ses_client:
+            logger.error("SES client not available")
+            return False
+
+        actual_recipient = to_email
+        if settings.ENVIRONMENT != "production":
+            actual_recipient = "test@teasel.org"
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "archive_email_recipient_override",
+                        "original_recipient": to_email,
+                        "actual_recipient": actual_recipient,
+                        "environment": settings.ENVIRONMENT,
+                        "user_id": user_id,
+                    }
+                )
+            )
+
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = f"TrigpointingUK Data Archive for {username}"
+        msg["From"] = self.from_email
+        msg["To"] = actual_recipient
+
+        body_html = (
+            f"<html><body>"
+            f"<p>Hello {username},</p>"
+            f"<p>Please find attached your TrigpointingUK data archive "
+            f"containing <strong>{log_count}</strong> published log(s).</p>"
+            f"<p>This archive was generated on {filename.split('_')[-1].replace('.zip', '')} UTC.</p>"
+            f"<p>If you no longer wish to receive these emails, you can change "
+            f"your archive frequency in your TrigpointingUK account settings.</p>"
+            f"<p>— TrigpointingUK</p>"
+            f"</body></html>"
+        )
+        body_part = MIMEText(body_html, "html", "utf-8")
+        msg.attach(body_part)
+
+        attachment = MIMEApplication(zip_bytes, "zip")
+        attachment.add_header("Content-Disposition", "attachment", filename=filename)
+        msg.attach(attachment)
+
+        try:
+            response = self.ses_client.send_raw_email(
+                Source=self.from_email,
+                Destinations=[actual_recipient],
+                RawMessage={"Data": msg.as_string()},
+            )
+
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "archive_email_sent",
+                        "to": actual_recipient,
+                        "original_to": to_email,
+                        "message_id": response.get("MessageId", ""),
+                        "username": username,
+                        "user_id": user_id,
+                        "zip_size_bytes": len(zip_bytes),
+                        "log_count": log_count,
+                    }
+                )
+            )
+            return True
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            error_message = e.response.get("Error", {}).get("Message", str(e))
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "archive_email_failed",
+                        "to": actual_recipient,
+                        "error_code": error_code,
+                        "error_message": error_message,
+                        "user_id": user_id,
+                    }
+                )
+            )
+            return False
+
+        except Exception as e:
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "archive_email_error",
+                        "to": actual_recipient,
+                        "error": str(e),
+                        "user_id": user_id,
+                    }
+                )
+            )
             return False
 
 

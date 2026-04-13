@@ -7,6 +7,7 @@ import io
 import json
 import os
 import time
+from datetime import UTC
 from datetime import date as date_type
 from datetime import datetime
 from typing import Any, Dict, Mapping, Optional, Union
@@ -433,6 +434,8 @@ def get_current_user_profile(
                 public_ind=str(current_user.public_ind),
                 email=str(current_user.email),
                 email_valid=str(current_user.email_valid),
+                archive_frequency=str(current_user.archive_frequency or "N"),
+                archive_format=str(current_user.archive_format or "C"),
                 ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
             )
 
@@ -484,6 +487,8 @@ def update_current_user_profile(
             public_ind=str(current_user.public_ind),
             email=str(current_user.email),
             email_valid=str(current_user.email_valid),
+            archive_frequency=str(current_user.archive_frequency or "N"),
+            archive_format=str(current_user.archive_format or "C"),
             ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
         )
         return result
@@ -647,10 +652,197 @@ def update_current_user_profile(
         public_ind=str(current_user.public_ind),
         email=str(current_user.email),
         email_valid=str(current_user.email_valid),
+        archive_frequency=str(current_user.archive_frequency or "N"),
+        archive_format=str(current_user.archive_format or "C"),
         ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
     )
 
     return result
+
+
+@router.post(
+    "/me/archive",
+    status_code=202,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Immediately generate and send a data archive email to the current user. "
+        "Non-admin users limited to once per 24 hours.",
+    ),
+)
+def send_archive_now(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Immediately generate and email a data archive to the authenticated user.
+
+    Rate limited to once per 24 hours for non-admin users.
+    Admin users (api:admin scope) are exempt from the rate limit.
+    """
+    from api.core.config import settings
+    from api.core.logging import get_logger
+    from api.models.user import UserArchive
+    from api.services.archive_service import generate_archive_zip
+    from api.services.email_service import email_service
+
+    logger = get_logger(__name__)
+
+    user_id = int(current_user.id)
+    username = str(current_user.name or f"user_{user_id}")
+    email_addr = str(current_user.email or "")
+
+    if not email_addr or email_addr.strip() == "":
+        raise HTTPException(
+            status_code=400,
+            detail="No email address on your account. Update your email in settings first.",
+        )
+
+    # Rate limit: once per 24h unless admin
+    token_payload = getattr(current_user, "_token_payload", None)
+    is_admin = False
+    if token_payload:
+        from api.api.deps import has_scope
+
+        is_admin = has_scope(token_payload, "api:admin")
+
+    if not is_admin:
+        from datetime import datetime, timedelta, timezone
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        recent = (
+            db.query(UserArchive)
+            .filter(
+                UserArchive.user_id == user_id,
+                UserArchive.status == "S",
+                UserArchive.created_at >= cutoff,
+            )
+            .first()
+        )
+        if recent:
+            raise HTTPException(
+                status_code=429,
+                detail="Archive already sent in the last 24 hours. Try again later.",
+            )
+
+    archive_format = str(current_user.archive_format or "C")
+
+    try:
+        zip_bytes = generate_archive_zip(db, current_user, archive_format)
+    except Exception as e:
+        logger.error(f"Archive generation failed for user {user_id}: {e}")
+        archive_record = UserArchive(
+            user_id=user_id,
+            status="F",
+            frequency_at_send="N",
+            format_at_send=archive_format,
+            error_message=str(e),
+        )
+        db.add(archive_record)
+        db.commit()
+        raise HTTPException(status_code=500, detail="Failed to generate archive")
+
+    export_ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    filename = f"trigpointinguk_{username}_{export_ts}.zip"
+
+    dry_run = getattr(settings, "DRY_RUN_ARCHIVES", False)
+    if dry_run:
+        import pathlib
+        import tempfile
+
+        out_path = pathlib.Path(tempfile.gettempdir()) / filename
+        out_path.write_bytes(zip_bytes)
+        logger.info(f"DRY RUN: archive written to {out_path} ({len(zip_bytes)} bytes)")
+        email_sent = True
+    else:
+        email_sent = email_service.send_archive_email(
+            to_email=email_addr,
+            username=username,
+            zip_bytes=zip_bytes,
+            filename=filename,
+            log_count=db.query(TLog)
+            .filter(TLog.user_id == user_id, TLog.status == "P")
+            .count(),
+            user_id=user_id,
+        )
+
+    log_count = (
+        db.query(TLog).filter(TLog.user_id == user_id, TLog.status == "P").count()
+    )
+
+    archive_record = UserArchive(
+        user_id=user_id,
+        status="S" if email_sent else "F",
+        frequency_at_send="N",
+        format_at_send=archive_format,
+        log_count=log_count,
+        file_size_bytes=len(zip_bytes),
+        error_message=None if email_sent else "SES send failed",
+    )
+    db.add(archive_record)
+    db.commit()
+
+    if not email_sent:
+        raise HTTPException(status_code=500, detail="Failed to send archive email")
+
+    return {
+        "status": "sent",
+        "log_count": log_count,
+        "zip_size_bytes": len(zip_bytes),
+        "format": archive_format,
+    }
+
+
+@router.get(
+    "/me/archives",
+    openapi_extra=openapi_lifecycle(
+        "beta", note="List past archive emails sent to the current user."
+    ),
+)
+def list_my_archives(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List past archive emails for the authenticated user."""
+    from api.models.user import UserArchive
+
+    user_id = int(current_user.id)
+
+    total = db.query(UserArchive).filter(UserArchive.user_id == user_id).count()
+    archives = (
+        db.query(UserArchive)
+        .filter(UserArchive.user_id == user_id)
+        .order_by(UserArchive.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for a in archives:
+        items.append(
+            {
+                "id": a.id,
+                "status": a.status,
+                "frequency_at_send": a.frequency_at_send,
+                "format_at_send": a.format_at_send,
+                "log_count": a.log_count,
+                "file_size_bytes": a.file_size_bytes,
+                "error_message": a.error_message,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+        )
+
+    return {
+        "items": items,
+        "pagination": {
+            "total": total,
+            "limit": limit,
+            "offset": skip,
+            "has_more": (skip + len(archives)) < total,
+        },
+    }
 
 
 @router.post(

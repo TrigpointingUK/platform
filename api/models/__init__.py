@@ -9,7 +9,7 @@ from .tphoto import TPhoto
 from .trig import Trig
 from .trig_list import TrigList, TrigListItem
 from .trig_type import TrigCategory, TrigType
-from .user import TLog, TPhotoVote, User
+from .user import TLog, TPhotoVote, User, UserArchive
 
 __all__ = [
     "Area",
@@ -17,6 +17,7 @@ __all__ = [
     "Condition",
     "DocumentChunk",
     "User",
+    "UserArchive",
     "TLog",
     "TPhotoVote",
     "Status",

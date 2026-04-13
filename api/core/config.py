@@ -125,6 +125,9 @@ class Settings(BaseSettings):
     OPENGRAPH_S3_BUCKET: str = "trigpointinguk-opengraph"
     OPENGRAPH_IMAGE_TTL_DAYS: int = 7
 
+    # Archive email configuration
+    DRY_RUN_ARCHIVES: bool = False
+
     # Redis/ElastiCache Configuration
     REDIS_URL: Optional[str] = None  # e.g., redis://host:6379
     CACHE_ENABLED: bool = True  # Enable/disable caching globally
