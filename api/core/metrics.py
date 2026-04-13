@@ -34,6 +34,7 @@ class MetricsCollector:
         self._initialize_http_metrics()
         self._initialize_database_metrics()
         self._initialize_business_metrics()
+        self._initialize_archive_metrics()
 
     def _initialize_http_metrics(self) -> None:
         """Initialize HTTP request metrics following OpenTelemetry semantic conventions."""
@@ -305,6 +306,58 @@ class MetricsCollector:
             cache_type: Type of cache (auth0_token, api_response, tiles)
         """
         self.cache_misses.add(1, {"cache_type": cache_type})
+
+    # Archive Metrics Initialisation & Helpers
+
+    def _initialize_archive_metrics(self) -> None:
+        """Initialize metrics for data archive email operations."""
+        self.archives_sent: Counter = self.meter.create_counter(
+            name="trigpointing.archives.sent",
+            description="Number of archive emails sent successfully",
+            unit="1",
+        )
+
+        self.archives_failed: Counter = self.meter.create_counter(
+            name="trigpointing.archives.failed",
+            description="Number of archive operations that failed",
+            unit="1",
+        )
+
+        self.archives_skipped: Counter = self.meter.create_counter(
+            name="trigpointing.archives.skipped",
+            description="Number of users skipped (not yet due)",
+            unit="1",
+        )
+
+        self.archives_size_bytes: Histogram = self.meter.create_histogram(
+            name="trigpointing.archives.size_bytes",
+            description="Size of generated archive zip files",
+            unit="By",
+        )
+
+    def record_archive_sent(self, archive_format: str, size_bytes: int) -> None:
+        """
+        Record a successfully sent archive email.
+
+        Args:
+            archive_format: Format code (C, J, R)
+            size_bytes: Size of the zip attachment in bytes
+        """
+        self.archives_sent.add(1, {"format": archive_format})
+        self.archives_size_bytes.record(size_bytes, {"format": archive_format})
+
+    def record_archive_failed(self, stage: str) -> None:
+        """
+        Record a failed archive operation.
+
+        Args:
+            stage: Which stage failed -- "generate" or "send"
+        """
+        self.archives_failed.add(1, {"stage": stage})
+
+    def record_archive_skipped(self) -> None:
+        """Record a user skipped because they are not yet due."""
+        self.archives_skipped.add(1)
 
 
 # Global metrics collector instance

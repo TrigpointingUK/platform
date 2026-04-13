@@ -677,11 +677,13 @@ def send_archive_now(
     """
     from api.core.config import settings
     from api.core.logging import get_logger
+    from api.core.metrics import get_metrics_collector
     from api.models.user import UserArchive
     from api.services.archive_service import generate_archive_zip
     from api.services.email_service import email_service
 
     logger = get_logger(__name__)
+    mc = get_metrics_collector()
 
     user_id = int(current_user.id)
     username = str(current_user.name or f"user_{user_id}")
@@ -733,6 +735,8 @@ def send_archive_now(
         )
         db.add(archive_record)
         db.commit()
+        if mc:
+            mc.record_archive_failed("generate")
         raise HTTPException(status_code=500, detail="Failed to generate archive")
 
     export_ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -778,7 +782,12 @@ def send_archive_now(
     db.commit()
 
     if not email_sent:
+        if mc:
+            mc.record_archive_failed("send")
         raise HTTPException(status_code=500, detail="Failed to send archive email")
+
+    if mc:
+        mc.record_archive_sent(archive_format, len(zip_bytes))
 
     return {
         "status": "sent",

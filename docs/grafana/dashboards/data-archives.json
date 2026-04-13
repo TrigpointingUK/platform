@@ -1,0 +1,184 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "data-archives",
+    "title": "Data Archives",
+    "description": "Archive email operations: send rate, failures, and zip sizes",
+    "tags": ["trigpointing", "archives"],
+    "timezone": "utc",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "5m",
+    "time": {
+      "from": "now-30d",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "custom",
+          "query": "production,staging",
+          "current": { "text": "production", "value": "production" },
+          "options": [
+            { "text": "production", "value": "production", "selected": true },
+            { "text": "staging", "value": "staging", "selected": false }
+          ]
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Archives per day",
+        "description": "Stacked bar chart: sent vs failed vs skipped per calendar day",
+        "type": "barchart",
+        "gridPos": { "h": 10, "w": 16, "x": 0, "y": 0 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "fixed" }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "sent" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "failed" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "skipped" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }]
+            }
+          ]
+        },
+        "options": {
+          "stacking": "normal",
+          "barWidth": 0.8,
+          "tooltip": { "mode": "multi" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "legendFormat": "sent",
+            "expr": "increase(trigpointing_archives_sent_total{environment=\"$environment\"}[1d])"
+          },
+          {
+            "refId": "B",
+            "legendFormat": "failed",
+            "expr": "increase(trigpointing_archives_failed_total{environment=\"$environment\"}[1d])"
+          },
+          {
+            "refId": "C",
+            "legendFormat": "skipped",
+            "expr": "increase(trigpointing_archives_skipped_total{environment=\"$environment\"}[1d])"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Failure rate (%)",
+        "description": "Percentage of archive attempts that failed over time",
+        "type": "timeseries",
+        "gridPos": { "h": 10, "w": 8, "x": 16, "y": 0 },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": { "mode": "fixed", "fixedColor": "red" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 5 },
+                { "color": "red", "value": 20 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "tooltip": { "mode": "single" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "legendFormat": "failure %",
+            "expr": "100 * increase(trigpointing_archives_failed_total{environment=\"$environment\"}[1d]) / clamp_min(increase(trigpointing_archives_sent_total{environment=\"$environment\"}[1d]) + increase(trigpointing_archives_failed_total{environment=\"$environment\"}[1d]), 1)"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Archive size distribution",
+        "description": "Histogram of zip file sizes (bytes)",
+        "type": "histogram",
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decbytes",
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "bucketSize": 100000,
+          "combine": false,
+          "tooltip": { "mode": "single" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "legendFormat": "size",
+            "expr": "trigpointing_archives_size_bytes_bucket{environment=\"$environment\"}"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Archives by format",
+        "description": "Breakdown of sent archives by format (C=CSV, J=JSON, R=viewer)",
+        "type": "piechart",
+        "gridPos": { "h": 10, "w": 6, "x": 12, "y": 10 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "tooltip": { "mode": "single" },
+          "legend": { "displayMode": "table", "placement": "bottom" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "legendFormat": "{{format}}",
+            "expr": "increase(trigpointing_archives_sent_total{environment=\"$environment\"}[$__range])"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Failures by stage",
+        "description": "Failure count split by stage (generate vs send)",
+        "type": "piechart",
+        "gridPos": { "h": 10, "w": 6, "x": 18, "y": 10 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "tooltip": { "mode": "single" },
+          "legend": { "displayMode": "table", "placement": "bottom" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "legendFormat": "{{stage}}",
+            "expr": "increase(trigpointing_archives_failed_total{environment=\"$environment\"}[$__range])"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

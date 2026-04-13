@@ -15,6 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.core.config import settings
+from api.core.metrics import get_metrics_collector
 from api.db.database import get_session_local
 from api.models.user import TLog, User, UserArchive
 from api.services.archive_service import generate_archive_zip
@@ -118,6 +119,7 @@ def process_user(db: Session, user: User, now: datetime) -> None:
     username = str(user.name or f"user_{user_id}")
     archive_format = str(user.archive_format or "C")
     freq = str(user.archive_frequency or "N")
+    mc = get_metrics_collector()
 
     try:
         zip_bytes = generate_archive_zip(db, user, archive_format)
@@ -132,6 +134,8 @@ def process_user(db: Session, user: User, now: datetime) -> None:
         )
         db.add(record)
         db.commit()
+        if mc:
+            mc.record_archive_failed("generate")
         return
 
     log_count = (
@@ -178,8 +182,12 @@ def process_user(db: Session, user: User, now: datetime) -> None:
             f"Archive sent to {username} (user_id={user_id}, "
             f"logs={log_count}, size={len(zip_bytes)})"
         )
+        if mc:
+            mc.record_archive_sent(archive_format, len(zip_bytes))
     else:
         logger.error(f"Archive email failed for {username} (user_id={user_id})")
+        if mc:
+            mc.record_archive_failed("send")
 
 
 def run() -> None:
@@ -206,12 +214,15 @@ def run() -> None:
         sent = 0
         skipped = 0
         failed = 0
+        mc = get_metrics_collector()
 
         for user in candidates:
             is_due, reason = _is_user_due(db, user, now)
             if not is_due:
                 logger.info(f"Skipping user {user.id} ({user.name}): {reason}")
                 skipped += 1
+                if mc:
+                    mc.record_archive_skipped()
                 continue
 
             logger.info(f"Processing user {user.id} ({user.name}): {reason}")
@@ -224,6 +235,8 @@ def run() -> None:
                     exc_info=True,
                 )
                 failed += 1
+                if mc:
+                    mc.record_archive_failed("generate")
 
         logger.info(
             f"Archive run complete: sent={sent}, skipped={skipped}, failed={failed}"
