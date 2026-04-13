@@ -204,7 +204,9 @@ function init() {
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
-    a.download = "trigpointinguk_" + (DATA.user ? DATA.user.username : "archive") + "_logs.json";
+    a.download = "trigpointinguk_" + (DATA.user ? DATA.user.username : "archive") + "_" +
+      (DATA.export_date || "").replace(/[-:T]/g, "").replace(/\..*/,"").replace(/^(\d{8})(\d{6}).*/, "$1_$2") +
+      "_logs.json";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
