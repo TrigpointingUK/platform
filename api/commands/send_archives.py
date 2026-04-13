@@ -157,6 +157,8 @@ def process_user(db: Session, user: User, now: datetime) -> None:
             filename=filename,
             log_count=log_count,
             user_id=user_id,
+            firstname=str(user.firstname or ""),
+            surname=str(user.surname or ""),
         )
 
     record = UserArchive(

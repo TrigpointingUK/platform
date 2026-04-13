@@ -2,11 +2,14 @@
 Email service for sending emails via AWS SES.
 """
 
+import hashlib
+import hmac
 import json
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
+from urllib.parse import urlencode
 
 import boto3
 from botocore.exceptions import ClientError
@@ -14,6 +17,47 @@ from botocore.exceptions import ClientError
 from api.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+_SITE_URLS = {
+    "production": "https://trigpointing.uk",
+    "staging": "https://trigpointing.me",
+}
+
+
+def _site_url(environment: str) -> str:
+    return _SITE_URLS.get(environment, "http://localhost:5173")
+
+
+def _build_display_name(
+    firstname: Optional[str], surname: Optional[str], username: str
+) -> str:
+    parts = [p.strip() for p in (firstname, surname) if p and p.strip()]
+    if parts:
+        return f"{' '.join(parts)} ({username})"
+    return username
+
+
+def _unsubscribe_token(secret: str, user_id: int) -> str:
+    """HMAC-SHA256 token for one-click archive unsubscribe."""
+    return hmac.new(
+        secret.encode(),
+        f"archive-unsubscribe-{user_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def verify_unsubscribe_token(secret: str, user_id: int, token: str) -> bool:
+    expected = _unsubscribe_token(secret, user_id)
+    return hmac.compare_digest(expected, token)
+
+
+def _unsubscribe_url(settings: object, user_id: Optional[int]) -> str:
+    """Build a signed one-click unsubscribe URL."""
+    secret = getattr(settings, "WEBHOOK_SHARED_SECRET", None) or "dev-fallback"
+    api_base = getattr(settings, "FASTAPI_URL", "http://localhost:8000")
+    token = _unsubscribe_token(secret, user_id or 0)
+    qs = urlencode({"uid": user_id or 0, "token": token})
+    return f"{api_base}/v1/users/archive-unsubscribe?{qs}"
 
 
 class EmailService:
@@ -134,6 +178,8 @@ class EmailService:
         filename: str,
         log_count: int,
         user_id: Optional[int] = None,
+        firstname: Optional[str] = None,
+        surname: Optional[str] = None,
     ) -> bool:
         """
         Send an archive email with a zip file attachment via SES SendRawEmail.
@@ -165,19 +211,31 @@ class EmailService:
                 )
             )
 
+        display_name = _build_display_name(firstname, surname, username)
+        site_url = _site_url(settings.ENVIRONMENT)
+        prefs_url = f"{site_url}/preferences#data-archive"
+        unsubscribe_url = _unsubscribe_url(settings, user_id)
+
         msg = MIMEMultipart("mixed")
         msg["Subject"] = f"TrigpointingUK Data Archive for {username}"
         msg["From"] = self.from_email
         msg["To"] = actual_recipient
+        msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
         body_html = (
             f"<html><body>"
-            f"<p>Hello {username},</p>"
-            f"<p>Please find attached your TrigpointingUK data archive "
+            f"<p>Hello {display_name},</p>"
+            f"<p>You are receiving this email because you are, or have been, "
+            f"an active user of the TrigpointingUK website.</p>"
+            f"<p>All users are sent a backup archive of their data once every "
+            f"year on an opt-out basis, or more frequently on an opt-in basis.</p>"
+            f"<p>If you no longer wish to receive these emails, "
+            f'<a href="{unsubscribe_url}">click here to unsubscribe</a>. '
+            f"To change how often you receive these archives, or choose what they contain,visit your "
+            f'<a href="{prefs_url}">TrigpointingUK account preferences</a>.</p>'
+            f"<p>Please find attached your TrigpointingUK backup archive "
             f"containing <strong>{log_count}</strong> published log(s).</p>"
-            f"<p>This archive was generated on {filename.split('_')[-1].replace('.zip', '')} UTC.</p>"
-            f"<p>If you no longer wish to receive these emails, you can change "
-            f"your archive frequency in your TrigpointingUK account settings.</p>"
             f"<p>— TrigpointingUK</p>"
             f"</body></html>"
         )

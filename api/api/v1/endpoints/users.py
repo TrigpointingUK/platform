@@ -757,6 +757,8 @@ def send_archive_now(
             .filter(TLog.user_id == user_id, TLog.status == "P")
             .count(),
             user_id=user_id,
+            firstname=str(current_user.firstname or ""),
+            surname=str(current_user.surname or ""),
         )
 
     log_count = (
@@ -837,6 +839,50 @@ def list_my_archives(
             "has_more": (skip + len(archives)) < total,
         },
     }
+
+
+@router.get(
+    "/archive-unsubscribe",
+    openapi_extra=openapi_lifecycle(
+        "beta", note="One-click unsubscribe from archive emails via signed token."
+    ),
+)
+def archive_unsubscribe(
+    uid: int = Query(..., description="User ID"),
+    token: str = Query(..., description="HMAC token"),
+    db: Session = Depends(get_db),
+):
+    """One-click unsubscribe from archive emails (no login required)."""
+    from api.core.config import settings
+    from api.services.email_service import verify_unsubscribe_token
+
+    secret = settings.WEBHOOK_SHARED_SECRET or "dev-fallback"
+    if not verify_unsubscribe_token(secret, uid, token):
+        raise HTTPException(status_code=403, detail="Invalid or expired link")
+
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.archive_frequency = "N"  # type: ignore[assignment]
+    db.commit()
+
+    site_url = {
+        "production": "https://trigpointing.uk",
+        "staging": "https://trigpointing.me",
+    }.get(settings.ENVIRONMENT, "http://localhost:5173")
+
+    from fastapi.responses import HTMLResponse
+
+    return HTMLResponse(
+        f"<html><body style='font-family: sans-serif; max-width: 600px; "
+        f"margin: 2em auto; text-align: center;'>"
+        f"<h2>Unsubscribed</h2>"
+        f"<p>You have been unsubscribed from TrigpointingUK archive emails.</p>"
+        f"<p>If you change your mind, you can re-enable them from your "
+        f'<a href="{site_url}/preferences#data-archive">account preferences</a>.</p>'
+        f"</body></html>"
+    )
 
 
 @router.post(
