@@ -438,7 +438,7 @@ def get_current_user_profile(
                     getattr(current_user, "archive_frequency", None) or "N"
                 ),
                 archive_format=str(
-                    getattr(current_user, "archive_format", None) or "C"
+                    getattr(current_user, "archive_format", None) or "R"
                 ),
                 ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
             )
@@ -490,7 +490,7 @@ def update_current_user_profile(
             email=str(current_user.email),
             email_valid=str(current_user.email_valid),
             archive_frequency=str(current_user.archive_frequency or "N"),
-            archive_format=str(current_user.archive_format or "C"),
+            archive_format=str(current_user.archive_format or "R"),
             ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
         )
         return result
@@ -653,7 +653,7 @@ def update_current_user_profile(
         email=str(current_user.email),
         email_valid=str(current_user.email_valid),
         archive_frequency=str(current_user.archive_frequency or "N"),
-        archive_format=str(current_user.archive_format or "C"),
+        archive_format=str(current_user.archive_format or "R"),
         ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
     )
 
@@ -724,7 +724,7 @@ def send_archive_now(
                 detail="Archive already sent in the last 24 hours. Try again later.",
             )
 
-    archive_format = str(current_user.archive_format or "C")
+    archive_format = str(current_user.archive_format or "R")
 
     try:
         zip_bytes = generate_archive_zip(db, current_user, archive_format)

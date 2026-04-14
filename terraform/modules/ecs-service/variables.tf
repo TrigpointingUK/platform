@@ -192,6 +192,12 @@ variable "efs_access_point_id" {
   default     = null
 }
 
+variable "fastapi_public_url" {
+  description = "Public HTTPS base URL for the API (email unsubscribe links, redirects). Omit for local-only defaults."
+  type        = string
+  default     = null
+}
+
 variable "redis_url" {
   description = "Redis/Valkey connection URL for Auth0 token caching"
   type        = string

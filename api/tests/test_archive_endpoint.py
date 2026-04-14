@@ -24,7 +24,7 @@ def _create_user_with_log(db):
         email_valid="Y",
         public_ind="Y",
         archive_frequency="N",
-        archive_format="C",
+        archive_format="R",
         auth0_user_id="auth0|9001",
     )
     db.add(user)
@@ -297,5 +297,5 @@ class TestGetMeProfileIncludes:
         assert data["breakdown"] is not None
         assert "by_current_use" in data["breakdown"]
         assert data["prefs"]["archive_frequency"] == "N"
-        assert data["prefs"]["archive_format"] == "C"
+        assert data["prefs"]["archive_format"] == "R"
         assert "email" in data["prefs"]

@@ -117,7 +117,7 @@ def process_user(db: Session, user: User, now: datetime) -> None:
     """Generate and send archive for a single user, recording the result."""
     user_id = int(user.id)
     username = str(user.name or f"user_{user_id}")
-    archive_format = str(user.archive_format or "C")
+    archive_format = str(user.archive_format or "R")
     freq = str(user.archive_frequency or "N")
     mc = get_metrics_collector()
 

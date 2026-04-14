@@ -131,8 +131,8 @@ class UserPrefs(BaseModel):
         description="Archive email frequency: N=never, Y=yearly, M=monthly-if-active-else-yearly, W=weekly-if-active-else-monthly",
     )
     archive_format: str = Field(
-        "C",
-        description="Archive email format: C=CSV only, J=CSV+JSON, R=CSV+JSON+reader",
+        "R",
+        description="Archive email format: C=CSV only, J=CSV+JSON, R=CSV+JSON+HTML viewer",
     )
     ui_prefs: Optional[Dict[str, Any]] = Field(
         None,
@@ -181,7 +181,7 @@ class UserUpdate(BaseModel):
     archive_format: Optional[str] = Field(
         None,
         pattern="^[CJR]$",
-        description="Archive email format: C=CSV only, J=CSV+JSON, R=CSV+JSON+reader",
+        description="Archive email format: C=CSV only, J=CSV+JSON, R=CSV+JSON+HTML viewer",
     )
     ui_prefs: Optional[Dict[str, Any]] = Field(
         None,

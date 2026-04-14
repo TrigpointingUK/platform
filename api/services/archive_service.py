@@ -209,14 +209,14 @@ def _logs_to_json_batch(
     return result
 
 
-def generate_archive_zip(db: Session, user: User, archive_format: str = "C") -> bytes:
+def generate_archive_zip(db: Session, user: User, archive_format: str = "R") -> bytes:
     """
     Generate an in-memory zip archive of a user's published logs.
 
     Args:
         db: Database session
         user: The user whose data to export
-        archive_format: C=CSV only, J=CSV+JSON, R=CSV+JSON+reader
+        archive_format: C=CSV only, J=CSV+JSON, R=CSV+JSON+HTML viewer
 
     Returns:
         bytes of the zip file
