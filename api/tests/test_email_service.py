@@ -2,10 +2,12 @@
 Tests for the email service (SES).
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from botocore.exceptions import ClientError
 
+from api.services import email_service as email_service_module
 from api.services.email_service import EmailService
 
 
@@ -20,6 +22,53 @@ class TestEmailServiceInit:
     def test_init_failure_sets_client_none(self, mock_boto_client):
         svc = EmailService()
         assert svc.ses_client is None
+
+
+class TestPublicApiBaseUrl:
+    def test_production_replaces_localhost_default(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="production", FASTAPI_URL="http://localhost:8000"
+        )
+        assert (
+            email_service_module._public_api_base_url(s)
+            == "https://api.trigpointing.uk"
+        )
+
+    def test_staging_replaces_localhost_default(self):
+        s = SimpleNamespace(ENVIRONMENT="staging", FASTAPI_URL="http://localhost:8000")
+        assert (
+            email_service_module._public_api_base_url(s)
+            == "https://api.trigpointing.me"
+        )
+
+    def test_development_keeps_localhost(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="development", FASTAPI_URL="http://localhost:8000"
+        )
+        assert email_service_module._public_api_base_url(s) == "http://localhost:8000"
+
+    def test_explicit_public_url_preserved_in_production(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="production",
+            FASTAPI_URL="https://api.trigpointing.uk",
+        )
+        assert (
+            email_service_module._public_api_base_url(s)
+            == "https://api.trigpointing.uk"
+        )
+
+    def test_unsubscribe_url_uses_public_base(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="production",
+            FASTAPI_URL="http://localhost:8000",
+            WEBHOOK_SHARED_SECRET="s3cr3t",
+        )
+        url = email_service_module._unsubscribe_url(s, 99)
+        assert url.startswith(
+            "https://api.trigpointing.uk/v1/users/archive-unsubscribe?"
+        )
+        assert "uid=99" in url
+        assert "token=" in url
 
 
 class TestSendContactEmail:

@@ -86,7 +86,7 @@ export default function ArchivePreferencesPanel({
   const [sending, setSending] = useState(false);
 
   const currentFrequency = user.prefs?.archive_frequency ?? "N";
-  const currentFormat = user.prefs?.archive_format ?? "C";
+  const currentFormat = user.prefs?.archive_format ?? "R";
 
   const {
     data: history,

@@ -23,9 +23,45 @@ _SITE_URLS = {
     "staging": "https://trigpointing.me",
 }
 
+# Public API host for links in outbound email (matches ALB / Cloudflare hostnames).
+_API_PUBLIC_BASE_BY_ENV = {
+    "production": "https://api.trigpointing.uk",
+    "staging": "https://api.trigpointing.me",
+}
+
 
 def _site_url(environment: str) -> str:
     return _SITE_URLS.get(environment, "http://localhost:5173")
+
+
+def _is_loopback_api_url(url: str) -> bool:
+    u = url.strip().lower()
+    return (
+        "localhost" in u
+        or u.startswith("http://127.")
+        or u.startswith("https://127.")
+        or "::1" in u
+    )
+
+
+def _public_api_base_url(settings: object) -> str:
+    """
+    Base URL for user-facing API links in email (unsubscribe, etc.).
+
+    ECS tasks often omit FASTAPI_URL, so Pydantic leaves the localhost default; we
+    still infer the correct public hostname from ENVIRONMENT.
+    """
+    env = (
+        str(getattr(settings, "ENVIRONMENT", "development") or "development")
+        .strip()
+        .lower()
+    )
+    raw = str(getattr(settings, "FASTAPI_URL", "") or "").strip().rstrip("/")
+    if not raw:
+        raw = "http://localhost:8000"
+    if not _is_loopback_api_url(raw):
+        return raw
+    return _API_PUBLIC_BASE_BY_ENV.get(env, raw)
 
 
 def _build_display_name(
@@ -54,7 +90,7 @@ def verify_unsubscribe_token(secret: str, user_id: int, token: str) -> bool:
 def _unsubscribe_url(settings: object, user_id: Optional[int]) -> str:
     """Build a signed one-click unsubscribe URL."""
     secret = getattr(settings, "WEBHOOK_SHARED_SECRET", None) or "dev-fallback"
-    api_base = getattr(settings, "FASTAPI_URL", "http://localhost:8000")
+    api_base = _public_api_base_url(settings)
     token = _unsubscribe_token(secret, user_id or 0)
     qs = urlencode({"uid": user_id or 0, "token": token})
     return f"{api_base}/v1/users/archive-unsubscribe?{qs}"
@@ -221,6 +257,7 @@ class EmailService:
         msg["From"] = self.from_email
         msg["To"] = actual_recipient
         msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+        # RFC 8058: MUAs POST List-Unsubscribe=One-Click to the same URI (see POST handler).
         msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
         body_html = (

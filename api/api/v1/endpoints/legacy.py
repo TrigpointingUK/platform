@@ -204,7 +204,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                     email=str(user.email),
                     email_valid=str(user.email_valid),
                     archive_frequency=str(user.archive_frequency or "N"),
-                    archive_format=str(user.archive_format or "C"),
+                    archive_format=str(user.archive_format or "R"),
                     ui_prefs=dict(user.ui_prefs) if user.ui_prefs else {},
                 )
 
@@ -412,7 +412,7 @@ def login_for_access_token(request: LegacyLoginRequest, db: Session = Depends(ge
                 email=str(user.email),
                 email_valid=str(user.email_valid),
                 archive_frequency=str(user.archive_frequency or "N"),
-                archive_format=str(user.archive_format or "C"),
+                archive_format=str(user.archive_format or "R"),
                 ui_prefs=dict(user.ui_prefs) if user.ui_prefs else {},
             )
 

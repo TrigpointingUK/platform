@@ -91,8 +91,8 @@ class User(Base):
     # N=never, Y=yearly, M=monthly-if-active-else-yearly,
     # W=weekly-if-active-else-monthly
     archive_frequency = Column(CHAR(1), nullable=False, server_default="N")
-    # C=CSV only, J=CSV+JSON, R=CSV+JSON+reader
-    archive_format = Column(CHAR(1), nullable=False, server_default="C")
+    # C=CSV only, J=CSV+JSON, R=CSV+JSON+HTML viewer
+    archive_format = Column(CHAR(1), nullable=False, server_default="R", default="R")
 
     # Timestamps
     crt_date = Column(

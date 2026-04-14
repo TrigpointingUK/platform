@@ -4,9 +4,11 @@ Tests for the archive email endpoints (POST /me/archive, GET /me/archives).
 
 from datetime import date, time
 from unittest.mock import patch
+from urllib.parse import urlencode
 
 from api.models.trig import Trig
 from api.models.user import TLog, User, UserArchive
+from api.services import email_service as email_service_module
 
 
 def _create_user_with_log(db):
@@ -22,7 +24,7 @@ def _create_user_with_log(db):
         email_valid="Y",
         public_ind="Y",
         archive_frequency="N",
-        archive_format="C",
+        archive_format="R",
         auth0_user_id="auth0|9001",
     )
     db.add(user)
@@ -222,3 +224,78 @@ class TestListArchives:
         assert len(data["items"]) == 1
         assert data["items"][0]["status"] == "S"
         assert data["items"][0]["log_count"] == 1
+
+
+class TestArchiveUnsubscribe:
+    """GET/POST /v1/users/archive-unsubscribe (RFC 8058 one-click for POST)."""
+
+    def _token_for_user(self, user_id: int) -> str:
+        return email_service_module._unsubscribe_token("dev-fallback", user_id)
+
+    def test_get_unsubscribe_success(self, client, db):
+        user = _create_user_with_log(db)
+        user.archive_frequency = "W"
+        db.commit()
+
+        token = self._token_for_user(int(user.id))
+        qs = urlencode({"uid": user.id, "token": token})
+        response = client.get(f"/v1/users/archive-unsubscribe?{qs}")
+        assert response.status_code == 200
+        assert "Unsubscribed" in response.text
+        db.refresh(user)
+        assert user.archive_frequency == "N"
+
+    def test_post_one_click_rfc8058(self, client, db):
+        user = _create_user_with_log(db)
+        user.archive_frequency = "M"
+        db.commit()
+
+        token = self._token_for_user(int(user.id))
+        qs = urlencode({"uid": user.id, "token": token})
+        response = client.post(
+            f"/v1/users/archive-unsubscribe?{qs}",
+            data="List-Unsubscribe=One-Click",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        assert response.status_code == 200
+        assert "Unsubscribed" in response.text
+        db.refresh(user)
+        assert user.archive_frequency == "N"
+
+    def test_post_without_one_click_body_returns_400(self, client, db):
+        user = _create_user_with_log(db)
+        token = self._token_for_user(int(user.id))
+        qs = urlencode({"uid": user.id, "token": token})
+        response = client.post(
+            f"/v1/users/archive-unsubscribe?{qs}",
+            data="",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        assert response.status_code == 400
+
+    def test_get_invalid_token_403(self, client, db):
+        user = _create_user_with_log(db)
+        qs = urlencode({"uid": user.id, "token": "not-a-valid-token"})
+        response = client.get(f"/v1/users/archive-unsubscribe?{qs}")
+        assert response.status_code == 403
+
+
+class TestGetMeProfileIncludes:
+    """Regression: GET /v1/users/me with stats, breakdown, and prefs (archive columns)."""
+
+    def test_include_stats_breakdown_prefs_returns_200(self, client, db):
+        user = _create_user_with_log(db)
+        response = client.get(
+            "/v1/users/me",
+            params={"include": "stats,breakdown,prefs"},
+            headers={"Authorization": f"Bearer auth0_user_{user.id}"},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["stats"]["total_logs"] == 1
+        assert data["stats"]["total_trigs_logged"] == 1
+        assert data["breakdown"] is not None
+        assert "by_current_use" in data["breakdown"]
+        assert data["prefs"]["archive_frequency"] == "N"
+        assert data["prefs"]["archive_format"] == "R"
+        assert "email" in data["prefs"]

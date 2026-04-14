@@ -51,6 +51,8 @@ resource "aws_ecs_task_definition" "archive" {
       command = ["python", "-m", "api.commands.send_archives"]
       environment = [
         { name = "ENVIRONMENT", value = "production" },
+        # Explicit public API URL (archive task has no ALB; Pydantic FASTAPI_URL default is localhost).
+        { name = "FASTAPI_URL", value = "https://api.trigpointing.uk" },
         { name = "LOG_LEVEL", value = "INFO" },
         { name = "DATABASE_POOL_SIZE", value = "2" },
         { name = "DATABASE_POOL_MAX_OVERFLOW", value = "3" },

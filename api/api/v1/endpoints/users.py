@@ -14,8 +14,8 @@ from typing import Any, Dict, Mapping, Optional, Union
 
 import numpy as np
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.security import HTTPBearer
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 from sqlalchemy import and_, func, or_
@@ -428,14 +428,18 @@ def get_current_user_profile(
             )
 
         if "prefs" in tokens:
-            # Always allowed on /me
+            # Always allowed on /me (use getattr for resilience if ORM lags schema)
             result.prefs = UserPrefs(
                 distance_ind=str(current_user.distance_ind),
                 public_ind=str(current_user.public_ind),
                 email=str(current_user.email),
                 email_valid=str(current_user.email_valid),
-                archive_frequency=str(current_user.archive_frequency or "N"),
-                archive_format=str(current_user.archive_format or "C"),
+                archive_frequency=str(
+                    getattr(current_user, "archive_frequency", None) or "N"
+                ),
+                archive_format=str(
+                    getattr(current_user, "archive_format", None) or "R"
+                ),
                 ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
             )
 
@@ -486,7 +490,7 @@ def update_current_user_profile(
             email=str(current_user.email),
             email_valid=str(current_user.email_valid),
             archive_frequency=str(current_user.archive_frequency or "N"),
-            archive_format=str(current_user.archive_format or "C"),
+            archive_format=str(current_user.archive_format or "R"),
             ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
         )
         return result
@@ -649,7 +653,7 @@ def update_current_user_profile(
         email=str(current_user.email),
         email_valid=str(current_user.email_valid),
         archive_frequency=str(current_user.archive_frequency or "N"),
-        archive_format=str(current_user.archive_format or "C"),
+        archive_format=str(current_user.archive_format or "R"),
         ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
     )
 
@@ -720,7 +724,7 @@ def send_archive_now(
                 detail="Archive already sent in the last 24 hours. Try again later.",
             )
 
-    archive_format = str(current_user.archive_format or "C")
+    archive_format = str(current_user.archive_format or "R")
 
     try:
         zip_bytes = generate_archive_zip(db, current_user, archive_format)
@@ -850,18 +854,12 @@ def list_my_archives(
     }
 
 
-@router.get(
-    "/archive-unsubscribe",
-    openapi_extra=openapi_lifecycle(
-        "beta", note="One-click unsubscribe from archive emails via signed token."
-    ),
-)
-def archive_unsubscribe(
-    uid: int = Query(..., description="User ID"),
-    token: str = Query(..., description="HMAC token"),
-    db: Session = Depends(get_db),
-):
-    """One-click unsubscribe from archive emails (no login required)."""
+def _archive_unsubscribe_html_response(
+    db: Session, uid: int, token: str
+) -> HTMLResponse:
+    """
+    Shared handler: verify token, disable archive emails, return confirmation HTML.
+    """
     from api.core.config import settings
     from api.services.email_service import verify_unsubscribe_token
 
@@ -881,8 +879,6 @@ def archive_unsubscribe(
         "staging": "https://trigpointing.me",
     }.get(settings.ENVIRONMENT, "http://localhost:5173")
 
-    from fastapi.responses import HTMLResponse
-
     return HTMLResponse(
         f"<html><body style='font-family: sans-serif; max-width: 600px; "
         f"margin: 2em auto; text-align: center;'>"
@@ -892,6 +888,55 @@ def archive_unsubscribe(
         f'<a href="{site_url}/preferences#data-archive">account preferences</a>.</p>'
         f"</body></html>"
     )
+
+
+@router.get(
+    "/archive-unsubscribe",
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Unsubscribe from archive emails (GET: browser link; POST: RFC 8058 one-click).",
+    ),
+)
+def archive_unsubscribe_get(
+    uid: int = Query(..., description="User ID"),
+    token: str = Query(..., description="HMAC token"),
+    db: Session = Depends(get_db),
+):
+    """Unsubscribe via link opened in a browser (no login required)."""
+    return _archive_unsubscribe_html_response(db, uid, token)
+
+
+@router.post(
+    "/archive-unsubscribe",
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="RFC 8058 one-click: POST with List-Unsubscribe=One-Click and same query string as GET.",
+    ),
+)
+async def archive_unsubscribe_post(
+    request: Request,
+    uid: int = Query(..., description="User ID"),
+    token: str = Query(..., description="HMAC token"),
+    db: Session = Depends(get_db),
+):
+    """
+    RFC 8058 mail-client one-click unsubscribe.
+
+    MUAs POST with Content-Type: application/x-www-form-urlencoded and body
+    ``List-Unsubscribe=One-Click`` to the same URI as in the List-Unsubscribe header.
+    """
+    form = await request.form()
+    one_click = False
+    for key, value in form.multi_items():
+        if str(key).lower() == "list-unsubscribe" and str(value) == "One-Click":
+            one_click = True
+            break
+    if not one_click:
+        raise HTTPException(
+            status_code=400,
+            detail="Expected form field List-Unsubscribe=One-Click (RFC 8058)",
+        )
+    return _archive_unsubscribe_html_response(db, uid, token)
 
 
 @router.post(

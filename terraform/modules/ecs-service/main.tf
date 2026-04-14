@@ -121,6 +121,12 @@ resource "aws_ecs_task_definition" "app" {
             value = var.redis_url
           }
         ] : [],
+        var.fastapi_public_url != null ? [
+          {
+            name  = "FASTAPI_URL"
+            value = var.fastapi_public_url
+          }
+        ] : [],
       )
 
       # Secrets from AWS Secrets Manager

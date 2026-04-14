@@ -127,6 +127,7 @@ module "ecs_service" {
   photos_server_id             = var.photos_server_id
   avatars_s3_bucket            = var.avatars_s3_bucket
   opengraph_s3_bucket          = var.opengraph_s3_bucket
+  fastapi_public_url           = "https://${var.domain_name}"
 }
 
 module "monitoring" {

@@ -10,7 +10,8 @@ orientation-model:
 	web-install web-dev web-build web-test web-lint web-type-check \
 	migration-create migration-history send-archives \
 	migrate-staging migrate-production migrate-status downgrade-staging \
-	dbt-staging dbt-production
+	dbt-staging dbt-production \
+	loc
 
 # Default target
 help: ## Show this help message
@@ -190,6 +191,9 @@ format: ## Format code
 format-check: ## Check code formatting
 	black --check api
 	isort --check-only api
+
+loc: ## Count lines in first-party programmatic files (excludes deps, data, lockfiles, HLS)
+	@python scripts/count_project_loc.py .
 
 type-check: ## Run type checking
 	mypy api --ignore-missing-imports
