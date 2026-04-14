@@ -115,23 +115,35 @@ class TestSendArchiveNow:
         assert archive.file_size_bytes > 0
 
     @patch("api.services.email_service.email_service.send_archive_email")
-    def test_rate_limit_non_admin(self, mock_send, client, db):
+    def test_rate_limit_non_admin_per_format(self, mock_send, client, db):
         mock_send.return_value = True
         user = _create_user_with_log(db)
+        assert user.archive_format == "R"
 
-        # First request succeeds
+        # First request (format R) succeeds
         resp1 = client.post(
             "/v1/users/me/archive",
             headers={"Authorization": f"Bearer auth0_user_{user.id}"},
         )
         assert resp1.status_code == 202
 
-        # Second request within 24h should be rate limited
+        # Second request same format within 24h is rate limited
         resp2 = client.post(
             "/v1/users/me/archive",
             headers={"Authorization": f"Bearer auth0_user_{user.id}"},
         )
         assert resp2.status_code == 429
+        assert "format" in resp2.json()["detail"].lower()
+
+        # Different format is allowed in the same window
+        user.archive_format = "C"
+        db.commit()
+
+        resp3 = client.post(
+            "/v1/users/me/archive",
+            headers={"Authorization": f"Bearer auth0_user_{user.id}"},
+        )
+        assert resp3.status_code == 202
 
     def test_no_email_address(self, client, db):
         from passlib.hash import des_crypt
