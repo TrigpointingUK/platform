@@ -235,7 +235,7 @@ class TestGenerateArchiveZip:
             assert "<table" in html
             assert "trigpointing.uk/trigs/" in html
             assert "trigpointing.uk/logs/" in html
-            assert "trigpointing.uk/users/" in html
+            assert "trigpointing.uk/profile/" in html
             assert "trigpointing.uk/map?" in html
             assert "stretched53_default.png" in html
 
