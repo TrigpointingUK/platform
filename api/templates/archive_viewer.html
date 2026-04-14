@@ -178,7 +178,7 @@ function init() {
   const user = DATA.user || {};
 
   document.getElementById("headerMeta").innerHTML =
-    '<a href="https://trigpointing.uk/users/' + user.id + '" class="trig-link">' +
+    '<a href="https://trigpointing.uk/profile/' + user.id + '" class="trig-link">' +
     esc(user.username) + '</a> \u2014 ' + (DATA.export_date || "").split("T")[0];
   document.getElementById("footerDate").textContent =
     " on " + (DATA.export_date || "").split("T")[0];
