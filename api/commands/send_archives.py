@@ -31,16 +31,21 @@ FREQUENCY_INTERVALS = {
     "W": timedelta(weeks=1),
     "M": timedelta(days=30),
     "Y": timedelta(days=365),
+    "D": timedelta(days=1),
+    "B": timedelta(days=1),
 }
 
 FALLBACK_INTERVALS = {
     "W": timedelta(days=30),
     "M": timedelta(days=365),
+    "B": timedelta(weeks=1),
 }
 
 ACTIVE_WINDOWS = {
     "W": timedelta(weeks=1),
     "M": timedelta(days=30),
+    # B: daily if active in the last day, else weekly cadence
+    "B": timedelta(days=1),
 }
 
 
@@ -73,6 +78,8 @@ def _is_user_due(db: Session, user: User, now: datetime) -> tuple[bool, str]:
     For W: send weekly if active in last week, else monthly.
     For M: send monthly if active in last month, else yearly.
     For Y: send yearly always.
+    For D: send at most daily when there is new activity since the last archive.
+    For B: send daily if active in the last day, else weekly (same activity rule as W/M).
     """
     freq = str(user.archive_frequency or "N")
     if freq == "N":
@@ -86,8 +93,22 @@ def _is_user_due(db: Session, user: User, now: datetime) -> tuple[bool, str]:
             return False, "yearly: not yet due"
         return True, "yearly: due"
 
-    active_window = ACTIVE_WINDOWS.get(freq)
     last_act = _last_activity(db, user_id)
+
+    if freq == "D":
+        interval = FREQUENCY_INTERVALS["D"]
+        if last_sent and (now - last_sent) < interval:
+            return False, "daily: not yet due"
+        if last_sent and last_act:
+            last_act_aware = last_act.replace(tzinfo=timezone.utc)
+            if last_act_aware <= last_sent:
+                return False, "daily: no new activity since last archive"
+        return True, "daily: due"
+
+    if freq not in ("W", "M", "B"):
+        return False, f"unsupported-frequency={freq}"
+
+    active_window = ACTIVE_WINDOWS.get(freq)
     is_active = (
         last_act is not None
         and active_window is not None
@@ -96,10 +117,14 @@ def _is_user_due(db: Session, user: User, now: datetime) -> tuple[bool, str]:
 
     if is_active:
         interval = FREQUENCY_INTERVALS[freq]
-        label = "weekly" if freq == "W" else "monthly"
+        label = {"W": "weekly", "M": "monthly", "B": "daily"}[freq]
     else:
         interval = FALLBACK_INTERVALS[freq]
-        label = "monthly-fallback" if freq == "W" else "yearly-fallback"
+        label = {
+            "W": "monthly-fallback",
+            "M": "yearly-fallback",
+            "B": "weekly-fallback",
+        }[freq]
 
     if last_sent and (now - last_sent) < interval:
         return False, f"{label}: not yet due"

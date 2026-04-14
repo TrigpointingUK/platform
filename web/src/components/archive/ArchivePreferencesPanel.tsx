@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -16,6 +16,15 @@ const FREQUENCY_OPTIONS = [
   { value: "Y", label: "Yearly" },
   { value: "M", label: "Monthly (or yearly if no recent activity)" },
   { value: "W", label: "Weekly (or monthly if no recent activity)" },
+];
+
+/** Shown in the UI only for api-admin (values still accepted by the API for any user). */
+const ADMIN_EXTRA_FREQUENCY_OPTIONS = [
+  { value: "D", label: "Daily" },
+  {
+    value: "B",
+    label: "Daily (or weekly if no recent activity)",
+  },
 ];
 
 const FORMAT_OPTIONS = [
@@ -59,6 +68,7 @@ interface ArchiveHistoryResponse {
 
 interface ArchivePreferencesPanelProps {
   user: UserProfile;
+  hasAdminRole: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -80,6 +90,7 @@ function formatDate(iso: string): string {
 
 export default function ArchivePreferencesPanel({
   user,
+  hasAdminRole,
 }: ArchivePreferencesPanelProps) {
   const { getAccessTokenSilently } = useAuth0();
   const queryClient = useQueryClient();
@@ -87,6 +98,19 @@ export default function ArchivePreferencesPanel({
 
   const currentFrequency = user.prefs?.archive_frequency ?? "N";
   const currentFormat = user.prefs?.archive_format ?? "R";
+
+  const frequencySelectOptions = useMemo(() => {
+    if (hasAdminRole) {
+      return [...FREQUENCY_OPTIONS, ...ADMIN_EXTRA_FREQUENCY_OPTIONS];
+    }
+    if (currentFrequency === "D" || currentFrequency === "B") {
+      const keep = ADMIN_EXTRA_FREQUENCY_OPTIONS.filter(
+        (o) => o.value === currentFrequency,
+      );
+      return [...FREQUENCY_OPTIONS, ...keep];
+    }
+    return FREQUENCY_OPTIONS;
+  }, [hasAdminRole, currentFrequency]);
 
   const {
     data: history,
@@ -169,7 +193,7 @@ export default function ArchivePreferencesPanel({
             }
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
           >
-            {FREQUENCY_OPTIONS.map((opt) => (
+            {frequencySelectOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
