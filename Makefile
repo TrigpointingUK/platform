@@ -8,7 +8,7 @@ orientation-model:
 	redis-tunnel redis-cli \
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
-	migration-create migration-history \
+	migration-create migration-history send-archives \
 	migrate-staging migrate-production migrate-status downgrade-staging \
 	dbt-staging dbt-production
 
@@ -212,6 +212,10 @@ migration-create: ## Create a new migration (usage: make migration-create MSG="d
 migration-history: ## Show migration history
 	@echo "📜 Migration history:"
 	alembic history --verbose
+
+send-archives: ## Run the archive email command locally (dry-run by default)
+	@echo "📧 Running archive email command..."
+	. venv/bin/activate && DRY_RUN_ARCHIVES=true python -m api.commands.send_archives
 
 migrate-staging: ## Apply migrations to staging via SSM tunnel (requires postgres-tunnel)
 	@echo "🔧 Applying migrations to STAGING"

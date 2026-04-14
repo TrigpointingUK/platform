@@ -2,8 +2,14 @@
 Email service for sending emails via AWS SES.
 """
 
+import hashlib
+import hmac
 import json
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Optional
+from urllib.parse import urlencode
 
 import boto3
 from botocore.exceptions import ClientError
@@ -11,6 +17,47 @@ from botocore.exceptions import ClientError
 from api.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+_SITE_URLS = {
+    "production": "https://trigpointing.uk",
+    "staging": "https://trigpointing.me",
+}
+
+
+def _site_url(environment: str) -> str:
+    return _SITE_URLS.get(environment, "http://localhost:5173")
+
+
+def _build_display_name(
+    firstname: Optional[str], surname: Optional[str], username: str
+) -> str:
+    parts = [p.strip() for p in (firstname, surname) if p and p.strip()]
+    if parts:
+        return f"{' '.join(parts)} ({username})"
+    return username
+
+
+def _unsubscribe_token(secret: str, user_id: int) -> str:
+    """HMAC-SHA256 token for one-click archive unsubscribe."""
+    return hmac.new(
+        secret.encode(),
+        f"archive-unsubscribe-{user_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def verify_unsubscribe_token(secret: str, user_id: int, token: str) -> bool:
+    expected = _unsubscribe_token(secret, user_id)
+    return hmac.compare_digest(expected, token)
+
+
+def _unsubscribe_url(settings: object, user_id: Optional[int]) -> str:
+    """Build a signed one-click unsubscribe URL."""
+    secret = getattr(settings, "WEBHOOK_SHARED_SECRET", None) or "dev-fallback"
+    api_base = getattr(settings, "FASTAPI_URL", "http://localhost:8000")
+    token = _unsubscribe_token(secret, user_id or 0)
+    qs = urlencode({"uid": user_id or 0, "token": token})
+    return f"{api_base}/v1/users/archive-unsubscribe?{qs}"
 
 
 class EmailService:
@@ -121,6 +168,135 @@ class EmailService:
             }
             logger.error(json.dumps(log_data))
 
+            return False
+
+    def send_archive_email(
+        self,
+        to_email: str,
+        username: str,
+        zip_bytes: bytes,
+        filename: str,
+        log_count: int,
+        user_id: Optional[int] = None,
+        firstname: Optional[str] = None,
+        surname: Optional[str] = None,
+    ) -> bool:
+        """
+        Send an archive email with a zip file attachment via SES SendRawEmail.
+
+        In non-production environments, the recipient is always overridden to
+        test@teasel.org to prevent accidental emails to real users.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        from api.core.config import settings
+
+        if not self.ses_client:
+            logger.error("SES client not available")
+            return False
+
+        actual_recipient = to_email
+        if settings.ENVIRONMENT != "production":
+            actual_recipient = "test@teasel.org"
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "archive_email_recipient_override",
+                        "original_recipient": to_email,
+                        "actual_recipient": actual_recipient,
+                        "environment": settings.ENVIRONMENT,
+                        "user_id": user_id,
+                    }
+                )
+            )
+
+        display_name = _build_display_name(firstname, surname, username)
+        site_url = _site_url(settings.ENVIRONMENT)
+        prefs_url = f"{site_url}/preferences#data-archive"
+        unsubscribe_url = _unsubscribe_url(settings, user_id)
+
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = f"TrigpointingUK Data Archive for {username}"
+        msg["From"] = self.from_email
+        msg["To"] = actual_recipient
+        msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+
+        body_html = (
+            f"<html><body>"
+            f"<p>Hello {display_name},</p>"
+            f"<p>You are receiving this email because you are, or have been, "
+            f"an active user of the TrigpointingUK website.</p>"
+            f"<p>All users are sent a backup archive of all their logs, once every "
+            f"year on an opt-out basis, or more frequently on an opt-in basis.</p>"
+            f"<p>If you no longer wish to receive these emails, "
+            f'<a href="{unsubscribe_url}">click here to unsubscribe</a>.</p>'
+            f"<p>To change how often you receive these archives, choose what they contain, "
+            f"or request an adhoc email be sent with your latest logs, visit your "
+            f'<a href="{prefs_url}">preferences</a> page.</p>'
+            f"<p>Please find attached your TrigpointingUK backup archive "
+            f"containing <strong>{log_count}</strong> published log(s).</p>"
+            f"<p>— TrigpointingUK</p>"
+            f"</body></html>"
+        )
+        body_part = MIMEText(body_html, "html", "utf-8")
+        msg.attach(body_part)
+
+        attachment = MIMEApplication(zip_bytes, "zip")
+        attachment.add_header("Content-Disposition", "attachment", filename=filename)
+        msg.attach(attachment)
+
+        try:
+            response = self.ses_client.send_raw_email(
+                Source=self.from_email,
+                Destinations=[actual_recipient],
+                RawMessage={"Data": msg.as_string()},
+            )
+
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "archive_email_sent",
+                        "to": actual_recipient,
+                        "original_to": to_email,
+                        "message_id": response.get("MessageId", ""),
+                        "username": username,
+                        "user_id": user_id,
+                        "zip_size_bytes": len(zip_bytes),
+                        "log_count": log_count,
+                    }
+                )
+            )
+            return True
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            error_message = e.response.get("Error", {}).get("Message", str(e))
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "archive_email_failed",
+                        "to": actual_recipient,
+                        "error_code": error_code,
+                        "error_message": error_message,
+                        "user_id": user_id,
+                    }
+                )
+            )
+            return False
+
+        except Exception as e:
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "archive_email_error",
+                        "to": actual_recipient,
+                        "error": str(e),
+                        "user_id": user_id,
+                    }
+                )
+            )
             return False
 
 

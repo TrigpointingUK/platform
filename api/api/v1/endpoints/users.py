@@ -7,8 +7,9 @@ import io
 import json
 import os
 import time
+from datetime import UTC
 from datetime import date as date_type
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, Mapping, Optional, Union
 
 import numpy as np
@@ -433,6 +434,8 @@ def get_current_user_profile(
                 public_ind=str(current_user.public_ind),
                 email=str(current_user.email),
                 email_valid=str(current_user.email_valid),
+                archive_frequency=str(current_user.archive_frequency or "N"),
+                archive_format=str(current_user.archive_format or "C"),
                 ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
             )
 
@@ -464,8 +467,6 @@ def update_current_user_profile(
 
     Auth0 sync failures are logged but don't fail the database update.
     """
-    from datetime import datetime, timezone
-
     from api.core.logging import get_logger
     from api.services.auth0_service import auth0_service
 
@@ -484,6 +485,8 @@ def update_current_user_profile(
             public_ind=str(current_user.public_ind),
             email=str(current_user.email),
             email_valid=str(current_user.email_valid),
+            archive_frequency=str(current_user.archive_frequency or "N"),
+            archive_format=str(current_user.archive_format or "C"),
             ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
         )
         return result
@@ -571,8 +574,7 @@ def update_current_user_profile(
                                 "user_id": current_user.id,
                                 "auth0_user_id": current_user.auth0_user_id,
                                 "new_username": current_user.name,
-                                "timestamp": datetime.now(timezone.utc).isoformat()
-                                + "Z",
+                                "timestamp": datetime.now(UTC).isoformat() + "Z",
                                 "action_required": "admin_review",
                             }
                         )
@@ -612,8 +614,7 @@ def update_current_user_profile(
                                 "user_id": current_user.id,
                                 "auth0_user_id": current_user.auth0_user_id,
                                 "email": current_user.email,
-                                "timestamp": datetime.now(timezone.utc).isoformat()
-                                + "Z",
+                                "timestamp": datetime.now(UTC).isoformat() + "Z",
                                 "action_required": "batch_retry_or_manual_sync",
                             }
                         )
@@ -647,10 +648,250 @@ def update_current_user_profile(
         public_ind=str(current_user.public_ind),
         email=str(current_user.email),
         email_valid=str(current_user.email_valid),
+        archive_frequency=str(current_user.archive_frequency or "N"),
+        archive_format=str(current_user.archive_format or "C"),
         ui_prefs=dict(current_user.ui_prefs) if current_user.ui_prefs else {},
     )
 
     return result
+
+
+@router.post(
+    "/me/archive",
+    status_code=202,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Immediately generate and send a data archive email to the current user. "
+        "Non-admin users limited to once per 24 hours.",
+    ),
+)
+def send_archive_now(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Immediately generate and email a data archive to the authenticated user.
+
+    Rate limited to once per 24 hours for non-admin users.
+    Admin users (api:admin scope) are exempt from the rate limit.
+    """
+    from api.core.config import settings
+    from api.core.logging import get_logger
+    from api.core.metrics import get_metrics_collector
+    from api.models.user import UserArchive
+    from api.services.archive_service import generate_archive_zip
+    from api.services.email_service import email_service
+
+    logger = get_logger(__name__)
+    mc = get_metrics_collector()
+
+    user_id = int(current_user.id)
+    username = str(current_user.name or f"user_{user_id}")
+    email_addr = str(current_user.email or "")
+
+    if not email_addr or email_addr.strip() == "":
+        raise HTTPException(
+            status_code=400,
+            detail="No email address on your account. Update your email in settings first.",
+        )
+
+    # Rate limit: once per 24h unless admin
+    token_payload = getattr(current_user, "_token_payload", None)
+    is_admin = False
+    if token_payload:
+        from api.api.deps import has_scope
+
+        is_admin = has_scope(token_payload, "api:admin")
+
+    if not is_admin:
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
+        recent = (
+            db.query(UserArchive)
+            .filter(
+                UserArchive.user_id == user_id,
+                UserArchive.status == "S",
+                UserArchive.created_at >= cutoff,
+            )
+            .first()
+        )
+        if recent:
+            raise HTTPException(
+                status_code=429,
+                detail="Archive already sent in the last 24 hours. Try again later.",
+            )
+
+    archive_format = str(current_user.archive_format or "C")
+
+    try:
+        zip_bytes = generate_archive_zip(db, current_user, archive_format)
+    except Exception as e:
+        logger.error(f"Archive generation failed for user {user_id}: {e}")
+        archive_record = UserArchive(
+            user_id=user_id,
+            status="F",
+            frequency_at_send="N",
+            format_at_send=archive_format,
+            error_message=str(e),
+        )
+        db.add(archive_record)
+        db.commit()
+        if mc:
+            mc.record_archive_failed("generate")
+        raise HTTPException(status_code=500, detail="Failed to generate archive")
+
+    export_ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    filename = f"trigpointinguk_{username}_{export_ts}.zip"
+
+    dry_run = getattr(settings, "DRY_RUN_ARCHIVES", False)
+    if dry_run:
+        import pathlib
+        import tempfile
+
+        out_path = pathlib.Path(tempfile.gettempdir()) / filename
+        out_path.write_bytes(zip_bytes)
+        logger.info(f"DRY RUN: archive written to {out_path} ({len(zip_bytes)} bytes)")
+        email_sent = True
+    else:
+        email_sent = email_service.send_archive_email(
+            to_email=email_addr,
+            username=username,
+            zip_bytes=zip_bytes,
+            filename=filename,
+            log_count=db.query(TLog)
+            .filter(TLog.user_id == user_id, TLog.status == "P")
+            .count(),
+            user_id=user_id,
+            firstname=str(current_user.firstname or ""),
+            surname=str(current_user.surname or ""),
+        )
+
+    log_count = (
+        db.query(TLog).filter(TLog.user_id == user_id, TLog.status == "P").count()
+    )
+
+    archive_record = UserArchive(
+        user_id=user_id,
+        status="S" if email_sent else "F",
+        frequency_at_send="N",
+        format_at_send=archive_format,
+        log_count=log_count,
+        file_size_bytes=len(zip_bytes),
+        error_message=None if email_sent else "SES send failed",
+    )
+    db.add(archive_record)
+    db.commit()
+
+    if not email_sent:
+        if mc:
+            mc.record_archive_failed("send")
+        raise HTTPException(status_code=500, detail="Failed to send archive email")
+
+    if mc:
+        mc.record_archive_sent(archive_format, len(zip_bytes))
+
+    return {
+        "status": "sent",
+        "log_count": log_count,
+        "zip_size_bytes": len(zip_bytes),
+        "format": archive_format,
+    }
+
+
+@router.get(
+    "/me/archives",
+    openapi_extra=openapi_lifecycle(
+        "beta", note="List past archive emails sent to the current user."
+    ),
+)
+def list_my_archives(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List past archive emails for the authenticated user."""
+    from api.models.user import UserArchive
+
+    user_id = int(current_user.id)
+
+    total = db.query(UserArchive).filter(UserArchive.user_id == user_id).count()
+    archives = (
+        db.query(UserArchive)
+        .filter(UserArchive.user_id == user_id)
+        .order_by(UserArchive.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for a in archives:
+        items.append(
+            {
+                "id": a.id,
+                "status": a.status,
+                "frequency_at_send": a.frequency_at_send,
+                "format_at_send": a.format_at_send,
+                "log_count": a.log_count,
+                "file_size_bytes": a.file_size_bytes,
+                "error_message": a.error_message,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+        )
+
+    return {
+        "items": items,
+        "pagination": {
+            "total": total,
+            "limit": limit,
+            "offset": skip,
+            "has_more": (skip + len(archives)) < total,
+        },
+    }
+
+
+@router.get(
+    "/archive-unsubscribe",
+    openapi_extra=openapi_lifecycle(
+        "beta", note="One-click unsubscribe from archive emails via signed token."
+    ),
+)
+def archive_unsubscribe(
+    uid: int = Query(..., description="User ID"),
+    token: str = Query(..., description="HMAC token"),
+    db: Session = Depends(get_db),
+):
+    """One-click unsubscribe from archive emails (no login required)."""
+    from api.core.config import settings
+    from api.services.email_service import verify_unsubscribe_token
+
+    secret = settings.WEBHOOK_SHARED_SECRET or "dev-fallback"
+    if not verify_unsubscribe_token(secret, uid, token):
+        raise HTTPException(status_code=403, detail="Invalid or expired link")
+
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.archive_frequency = "N"  # type: ignore[assignment]
+    db.commit()
+
+    site_url = {
+        "production": "https://trigpointing.uk",
+        "staging": "https://trigpointing.me",
+    }.get(settings.ENVIRONMENT, "http://localhost:5173")
+
+    from fastapi.responses import HTMLResponse
+
+    return HTMLResponse(
+        f"<html><body style='font-family: sans-serif; max-width: 600px; "
+        f"margin: 2em auto; text-align: center;'>"
+        f"<h2>Unsubscribed</h2>"
+        f"<p>You have been unsubscribed from TrigpointingUK archive emails.</p>"
+        f"<p>If you change your mind, you can re-enable them from your "
+        f'<a href="{site_url}/preferences#data-archive">account preferences</a>.</p>'
+        f"</body></html>"
+    )
 
 
 @router.post(
@@ -1474,7 +1715,7 @@ def list_logs_for_user(
                             public_ind=str(p.public_ind),
                             photo_url=join_url(base_url, str(p.filename)),
                             icon_url=join_url(base_url, str(p.icon_filename)),
-                        ).model_dump()
+                        ).model_dump(by_alias=True)
                     )
 
     has_more = (skip + len(items)) < total
@@ -1577,7 +1818,7 @@ def list_photos_for_user(
                     if tlog and tlog.date
                     else None
                 ),
-            ).model_dump()
+            ).model_dump(by_alias=True)
         )
     has_more = (skip + len(items)) < total
     base = f"/v1/users/{user_id}/photos"

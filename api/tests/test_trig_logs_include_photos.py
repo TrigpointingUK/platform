@@ -150,6 +150,35 @@ def test_trig_logs_include_photos(client: TestClient, db: Session):
     assert photo2.id in ids
 
 
+def test_trig_logs_photos_use_aliased_keys(client: TestClient, db: Session):
+    """Test that photos embedded in trig logs use 'caption'/'license' keys."""
+    import uuid
+
+    trig_id = 3_200_000 + int(uuid.uuid4().hex[:6], 16) % 100_000
+    _ensure_trig(db, trig_id=trig_id)
+    user = _create_user(db, suffix=str(trig_id))
+    tlog = seed_tlog(db, trig_id=trig_id, user_id=int(user.id))
+    photo = create_photo(db, tlog_id=int(tlog.id))
+
+    resp = client.get(f"{settings.API_V1_STR}/trigs/{trig_id}/logs?include=photos")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    found = None
+    for item in body["items"]:
+        if item["id"] == tlog.id:
+            found = item
+            break
+    assert found is not None
+    assert len(found["photos"]) >= 1
+
+    photo_item = next(p for p in found["photos"] if p["id"] == photo.id)
+    assert "caption" in photo_item, "Expected 'caption' key in embedded photo"
+    assert "license" in photo_item, "Expected 'license' key in embedded photo"
+    assert "name" not in photo_item, "'name' should be aliased to 'caption'"
+    assert "public_ind" not in photo_item, "'public_ind' should be aliased to 'license'"
+
+
 def test_trig_logs_unknown_include(client: TestClient, db: Session):
     import uuid
 

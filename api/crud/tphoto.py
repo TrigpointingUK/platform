@@ -119,7 +119,7 @@ def list_photos_filtered(
     skip: int = 0,
     limit: int = 10,
 ) -> List[TPhoto]:
-    q = db.query(TPhoto).filter(TPhoto.deleted_ind != "Y")
+    q = db.query(TPhoto).filter(TPhoto.deleted_ind != "Y", TPhoto.tlog_id.isnot(None))
     if log_id is not None:
         q = q.filter(TPhoto.tlog_id == log_id)
     if user_id is not None:

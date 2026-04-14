@@ -642,6 +642,24 @@ class TestPhotoResponseStructure:
         assert "next" in links
         assert "prev" in links
 
+    def test_list_photos_uses_aliased_keys(
+        self, client: TestClient, photo_test_data, db
+    ):
+        """Test that /v1/photos items use 'caption' and 'license', not 'name'/'public_ind'."""
+        log = photo_test_data["log"]
+
+        response = client.get(f"/v1/photos?log_id={log.id}")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) >= 1
+
+        item = data["items"][0]
+        assert "caption" in item, "Expected 'caption' key in photo list item"
+        assert "license" in item, "Expected 'license' key in photo list item"
+        assert "name" not in item, "'name' should be aliased to 'caption'"
+        assert "public_ind" not in item, "'public_ind' should be aliased to 'license'"
+
     @patch("api.api.v1.endpoints.photos.requests.get")
     @patch("api.api.v1.endpoints.photos.RekognitionService")
     def test_evaluation_response_structure(

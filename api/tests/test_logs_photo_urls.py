@@ -219,3 +219,22 @@ class TestLogPhotoUrls:
         # Verify URLs contain the rotated filenames (use actual photo filenames)
         assert photo.filename in photo_data["photo_url"]
         assert photo.icon_filename in photo_data["icon_url"]
+
+    def test_list_photos_for_log_uses_aliased_keys(
+        self, client: TestClient, db: Session
+    ):
+        """Test that log photos use 'caption'/'license', not 'name'/'public_ind'."""
+        user, tlog, photo = seed_test_data(db)
+
+        resp = client.get(f"{settings.API_V1_STR}/logs/{tlog.id}/photos")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        test_photos = [p for p in body["items"] if p["id"] == photo.id]
+        assert len(test_photos) == 1
+        item = test_photos[0]
+
+        assert "caption" in item, "Expected 'caption' key in log photo item"
+        assert "license" in item, "Expected 'license' key in log photo item"
+        assert "name" not in item, "'name' should be aliased to 'caption'"
+        assert "public_ind" not in item, "'public_ind' should be aliased to 'license'"
