@@ -63,21 +63,47 @@ export default function Preferences() {
   const { getAccessTokenSilently, user: auth0User, isAuthenticated } = useAuth0();
   const location = useLocation();
 
-  useEffect(() => {
-    if (location.hash) {
-      const el = document.getElementById(location.hash.slice(1));
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-  }, [location.hash]);
-
   const userRoles =
     (auth0User?.["https://trigpointing.uk/roles"] as string[]) || [];
   const hasAdminRole = userRoles.includes("api-admin");
 
   // Fetch current user's profile with preferences
   const { data: user, isLoading, error } = useUserProfile("me");
+
+  // Deep links (e.g. /preferences#data-archive from email): the target id often
+  // mounts only after profile loading finishes, so a hash-only dependency runs too
+  // early and misses the element. Retry briefly after content is ready.
+  useEffect(() => {
+    const hash = location.hash;
+    if (!hash || hash.length <= 1) return;
+    if (isLoading) return;
+
+    const id = hash.slice(1);
+    const scrollToTarget = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        return true;
+      }
+      return false;
+    };
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const schedule = (delay: number) => {
+      timers.push(
+        setTimeout(() => {
+          scrollToTarget();
+        }, delay),
+      );
+    };
+
+    scrollToTarget();
+    schedule(0);
+    schedule(50);
+    schedule(200);
+
+    return () => timers.forEach(clearTimeout);
+  }, [location.hash, location.pathname, isLoading]);
 
   const handleFieldUpdate = async (field: string, value: string) => {
     try {
