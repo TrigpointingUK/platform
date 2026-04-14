@@ -469,9 +469,8 @@ export default function Preferences() {
           <ListsPreferencesPanel hasAdminRole={hasAdminRole} />
         )}
 
-        {/* Data Archive — admin-only until feature is ready for release */}
-        {isAuthenticated && hasAdminRole && user && (
-          <ArchivePreferencesPanel user={user} />
+        {isAuthenticated && user && (
+          <ArchivePreferencesPanel user={user} hasAdminRole={hasAdminRole} />
         )}
       </div>
     </>

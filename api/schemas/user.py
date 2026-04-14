@@ -128,7 +128,11 @@ class UserPrefs(BaseModel):
     )
     archive_frequency: str = Field(
         "N",
-        description="Archive email frequency: N=never, Y=yearly, M=monthly-if-active-else-yearly, W=weekly-if-active-else-monthly",
+        description=(
+            "Archive email frequency: N=never, Y=yearly, "
+            "M=monthly-if-active-else-yearly, W=weekly-if-active-else-monthly, "
+            "D=daily-if-new-activity, B=daily-if-active-else-weekly"
+        ),
     )
     archive_format: str = Field(
         "R",
@@ -175,8 +179,11 @@ class UserUpdate(BaseModel):
     )
     archive_frequency: Optional[str] = Field(
         None,
-        pattern="^[NYMW]$",
-        description="Archive email frequency: N=never, Y=yearly, M=monthly-if-active, W=weekly-if-active",
+        pattern="^[NYMWDB]$",
+        description=(
+            "Archive email frequency: N=never, Y=yearly, M=monthly-if-active, "
+            "W=weekly-if-active, D=daily-if-new-activity, B=daily-if-active-else-weekly"
+        ),
     )
     archive_format: Optional[str] = Field(
         None,
