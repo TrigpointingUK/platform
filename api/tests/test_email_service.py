@@ -70,6 +70,41 @@ class TestPublicApiBaseUrl:
         assert "uid=99" in url
         assert "token=" in url
 
+    def test_public_api_base_url_normalises_mixed_case_environment(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="Production",
+            FASTAPI_URL="http://localhost:8000",
+        )
+        assert (
+            email_service_module._public_api_base_url(s)
+            == "https://api.trigpointing.uk"
+        )
+
+    def test_site_url_normalises_mixed_case_environment(self):
+        assert email_service_module._site_url("Production") == "https://trigpointing.uk"
+
+    def test_email_transactional_bases_ignore_localhost_in_production(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="production",
+            FASTAPI_URL="http://localhost:8000",
+            PUBLIC_WEB_BASE_URL=None,
+            PUBLIC_API_BASE_URL=None,
+        )
+        site, api = email_service_module._email_transactional_bases(s)
+        assert site == "https://trigpointing.uk"
+        assert api == "https://api.trigpointing.uk"
+
+    def test_email_transactional_bases_respect_public_overrides(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="production",
+            FASTAPI_URL="http://localhost:8000",
+            PUBLIC_WEB_BASE_URL="https://example.org",
+            PUBLIC_API_BASE_URL="https://api.example.org",
+        )
+        site, api = email_service_module._email_transactional_bases(s)
+        assert site == "https://example.org"
+        assert api == "https://api.example.org"
+
 
 class TestSendContactEmail:
     def setup_method(self):

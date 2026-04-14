@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Base URL for the API (used for logout redirects, etc.)
     FASTAPI_URL: str = "http://localhost:8000"
 
+    # Optional overrides for links in outbound email (defaults inferred from ENVIRONMENT)
+    PUBLIC_WEB_BASE_URL: Optional[str] = None  # e.g. https://trigpointing.uk
+    PUBLIC_API_BASE_URL: Optional[str] = None  # e.g. https://api.trigpointing.uk
+
     # Database - constructed from individual components
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432  # PostgreSQL default port

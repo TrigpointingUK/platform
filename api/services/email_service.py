@@ -30,8 +30,24 @@ _API_PUBLIC_BASE_BY_ENV = {
 }
 
 
+def _canonical_environment(environment: Optional[str]) -> str:
+    """
+    Normalise deploy environment name for URL lookups.
+
+    Handles mixed case and common aliases so email links do not fall through to
+    localhost when ENVIRONMENT does not match dict keys exactly.
+    """
+    raw = (environment or "").strip().lower()
+    if raw in ("production", "prod", "live"):
+        return "production"
+    if raw in ("staging", "stage", "stg"):
+        return "staging"
+    return raw if raw else "development"
+
+
 def _site_url(environment: str) -> str:
-    return _SITE_URLS.get(environment, "http://localhost:5173")
+    env = _canonical_environment(environment)
+    return _SITE_URLS.get(env, "http://localhost:5173")
 
 
 def _is_loopback_api_url(url: str) -> bool:
@@ -51,17 +67,46 @@ def _public_api_base_url(settings: object) -> str:
     ECS tasks often omit FASTAPI_URL, so Pydantic leaves the localhost default; we
     still infer the correct public hostname from ENVIRONMENT.
     """
-    env = (
-        str(getattr(settings, "ENVIRONMENT", "development") or "development")
-        .strip()
-        .lower()
-    )
+    env = _canonical_environment(getattr(settings, "ENVIRONMENT", None))
     raw = str(getattr(settings, "FASTAPI_URL", "") or "").strip().rstrip("/")
     if not raw:
         raw = "http://localhost:8000"
     if not _is_loopback_api_url(raw):
         return raw
     return _API_PUBLIC_BASE_BY_ENV.get(env, raw)
+
+
+def _email_transactional_bases(settings: object) -> tuple[str, str]:
+    """
+    Return (public website origin, public API origin) for archive / transactional email.
+
+    For production and staging we always use the known public hostnames so links are
+    never localhost, even if FASTAPI_URL or a bundled .env still has dev defaults.
+    Optional PUBLIC_WEB_BASE_URL / PUBLIC_API_BASE_URL override both.
+    """
+    env = _canonical_environment(getattr(settings, "ENVIRONMENT", None))
+
+    web_override = getattr(settings, "PUBLIC_WEB_BASE_URL", None)
+    if web_override and str(web_override).strip():
+        site_base = str(web_override).strip().rstrip("/")
+    elif env == "production":
+        site_base = "https://trigpointing.uk"
+    elif env == "staging":
+        site_base = "https://trigpointing.me"
+    else:
+        site_base = _site_url(getattr(settings, "ENVIRONMENT", "development"))
+
+    api_override = getattr(settings, "PUBLIC_API_BASE_URL", None)
+    if api_override and str(api_override).strip():
+        api_base = str(api_override).strip().rstrip("/")
+    elif env == "production":
+        api_base = "https://api.trigpointing.uk"
+    elif env == "staging":
+        api_base = "https://api.trigpointing.me"
+    else:
+        api_base = _public_api_base_url(settings)
+
+    return site_base, api_base
 
 
 def _build_display_name(
@@ -87,13 +132,15 @@ def verify_unsubscribe_token(secret: str, user_id: int, token: str) -> bool:
     return hmac.compare_digest(expected, token)
 
 
-def _unsubscribe_url(settings: object, user_id: Optional[int]) -> str:
+def _unsubscribe_url(
+    settings: object, user_id: Optional[int], api_base: Optional[str] = None
+) -> str:
     """Build a signed one-click unsubscribe URL."""
     secret = getattr(settings, "WEBHOOK_SHARED_SECRET", None) or "dev-fallback"
-    api_base = _public_api_base_url(settings)
+    base = (api_base or _public_api_base_url(settings)).rstrip("/")
     token = _unsubscribe_token(secret, user_id or 0)
     qs = urlencode({"uid": user_id or 0, "token": token})
-    return f"{api_base}/v1/users/archive-unsubscribe?{qs}"
+    return f"{base}/v1/users/archive-unsubscribe?{qs}"
 
 
 class EmailService:
@@ -248,9 +295,9 @@ class EmailService:
             )
 
         display_name = _build_display_name(firstname, surname, username)
-        site_url = _site_url(settings.ENVIRONMENT)
+        site_url, api_base = _email_transactional_bases(settings)
         prefs_url = f"{site_url}/preferences#data-archive"
-        unsubscribe_url = _unsubscribe_url(settings, user_id)
+        unsubscribe_url = _unsubscribe_url(settings, user_id, api_base=api_base)
 
         msg = MIMEMultipart("mixed")
         msg["Subject"] = f"TrigpointingUK Data Archive for {username}"
