@@ -221,6 +221,7 @@ class EmailService:
         msg["From"] = self.from_email
         msg["To"] = actual_recipient
         msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+        # RFC 8058: MUAs POST List-Unsubscribe=One-Click to the same URI (see POST handler).
         msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
         body_html = (

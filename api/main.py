@@ -231,12 +231,20 @@ async def database_error_handler(request: Request, exc: DatabaseError):
 
     This ensures database errors are logged properly in JSON format with
     full context about the request and database operation.
+
+    Schema drift (e.g. missing columns after a deploy before ``alembic upgrade``)
+    is returned as 503 with an explicit hint, not 400 (which implies a bad client
+    request such as an invalid ``include`` query).
     """
     # Extract original database error if available
     orig_error = getattr(exc, "orig", None)
     db_error_class = (
         orig_error.__class__.__name__ if orig_error else exc.__class__.__name__
     )
+    orig_msg = str(orig_error or exc).lower()
+    schema_drift = (
+        "column" in orig_msg and "does not exist" in orig_msg
+    ) or "unknown column" in orig_msg
 
     # Log with full context
     logger.error(
@@ -251,9 +259,20 @@ async def database_error_handler(request: Request, exc: DatabaseError):
         },
     )
 
-    # Return appropriate error response
+    if schema_drift:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "detail": (
+                    "Database schema is out of date for this API version. "
+                    "Apply pending Alembic migrations (e.g. alembic upgrade head)."
+                ),
+                "type": db_error_class,
+            },
+        )
+
     return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "detail": "Database operation failed",
             "type": db_error_class,

@@ -1,7 +1,7 @@
 """add user archive columns and table
 
 Revision ID: a7b8c9d0e1f2
-Revises: 96c8c6061f3a
+Revises: b2f3a4c5d6e7
 Create Date: 2026-04-12 12:00:00.000000
 
 """
