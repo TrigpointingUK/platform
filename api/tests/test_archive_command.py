@@ -186,7 +186,8 @@ class TestIsUserDue:
         assert is_due is False
         assert "not yet due" in reason
 
-    def test_daily_no_new_activity_since_send(self, db):
+    def test_daily_due_after_interval_without_new_activity(self, db):
+        """D is unconditional daily: no requirement for new logs since last archive."""
         user = _make_user(db, name="daily3", archive_frequency="D")
         now = datetime.now(timezone.utc)
         sent_at = now - timedelta(days=2)
@@ -201,8 +202,8 @@ class TestIsUserDue:
         db.commit()
         _add_published_log(db, user, upd_timestamp=sent_at - timedelta(days=1))
         is_due, reason = _is_user_due(db, user, now)
-        assert is_due is False
-        assert "no new activity" in reason
+        assert is_due is True
+        assert "daily: due" in reason
 
     def test_daily_new_activity_since_send(self, db):
         user = _make_user(db, name="daily4", archive_frequency="D")

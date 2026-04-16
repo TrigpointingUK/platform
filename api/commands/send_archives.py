@@ -78,8 +78,8 @@ def _is_user_due(db: Session, user: User, now: datetime) -> tuple[bool, str]:
     For W: send weekly if active in last week, else monthly.
     For M: send monthly if active in last month, else yearly.
     For Y: send yearly always.
-    For D: send at most daily when there is new activity since the last archive.
-    For B: send daily if active in the last day, else weekly (same activity rule as W/M).
+    For D: send at most once per rolling day (no activity gate; true daily digest).
+    For B: send daily if active in the last day, else weekly (activity gate like W/M).
     """
     freq = str(user.archive_frequency or "N")
     if freq == "N":
@@ -93,17 +93,13 @@ def _is_user_due(db: Session, user: User, now: datetime) -> tuple[bool, str]:
             return False, "yearly: not yet due"
         return True, "yearly: due"
 
-    last_act = _last_activity(db, user_id)
-
     if freq == "D":
         interval = FREQUENCY_INTERVALS["D"]
         if last_sent and (now - last_sent) < interval:
             return False, "daily: not yet due"
-        if last_sent and last_act:
-            last_act_aware = last_act.replace(tzinfo=timezone.utc)
-            if last_act_aware <= last_sent:
-                return False, "daily: no new activity since last archive"
         return True, "daily: due"
+
+    last_act = _last_activity(db, user_id)
 
     if freq not in ("W", "M", "B"):
         return False, f"unsupported-frequency={freq}"
