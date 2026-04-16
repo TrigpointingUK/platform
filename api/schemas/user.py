@@ -131,7 +131,7 @@ class UserPrefs(BaseModel):
         description=(
             "Archive email frequency: N=never, Y=yearly, "
             "M=monthly-if-active-else-yearly, W=weekly-if-active-else-monthly, "
-            "D=daily-if-new-activity, B=daily-if-active-else-weekly"
+            "D=daily, B=daily-if-active-else-weekly"
         ),
     )
     archive_format: str = Field(
@@ -182,7 +182,7 @@ class UserUpdate(BaseModel):
         pattern="^[NYMWDB]$",
         description=(
             "Archive email frequency: N=never, Y=yearly, M=monthly-if-active, "
-            "W=weekly-if-active, D=daily-if-new-activity, B=daily-if-active-else-weekly"
+            "W=weekly-if-active, D=daily, B=daily-if-active-else-weekly"
         ),
     )
     archive_format: Optional[str] = Field(
