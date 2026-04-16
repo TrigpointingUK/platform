@@ -160,7 +160,11 @@ export default function ArchivePreferencesPanel({
       const message =
         err instanceof Error ? err.message : "Failed to send archive";
       if (message.includes("429") || message.includes("rate")) {
-        toast.error("Archive already sent recently — please try again later");
+        toast.error(
+          message.toLowerCase().includes("format")
+            ? "This format was sent recently — pick another format or try again tomorrow"
+            : "Archive already sent recently — please try again later",
+        );
       } else {
         toast.error(message);
       }
@@ -233,7 +237,8 @@ export default function ArchivePreferencesPanel({
           {sending ? "Sending…" : "Send archive now"}
         </button>
         <span className="text-xs text-gray-500 dark:text-gray-400">
-          Sends an immediate archive to your registered email (once per day)
+          Sends an immediate archive to your registered email (at most once per format
+          every 24 hours).
         </span>
       </div>
 

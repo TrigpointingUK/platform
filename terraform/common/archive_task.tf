@@ -22,6 +22,19 @@ variable "archive_schedule_expression" {
   default     = "cron(0 3 * * ? *)"
 }
 
+# RDS credentials for the archive job (same JSON keys as the FastAPI ECS service:
+# host, port, username, password, dbname — see modules/ecs-service).
+variable "archive_postgres_credentials_secret_name" {
+  description = "Secrets Manager secret name holding Postgres credentials for send_archives"
+  type        = string
+  default     = "fastapi-production-postgres-credentials"
+}
+
+data "aws_secretsmanager_secret" "archive_postgres_credentials" {
+  count = var.archive_task_enabled ? 1 : 0
+  name  = var.archive_postgres_credentials_secret_name
+}
+
 # Log group for archive task
 resource "aws_cloudwatch_log_group" "archive" {
   count             = var.archive_task_enabled ? 1 : 0
@@ -58,6 +71,29 @@ resource "aws_ecs_task_definition" "archive" {
         { name = "DATABASE_POOL_MAX_OVERFLOW", value = "3" },
         { name = "DATABASE_POOL_RECYCLE", value = "300" },
         { name = "DRY_RUN_ARCHIVES", value = "false" },
+      ]
+      # Without these, Settings defaults DB_HOST to localhost and the task exits before sending mail.
+      secrets = [
+        {
+          name      = "DB_HOST"
+          valueFrom = "${data.aws_secretsmanager_secret.archive_postgres_credentials[0].arn}:host::"
+        },
+        {
+          name      = "DB_PORT"
+          valueFrom = "${data.aws_secretsmanager_secret.archive_postgres_credentials[0].arn}:port::"
+        },
+        {
+          name      = "DB_USER"
+          valueFrom = "${data.aws_secretsmanager_secret.archive_postgres_credentials[0].arn}:username::"
+        },
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = "${data.aws_secretsmanager_secret.archive_postgres_credentials[0].arn}:password::"
+        },
+        {
+          name      = "DB_NAME"
+          valueFrom = "${data.aws_secretsmanager_secret.archive_postgres_credentials[0].arn}:dbname::"
+        }
       ]
       logConfiguration = {
         logDriver = "awslogs"

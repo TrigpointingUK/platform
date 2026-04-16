@@ -666,7 +666,7 @@ def update_current_user_profile(
     openapi_extra=openapi_lifecycle(
         "beta",
         note="Immediately generate and send a data archive email to the current user. "
-        "Non-admin users limited to once per 24 hours.",
+        "Non-admin users: at most one successful send per archive format (C, J, R) per 24 hours.",
     ),
 )
 def send_archive_now(
@@ -676,8 +676,8 @@ def send_archive_now(
     """
     Immediately generate and email a data archive to the authenticated user.
 
-    Rate limited to once per 24 hours for non-admin users.
-    Admin users (api:admin scope) are exempt from the rate limit.
+    Rate limited to one successful send per archive format per rolling 24 hours for
+    non-admin users. Admin users (api:admin scope) are exempt.
     """
     from api.core.config import settings
     from api.core.logging import get_logger
@@ -699,7 +699,9 @@ def send_archive_now(
             detail="No email address on your account. Update your email in settings first.",
         )
 
-    # Rate limit: once per 24h unless admin
+    archive_format = str(current_user.archive_format or "R")
+
+    # Rate limit: one successful send per format per rolling 24h unless admin
     token_payload = getattr(current_user, "_token_payload", None)
     is_admin = False
     if token_payload:
@@ -714,6 +716,7 @@ def send_archive_now(
             .filter(
                 UserArchive.user_id == user_id,
                 UserArchive.status == "S",
+                UserArchive.format_at_send == archive_format,
                 UserArchive.created_at >= cutoff,
             )
             .first()
@@ -721,10 +724,11 @@ def send_archive_now(
         if recent:
             raise HTTPException(
                 status_code=429,
-                detail="Archive already sent in the last 24 hours. Try again later.",
+                detail=(
+                    "An archive in this format was already sent in the last 24 hours. "
+                    "Try another format or wait before sending again."
+                ),
             )
-
-    archive_format = str(current_user.archive_format or "R")
 
     try:
         zip_bytes = generate_archive_zip(db, current_user, archive_format)
