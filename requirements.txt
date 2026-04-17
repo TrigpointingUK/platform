@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.33.1
-boto3==1.42.88
+boto3==1.42.90
 types-requests==2.33.0.20260408
 
 # Redis/ElastiCache for token caching
@@ -41,7 +41,7 @@ pyproj==3.7.2
 
 # Profiling
 pyinstrument==5.1.2
-pyroscope-io==1.0.4
+pyroscope-io==1.0.5
 
 # OpenTelemetry - Distributed tracing and metrics
 opentelemetry-api==1.41.0
@@ -57,4 +57,4 @@ openai>=1.82.0
 black==26.3.1
 isort==8.0.1
 flake8==7.3.0
-mypy==1.20.0
+mypy==1.20.1
