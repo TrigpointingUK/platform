@@ -22,6 +22,12 @@ from api.crud import trig_type as trig_type_crud
 from api.crud import user as user_crud
 from api.crud import user_merge as user_merge_crud
 from api.models.user import User
+from api.schemas.account_deletion import (
+    AccountDeletionEmailBackupResponse,
+    AccountDeletionExecuteRequest,
+    AccountDeletionExecuteResponse,
+    AccountDeletionSummaryResponse,
+)
 from api.schemas.admin import (
     AdminMergeUsersPreview,
     AdminMergeUsersRequest,
@@ -1376,6 +1382,93 @@ def merge_users_admin(
     )
 
     return response
+
+
+# ============================================================================
+# Account deletion (admin)
+# ============================================================================
+
+
+@router.get(
+    "/users/{user_id}/account-deletion/summary",
+    response_model=AccountDeletionSummaryResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Account deletion overview for a user selected by an administrator.",
+    ),
+)
+def admin_account_deletion_summary(
+    user_id: int,
+    admin_user: User = Depends(ADMIN_SCOPE_DEPENDENCY),
+    db: Session = Depends(get_db),
+):
+    from api.services.account_deletion_service import get_account_deletion_summary
+
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    return get_account_deletion_summary(db, target)
+
+
+@router.post(
+    "/users/{user_id}/account-deletion/email-backup",
+    response_model=AccountDeletionEmailBackupResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Email the selected user a zip of their published logs before account deletion.",
+    ),
+)
+def admin_account_deletion_email_backup(
+    user_id: int,
+    admin_user: User = Depends(ADMIN_SCOPE_DEPENDENCY),
+    db: Session = Depends(get_db),
+):
+    from api.services import account_deletion_service as ads
+
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    email_addr = str(target.email or "").strip()
+    if not email_addr:
+        raise HTTPException(
+            status_code=400,
+            detail="That user has no email address on file; a backup cannot be sent.",
+        )
+    ok = ads.send_account_deletion_log_backup_email(db, target)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not send the backup email.")
+    return AccountDeletionEmailBackupResponse()
+
+
+@router.post(
+    "/users/{user_id}/account-deletion",
+    response_model=AccountDeletionExecuteResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Execute account deletion or anonymisation for the selected user."
+    ),
+)
+def admin_account_deletion_execute(
+    user_id: int,
+    body: AccountDeletionExecuteRequest,
+    admin_user: User = Depends(ADMIN_SCOPE_DEPENDENCY),
+    db: Session = Depends(get_db),
+):
+    from api.services import account_deletion_service as ads
+
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        return ads.execute_account_deletion(
+            db,
+            target_user=target,
+            mode=body.mode,
+            feedback=body.feedback,
+            actor_user=admin_user,
+            is_admin_action=True,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 # ============================================================================

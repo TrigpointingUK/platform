@@ -37,6 +37,12 @@ from api.models.tphoto import TPhoto
 from api.models.trig import Trig
 from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog, User
+from api.schemas.account_deletion import (
+    AccountDeletionEmailBackupResponse,
+    AccountDeletionExecuteRequest,
+    AccountDeletionExecuteResponse,
+    AccountDeletionSummaryResponse,
+)
 from api.schemas.area import (
     AreaCountItem,
     AreaTypeResponse,
@@ -803,6 +809,85 @@ def send_archive_now(
         "zip_size_bytes": len(zip_bytes),
         "format": archive_format,
     }
+
+
+@router.get(
+    "/me/account-deletion/summary",
+    response_model=AccountDeletionSummaryResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Username, email, and activity counts for the account deletion page.",
+    ),
+)
+def account_deletion_summary_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from api.services.account_deletion_service import get_account_deletion_summary
+
+    return get_account_deletion_summary(db, current_user)
+
+
+@router.post(
+    "/me/account-deletion/email-backup",
+    response_model=AccountDeletionEmailBackupResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Email a zip of published logs before account deletion (rate limited for non-admins).",
+    ),
+)
+def account_deletion_email_backup_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from api.api.deps import has_scope
+    from api.services import account_deletion_service as ads
+
+    user_id = int(current_user.id)
+    token_payload = getattr(current_user, "_token_payload", None)
+    is_admin = bool(token_payload and has_scope(token_payload, "api:admin"))
+    email_addr = str(current_user.email or "").strip()
+    if not email_addr:
+        raise HTTPException(
+            status_code=400,
+            detail="No email address on your account. Add one before requesting a copy.",
+        )
+    if not ads.deletion_backup_is_allowed(db, user_id, is_admin=is_admin):
+        raise HTTPException(
+            status_code=429,
+            detail="A deletion backup email was already sent in the last 24 hours.",
+        )
+    ok = ads.send_account_deletion_log_backup_email(db, current_user)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not send the backup email.")
+    return AccountDeletionEmailBackupResponse()
+
+
+@router.post(
+    "/me/account-deletion",
+    response_model=AccountDeletionExecuteResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Permanently delete or anonymise the authenticated account."
+    ),
+)
+def account_deletion_execute_me(
+    body: AccountDeletionExecuteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from api.services import account_deletion_service as ads
+
+    try:
+        return ads.execute_account_deletion(
+            db,
+            target_user=current_user,
+            mode=body.mode,
+            feedback=body.feedback,
+            actor_user=current_user,
+            is_admin_action=False,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.get(

@@ -106,5 +106,8 @@ Working on a better nearby trigpoints page
 Started work on an analytics schema for data mining
 Added a page to compare logs for multiple users
 
+XX May 2026
 
+Frontend
+Regular archive backups of your logs by email
 
