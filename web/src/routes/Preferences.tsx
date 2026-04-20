@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth0 } from "@auth0/auth0-react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
@@ -471,6 +471,24 @@ export default function Preferences() {
 
         {isAuthenticated && user && (
           <ArchivePreferencesPanel user={user} hasAdminRole={hasAdminRole} />
+        )}
+
+        {isAuthenticated && user && (
+          <Card className="border-red-200 dark:border-red-900/60">
+            <h2 className="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">
+              Delete account
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Remove or anonymise your account and choose whether your logs and photos stay on the
+              site. You can download a backup first.
+            </p>
+            <Link
+              to="/account/delete"
+              className="inline-flex items-center justify-center rounded-md bg-red-800 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            >
+              Delete account…
+            </Link>
+          </Card>
         )}
       </div>
     </>

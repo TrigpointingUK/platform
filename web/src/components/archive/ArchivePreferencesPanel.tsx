@@ -237,8 +237,8 @@ export default function ArchivePreferencesPanel({
           {sending ? "Sending…" : "Send archive now"}
         </button>
         <span className="text-xs text-gray-500 dark:text-gray-400">
-          Sends an immediate archive to your registered email (at most once per format
-          every 24 hours).
+          Sends an immediate archive to your registered email (max one per format
+          per day).
         </span>
       </div>
 

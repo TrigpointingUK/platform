@@ -579,6 +579,101 @@ export async function migrateLegacyUser(
   );
 }
 
+export type AccountDeletionMode =
+  | "anonymise_keep_photos"
+  | "anonymise_delete_photos"
+  | "purge_all";
+
+export interface AccountDeletionSummary {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  log_count: number;
+  photo_count: number;
+}
+
+export interface AccountDeletionEmailBackupResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface AccountDeletionExecuteResponse {
+  success: boolean;
+  mode: AccountDeletionMode;
+  user_id: number;
+  previous_username: string;
+  new_username?: string | null;
+  logs_anonymised: number;
+  photos_deleted: number;
+  logs_deleted: number;
+  s3_photo_delete_failures: number;
+  user_row_deleted: boolean;
+}
+
+export async function fetchAccountDeletionSummaryMe(
+  token: string
+): Promise<AccountDeletionSummary> {
+  return apiGet<AccountDeletionSummary>(
+    "/v1/users/me/account-deletion/summary",
+    token
+  );
+}
+
+export async function postAccountDeletionEmailBackupMe(
+  token: string
+): Promise<AccountDeletionEmailBackupResponse> {
+  return apiPost<AccountDeletionEmailBackupResponse>(
+    "/v1/users/me/account-deletion/email-backup",
+    {},
+    token
+  );
+}
+
+export async function executeAccountDeletionMe(
+  payload: { mode: AccountDeletionMode; feedback?: string | null },
+  token: string
+): Promise<AccountDeletionExecuteResponse> {
+  return apiPost<AccountDeletionExecuteResponse>(
+    "/v1/users/me/account-deletion",
+    payload,
+    token
+  );
+}
+
+export async function fetchAdminAccountDeletionSummary(
+  userId: number,
+  token: string
+): Promise<AccountDeletionSummary> {
+  return apiGet<AccountDeletionSummary>(
+    `/v1/admin/users/${userId}/account-deletion/summary`,
+    token
+  );
+}
+
+export async function postAdminAccountDeletionEmailBackup(
+  userId: number,
+  token: string
+): Promise<AccountDeletionEmailBackupResponse> {
+  return apiPost<AccountDeletionEmailBackupResponse>(
+    `/v1/admin/users/${userId}/account-deletion/email-backup`,
+    {},
+    token
+  );
+}
+
+export async function executeAdminAccountDeletion(
+  userId: number,
+  payload: { mode: AccountDeletionMode; feedback?: string | null },
+  token: string
+): Promise<AccountDeletionExecuteResponse> {
+  return apiPost<AccountDeletionExecuteResponse>(
+    `/v1/admin/users/${userId}/account-deletion`,
+    payload,
+    token
+  );
+}
+
 // Admin Trigpoint Management Types and Functions
 
 export interface TrigNeedsAttentionSummary {

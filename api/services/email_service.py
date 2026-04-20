@@ -383,6 +383,122 @@ class EmailService:
             )
             return False
 
+    def send_deletion_backup_email(
+        self,
+        to_email: str,
+        username: str,
+        zip_bytes: bytes,
+        filename: str,
+        log_count: int,
+        user_id: Optional[int] = None,
+        firstname: Optional[str] = None,
+        surname: Optional[str] = None,
+    ) -> bool:
+        """
+        Email a one-off log archive before account deletion (distinct copy from routine archives).
+
+        In non-production environments, the recipient is overridden to test@teasel.org
+        (same behaviour as routine archive emails).
+        """
+        from api.core.config import settings
+
+        if not self.ses_client:
+            logger.error("SES client not available")
+            return False
+
+        actual_recipient = to_email
+        if settings.ENVIRONMENT != "production":
+            actual_recipient = "test@teasel.org"
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "deletion_backup_email_recipient_override",
+                        "original_recipient": to_email,
+                        "actual_recipient": actual_recipient,
+                        "environment": settings.ENVIRONMENT,
+                        "user_id": user_id,
+                    }
+                )
+            )
+
+        display_name = _build_display_name(firstname, surname, username)
+
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = (
+            f"TrigpointingUK: your logs before account deletion ({username})"
+        )
+        msg["From"] = self.from_email
+        msg["To"] = actual_recipient
+
+        body_html = (
+            f"<html><body>"
+            f"<p>Hello {display_name},</p>"
+            f"<p>You asked for a copy of your logs before deleting your TrigpointingUK account.</p>"
+            f"<p>Attached is a zip archive containing <strong>{log_count}</strong> published log(s), "
+            f"generated at the time you clicked the button.</p>"
+            f"<p>Thank you for having been part of the community.</p>"
+            f"<p>— TrigpointingUK</p>"
+            f"</body></html>"
+        )
+        body_part = MIMEText(body_html, "html", "utf-8")
+        msg.attach(body_part)
+
+        attachment = MIMEApplication(zip_bytes, "zip")
+        attachment.add_header("Content-Disposition", "attachment", filename=filename)
+        msg.attach(attachment)
+
+        try:
+            response = self.ses_client.send_raw_email(
+                Source=self.from_email,
+                Destinations=[actual_recipient],
+                RawMessage={"Data": msg.as_string()},
+            )
+
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "deletion_backup_email_sent",
+                        "to": actual_recipient,
+                        "original_to": to_email,
+                        "message_id": response.get("MessageId", ""),
+                        "username": username,
+                        "user_id": user_id,
+                        "zip_size_bytes": len(zip_bytes),
+                        "log_count": log_count,
+                    }
+                )
+            )
+            return True
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            error_message = e.response.get("Error", {}).get("Message", str(e))
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "deletion_backup_email_failed",
+                        "to": actual_recipient,
+                        "error_code": error_code,
+                        "error_message": error_message,
+                        "user_id": user_id,
+                    }
+                )
+            )
+            return False
+
+        except Exception as e:
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "deletion_backup_email_error",
+                        "to": actual_recipient,
+                        "error": str(e),
+                        "user_id": user_id,
+                    }
+                )
+            )
+            return False
+
 
 # Singleton instance
 email_service = EmailService()

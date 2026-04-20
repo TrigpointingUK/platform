@@ -26,6 +26,7 @@ const Map = lazy(() => import("./routes/Map"));
 const Search = lazy(() => import("./routes/Search"));
 const LegacyMigration = lazy(() => import("./routes/LegacyMigration"));
 const Contact = lazy(() => import("./routes/Contact"));
+const AccountDeletion = lazy(() => import("./routes/AccountDeletion"));
 const Attributions = lazy(() => import("./routes/Attributions"));
 const Admin = lazy(() => import("./routes/Admin"));
 const AdminNeedsAttention = lazy(() => import("./routes/admin/NeedsAttention"));
@@ -132,6 +133,7 @@ const router = createBrowserRouter(
         { path: "/profile/:userId/photos", element: <UserPhotos /> },
         { path: "/profile", element: <UserProfile /> },
         { path: "/preferences", element: <Preferences /> },
+        { path: "/account/delete", element: <AccountDeletion /> },
         { path: "/lists", element: <TrigLists /> },
         { path: "/lists/:listId", element: <TrigLists /> },
         { path: "/settings", element: <Navigate to="/preferences" replace /> },
