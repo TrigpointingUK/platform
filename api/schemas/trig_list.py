@@ -156,6 +156,21 @@ class TrigListMembershipResponse(BaseModel):
     items: list[TrigListMembership]
 
 
+class DefaultListTrigIdsResponse(BaseModel):
+    """Trig IDs in the current user's default list.
+
+    Used to colour the quick-add star without per-row membership calls. Cached in
+    Redis and React Query; invalidated on mutations that could change either the
+    user's default list id or the contents of that list.
+    """
+
+    list_id: Optional[int] = Field(
+        None,
+        description="Default list id, or null if the user has no default list yet",
+    )
+    trig_ids: list[int] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Paginated response envelope
 # ---------------------------------------------------------------------------

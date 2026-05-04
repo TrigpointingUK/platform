@@ -81,6 +81,13 @@ export interface TrigListMembership {
   list_ids: number[];
 }
 
+export interface DefaultListTrigIds {
+  list_id: number | null;
+  trig_ids: number[];
+}
+
+const DEFAULT_LIST_TRIG_IDS_KEY = ["trig-lists", "default-trig-ids"] as const;
+
 // ---------------------------------------------------------------------------
 // Hooks
 // ---------------------------------------------------------------------------
@@ -123,9 +130,14 @@ export function useListDetail(listId: number | null) {
   });
 }
 
-export function useTrigListMembership(trigIds: number[]) {
+export function useTrigListMembership(
+  trigIds: number[],
+  options: { enabled?: boolean } = {},
+) {
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
   const idsParam = trigIds.join(",");
+  const enabled =
+    (options.enabled ?? true) && isAuthenticated && trigIds.length > 0;
   return useQuery<TrigListMembership[]>({
     queryKey: ["trig-lists", "membership", idsParam],
     queryFn: async () => {
@@ -135,8 +147,31 @@ export function useTrigListMembership(trigIds: number[]) {
       );
       return resp.items;
     },
-    enabled: isAuthenticated && trigIds.length > 0,
+    enabled,
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Trig IDs in the current user's default list.
+ *
+ * Used to render the quick-add star across trig listings without a per-trig
+ * membership request. The server response is cached in Redis; this hook caches
+ * it in React Query with a short staleTime and relies on optimistic updates in
+ * toggle mutations to keep the UI consistent between mutation and server
+ * refresh.
+ */
+export function useDefaultListTrigIds() {
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  return useQuery<DefaultListTrigIds>({
+    queryKey: DEFAULT_LIST_TRIG_IDS_KEY,
+    queryFn: () =>
+      authenticatedGet<DefaultListTrigIds>(
+        `${API_BASE}/v1/lists/default/trig-ids`,
+        getAccessTokenSilently,
+      ),
+    enabled: isAuthenticated,
+    staleTime: 60_000,
   });
 }
 
@@ -144,7 +179,12 @@ export function useToggleDefaultList(trigId: number) {
   const queryClient = useQueryClient();
   const { getAccessTokenSilently } = useAuth0();
 
-  return useMutation<{ action: string; list_id: number; trig_id: number }, Error, void, { prev: TrigListMembership[] | undefined }>({
+  return useMutation<
+    { action: string; list_id: number; trig_id: number },
+    Error,
+    void,
+    { prevDefault: DefaultListTrigIds | undefined }
+  >({
     mutationFn: () =>
       authenticatedPost(
         `${API_BASE}/v1/lists/default/toggle/${trigId}`,
@@ -152,32 +192,37 @@ export function useToggleDefaultList(trigId: number) {
         getAccessTokenSilently,
       ),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["trig-lists", "membership"] });
-      const membershipKey = ["trig-lists", "membership", String(trigId)];
-      const prev = queryClient.getQueryData<TrigListMembership[]>(membershipKey);
-      const lists = queryClient.getQueryData<TrigListFull[]>(["trig-lists", "mine"]);
-      const defaultList = lists?.find((l) => l.is_default);
-      if (defaultList && prev) {
-        queryClient.setQueryData<TrigListMembership[]>(membershipKey, (old) =>
-          (old ?? []).map((m) => {
-            if (m.trig_id !== trigId) return m;
-            const ids = m.list_ids.includes(defaultList.id)
-              ? m.list_ids.filter((id) => id !== defaultList.id)
-              : [...m.list_ids, defaultList.id];
-            return { ...m, list_ids: ids };
-          }),
+      await queryClient.cancelQueries({ queryKey: DEFAULT_LIST_TRIG_IDS_KEY });
+      const prevDefault = queryClient.getQueryData<DefaultListTrigIds>(
+        DEFAULT_LIST_TRIG_IDS_KEY,
+      );
+      if (prevDefault) {
+        const isCurrentlyIn = prevDefault.trig_ids.includes(trigId);
+        const next: DefaultListTrigIds = {
+          ...prevDefault,
+          trig_ids: isCurrentlyIn
+            ? prevDefault.trig_ids.filter((id) => id !== trigId)
+            : [...prevDefault.trig_ids, trigId],
+        };
+        queryClient.setQueryData<DefaultListTrigIds>(
+          DEFAULT_LIST_TRIG_IDS_KEY,
+          next,
         );
       }
-      return { prev };
+      return { prevDefault };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) {
-        queryClient.setQueryData(["trig-lists", "membership", String(trigId)], ctx.prev);
+      if (ctx?.prevDefault) {
+        queryClient.setQueryData<DefaultListTrigIds>(
+          DEFAULT_LIST_TRIG_IDS_KEY,
+          ctx.prevDefault,
+        );
       }
       toast.error("Failed to update list");
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["trig-lists"] });
+      queryClient.invalidateQueries({ queryKey: DEFAULT_LIST_TRIG_IDS_KEY });
+      queryClient.invalidateQueries({ queryKey: ["trig-lists", "mine"] });
     },
   });
 }
@@ -190,7 +235,10 @@ export function useToggleListItem(trigId: number) {
     { action: string; list_id: number; trig_id: number },
     Error,
     { listId: number },
-    { prev: TrigListMembership[] | undefined }
+    {
+      prev: TrigListMembership[] | undefined;
+      prevDefault: DefaultListTrigIds | undefined;
+    }
   >({
     mutationFn: ({ listId }) =>
       authenticatedPost(
@@ -200,6 +248,8 @@ export function useToggleListItem(trigId: number) {
       ),
     onMutate: async ({ listId }) => {
       await queryClient.cancelQueries({ queryKey: ["trig-lists", "membership"] });
+      await queryClient.cancelQueries({ queryKey: DEFAULT_LIST_TRIG_IDS_KEY });
+
       const membershipKey = ["trig-lists", "membership", String(trigId)];
       const prev = queryClient.getQueryData<TrigListMembership[]>(membershipKey);
       if (prev) {
@@ -213,11 +263,38 @@ export function useToggleListItem(trigId: number) {
           }),
         );
       }
-      return { prev };
+
+      // If the list being toggled is the user's default list, also optimistically
+      // update the default-list trig-ids cache so the star stays in sync even when
+      // the chevron dropdown is closed.
+      const prevDefault = queryClient.getQueryData<DefaultListTrigIds>(
+        DEFAULT_LIST_TRIG_IDS_KEY,
+      );
+      if (prevDefault && prevDefault.list_id === listId) {
+        const isCurrentlyIn = prevDefault.trig_ids.includes(trigId);
+        const next: DefaultListTrigIds = {
+          ...prevDefault,
+          trig_ids: isCurrentlyIn
+            ? prevDefault.trig_ids.filter((id) => id !== trigId)
+            : [...prevDefault.trig_ids, trigId],
+        };
+        queryClient.setQueryData<DefaultListTrigIds>(
+          DEFAULT_LIST_TRIG_IDS_KEY,
+          next,
+        );
+      }
+
+      return { prev, prevDefault };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) {
         queryClient.setQueryData(["trig-lists", "membership", String(trigId)], ctx.prev);
+      }
+      if (ctx?.prevDefault) {
+        queryClient.setQueryData<DefaultListTrigIds>(
+          DEFAULT_LIST_TRIG_IDS_KEY,
+          ctx.prevDefault,
+        );
       }
       toast.error("Failed to update list");
     },

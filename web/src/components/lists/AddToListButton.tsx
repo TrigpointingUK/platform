@@ -7,6 +7,7 @@ import {
   useToggleDefaultList,
   useToggleListItem,
   useTrigListMembership,
+  useDefaultListTrigIds,
   useCreateList,
   type TrigListFull,
 } from "../../hooks/useTrigLists";
@@ -30,7 +31,14 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
 
   const { data: lists } = useMyLists();
   const { data: editableLists } = useEditableLists();
-  const { data: memberships } = useTrigListMembership([trigId]);
+  const { data: defaultTrigIds } = useDefaultListTrigIds();
+  // Membership for this trig is only needed to render per-list checkmarks in the
+  // dropdown, so we defer fetching it until the user opens the dropdown. This
+  // avoids N parallel /v1/lists/membership requests when many AddToListButtons
+  // render on a map or long list.
+  const { data: memberships } = useTrigListMembership([trigId], {
+    enabled: dropdownOpen,
+  });
   const toggleDefault = useToggleDefaultList(trigId);
   const toggleItem = useToggleListItem(trigId);
   const createList = useCreateList();
@@ -41,8 +49,7 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
     [trigMembership?.list_ids],
   );
 
-  const defaultList = lists?.find((l) => l.is_default);
-  const isInDefaultList = defaultList ? memberListIds.has(defaultList.id) : false;
+  const isInDefaultList = defaultTrigIds?.trig_ids.includes(trigId) ?? false;
 
   const hasSharedLists = editableLists && editableLists.length > 0;
 
@@ -240,15 +247,13 @@ export default function AddToListButton({ trigId }: AddToListButtonProps) {
         )}
       </button>
 
-      {/* Chevron — open list dropdown */}
+      {/* Chevron — open list dropdown. Intentionally neutral (no colour based on
+          membership) so we do not need per-trig membership data up front; the
+          dropdown fetches that lazily when opened. */}
       <button
         type="button"
         onClick={handleToggleDropdown}
-        className={`inline-flex items-center justify-center transition-colors ml-0.5 ${
-          memberListIds.size > 0
-            ? "text-trig-green-500 hover:text-trig-green-700 dark:text-trig-green-400 dark:hover:text-trig-green-300"
-            : "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-        }`}
+        className="inline-flex items-center justify-center transition-colors ml-0.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
         title="Add to other lists"
         aria-expanded={dropdownOpen}
       >

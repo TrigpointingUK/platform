@@ -777,6 +777,7 @@ interface DeleteAccountAdminCardProps {
 }
 
 function DeleteAccountAdminCard({ getAccessTokenSilently }: DeleteAccountAdminCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AdminUserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -786,6 +787,7 @@ function DeleteAccountAdminCard({ getAccessTokenSilently }: DeleteAccountAdminCa
   const searchRequestRef = useRef(0);
   const searchInputId = useId();
   const selectId = useId();
+  const panelId = useId();
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -836,76 +838,108 @@ function DeleteAccountAdminCard({ getAccessTokenSilently }: DeleteAccountAdminCa
 
   return (
     <Card className="mb-6">
-      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
-        Delete member account
-      </h2>
-      <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-        Search by username or email fragment, select a member, then open the guided deletion page
-        (same flow as self-service, with administrator actions).
-      </p>
-      <div className="space-y-4 max-w-xl">
-        <div>
-          <label htmlFor={searchInputId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Search users
-          </label>
-          <input
-            id={searchInputId}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Start typing username or email…"
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 dark:placeholder-gray-400"
-          />
-          {isSearching && (
-            <div className="flex items-center gap-2 mt-2">
-              <Spinner size="sm" />
-              <span className="text-sm text-gray-500 dark:text-gray-400">Searching…</span>
-            </div>
-          )}
-        </div>
-        <div>
-          <label htmlFor={selectId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Select user
-          </label>
-          <select
-            id={selectId}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100 dark:disabled:bg-gray-600"
-            value={selectedUserId ?? ""}
-            onChange={(e) => setSelectedUserId(e.target.value ? Number(e.target.value) : null)}
-            disabled={results.length === 0}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          className="flex items-center gap-3 text-left focus:outline-none rounded-md text-trig-green-600 dark:text-trig-green-400"
+        >
+          <svg
+            className={`h-4 w-4 text-trig-green-600 dark:text-trig-green-400 transition-transform duration-200 ${
+              isOpen ? "rotate-90" : ""
+            }`}
+            viewBox="0 0 8 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
           >
-            <option value="">Choose a user…</option>
-            {results.map((u) => (
-              <option key={u.id} value={u.id}>
-                {`${u.name} — ${u.email || "no email"} — ID: ${u.id}`}
-              </option>
-            ))}
-          </select>
-        </div>
-        {error && (
-          <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 px-3 py-2 text-sm text-red-700 dark:text-red-400">
-            {error}
-          </div>
-        )}
-        <div>
-          <a
-            href={selectedUserId ? `/account/delete?userId=${selectedUserId}` : "#"}
-            aria-disabled={!selectedUserId}
-            className={
-              selectedUserId
-                ? "inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
-                : "inline-block bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 font-medium px-4 py-2 rounded-md cursor-not-allowed pointer-events-none"
-            }
-            onClick={(e) => {
-              if (!selectedUserId) {
-                e.preventDefault();
-              }
-            }}
-          >
-            Open account deletion page →
-          </a>
-        </div>
+            <path
+              d="M1.5 1L6.5 6L1.5 11"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+            Delete member account
+          </span>
+        </button>
       </div>
+
+      {isOpen ? (
+        <>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 mt-3">
+            Search by username or email fragment, select a member, then open the guided deletion page
+            (same flow as self-service, with administrator actions).
+          </p>
+          <div id={panelId} className="space-y-4 max-w-xl">
+            <div>
+              <label htmlFor={searchInputId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Search users
+              </label>
+              <input
+                id={searchInputId}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Start typing username or email…"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 dark:placeholder-gray-400"
+              />
+              {isSearching && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Spinner size="sm" />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Searching…</span>
+                </div>
+              )}
+            </div>
+            <div>
+              <label htmlFor={selectId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Select user
+              </label>
+              <select
+                id={selectId}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100 dark:disabled:bg-gray-600"
+                value={selectedUserId ?? ""}
+                onChange={(e) => setSelectedUserId(e.target.value ? Number(e.target.value) : null)}
+                disabled={results.length === 0}
+              >
+                <option value="">Choose a user…</option>
+                {results.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {`${u.name} — ${u.email || "no email"} — ID: ${u.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {error && (
+              <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+                {error}
+              </div>
+            )}
+            <div>
+              <a
+                href={selectedUserId ? `/account/delete?userId=${selectedUserId}` : "#"}
+                aria-disabled={!selectedUserId}
+                className={
+                  selectedUserId
+                    ? "inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
+                    : "inline-block bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 font-medium px-4 py-2 rounded-md cursor-not-allowed pointer-events-none"
+                }
+                onClick={(e) => {
+                  if (!selectedUserId) {
+                    e.preventDefault();
+                  }
+                }}
+              >
+                Open account deletion page →
+              </a>
+            </div>
+          </div>
+        </>
+      ) : null}
     </Card>
   );
 }

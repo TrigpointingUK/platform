@@ -582,6 +582,185 @@ class TestBatchMembership:
 
 
 # ---------------------------------------------------------------------------
+# Default list trig ids
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultListTrigIds:
+    def test_returns_empty_when_no_default_list(self, client: TestClient, test_user):
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["list_id"] is None
+        assert data["trig_ids"] == []
+
+    def test_returns_default_list_trig_ids(
+        self, client: TestClient, test_user, make_trig
+    ):
+        trig1 = make_trig()
+        trig2 = make_trig()
+        other_trig = make_trig()
+
+        # Creating via default-toggle lazy-creates the default list and adds trig1
+        resp = client.post(
+            f"/v1/lists/default/toggle/{trig1.id}",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 200
+        default_list_id = resp.json()["list_id"]
+
+        # Add trig2 to default list as well
+        client.post(
+            f"/v1/lists/default/toggle/{trig2.id}",
+            headers=auth_header(test_user.id),
+        )
+
+        # Create a separate non-default list and add other_trig — should not leak in
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "Other"},
+            headers=auth_header(test_user.id),
+        )
+        other_list_id = resp.json()["id"]
+        client.post(
+            f"/v1/lists/{other_list_id}/items",
+            json={"trig_id": other_trig.id},
+            headers=auth_header(test_user.id),
+        )
+
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["list_id"] == default_list_id
+        assert sorted(data["trig_ids"]) == sorted([trig1.id, trig2.id])
+
+    def test_invalidated_on_default_toggle(
+        self, client: TestClient, test_user, make_trig
+    ):
+        trig = make_trig()
+
+        # Prime: no default yet
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.json()["trig_ids"] == []
+
+        # Add via default toggle
+        client.post(
+            f"/v1/lists/default/toggle/{trig.id}",
+            headers=auth_header(test_user.id),
+        )
+
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.json()["trig_ids"] == [trig.id]
+
+        # Remove via default toggle
+        client.post(
+            f"/v1/lists/default/toggle/{trig.id}",
+            headers=auth_header(test_user.id),
+        )
+
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.json()["trig_ids"] == []
+
+    def test_invalidated_on_toggle_via_list_endpoint(
+        self, client: TestClient, test_user, make_trig
+    ):
+        trig = make_trig()
+
+        resp = client.post(
+            f"/v1/lists/default/toggle/{trig.id}",
+            headers=auth_header(test_user.id),
+        )
+        default_list_id = resp.json()["list_id"]
+
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.json()["trig_ids"] == [trig.id]
+
+        # Remove via the generic list toggle — should invalidate the cached set
+        resp = client.post(
+            f"/v1/lists/{default_list_id}/toggle/{trig.id}",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.json()["action"] == "removed"
+
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.json()["trig_ids"] == []
+
+    def test_invalidated_on_set_default(self, client: TestClient, test_user, make_trig):
+        trig_in_a = make_trig()
+        trig_in_b = make_trig()
+
+        # Create two lists; make list A default and add trig_in_a
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "List A"},
+            headers=auth_header(test_user.id),
+        )
+        list_a = resp.json()["id"]
+        client.post(
+            f"/v1/lists/{list_a}/set-default",
+            headers=auth_header(test_user.id),
+        )
+        client.post(
+            f"/v1/lists/{list_a}/items",
+            json={"trig_id": trig_in_a.id},
+            headers=auth_header(test_user.id),
+        )
+
+        # Prime cache for list A
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.json()["list_id"] == list_a
+        assert resp.json()["trig_ids"] == [trig_in_a.id]
+
+        # Create list B with a different trig and make it default
+        resp = client.post(
+            "/v1/lists",
+            json={"name": "List B"},
+            headers=auth_header(test_user.id),
+        )
+        list_b = resp.json()["id"]
+        client.post(
+            f"/v1/lists/{list_b}/items",
+            json={"trig_id": trig_in_b.id},
+            headers=auth_header(test_user.id),
+        )
+        client.post(
+            f"/v1/lists/{list_b}/set-default",
+            headers=auth_header(test_user.id),
+        )
+
+        resp = client.get(
+            "/v1/lists/default/trig-ids",
+            headers=auth_header(test_user.id),
+        )
+        assert resp.json()["list_id"] == list_b
+        assert resp.json()["trig_ids"] == [trig_in_b.id]
+
+
+# ---------------------------------------------------------------------------
 # Cascade delete
 # ---------------------------------------------------------------------------
 

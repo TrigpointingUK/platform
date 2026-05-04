@@ -13,10 +13,12 @@ from api.api.deps import (
     get_db,
     has_scope,
 )
+from api.core.logging import get_logger
 from api.crud import trig_list as trig_list_crud
 from api.models.trig_list import TrigList
 from api.models.user import User
 from api.schemas.trig_list import (
+    DefaultListTrigIdsResponse,
     TrigListCreate,
     TrigListItemCreate,
     TrigListItemReorderRequest,
@@ -31,6 +33,42 @@ from api.schemas.trig_list import (
     TrigListUpdate,
     TrigSummary,
 )
+from api.services.cache_service import cache_delete, cache_get, cache_set
+
+logger = get_logger(__name__)
+
+# TTL for the per-user default-list-trig-ids Redis cache. Invalidated eagerly on
+# toggles, so this is just a backstop.
+_DEFAULT_LIST_TRIG_IDS_CACHE_TTL = 3600
+
+
+def _default_list_trig_ids_cache_key(user_id: int) -> str:
+    return f"triglist:default_trig_ids:v1:{user_id}"
+
+
+def _invalidate_default_list_trig_ids_cache(user_id: int) -> None:
+    try:
+        cache_delete(_default_list_trig_ids_cache_key(user_id))
+    except (
+        Exception
+    ):  # pragma: no cover - defensive; cache_delete already swallows most errors
+        logger.warning("default_list_trig_ids_cache_invalidate_failed")
+
+
+def _invalidate_default_cache_if_list_is_default(
+    db: Session, trig_list: TrigList
+) -> None:
+    """Invalidate the owner's default-list cache if ``trig_list`` is that user's default.
+
+    ``default_list_id`` is always owned by the user (enforced at set-default), so we
+    only need to check the list's owner.
+    """
+    owner_default_id = trig_list_crud.get_user_default_list_id(
+        db, int(trig_list.owner_id)  # type: ignore[arg-type]
+    )
+    if owner_default_id == trig_list.id:
+        _invalidate_default_list_trig_ids_cache(int(trig_list.owner_id))  # type: ignore[arg-type]
+
 
 router = APIRouter()
 
@@ -220,6 +258,41 @@ def reorder_lists(
     db.commit()
 
 
+@router.get("/default/trig-ids", response_model=DefaultListTrigIdsResponse)
+def get_default_list_trig_ids(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return the trig IDs in the current user's default list.
+
+    This powers the quick-add star across trig listings without requiring a
+    per-trig membership call. The response is cached in Redis (per-user) and
+    invalidated eagerly on mutations that could change either the user's
+    ``default_list_id`` or the contents of that list.
+    """
+    user_id = int(current_user.id)  # type: ignore[arg-type]
+    cache_key = _default_list_trig_ids_cache_key(user_id)
+
+    cached, _age = cache_get(cache_key)
+    if cached is not None:
+        try:
+            return DefaultListTrigIdsResponse(**cached)
+        except Exception:  # pragma: no cover - defensive against schema drift
+            logger.warning("default_list_trig_ids_cache_decode_failed")
+
+    default_id, trig_ids = trig_list_crud.get_default_list_trig_ids_snapshot(
+        db, user_id
+    )
+    response = DefaultListTrigIdsResponse(list_id=default_id, trig_ids=trig_ids)
+    cache_set(
+        cache_key,
+        response.model_dump(),
+        ttl=_DEFAULT_LIST_TRIG_IDS_CACHE_TTL,
+    )
+    return response
+
+
 @router.get("/membership", response_model=TrigListMembershipResponse)
 def get_trig_list_membership(
     trig_ids: str = Query(..., description="Comma-separated trig IDs"),
@@ -255,10 +328,12 @@ def toggle_trig_in_default_list(
     if existing:
         trig_list_crud.remove_item(db, existing)
         db.commit()
+        _invalidate_default_list_trig_ids_cache(int(current_user.id))  # type: ignore[arg-type]
         return {"action": "removed", "list_id": default_list.id, "trig_id": trig_id}
     else:
         trig_list_crud.add_item(db, default_list.id, trig_id, current_user.id)  # type: ignore[arg-type]
         db.commit()
+        _invalidate_default_list_trig_ids_cache(int(current_user.id))  # type: ignore[arg-type]
         return {"action": "added", "list_id": default_list.id, "trig_id": trig_id}
 
 
@@ -272,6 +347,7 @@ def set_default_list(
     trig_list = _require_list_owner(list_id, db, current_user)
     current_user.default_list_id = trig_list.id  # type: ignore[assignment]
     db.commit()
+    _invalidate_default_list_trig_ids_cache(int(current_user.id))  # type: ignore[arg-type]
     return {"default_list_id": trig_list.id}
 
 
@@ -283,15 +359,17 @@ def toggle_trig_in_list(
     current_user: User = Depends(get_current_user),
 ):
     """Toggle a trig in/out of the specified list."""
-    _require_list_item_editable(list_id, db, current_user)
+    trig_list = _require_list_item_editable(list_id, db, current_user)
     existing = trig_list_crud.get_item_by_list_and_trig(db, list_id, trig_id)
     if existing:
         trig_list_crud.remove_item(db, existing)
         db.commit()
+        _invalidate_default_cache_if_list_is_default(db, trig_list)
         return {"action": "removed", "list_id": list_id, "trig_id": trig_id}
     else:
         trig_list_crud.add_item(db, list_id, trig_id, current_user.id)  # type: ignore[arg-type]
         db.commit()
+        _invalidate_default_cache_if_list_is_default(db, trig_list)
         return {"action": "added", "list_id": list_id, "trig_id": trig_id}
 
 
@@ -344,8 +422,16 @@ def delete_list(
     current_user: User = Depends(get_current_user),
 ):
     trig_list = _require_list_owner(list_id, db, current_user)
+    was_default = (
+        trig_list_crud.get_user_default_list_id(
+            db, int(current_user.id)  # type: ignore[arg-type]
+        )
+        == trig_list.id
+    )
     trig_list_crud.delete_list(db, trig_list)
     db.commit()
+    if was_default:
+        _invalidate_default_list_trig_ids_cache(int(current_user.id))  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +492,7 @@ def add_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _require_list_item_editable(list_id, db, current_user)
+    trig_list = _require_list_item_editable(list_id, db, current_user)
     try:
         item = trig_list_crud.add_item(
             db,
@@ -420,6 +506,7 @@ def add_item(
         db.commit()
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    _invalidate_default_cache_if_list_is_default(db, trig_list)
     return _refetch_item_response(db, list_id, item.id)  # type: ignore[arg-type]
 
 
@@ -430,12 +517,13 @@ def remove_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _require_list_item_editable(list_id, db, current_user)
+    trig_list = _require_list_item_editable(list_id, db, current_user)
     item = trig_list_crud.get_item(db, item_id)
     if item is None or item.list_id != list_id:
         raise HTTPException(status_code=404, detail="Item not found")
     trig_list_crud.remove_item(db, item)
     db.commit()
+    _invalidate_default_cache_if_list_is_default(db, trig_list)
 
 
 @router.patch("/{list_id}/items/{item_id}", response_model=TrigListItemResponse)

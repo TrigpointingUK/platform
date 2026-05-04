@@ -3,7 +3,7 @@ CRUD operations for trig_list and trig_list_item tables.
 """
 
 from datetime import datetime, timezone
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, cast
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -167,6 +167,36 @@ def ensure_default_list(db: Session, user_id: int) -> TrigList:
     user.default_list_id = trig_list.id  # type: ignore[assignment]
     db.flush()
     return trig_list
+
+
+def get_user_default_list_id(db: Session, user_id: int) -> Optional[int]:
+    """Return the user's ``default_list_id`` without creating one."""
+    row = db.query(User.default_list_id).filter(User.id == user_id).first()
+    if row is None:
+        return None
+    return cast(Optional[int], row[0])
+
+
+def get_default_list_trig_ids_snapshot(
+    db: Session, user_id: int
+) -> Tuple[Optional[int], List[int]]:
+    """
+    Return ``(default_list_id, trig_ids)`` for the user's default list.
+
+    Read-only: does not lazily create a default list. If the user has no
+    ``default_list_id`` set, returns ``(None, [])``.
+    """
+    default_id = get_user_default_list_id(db, user_id)
+    if default_id is None:
+        return None, []
+    rows = (
+        db.query(TrigListItem.trig_id)
+        .filter(TrigListItem.list_id == default_id)
+        .order_by(TrigListItem.position)
+        .all()
+    )
+    trig_ids = [int(r[0]) for r in rows]
+    return default_id, trig_ids
 
 
 # ---------------------------------------------------------------------------
