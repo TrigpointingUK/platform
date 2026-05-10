@@ -31,7 +31,7 @@ export default function Header() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 mr-6">
+          <Link to="/" className="flex items-center gap-3 mr-2 md:mr-6">
             <img src="/TUK-Logo.svg" alt="TrigpointingUK" className="h-10 w-10" width={40} height={40} />
             <span className="text-xl font-bold hidden sm:inline">TrigpointingUK</span>
           </Link>
@@ -56,8 +56,8 @@ export default function Header() {
             </a>
           </nav>
 
-          {/* Search Bar - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-md mx-4">
+          {/* Search Bar - always visible; grows to fill space, capped on md+ */}
+          <div className="flex flex-1 min-w-0 mx-2 md:max-w-md md:mx-4">
             <GlobalSearch
               placeholder="Search trigs, places, users..."
               onSearch={handleSearchComplete}
@@ -66,9 +66,11 @@ export default function Header() {
 
           {/* User Menu */}
           <div className="flex items-center gap-2">
-            {/* Theme Toggle */}
-            <ThemeToggle />
-            
+            {/* Theme Toggle - desktop only; mobile copy lives in the burger menu */}
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
+
             {isAuthenticated && user ? (
               <div className="relative">
                 <button
@@ -164,12 +166,6 @@ export default function Header() {
         {mobileMenuOpen && (
           <div className="md:hidden pb-4 border-t border-trig-green-500 mt-2 pt-2">
             <nav className="flex flex-col gap-2">
-              <div className="mb-2">
-                <GlobalSearch
-                  placeholder="Search trigs, places, users..."
-                  onSearch={handleSearchComplete}
-                />
-              </div>
               <a
                 href="https://wiki.trigpointing.uk"
                 target="_blank"
@@ -186,6 +182,10 @@ export default function Header() {
               >
                 Forum
               </a>
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="text-sm">Theme</span>
+                <ThemeToggle />
+              </div>
             </nav>
           </div>
         )}
