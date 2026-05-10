@@ -49,7 +49,9 @@ pytest api/tests/path/to/test_x.py::TestClass::test_name -xvs
 
 ### Run API locally against staging data
 
-Two terminals: `make postgres-tunnel` and `make redis-tunnel` (both use SSM port-forwarding via the bastion). Then `make run-staging` starts uvicorn with `--reload` on `127.0.0.1:8000` using staging credentials pulled from Secrets Manager.
+Easiest: `make dev-stack` brings up postgres-tunnel, redis-tunnel, FastAPI (`run-staging`), and the Vite dev server in a single tmux session (2x2 grid). `make dev-stack-attach` to view, `make dev-stack-stop` to tear down.
+
+Manually: open separate terminals for `make postgres-tunnel` and `make redis-tunnel` (SSM port-forwarding via the bastion), then `make run-staging` starts uvicorn with `--reload` on `127.0.0.1:8000` using staging credentials pulled from Secrets Manager.
 
 `make bastion-ssm-shell` opens an SSM shell on the bastion. `make ecs-exec-phpbb` / `make ecs-exec-mediawiki` exec into the running ECS tasks.
 

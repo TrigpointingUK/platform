@@ -6,6 +6,7 @@ orientation-model:
 .PHONY: help install install-dev test test-cov lint format type-check security build clean docker-build \
 	run-staging postgres-tunnel bastion-ssm-shell bastion-allow-my-ip \
 	redis-tunnel redis-cli \
+	dev-stack dev-stack-attach dev-stack-stop dev-stack-status \
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
 	migration-create migration-history send-archives \
@@ -54,6 +55,22 @@ run-staging: ## Run FastAPI locally against staging DB (requires postgres-tunnel
 	DB_USER="$$DB_USER" DB_PASSWORD="$$DB_PASSWORD" DB_NAME="$$DB_NAME" \
 	REDIS_URL=redis://127.0.0.1:$(LOCAL_REDIS_TUNNEL_PORT) \
 	uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+
+# ---------------------------------------------------------------------------
+# Full local dev stack in a tmux session (postgres + redis tunnels, API, web)
+# ---------------------------------------------------------------------------
+
+dev-stack: ## Start full local dev stack (postgres+redis tunnels, FastAPI, Vite) in tmux
+	@scripts/dev-stack.sh start
+
+dev-stack-attach: ## Attach to the running dev-stack tmux session
+	@tmux attach -t trigpointing-dev
+
+dev-stack-stop: ## Kill the dev-stack tmux session
+	@scripts/dev-stack.sh stop
+
+dev-stack-status: ## Show whether the dev-stack session is running
+	@scripts/dev-stack.sh status
 
 # ---------------------------------------------------------------------------
 # SSM-based alternatives (no public SSH required)
