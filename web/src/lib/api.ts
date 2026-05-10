@@ -579,6 +579,22 @@ export async function migrateLegacyUser(
   );
 }
 
+export interface AdminReissueEmailRequest {
+  user_id: number;
+  email: string;
+}
+
+export async function reissueLegacyUserEmail(
+  payload: AdminReissueEmailRequest,
+  token: string
+): Promise<AdminMigrationResponse> {
+  return apiPost<AdminMigrationResponse>(
+    `/v1/admin/legacy-migration/reissue-email`,
+    payload,
+    token
+  );
+}
+
 export type AccountDeletionMode =
   | "anonymise_keep_photos"
   | "anonymise_delete_photos"

@@ -21,6 +21,7 @@ import {
   LogNeedsAttentionSummary,
   mergeUsers,
   migrateLegacyUser,
+  reissueLegacyUserEmail,
   searchLegacyUsers,
   TrigNeedsAttentionSummary,
 } from "../lib/api";
@@ -151,7 +152,9 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
   const [migrationMessage, setMigrationMessage] = useState<string | null>(null);
+  const [migrationWasReissue, setMigrationWasReissue] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [allowMigrated, setAllowMigrated] = useState(false);
 
   const searchTimeoutRef = useRef<number | null>(null);
   const searchRequestRef = useRef(0);
@@ -161,6 +164,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
   const emailInputId = useId();
   const replyTextareaId = useId();
   const panelId = useId();
+  const allowMigratedCheckboxId = useId();
 
   const selectedUser = useMemo(
     () => results.find((user) => user.id === selectedUserId) ?? null,
@@ -279,6 +283,22 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
         return;
       }
 
+      const isReissue = Boolean(selectedUser.has_auth0_account);
+
+      if (isReissue) {
+        const currentEmail = (selectedUser.email ?? "").trim();
+        if (trimmedEmail.toLowerCase() === currentEmail.toLowerCase()) {
+          setMigrationError("New email must differ from the current address.");
+          return;
+        }
+        const confirmed = window.confirm(
+          "This will delete the user's existing Auth0 account and create a new one bound to this email address. Continue?"
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+
       setIsMigrating(true);
       setMigrationError(null);
       setMigrationMessage(null);
@@ -287,15 +307,18 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
         const token = await getAccessTokenSilently({
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
-        const response = await migrateLegacyUser(
-          {
-            user_id: selectedUser.id,
-            email: trimmedEmail,
-          },
-          token
-        );
+        const response = isReissue
+          ? await reissueLegacyUserEmail(
+              { user_id: selectedUser.id, email: trimmedEmail },
+              token
+            )
+          : await migrateLegacyUser(
+              { user_id: selectedUser.id, email: trimmedEmail },
+              token
+            );
 
         setMigrationMessage(response.message);
+        setMigrationWasReissue(isReissue);
         setEmail(response.email);
         setResults((prev) =>
           prev.map((user) =>
@@ -324,12 +347,21 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
 
   const trimmedEmail = email.trim();
   const emailIsValid = EMAIL_PATTERN.test(trimmedEmail);
+  const isReissue = Boolean(selectedUser?.has_auth0_account);
+  const currentEmailForReissue = (selectedUser?.email ?? "").trim();
+  const reissueEmailUnchanged =
+    isReissue && trimmedEmail.length > 0
+      ? trimmedEmail.toLowerCase() === currentEmailForReissue.toLowerCase()
+      : false;
   const canMigrate = Boolean(
-    selectedUser && emailIsValid && !isMigrating && !selectedUser.has_auth0_account
+    selectedUser &&
+      emailIsValid &&
+      !isMigrating &&
+      (isReissue ? !reissueEmailUnchanged : !selectedUser.has_auth0_account)
   );
 
   const showExistingAuth0Notice =
-    Boolean(selectedUser?.has_auth0_account) && migrationMessage === null;
+    Boolean(selectedUser?.has_auth0_account) && !allowMigrated && migrationMessage === null;
 
   return (
     <Card className="mb-6">
@@ -407,6 +439,30 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
               >
                 Matching users
               </label>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  id={allowMigratedCheckboxId}
+                  type="checkbox"
+                  checked={allowMigrated}
+                  onChange={(event) => {
+                    const next = event.target.checked;
+                    setAllowMigrated(next);
+                    if (!next && selectedUser?.has_auth0_account) {
+                      setSelectedUserId(null);
+                      setEmail("");
+                      setMigrationError(null);
+                      setMigrationMessage(null);
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-trig-green-600 focus:ring-trig-green-400"
+                />
+                <label
+                  htmlFor={allowMigratedCheckboxId}
+                  className="text-sm text-gray-700 dark:text-gray-300 select-none"
+                >
+                  Include users who already have an Auth0 account (re-issue email)
+                </label>
+              </div>
               <select
                 id={selectId}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400 disabled:bg-gray-100 dark:disabled:bg-gray-600"
@@ -419,10 +475,14 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
                   <option
                     key={user.id}
                     value={user.id}
-                    disabled={user.has_auth0_account}
+                    disabled={!allowMigrated && user.has_auth0_account}
                   >
                     {`${user.name} — ${user.email || "no email on file"}${
-                      user.has_auth0_account ? " (already migrated)" : ""
+                      user.has_auth0_account
+                        ? allowMigrated
+                          ? " (already migrated — re-issue email)"
+                          : " (already migrated)"
+                        : ""
                     }`}
                   </option>
                 ))}
@@ -455,6 +515,11 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
                   Please double-check the email address before proceeding.
                 </p>
               ) : null}
+              {emailIsValid && reissueEmailUnchanged ? (
+                <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                  New email must differ from the current address.
+                </p>
+              ) : null}
             </div>
 
             {migrationError ? (
@@ -468,14 +533,20 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
                 {isMigrating ? (
                   <span className="flex items-center gap-2">
                     <Spinner size="sm" />
-                    <span>Migrating…</span>
+                    <span>{isReissue ? "Updating…" : "Migrating…"}</span>
                   </span>
+                ) : isReissue ? (
+                  "New email"
                 ) : (
                   "Migrate"
                 )}
               </Button>
               {migrationMessage ? (
-                <p className="text-sm text-trig-green-700 dark:text-trig-green-400">Migration completed successfully.</p>
+                <p className="text-sm text-trig-green-700 dark:text-trig-green-400">
+                  {migrationWasReissue
+                    ? "Email re-issued successfully."
+                    : "Migration completed successfully."}
+                </p>
               ) : null}
             </div>
 

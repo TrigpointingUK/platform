@@ -34,6 +34,7 @@ from api.schemas.admin import (
     AdminMergeUsersResponse,
     AdminMigrationRequest,
     AdminMigrationResponse,
+    AdminReissueEmailRequest,
     AdminUserSearchResponse,
     AdminUserSearchResult,
     MergeRecordCounts,
@@ -596,6 +597,257 @@ def migrate_user_to_auth0(
         username=str(user.name),
         email=email,
         auth0_user_id=auth0_user_id_str,
+        message=message,
+    )
+
+
+@router.post(
+    "/legacy-migration/reissue-email",
+    response_model=AdminMigrationResponse,
+    status_code=status.HTTP_200_OK,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Re-issue an Auth0 account against a new email for an already-migrated legacy user.",
+    ),
+)
+def reissue_legacy_user_email(
+    request: AdminReissueEmailRequest,
+    admin_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db),
+) -> AdminMigrationResponse:
+    """Replace an existing Auth0 account with one bound to a new email."""
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_legacy_reissue_start",
+                "admin_user_id": int(admin_user.id),
+                "target_user_id": request.user_id,
+                "email": request.email,
+            }
+        )
+    )
+
+    user = user_crud.get_user_by_id(db, request.user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    user_id = int(user.id)
+
+    if not user.auth0_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This user does not have an Auth0 account; use the standard migration flow.",
+        )
+
+    new_email = request.email.strip()
+    current_email = (str(user.email) if user.email else "").strip()
+
+    if new_email.lower() == current_email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New email must differ from the current address.",
+        )
+
+    existing = user_crud.get_user_by_email(db, new_email)
+    if existing and int(existing.id) != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The email address {new_email} is already in use by another user.",
+        )
+
+    old_auth0_user_id = str(user.auth0_user_id)
+
+    try:
+        auth0_user = auth0_service.create_user_for_admin_migration(
+            username=str(user.name),
+            email=new_email,
+            legacy_user_id=user_id,
+            firstname=str(user.firstname) if user.firstname else None,
+            surname=str(user.surname) if user.surname else None,
+        )
+    except Auth0EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The email address {new_email} is already registered in Auth0.",
+        )
+    except Auth0UserCreationFailedError as exc:
+        logger.error(
+            json.dumps(
+                {
+                    "event": "admin_legacy_reissue_auth0_failure",
+                    "user_id": user_id,
+                    "email": new_email,
+                    "details": getattr(exc, "details", {}),
+                }
+            )
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to create Auth0 user. Please try again later.",
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error(
+            json.dumps(
+                {
+                    "event": "admin_legacy_reissue_unexpected_error",
+                    "user_id": user_id,
+                    "email": new_email,
+                    "error": str(exc),
+                }
+            )
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred during re-issue.",
+        )
+
+    new_auth0_user_id = auth0_user.get("user_id")
+    if not new_auth0_user_id:
+        logger.error(
+            json.dumps(
+                {
+                    "event": "admin_legacy_reissue_missing_auth0_id",
+                    "user_id": user_id,
+                    "email": new_email,
+                }
+            )
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Auth0 did not return a user identifier.",
+        )
+
+    new_auth0_user_id_str = str(new_auth0_user_id)
+    user.auth0_user_id = new_auth0_user_id_str  # type: ignore
+    user.email = new_email  # type: ignore
+    user.email_valid = "Y"  # type: ignore
+
+    def cleanup_new_auth0_user() -> None:
+        try:
+            deleted = auth0_service.delete_user(new_auth0_user_id_str)
+            log_payload = {
+                "event": "admin_legacy_reissue_cleanup_new_auth0_user",
+                "auth0_user_id": new_auth0_user_id_str,
+                "deleted": bool(deleted),
+            }
+            if deleted:
+                logger.info(json.dumps(log_payload))
+            else:
+                logger.warning(json.dumps(log_payload))
+        except Exception as cleanup_exc:  # pragma: no cover - best effort clean-up
+            logger.error(
+                "Failed to clean up new Auth0 user after re-issue error",
+                extra={
+                    "auth0_user_id": new_auth0_user_id_str,
+                    "error": str(cleanup_exc),
+                },
+                exc_info=True,
+            )
+
+    try:
+        db.flush()
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        cleanup_new_auth0_user()
+        logger.error(
+            "Auth0 reissue database integrity error",
+            extra={
+                "user_id": user_id,
+                "auth0_user_id": new_auth0_user_id_str,
+                "email": new_email,
+                "error": str(exc),
+            },
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Database rejected the Auth0 mapping. Please verify the user state.",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        cleanup_new_auth0_user()
+        logger.error(
+            "Auth0 reissue database persist failure",
+            extra={
+                "user_id": user_id,
+                "auth0_user_id": new_auth0_user_id_str,
+                "email": new_email,
+                "error": str(exc),
+            },
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to persist Auth0 re-issue details in the database.",
+        ) from exc
+
+    db.refresh(user)
+    invalidate_user_caches(user_id=int(user.id))
+
+    try:
+        deleted_old = auth0_service.delete_user(old_auth0_user_id)
+        if deleted_old:
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "admin_legacy_reissue_old_auth0_deleted",
+                        "user_id": user_id,
+                        "old_auth0_user_id": old_auth0_user_id,
+                    }
+                )
+            )
+        else:
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "admin_legacy_reissue_old_auth0_orphaned",
+                        "user_id": user_id,
+                        "old_auth0_user_id": old_auth0_user_id,
+                    }
+                )
+            )
+    except Exception as cleanup_exc:  # pragma: no cover - best effort
+        logger.error(
+            "Failed to delete old Auth0 user after successful re-issue",
+            extra={
+                "user_id": user_id,
+                "old_auth0_user_id": old_auth0_user_id,
+                "error": str(cleanup_exc),
+            },
+            exc_info=True,
+        )
+
+    message = (
+        f"Hi {user.name}! Your account has been migrated to the new login system. "
+        'In order to choose a password, please click "login" in the top-right corner of the Trigpointing.uk homepage, '
+        'click "Can\'t log in to your account?", enter '
+        f'"{new_email}" and click continue. Within a few minutes you should receive an email from contact@trigpointing.uk, '
+        "containing a link which will enable you to set a password."
+    )
+
+    logger.info(
+        json.dumps(
+            {
+                "event": "admin_legacy_reissue_success",
+                "user_id": int(user.id),
+                "email": new_email,
+                "auth0_user_id": new_auth0_user_id_str,
+                "old_auth0_user_id": old_auth0_user_id,
+                "admin_user_id": int(admin_user.id),
+            }
+        )
+    )
+
+    return AdminMigrationResponse(
+        user_id=int(user.id),
+        username=str(user.name),
+        email=new_email,
+        auth0_user_id=new_auth0_user_id_str,
         message=message,
     )
 
