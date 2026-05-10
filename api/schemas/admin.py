@@ -37,6 +37,13 @@ class AdminMigrationRequest(BaseModel):
     email: EmailStr = Field(..., description="Email address to assign in Auth0")
 
 
+class AdminReissueEmailRequest(BaseModel):
+    """Request payload for re-issuing an Auth0 account against a new email."""
+
+    user_id: int = Field(..., description="Legacy database user identifier")
+    email: EmailStr = Field(..., description="New email address to assign in Auth0")
+
+
 class AdminMigrationResponse(BaseModel):
     """Response payload for a successful migration."""
 

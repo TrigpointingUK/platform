@@ -293,3 +293,249 @@ def test_migrate_user_database_failure_returns_500(
     db.expire_all()
     refreshed = db.get(User, target_user_id)
     assert refreshed is None or refreshed.auth0_user_id is None
+
+
+def test_reissue_email_success(
+    db: Session, client: TestClient, admin_user: User, admin_auth_patch
+):
+    """Re-issue should swap Auth0 mapping, update email, and delete old Auth0 account."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db,
+        username=f"jess_{suffix}",
+        email=f"old_{suffix}@example.com",
+        auth0_user_id="auth0|old-id",
+        email_valid="Y",
+    )
+
+    with patch.object(
+        admin_endpoints.auth0_service,
+        "create_user_for_admin_migration",
+        return_value={"user_id": "auth0|new-id"},
+    ) as mock_create, patch.object(
+        admin_endpoints.auth0_service,
+        "delete_user",
+        return_value=True,
+    ) as mock_delete:
+        response = client.post(
+            "/v1/admin/legacy-migration/reissue-email",
+            json={"user_id": target_user.id, "email": f"new_{suffix}@example.com"},
+            headers=_admin_headers(admin_user),
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["auth0_user_id"] == "auth0|new-id"
+    assert body["email"] == f"new_{suffix}@example.com"
+
+    db.refresh(target_user)
+    assert target_user.auth0_user_id == "auth0|new-id"
+    assert target_user.email == f"new_{suffix}@example.com"
+    assert target_user.email_valid == "Y"
+    mock_create.assert_called_once()
+    mock_delete.assert_called_once_with("auth0|old-id")
+
+
+def test_reissue_email_requires_existing_auth0(
+    db: Session, client: TestClient, admin_user: User, admin_auth_patch
+):
+    """Re-issue should fail if the user has no Auth0 account."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db, username=f"karl_{suffix}", email=f"karl_{suffix}@example.com"
+    )
+
+    response = client.post(
+        "/v1/admin/legacy-migration/reissue-email",
+        json={"user_id": target_user.id, "email": f"new_{suffix}@example.com"},
+        headers=_admin_headers(admin_user),
+    )
+
+    assert response.status_code == 400
+    assert "does not have an Auth0 account" in response.json()["detail"]
+
+
+def test_reissue_email_rejects_unchanged_email(
+    db: Session, client: TestClient, admin_user: User, admin_auth_patch
+):
+    """Re-issue should reject when the new email matches the current one (case-insensitive)."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db,
+        username=f"lara_{suffix}",
+        email=f"lara_{suffix}@example.com",
+        auth0_user_id="auth0|lara-old",
+        email_valid="Y",
+    )
+
+    response = client.post(
+        "/v1/admin/legacy-migration/reissue-email",
+        json={"user_id": target_user.id, "email": f"LARA_{suffix}@example.com"},
+        headers=_admin_headers(admin_user),
+    )
+
+    assert response.status_code == 400
+    assert "differ from the current address" in response.json()["detail"]
+
+
+def test_reissue_email_conflict_in_database(
+    db: Session, client: TestClient, admin_user: User, admin_auth_patch
+):
+    """Re-issue should fail when another user owns the new email."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    other_user = _create_user(
+        db, username=f"mary_{suffix}", email=f"shared_{suffix}@example.com"
+    )
+    target_user = _create_user(
+        db,
+        username=f"nina_{suffix}",
+        email=f"nina_{suffix}@example.com",
+        auth0_user_id="auth0|nina-old",
+        email_valid="Y",
+    )
+
+    response = client.post(
+        "/v1/admin/legacy-migration/reissue-email",
+        json={"user_id": target_user.id, "email": other_user.email},
+        headers=_admin_headers(admin_user),
+    )
+
+    assert response.status_code == 400
+    assert "already in use by another user" in response.json()["detail"]
+
+
+def test_reissue_email_conflict_in_auth0(
+    db: Session, client: TestClient, admin_user: User, admin_auth_patch
+):
+    """Re-issue should fail when Auth0 reports the new email already exists; old account untouched."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db,
+        username=f"olga_{suffix}",
+        email=f"olga_{suffix}@example.com",
+        auth0_user_id="auth0|olga-old",
+        email_valid="Y",
+    )
+
+    with patch.object(
+        admin_endpoints.auth0_service,
+        "create_user_for_admin_migration",
+        side_effect=Auth0EmailAlreadyExistsError(f"new_{suffix}@example.com"),
+    ), patch.object(
+        admin_endpoints.auth0_service,
+        "delete_user",
+        return_value=True,
+    ) as mock_delete:
+        response = client.post(
+            "/v1/admin/legacy-migration/reissue-email",
+            json={"user_id": target_user.id, "email": f"new_{suffix}@example.com"},
+            headers=_admin_headers(admin_user),
+        )
+
+    assert response.status_code == 400
+    assert "already registered in Auth0" in response.json()["detail"]
+    mock_delete.assert_not_called()
+
+    db.refresh(target_user)
+    assert target_user.auth0_user_id == "auth0|olga-old"
+    assert target_user.email == f"olga_{suffix}@example.com"
+
+
+def test_reissue_email_old_auth0_delete_failure_does_not_rollback(
+    db: Session, client: TestClient, admin_user: User, admin_auth_patch
+):
+    """If post-commit deletion of the old Auth0 user fails, the DB change must stand."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db,
+        username=f"pete_{suffix}",
+        email=f"old_{suffix}@example.com",
+        auth0_user_id="auth0|pete-old",
+        email_valid="Y",
+    )
+    target_user_id = int(target_user.id)
+
+    def delete_side_effect(user_id: str):
+        if user_id == "auth0|pete-old":
+            raise RuntimeError("auth0 transient failure")
+        return True
+
+    with patch.object(
+        admin_endpoints.auth0_service,
+        "create_user_for_admin_migration",
+        return_value={"user_id": "auth0|pete-new"},
+    ), patch.object(
+        admin_endpoints.auth0_service,
+        "delete_user",
+        side_effect=delete_side_effect,
+    ):
+        response = client.post(
+            "/v1/admin/legacy-migration/reissue-email",
+            json={"user_id": target_user_id, "email": f"new_{suffix}@example.com"},
+            headers=_admin_headers(admin_user),
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["auth0_user_id"] == "auth0|pete-new"
+
+    db.refresh(target_user)
+    assert target_user.auth0_user_id == "auth0|pete-new"
+    assert target_user.email == f"new_{suffix}@example.com"
+
+
+def test_reissue_email_database_failure_cleans_up_new_auth0(
+    db: Session,
+    client: TestClient,
+    admin_user: User,
+    admin_auth_patch,
+    monkeypatch,
+):
+    """If the DB commit fails, the freshly-created Auth0 account must be cleaned up and the old one preserved."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:6]
+    target_user = _create_user(
+        db,
+        username=f"quin_{suffix}",
+        email=f"old_{suffix}@example.com",
+        auth0_user_id="auth0|quin-old",
+        email_valid="Y",
+    )
+    target_user_id = int(target_user.id)
+
+    def failing_commit(self):
+        raise RuntimeError("db commit failed")
+
+    monkeypatch.setattr(Session, "commit", failing_commit, raising=False)
+
+    with patch.object(
+        admin_endpoints.auth0_service,
+        "create_user_for_admin_migration",
+        return_value={"user_id": "auth0|quin-new"},
+    ), patch.object(
+        admin_endpoints.auth0_service,
+        "delete_user",
+        return_value=True,
+    ) as mock_delete:
+        response = client.post(
+            "/v1/admin/legacy-migration/reissue-email",
+            json={"user_id": target_user_id, "email": f"new_{suffix}@example.com"},
+            headers=_admin_headers(admin_user),
+        )
+
+    assert response.status_code == 500
+    assert "Failed to persist Auth0 re-issue details" in response.json()["detail"]
+    mock_delete.assert_called_once_with("auth0|quin-new")
