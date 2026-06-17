@@ -38,7 +38,7 @@
     "@types/proj4leaflet": "^1.0.12",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.2.0",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
     "lucide-react": "^1.8.0",
