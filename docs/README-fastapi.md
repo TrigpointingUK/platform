@@ -37,7 +37,7 @@ A modern FastAPI-based API to gradually migrate the 20-year-old PHP/MySQL websit
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.13+
 - MySQL 8.0+
 - Docker & Docker Compose
 - Git

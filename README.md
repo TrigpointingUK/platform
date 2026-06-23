@@ -7,7 +7,7 @@ Monorepo containing all infrastructure, applications, and services for Trigpoint
 ### Applications
 
 - **api/** - Python FastAPI backend REST API
-  - Modern Python 3.11+ API with Auth0 integration
+  - Modern Python 3.13+ API with Auth0 integration
   - Comprehensive test coverage, type checking
   - [Detailed API Documentation](docs/README-fastapi.md)
 
@@ -48,7 +48,7 @@ Monorepo containing all infrastructure, applications, and services for Trigpoint
 ## Architecture
 
 - **Web SPA**: React + TypeScript (Vite) served by nginx on ECS Fargate
-- **API**: FastAPI (Python 3.11) on ECS Fargate
+- **API**: FastAPI (Python 3.13) on ECS Fargate
 - **Forum**: phpBB on ECS Fargate
 - **Wiki**: MediaWiki on ECS Fargate
 - **Database**: RDS MySQL 8.0
@@ -61,7 +61,7 @@ Monorepo containing all infrastructure, applications, and services for Trigpoint
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.13+
 - Node.js 20+ and npm (for web app)
 - Docker & Docker Compose
 - AWS CLI (for deployments)

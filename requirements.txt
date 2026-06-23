@@ -33,7 +33,7 @@ redis==8.0.1
 
 # Image processing
 Pillow==12.2.0
-numpy==2.4.6  # 2.5.0 requires Python >=3.12; CI/runtime is on 3.11
+numpy==2.5.0
 onnxruntime==1.27.0
 
 # Geodesy - accurate coordinate transformations
