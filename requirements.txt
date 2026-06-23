@@ -29,7 +29,7 @@ boto3==1.43.36
 types-requests==2.33.0.20260518
 
 # Redis/ElastiCache for token caching
-redis==7.4.0
+redis==8.0.1
 
 # Image processing
 Pillow==12.2.0
