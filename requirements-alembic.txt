@@ -16,5 +16,5 @@ geoalchemy2==0.18.4
 # Pydantic for model validation (used by API models)
 # Using 2.11.0 which is the last version supporting Python 3.9
 pydantic==2.12.5
-pydantic-settings==2.13.1
+pydantic-settings==2.14.2
 
