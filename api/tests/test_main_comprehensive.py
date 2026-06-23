@@ -33,16 +33,17 @@ class TestMainModule:
 
     def test_app_has_health_endpoint(self):
         """Test that app has health endpoint registered."""
-        # Get all routes
-        routes = [route.path for route in app.routes]
+        # FastAPI 0.138 includes routers lazily (_IncludedRouter has no
+        # .path), so enumerate the resolved OpenAPI paths instead.
+        routes = list(app.openapi()["paths"])
         assert "/health" in routes
 
     def test_app_has_api_routes(self):
         """Test that app has API routes registered."""
-        # Get all routes
+        # Get all routes (OpenAPI paths resolve lazily-included routers)
         from api.core.config import settings
 
-        routes = [route.path for route in app.routes]
+        routes = list(app.openapi()["paths"])
         # Should have API v1 routes
         api_routes = [
             route for route in routes if route.startswith(settings.API_V1_STR)
@@ -92,10 +93,10 @@ class TestMainModule:
 
     def test_app_router_inclusion(self):
         """Test that API router is included."""
-        # Get all routes
+        # Get all routes (OpenAPI paths resolve lazily-included routers)
         from api.core.config import settings
 
-        routes = [route.path for route in app.routes]
+        routes = list(app.openapi()["paths"])
         # Should have API v1 routes
         api_routes = [
             route for route in routes if route.startswith(settings.API_V1_STR)
