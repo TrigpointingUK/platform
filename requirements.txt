@@ -24,7 +24,7 @@ pytest-cov==7.1.0
 factory-boy==3.3.3
 
 # Auth0 dependencies
-requests==2.33.1
+requests==2.34.2
 boto3==1.42.88
 types-requests==2.33.0.20260513
 
