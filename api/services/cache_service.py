@@ -415,9 +415,12 @@ def cache_delete_patterns_batched(patterns: list[str]) -> int:
 
             # Check each key against all patterns
             for key in keys:
+                # decode_responses=True yields str, but the client stubs type
+                # scan() keys as bytes | str, so normalise defensively
+                key_str = key.decode() if isinstance(key, bytes) else key
                 for pattern in patterns:
-                    if fnmatch.fnmatch(key, pattern):
-                        keys_to_delete.append(key)
+                    if fnmatch.fnmatch(key_str, pattern):
+                        keys_to_delete.append(key_str)
                         break  # Don't match same key multiple times
 
             # Delete in batches to avoid huge commands

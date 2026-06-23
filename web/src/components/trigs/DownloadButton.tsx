@@ -204,6 +204,8 @@ export function DownloadButton({
       {isOpen && (
         <FloatingPortal>
           <div
+            // floating-ui's setFloating is a stable callback-ref setter, not a ref-value read
+            // eslint-disable-next-line react-hooks/refs
             ref={refs.setFloating}
             style={floatingStyles}
             className="w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-600 z-50"

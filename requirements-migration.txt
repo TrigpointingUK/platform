@@ -5,20 +5,20 @@
 # NOTE: Compatible with Python 3.9+ (bastion host has Python 3.9)
 
 # Data export/import and validation
-pandas>=2.0.0,<4.0.0
+pandas>=3.0.3,<4.0.0
 
 # MySQL driver for exporting data from the source database
-pymysql>=1.1.0,<2.0.0
+pymysql>=1.2.0,<2.0.0
 
 # PostgreSQL driver
-psycopg2-binary>=2.9.0,<3.0.0
+psycopg2-binary>=2.9.12,<3.0.0
 
 # ORM and PostGIS support
-sqlalchemy>=2.0.0,<3.0.0
-geoalchemy2>=0.14.0,<1.0.0
+sqlalchemy>=2.0.51,<3.0.0
+geoalchemy2>=0.20.0,<1.0.0
 
 # Configuration management (Python 3.9 compatible versions)
-pydantic>=2.0.0,<3.0.0
+pydantic>=2.13.4,<3.0.0
 pydantic-settings>=2.14.2,<2.15.0
 python-dotenv>=1.0.0,<2.0.0
 
