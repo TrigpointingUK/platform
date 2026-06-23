@@ -32,7 +32,7 @@
     "@tiptap/extension-color": "^3.23.4",
     "@tiptap/extension-link": "^3.22.3",
     "@tiptap/extension-text-style": "^3.23.4",
-    "@tiptap/react": "^3.22.3",
+    "@tiptap/react": "^3.27.1",
     "@tiptap/starter-kit": "^3.23.4",
     "@types/leaflet": "^1.9.21",
     "@types/proj4leaflet": "^1.0.12",
