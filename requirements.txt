@@ -9,7 +9,7 @@ PyJWT==2.12.1
 passlib[bcrypt]==1.7.4
 bcrypt==4.3.0
 crypt-r>=1.0  # Replacement for removed crypt module (Python 3.13+)
-python-multipart==0.0.27  # CVE-2026-42561 fix
+python-multipart==0.0.31  # CVE-2026-42561 fix
 pydantic[email]==2.12.5
 pydantic-settings==2.14.2
 python-dotenv==1.2.2
