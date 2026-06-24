@@ -295,6 +295,19 @@ def initialize_telemetry(
         )
 
 
+def instrument_fastapi_app(app, excluded_urls: str = "/health,/metrics") -> None:
+    """Attach OpenTelemetry ASGI instrumentation to a fully-routed FastAPI app.
+
+    Must be called *after* all routes are registered so the instrumentor can
+    see them. Centralised here (rather than calling ``FastAPIInstrumentor``
+    inline) so the instrumentation can be hardened and exercised by tests.
+    """
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls)
+    logger.info("FastAPI app instrumented with OpenTelemetry (after routes added)")
+
+
 def shutdown_telemetry() -> None:
     """
     Shutdown OpenTelemetry gracefully, flushing any remaining spans.
