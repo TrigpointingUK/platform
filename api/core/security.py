@@ -265,7 +265,7 @@ class Auth0TokenValidator:
             # Add required fields for authentication logic
             return {
                 **payload,
-                "token_type": "auth0",
+                "token_type": "auth0",  # nosec B105
                 "auth0_user_id": payload.get("sub"),
             }
 
