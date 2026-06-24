@@ -33,7 +33,7 @@ redis==8.0.1
 
 # Image processing
 Pillow==12.2.0
-numpy==2.4.6  # 2.5.0 requires Python >=3.12; CI/runtime is on 3.11
+numpy==2.5.0
 onnxruntime==1.27.0
 
 # Geodesy - accurate coordinate transformations
@@ -44,11 +44,16 @@ pyinstrument==5.1.2
 pyroscope-io==1.0.12
 
 # OpenTelemetry - Distributed tracing and metrics
-opentelemetry-api==1.42.1
-opentelemetry-sdk==1.42.1
-opentelemetry-instrumentation-fastapi==0.63b1
-opentelemetry-instrumentation-sqlalchemy==0.63b1
-opentelemetry-exporter-otlp-proto-http==1.42.1
+# NOTE: instrumentation must be >=0.64b0 (api/sdk >=1.43.0). Earlier 0.63b1
+# crashes on FastAPI >=0.138 because its span-name resolver reads `.path` on the
+# `_IncludedRouter` objects FastAPI now puts in `app.routes` (AttributeError ->
+# unhandled 500 on every CORS-preflight/method-mismatch request). 0.64b0
+# flattens routers first. See api/tests/test_otel_instrumentation.py.
+opentelemetry-api==1.43.0
+opentelemetry-sdk==1.43.0
+opentelemetry-instrumentation-fastapi==0.64b0
+opentelemetry-instrumentation-sqlalchemy==0.64b0
+opentelemetry-exporter-otlp-proto-http==1.43.0
 
 # AI / RAG Chat Agent
 openai>=2.43.0

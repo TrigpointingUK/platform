@@ -530,13 +530,9 @@ def logout():
 # Instrument FastAPI app AFTER all routes are added
 # This must be done at the end so the instrumentor can see all routes
 if settings.OTEL_ENABLED:
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from api.core.telemetry import instrument_fastapi_app
 
-    FastAPIInstrumentor.instrument_app(
-        app,
-        excluded_urls="/health,/metrics",
-    )
-    logger.info("FastAPI app instrumented with OpenTelemetry (after routes added)")
+    instrument_fastapi_app(app, excluded_urls="/health,/metrics")
 
 
 if __name__ == "__main__":

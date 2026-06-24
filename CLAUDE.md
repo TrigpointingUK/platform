@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Monorepo for **Trigpointing.uk**, a long-running trigpoint/surveying community site. Multiple deployable units share infrastructure:
 
-- [api/](api/) — FastAPI (Python 3.11+) REST API. Entry point [api/main.py](api/main.py); endpoints under [api/api/v1/](api/api/v1/); business logic in [api/services/](api/services/); SQLAlchemy models in [api/models/](api/models/); CRUD in [api/crud/](api/crud/); Pydantic schemas in [api/schemas/](api/schemas/); tests in [api/tests/](api/tests/).
+- [api/](api/) — FastAPI (Python 3.13+) REST API. Entry point [api/main.py](api/main.py); endpoints under [api/api/v1/](api/api/v1/); business logic in [api/services/](api/services/); SQLAlchemy models in [api/models/](api/models/); CRUD in [api/crud/](api/crud/); Pydantic schemas in [api/schemas/](api/schemas/); tests in [api/tests/](api/tests/).
 - [web/](web/) — React 19 + TypeScript SPA built with Vite 8, TanStack Query, React Router 7, Auth0 PKCE, Tailwind v4. Source under [web/src/](web/src/).
 - [forum/](forum/) — phpBB 3.3 with Auth0 SSO (production only, no staging).
 - [wiki/](wiki/) — MediaWiki with Auth0 SSO (production only, no staging).
