@@ -82,9 +82,20 @@ class User(Base):
     # Avatar tracking
     has_avatar = Column(Boolean, nullable=False, server_default="false")
 
-    # Default trig list (lazy-created on first use)
+    # Default trig list (lazy-created on first use).
+    # user <-> trig_list have mutually dependent FKs, so this side is created
+    # via ALTER (use_alter) to break the cycle for metadata.sorted_tables /
+    # create_all. The name matches the production constraint added in migration
+    # 4a650a61fcbc so alembic autogenerate stays a no-op.
     default_list_id = Column(
-        Integer, ForeignKey("trig_list.id", ondelete="SET NULL"), nullable=True
+        Integer,
+        ForeignKey(
+            "trig_list.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_user_default_list_id",
+        ),
+        nullable=True,
     )
 
     # Archive email preferences

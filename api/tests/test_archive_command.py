@@ -4,8 +4,10 @@ Tests for the send_archives command scheduling logic.
 
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
-from api.commands.send_archives import _is_user_due
+from api.commands import send_archives
+from api.commands.send_archives import _is_user_due, process_user, run
 from api.models.trig import Trig
 from api.models.user import TLog, User, UserArchive
 
@@ -257,3 +259,175 @@ class TestIsUserDue:
         is_due, reason = _is_user_due(db, user, now)
         assert is_due is True
         assert "weekly-fallback" in reason
+
+    def test_unsupported_frequency(self, db):
+        user = _make_user(db, name="weird", archive_frequency="X")
+        now = datetime.now(timezone.utc)
+        is_due, reason = _is_user_due(db, user, now)
+        assert is_due is False
+        assert "unsupported-frequency=X" in reason
+
+    def test_weekly_no_new_activity_since_last_archive(self, db):
+        """Past the (fallback) interval but no new logs since the last send."""
+        user = _make_user(db, name="weekly_stale", archive_frequency="W")
+        now = datetime.now(timezone.utc)
+        # Inactive (last log 40 days ago) → monthly fallback interval (30 days).
+        _add_published_log(db, user, upd_timestamp=now - timedelta(days=40))
+        record = UserArchive(
+            user_id=user.id,
+            status="S",
+            frequency_at_send="W",
+            format_at_send="C",
+            created_at=now - timedelta(days=35),  # past the 30-day fallback
+        )
+        db.add(record)
+        db.commit()
+        is_due, reason = _is_user_due(db, user, now)
+        assert is_due is False
+        assert "no new activity" in reason
+
+
+class TestProcessUser:
+    """Tests for process_user (archive generation, send and result recording)."""
+
+    def _last_archive(self, db, user_id):
+        return (
+            db.query(UserArchive)
+            .filter(UserArchive.user_id == user_id)
+            .order_by(UserArchive.id.desc())
+            .first()
+        )
+
+    def test_records_failure_when_generation_raises(self, db):
+        user = _make_user(db, name="genfail", archive_frequency="W")
+        now = datetime.now(timezone.utc)
+        mc = MagicMock()
+        with patch.object(
+            send_archives, "generate_archive_zip", side_effect=RuntimeError("boom")
+        ), patch.object(send_archives, "get_metrics_collector", return_value=mc):
+            process_user(db, user, now)
+        rec = self._last_archive(db, user.id)
+        assert rec.status == "F"
+        assert "boom" in rec.error_message
+        mc.record_archive_failed.assert_called_once_with("generate")
+
+    def test_successful_send_records_success(self, db):
+        user = _make_user(db, name="sendok", archive_frequency="W")
+        now = datetime.now(timezone.utc)
+        mc = MagicMock()
+        with patch.object(
+            send_archives, "generate_archive_zip", return_value=b"zipdata"
+        ), patch.object(
+            send_archives.email_service, "send_archive_email", return_value=True
+        ) as mock_send, patch.object(
+            send_archives, "get_metrics_collector", return_value=mc
+        ), patch.object(
+            send_archives.settings, "DRY_RUN_ARCHIVES", False
+        ):
+            process_user(db, user, now)
+        mock_send.assert_called_once()
+        rec = self._last_archive(db, user.id)
+        assert rec.status == "S"
+        assert rec.error_message is None
+        assert rec.file_size_bytes == len(b"zipdata")
+        mc.record_archive_sent.assert_called_once()
+
+    def test_failed_send_records_failure(self, db):
+        user = _make_user(db, name="sendfail", archive_frequency="W")
+        now = datetime.now(timezone.utc)
+        mc = MagicMock()
+        with patch.object(
+            send_archives, "generate_archive_zip", return_value=b"zipdata"
+        ), patch.object(
+            send_archives.email_service, "send_archive_email", return_value=False
+        ), patch.object(
+            send_archives, "get_metrics_collector", return_value=mc
+        ), patch.object(
+            send_archives.settings, "DRY_RUN_ARCHIVES", False
+        ):
+            process_user(db, user, now)
+        rec = self._last_archive(db, user.id)
+        assert rec.status == "F"
+        assert rec.error_message == "SES send failed"
+        mc.record_archive_failed.assert_called_once_with("send")
+
+    def test_dry_run_writes_file_and_skips_email(self, db, tmp_path):
+        user = _make_user(db, name="dryrun", archive_frequency="W")
+        now = datetime.now(timezone.utc)
+        with patch.object(
+            send_archives, "generate_archive_zip", return_value=b"zipdata"
+        ), patch.object(
+            send_archives.email_service, "send_archive_email"
+        ) as mock_send, patch.object(
+            send_archives, "get_metrics_collector", return_value=None
+        ), patch.object(
+            send_archives.settings, "DRY_RUN_ARCHIVES", True
+        ), patch(
+            "tempfile.gettempdir", return_value=str(tmp_path)
+        ):
+            process_user(db, user, now)
+        mock_send.assert_not_called()
+        rec = self._last_archive(db, user.id)
+        assert rec.status == "S"
+        # The zip should have been written to the temp dir.
+        assert list(tmp_path.glob("*.zip"))
+
+
+class TestRun:
+    """Tests for the run() orchestration loop."""
+
+    def _setup_session(self, candidates):
+        fake_db = MagicMock()
+        fake_db.query.return_value.filter.return_value.all.return_value = candidates
+        session_factory = MagicMock(return_value=fake_db)
+        return fake_db, session_factory
+
+    def test_skips_users_not_due(self):
+        user = MagicMock(id=1, name="u1")
+        fake_db, session_factory = self._setup_session([user])
+        mc = MagicMock()
+        with patch.object(
+            send_archives, "get_session_local", return_value=session_factory
+        ), patch.object(
+            send_archives, "_is_user_due", return_value=(False, "not due")
+        ), patch.object(
+            send_archives, "process_user"
+        ) as mock_process, patch.object(
+            send_archives, "get_metrics_collector", return_value=mc
+        ):
+            run()
+        mock_process.assert_not_called()
+        mc.record_archive_skipped.assert_called_once()
+        fake_db.close.assert_called_once()
+
+    def test_processes_due_users(self):
+        user = MagicMock(id=2, name="u2")
+        fake_db, session_factory = self._setup_session([user])
+        with patch.object(
+            send_archives, "get_session_local", return_value=session_factory
+        ), patch.object(
+            send_archives, "_is_user_due", return_value=(True, "due")
+        ), patch.object(
+            send_archives, "process_user"
+        ) as mock_process, patch.object(
+            send_archives, "get_metrics_collector", return_value=None
+        ):
+            run()
+        mock_process.assert_called_once()
+
+    def test_counts_failure_when_process_raises(self):
+        user = MagicMock(id=3, name="u3")
+        fake_db, session_factory = self._setup_session([user])
+        mc = MagicMock()
+        with patch.object(
+            send_archives, "get_session_local", return_value=session_factory
+        ), patch.object(
+            send_archives, "_is_user_due", return_value=(True, "due")
+        ), patch.object(
+            send_archives, "process_user", side_effect=RuntimeError("kaboom")
+        ), patch.object(
+            send_archives, "get_metrics_collector", return_value=mc
+        ):
+            run()
+        mc.record_archive_failed.assert_called_once_with("generate")
+        fake_db.close.assert_called_once()
