@@ -180,6 +180,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
     }
 
     if (trimmedQuery.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
       setResults([]);
       setHasSearched(false);
       setIsSearching(false);
@@ -867,6 +868,7 @@ function DeleteAccountAdminCard({ getAccessTokenSilently }: DeleteAccountAdminCa
       searchTimeoutRef.current = null;
     }
     if (trimmed.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
       setResults([]);
       setIsSearching(false);
       return;
@@ -1056,6 +1058,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
     }
 
     if (trimmedQuery.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
       setTargetResults([]);
       setIsSearchingTarget(false);
       return;
@@ -1108,6 +1111,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
     }
 
     if (trimmedQuery.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
       setSourceResults([]);
       setIsSearchingSource(false);
       return;

@@ -50,6 +50,7 @@ export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const [searchQuery, setSearchQuery] = useState(query);
+  const [prevQuery, setPrevQuery] = useState(query);
   const [tileVisibility, setTileVisibility] = useState<TileVisibility>(
     loadTileVisibility()
   );
@@ -131,10 +132,12 @@ export default function Search() {
     tileVisibility.log_regex
   );
 
-  // Sync search input with URL
-  useEffect(() => {
+  // Sync the search input with the URL (adjust-during-render rather than an
+  // effect, per https://react.dev/learn/you-might-not-need-an-effect).
+  if (query !== prevQuery) {
+    setPrevQuery(query);
     setSearchQuery(query);
-  }, [query]);
+  }
 
   // Save preferences to localStorage
   useEffect(() => {

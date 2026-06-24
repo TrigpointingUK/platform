@@ -213,6 +213,7 @@ export default function Experiments() {
   }, [page, sort, excludeIrish, movedFilter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
     fetchData();
   }, [fetchData]);
 

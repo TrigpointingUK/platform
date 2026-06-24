@@ -380,6 +380,7 @@ export default function LogsNeedsAttention() {
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
     fetchLogs();
   }, [hasAdminRole, hasAdminScope, fetchLogs]);
 

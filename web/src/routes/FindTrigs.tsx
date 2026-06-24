@@ -172,7 +172,7 @@ export default function FindTrigs() {
     // Only apply user preference if no URL params are set and not already initialized
     if (!searchParams.get("statuses") && preferredStatuses.length > 0 && !statusesInitializedRef.current) {
       statusesInitializedRef.current = true;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+       
       setSelectedStatuses(preferredStatuses);
     }
   }, [preferredStatuses, searchParams]);
