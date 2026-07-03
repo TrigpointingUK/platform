@@ -21,7 +21,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@auth0/auth0-react": "^2.19.0",
+    "@auth0/auth0-react": "^2.20.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -38,17 +38,17 @@
     "@types/proj4leaflet": "^1.0.12",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
-    "js-yaml": "^5.1.0",
+    "js-yaml": "^5.2.1",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
-    "lucide-react": "^1.21.0",
+    "lucide-react": "^1.23.0",
     "photoswipe": "^5.4.4",
     "proj4": "^2.20.9",
     "proj4leaflet": "^1.0.2",
     "react": "^19.2.7",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.7",
-    "react-easy-crop": "^6.0.2",
+    "react-easy-crop": "^6.1.0",
     "react-hot-toast": "^2.6.0",
     "react-intersection-observer": "^10.0.3",
     "react-leaflet": "^5.0.0",
@@ -56,7 +56,7 @@
     "react-router-dom": "^7.18.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
-    "three": "^0.184.0"
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -69,7 +69,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.2",
-    "@types/three": "^0.184.1",
+    "@types/three": "^0.185.0",
     "@typescript-eslint/eslint-plugin": "^8.62.0",
     "@typescript-eslint/parser": "^8.62.0",
     "@vitejs/plugin-react": "^6.0.3",
