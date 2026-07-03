@@ -13,7 +13,7 @@ python-multipart==0.0.32  # CVE-2026-42561 fix
 pydantic[email]==2.13.4
 pydantic-settings==2.14.2
 python-dotenv==1.2.2
-alembic==1.18.4
+alembic==1.18.5
 
 # Testing dependencies
 pytest==9.1.1
@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.34.2
-boto3==1.43.36
+boto3==1.43.40
 types-requests==2.33.0.20260518
 
 # Redis/ElastiCache for token caching
