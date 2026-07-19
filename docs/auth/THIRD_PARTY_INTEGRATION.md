@@ -62,11 +62,27 @@ GET https://auth.trigpointing.uk/authorize?
   response_type=code&
   client_id=YOUR_CLIENT_ID&
   redirect_uri=com.yourapp://callback&
-  scope=openid profile api:write&
+  audience=https://api.trigpointing.uk/&
+  scope=openid profile offline_access&
   state=RANDOM_STATE&
   code_challenge=CODE_CHALLENGE&
   code_challenge_method=S256
 ```
+
+**The `audience` parameter is required.** Without it, Auth0 issues an opaque
+token for the userinfo endpoint instead of a JWT for the TrigpointingUK API,
+and every API call will return 401. Use `https://api.trigpointing.uk/`
+(production) or `https://api.trigpointing.me/` (staging) — including the
+trailing slash.
+
+Include `offline_access` to receive a refresh token. Refresh tokens are
+**rotating**: every refresh returns a new refresh token and invalidates the
+previous one, so always store the newest value.
+
+On first authorisation, users see an Auth0 consent screen listing the access
+your app requested. Users can revoke this consent at any time from the
+Preferences page on trigpointing.uk, which invalidates your refresh tokens —
+handle a failed refresh by restarting the login flow.
 
 **Exchange code for token**:
 ```
@@ -84,11 +100,18 @@ code_verifier=CODE_VERIFIER
 ```json
 {
   "access_token": "eyJ...",
+  "refresh_token": "v1...",
   "token_type": "Bearer",
-  "expires_in": 86400,
-  "scope": "openid profile api:write"
+  "expires_in": 3600,
+  "scope": "openid profile offline_access"
 }
 ```
+
+Note: API scopes such as `api:write` are not currently included in
+third-party tokens — write access to your own logs and photos is authorised
+by identity and ownership, so authenticated requests work without it. Request
+only `openid profile offline_access` for now; this may change in a future
+API version (announced via the changelog).
 
 ### 3. Use Access Token for API Calls
 
@@ -151,9 +174,12 @@ The log will be created under the authorised user's account.
 - Display clear privacy policies to users
 
 ### 2. Handle Token Expiry
-- Access tokens expire after 24 hours
-- Implement token refresh using refresh tokens
-- Handle 401 responses gracefully
+- Access tokens expire after 1 hour in production (2 minutes on staging —
+  deliberately short so refresh handling gets exercised during development)
+- Implement token refresh using refresh tokens (rotating: store the new
+  refresh token returned by every refresh)
+- Handle 401 responses gracefully; a failed refresh means consent was revoked
+  or the token expired — restart the login flow
 
 ### 3. Rate Limiting
 - Be respectful of API resources
@@ -212,7 +238,10 @@ import { authorize } from 'react-native-app-auth';
 const config = {
   clientId: 'YOUR_CLIENT_ID',
   redirectUrl: 'com.yourapp://callback',
-  scopes: ['openid', 'profile', 'api:write'],
+  scopes: ['openid', 'profile', 'offline_access'],
+  additionalParameters: {
+    audience: 'https://api.trigpointing.uk/', // required — see above
+  },
   serviceConfiguration: {
     authorizationEndpoint: 'https://auth.trigpointing.uk/authorize',
     tokenEndpoint: 'https://auth.trigpointing.uk/oauth/token',
@@ -250,6 +279,15 @@ response = requests.get(
 ```
 
 ## Changelog
+
+### 2026-07-19
+- Documented the required `audience` parameter on `/authorize` (omitting it
+  yields an opaque token the API rejects)
+- Recommended scopes are now `openid profile offline_access`; API scopes are
+  not currently issued to third-party apps (identity/ownership authorisation)
+- Third-party apps are registered as non-first-party clients: users see an
+  Auth0 consent screen and can revoke access from their Preferences page
+- Documented rotating refresh tokens
 
 ### 2025-10-23
 - Initial documentation for simplified scope model

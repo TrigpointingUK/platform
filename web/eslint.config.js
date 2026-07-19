@@ -23,7 +23,9 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
-      // TODO: Fix these setState-in-effect patterns
+      // Kept at 'warn' so new violations surface. Existing sites are either
+      // fixed (adjust-during-render) or suppressed inline with a justification,
+      // so a clean lint run means any new warning here is genuinely new.
       'react-hooks/set-state-in-effect': 'warn',
     },
   }

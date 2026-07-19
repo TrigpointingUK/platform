@@ -178,3 +178,230 @@ class TestSendContactEmail:
             name="Test",
         )
         assert result is False
+
+
+class TestUnsubscribeToken:
+    def test_verify_accepts_matching_token(self):
+        token = email_service_module._unsubscribe_token("s3cr3t", 42)
+        assert email_service_module.verify_unsubscribe_token("s3cr3t", 42, token)
+
+    def test_verify_rejects_wrong_token(self):
+        assert not email_service_module.verify_unsubscribe_token(
+            "s3cr3t", 42, "deadbeef"
+        )
+
+
+class TestHelperBranches:
+    def test_build_display_name_with_names(self):
+        assert (
+            email_service_module._build_display_name("Ada", "Lovelace", "ada")
+            == "Ada Lovelace (ada)"
+        )
+
+    def test_build_display_name_falls_back_to_username(self):
+        assert email_service_module._build_display_name(None, "  ", "ada") == "ada"
+
+    def test_transactional_bases_staging(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="staging",
+            FASTAPI_URL="http://localhost:8000",
+            PUBLIC_WEB_BASE_URL=None,
+            PUBLIC_API_BASE_URL=None,
+        )
+        site, api = email_service_module._email_transactional_bases(s)
+        assert site == "https://trigpointing.me"
+        assert api == "https://api.trigpointing.me"
+
+    def test_transactional_bases_development_falls_back(self):
+        s = SimpleNamespace(
+            ENVIRONMENT="development",
+            FASTAPI_URL="http://localhost:8000",
+            PUBLIC_WEB_BASE_URL=None,
+            PUBLIC_API_BASE_URL=None,
+        )
+        site, api = email_service_module._email_transactional_bases(s)
+        assert site == "http://localhost:5173"
+        assert api == "http://localhost:8000"
+
+    def test_public_api_base_url_defaults_when_fastapi_url_blank(self):
+        s = SimpleNamespace(ENVIRONMENT="staging", FASTAPI_URL="")
+        # Blank FASTAPI_URL falls back to localhost default, then env mapping.
+        assert (
+            email_service_module._public_api_base_url(s)
+            == "https://api.trigpointing.me"
+        )
+
+
+class TestSendArchiveEmail:
+    def setup_method(self):
+        self.svc = EmailService.__new__(EmailService)
+        self.svc.ses_client = MagicMock()
+        self.svc.from_email = "contact@trigpointing.uk"
+
+    def test_returns_false_when_client_is_none(self):
+        self.svc.ses_client = None
+        result = self.svc.send_archive_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="archive.zip",
+            log_count=3,
+        )
+        assert result is False
+
+    @patch("api.core.config.settings")
+    def test_production_keeps_recipient_and_sends(self, mock_settings):
+        mock_settings.ENVIRONMENT = "production"
+        mock_settings.PUBLIC_WEB_BASE_URL = None
+        mock_settings.PUBLIC_API_BASE_URL = None
+        mock_settings.FASTAPI_URL = "http://localhost:8000"
+        mock_settings.WEBHOOK_SHARED_SECRET = "s3cr3t"
+        self.svc.ses_client.send_raw_email.return_value = {"MessageId": "m1"}
+
+        result = self.svc.send_archive_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zipdata",
+            filename="archive.zip",
+            log_count=5,
+            user_id=7,
+            firstname="Bob",
+            surname="Smith",
+        )
+        assert result is True
+        kwargs = self.svc.ses_client.send_raw_email.call_args[1]
+        assert kwargs["Destinations"] == ["user@example.com"]
+
+    @patch("api.core.config.settings")
+    def test_non_production_overrides_recipient(self, mock_settings):
+        mock_settings.ENVIRONMENT = "staging"
+        mock_settings.PUBLIC_WEB_BASE_URL = None
+        mock_settings.PUBLIC_API_BASE_URL = None
+        mock_settings.FASTAPI_URL = "http://localhost:8000"
+        mock_settings.WEBHOOK_SHARED_SECRET = "s3cr3t"
+        self.svc.ses_client.send_raw_email.return_value = {"MessageId": "m2"}
+
+        result = self.svc.send_archive_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="archive.zip",
+            log_count=1,
+        )
+        assert result is True
+        kwargs = self.svc.ses_client.send_raw_email.call_args[1]
+        assert kwargs["Destinations"] == ["test@teasel.org"]
+
+    @patch("api.core.config.settings")
+    def test_returns_false_on_client_error(self, mock_settings):
+        mock_settings.ENVIRONMENT = "production"
+        mock_settings.PUBLIC_WEB_BASE_URL = None
+        mock_settings.PUBLIC_API_BASE_URL = None
+        mock_settings.FASTAPI_URL = "http://localhost:8000"
+        mock_settings.WEBHOOK_SHARED_SECRET = "s3cr3t"
+        self.svc.ses_client.send_raw_email.side_effect = ClientError(
+            {"Error": {"Code": "Throttling", "Message": "slow down"}}, "SendRawEmail"
+        )
+        result = self.svc.send_archive_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="archive.zip",
+            log_count=1,
+        )
+        assert result is False
+
+    @patch("api.core.config.settings")
+    def test_returns_false_on_unexpected_error(self, mock_settings):
+        mock_settings.ENVIRONMENT = "production"
+        mock_settings.PUBLIC_WEB_BASE_URL = None
+        mock_settings.PUBLIC_API_BASE_URL = None
+        mock_settings.FASTAPI_URL = "http://localhost:8000"
+        mock_settings.WEBHOOK_SHARED_SECRET = "s3cr3t"
+        self.svc.ses_client.send_raw_email.side_effect = RuntimeError("boom")
+        result = self.svc.send_archive_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="archive.zip",
+            log_count=1,
+        )
+        assert result is False
+
+
+class TestSendDeletionBackupEmail:
+    def setup_method(self):
+        self.svc = EmailService.__new__(EmailService)
+        self.svc.ses_client = MagicMock()
+        self.svc.from_email = "contact@trigpointing.uk"
+
+    def test_returns_false_when_client_is_none(self):
+        self.svc.ses_client = None
+        result = self.svc.send_deletion_backup_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="backup.zip",
+            log_count=2,
+        )
+        assert result is False
+
+    @patch("api.core.config.settings")
+    def test_production_sends_to_real_recipient(self, mock_settings):
+        mock_settings.ENVIRONMENT = "production"
+        self.svc.ses_client.send_raw_email.return_value = {"MessageId": "d1"}
+        result = self.svc.send_deletion_backup_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="backup.zip",
+            log_count=2,
+            user_id=9,
+            firstname="Bob",
+        )
+        assert result is True
+        kwargs = self.svc.ses_client.send_raw_email.call_args[1]
+        assert kwargs["Destinations"] == ["user@example.com"]
+
+    @patch("api.core.config.settings")
+    def test_non_production_overrides_recipient(self, mock_settings):
+        mock_settings.ENVIRONMENT = "staging"
+        self.svc.ses_client.send_raw_email.return_value = {"MessageId": "d2"}
+        result = self.svc.send_deletion_backup_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="backup.zip",
+            log_count=2,
+        )
+        assert result is True
+        kwargs = self.svc.ses_client.send_raw_email.call_args[1]
+        assert kwargs["Destinations"] == ["test@teasel.org"]
+
+    @patch("api.core.config.settings")
+    def test_returns_false_on_client_error(self, mock_settings):
+        mock_settings.ENVIRONMENT = "production"
+        self.svc.ses_client.send_raw_email.side_effect = ClientError(
+            {"Error": {"Code": "Throttling", "Message": "slow"}}, "SendRawEmail"
+        )
+        result = self.svc.send_deletion_backup_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="backup.zip",
+            log_count=2,
+        )
+        assert result is False
+
+    @patch("api.core.config.settings")
+    def test_returns_false_on_unexpected_error(self, mock_settings):
+        mock_settings.ENVIRONMENT = "production"
+        self.svc.ses_client.send_raw_email.side_effect = RuntimeError("boom")
+        result = self.svc.send_deletion_backup_email(
+            to_email="user@example.com",
+            username="bob",
+            zip_bytes=b"zip",
+            filename="backup.zip",
+            log_count=2,
+        )
+        assert result is False

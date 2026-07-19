@@ -14,7 +14,7 @@ import ssl
 import string
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import redis
 import requests
@@ -661,6 +661,100 @@ class Auth0Service:
         }
         logger.warning(json.dumps(log_data))
         return False
+
+    def list_user_grants(self, user_id: str) -> Optional[List[Dict]]:
+        """
+        List the authorisation grants (consented applications) for a user.
+
+        Args:
+            user_id: Auth0 user ID (e.g. auth0|abc123)
+
+        Returns:
+            List of grant dictionaries, or None if the request failed
+        """
+
+        endpoint = f"grants?user_id={quote(user_id, safe='')}&per_page=100"
+        response = self._make_auth0_request("GET", endpoint)
+
+        if response is None:
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "auth0_list_user_grants_failed",
+                        "auth0_user_id": user_id,
+                    }
+                )
+            )
+            return None
+
+        grants: List[Dict] = response if isinstance(response, list) else []
+        logger.info(
+            json.dumps(
+                {
+                    "event": "auth0_user_grants_listed",
+                    "auth0_user_id": user_id,
+                    "grant_count": len(grants),
+                }
+            )
+        )
+        return grants
+
+    def delete_user_grant(self, grant_id: str) -> bool:
+        """
+        Delete an authorisation grant, revoking the application's access
+        (including any refresh tokens issued under it).
+
+        Args:
+            grant_id: Auth0 grant ID
+
+        Returns:
+            True if deletion succeeded, False otherwise
+        """
+
+        response = self._make_auth0_request(
+            "DELETE", f"grants/{quote(grant_id, safe='')}"
+        )
+        if response is not None:
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "auth0_user_grant_deleted",
+                        "grant_id": grant_id,
+                    }
+                )
+            )
+            return True
+
+        logger.warning(
+            json.dumps(
+                {
+                    "event": "auth0_user_grant_delete_failed",
+                    "grant_id": grant_id,
+                }
+            )
+        )
+        return False
+
+    def get_client_names(self) -> Dict[str, str]:
+        """
+        Fetch a mapping of client_id -> application name for the tenant.
+
+        Returns:
+            Dictionary of client_id to name; empty on failure
+        """
+
+        endpoint = "clients?fields=client_id,name&include_fields=true&per_page=100"
+        response = self._make_auth0_request("GET", endpoint)
+
+        if not response or not isinstance(response, list):
+            logger.warning(json.dumps({"event": "auth0_client_names_fetch_failed"}))
+            return {}
+
+        return {
+            c["client_id"]: c.get("name", "")
+            for c in response
+            if isinstance(c, dict) and c.get("client_id")
+        }
 
     def find_user_by_email(self, email: str) -> Optional[Dict]:
         """
@@ -1877,6 +1971,32 @@ class DisabledAuth0Service:
             )
         )
         return False
+
+    def list_user_grants(self, user_id: str) -> Optional[List[Dict]]:
+        logger.debug(
+            json.dumps(
+                {
+                    "event": "auth0_disabled_list_user_grants",
+                    "auth0_user_id": user_id,
+                }
+            )
+        )
+        return None
+
+    def delete_user_grant(self, grant_id: str) -> bool:
+        logger.warning(
+            json.dumps(
+                {
+                    "event": "auth0_disabled_delete_user_grant",
+                    "grant_id": grant_id,
+                }
+            )
+        )
+        return False
+
+    def get_client_names(self) -> Dict[str, str]:
+        logger.debug(json.dumps({"event": "auth0_disabled_get_client_names"}))
+        return {}
 
 
 # Global instance with safe fallback when not configured

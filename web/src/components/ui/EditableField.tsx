@@ -23,13 +23,16 @@ export default function EditableField({
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
-  // Update local state when prop changes
-  useEffect(() => {
+  // Sync local state when the prop changes (adjust-during-render rather than an
+  // effect, per https://react.dev/learn/you-might-not-need-an-effect).
+  if (value !== prevValue) {
+    setPrevValue(value);
     setEditValue(value);
-  }, [value]);
+  }
 
   // Focus input when entering edit mode
   useEffect(() => {

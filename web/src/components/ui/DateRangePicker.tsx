@@ -37,16 +37,19 @@ function DateRangePicker({
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [month, setMonth] = React.useState<Date>(value?.from || new Date());
+  const [prevIsOpen, setPrevIsOpen] = React.useState(isOpen);
   const popoverRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
 
-  // Sync month view when value changes or popup opens
-  React.useEffect(() => {
+  // When the popup opens, jump the calendar to the selected month (or today).
+  // Adjust-during-render rather than an effect, per
+  // https://react.dev/learn/you-might-not-need-an-effect.
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
-      // When popup opens, show the selected date's month or current month if no selection
       setMonth(value?.from || new Date());
     }
-  }, [isOpen, value]);
+  }
 
   // Close popover when clicking outside
   React.useEffect(() => {

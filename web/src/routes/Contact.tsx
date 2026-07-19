@@ -41,6 +41,7 @@ export default function Contact() {
         const displayName = fullName || userProfile.name || auth0User.name || "";
         const email = userProfile.prefs?.email || auth0User.email || "";
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
         setFormData((prev) => ({
           ...prev,
           name: displayName,

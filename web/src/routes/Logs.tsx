@@ -181,7 +181,7 @@ export default function Logs() {
       !statusesInitializedRef.current
     ) {
       statusesInitializedRef.current = true;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+       
       setSelectedStatuses(preferredStatuses);
     }
   }, [preferredStatuses, searchParams]);
@@ -238,7 +238,7 @@ export default function Logs() {
       showTrigConditionInitializedRef.current = true;
       // If disagreements filter is active, always show curated condition
       const shouldShow = showOnlyDisagreements || userProfile.prefs.ui_prefs.show_trig_condition;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+       
       setShowTrigCondition(shouldShow);
     }
   }, [userProfile?.prefs?.ui_prefs?.show_trig_condition, showOnlyDisagreements]);

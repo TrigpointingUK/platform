@@ -87,6 +87,7 @@ export function useAdminAuth(): UseAdminAuthResult {
     // Reset check state when conditions change
     if (!shouldCheckScope) {
       checkInitiatedRef.current = false;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset auth-check state when the gating condition changes
       setIsActivelyChecking(false);
       setHasAdminScope(null);
       setCachedAdminScope(false);

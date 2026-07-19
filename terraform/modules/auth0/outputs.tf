@@ -64,6 +64,11 @@ output "android_client_id" {
   sensitive   = true
 }
 
+output "third_party_native_client_ids" {
+  description = "Client IDs of third-party native applications, keyed by app name (share with the external developer)"
+  value       = { for k, c in auth0_client.third_party_native : k => c.client_id }
+}
+
 output "alb_client_id" {
   description = "AWS ALB OIDC client ID (retrieve secret from Auth0 dashboard)"
   value       = auth0_client.alb.client_id

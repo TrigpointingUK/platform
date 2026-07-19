@@ -483,7 +483,7 @@ export default function Map() {
       preferredStatuses.length > 0
     ) {
       statusesInitializedRef.current = true;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time initialization from async user profile
+       
       setSelectedStatuses([...preferredStatuses]);
     }
   }, [preferredStatuses, searchParams]);
@@ -504,7 +504,7 @@ export default function Map() {
       iconColorMode === "condition"
         ? [...ALL_ICON_COLORS]
         : [...USER_LOG_ICON_COLORS];
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Responding to user mode toggle
+     
     setSelectedColors(newColors);
   }, [iconColorMode]);
 

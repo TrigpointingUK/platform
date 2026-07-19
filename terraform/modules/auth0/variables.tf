@@ -156,6 +156,16 @@ variable "android_web_origins" {
   default     = []
 }
 
+variable "third_party_native_apps" {
+  description = "Third-party native (mobile) applications, keyed by short app name. Created as non-first-party clients so Auth0 enforces the user consent screen. They authenticate via the domain-level database connection, not the per-client enabled list."
+  type = map(object({
+    description   = string
+    callback_urls = list(string)
+    logout_urls   = optional(list(string), [])
+  }))
+  default = {}
+}
+
 variable "enable_forum" {
   description = "Whether to create the forum application"
   type        = bool

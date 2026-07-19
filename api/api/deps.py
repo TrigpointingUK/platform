@@ -406,4 +406,4 @@ def verify_webhook_auth(
 
     logger.info("Webhook authenticated via shared secret")
     # Return mock payload for webhook
-    return {"token_type": "webhook_shared_secret", "client_id": "webhook"}  # nosec B105
+    return {"token_type": "webhook_shared_secret", "client_id": "webhook"}  # nosec

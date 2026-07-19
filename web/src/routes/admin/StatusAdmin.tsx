@@ -261,6 +261,7 @@ export default function StatusAdmin() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
       fetchData();
     }
   }, [isAuthenticated, fetchData]);

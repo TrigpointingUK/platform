@@ -296,6 +296,7 @@ export default function TrigLists() {
 
   const [localItems, setLocalItems] = useState<TrigListItem[]>([]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot state sync on data load; re-render cost negligible (won't fix)
     setLocalItems(allItems);
   }, [allItems]);
 

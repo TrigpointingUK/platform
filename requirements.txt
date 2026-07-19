@@ -13,7 +13,7 @@ python-multipart==0.0.32  # CVE-2026-42561 fix
 pydantic[email]==2.13.4
 pydantic-settings==2.14.2
 python-dotenv==1.2.2
-alembic==1.18.4
+alembic==1.18.5
 
 # Testing dependencies
 pytest==9.1.1
@@ -25,15 +25,15 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.34.2
-boto3==1.43.36
+boto3==1.43.51
 types-requests==2.33.0.20260518
 
 # Redis/ElastiCache for token caching
 redis==8.0.1
 
 # Image processing
-Pillow==12.2.0
-numpy==2.5.0
+Pillow==12.3.0
+numpy==2.5.1
 onnxruntime==1.27.0
 
 # Geodesy - accurate coordinate transformations
@@ -49,14 +49,14 @@ pyroscope-io==1.0.12
 # `_IncludedRouter` objects FastAPI now puts in `app.routes` (AttributeError ->
 # unhandled 500 on every CORS-preflight/method-mismatch request). 0.64b0
 # flattens routers first. See api/tests/test_otel_instrumentation.py.
-opentelemetry-api==1.43.0
-opentelemetry-sdk==1.43.0
-opentelemetry-instrumentation-fastapi==0.64b0
-opentelemetry-instrumentation-sqlalchemy==0.64b0
-opentelemetry-exporter-otlp-proto-http==1.43.0
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+opentelemetry-instrumentation-fastapi==0.65b0
+opentelemetry-instrumentation-sqlalchemy==0.65b0
+opentelemetry-exporter-otlp-proto-http==1.44.0
 
 # AI / RAG Chat Agent
-openai>=2.43.0
+openai>=2.44.0
 
 # Development dependencies
 black==26.5.1
