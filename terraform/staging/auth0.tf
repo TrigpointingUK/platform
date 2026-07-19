@@ -172,6 +172,18 @@ module "auth0" {
     "https://trigpointing.me/android/uk.trigpointing.android.debug/callback",
   ]
 
+  # Third-party applications (consent screen enforced by Auth0)
+  third_party_native_apps = {
+    pillarpoint = {
+      description   = "PillarPoint Android app by Chris (https://codeberg.org/pillarpoint/pillarpoint)"
+      callback_urls = ["org.pillarpoint.pillarpoint://oauth/callback"]
+    }
+    consent-test = {
+      description   = "Disposable third-party client for testing the consent flow via the Swagger UI Authorize dialog"
+      callback_urls = ["https://api.trigpointing.me/docs/oauth2-redirect"]
+    }
+  }
+
   # Optional Apps (disabled for staging)
   enable_forum = false
   enable_wiki  = false
@@ -185,7 +197,7 @@ module "auth0" {
   from_name  = "TrigpointingUK (Staging)"
 
   # Branding
-  logo_url              = "https://trigpointing.uk/pics/tuk_logo.gif"
+  logo_url              = "https://trigpointing.uk/TUK-Logo.svg"
   primary_color         = "#005f00"
   page_background_color = "#ffffff"
 
@@ -221,6 +233,11 @@ output "auth0_swagger_client_id" {
 output "auth0_web_spa_client_id" {
   description = "Web SPA client ID (for React application)"
   value       = module.auth0.web_spa_client_id
+}
+
+output "auth0_third_party_native_client_ids" {
+  description = "Third-party native app client IDs (share with the external developer)"
+  value       = module.auth0.third_party_native_client_ids
 }
 
 output "auth0_m2m_client_id" {

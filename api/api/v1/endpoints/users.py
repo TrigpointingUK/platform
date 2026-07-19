@@ -48,6 +48,7 @@ from api.schemas.area import (
     AreaTypeResponse,
     UserAreaBreakdownResponse,
 )
+from api.schemas.connected_app import ConnectedApp, ConnectedAppsResponse
 from api.schemas.tphoto import TPhotoResponse
 from api.schemas.user import (
     CategoryTypeBreakdown,
@@ -450,6 +451,85 @@ def get_current_user_profile(
             )
 
     return result
+
+
+@router.get(
+    "/me/connected-apps",
+    response_model=ConnectedAppsResponse,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="List applications the current user has authorised (consented) to access their account.",
+    ),
+)
+def list_connected_apps(
+    current_user: User = Depends(get_current_user),
+) -> ConnectedAppsResponse:
+    """
+    List applications the current user has authorised via the Auth0 consent
+    screen (e.g. third-party mobile apps). Backed by Auth0 user grants.
+    """
+    from api.services.auth0_service import auth0_service
+
+    auth0_user_id = getattr(current_user, "auth0_user_id", None)
+    if not auth0_user_id:
+        return ConnectedAppsResponse(apps=[])
+
+    grants = auth0_service.list_user_grants(str(auth0_user_id))
+    if grants is None:
+        raise HTTPException(
+            status_code=502, detail="Failed to fetch authorised applications"
+        )
+
+    client_names = auth0_service.get_client_names()
+    apps = [
+        ConnectedApp(
+            grant_id=str(grant.get("id")),
+            client_id=str(grant.get("clientID", "")),
+            client_name=client_names.get(str(grant.get("clientID", ""))) or None,
+            audience=grant.get("audience"),
+            scopes=[str(s) for s in grant.get("scope") or []],
+        )
+        for grant in grants
+        if grant.get("id")
+    ]
+    return ConnectedAppsResponse(apps=apps)
+
+
+@router.delete(
+    "/me/connected-apps/{grant_id}",
+    status_code=204,
+    openapi_extra=openapi_lifecycle(
+        "beta",
+        note="Revoke an application's access to the current user's account (deletes the Auth0 grant and its refresh tokens).",
+    ),
+)
+def revoke_connected_app(
+    grant_id: str,
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """
+    Revoke the current user's authorisation for an application. The grant must
+    belong to the current user; refresh tokens issued under it stop working.
+    """
+    from api.services.auth0_service import auth0_service
+
+    auth0_user_id = getattr(current_user, "auth0_user_id", None)
+    if not auth0_user_id:
+        raise HTTPException(status_code=404, detail="Authorised application not found")
+
+    # Ownership check: only allow deleting grants that belong to this user
+    grants = auth0_service.list_user_grants(str(auth0_user_id))
+    if grants is None:
+        raise HTTPException(
+            status_code=502, detail="Failed to fetch authorised applications"
+        )
+    if grant_id not in {str(g.get("id")) for g in grants}:
+        raise HTTPException(status_code=404, detail="Authorised application not found")
+
+    if not auth0_service.delete_user_grant(grant_id):
+        raise HTTPException(
+            status_code=502, detail="Failed to revoke application access"
+        )
 
 
 @router.patch(

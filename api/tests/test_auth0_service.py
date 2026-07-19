@@ -564,3 +564,90 @@ class TestAuth0Service:
         )
 
         assert result is False
+
+    @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
+    @patch("api.services.auth0_service.settings")
+    def test_list_user_grants_success(self, mock_settings, mock_request):
+        """Test listing a user's authorisation grants."""
+        mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
+        mock_settings.AUTH0_SECRET_NAME = "test-secret"
+
+        grants = [{"id": "gnt_1", "clientID": "abc", "scope": ["openid"]}]
+        mock_request.return_value = grants
+
+        service = Auth0Service()
+        result = service.list_user_grants("auth0|123456789")
+
+        assert result == grants
+        # user_id must be URL-encoded (the pipe becomes %7C)
+        endpoint = mock_request.call_args[0][1]
+        assert "auth0%7C123456789" in endpoint
+        assert endpoint.startswith("grants?user_id=")
+
+    @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
+    @patch("api.services.auth0_service.settings")
+    def test_list_user_grants_failure(self, mock_settings, mock_request):
+        """Test grant listing when the Management API call fails."""
+        mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
+        mock_settings.AUTH0_SECRET_NAME = "test-secret"
+
+        mock_request.return_value = None
+
+        service = Auth0Service()
+        assert service.list_user_grants("auth0|123456789") is None
+
+    @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
+    @patch("api.services.auth0_service.settings")
+    def test_delete_user_grant_success(self, mock_settings, mock_request):
+        """Test deleting an authorisation grant."""
+        mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
+        mock_settings.AUTH0_SECRET_NAME = "test-secret"
+
+        mock_request.return_value = {}
+
+        service = Auth0Service()
+        assert service.delete_user_grant("gnt_1") is True
+        mock_request.assert_called_once_with("DELETE", "grants/gnt_1")
+
+    @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
+    @patch("api.services.auth0_service.settings")
+    def test_delete_user_grant_failure(self, mock_settings, mock_request):
+        """Test grant deletion when the Management API call fails."""
+        mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
+        mock_settings.AUTH0_SECRET_NAME = "test-secret"
+
+        mock_request.return_value = None
+
+        service = Auth0Service()
+        assert service.delete_user_grant("gnt_1") is False
+
+    @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
+    @patch("api.services.auth0_service.settings")
+    def test_get_client_names(self, mock_settings, mock_request):
+        """Test fetching the client_id -> name mapping."""
+        mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
+        mock_settings.AUTH0_SECRET_NAME = "test-secret"
+
+        mock_request.return_value = [
+            {"client_id": "abc", "name": "tuk-pillarpoint"},
+            {"client_id": "def", "name": "tuk-web"},
+            {"name": "missing-id-ignored"},
+        ]
+
+        service = Auth0Service()
+        assert service.get_client_names() == {
+            "abc": "tuk-pillarpoint",
+            "def": "tuk-web",
+        }
+
+    @patch("api.services.auth0_service.Auth0Service._make_auth0_request")
+    @patch("api.services.auth0_service.settings")
+    def test_get_client_names_failure(self, mock_settings, mock_request):
+        """Test client name fetch failure returns empty mapping."""
+        mock_settings.AUTH0_TENANT_DOMAIN = "test-domain.auth0.com"
+        mock_settings.AUTH0_SECRET_NAME = "test-secret"
+
+        mock_request.return_value = None
+
+        service = Auth0Service()
+        assert service.get_client_names() == {}

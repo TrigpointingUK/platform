@@ -7,6 +7,7 @@ import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import ListsPreferencesPanel from "../components/lists/ListsPreferencesPanel";
 import ArchivePreferencesPanel from "../components/archive/ArchivePreferencesPanel";
+import ConnectedAppsPanel from "../components/profile/ConnectedAppsPanel";
 import {
   useUserProfile,
   updateUserProfile,
@@ -472,6 +473,8 @@ export default function Preferences() {
         {isAuthenticated && user && (
           <ArchivePreferencesPanel user={user} hasAdminRole={hasAdminRole} />
         )}
+
+        {isAuthenticated && <ConnectedAppsPanel />}
 
         {isAuthenticated && user && (
           <Card className="border-red-200 dark:border-red-900/60">

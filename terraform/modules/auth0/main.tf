@@ -13,8 +13,10 @@
 terraform {
   required_providers {
     auth0 = {
-      source  = "auth0/auth0"
-      version = "~> 1.0"
+      source = "auth0/auth0"
+      # >= 1.53 required: earlier versions send `"oidc_logout": {}` on every
+      # client payload, which Auth0 rejects for third-party clients.
+      version = "~> 1.53"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
@@ -42,6 +44,13 @@ moved {
 resource "auth0_connection" "database" {
   name     = var.database_connection_name
   strategy = "auth0"
+
+  # Domain-level so third-party (non-first-party) clients can authenticate —
+  # they cannot appear in the per-client enabled list below. This makes the
+  # connection usable by EVERY third-party client in the tenant, so OIDC
+  # Dynamic Application Registration must remain disabled on the tenant;
+  # enabling it would let anyone self-register a client against our user DB.
+  is_domain_connection = true
 
   # Ensure Identifier First is enabled before passkeys
   depends_on = [auth0_prompt.identifier_first]
@@ -132,17 +141,19 @@ resource "auth0_resource_server" "api" {
 resource "auth0_resource_server_scopes" "api_scopes" {
   resource_server_identifier = auth0_resource_server.api.identifier
 
+  # Descriptions are user-facing: they appear verbatim on the Auth0 consent
+  # screen shown to users authorising third-party applications.
   scopes {
     name        = "api:admin"
-    description = "Full administrative access to API"
+    description = "Full administrative access to TrigpointingUK"
   }
   scopes {
     name        = "api:write"
-    description = "Create and update own logs, photos, trigs"
+    description = "Create and update your trigpoint logs and photos"
   }
   scopes {
     name        = "api:read-pii"
-    description = "Read and write sensitive PII (email) for self"
+    description = "Read and update your email address and account details"
   }
 }
 
@@ -341,6 +352,45 @@ resource "auth0_client" "android" {
   }
 }
 
+# Third-party native applications (external developers)
+# is_first_party = false means Auth0 always shows the consent screen and the
+# client authenticates via the domain-level database connection — do NOT add
+# these to auth0_connection_clients.database_clients (Auth0 rejects per-client
+# connection enablement for third-party apps).
+resource "auth0_client" "third_party_native" {
+  for_each = var.third_party_native_apps
+
+  name           = "${var.name_prefix}-${each.key}"
+  description    = each.value.description
+  app_type       = "native"
+  is_first_party = false
+
+  callbacks           = each.value.callback_urls
+  allowed_logout_urls = each.value.logout_urls
+
+  grant_types = [
+    "authorization_code",
+    "refresh_token",
+  ]
+
+  jwt_configuration {
+    alg = "RS256"
+  }
+
+  oidc_conformant = true
+
+  # Same refresh token policy as the first-party mobile app
+  refresh_token {
+    rotation_type                = "rotating"
+    expiration_type              = "expiring"
+    leeway                       = 60
+    token_lifetime               = 2592000 # 30 days
+    infinite_token_lifetime      = false
+    infinite_idle_token_lifetime = false
+    idle_token_lifetime          = 1296000 # 15 days
+  }
+}
+
 # Regular Web Application (AWS ALB OIDC)
 # Used for ALB OIDC authentication to admin tools and preview sites
 resource "auth0_client" "alb" {
@@ -425,6 +475,25 @@ resource "auth0_client_grant" "web_spa_to_api" {
   ]
 }
 
+# Authorise third-party apps for the API in user-based flows. Auth0's
+# third-party client model requires an explicit user-subject client grant
+# before the client may request tokens for a resource server (without it,
+# /authorize fails with "Client is not authorized to access resource server").
+# The scopes listed are the ceiling the app may request — api:read-pii and
+# api:admin are deliberately excluded, enforcing the privacy policy in
+# docs/auth/THIRD_PARTY_INTEGRATION.md at the Auth0 layer.
+resource "auth0_client_grant" "third_party_to_api" {
+  for_each = var.third_party_native_apps
+
+  client_id    = auth0_client.third_party_native[each.key].id
+  audience     = auth0_resource_server.api.identifier
+  subject_type = "user"
+
+  scopes = [
+    "api:write",
+  ]
+}
+
 # Grant M2M client access to Management API (for user provisioning sync)
 resource "auth0_client_grant" "m2m_to_mgmt_api" {
   client_id = auth0_client.m2m_api.id
@@ -434,7 +503,10 @@ resource "auth0_client_grant" "m2m_to_mgmt_api" {
     "read:users",
     "update:users",
     "create:users",
-    "delete:users", # Required for cleaning up Auth0 accounts when DB provisioning fails
+    "delete:users",  # Required for cleaning up Auth0 accounts when DB provisioning fails
+    "read:grants",   # List a user's authorised (consented) applications
+    "delete:grants", # Revoke a user's consent for an application
+    "read:clients",  # Resolve client_id -> application name for display
   ]
 }
 
