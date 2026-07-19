@@ -49,11 +49,11 @@ pyroscope-io==1.0.12
 # `_IncludedRouter` objects FastAPI now puts in `app.routes` (AttributeError ->
 # unhandled 500 on every CORS-preflight/method-mismatch request). 0.64b0
 # flattens routers first. See api/tests/test_otel_instrumentation.py.
-opentelemetry-api==1.43.0
-opentelemetry-sdk==1.43.0
-opentelemetry-instrumentation-fastapi==0.64b0
-opentelemetry-instrumentation-sqlalchemy==0.64b0
-opentelemetry-exporter-otlp-proto-http==1.43.0
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+opentelemetry-instrumentation-fastapi==0.65b0
+opentelemetry-instrumentation-sqlalchemy==0.65b0
+opentelemetry-exporter-otlp-proto-http==1.44.0
 
 # AI / RAG Chat Agent
 openai>=2.44.0
