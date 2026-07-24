@@ -41,7 +41,7 @@
     "js-yaml": "^5.2.1",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
-    "lucide-react": "^1.25.0",
+    "lucide-react": "^1.26.0",
     "photoswipe": "^5.4.4",
     "proj4": "^2.20.9",
     "proj4leaflet": "^1.0.2",
