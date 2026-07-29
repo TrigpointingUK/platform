@@ -324,19 +324,15 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
           </div>
         </div>
 
-        {/* Comment and Photos - Side by Side */}
+        {/* Comment and Photos - photos float top-right, comment wraps beside
+            them and then flows full-width beneath the image strip */}
         {(log.comment || (log.photos && log.photos.length > 0)) && (
-          <div className="flex gap-4">
-            {/* Comment - Left 33% */}
-            <div className="flex-[2] min-w-0">
-              {log.comment && (
-                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{log.comment}</p>
-              )}
-            </div>
-
-            {/* Photos - Right 66% */}
+          <div className="flow-root">
+            {/* Photos - floated to the top-right. Because the strip's height is
+                just the thumbnail row, its horizontal scrollbar sits directly
+                under the photos rather than at the bottom of a stretched column. */}
             {log.photos && log.photos.length > 0 && (
-              <div className="flex-[1] flex gap-2 overflow-x-auto pb-2">
+              <div className="float-right ml-4 mb-2 max-w-[50%] flex gap-2 overflow-x-auto pb-2">
                 {log.photos.slice(0, 20).map((photo) => (
                   <div
                     key={photo.id}
@@ -360,6 +356,11 @@ export default function LogCard({ log, userName, trigName, isCurrentUserLog = fa
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Comment - wraps to the left of the photos, then full width below */}
+            {log.comment && (
+              <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{log.comment}</p>
             )}
           </div>
         )}
