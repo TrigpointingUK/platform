@@ -460,6 +460,11 @@ export default function Logs() {
   // Map positioning logic
   const MAP_SPACING = 24;
   const MAP_FALLBACK_WIDTH = 200;
+  // Where the active-log threshold line sits relative to the map, as a
+  // percentage of the map's height measured upward from its bottom edge:
+  //   0 = bottom of map, 100 = top of map, 50 = midpoint, -10 = just below the
+  //   bottom. Higher values hold the active card longer before switching.
+  const MAP_THRESHOLD_PERCENT = 10;
   const [centerLogIndex, setCenterLogIndex] = useState<number | null>(null);
   const [selectedFeaturedLog, setSelectedFeaturedLog] = useState<Log | null>(
     null
@@ -541,32 +546,44 @@ export default function Logs() {
     const handleScroll = () => {
       if (allLogs.length === 0) return;
 
-      // Calculate visibility threshold as the maximum of map midpoint and filter panel bottom
-      // Using map midpoint (not bottom) allows a little overlap with the map
+      // Calculate visibility threshold as the maximum of the map threshold line
+      // and the filter panel bottom. The map threshold sits MAP_THRESHOLD_PERCENT
+      // of the map's height above its bottom edge (see the constant's docs).
       const mapRect = mapOverlayRef.current?.getBoundingClientRect();
-      const mapMidpoint = mapRect ? mapRect.top + mapRect.height / 2 : 0;
+      const mapThreshold = mapRect
+        ? mapRect.bottom - (MAP_THRESHOLD_PERCENT / 100) * mapRect.height
+        : 0;
       const filterPanelBottom =
         filterPanelRef.current?.getBoundingClientRect().bottom ?? 0;
-      const visibilityThreshold = Math.max(mapMidpoint, filterPanelBottom);
+      const visibilityThreshold = Math.max(mapThreshold, filterPanelBottom);
 
-      let firstBelowIndex: number | null = null;
+      // The active log is the one currently crossing the visibility threshold:
+      // the last log whose top has scrolled up to or past the threshold line.
+      // Keying on this (rather than the first log *below* the line) means a long
+      // log stays active until the *next* log's top reaches the threshold — i.e.
+      // is most of the way up the screen — instead of switching as soon as the
+      // long log's own top scrolls up behind the map.
+      let straddleIndex: number | null = null;
       for (let i = 0; i < allLogs.length; i += 1) {
         const element = logRefs.current.get(i);
         if (!element) {
           continue;
         }
         const rect = element.getBoundingClientRect();
-        if (rect.top >= visibilityThreshold) {
-          firstBelowIndex = i;
+        if (rect.top <= visibilityThreshold) {
+          straddleIndex = i;
+        } else {
+          // Logs are stacked top-to-bottom, so once one starts below the
+          // threshold every later log does too.
           break;
         }
       }
 
       const targetIndex =
-        firstBelowIndex !== null
-          ? firstBelowIndex
+        straddleIndex !== null
+          ? straddleIndex
           : allLogs.length > 0
-            ? allLogs.length - 1
+            ? 0
             : null;
 
       if (targetIndex !== null) {
