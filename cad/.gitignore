@@ -1,0 +1,10 @@
+# Dedicated build123d virtual environment (recreate with requirements.txt)
+venv/
+
+# Generated CAD output is reproducible from source; keep it out of git.
+step/*.step
+stl/*.stl
+
+# Python cruft
+__pycache__/
+*.pyc
