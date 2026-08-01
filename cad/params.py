@@ -65,6 +65,10 @@ class PlugParams:
 
     # Bottom of bore left plain (unthreaded run-out)
     bore_thread_plain_bottom: float = 3.0  # [D] bottom 3 mm of bore plain
+    # Of that plain run-out, the fraction nearest the thread that is bored out
+    # to the thread's major (root) diameter; the remainder stays at the minor
+    # (drill) diameter. The real plug has the upper half relieved.
+    bore_relief_frac: float = 0.5  # [D] top half of the plain bottom at major dia
 
     # ---- Inner plug: threaded cylinder with blind holes ------------------
     ip_r: float = 18.9  # [D] ~37.8 mm dia / 2 (fraction under 38 mm)

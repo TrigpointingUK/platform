@@ -125,6 +125,16 @@ def build_plug(
             radius=bore_top_r, height=total_h + 2
         )
         part = part - tap.tool
+
+        # Thread run-out relief at the bottom of the bore: the plain section
+        # below the thread keeps the minor (drill) diameter for its lower part,
+        # but its upper part -- nearest the thread -- is bored out to the
+        # thread's major (root) diameter, matching how deep the grooves reach.
+        relief_r = p.bore_joint.major_diameter / 2 + clearance
+        relief_bot = z0 * (1 - p.bore_relief_frac)
+        part = part - Pos(0, 0, (relief_bot + z0) / 2) * Cylinder(
+            radius=relief_r, height=z0 - relief_bot
+        )
     else:
         bore_top_r = p.bore_r
         part = part - Pos(0, 0, total_h / 2) * Cylinder(
