@@ -80,12 +80,12 @@ class PlugParams:
     ip_pivot_z: float = 3.5  # [E] 3.5 mm above the bottom face
     ip_pivot_bearing: float = 0.0  # [E] degrees, along +X
 
-    # Stepped grub-screw hole (locks the inner plug against the bore)
+    # Threaded grub-screw hole (locks the inner plug against the bore).
+    # A single radial hole from the outer face through to the central hole,
+    # ~160 deg clockwise from the cotter hole (viewed from above) -> bearing
+    # 200 deg (the cotter hole is at 0 deg). Thread spec is `grub_joint` below.
     ip_grub_z: float = 10.0  # [E] 10 mm above bottom
-    ip_grub_bearing: float = 150.0  # [E] degrees
-    ip_grub_outer_r: float = 3.0  # [E] 6 mm counterbore dia / 2
-    ip_grub_outer_len: float = 10.0  # [E] 10 mm counterbore depth
-    ip_grub_inner_r: float = 1.5  # [E] 3 mm through dia / 2
+    ip_grub_bearing: float = 200.0  # [E] deg; ~160 CW from cotter (at 0 deg)
 
     # ---- Thread joints ---------------------------------------------------
     # Joint A: plug external <-> spider central ring (screws the plug in).
@@ -107,6 +107,17 @@ class PlugParams:
             pitch=1.846,  # [E] = spider pitch * 8/13 (render model ratio)
             provenance="[E]",
             note="Finer than the spider joint in the render model (8/13 x).",
+        )
+    )
+    # Joint C: grub screw <-> inner-plug radial locking hole.
+    grub_joint: ThreadSpec = field(
+        default_factory=lambda: ThreadSpec(
+            name="grubscrew",
+            major_diameter=4.0,  # [E] placeholder M4
+            pitch=0.7,  # [S] M4 coarse pitch
+            provenance="[E]",
+            note="Size unconfirmed -- placeholder M4x0.7 until the original "
+            "grub screw is measured.",
         )
     )
 

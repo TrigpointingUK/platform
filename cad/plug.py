@@ -29,7 +29,7 @@ from bd_warehouse.thread import IsoThread
 
 from lettering import engrave_plug_text
 from params import PLUG, PlugParams
-from threads import external_thread_shaft, internal_thread_tap
+from threads import external_thread_shaft, internal_thread_tap, keep_largest_solid
 
 
 def _revolved(profile):
@@ -156,7 +156,7 @@ def build_plug(
     if text:
         part = engrave_plug_text(part, total_h)
 
-    return part
+    return keep_largest_solid(part)
 
 
 if __name__ == "__main__":

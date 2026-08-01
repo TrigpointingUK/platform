@@ -98,5 +98,23 @@ re-run `build.py`. No geometry code needs to change.
   solid). Instead we drill to the minor diameter and *subtract* an
   external-thread "tap" tool — the way a machinist cuts a thread. See
   `threads.py`.
+- **The radial grub-screw hole** is a plain passage drilled the whole way (so
+  its cuts through the surface and the central blind hole are clean), with the
+  thread confined to the plain-drilled wall between a short run-out at the
+  central hole and a shallow lead-in at the mouth. Keeping the thread clear of
+  both the central hole and the *external* thread means it only meets plain
+  cylinder walls -- the same clean case as the bore. Two subtleties: the drill
+  is a touch **under** the minor radius (a face exactly coincident with the tap
+  core makes OCCT's boolean silently no-op for the rotated tool, leaving an
+  unthreaded hole), and the radial tool is oriented `Rot(0,0,bearing) *
+  Rot(0,90,0)` (a single `Rot(0,90,bearing)` spins it while still on the Z axis
+  and ignores the bearing).
 - Every exported part is checked with OCCT's `BRepCheck_Analyzer` and asserted
-  to be a single watertight solid before it is written.
+  to be a single solid; micro-slivers from thread booleans are dropped
+  (`keep_largest_solid`).
+- **STLs are guaranteed gap-free.** OCCT's mesher, on the fine rotated grub
+  thread, emits a few zero-area triangles and non-manifold "pinch" edges
+  (surfaces meeting along an edge -- not leaks); `build.py` strips the slivers,
+  fills any face OCCT skipped with `trimesh`, and asserts the mesh has **no open
+  edges** before writing, so a genuine hole fails the build. A few pinch edges
+  are tolerated (slicers handle them). The STEP master is the exact B-rep.

@@ -58,6 +58,23 @@ def external_thread_shaft(
     return Pos(0, 0, z_base) * (thread + core)
 
 
+def keep_largest_solid(part: Part) -> Part:
+    """Return ``part`` reduced to its single largest solid.
+
+    Boolean-cutting fine helical threads (e.g. where the radial grub-screw
+    thread crosses the inner plug's external thread) can shed sub-micron
+    detached slivers. These are numerical chips, not real geometry; dropping
+    them leaves a clean single watertight solid. No-op when already one solid.
+    """
+    solids = part.solids()
+    if len(solids) <= 1:
+        return part
+    largest = max(solids, key=lambda s: s.volume)
+    # NB: Part(largest.wrapped) would zero the .volume property; rebuild via
+    # addition so volume/BRep queries stay correct.
+    return Part() + largest
+
+
 @dataclass
 class Tap:
     """A tool for cutting an internal (tapped) thread by subtraction.

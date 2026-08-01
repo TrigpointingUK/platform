@@ -27,7 +27,7 @@ from build123d import (
 from bd_warehouse.thread import IsoThread
 
 from params import PLUG, PlugParams
-from threads import external_thread_shaft
+from threads import external_thread_shaft, internal_thread_tap, keep_largest_solid
 
 
 def build_inner_plug(
@@ -96,22 +96,84 @@ def build_inner_plug(
         p.ip_pivot_r, pv_len, pv_len / 2, p.ip_pivot_bearing, p.ip_pivot_z
     )
 
-    # ---- Stepped grub-screw hole -----------------------------------------
-    gs_ang = p.ip_grub_bearing
-    # Outer counterbore: from the outer surface inward.
-    ob_len = p.ip_grub_outer_len
-    ob_mid = p.ip_r - ob_len / 2  # centre of counterbore along the radial axis
-    part = part - _radial_cyl(
-        p.ip_grub_outer_r, ob_len + 1, ob_mid, gs_ang, p.ip_grub_z
-    )
-    # Inner drilling: from the counterbore base through to the axis.
-    ib_len = p.ip_r - ob_len
-    ib_mid = ib_len / 2
-    part = part - _radial_cyl(
-        p.ip_grub_inner_r, ib_len + 1, ib_mid, gs_ang, p.ip_grub_z
+    # ---- Threaded grub-screw hole ----------------------------------------
+    # A single radial hole from the outer face inward to the central hole,
+    # internally threaded (tapped by subtracting an external tool).
+    part = _radial_threaded_hole(
+        part,
+        p.grub_joint,
+        z=p.ip_grub_z,
+        bearing_deg=p.ip_grub_bearing,
+        length=p.ip_r + 2.0,  # axis out to just past the surface
+        central_r=p.ip_hole_r,
+        clearance=clearance,
     )
 
+    return keep_largest_solid(part)
+
+
+def _radial_threaded_hole(
+    part, spec, *, z, bearing_deg, length, central_r, clearance=0.0
+):
+    """Cut a radial internal thread at height ``z`` along ``bearing_deg``, from
+    the central blind hole out to the surface.
+
+    The thread runs the full wall so it is visible and functional right from the
+    mouth (only a short run-out is left clear of the central blind hole). A plain
+    minor-diameter passage is drilled the whole way first, so its intersections
+    with the surface and the central hole are clean plain-cylinder cuts.
+
+    Where the grub thread meets the inner plug's *external* thread at the mouth
+    it sheds sub-triangle mesh slivers; those are cleaned up at STL export
+    (see ``build._export_watertight_stl``). The STEP master carries the exact
+    thread.
+    """
+    place = Pos(0, 0, z) * Rot(0, 0, bearing_deg) * Rot(0, 90, 0)
+    # ``place`` maps the Z axis onto the radial direction at ``bearing``:
+    # rotate Z->X first (Rot(0,90,0)), THEN spin by bearing about Z. Order
+    # matters -- a single Rot(0,90,bearing) would spin the tool while still on
+    # the Z axis (a no-op) and leave it along +X.
+
+    def radial(radius, r0, r1):
+        """A cylinder spanning radius r0..r1 along the hole axis."""
+        return place * Pos(0, 0, r0) * Cylinder(
+            radius=radius, height=r1 - r0,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+
+    surface_r = length - 2.0  # nominal outer radius (length reaches past it)
+    mouth_lead = 0.6  # shallow plain lead-in at the mouth (mm)
+
+    # Plain passage from the central hole out through the surface, drilled a
+    # touch UNDER the thread minor radius. Drilling exactly to the minor radius
+    # leaves a cylindrical face coincident with the tap core, which makes OCCT's
+    # boolean silently fail for the rotated tool -- it returns the part
+    # unchanged, leaving an unthreaded hole. The tap core re-establishes the
+    # true minor radius, so the thread is unaffected.
+    drill_r = _tap_drill_radius(spec, clearance) - 0.2
+    part = part - radial(drill_r, 0.0, length)
+
+    # Thread, confined to the plain-drilled wall between a short run-out at the
+    # central hole and a short lead-in at the mouth. Keeping the thread clear of
+    # the central blind hole and the external thread means it only ever meets
+    # plain cylinder walls -- the same clean situation as the bore thread, so it
+    # stays valid and meshes watertight.
+    t0 = central_r + 0.6
+    t1 = surface_r - mouth_lead
+    tap = internal_thread_tap(spec, t1 - t0, z_base=t0, clearance=clearance)
+    part = part - place * tap.tool
+
+    # Shallow plain lead-in at the mouth, opened to the major diameter so a
+    # screw's crests can start (a plain cut through the external thread meshes
+    # cleanly, unlike thread-on-thread).
+    lead_r = spec.major_diameter / 2 + clearance + 0.2
+    part = part - radial(lead_r, surface_r - mouth_lead, length)
     return part
+
+
+def _tap_drill_radius(spec, clearance):
+    """Minor radius of the tapped hole (== the plain drill size)."""
+    return internal_thread_tap(spec, spec.pitch * 2, clearance=clearance).drill_radius
 
 
 def _radial_cyl(radius, length, radial_offset, bearing_deg, z):
@@ -120,7 +182,8 @@ def _radial_cyl(radius, length, radial_offset, bearing_deg, z):
     a = math.radians(bearing_deg)
     cx = radial_offset * math.cos(a)
     cy = radial_offset * math.sin(a)
-    return Pos(cx, cy, z) * Rot(0, 90, bearing_deg) * Cylinder(
+    # Orient along the radial direction: Z->X first, then spin by bearing.
+    return Pos(cx, cy, z) * Rot(0, 0, bearing_deg) * Rot(0, 90, 0) * Cylinder(
         radius=radius, height=length
     )
 
