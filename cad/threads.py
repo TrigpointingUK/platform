@@ -109,7 +109,7 @@ def external_thread_shaft(
 def keep_largest_solid(part: Part) -> Part:
     """Return ``part`` reduced to its single largest solid.
 
-    Boolean-cutting fine helical threads (e.g. where the radial grub-screw
+    Boolean-cutting fine helical threads (e.g. where the radial locking-screw
     thread crosses the inner plug's external thread) can shed sub-micron
     detached slivers. These are numerical chips, not real geometry; dropping
     them leaves a clean single watertight solid. No-op when already one solid.

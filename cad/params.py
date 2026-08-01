@@ -85,12 +85,15 @@ class PlugParams:
     ip_pivot_z: float = 3.5  # [E] 3.5 mm above the bottom face
     ip_pivot_bearing: float = 0.0  # [E] degrees, along +X
 
-    # Threaded grub-screw hole (locks the inner plug against the bore).
+    # Recessed locking-screw hole (locks the inner plug against the bore).
     # A single radial hole from the outer face through to the central hole,
     # ~160 deg clockwise from the cotter hole (viewed from above) -> bearing
-    # 200 deg (the cotter hole is at 0 deg). Thread spec is `grub_joint` below.
-    ip_grub_z: float = 10.0  # [E] 10 mm above bottom
-    ip_grub_bearing: float = 200.0  # [E] deg; ~160 CW from cotter (at 0 deg)
+    # 200 deg (the cotter hole is at 0 deg). The first 8.3 mm is a smooth
+    # Ø6.3 mm counterbore, followed by a 45° taper into the thread below.
+    ip_lock_z: float = 10.0  # [E] 10 mm above bottom
+    ip_lock_bearing: float = 200.0  # [E] deg; ~160 CW from cotter (at 0 deg)
+    ip_lock_counterbore_d: float = 6.3  # [D] smooth entry diameter
+    ip_lock_counterbore_depth: float = 8.3  # [D] depth from outer surface
 
     # ---- Thread joints ---------------------------------------------------
     # All three measured as Whitworth (55 deg) form; pitch from a thread gauge
@@ -119,10 +122,10 @@ class PlugParams:
             note="Measured Whitworth 55deg, 14 TPI.",
         )
     )
-    # Joint C: grub screw <-> inner-plug radial locking hole.
-    grub_joint: ThreadSpec = field(
+    # Joint C: locking screw <-> inner-plug radial locking hole.
+    locking_screw_joint: ThreadSpec = field(
         default_factory=lambda: ThreadSpec(
-            name="grubscrew",
+            name="locking-screw",
             major_diameter=4.0,  # [D] ~4 mm (close to 5/32in BSW = 3.97 mm)
             pitch=25.4 / 32,  # [D] 32 TPI Whitworth = 0.794 mm
             form="whitworth",

@@ -62,7 +62,7 @@ def _validate(part, label: str) -> None:
 def _export_watertight_stl(part, path: Path, label: str) -> str:
     """Export a gap-free STL and return a short quality note.
 
-    On the fine, rotated grub thread OCCT's mesher emits a few zero-area
+    On the fine, rotated locking-screw thread OCCT's mesher emits a few zero-area
     triangles and a handful of non-manifold "pinch" edges (surfaces meeting
     along an edge). Neither is a leak. We strip the slivers, fill any face OCCT
     skipped, then *assert the mesh is gap-free* (no open/boundary edges) -- the
@@ -134,10 +134,10 @@ def main() -> None:
             continue
         for variant, clr in STL_VARIANTS.items():
             tv = time.time()
-            # Printed STLs get a plain tap-drill grub hole (hand-tapped later);
-            # the fine grub thread lives only in the STEP master.
+            # Printed STLs get a plain tap-drill locking-screw hole (hand-tapped
+            # later); the fine thread lives only in the STEP master.
             part = build_inner_plug(PLUG, threads=True, clearance=clr, top=top,
-                                    grub_thread=False)
+                                    locking_screw_thread=False)
             _validate(part, f"inner_plug[{top}] ({variant})")
             stl_path = STL_DIR / f"inner_plug{suffix}_{variant}.stl"
             note = _export_watertight_stl(part, stl_path, f"inner_plug[{top}] ({variant})")

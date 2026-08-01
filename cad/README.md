@@ -17,7 +17,7 @@ a milling/casting master.
 | `params.py` | Every dimension as a documented variable, with a provenance tag. **Edit this** as real measurements arrive. |
 | `threads.py` | Helical thread helpers (external shafts; internal threads cut by a "tap" tool). |
 | `plug.py` | The outer plug (three rings, bore, holes, cotter hole, lettering). |
-| `inner_plug.py` | The inner plug (threaded cylinder, blind holes, grub-screw hole, top-surface treatment). |
+| `inner_plug.py` | The inner plug (threaded cylinder, blind holes, locking-screw hole, top-surface treatment). |
 | `lettering.py` | Engraved "TRIANGULATION STATION" / "ORDNANCE SURVEY" arcs. |
 | `top_surfaces.py` | Library of engraved inner-plug top treatments (flat / logo / QR) + named presets. |
 | `build.py` | Builds, validates and exports the STEP assembly + per-process STLs. |
@@ -101,7 +101,7 @@ pitch is the thread-gauge TPI reading (`pitch_mm = 25.4 / TPI`):
 |----------------------|---------|------|-------|
 | `spider_joint` (plug ↔ spider) | 63.8 mm | Whitworth 55° | 8 TPI (3.175 mm) |
 | `bore_joint` (inner plug ↔ bore) | 38 mm | Whitworth 55° | 14 TPI (1.814 mm) |
-| `grub_joint` (grub screw) | ~4 mm | Whitworth 55° | 32 TPI (0.794 mm) — 5/32″ BSW |
+| `locking_screw_joint` | ~4 mm | Whitworth 55° | 32 TPI (0.794 mm) — 5/32″ BSW |
 
 Major diameters are the dimensioned values (the gauge gives form + TPI, not
 diameter). The Whitworth form is a **truncated-flat approximation**: correct
@@ -118,12 +118,12 @@ time (`STL_VARIANTS`). Refine `params.py` if a trial fit needs it.
 
 ## Known simplifications (this iteration)
 
-- **Scope is the two brass bodies only** — the loose cotter pin and the grub
+- **Scope is the two brass bodies only** — the loose cotter pin and the locking
   screw (separate fasteners) are not yet modelled; their *holes* are.
-- The fine grub thread (32 TPI) is modelled in the **STEP master** but the
+- The fine locking-screw thread (32 TPI) is modelled in the **STEP master** but the
   printable **STLs get a plain tap-drill hole** instead — that thread is too
   fine to print cleanly, so it is meant to be hand-tapped after printing
-  (`build_inner_plug(grub_thread=False)`).
+  (`build_inner_plug(locking_screw_thread=False)`).
 - The inner plug's 1 mm top chamfer sits on the thread's minor diameter (a
   short lead-in), rather than on the full crest diameter.
 - Thread ends are faded (no partial teeth) for print/manufacturing robustness.
@@ -138,21 +138,19 @@ time (`STL_VARIANTS`). Refine `params.py` if a trial fit needs it.
   solid). Instead we drill to the minor diameter and *subtract* an
   external-thread "tap" tool — the way a machinist cuts a thread. See
   `threads.py`.
-- **The radial grub-screw hole** is a plain passage drilled the whole way (so
-  its cuts through the surface and the central blind hole are clean), with the
-  thread confined to the plain-drilled wall between a short run-out at the
-  central hole and a shallow lead-in at the mouth. Keeping the thread clear of
-  both the central hole and the *external* thread means it only meets plain
-  cylinder walls -- the same clean case as the bore. Two subtleties: the drill
-  is a touch **under** the minor radius (a face exactly coincident with the tap
-  core makes OCCT's boolean silently no-op for the rotated tool, leaving an
-  unthreaded hole), and the radial tool is oriented `Rot(0,0,bearing) *
+- **The radial locking-screw hole** has a smooth Ø6.3 mm counterbore for its
+  first 8.3 mm, then a 45° taper into the threaded section. The thread is
+  confined to the plain-drilled wall between the taper and a short run-out at
+  the central hole, so it only meets plain cylinder walls -- the same clean case
+  as the bore. The initial drill is a touch **under** the minor radius (a face
+  exactly coincident with the tap core makes OCCT's boolean silently no-op for
+  the rotated tool, leaving an unthreaded hole), and the radial tool is oriented `Rot(0,0,bearing) *
   Rot(0,90,0)` (a single `Rot(0,90,bearing)` spins it while still on the Z axis
   and ignores the bearing).
 - Every exported part is checked with OCCT's `BRepCheck_Analyzer` and asserted
   to be a single solid; micro-slivers from thread booleans are dropped
   (`keep_largest_solid`).
-- **STLs are guaranteed gap-free.** OCCT's mesher, on the fine rotated grub
+- **STLs are guaranteed gap-free.** OCCT's mesher, on the fine rotated locking-screw
   thread, emits a few zero-area triangles and non-manifold "pinch" edges
   (surfaces meeting along an edge -- not leaks); `build.py` strips the slivers,
   fills any face OCCT skipped with `trimesh`, and asserts the mesh has **no open

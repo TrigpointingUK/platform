@@ -3667,18 +3667,17 @@ def build_plug(M):
         rotation=(0, math.pi / 2, th_angle))
     boolean_cut(ip, bpy.context.active_object)
 
-    # Grubscrew stepped hole — 10 mm above bottom, 60° from the 90°
-    # side blind hole (bearing 150°).  Outer section 3 mm radius for
-    # 10 mm depth, then 1.5 mm radius for the remainder to the
-    # central blind hole.
+    # Locking-screw counterbore — 10 mm above bottom, 60° from the 90°
+    # side blind hole (bearing 150°). The first 8.3 mm is a smooth Ø6.3 mm
+    # bore, followed by a 45° taper into the threaded section.
     gs_z = z_ip_bot + 0.010
     gs_angle = math.radians(150)
     gs_dir_x = math.cos(gs_angle)
     gs_dir_y = math.sin(gs_angle)
 
-    # Outer section: 3 mm radius, 10 mm long, starting at outer surface
-    gs_outer_r = 0.003
-    gs_outer_len = 0.010
+    # Smooth Ø6.3 mm counterbore, starting at the outer surface.
+    gs_outer_r = 0.00315
+    gs_outer_len = 0.0083
     gs_outer_start = ip_r + 0.001
     gs_outer_mid = gs_outer_start - gs_outer_len / 2
     bpy.ops.mesh.primitive_cylinder_add(
@@ -3687,9 +3686,21 @@ def build_plug(M):
         rotation=(0, math.pi / 2, gs_angle))
     boolean_cut(ip, bpy.context.active_object)
 
-    # Inner section: 1.5 mm radius, from 10 mm depth to central hole
+    # 45° transition from the counterbore to the existing threaded diameter.
     gs_inner_r = 0.0015
-    gs_inner_start = gs_outer_start - gs_outer_len
+    gs_taper_len = gs_outer_r - gs_inner_r
+    gs_taper_start = gs_outer_start - gs_outer_len
+    gs_taper_end = gs_taper_start - gs_taper_len
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=24, radius1=gs_inner_r, radius2=gs_outer_r,
+        depth=gs_taper_len,
+        location=(((gs_taper_start + gs_taper_end) / 2) * gs_dir_x,
+                  ((gs_taper_start + gs_taper_end) / 2) * gs_dir_y, gs_z),
+        rotation=(0, math.pi / 2, gs_angle))
+    boolean_cut(ip, bpy.context.active_object)
+
+    # Threaded-diameter passage from the taper to the central hole.
+    gs_inner_start = gs_taper_end
     gs_inner_end = 0.0
     gs_inner_len = gs_inner_start - gs_inner_end
     gs_inner_mid = (gs_inner_start + gs_inner_end) / 2
@@ -3707,7 +3718,7 @@ def build_plug(M):
     activate(ip)
     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
-    # ── Grub screw (sits inside the grubscrew hole) ───────────────
+    # ── Locking screw (sits inside the locking-screw hole) ────────
     # 13 mm total: bottom 10 mm shaft at 1.5 mm radius, top 3 mm head
     # at 3 mm radius (6 mm dia).  Radii reduced slightly for clearance.
     # A 1 mm wide rectangular slot runs across the top face.
@@ -3732,7 +3743,7 @@ def build_plug(M):
         location=(head_mid * gs_dir_x, head_mid * gs_dir_y, gs_z),
         rotation=(0, math.pi / 2, gs_angle))
     screw = bpy.context.active_object
-    screw.name = "GrubScrew"
+    screw.name = "LockingScrew"
 
     # Shaft cylinder — union into the screw
     bpy.ops.mesh.primitive_cylinder_add(
@@ -8025,7 +8036,7 @@ def setup_camera_animation():
     kf_rot(inner_plug, F7_END, (0, 0, 0))
 
     IPLUG_UNSCREW_TURNS = 12.0
-    # Extra phase at full extraction so the grub screw is camera-visible
+    # Extra phase at full extraction so the locking screw is camera-visible
     # at touchdown; tweak this value to fine-tune final presentation.
     IPLUG_UNSCREW_PHASE = math.radians(285)
     IPLUG_UNSCREW = IPLUG_UNSCREW_TURNS * 2 * math.pi + IPLUG_UNSCREW_PHASE

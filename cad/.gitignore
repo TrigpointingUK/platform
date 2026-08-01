@@ -3,7 +3,7 @@ venv/
 
 # Generated CAD output is reproducible from source; keep it out of git.
 step/*.step
-stl/*.stl
+# stl/*.stl
 
 # Python cruft
 __pycache__/
