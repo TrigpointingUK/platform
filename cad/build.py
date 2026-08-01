@@ -5,8 +5,9 @@
     python build.py --fast          # no threads (quick dimensional preview)
 
 Outputs:
-    step/plug.step, step/inner_plug.step        nominal masters (zero clearance)
-    stl/plug_<variant>.stl, ...                 per-process printable meshes
+    step/plug_assembly.step     nominal master: both parts assembled, as two
+                                separate named solids (Plug, InnerPlug)
+    stl/<part>_<variant>.stl    per-process printable meshes (one file per part)
 
 STL variants apply a radial thread clearance for a running fit. Values are
 starting points for the first Bondar Labs test prints; refine once real prints
@@ -21,7 +22,7 @@ import time
 from pathlib import Path
 
 import trimesh
-from build123d import export_step, export_stl
+from build123d import Compound, Pos, export_step, export_stl
 from OCP.BRepCheck import BRepCheck_Analyzer
 
 from inner_plug import build_inner_plug
@@ -97,23 +98,20 @@ def main() -> None:
     STL_DIR.mkdir(exist_ok=True)
     threads = not args.fast
 
+    masters = {}
     for name, builder in PARTS.items():
         t0 = time.time()
-        # ---- STEP master: nominal, zero clearance ------------------------
+        # ---- Nominal master (zero clearance), kept for the STEP assembly ---
         master = builder(PLUG, threads=threads, clearance=0.0)
         _validate(master, f"{name} (master)")
-        step_path = STEP_DIR / f"{name}.step"
-        export_step(master, str(step_path))
-        vol = master.volume
-        print(
-            f"{name}: master volume={vol:.0f} mm^3 valid  "
-            f"-> {step_path.relative_to(HERE)}  ({time.time()-t0:.1f}s)"
-        )
+        masters[name] = master
+        print(f"{name}: master volume={master.volume:.0f} mm^3 valid "
+              f"({time.time()-t0:.1f}s)")
 
         if args.step_only or args.fast:
             continue
 
-        # ---- STL variants: per-process clearance -------------------------
+        # ---- STL variants: per-process clearance, one file per part -------
         for variant, clr in STL_VARIANTS.items():
             tv = time.time()
             part = builder(PLUG, threads=True, clearance=clr)
@@ -124,6 +122,20 @@ def main() -> None:
                 f"    {variant}: clearance={clr} mm radial [{note}] "
                 f"-> {stl_path.relative_to(HERE)}  ({time.time()-tv:.1f}s)"
             )
+
+    # ---- Combined STEP: both parts, assembled, as separate named objects ---
+    plug = masters["plug"]
+    plug.label = "Plug"
+    # Seat the inner plug in the bore with its top flush with the plug top.
+    seat = (PLUG.lower_h + PLUG.middle_h + PLUG.upper_h) - PLUG.ip_h
+    inner = Pos(0, 0, seat) * masters["inner_plug"]
+    inner.label = "InnerPlug"
+    assembly = Compound(children=[plug, inner])
+    assembly.label = "PlugAssembly"
+    step_path = STEP_DIR / "plug_assembly.step"
+    export_step(assembly, str(step_path))
+    print(f"assembly: Plug + InnerPlug (seated {seat:.0f} mm) "
+          f"-> {step_path.relative_to(HERE)}")
 
 
 if __name__ == "__main__":

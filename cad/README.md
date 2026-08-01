@@ -40,12 +40,15 @@ venv/bin/python build.py --fast        # no threads (quick dimensional check)
 
 ## Output
 
-- **`step/plug.step`, `step/inner_plug.step`** — the *masters*: nominal
-  geometry, zero print clearance. This is the accurate archival model; treat it
-  as the source of truth and never bake a print allowance into it.
-- **`stl/<part>_resin.stl`, `stl/<part>_fdm.stl`** — printable meshes with a
-  radial thread clearance applied for a running fit (resin 0.10 mm, FDM
-  0.25 mm — starting points, tune after trial fits at the print shop).
+- **`step/plug_assembly.step`** — the *master*: nominal geometry, zero print
+  clearance, with both parts (`Plug` and `InnerPlug`) as separate named solids
+  in their assembled position (inner plug seated in the bore, tops flush). This
+  is the accurate archival model; treat it as the source of truth and never bake
+  a print allowance into it.
+- **`stl/<part>_resin.stl`, `stl/<part>_fdm.stl`** — one printable mesh per part
+  per process, with a radial thread clearance applied for a running fit (resin
+  0.10 mm, FDM 0.25 mm — starting points, tune after trial fits at the print
+  shop).
 
 ## Coordinate frame
 
