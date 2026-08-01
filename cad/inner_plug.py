@@ -88,9 +88,12 @@ def build_inner_plug(
             radius=p.ip_hole_r, height=p.ip_side_depth
         )
 
-    # ---- Radial pivot hole (diametral, for the cotter pin) ---------------
-    part = part - Pos(0, 0, p.ip_pivot_z) * Rot(0, 90, p.ip_pivot_bearing) * Cylinder(
-        radius=p.ip_pivot_r, height=2 * core_r + 2
+    # ---- Radial pivot hole (single-sided, for the cotter pin) ------------
+    # From the +X outer surface inward to the axis only (meeting the central
+    # blind hole), aligned with the plug's cotter hole.
+    pv_len = p.ip_r + 2.0
+    part = part - _radial_cyl(
+        p.ip_pivot_r, pv_len, pv_len / 2, p.ip_pivot_bearing, p.ip_pivot_z
     )
 
     # ---- Stepped grub-screw hole -----------------------------------------

@@ -143,10 +143,13 @@ def build_plug(
             radius=p.clr_hole_r, height=p.upper_h + 2
         )
 
-    # ---- Cotter-pin diametral hole through the lower annulus --------------
+    # ---- Cotter-pin hole through one side of the lower annulus ------------
+    # Single-sided: from the +X outer surface inward to the axis only (through
+    # the near wall and into the bore), not out through the far wall.
     z_cotter = z_mid_top - p.cotter_z_from_shelf
-    part = part - Pos(0, 0, z_cotter) * Rot(0, 90, 0) * Cylinder(
-        radius=p.cotter_r, height=2 * p.lower_r + 2
+    cp_len = p.lower_r + 1.0
+    part = part - Pos(cp_len / 2, 0, z_cotter) * Rot(0, 90, 0) * Cylinder(
+        radius=p.cotter_r, height=cp_len
     )
 
     # ---- Engraved OS lettering on the top surface ------------------------
