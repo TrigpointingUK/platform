@@ -27,6 +27,7 @@ from build123d import (
 )
 from bd_warehouse.thread import IsoThread
 
+from lettering import engrave_plug_text
 from params import PLUG, PlugParams
 from threads import external_thread_shaft, internal_thread_tap
 
@@ -57,12 +58,19 @@ def _bore_chamfer_cutter(r_bore: float, chamfer: float, z_top: float):
     return _revolved(pts)
 
 
-def build_plug(p: PlugParams = PLUG, *, threads: bool = True, clearance: float = 0.0):
+def build_plug(
+    p: PlugParams = PLUG,
+    *,
+    threads: bool = True,
+    clearance: float = 0.0,
+    text: bool = True,
+):
     """Return the outer plug as a build123d ``Part``.
 
     ``threads=False`` skips helix generation (plain cylinders) for a fast
     dimensional preview. ``clearance`` (mm, radial) is a printed-fit allowance:
-    the external thread shrinks and the internal bore thread grows.
+    the external thread shrinks and the internal bore thread grows. ``text``
+    engraves the OS lettering into the top surface.
     """
     total_h = p.lower_h + p.middle_h + p.upper_h
     z_mid_base = p.lower_h
@@ -140,6 +148,10 @@ def build_plug(p: PlugParams = PLUG, *, threads: bool = True, clearance: float =
     part = part - Pos(0, 0, z_cotter) * Rot(0, 90, 0) * Cylinder(
         radius=p.cotter_r, height=2 * p.lower_r + 2
     )
+
+    # ---- Engraved OS lettering on the top surface ------------------------
+    if text:
+        part = engrave_plug_text(part, total_h)
 
     return part
 

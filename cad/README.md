@@ -16,8 +16,9 @@ a milling/casting master.
 |------|-----------|
 | `params.py` | Every dimension as a documented variable, with a provenance tag. **Edit this** as real measurements arrive. |
 | `threads.py` | Helical thread helpers (external shafts; internal threads cut by a "tap" tool). |
-| `plug.py` | The outer plug (three rings, bore, holes, cotter hole). |
+| `plug.py` | The outer plug (three rings, bore, holes, cotter hole, lettering). |
 | `inner_plug.py` | The inner plug (threaded cylinder, blind holes, grub-screw hole). |
+| `lettering.py` | Engraved "TRIANGULATION STATION" / "ORDNANCE SURVEY" arcs. |
 | `build.py` | Builds, validates and exports STEP masters + per-process STLs. |
 | `step/`, `stl/` | Generated output (git-ignored; reproducible). |
 
@@ -85,8 +86,10 @@ re-run `build.py`. No geometry code needs to change.
   screw (separate fasteners) are not yet modelled; their *holes* are.
 - The inner plug's 1 mm top chamfer sits on the thread's minor diameter (a
   short lead-in), rather than on the full crest diameter.
-- The embossed lettering around the plug's upper ring is not modelled.
 - Thread ends are faded (no partial teeth) for print/manufacturing robustness.
+- The engraved lettering uses **DejaVu Sans** as a stand-in; the exact OS cast
+  face has not been identified. Font, size, depth, radius and arc spans are all
+  tuneable in `lettering.py`.
 
 ## Design notes
 
