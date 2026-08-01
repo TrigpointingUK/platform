@@ -28,6 +28,7 @@ from OCP.BRepCheck import BRepCheck_Analyzer
 from inner_plug import build_inner_plug
 from params import PLUG
 from plug import build_plug
+from top_surfaces import DEFAULT, PRESETS
 
 HERE = Path(__file__).parent
 STEP_DIR = HERE / "step"
@@ -44,10 +45,10 @@ STL_VARIANTS = {
 STL_LINEAR_TOL = 0.02
 STL_ANGULAR_TOL = 0.3
 
-PARTS = {
-    "plug": build_plug,
-    "inner_plug": build_inner_plug,
-}
+# Inner-plug top-surface presets to render (see top_surfaces.PRESETS). The
+# assembly STEP always uses the flat top; the others are produced as extra STLs
+# named inner_plug_<label>_<variant>.stl. Trim this list to speed up a build.
+INNER_TOPS = ["flat", "tuk-logo", "tuk-logo-emboss", "trig-5169-qr"]
 
 
 def _validate(part, label: str) -> None:
@@ -98,39 +99,55 @@ def main() -> None:
     STL_DIR.mkdir(exist_ok=True)
     threads = not args.fast
 
-    masters = {}
-    for name, builder in PARTS.items():
-        t0 = time.time()
-        # ---- Nominal master (zero clearance), kept for the STEP assembly ---
-        master = builder(PLUG, threads=threads, clearance=0.0)
-        _validate(master, f"{name} (master)")
-        masters[name] = master
-        print(f"{name}: master volume={master.volume:.0f} mm^3 valid "
-              f"({time.time()-t0:.1f}s)")
+    skip_stl = args.step_only or args.fast
 
-        if args.step_only or args.fast:
-            continue
-
-        # ---- STL variants: per-process clearance, one file per part -------
+    # ---- Outer plug -------------------------------------------------------
+    t0 = time.time()
+    plug_master = build_plug(PLUG, threads=threads, clearance=0.0)
+    _validate(plug_master, "plug (master)")
+    print(f"plug: master volume={plug_master.volume:.0f} mm^3 valid "
+          f"({time.time()-t0:.1f}s)")
+    if not skip_stl:
         for variant, clr in STL_VARIANTS.items():
             tv = time.time()
-            part = builder(PLUG, threads=True, clearance=clr)
-            _validate(part, f"{name} ({variant})")
-            stl_path = STL_DIR / f"{name}_{variant}.stl"
-            note = _export_watertight_stl(part, stl_path, f"{name} ({variant})")
-            print(
-                f"    {variant}: clearance={clr} mm radial [{note}] "
-                f"-> {stl_path.relative_to(HERE)}  ({time.time()-tv:.1f}s)"
-            )
+            part = build_plug(PLUG, threads=True, clearance=clr)
+            _validate(part, f"plug ({variant})")
+            stl_path = STL_DIR / f"plug_{variant}.stl"
+            note = _export_watertight_stl(part, stl_path, f"plug ({variant})")
+            print(f"    {variant}: clearance={clr} mm radial [{note}] "
+                  f"-> {stl_path.relative_to(HERE)}  ({time.time()-tv:.1f}s)")
+
+    # ---- Inner plug, once per top-surface preset --------------------------
+    # The flat master feeds the assembly; every preset gets its own STLs.
+    inner_flat_master = None
+    for top in INNER_TOPS:
+        suffix = "" if top == DEFAULT else f"_{PRESETS[top].label}"
+        tv = time.time()
+        if top == DEFAULT:
+            inner_flat_master = build_inner_plug(PLUG, threads=threads, clearance=0.0)
+            _validate(inner_flat_master, "inner_plug (master)")
+            print(f"inner_plug: master volume={inner_flat_master.volume:.0f} "
+                  f"mm^3 valid ({time.time()-tv:.1f}s)")
+        else:
+            print(f"inner_plug[{top}]:")
+        if skip_stl:
+            continue
+        for variant, clr in STL_VARIANTS.items():
+            tv = time.time()
+            part = build_inner_plug(PLUG, threads=True, clearance=clr, top=top)
+            _validate(part, f"inner_plug[{top}] ({variant})")
+            stl_path = STL_DIR / f"inner_plug{suffix}_{variant}.stl"
+            note = _export_watertight_stl(part, stl_path, f"inner_plug[{top}] ({variant})")
+            print(f"    {variant}: clearance={clr} mm radial [{note}] "
+                  f"-> {stl_path.relative_to(HERE)}  ({time.time()-tv:.1f}s)")
 
     # ---- Combined STEP: both parts, assembled, as separate named objects ---
-    plug = masters["plug"]
-    plug.label = "Plug"
+    plug_master.label = "Plug"
     # Seat the inner plug in the bore with its top flush with the plug top.
     seat = (PLUG.lower_h + PLUG.middle_h + PLUG.upper_h) - PLUG.ip_h
-    inner = Pos(0, 0, seat) * masters["inner_plug"]
+    inner = Pos(0, 0, seat) * inner_flat_master
     inner.label = "InnerPlug"
-    assembly = Compound(children=[plug, inner])
+    assembly = Compound(children=[plug_master, inner])
     assembly.label = "PlugAssembly"
     step_path = STEP_DIR / "plug_assembly.step"
     export_step(assembly, str(step_path))

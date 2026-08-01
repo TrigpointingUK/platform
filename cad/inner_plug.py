@@ -28,15 +28,22 @@ from bd_warehouse.thread import IsoThread
 
 from params import PLUG, PlugParams
 from threads import external_thread_shaft, internal_thread_tap, keep_largest_solid
+from top_surfaces import DEFAULT, resolve
 
 
 def build_inner_plug(
-    p: PlugParams = PLUG, *, threads: bool = True, clearance: float = 0.0
+    p: PlugParams = PLUG,
+    *,
+    threads: bool = True,
+    clearance: float = 0.0,
+    top: str = DEFAULT,
 ):
     """Return the inner plug as a build123d ``Part``.
 
     ``threads=False`` skips helix generation. ``clearance`` (mm, radial)
-    shrinks the external thread for a printed running fit.
+    shrinks the external thread for a printed running fit. ``top`` selects a
+    top-surface treatment preset (see ``top_surfaces.PRESETS``); ``"flat"``
+    leaves the original plain top.
     """
     ip_h = p.ip_h
     z_thread_top = ip_h - p.ip_chamfer
@@ -107,6 +114,15 @@ def build_inner_plug(
         length=p.ip_r + 2.0,  # axis out to just past the surface
         central_r=p.ip_hole_r,
         clearance=clearance,
+    )
+
+    # ---- Top-surface treatment (engraved logo / QR / flat) ---------------
+    # Clean to a single solid first: thread booleans can leave a sliver, and an
+    # embossing union onto a multi-solid compound misbehaves in OCCT.
+    part = keep_largest_solid(part)
+    usable_r = core_r - p.ip_chamfer  # flat top radius inside the chamfer
+    part = resolve(top).apply(
+        part, z_top=ip_h, radius=usable_r, clearance=clearance
     )
 
     return keep_largest_solid(part)

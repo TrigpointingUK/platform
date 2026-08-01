@@ -17,9 +17,10 @@ a milling/casting master.
 | `params.py` | Every dimension as a documented variable, with a provenance tag. **Edit this** as real measurements arrive. |
 | `threads.py` | Helical thread helpers (external shafts; internal threads cut by a "tap" tool). |
 | `plug.py` | The outer plug (three rings, bore, holes, cotter hole, lettering). |
-| `inner_plug.py` | The inner plug (threaded cylinder, blind holes, grub-screw hole). |
+| `inner_plug.py` | The inner plug (threaded cylinder, blind holes, grub-screw hole, top-surface treatment). |
 | `lettering.py` | Engraved "TRIANGULATION STATION" / "ORDNANCE SURVEY" arcs. |
-| `build.py` | Builds, validates and exports STEP masters + per-process STLs. |
+| `top_surfaces.py` | Library of engraved inner-plug top treatments (flat / logo / QR) + named presets. |
+| `build.py` | Builds, validates and exports the STEP assembly + per-process STLs. |
 | `step/`, `stl/` | Generated output (git-ignored; reproducible). |
 
 ## Quick start
@@ -49,6 +50,41 @@ venv/bin/python build.py --fast        # no threads (quick dimensional check)
   per process, with a radial thread clearance applied for a running fit (resin
   0.10 mm, FDM 0.25 mm — starting points, tune after trial fits at the print
   shop).
+- Extra STLs are produced for each customised inner-plug top (see below), named
+  `inner_plug_<preset>_<variant>.stl`.
+
+## Customising the inner-plug top
+
+The inner plug's top is the one exposed face, so it can be personalised.
+`top_surfaces.py` is a small **library** of engraved treatments plus named
+**presets**:
+
+- A treatment *type* is a function `(part, *, z_top, radius, clearance, **opts)
+  -> part` registered in `TREATMENTS`. Built in: `flat` (no-op), `logo`
+  (multi-level colour-mapped relief of an SVG, engraved *or* embossed via a
+  `raised` option), `qr` (a `segno`-generated QR code engraved as recessed
+  modules).
+- A `TopSurface` *preset* binds a type to concrete options + a filename label,
+  in `PRESETS`. Shipped presets: `flat`, `tuk-logo` (engraved `res/TUK-Logo.svg`,
+  0.9 mm), `tuk-logo-emboss` (the same logo raised 0.9 mm proud), `trig-5169-qr`
+  (QR to `https://trigpointing.uk/trigs/5169`).
+
+**Select at build time** by editing `INNER_TOPS` in `build.py` (the list of
+presets to render), or in code via `build_inner_plug(..., top="tuk-logo")`.
+
+**Add an option**: write a treatment function, add it to `TREATMENTS`, and add a
+`TopSurface` to `PRESETS`.
+
+Notes:
+- The **logo** reuses the Blender flush-bracket colour→relief table (bright green
+  deepest/tallest … highlights shallowest, black outline skipped). Engraved
+  (`raised=False`) or embossed (`raised=True`). A couple of near-white highlight
+  paths yield degenerate faces and are skipped automatically; each boolean is
+  volume-checked so a failed cut/union can never drop the body.
+- The **QR** engraving depends on `segno` (added to `requirements.txt`). An
+  engraved (recessed) QR reads by shadow/contrast, so it is **not guaranteed to
+  scan** on bare metal — depends on the print finish and lighting. There is no
+  embossed QR: fine raised modules are too fragile for rough handling.
 
 ## Coordinate frame
 
