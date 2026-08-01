@@ -25,11 +25,14 @@ from build123d import (
     make_face,
     revolve,
 )
-from bd_warehouse.thread import IsoThread
-
 from lettering import engrave_plug_text
 from params import PLUG, PlugParams
-from threads import external_thread_shaft, internal_thread_tap, keep_largest_solid
+from threads import (
+    external_min_radius,
+    external_thread_shaft,
+    internal_thread_tap,
+    keep_largest_solid,
+)
 
 
 def _revolved(profile):
@@ -79,15 +82,7 @@ def build_plug(
     # Middle-ring core radius: with a real external thread the core sits at the
     # thread's minor radius and the helix adds crests out to the nominal major.
     if threads:
-        probe = IsoThread(
-            major_diameter=p.spider_joint.major_diameter - 2 * clearance,
-            pitch=p.spider_joint.pitch,
-            length=p.middle_h,
-            external=True,
-            end_finishes=("fade", "fade"),
-            simple=False,
-        )
-        mid_core_r = probe.min_radius
+        mid_core_r = external_min_radius(p.spider_joint, clearance)
     else:
         mid_core_r = p.middle_r
 

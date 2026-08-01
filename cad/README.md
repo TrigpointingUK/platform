@@ -92,26 +92,23 @@ Each part is modelled standalone: **z = 0 at the part's lowest face, +z up**,
 revolved about the Z axis. (This differs from the pillar-assembly frame in the
 render model, where the plug sits ~1.17 m up.)
 
-## ⚠️ Accuracy status — read before relying on fit
+## Thread specifications (measured)
 
-The overall shape and the `[D]`-tagged sizes are believed accurate (they match
-the render model's dimensioned values). **The threads are not yet verified.**
-Specifically:
+All three joints were measured on a real plug as **Whitworth (55°)** form; the
+pitch is the thread-gauge TPI reading (`pitch_mm = 25.4 / TPI`):
 
-- **Thread pitch** for both joints is an estimate (`[E]`) derived from the
-  render model, not a gauge reading.
-- **Thread form** is assumed ISO metric (60°). A real OS plug of this era may
-  well be **Whitworth (55°, rounded crests/roots)** or another form — this is
-  unconfirmed.
-- The inner-plug / bore joint nominal is driven to Ø38 so the two mate *by
-  construction*; the render model's Ø37.8 inner-plug figure is treated as the
-  same joint.
+| Joint (`ThreadSpec`) | Major Ø | Form | Pitch |
+|----------------------|---------|------|-------|
+| `spider_joint` (plug ↔ spider) | 63.8 mm | Whitworth 55° | 8 TPI (3.175 mm) |
+| `bore_joint` (inner plug ↔ bore) | 38 mm | Whitworth 55° | 14 TPI (1.814 mm) |
+| `grub_joint` (grub screw) | ~4 mm | Whitworth 55° | 32 TPI (0.794 mm) — 5/32″ BSW |
 
-So today's model is **correct-by-construction and dimensionally consistent**,
-but a printed pair is not guaranteed to screw into a *real* pillar until the
-threads are measured. When you have calipers + a thread gauge on a real plug (or
-an OS drawing), update the `ThreadSpec`s and any `[E]` values in `params.py` and
-re-run `build.py`. No geometry code needs to change.
+Major diameters are the dimensioned values (the gauge gives form + TPI, not
+diameter). The Whitworth form is a **truncated-flat approximation**: correct
+55° flanks and 0.6403·p depth, with the rounded crest/root approximated by
+p/6 flats. The mating members of each joint are generated from the same nominal
+so they fit by construction; per-process running clearance is applied at build
+time (`STL_VARIANTS`). Refine `params.py` if a trial fit needs it.
 
 ### Provenance tags (in `params.py`)
 
@@ -123,6 +120,10 @@ re-run `build.py`. No geometry code needs to change.
 
 - **Scope is the two brass bodies only** — the loose cotter pin and the grub
   screw (separate fasteners) are not yet modelled; their *holes* are.
+- The fine grub thread (32 TPI) is modelled in the **STEP master** but the
+  printable **STLs get a plain tap-drill hole** instead — that thread is too
+  fine to print cleanly, so it is meant to be hand-tapped after printing
+  (`build_inner_plug(grub_thread=False)`).
 - The inner plug's 1 mm top chamfer sits on the thread's minor diameter (a
   short lead-in), rather than on the full crest diameter.
 - Thread ends are faded (no partial teeth) for print/manufacturing robustness.

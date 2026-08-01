@@ -134,7 +134,10 @@ def main() -> None:
             continue
         for variant, clr in STL_VARIANTS.items():
             tv = time.time()
-            part = build_inner_plug(PLUG, threads=True, clearance=clr, top=top)
+            # Printed STLs get a plain tap-drill grub hole (hand-tapped later);
+            # the fine grub thread lives only in the STEP master.
+            part = build_inner_plug(PLUG, threads=True, clearance=clr, top=top,
+                                    grub_thread=False)
             _validate(part, f"inner_plug[{top}] ({variant})")
             stl_path = STL_DIR / f"inner_plug{suffix}_{variant}.stl"
             note = _export_watertight_stl(part, stl_path, f"inner_plug[{top}] ({variant})")

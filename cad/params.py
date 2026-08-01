@@ -37,6 +37,7 @@ class ThreadSpec:
     name: str
     major_diameter: float  # mm, nominal (external crest dia)
     pitch: float  # mm
+    form: str = "whitworth"  # "whitworth" (55 deg BSW) or "iso" (60 deg metric)
     provenance: str = "[E]"
     note: str = ""
 
@@ -92,36 +93,41 @@ class PlugParams:
     ip_grub_bearing: float = 200.0  # [E] deg; ~160 CW from cotter (at 0 deg)
 
     # ---- Thread joints ---------------------------------------------------
+    # All three measured as Whitworth (55 deg) form; pitch from a thread gauge
+    # in TPI (threads per inch), pitch_mm = 25.4 / TPI. Major diameters remain
+    # the dimensioned values (the gauge gives form + TPI, not diameter).
+    #
     # Joint A: plug external <-> spider central ring (screws the plug in).
     spider_joint: ThreadSpec = field(
         default_factory=lambda: ThreadSpec(
             name="plug-to-spider",
-            major_diameter=63.8,  # [E] middle-ring dia read as thread major
-            pitch=3.0,  # [E] ~3 threads / 10 mm in the render model
-            provenance="[E]",
-            note="Form assumed ISO 60deg; Whitworth 55deg is historically "
-            "plausible -- confirm against a real plug before relying on fit.",
+            major_diameter=63.8,  # [D] ~63.8 mm middle-ring dia
+            pitch=25.4 / 8,  # [D] 8 TPI Whitworth = 3.175 mm
+            form="whitworth",
+            provenance="[D]",
+            note="Measured Whitworth 55deg, 8 TPI.",
         )
     )
     # Joint B: inner-plug external <-> plug bore internal.
     bore_joint: ThreadSpec = field(
         default_factory=lambda: ThreadSpec(
             name="innerplug-to-bore",
-            major_diameter=38.0,  # [E] = bore dia
-            pitch=1.846,  # [E] = spider pitch * 8/13 (render model ratio)
-            provenance="[E]",
-            note="Finer than the spider joint in the render model (8/13 x).",
+            major_diameter=38.0,  # [D] = bore dia
+            pitch=25.4 / 14,  # [D] 14 TPI Whitworth = 1.814 mm
+            form="whitworth",
+            provenance="[D]",
+            note="Measured Whitworth 55deg, 14 TPI.",
         )
     )
     # Joint C: grub screw <-> inner-plug radial locking hole.
     grub_joint: ThreadSpec = field(
         default_factory=lambda: ThreadSpec(
             name="grubscrew",
-            major_diameter=4.0,  # [E] placeholder M4
-            pitch=0.7,  # [S] M4 coarse pitch
-            provenance="[E]",
-            note="Size unconfirmed -- placeholder M4x0.7 until the original "
-            "grub screw is measured.",
+            major_diameter=4.0,  # [D] ~4 mm (close to 5/32in BSW = 3.97 mm)
+            pitch=25.4 / 32,  # [D] 32 TPI Whitworth = 0.794 mm
+            form="whitworth",
+            provenance="[D]",
+            note="Measured Whitworth 55deg, 32 TPI (5/32in BSW is 32 TPI).",
         )
     )
 

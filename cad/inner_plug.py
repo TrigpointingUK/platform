@@ -24,10 +24,13 @@ from build123d import (
     Rot,
     chamfer,
 )
-from bd_warehouse.thread import IsoThread
-
 from params import PLUG, PlugParams
-from threads import external_thread_shaft, internal_thread_tap, keep_largest_solid
+from threads import (
+    external_min_radius,
+    external_thread_shaft,
+    internal_thread_tap,
+    keep_largest_solid,
+)
 from top_surfaces import DEFAULT, resolve
 
 
@@ -37,28 +40,23 @@ def build_inner_plug(
     threads: bool = True,
     clearance: float = 0.0,
     top: str = DEFAULT,
+    grub_thread: bool = True,
 ):
     """Return the inner plug as a build123d ``Part``.
 
     ``threads=False`` skips helix generation. ``clearance`` (mm, radial)
     shrinks the external thread for a printed running fit. ``top`` selects a
     top-surface treatment preset (see ``top_surfaces.PRESETS``); ``"flat"``
-    leaves the original plain top.
+    leaves the original plain top. ``grub_thread=False`` leaves the grub-screw
+    hole as a plain tap-drill hole (for hand-tapping / printed parts) instead of
+    modelling the fine internal thread.
     """
     ip_h = p.ip_h
     z_thread_top = ip_h - p.ip_chamfer
 
     # Core radius: minor diameter under the thread, or nominal without threads.
     if threads:
-        probe = IsoThread(
-            major_diameter=p.bore_joint.major_diameter - 2 * clearance,
-            pitch=p.bore_joint.pitch,
-            length=z_thread_top,
-            external=True,
-            end_finishes=("fade", "fade"),
-            simple=False,
-        )
-        core_r = probe.min_radius
+        core_r = external_min_radius(p.bore_joint, clearance)
     else:
         core_r = p.ip_r
 
@@ -114,6 +112,7 @@ def build_inner_plug(
         length=p.ip_r + 2.0,  # axis out to just past the surface
         central_r=p.ip_hole_r,
         clearance=clearance,
+        thread=grub_thread,
     )
 
     # ---- Top-surface treatment (engraved logo / QR / flat) ---------------
@@ -129,20 +128,22 @@ def build_inner_plug(
 
 
 def _radial_threaded_hole(
-    part, spec, *, z, bearing_deg, length, central_r, clearance=0.0
+    part, spec, *, z, bearing_deg, length, central_r, clearance=0.0, thread=True
 ):
-    """Cut a radial internal thread at height ``z`` along ``bearing_deg``, from
-    the central blind hole out to the surface.
+    """Cut a radial hole at height ``z`` along ``bearing_deg``, from the central
+    blind hole out to the surface.
 
-    The thread runs the full wall so it is visible and functional right from the
-    mouth (only a short run-out is left clear of the central blind hole). A plain
-    minor-diameter passage is drilled the whole way first, so its intersections
-    with the surface and the central hole are clean plain-cylinder cuts.
+    With ``thread=True`` it is internally threaded: the thread runs the full
+    wall so it is visible and functional right from the mouth (only a short
+    run-out is left clear of the central blind hole), with a plain minor-diameter
+    passage drilled first so its intersections with the surface and the central
+    hole are clean plain-cylinder cuts. Where the grub thread meets the inner
+    plug's *external* thread at the mouth it sheds sub-triangle mesh slivers,
+    cleaned up at STL export.
 
-    Where the grub thread meets the inner plug's *external* thread at the mouth
-    it sheds sub-triangle mesh slivers; those are cleaned up at STL export
-    (see ``build._export_watertight_stl``). The STEP master carries the exact
-    thread.
+    With ``thread=False`` it is a **plain hole at the tap-drill (minor)
+    diameter** -- for a part that will be hand-tapped after printing (fine
+    threads like this grub do not print cleanly).
     """
     place = Pos(0, 0, z) * Rot(0, 0, bearing_deg) * Rot(0, 90, 0)
     # ``place`` maps the Z axis onto the radial direction at ``bearing``:
@@ -160,14 +161,19 @@ def _radial_threaded_hole(
     surface_r = length - 2.0  # nominal outer radius (length reaches past it)
     mouth_lead = 0.6  # shallow plain lead-in at the mouth (mm)
 
-    # Plain passage from the central hole out through the surface, drilled a
-    # touch UNDER the thread minor radius. Drilling exactly to the minor radius
-    # leaves a cylindrical face coincident with the tap core, which makes OCCT's
-    # boolean silently fail for the rotated tool -- it returns the part
-    # unchanged, leaving an unthreaded hole. The tap core re-establishes the
-    # true minor radius, so the thread is unaffected.
-    drill_r = _tap_drill_radius(spec, clearance) - 0.2
-    part = part - radial(drill_r, 0.0, length)
+    minor_r = _tap_drill_radius(spec, clearance)  # thread minor = tap-drill size
+
+    if not thread:
+        # Plain tap-drill hole through the wall, to be hand-tapped after print.
+        part = part - radial(minor_r, 0.0, length)
+        return part
+
+    # Plain passage drilled a touch UNDER the minor radius: drilling exactly to
+    # the minor radius leaves a cylindrical face coincident with the tap core,
+    # which makes OCCT's boolean silently fail for the rotated tool (it returns
+    # the part unchanged, leaving an unthreaded hole). The tap core re-establishes
+    # the true minor radius, so the thread is unaffected.
+    part = part - radial(minor_r - 0.2, 0.0, length)
 
     # Thread, confined to the plain-drilled wall between a short run-out at the
     # central hole and a short lead-in at the mouth. Keeping the thread clear of
