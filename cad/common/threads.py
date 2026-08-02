@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from build123d import Align, Cylinder, Part, Pos
 from bd_warehouse.thread import IsoThread, Thread
 
-from params import ThreadSpec
+from common.specs import ThreadSpec
 
 # Fade both ends so there are no fragile partial teeth or knife-edges.
 _ENDS = ("fade", "fade")

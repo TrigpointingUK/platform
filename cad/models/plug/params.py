@@ -23,23 +23,7 @@ used in the render model.
 
 from dataclasses import dataclass, field
 
-
-@dataclass(frozen=True)
-class ThreadSpec:
-    """A mating thread joint.
-
-    ``major_diameter`` is the crest-to-crest diameter of the *external* member
-    (the classic nominal size). The internal member is generated from the same
-    nominal so the two mate by construction; printing clearance is applied
-    separately at build time, never baked in here.
-    """
-
-    name: str
-    major_diameter: float  # mm, nominal (external crest dia)
-    pitch: float  # mm
-    form: str = "whitworth"  # "whitworth" (55 deg BSW) or "iso" (60 deg metric)
-    provenance: str = "[E]"
-    note: str = ""
+from common.specs import ThreadSpec
 
 
 @dataclass(frozen=True)

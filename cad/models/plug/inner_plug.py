@@ -25,14 +25,14 @@ from build123d import (
     Rot,
     chamfer,
 )
-from params import PLUG, PlugParams
-from threads import (
+from common.threads import (
     external_min_radius,
     external_thread_shaft,
     internal_thread_tap,
     keep_largest_solid,
 )
-from top_surfaces import DEFAULT, resolve
+from models.plug.params import PLUG, PlugParams
+from models.plug.top_surfaces import DEFAULT, resolve
 
 
 def build_inner_plug(

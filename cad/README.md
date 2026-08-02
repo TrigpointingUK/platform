@@ -1,27 +1,49 @@
-# Trig-pillar plug assembly — parametric CAD
+# Trig-pillar CAD — parametric model collection
 
-A parametric [build123d](https://build123d.readthedocs.io/) model of the brass
-**plug** and **inner plug** from the top of an Ordnance Survey "Hotine"
-triangulation pillar. The goal is a 3D-printable replacement plug assembly for
-pillars whose original brass plug has been stolen.
+A collection of parametric [build123d](https://build123d.readthedocs.io/) models
+for 3D-printable hardware for Ordnance Survey "Hotine" triangulation pillars. Two
+components so far, with more expected:
 
-Unlike the Blender render model (`../Blender/Hotine/trig_pillar.py`), where the
-threads are bump-maps with no helix angle, this model has **true helical
-threads** with correct flank form and lead — suitable for a functional print or
-a milling/casting master.
+- **plug** — the brass **plug** and **inner plug** from the top of a pillar; a
+  printable replacement assembly for pillars whose original brass plug has been
+  stolen. Unlike the Blender render model (`../Blender/Hotine/trig_pillar.py`),
+  where the threads are bump-maps with no helix angle, this has **true helical
+  threads** with correct flank form and lead — suitable for a functional print or
+  a milling/casting master.
+- **driver** — a hand tool to screw the plug in/out of the pillar (see
+  [Plug driver tool](#plug-driver-tool)).
+
+Each component is a self-contained package under `models/`; shared machinery
+(threads, engraving, export, filesystem paths) lives in `common/`; a thin
+top-level `build.py` orchestrates. Output is written to shared `step/` and `stl/`
+directories with component-prefixed filenames.
 
 ## Layout
 
-| File | What it is |
-|------|-----------|
-| `params.py` | Every dimension as a documented variable, with a provenance tag. **Edit this** as real measurements arrive. |
-| `threads.py` | Helical thread helpers (external shafts; internal threads cut by a "tap" tool). |
-| `plug.py` | The outer plug (three rings, bore, holes, cotter hole, lettering). |
-| `inner_plug.py` | The inner plug (threaded cylinder, blind holes, locking-screw hole, top-surface treatment). |
-| `lettering.py` | Engraved "TRIANGULATION STATION" / "ORDNANCE SURVEY" arcs. |
-| `top_surfaces.py` | Library of engraved inner-plug top treatments (flat / logo / QR) + named presets. |
-| `build.py` | Builds, validates and exports the STEP assembly + per-process STLs. |
-| `step/`, `stl/` | Generated output (git-ignored; reproducible). |
+```
+cad/
+├─ common/                 # shared library (imported as common.*)
+│   ├─ paths.py            # CAD_DIR / REPO_ROOT / STEP_DIR / STL_DIR anchors
+│   ├─ specs.py            # ThreadSpec (generic, model-agnostic)
+│   ├─ threads.py          # helical thread helpers (external shafts; tapped holes)
+│   ├─ engraving.py        # generic mechanisms: arc-text, SVG relief, QR
+│   └─ export.py           # validate() + watertight-STL export
+├─ models/
+│   ├─ plug/               # plug + inner-plug component
+│   │   ├─ params.py       # every plug dimension, provenance-tagged. EDIT THIS.
+│   │   ├─ plug.py         # outer plug (rings, bore, holes, cotter hole, lettering)
+│   │   ├─ inner_plug.py   # inner plug (thread, blind holes, locking screw, top)
+│   │   ├─ lettering.py    # "TRIANGULATION STATION" / "ORDNANCE SURVEY" arcs
+│   │   ├─ top_surfaces.py # inner-plug top treatments (flat / logo / QR) + presets
+│   │   └─ build.py        # plug recipe: run(*, threads, skip_stl)
+│   └─ driver/             # plug driver tool
+│       ├─ params.py       # every driver dimension, provenance-tagged. EDIT THIS.
+│       ├─ driver.py       # ellipsoidal sawtooth-knurled disc + peg bores
+│       └─ build.py        # driver recipe: run(*, threads, skip_stl)
+├─ build.py                # orchestrator (build all, or named components)
+├─ step/  stl/             # generated output (reproducible)
+└─ requirements.txt  venv/
+```
 
 ## Quick start
 
@@ -30,9 +52,16 @@ cd cad
 virtualenv -p python3.12 venv          # python3.12: OCP has wheels for it
 venv/bin/python -m pip install -r requirements.txt
 
-venv/bin/python build.py               # STEP masters + FDM/resin STLs
+# Run everything from the cad/ root (it must be on sys.path for the packages).
+venv/bin/python build.py               # every component: STEP masters + STLs
+venv/bin/python build.py plug          # just the named component(s)
+venv/bin/python build.py driver
 venv/bin/python build.py --step-only   # nominal STEP masters only
 venv/bin/python build.py --fast        # no threads (quick dimensional check)
+
+# Build/inspect one module directly (prints its volume + bounding box):
+venv/bin/python -m models.plug.plug
+venv/bin/python -m models.driver.driver
 ```
 
 > Python 3.12 is used deliberately: `cadquery-ocp` (the OpenCASCADE binding)
@@ -52,6 +81,8 @@ venv/bin/python build.py --fast        # no threads (quick dimensional check)
   shop).
 - Extra STLs are produced for each customised inner-plug top (see below), named
   `inner_plug_<preset>_<variant>.stl`.
+- **`step/driver.step`, `stl/driver.stl`** — the driver tool (single solid, no
+  thread-clearance variants; its only fit dimension is the peg bore).
 
 ## Customising the inner-plug top
 
@@ -86,11 +117,68 @@ Notes:
   scan** on bare metal — depends on the print finish and lighting. There is no
   embossed QR: fine raised modules are too fragile for rough handling.
 
+## Plug driver tool
+
+`models/driver/` is a **face/pin spanner** for screwing the plug in and out of
+the pillar spider. Two steel pegs drop into the plug's two upper-ring clearance
+holes (Ø9 mm, 77 mm apart — the spider-screw pattern) so the whole plug can be
+rotated; that is the stiff 63.8 mm 8 TPI joint, the one that seizes.
+
+- **Steel pegs, not printed.** At a firm ~40 N·m removal torque each peg carries
+  ~520 N in transverse shear; a printed 8 mm peg shears across its layer lines
+  and the printed pocket blows out. The pegs are **2× Ø8 mm silver-steel / dowel
+  pins glued into deep (25 mm) blind bores** in the base; steel there sees an
+  order of magnitude of margin. Only the bores are modelled — the dowels are a
+  BOM item (the same convention the plug uses for its cotter pin / locking screw).
+- **Glued, not pressed.** The bores are a **clearance fit** (Ø8.3 for an Ø8.0
+  dowel) bonded with structural epoxy — an interference press would wedge the
+  printed layers apart, and a press fit in plastic relaxes over time. The load is
+  transverse *shear*, not pull-out, so the bore just has to stop the dowel
+  wobbling. Each bore carries keying features for the epoxy: **annular grooves**
+  down the wall (the cured epoxy keys to the plastic so the plug can't slide
+  out), a **mouth chamfer** (dowel lead-in + a glue fillet that spreads the
+  high-stress bearing load at the hole mouth), and a **thin vent** from the blind
+  end to the top face so pushing the dowel in can't hydraulic-lock on trapped
+  epoxy — surplus weeps out the top. All tuneable in `params.py`
+  (`peg_bore_dia`, `peg_groove_*`, `peg_mouth_chamfer`, `peg_vent_dia`).
+- **Directional sawtooth grip = easier loosening.** The body is a thick
+  ellipsoidal ("discus") knob — a **2:1 ellipse in plan** (≈ Ø120 × Ø60 × 40 mm),
+  its major axis running through the two pegs and extending ~20 mm beyond them
+  for grip leverage and bulk around the bores — with a large **sawtooth** knurl
+  round the rim: each tooth is a long shallow ramp and a short near-radial steep
+  face. Twisting
+  anticlockwise (loosening, right-hand thread) the fingers catch the steep faces
+  → high grip/torque; twisting clockwise to tighten they run down the ramps and
+  slip → capped torque. So the tool gives more mechanical advantage for loosening
+  than tightening, with **no separate wrench or breaker bar**. The peg spacing
+  and mating-hole size are read from the plug params, so they cannot drift; the
+  handedness (`catch_ccw`) assumes a right-hand spider thread — flip it if a
+  measurement shows left-hand.
+
+**BOM:** 2× Ø8 mm silver-steel / dowel pin ≈ 35 mm long (25 mm embedded +
+10 mm protruding) + structural epoxy. **Print** in a tough material
+(PETG / ASA / PA) at high infill, **axis vertical**, so the peg-bore walls take
+the tangential load within the layer plane rather than across it.
+
+**Assembly:** scuff and degrease the dowel ends (IPA); butter them with epoxy
+(don't fill the bore — let the vent do its job); insert. For alignment, use the
+plug itself as a jig — pass the epoxied dowels through the plug's Ø9 mm holes so
+they cure parallel and at the right protrusion, resting on a ~10 mm spacer;
+**wax / release-agent the plug first** so you don't bond the tool to it. Wipe the
+epoxy that weeps from the top vents. (Nylon prints resist epoxy — use a
+methacrylate / structural-acrylic adhesive, or knurl the dowel ends, if printing
+in PA.)
+
+Body size/height, tooth count/depth, ramp/steep split and the flat radii are
+ergonomic estimates flagged `[E]` in `models/driver/params.py` — iterate there;
+no geometry code changes.
+
 ## Coordinate frame
 
 Each part is modelled standalone: **z = 0 at the part's lowest face, +z up**,
 revolved about the Z axis. (This differs from the pillar-assembly frame in the
-render model, where the plug sits ~1.17 m up.)
+render model, where the plug sits ~1.17 m up.) The driver uses the same
+convention: z = 0 at its flat base, pegs protruding downward (−z).
 
 ## Thread specifications (measured)
 
