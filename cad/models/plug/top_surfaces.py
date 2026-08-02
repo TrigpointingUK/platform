@@ -29,9 +29,8 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from common.engraving import qr_cutter, svg_relief
-from common.paths import REPO_ROOT
-
-LOGO_SVG = REPO_ROOT / "res" / "TUK-Logo.svg"
+from common.tuk import LOGO_FRAC as _LOGO_FRAC
+from common.tuk import LOGO_SVG
 
 
 # ============================================================ treatment types
@@ -39,21 +38,6 @@ LOGO_SVG = REPO_ROOT / "res" / "TUK-Logo.svg"
 def engrave_flat(part, **_):
     """No treatment -- the original flat top (matches the real inner plug)."""
     return part
-
-
-# TrigpointingUK logo fill colour (RGB 0-255) -> relief fraction, ported from
-# the Blender model (Blender/Hotine/trig_pillar.py: build_flush_bracket_logo).
-# There the fraction was proud relief height; here it is engraving depth, so the
-# form is the same layering recessed into the surface. Black outline is skipped.
-_LOGO_FRAC = {
-    (99, 231, 16): 1.00,    # bright green (UK map) -- deepest
-    (89, 157, 43): 0.60,    # dark green (grass)
-    (147, 147, 147): 0.35,  # grey (trig / theodolite)
-    (254, 232, 42): 0.35,   # yellow (benchmark arrow)
-    (242, 242, 242): 0.20,  # near-white highlight
-    (230, 230, 230): 0.20,  # light-grey highlight
-    (0, 0, 0): 0.00,        # black outline -- skipped
-}
 
 
 def logo_relief(part, *, z_top, radius, clearance=0.0,

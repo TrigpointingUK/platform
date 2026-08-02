@@ -146,7 +146,9 @@ rotated; that is the stiff 63.8 mm 8 TPI joint, the one that seizes.
   its major axis running through the two pegs and extending ~20 mm beyond them
   for grip leverage and bulk around the bores — with a large **sawtooth** knurl
   round the rim: each tooth is a long shallow ramp and a short near-radial steep
-  face. Twisting
+  face. The teeth are spaced at **equal arc length** round the ellipse (not equal
+  angle), so every tooth is the same physical size rather than bunched at the
+  ends and stretched down the sides. Twisting
   anticlockwise (loosening, right-hand thread) the fingers catch the steep faces
   → high grip/torque; twisting clockwise to tighten they run down the ramps and
   slip → capped torque. So the tool gives more mechanical advantage for loosening
@@ -154,6 +156,12 @@ rotated; that is the stiff 63.8 mm 8 TPI joint, the one that seizes.
   and mating-hole size are read from the plug params, so they cannot drift; the
   handedness (`catch_ccw`) assumes a right-hand spider thread — flip it if a
   measurement shows left-hand.
+- **Sculpted top.** A flat central plateau carries an **embossed TrigpointingUK
+  logo**, blending out and down a smooth sculpted shoulder to just above the
+  knurl — a rounded, *sculpted* form, not a bevelled edge. A shallow **sighting
+  groove** runs along the major axis from each vent hole out to the rim; line the
+  two grooves up by eye with the plug's two holes when offering the tool up, to
+  drop the pegs in first time.
 
 **BOM:** 2× Ø8 mm silver-steel / dowel pin ≈ 35 mm long (25 mm embedded +
 10 mm protruding) + structural epoxy. **Print** in a tough material
