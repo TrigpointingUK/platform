@@ -17,12 +17,14 @@ import argparse
 
 from common.paths import ensure_dirs
 from models.driver import build as driver_build
+from models.keydriver import build as keydriver_build
 from models.plug import build as plug_build
 
 # name -> component build module (each exposes run(*, threads, skip_stl))
 COMPONENTS = {
     "plug": plug_build,
     "driver": driver_build,
+    "keydriver": keydriver_build,
 }
 
 
