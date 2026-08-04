@@ -22,6 +22,7 @@ from build123d import (
     RadiusArc,
     Rotation,
     Sphere,
+    Torus,
     make_face,
     revolve,
 )
@@ -91,36 +92,36 @@ def build_keydriver(
 
     channel = bore + slot
 
-    # Smooth bend: round the concave inside corner with a quarter-circle of radius
-    # bend_radius, tangent to the long-bore lower wall (y = y_hi - r) and the
-    # short-slot inner wall (x = x_slot_hi) -- i.e. its centre sits bend_radius from
-    # each channel wall, matching the smooth 90 deg bend on the key itself. Carved
-    # as (corner square - quarter disk) extruded through the channel height; a small
-    # overlap runs the arc into the already-void bore/slot so it meets each wall
-    # cleanly rather than as a knife-edge tangent face.
+    # Smooth bend: sweep a round tube (the key arm itself) along a quarter-circle
+    # from the long bore into the short slot. A round cross-section matches the round
+    # bore, so -- unlike a flat prism extruded through the slot height -- it leaves no
+    # burrs where the two meet. The tube is a hair under the bore radius (mesh_gap) to
+    # dodge the exact equal-radius tangency (an unmeshable sliver); its centreline arc
+    # has radius bend_radius + tube, so the inner wall sits at bend_radius -- the key's
+    # own inner bend. Tangent to the long-bore centreline at A=(cx, y_hi) and the
+    # short-slot centreline at B=(x_bend, cy); fused in, keeping only the corner
+    # quadrant of the ring (x <= cx and y >= cy).
     if ks.bend_radius > 0:
-        Rf = ks.bend_radius
-        yw = y_hi - r   # long-bore lower wall (long-shaft surface)
-        xw = x_slot_hi  # short-slot inner wall (short-shaft surface)
-        ov = 0.6
-        corner = Pos(
-            xw + (Rf - ov) / 2.0, yw - (Rf - ov) / 2.0, ks.z_plane
-        ) * Box(Rf + ov, Rf + ov, ks.bar_slot)
-        disk = Pos(xw + Rf, yw - Rf, ks.z_plane) * Cylinder(
-            radius=Rf, height=ks.bar_slot + 2.0
+        tube = r - ks.mesh_gap
+        R = ks.bend_radius + tube  # centreline arc radius (inner wall = bend_radius)
+        cx, cy = x_bend + R, y_hi - R
+        ring = Pos(cx, cy, ks.z_plane) * Torus(R, tube)
+        reach = R + tube + 1.0
+        quadrant = Pos(cx - reach / 2.0, cy + reach / 2.0, ks.z_plane) * Box(
+            reach, reach, 2 * tube + 2.0
         )
-        channel = channel + (corner - disk)
+        channel = channel + (ring & quadrant)
 
     # ---- Rounded bell-mouth lead-in at the -X bore entry -----------------
     # A concave quarter-round flare, tangent to the bore, to guide the key in.
     # Profile in a radial-axial half-plane (X = axial into the bore, Y = radius),
     # revolved about the bore axis; the narrow end sits a hair inside the bore
-    # (funnel_gap) to avoid an exact equal-radius tangency (an unmeshable sliver),
+    # (mesh_gap) to avoid an exact equal-radius tangency (an unmeshable sliver),
     # and it is fused into the channel so that submerged junction stays internal.
     if ks.funnel_r > 0:
         x_mouth = -a * sqrt(1.0 - (y_hi / b) ** 2)
         fr = ks.funnel_r
-        rn = r - ks.funnel_gap
+        rn = r - ks.mesh_gap
         prof = make_face([
             Line((0.0, 0.0), (0.0, rn + fr)),          # mouth face: axis -> outer rim
             RadiusArc((0.0, rn + fr), (fr, rn), -fr),   # concave bell wall (sign -> bell)
