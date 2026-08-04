@@ -21,6 +21,7 @@ from build123d import (
     Pos,
     Rotation,
     Sphere,
+    Torus,
 )
 
 from common.threads import keep_largest_solid
@@ -71,11 +72,39 @@ def build_keydriver(
     r = ks.bore_dia / 2.0
     x_beyond = -(a + 6.0)  # a plane safely outboard of the -X rim
 
-    # ---- Long-arm channel: horizontal Ø bore along X, open at the -X rim -
+    # ---- Key channel: long-arm bore + short-arm slot + smooth bend -------
+    # Everything is Ø bore_dia / bar_slot, so the bend fillet ends up tangent to
+    # both the bore and the flat slot faces. Build all three cavities as ONE fused
+    # void and subtract once: fusing lets OCCT resolve those grazing tangencies
+    # into clean edges, where a piece-by-piece cut leaves sliver faces that leak.
     length = x_tip - x_beyond
-    part = part - Pos((x_beyond + x_tip) / 2, y_hi, ks.z_plane) * Rotation(
+    bore = Pos((x_beyond + x_tip) / 2, y_hi, ks.z_plane) * Rotation(
         0, 90, 0
     ) * Cylinder(radius=r, height=length)
+
+    x_slot_hi = x_face + ks.bar_slot  # inboard wall (short arm +X face at rest)
+    slot = Pos((x_beyond + x_slot_hi) / 2, y_mid, ks.z_plane) * Box(
+        x_slot_hi - x_beyond, ks.short_arm, ks.bar_slot
+    )
+
+    channel = bore + slot
+
+    # Smooth bend: a quarter-torus tangent to the bore at A=(cx, y_hi) and to the
+    # slot at B=(x_bend, cy), tube kept at Ø bore_dia so it continues the arms with
+    # no step. The full ring's other three quadrants would gouge the body, so keep
+    # only the corner quadrant (x <= cx and y >= cy).
+    if ks.bend_radius > 0:
+        R = ks.bend_radius
+        cx, cy = x_bend + R, y_hi - R  # arc centre; A=(cx, y_hi), B=(x_bend, cy)
+        tube = r - ks.bend_tube_gap  # a hair inside the bore: no lip, and meshes
+        ring = Pos(cx, cy, ks.z_plane) * Torus(R, tube)
+        reach = R + tube + 1.0
+        quadrant = Pos(cx - reach / 2.0, cy + reach / 2.0, ks.z_plane) * Box(
+            reach, reach, 2 * tube + 2.0
+        )
+        channel = channel + (ring & quadrant)
+
+    part = part - channel
 
     # Lead-in funnel where the channel crosses the rim (at y_hi).
     if ks.mouth_chamfer > 0:
@@ -87,12 +116,6 @@ def build_keydriver(
             height=c,
             align=(Align.CENTER, Align.CENTER, Align.MIN),
         )
-
-    # ---- Short-arm slot: flat rectangular cavity swept in from the -X end -
-    x_slot_hi = x_face + ks.bar_slot  # inboard wall (short arm +X face at rest)
-    part = part - Pos((x_beyond + x_slot_hi) / 2, y_mid, ks.z_plane) * Box(
-        x_slot_hi - x_beyond, ks.short_arm, ks.bar_slot
-    )
 
     # ---- Retention magnet pocket in the slot floor (magnet is a BOM item) -
     # Sit it toward the bend end (magnet_frac) so it clears the tip finger scoop.
