@@ -25,14 +25,14 @@ from build123d import (
     make_face,
     revolve,
 )
-from lettering import engrave_plug_text
-from params import PLUG, PlugParams
-from threads import (
+from common.threads import (
     external_min_radius,
     external_thread_shaft,
     internal_thread_tap,
     keep_largest_solid,
 )
+from models.plug.lettering import engrave_plug_text
+from models.plug.params import PLUG, PlugParams
 
 
 def _revolved(profile):
