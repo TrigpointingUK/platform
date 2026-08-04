@@ -19,7 +19,6 @@ from build123d import (
     Cylinder,
     Line,
     Pos,
-    RadiusArc,
     Rotation,
     Sphere,
     Torus,
@@ -112,24 +111,25 @@ def build_keydriver(
         )
         channel = channel + (ring & quadrant)
 
-    # ---- Rounded bell-mouth lead-in at the -X bore entry -----------------
-    # A concave quarter-round flare, tangent to the bore, to guide the key in.
-    # Profile in a radial-axial half-plane (X = axial into the bore, Y = radius),
-    # revolved about the bore axis; the narrow end sits a hair inside the bore
-    # (mesh_gap) to avoid an exact equal-radius tangency (an unmeshable sliver),
-    # and it is fused into the channel so that submerged junction stays internal.
-    if ks.funnel_r > 0:
+    # ---- Flared bore mouth (conical lead-in) -----------------------------
+    # Over the final flare_len at the -X mouth the bore widens from bore_dia to
+    # flare_dia, a simple straight cone. As with a cutter reamed in from outside,
+    # the flare-diameter shaft is extended out past the rim into free air so there
+    # is no flat mouth face to gouge the knurl -- the crests are reamed back cleanly
+    # to the cone. Profile in a radial-axial half-plane (X = axial in, Y = radius).
+    if ks.flare_dia > ks.bore_dia and ks.flare_len > 0:
         x_mouth = -a * sqrt(1.0 - (y_hi / b) ** 2)
-        fr = ks.funnel_r
-        rn = r - ks.mesh_gap
+        fr2 = ks.flare_dia / 2.0
+        ext = x_mouth - x_beyond  # reach out to the bore's outer plane (air)
         prof = make_face([
-            Line((0.0, 0.0), (0.0, rn + fr)),          # mouth face: axis -> outer rim
-            RadiusArc((0.0, rn + fr), (fr, rn), -fr),   # concave bell wall (sign -> bell)
-            Line((fr, rn), (fr, 0.0)),                  # narrow end -> axis
-            Line((fr, 0.0), (0.0, 0.0)),                # back along the axis
+            Line((-ext, 0.0), (-ext, fr2)),                # outer face, past the rim (air)
+            Line((-ext, fr2), (0.0, fr2)),                 # reamed shaft at flare radius
+            Line((0.0, fr2), (ks.flare_len, r)),           # the cone: flare_dia -> bore_dia
+            Line((ks.flare_len, r), (ks.flare_len, 0.0)),  # inboard end (meets the bore)
+            Line((ks.flare_len, 0.0), (-ext, 0.0)),        # back along the axis
         ])
-        funnel = Pos(x_mouth, y_hi, ks.z_plane) * revolve(prof, Axis.X, 360)
-        channel = channel + funnel
+        flare = Pos(x_mouth, y_hi, ks.z_plane) * revolve(prof, Axis.X, 360)
+        channel = channel + flare
 
     part = part - channel
 

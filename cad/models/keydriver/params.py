@@ -42,16 +42,14 @@ class KeyStoreParams:
     z_plane: float = 20.0  # [E] key mid-plane height above the base = tool mid-height
     #                          (= driver body_half_h; the equator, mid knurl band).
     #                          Leaves ~17 mm of solid material under the magnet pocket.
-    funnel_r: float = 6.0  # [E] radius of the rounded bell-mouth lead-in at the bore
-    #                          entry: a concave quarter-round flare, tangent to the bore,
-    #                          that guides the key in. Nominal opening Ø ~= bore +
-    #                          2*funnel_r, truncated where it runs past the tool surface
-    #                          (the mouth sits near the +y tip edge, so it is one-sided).
+    flare_len: float = 5.0  # [E] over this final length at the -X mouth the bore widens
+    flare_dia: float = 7.0  # [E] from bore_dia up to this, a straight conical lead-in.
+    #                          Reamed in from outside (no flat mouth face) so it truncates
+    #                          the knurl cleanly. Set flare_dia <= bore_dia to disable.
     mesh_gap: float = 0.05  # [E] shrink a round feature this far under the bore radius
     #                          where it would otherwise meet the bore (or slot) at an
     #                          exact equal radius -- that tangency is a valid solid but
-    #                          leaves an unmeshable sliver. Used by the bend tube and the
-    #                          funnel narrow end.
+    #                          leaves an unmeshable sliver. Used by the bend tube.
 
     # ---- Bend (round tube swept from the long bore into the short slot) ---
     bend_radius: float = 6.0  # [E] inner-wall radius of the swept bend tube = the key's
