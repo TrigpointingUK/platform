@@ -5,7 +5,7 @@
 # NOTE: Compatible with Python 3.9+ (bastion host has Python 3.9)
 
 # Data export/import and validation
-pandas>=3.0.3,<4.0.0
+pandas>=3.0.5,<4.0.0
 
 # MySQL driver for exporting data from the source database
 pymysql>=1.2.0,<2.0.0
