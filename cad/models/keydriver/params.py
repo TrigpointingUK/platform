@@ -42,18 +42,21 @@ class KeyStoreParams:
     z_plane: float = 20.0  # [E] key mid-plane height above the base = tool mid-height
     #                          (= driver body_half_h; the equator, mid knurl band).
     #                          Leaves ~17 mm of solid material under the magnet pocket.
-    mouth_chamfer: float = 1.0  # [E] lead-in funnel where the channel meets the rim
+    funnel_r: float = 1.0  # [E] radius of the rounded bell-mouth lead-in at the bore
+    #                          entry: a concave quarter-round flare, tangent to the bore,
+    #                          that guides the key in. Nominal opening Ø ~= bore +
+    #                          2*funnel_r, truncated where it runs past the tool surface
+    #                          (the mouth sits near the +y tip edge, so it is one-sided).
+    funnel_gap: float = 0.05  # [E] funnel narrow-end radius = bore/2 - this, a hair
+    #                            inside the bore so it dodges the exact equal-radius
+    #                            tangency that would leave an unmeshable sliver.
 
-    # ---- Bend (smooth turn joining the long-arm bore and short-arm slot) --
-    bend_radius: float = 10.0  # [E] centreline arc radius of the fillet between the two
-    #                            arm cavities (guess for a 4 mm key; tune to the real
-    #                            part).
-    bend_tube_gap: float = 0.05  # [E] fillet tube radius = bore/2 - this, so the tube
-    #                                sits a hair *inside* the bore and slot: no proud lip
-    #                                (the arms stay the visible Ø), and it dodges the
-    #                                exact-equal-radius tangency that leaves an unmeshable
-    #                                sliver at Ø == bore. 0.05 is the smallest gap that
-    #                                meshes watertight; the key still clears at the bend.
+    # ---- Bend (inside-corner fillet joining the two arm cavities) ---------
+    bend_radius: float = 6.0  # [E] radius of the quarter-circle rounding the concave
+    #                            inside corner, tangent to the long-bore lower wall and
+    #                            the short-slot inner wall (centre bend_radius from each).
+    #                            Set to the key's own inner bend radius so the cavity
+    #                            matches the smooth 90 deg curve on the key.
 
     # ---- Short-arm slot (swept by the short arm as it is pushed in) -------
     bar_slot: float = 5.0  # [E] slot thickness in X and Z (~4 mm hex bar + clearance)

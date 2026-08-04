@@ -14,14 +14,16 @@ from __future__ import annotations
 from math import sqrt
 
 from build123d import (
-    Align,
+    Axis,
     Box,
-    Cone,
     Cylinder,
+    Line,
     Pos,
+    RadiusArc,
     Rotation,
     Sphere,
-    Torus,
+    make_face,
+    revolve,
 )
 
 from common.threads import keep_largest_solid
@@ -89,33 +91,46 @@ def build_keydriver(
 
     channel = bore + slot
 
-    # Smooth bend: a quarter-torus tangent to the bore at A=(cx, y_hi) and to the
-    # slot at B=(x_bend, cy), tube kept at Ø bore_dia so it continues the arms with
-    # no step. The full ring's other three quadrants would gouge the body, so keep
-    # only the corner quadrant (x <= cx and y >= cy).
+    # Smooth bend: round the concave inside corner with a quarter-circle of radius
+    # bend_radius, tangent to the long-bore lower wall (y = y_hi - r) and the
+    # short-slot inner wall (x = x_slot_hi) -- i.e. its centre sits bend_radius from
+    # each channel wall, matching the smooth 90 deg bend on the key itself. Carved
+    # as (corner square - quarter disk) extruded through the channel height; a small
+    # overlap runs the arc into the already-void bore/slot so it meets each wall
+    # cleanly rather than as a knife-edge tangent face.
     if ks.bend_radius > 0:
-        R = ks.bend_radius
-        cx, cy = x_bend + R, y_hi - R  # arc centre; A=(cx, y_hi), B=(x_bend, cy)
-        tube = r - ks.bend_tube_gap  # a hair inside the bore: no lip, and meshes
-        ring = Pos(cx, cy, ks.z_plane) * Torus(R, tube)
-        reach = R + tube + 1.0
-        quadrant = Pos(cx - reach / 2.0, cy + reach / 2.0, ks.z_plane) * Box(
-            reach, reach, 2 * tube + 2.0
+        Rf = ks.bend_radius
+        yw = y_hi - r   # long-bore lower wall (long-shaft surface)
+        xw = x_slot_hi  # short-slot inner wall (short-shaft surface)
+        ov = 0.6
+        corner = Pos(
+            xw + (Rf - ov) / 2.0, yw - (Rf - ov) / 2.0, ks.z_plane
+        ) * Box(Rf + ov, Rf + ov, ks.bar_slot)
+        disk = Pos(xw + Rf, yw - Rf, ks.z_plane) * Cylinder(
+            radius=Rf, height=ks.bar_slot + 2.0
         )
-        channel = channel + (ring & quadrant)
+        channel = channel + (corner - disk)
+
+    # ---- Rounded bell-mouth lead-in at the -X bore entry -----------------
+    # A concave quarter-round flare, tangent to the bore, to guide the key in.
+    # Profile in a radial-axial half-plane (X = axial into the bore, Y = radius),
+    # revolved about the bore axis; the narrow end sits a hair inside the bore
+    # (funnel_gap) to avoid an exact equal-radius tangency (an unmeshable sliver),
+    # and it is fused into the channel so that submerged junction stays internal.
+    if ks.funnel_r > 0:
+        x_mouth = -a * sqrt(1.0 - (y_hi / b) ** 2)
+        fr = ks.funnel_r
+        rn = r - ks.funnel_gap
+        prof = make_face([
+            Line((0.0, 0.0), (0.0, rn + fr)),          # mouth face: axis -> outer rim
+            RadiusArc((0.0, rn + fr), (fr, rn), -fr),   # concave bell wall (sign -> bell)
+            Line((fr, rn), (fr, 0.0)),                  # narrow end -> axis
+            Line((fr, 0.0), (0.0, 0.0)),                # back along the axis
+        ])
+        funnel = Pos(x_mouth, y_hi, ks.z_plane) * revolve(prof, Axis.X, 360)
+        channel = channel + funnel
 
     part = part - channel
-
-    # Lead-in funnel where the channel crosses the rim (at y_hi).
-    if ks.mouth_chamfer > 0:
-        c = ks.mouth_chamfer
-        x_mouth = -a * sqrt(1.0 - (y_hi / b) ** 2)
-        part = part - Pos(x_mouth, y_hi, ks.z_plane) * Rotation(0, 90, 0) * Cone(
-            bottom_radius=r + c,
-            top_radius=r,
-            height=c,
-            align=(Align.CENTER, Align.CENTER, Align.MIN),
-        )
 
     # ---- Retention magnet pocket in the slot floor (magnet is a BOM item) -
     # Sit it toward the bend end (magnet_frac) so it clears the tip finger scoop.
