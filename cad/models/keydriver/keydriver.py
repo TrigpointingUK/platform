@@ -95,9 +95,17 @@ def build_keydriver(
     )
 
     # ---- Retention magnet pocket in the slot floor (magnet is a BOM item) -
+    # Sit it toward the bend end (magnet_frac) so it clears the tip finger scoop.
+    # Pull it outboard so its inboard edge stays clear of the slot's inboard wall:
+    # the pocket is wider than the slot, and if its back projects under the wall the
+    # overhang traps a full-size disc dropped in from above.
     floor_z = ks.z_plane - ks.bar_slot / 2
+    y_magnet = y_hi + (y_lo - y_hi) * ks.magnet_frac
+    x_magnet = min(
+        x_bend, x_slot_hi - ks.magnet_pocket_dia / 2 - ks.magnet_wall_clr
+    )
     part = part - Pos(
-        x_bend, y_mid, floor_z - ks.magnet_pocket_depth / 2
+        x_magnet, y_magnet, floor_z - ks.magnet_pocket_depth / 2
     ) * Cylinder(radius=ks.magnet_pocket_dia / 2, height=ks.magnet_pocket_depth)
 
     # ---- Finger scoop at the -X end --------------------------------------

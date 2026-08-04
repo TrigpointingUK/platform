@@ -55,6 +55,14 @@ class KeyStoreParams:
     magnet_thick: float = 3.0  # [E] disc thickness (grip; a 4 mm key is only ~10 g)
     magnet_pocket_dia: float = 8.3  # [E] glue clearance: ~0.3 mm epoxy annulus
     magnet_pocket_depth: float = 3.3  # [E] a touch over the disc, so it seats flush-ish
+    magnet_frac: float = 0.3  # [E] pocket centre along the short arm, same convention as
+    #                            scoop_frac: 0 = bend end, 0.5 = middle, 1.0 = free tip.
+    #                            Held toward the bend so it clears the tip finger scoop.
+    magnet_wall_clr: float = 0.5  # [E] keep the pocket's inboard edge this far short of
+    #                                the slot's inboard wall. The pocket (Ø magnet_pocket)
+    #                                is wider than the slot, so without this it overhangs
+    #                                under the wall and traps a full-size disc; pulling it
+    #                                outboard lets the magnet drop straight in.
 
     # ---- Finger scoop ----------------------------------------------------
     scoop_r: float = 10.0  # [E] spherical dish at the -X end for finger purchase
