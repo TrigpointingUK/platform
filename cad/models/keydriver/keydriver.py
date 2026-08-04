@@ -101,9 +101,12 @@ def build_keydriver(
     ) * Cylinder(radius=ks.magnet_pocket_dia / 2, height=ks.magnet_pocket_depth)
 
     # ---- Finger scoop at the -X end --------------------------------------
+    # Centre the dish along the short arm: frac 0 = bend, 1 = free tip. Hooking the
+    # free tip is less symmetric than the middle but easier for a finger to catch.
     if ks.scoop_r > 0:
-        x_scoop = -a * sqrt(1.0 - (y_mid / b) ** 2)
-        part = part - Pos(x_scoop, y_mid, ks.z_plane) * Sphere(radius=ks.scoop_r)
+        y_scoop = y_hi + (y_lo - y_hi) * ks.scoop_frac
+        x_scoop = -a * sqrt(1.0 - (y_scoop / b) ** 2)
+        part = part - Pos(x_scoop, y_scoop, ks.z_plane) * Sphere(radius=ks.scoop_r)
 
     return keep_largest_solid(part)
 

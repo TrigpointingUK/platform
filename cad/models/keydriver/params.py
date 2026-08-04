@@ -39,8 +39,9 @@ class KeyStoreParams:
     bore_dia: float = 5.0  # [E] Ø for a 4 mm hex (4.62 across corners): easy slide
     y_offset: float = 12.0  # [E] channel Y from the centreline; clears the left dowel
     #                           bore (y_offset - bore/2 > peg_bore/2)
-    z_plane: float = 12.0  # [E] key mid-plane height above the base (within the knurl
-    #                          band, and low enough to leave a solid magnet floor)
+    z_plane: float = 20.0  # [E] key mid-plane height above the base = tool mid-height
+    #                          (= driver body_half_h; the equator, mid knurl band).
+    #                          Leaves ~17 mm of solid material under the magnet pocket.
     mouth_chamfer: float = 1.0  # [E] lead-in funnel where the channel meets the rim
 
     # ---- Short-arm slot (swept by the short arm as it is pushed in) -------
@@ -57,6 +58,9 @@ class KeyStoreParams:
 
     # ---- Finger scoop ----------------------------------------------------
     scoop_r: float = 10.0  # [E] spherical dish at the -X end for finger purchase
+    scoop_frac: float = 1.0  # [E] scoop centre along the short arm: 0 = bend end,
+    #                            0.5 = middle (symmetric), 1.0 = free tip. Hooking the
+    #                            free tip is less symmetric but more ergonomic.
 
 
 # Single shared instance; import and override fields as measurements arrive.
