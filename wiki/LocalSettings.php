@@ -13,14 +13,16 @@ $wgForceHTTPS           = true;
 $wgMainPageIsDomainRoot = true;  // Make / redirect to main page cleanly
 $wgMainPage             = "TrigpointingUK";  // Define which page is the main page
 
-# Error handling - suppress display, log to stderr (captured by ECS)
-error_reporting( -1 );
+# Production error handling - suppress display and exclude debug-level PHP output.
+# The ECS logging driver captures stderr, so allowing notices/deprecations or
+# MediaWiki debug output here can create very high CloudWatch Logs ingestion.
+error_reporting( E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_RECOVERABLE_ERROR );
 ini_set( 'display_errors', 0 );
 $wgShowExceptionDetails = false;
 $wgShowDBErrorBacktrace = false;
-$wgDebugLogFile = 'php://stderr';  // Send debug output to stderr for CloudWatch
 
 # Optional debug settings for troubleshooting (uncomment if needed)
+# $wgDebugLogFile = 'php://stderr';
 // $wgDebugToolbar = true;
 // $wgShowExceptionDetails = true;
 // $wgDebugLogGroups['PluggableAuth'] = 'php://stderr';
