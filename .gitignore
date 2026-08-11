@@ -161,6 +161,7 @@ secrets.txt
 
 # Local development
 docker-compose.override.yml
+.claude/settings.json
 
 locust/
 test_gw*.db

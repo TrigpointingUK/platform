@@ -10,8 +10,14 @@ terraform {
       version = "~> 3.0"
     }
     cloudflare = {
-      source  = "cloudflare/cloudflare"
-      version = "~> 5.0"
+      source = "cloudflare/cloudflare"
+      # Pinned exactly, not "~> 5.0". Provider 5.23.0 cannot read the saved state
+      # of the cloudflare_list_item resources in cloudflare.tf and fails every
+      # plan with 'UpgradeResourceState ... AttributeName("redirect"): invalid
+      # JSON, expected "[", got "{"'. Because .terraform.lock.hcl is gitignored,
+      # a loose constraint means any fresh clone or -upgrade picks up the break.
+      # Revisit when the redirect-list state upgrade is fixed upstream.
+      version = "5.12.0"
     }
     tls = {
       source  = "hashicorp/tls"
@@ -27,6 +33,21 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = "common"
+      ManagedBy   = "terraform"
+    }
+  }
+}
+
+# CloudFront requires its ACM certificates to live in us-east-1, regardless of
+# where the distribution's origin is. Used only by the photo CDN certificates.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
 
   default_tags {
     tags = {

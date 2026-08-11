@@ -66,6 +66,37 @@ resource "cloudflare_ruleset" "cache_rules" {
         # Static assets with Cache-Control: immutable will be cached
         # API responses with no-cache will not be cached
       }
+    },
+
+    # Rule 4: Photo bucket - cache aggressively.
+    # S3 sends no Cache-Control header, so without an explicit edge_ttl override
+    # CloudFlare would fall back to a short default TTL and most views would still
+    # reach S3 as billable egress. Photo object names carry a revision suffix
+    # (P451921_r1.jpg), so a new upload or rotation produces a new key and the
+    # cached copy never goes stale.
+    # No other rule in this ruleset matches the photos.* host, so this rule is
+    # order-independent and is appended to keep the diff on existing rules empty.
+    {
+      action      = "set_cache_settings"
+      expression  = "(http.host eq \"photos.trigpointing.uk\")"
+      description = "Cache photo bucket objects at the edge"
+      enabled     = true
+
+      action_parameters = {
+        cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 2592000 # 30 days
+        }
+        browser_ttl = {
+          mode    = "override_origin"
+          default = 604800 # 7 days
+        }
+        respect_strong_etags = true
+        serve_stale = {
+          disable_stale_while_updating = false
+        }
+      }
     }
   ]
 }

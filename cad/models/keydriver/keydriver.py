@@ -14,13 +14,16 @@ from __future__ import annotations
 from math import sqrt
 
 from build123d import (
-    Align,
+    Axis,
     Box,
-    Cone,
     Cylinder,
+    Line,
     Pos,
     Rotation,
     Sphere,
+    Torus,
+    make_face,
+    revolve,
 )
 
 from common.threads import keep_largest_solid
@@ -70,29 +73,79 @@ def build_keydriver(
 
     r = ks.bore_dia / 2.0
     x_beyond = -(a + 6.0)  # a plane safely outboard of the -X rim
+    x_mouth = -a * sqrt(1.0 - (y_hi / b) ** 2)  # bore crosses the rim here (ideal)
 
-    # ---- Long-arm channel: horizontal Ø bore along X, open at the -X rim -
+    # ---- Key channel: long-arm bore + short-arm slot + smooth bend -------
+    # Everything is Ø bore_dia / bar_slot, so the bend fillet ends up tangent to
+    # both the bore and the flat slot faces. Build all three cavities as ONE fused
+    # void and subtract once: fusing lets OCCT resolve those grazing tangencies
+    # into clean edges, where a piece-by-piece cut leaves sliver faces that leak.
     length = x_tip - x_beyond
-    part = part - Pos((x_beyond + x_tip) / 2, y_hi, ks.z_plane) * Rotation(
+    bore = Pos((x_beyond + x_tip) / 2, y_hi, ks.z_plane) * Rotation(
         0, 90, 0
     ) * Cylinder(radius=r, height=length)
 
-    # Lead-in funnel where the channel crosses the rim (at y_hi).
-    if ks.mouth_chamfer > 0:
-        c = ks.mouth_chamfer
-        x_mouth = -a * sqrt(1.0 - (y_hi / b) ** 2)
-        part = part - Pos(x_mouth, y_hi, ks.z_plane) * Rotation(0, 90, 0) * Cone(
-            bottom_radius=r + c,
-            top_radius=r,
-            height=c,
-            align=(Align.CENTER, Align.CENTER, Align.MIN),
-        )
-
-    # ---- Short-arm slot: flat rectangular cavity swept in from the -X end -
     x_slot_hi = x_face + ks.bar_slot  # inboard wall (short arm +X face at rest)
-    part = part - Pos((x_beyond + x_slot_hi) / 2, y_mid, ks.z_plane) * Box(
+    slot = Pos((x_beyond + x_slot_hi) / 2, y_mid, ks.z_plane) * Box(
         x_slot_hi - x_beyond, ks.short_arm, ks.bar_slot
     )
+
+    channel = bore + slot
+
+    # Smooth bend: sweep a round tube (the key arm itself) along a quarter-circle
+    # from the long bore into the short slot. A round cross-section matches the round
+    # bore, so -- unlike a flat prism extruded through the slot height -- it leaves no
+    # burrs where the two meet. The tube is a hair under the bore radius (mesh_gap) to
+    # dodge the exact equal-radius tangency (an unmeshable sliver); its centreline arc
+    # has radius bend_radius + tube, so the inner wall sits at bend_radius -- the key's
+    # own inner bend. Tangent to the long-bore centreline at A=(cx, y_hi) and the
+    # short-slot centreline at B=(x_bend, cy); fused in, keeping only the corner
+    # quadrant of the ring (x <= cx and y >= cy).
+    if ks.bend_radius > 0:
+        tube = r - ks.mesh_gap
+        R = ks.bend_radius + tube  # centreline arc radius (inner wall = bend_radius)
+        cx, cy = x_bend + R, y_hi - R
+        ring = Pos(cx, cy, ks.z_plane) * Torus(R, tube)
+        reach = R + tube + 1.0
+        quadrant = Pos(cx - reach / 2.0, cy + reach / 2.0, ks.z_plane) * Box(
+            reach, reach, 2 * tube + 2.0
+        )
+        channel = channel + (ring & quadrant)
+
+    # ---- Flared bore mouth (conical lead-in) -----------------------------
+    # Over the final flare_len at the -X mouth the bore widens from bore_dia to
+    # flare_dia, a simple straight cone. As with a cutter reamed in from outside,
+    # the flare-diameter shaft is extended out past the rim into free air so there
+    # is no flat mouth face to gouge the knurl -- the crests are reamed back cleanly
+    # to the cone. Profile in a radial-axial half-plane (X = axial in, Y = radius).
+    if ks.flare_dia > ks.bore_dia and ks.flare_len > 0:
+        fr2 = ks.flare_dia / 2.0
+        ext = x_mouth - x_beyond  # reach out to the bore's outer plane (air)
+        prof = make_face([
+            Line((-ext, 0.0), (-ext, fr2)),                # outer face, past the rim (air)
+            Line((-ext, fr2), (0.0, fr2)),                 # reamed shaft at flare radius
+            Line((0.0, fr2), (ks.flare_len, r)),           # the cone: flare_dia -> bore_dia
+            Line((ks.flare_len, r), (ks.flare_len, 0.0)),  # inboard end (meets the bore)
+            Line((ks.flare_len, 0.0), (-ext, 0.0)),        # back along the axis
+        ])
+        flare = Pos(x_mouth, y_hi, ks.z_plane) * revolve(prof, Axis.X, 360)
+        channel = channel + flare
+
+    # ---- O-ring retention groove (alternative to the magnet; BOM O-ring) --
+    # An internal annular gland in the bore wall near the mouth. A soft O-ring
+    # (recommended 4 x 1.5 mm NBR) seats in it and stands ~0.5 mm proud into the
+    # bore, gripping the key as it passes. Only the groove is modelled (the O-ring
+    # is a BOM item, like the magnet). Placed oring_dist in from the ideal rim, so
+    # it clears the flare and the short-arm slot wall; a coaxial fat band on the
+    # bore, so no tangency to dodge. Push the O-ring in through the mouth to fit.
+    if ks.oring_groove_dia > ks.bore_dia and ks.oring_groove_w > 0:
+        x_or = x_mouth + ks.oring_dist
+        groove = Pos(x_or, y_hi, ks.z_plane) * Rotation(0, 90, 0) * Cylinder(
+            radius=ks.oring_groove_dia / 2.0, height=ks.oring_groove_w
+        )
+        channel = channel + groove
+
+    part = part - channel
 
     # ---- Retention magnet pocket in the slot floor (magnet is a BOM item) -
     # Sit it toward the bend end (magnet_frac) so it clears the tip finger scoop.

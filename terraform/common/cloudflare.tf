@@ -174,6 +174,51 @@ resource "cloudflare_dns_record" "wiki" {
   comment = "Wiki subdomain for TrigpointingUK - managed by Terraform"
 }
 
+# Photo hostnames, proxied so that image views hit the CloudFlare cache rather
+# than billable S3 egress. The API previously handed out direct
+# https://<bucket>.s3.amazonaws.com/... URLs, so every view by every browser and
+# bot was a chargeable GetObject.
+#
+# These point at CloudFront rather than straight at S3. S3 resolves the bucket
+# from the Host header, and rewriting that header at the CloudFlare edge needs the
+# Pro-plan Host Header Override; CloudFront sets the origin Host itself. See
+# photos-cdn.tf for the full rationale.
+resource "cloudflare_dns_record" "photos_production" {
+  zone_id = data.cloudflare_zones.production.result[0].id
+  name    = "photos"
+  content = aws_cloudfront_distribution.photos["production"].domain_name
+  type    = "CNAME"
+  proxied = true # Enable CloudFlare proxy (orange cloud)
+  ttl     = 1    # Auto TTL when proxied
+
+  comment = "Photo CDN (CloudFront) behind CloudFlare cache - managed by Terraform"
+}
+
+# Staging uses a separate photo bucket (trigpointinguk-test, server.id = 3).
+resource "cloudflare_dns_record" "photos_staging" {
+  zone_id = data.cloudflare_zones.staging.result[0].id
+  name    = "photos"
+  content = aws_cloudfront_distribution.photos["staging"].domain_name
+  type    = "CNAME"
+  proxied = true # Enable CloudFlare proxy (orange cloud)
+  ttl     = 1    # Auto TTL when proxied
+
+  comment = "Photo CDN (CloudFront) behind CloudFlare cache - managed by Terraform"
+}
+
+# Status page hosted by Checkly - must be unproxied (grey cloud) so Checkly can
+# validate the domain and issue its own certificate.
+resource "cloudflare_dns_record" "status" {
+  zone_id = data.cloudflare_zones.production.result[0].id
+  name    = "status"
+  content = "checkly-dashboards.com"
+  type    = "CNAME"
+  proxied = false # Checkly terminates TLS itself
+  ttl     = 600   # 10 minutes
+
+  comment = "Checkly status dashboard for TrigpointingUK - managed by Terraform"
+}
+
 # Root domain (apex) - staging
 # Note: At apex, use CNAME with proxied=true and CloudFlare will flatten it
 # If IPv4 issues persist, the ALB may need dualstack configuration

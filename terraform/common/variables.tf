@@ -121,3 +121,19 @@ variable "phpbb_db_credentials_arn" {
   description = "ARN of the phpBB database credentials secret in AWS Secrets Manager"
   type        = string
 }
+
+# S3 server access logs
+# Logs are small but numerous - roughly 1 GB and ~50k objects per month at
+# current traffic. 90 days is enough to characterise a scraper across several
+# monthly cycles while keeping storage under a few pence. Lower it to 30 once
+# the egress investigation is closed.
+variable "s3_access_log_retention_days" {
+  description = "Days to retain S3 server access logs before lifecycle expiry"
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.s3_access_log_retention_days >= 1
+    error_message = "s3_access_log_retention_days must be at least 1 day."
+  }
+}
