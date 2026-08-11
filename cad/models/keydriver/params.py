@@ -51,6 +51,19 @@ class KeyStoreParams:
     #                          exact equal radius -- that tangency is a valid solid but
     #                          leaves an unmeshable sliver. Used by the bend tube.
 
+    # ---- O-ring retention groove (alternative to the magnet; BOM O-ring) --
+    # Recommended O-ring: 4 mm ID x 1.5 mm CS NBR (free OD 7 mm). Its ID grips the
+    # ~4.6 mm across-corners key with light interference. Only the groove is modelled.
+    oring_groove_dia: float = 7.0  # [E] gland outer Ø (= O-ring free OD): ~1 mm deep in
+    #                                 the Ø bore_dia wall, so the O-ring stands ~0.5 mm
+    #                                 proud into the bore. Set <= bore_dia to disable.
+    oring_groove_w: float = 2.0  # [E] groove width (axial), ~1.3x the O-ring CS so the
+    #                               rubber has room to deform as the key pushes through
+    oring_dist: float = 16.0  # [E] groove centre, inboard from the ideal rim. Must clear
+    #                            the bend (~14 mm in): the near-mouth bore is where the key
+    #                            curves, so the O-ring sits just past it on the straight
+    #                            long arm, where it grips a clean round section.
+
     # ---- Bend (round tube swept from the long bore into the short slot) ---
     bend_radius: float = 6.0  # [E] inner-wall radius of the swept bend tube = the key's
     #                            own inner bend radius, so the cavity matches the smooth

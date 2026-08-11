@@ -73,6 +73,7 @@ def build_keydriver(
 
     r = ks.bore_dia / 2.0
     x_beyond = -(a + 6.0)  # a plane safely outboard of the -X rim
+    x_mouth = -a * sqrt(1.0 - (y_hi / b) ** 2)  # bore crosses the rim here (ideal)
 
     # ---- Key channel: long-arm bore + short-arm slot + smooth bend -------
     # Everything is Ø bore_dia / bar_slot, so the bend fillet ends up tangent to
@@ -118,7 +119,6 @@ def build_keydriver(
     # is no flat mouth face to gouge the knurl -- the crests are reamed back cleanly
     # to the cone. Profile in a radial-axial half-plane (X = axial in, Y = radius).
     if ks.flare_dia > ks.bore_dia and ks.flare_len > 0:
-        x_mouth = -a * sqrt(1.0 - (y_hi / b) ** 2)
         fr2 = ks.flare_dia / 2.0
         ext = x_mouth - x_beyond  # reach out to the bore's outer plane (air)
         prof = make_face([
@@ -130,6 +130,20 @@ def build_keydriver(
         ])
         flare = Pos(x_mouth, y_hi, ks.z_plane) * revolve(prof, Axis.X, 360)
         channel = channel + flare
+
+    # ---- O-ring retention groove (alternative to the magnet; BOM O-ring) --
+    # An internal annular gland in the bore wall near the mouth. A soft O-ring
+    # (recommended 4 x 1.5 mm NBR) seats in it and stands ~0.5 mm proud into the
+    # bore, gripping the key as it passes. Only the groove is modelled (the O-ring
+    # is a BOM item, like the magnet). Placed oring_dist in from the ideal rim, so
+    # it clears the flare and the short-arm slot wall; a coaxial fat band on the
+    # bore, so no tangency to dodge. Push the O-ring in through the mouth to fit.
+    if ks.oring_groove_dia > ks.bore_dia and ks.oring_groove_w > 0:
+        x_or = x_mouth + ks.oring_dist
+        groove = Pos(x_or, y_hi, ks.z_plane) * Rotation(0, 90, 0) * Cylinder(
+            radius=ks.oring_groove_dia / 2.0, height=ks.oring_groove_w
+        )
+        channel = channel + groove
 
     part = part - channel
 
