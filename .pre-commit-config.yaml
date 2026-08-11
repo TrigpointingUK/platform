@@ -1,3 +1,7 @@
+# Vendored upstream phpBB extension: kept byte-identical to the pinned upstream commit
+# recorded in forum/ext/README.md, so the generic fixers must not rewrite it.
+exclude: ^forum/ext/gfksx/thanksforposts/
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

@@ -1,0 +1,24 @@
+/**
+*
+* phpBB © Copyright phpBB Limited 2003-2021
+* https://www.phpbb.com
+*
+* Thanks for posts extension for phpBB is free software. You can redistribute it and/or modify it
+* under the terms of the GNU General Public License, version 2 (GPL-2.0)
+* as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* A copy of the license can be viewed in the license.txt file.
+* The same can be viewed at <http://opensource.org/licenses/gpl-2.0.php>
+*
+*/
+
+
+Thanks for posts extension for phpBB contains code from the following applications:
+
+MIT licensed:
+Notify.js (c) Jaime Pillora, https://notifyjs.jpillora.com/
