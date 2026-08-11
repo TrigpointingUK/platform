@@ -174,6 +174,19 @@ resource "cloudflare_dns_record" "wiki" {
   comment = "Wiki subdomain for TrigpointingUK - managed by Terraform"
 }
 
+# Status page hosted by Checkly - must be unproxied (grey cloud) so Checkly can
+# validate the domain and issue its own certificate.
+resource "cloudflare_dns_record" "status" {
+  zone_id = data.cloudflare_zones.production.result[0].id
+  name    = "status"
+  content = "checkly-dashboards.com"
+  type    = "CNAME"
+  proxied = false # Checkly terminates TLS itself
+  ttl     = 600   # 10 minutes
+
+  comment = "Checkly status dashboard for TrigpointingUK - managed by Terraform"
+}
+
 # Root domain (apex) - staging
 # Note: At apex, use CNAME with proxied=true and CloudFlare will flatten it
 # If IPv4 issues persist, the ALB may need dualstack configuration
