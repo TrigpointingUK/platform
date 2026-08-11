@@ -14,3 +14,5 @@ mediawiki_db_credentials_arn = "arn:aws:secretsmanager:eu-west-1:534526983272:se
 # Get this from: cd terraform/mysql && terraform output phpbb_credentials_arn
 phpbb_db_credentials_arn = "arn:aws:secretsmanager:eu-west-1:534526983272:secret:trigpointing-phpbb-credentials"
 cloudflare_account_id    = "5cf73c6796e372c552fdf80a9716b3fb"
+# S3 server access log retention (see terraform/common/s3-access-logs.tf)
+s3_access_log_retention_days = 90
