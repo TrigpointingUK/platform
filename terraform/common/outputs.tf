@@ -50,6 +50,16 @@ output "ecs_task_execution_role_name" {
   value       = aws_iam_role.ecs_task_execution_role.name
 }
 
+output "cloudwatch_cost_audit_role_name" {
+  description = "Name of the read-only role used for CloudWatch Logs cost investigations"
+  value       = aws_iam_role.cloudwatch_cost_audit.name
+}
+
+output "cloudwatch_cost_audit_role_arn" {
+  description = "ARN of the read-only role used for CloudWatch Logs cost investigations"
+  value       = aws_iam_role.cloudwatch_cost_audit.arn
+}
+
 # RDS Outputs
 output "rds_endpoint" {
   description = "RDS instance endpoint"
