@@ -5,7 +5,7 @@ cadquery-ocp-novtk==7.9.3.1.1
 cadquery-ocp-proxy==7.9.3.1.1
 ezdxf==1.4.4
 networkx==3.6.1
-numpy==2.5.1
+numpy==2.5.2
 ocpsvg==0.6.0
 scipy==1.18.0
 segno==1.6.6
