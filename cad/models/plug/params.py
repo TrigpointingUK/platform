@@ -31,8 +31,11 @@ class PlugParams:
     # ---- Outer plug: three stacked annular rings + through-bore -----------
     # [D] tags below match the render model's own annotations.
     upper_r: float = 46.0  # [D] 92 mm upper ring dia / 2
-    upper_h: float = 6.0  # [D] 6 mm thick
-    upper_chamfer: float = 3.0  # [D] 3 mm 45 deg chamfer, top outer edge
+    upper_h: float = 6.8  # [D] 6.8 mm thick, measured on the brass original
+    upper_chamfer: float = 6.8 / 3  # [E] 45 deg chamfer, top outer edge. On the
+    #                                   original the bevel is about a third of the
+    #                                   ring's thickness, the rest cylindrical
+    #                                   (judged by eye side-on, hence [E]).
     middle_r: float = 32.35  # [D] 64.7 mm dia / 2 = the spider thread's crest;
     #                            only used for the threads-off preview, so it must
     #                            track spider_joint.major_diameter below
@@ -51,15 +54,17 @@ class PlugParams:
     cotter_z_from_shelf: float = 13.0  # [D] 13 mm below the upper-ring base
 
     # Bottom of bore left plain (unthreaded run-out)
-    bore_thread_plain_bottom: float = 3.0  # [D] bottom 3 mm of bore plain
+    bore_thread_plain_bottom: float = 4.5  # [D] bottom 4.5 mm of bore plain
     # Of that plain run-out, the fraction nearest the thread that is bored out
     # to the thread's major (root) diameter; the remainder stays at the minor
     # (drill) diameter. The real plug has the upper half relieved.
-    bore_relief_frac: float = 0.5  # [D] top half of the plain bottom at major dia
+    bore_relief_frac: float = 2.5 / 4.5  # [D] of the 4.5 mm plain run, the upper
+    #                                        2.5 mm is at major dia and the bottom
+    #                                        2.0 mm stays at the drill (minor) dia
 
     # ---- Inner plug: threaded cylinder with blind holes ------------------
     ip_r: float = 18.9  # [D] ~37.8 mm dia / 2 (fraction under 38 mm)
-    ip_h: float = 22.0  # [D] 22 mm thick
+    ip_h: float = 24.2  # [D] 24.2 mm thick, measured on the brass original
     ip_chamfer: float = 1.0  # [D] 1 mm chamfer, top edge
     ip_hole_r: float = 3.0  # [D] 6 mm blind holes / 2
     ip_centre_depth: float = 16.0  # [D] centre hole 16 mm deep
@@ -68,7 +73,12 @@ class PlugParams:
 
     # Radial pivot hole near the base (for the cotter pin to bear on)
     ip_pivot_r: float = 1.5  # [E] 3 mm dia / 2
-    ip_pivot_z: float = 3.5  # [E] 3.5 mm above the bottom face
+    ip_pivot_z: float = 4.4  # [E] above the inner plug's bottom face. Derived, not
+    #                            measured: the inner plug seats flush with the plug
+    #                            top, so its base sits at total_h - ip_h = 2.4 mm,
+    #                            and the cotter hole is at 19.8 - 13 = 6.8 mm; 6.8 -
+    #                            2.4 = 4.4 puts the two holes on one axis. Re-derive
+    #                            if ip_h, any ring height or cotter_z_from_shelf move.
     ip_pivot_bearing: float = 0.0  # [E] degrees, along +X
 
     # Recessed locking-screw hole (locks the inner plug against the bore).
