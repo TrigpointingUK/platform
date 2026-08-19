@@ -66,8 +66,10 @@ class PlugParams:
     ip_r: float = 18.9  # [D] ~37.8 mm dia / 2 (fraction under 38 mm)
     ip_h: float = 24.2  # [D] 24.2 mm thick, measured on the brass original
     ip_chamfer: float = 1.0  # [D] 1 mm chamfer, top edge
-    ip_hole_r: float = 3.0  # [D] 6 mm blind holes / 2
-    ip_centre_depth: float = 16.0  # [D] centre hole 16 mm deep
+    # The centre and side blind holes are NOT the same diameter on the original.
+    ip_centre_r: float = 3.65  # [D] Ø7.3 mm centre blind hole / 2
+    ip_side_r: float = 3.35  # [D] Ø6.7 mm side blind holes / 2
+    ip_centre_depth: float = 17.2  # [D] centre hole 17.2 mm deep
     ip_side_depth: float = 8.0  # [D] side holes 8 mm deep
     ip_side_spacing: float = 27.0  # [D] side holes 27 mm apart
 

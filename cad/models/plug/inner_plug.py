@@ -83,7 +83,7 @@ def build_inner_plug(
     # ---- Blind holes in the base -----------------------------------------
     # Centre hole
     part = part - Pos(0, 0, p.ip_centre_depth / 2) * Cylinder(
-        radius=p.ip_hole_r, height=p.ip_centre_depth
+        radius=p.ip_centre_r, height=p.ip_centre_depth
     )
     # Two side holes
     side_d = p.ip_side_spacing / 2
@@ -91,7 +91,7 @@ def build_inner_plug(
         x = side_d * math.cos(math.radians(ang))
         y = side_d * math.sin(math.radians(ang))
         part = part - Pos(x, y, p.ip_side_depth / 2) * Cylinder(
-            radius=p.ip_hole_r, height=p.ip_side_depth
+            radius=p.ip_side_r, height=p.ip_side_depth
         )
 
     # ---- Radial pivot hole (single-sided, for the cotter pin) ------------
@@ -111,7 +111,7 @@ def build_inner_plug(
         z=p.ip_lock_z,
         bearing_deg=p.ip_lock_bearing,
         length=p.ip_r + 2.0,  # axis out to just past the surface
-        central_r=p.ip_hole_r,
+        central_r=p.ip_centre_r,
         counterbore_d=p.ip_lock_counterbore_d,
         counterbore_depth=p.ip_lock_counterbore_depth,
         clearance=clearance,
