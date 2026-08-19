@@ -25,6 +25,15 @@ from models.plug.plug import build_plug
 from models.plug.top_surfaces import DEFAULT, PRESETS
 
 # Radial thread clearance per process (mm). Tune after trial fits.
+#
+# First trial fit (FDM, printed 2026-08): the spider thread's crest measured
+# 63.0 mm against a 63.30 mm STL -- but the mesh of the day had only 42 facets
+# per revolution, so a caliper across two opposite flats would read 63.12 mm.
+# That leaves ~0.12 mm of genuine process loss on diameter, i.e. the printed
+# thread lands close to the modelled crest and this 0.25 mm allowance is doing
+# roughly what it says. Left alone until a fit against a real spider says
+# otherwise; both the mesh and the nominal diameter have since been corrected,
+# so the next print is the first clean measurement of this number.
 STL_VARIANTS = {
     "resin": 0.10,   # SLA resolves fine threads well -> tight
     "fdm": 0.25,     # FDM is coarser -> generous

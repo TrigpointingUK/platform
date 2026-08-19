@@ -33,10 +33,12 @@ class PlugParams:
     upper_r: float = 46.0  # [D] 92 mm upper ring dia / 2
     upper_h: float = 6.0  # [D] 6 mm thick
     upper_chamfer: float = 3.0  # [D] 3 mm 45 deg chamfer, top outer edge
-    middle_r: float = 31.9  # [D] ~63.8 mm dia / 2 (fraction under 64 mm)
-    middle_h: float = 9.0  # [D] 9 mm thick
+    middle_r: float = 32.35  # [D] 64.7 mm dia / 2 = the spider thread's crest;
+    #                            only used for the threads-off preview, so it must
+    #                            track spider_joint.major_diameter below
+    middle_h: float = 9.8  # [D] 9.8 mm thick, measured on the brass original
     lower_r: float = 23.0  # [D] 46 mm dia / 2
-    lower_h: float = 9.0  # [D] 9 mm thick
+    lower_h: float = 10.0  # [D] 10 mm thick, measured on the brass original
     bore_r: float = 19.0  # [D] 38 mm inner dia / 2
     bore_chamfer: float = 1.0  # [D] 1 mm chamfer, top of bore
 
@@ -88,7 +90,8 @@ class PlugParams:
     spider_joint: ThreadSpec = field(
         default_factory=lambda: ThreadSpec(
             name="plug-to-spider",
-            major_diameter=63.8,  # [D] ~63.8 mm middle-ring dia
+            major_diameter=64.7,  # [D] re-measured 2026-08-19; supersedes the
+            #                          earlier ~63.8 carried over from the render model
             pitch=25.4 / 8,  # [D] 8 TPI Whitworth = 3.175 mm
             form="whitworth",
             provenance="[D]",

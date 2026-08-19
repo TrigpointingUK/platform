@@ -122,7 +122,7 @@ Notes:
 `models/driver/` is a **face/pin spanner** for screwing the plug in and out of
 the pillar spider. Two steel pegs drop into the plug's two upper-ring clearance
 holes (Ø9 mm, 77 mm apart — the spider-screw pattern) so the whole plug can be
-rotated; that is the stiff 63.8 mm 8 TPI joint, the one that seizes.
+rotated; that is the stiff 64.7 mm 8 TPI joint, the one that seizes.
 
 - **Steel pegs, not printed.** At a firm ~40 N·m removal torque each peg carries
   ~520 N in transverse shear; a printed 8 mm peg shears across its layer lines
@@ -195,7 +195,7 @@ pitch is the thread-gauge TPI reading (`pitch_mm = 25.4 / TPI`):
 
 | Joint (`ThreadSpec`) | Major Ø | Form | Pitch |
 |----------------------|---------|------|-------|
-| `spider_joint` (plug ↔ spider) | 63.8 mm | Whitworth 55° | 8 TPI (3.175 mm) |
+| `spider_joint` (plug ↔ spider) | 64.7 mm | Whitworth 55° | 8 TPI (3.175 mm) |
 | `bore_joint` (inner plug ↔ bore) | 38 mm | Whitworth 55° | 14 TPI (1.814 mm) |
 | `locking_screw_joint` | ~4 mm | Whitworth 55° | 32 TPI (0.794 mm) — 5/32″ BSW |
 
@@ -252,3 +252,15 @@ time (`STL_VARIANTS`). Refine `params.py` if a trial fit needs it.
   fills any face OCCT skipped with `trimesh`, and asserts the mesh has **no open
   edges** before writing, so a genuine hole fails the build. A few pinch edges
   are tolerated (slicers handle them). The STEP master is the exact B-rep.
+- **Mesh fineness is set by an absolute chord deflection**, `STL_LINEAR_TOL` in
+  [`common/export.py`](common/export.py) — the furthest the flat mesh may stray
+  from the true surface, currently 0.005 mm. Because it is absolute it is
+  radius-adaptive: the Ø92 mm upper ring gets ~300 facets while a Ø6 mm hole
+  needs only ~77. Note this means **not** using build123d's `export_stl`, which
+  hardcodes OCCT's `isRelative=True` and so scales the deflection by each edge's
+  own size — that makes the facet count independent of radius, and was why the
+  first printed prototype came out with a visibly faceted 42-sided upper ring
+  (a 6.9 mm chord, 129 µm off true). Raising the *angular* tolerance is not the
+  fix: it is equally radius-blind, and tightening it inflates the lettering and
+  logo tops by an order of magnitude for no visible gain, so it is left at 0.3
+  rad purely as a backstop for curves too small to divide by chord length.
