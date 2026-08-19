@@ -42,7 +42,8 @@ class PlugParams:
     middle_h: float = 9.8  # [D] 9.8 mm thick, measured on the brass original
     lower_r: float = 23.0  # [D] 46 mm dia / 2
     lower_h: float = 10.0  # [D] 10 mm thick, measured on the brass original
-    bore_r: float = 19.0  # [D] 38 mm inner dia / 2
+    bore_r: float = 19.65  # [D] 39.3 mm dia / 2; tracks bore_joint's major
+    #                          diameter and is only used for threads-off previews
     bore_chamfer: float = 1.0  # [D] 1 mm chamfer, top of bore
 
     # Clearance holes in the upper ring (for the spider shelf screws)
@@ -63,7 +64,10 @@ class PlugParams:
     #                                        2.0 mm stays at the drill (minor) dia
 
     # ---- Inner plug: threaded cylinder with blind holes ------------------
-    ip_r: float = 18.9  # [D] ~37.8 mm dia / 2 (fraction under 38 mm)
+    ip_r: float = 19.65  # [D] Ø39.3 mm / 2 = the max thread diameter measured on
+    #                        the brass inner plug, i.e. its thread crest. Also sets
+    #                        where the locking screw's counterbore starts, so it
+    #                        must track bore_joint's major diameter.
     ip_h: float = 24.2  # [D] 24.2 mm thick, measured on the brass original
     ip_chamfer: float = 1.0  # [D] 1 mm chamfer, top edge
     # The centre and side blind holes are NOT the same diameter on the original.
@@ -114,7 +118,11 @@ class PlugParams:
     bore_joint: ThreadSpec = field(
         default_factory=lambda: ThreadSpec(
             name="innerplug-to-bore",
-            major_diameter=38.0,  # [D] = bore dia
+            major_diameter=39.3,  # [D] max thread dia measured on the brass inner
+            #                         plug. The brass bore's 37.5 mm minimum then
+            #                         implies a 0.26 mm radial allowance in the
+            #                         female -- almost exactly the FDM print
+            #                         clearance -- which corroborates 14 TPI.
             pitch=25.4 / 14,  # [D] 14 TPI Whitworth = 1.814 mm
             form="whitworth",
             provenance="[D]",
