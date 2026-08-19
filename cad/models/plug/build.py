@@ -39,6 +39,14 @@ STL_VARIANTS = {
     "fdm": 0.25,     # FDM is coarser -> generous
 }
 
+# Locking-screw head recess for PRINTED parts only (mm). The brass original
+# takes a cap head that the modelled Ø6.3 mm counterbore fits exactly, and the
+# STEP master keeps that. But that exact screw could not be sourced as a BOM
+# part, so printed assemblies use a cheese head instead -- Ø7 mm across the head
+# at worst -- which needs the recess opened up to clear it. The threaded portion
+# is untouched: an FDM part, once tapped, still takes the original brass screw.
+PRINTED_LOCK_COUNTERBORE_D = 7.5
+
 # Inner-plug top-surface presets to render (see top_surfaces.PRESETS). The
 # assembly STEP always uses the flat top; the others are produced as extra STLs
 # named inner_plug_<label>_<variant>.stl. Trim this list to speed up a build.
@@ -83,7 +91,8 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
             # Printed STLs get a plain tap-drill locking-screw hole (hand-tapped
             # later); the fine thread lives only in the STEP master.
             part = build_inner_plug(PLUG, threads=True, clearance=clr, top=top,
-                                    locking_screw_thread=False)
+                                    locking_screw_thread=False,
+                                    lock_counterbore_d=PRINTED_LOCK_COUNTERBORE_D)
             validate(part, f"inner_plug[{top}] ({variant})")
             stl_path = STL_DIR / f"inner_plug{suffix}_{variant}.stl"
             note = export_watertight_stl(part, stl_path, f"inner_plug[{top}] ({variant})")

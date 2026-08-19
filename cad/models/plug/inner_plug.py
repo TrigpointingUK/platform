@@ -42,6 +42,7 @@ def build_inner_plug(
     clearance: float = 0.0,
     top: str = DEFAULT,
     locking_screw_thread: bool = True,
+    lock_counterbore_d: float | None = None,
 ):
     """Return the inner plug as a build123d ``Part``.
 
@@ -51,6 +52,10 @@ def build_inner_plug(
     leaves the original plain top. ``locking_screw_thread=False`` leaves the
     locking-screw hole as a plain tap-drill hole (for hand-tapping / printed
     parts) instead of modelling the fine internal thread.
+    ``lock_counterbore_d`` overrides the locking screw's head recess diameter;
+    ``None`` keeps the original's (``p.ip_lock_counterbore_d``). Like
+    ``locking_screw_thread`` this exists so printed parts can deviate from the
+    brass original without contaminating the STEP master.
     """
     ip_h = p.ip_h
     z_thread_top = ip_h - p.ip_chamfer
@@ -112,7 +117,8 @@ def build_inner_plug(
         bearing_deg=p.ip_lock_bearing,
         length=p.ip_r + 2.0,  # axis out to just past the surface
         central_r=p.ip_centre_r,
-        counterbore_d=p.ip_lock_counterbore_d,
+        counterbore_d=(p.ip_lock_counterbore_d if lock_counterbore_d is None
+                       else lock_counterbore_d),
         counterbore_depth=p.ip_lock_counterbore_depth,
         clearance=clearance,
         thread=locking_screw_thread,
