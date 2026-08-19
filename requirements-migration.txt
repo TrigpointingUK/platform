@@ -14,11 +14,11 @@ pymysql>=1.2.0,<2.0.0
 psycopg2-binary>=2.9.12,<3.0.0
 
 # ORM and PostGIS support
-sqlalchemy>=2.0.51,<3.0.0
+sqlalchemy>=2.0.52,<3.0.0
 geoalchemy2>=0.20.0,<1.0.0
 
 # Configuration management (Python 3.9 compatible versions)
 pydantic>=2.13.4,<3.0.0
 pydantic-settings>=2.15.0,<2.16.0
-python-dotenv>=1.0.0,<2.0.0
+python-dotenv>=1.2.3,<2.0.0
 
