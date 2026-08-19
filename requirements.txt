@@ -11,9 +11,9 @@ bcrypt==4.3.0
 crypt-r>=3.13.1  # Replacement for removed crypt module (Python 3.13+)
 python-multipart==0.0.32  # CVE-2026-42561 fix
 pydantic[email]==2.13.4
-pydantic-settings==2.14.2
+pydantic-settings==2.15.0
 python-dotenv==1.2.2
-alembic==1.18.5
+alembic==1.19.1
 
 # Testing dependencies
 pytest==9.1.1
