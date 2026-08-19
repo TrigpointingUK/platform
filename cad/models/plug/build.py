@@ -15,14 +15,61 @@ from __future__ import annotations
 
 import time
 
+from dataclasses import dataclass
+
 from build123d import Compound, Pos, export_step
 
 from common.export import export_watertight_stl, validate
+from common.specs import ThreadSpec
 from common.paths import CAD_DIR, STEP_DIR, STL_DIR
 from models.plug.inner_plug import build_inner_plug
 from models.plug.params import PLUG
 from models.plug.plug import build_plug
 from models.plug.top_surfaces import DEFAULT, PRESETS
+
+@dataclass(frozen=True)
+class PrintVariant:
+    """How one print process deviates from the brass original.
+
+    ``clearance`` is the radial allowance on the spider thread (and the
+    locking-screw hole). ``bore_joint`` optionally swaps the inner-plug/bore
+    joint for one suited to the process.
+
+    The bore joint's allowance is given **per member**, because both members of
+    that joint are printed: putting the full allowance on each doubles the slop
+    actually seen by the assembled pair. ``None`` means "same as ``clearance``",
+    which reproduces the original behaviour of allowing on both.
+    """
+
+    clearance: float
+    bore_joint: object = None                      # None = brass thread
+    bore_clearance_external: float | None = None   # on the inner plug
+    bore_clearance_internal: float | None = None   # on the plug's bore
+
+
+# The inner-plug/bore joint, redrawn for FDM. Both members of this joint are
+# printed and it never has to mate with brass, so it is free to be whatever
+# prints best -- unlike the spider joint, which must fit a real pillar spider
+# and therefore keeps the original 8 TPI Whitworth whatever the cost.
+#
+# The brass joint is 14 TPI Whitworth: a 0.30 mm crest flat (narrower than one
+# 0.42 mm extrusion, so the crest simply never forms) and flanks overhanging at
+# 62.5 deg. Coarsening it would not help -- a V-form thread overhangs 62.5 deg
+# at every pitch. Assuming a 0.4 mm nozzle and 0.2 mm layers, this replaces it
+# with a 45 deg trapezoid at 4 mm pitch: 1.2 mm deep, 0.8 mm (two beads) at both
+# crest and root gap, 20 layers per turn, and a radial step of one layer height
+# per layer so nothing is unsupported. Major diameter stays Ø39.3 so the part
+# still looks right and no wall thickness changes.
+FDM_BORE_JOINT = ThreadSpec(
+    name="innerplug-to-bore (FDM)",
+    major_diameter=39.3,
+    pitch=4.0,
+    form="trapezoid",
+    crest_flat=0.8,
+    provenance="[S]",
+    note="Printability-driven, not a measurement. FDM parts mate only with "
+         "each other, never with brass.",
+)
 
 # Radial thread clearance per process (mm). Tune after trial fits.
 #
@@ -34,9 +81,24 @@ from models.plug.top_surfaces import DEFAULT, PRESETS
 # roughly what it says. Left alone until a fit against a real spider says
 # otherwise; both the mesh and the nominal diameter have since been corrected,
 # so the next print is the first clean measurement of this number.
+#
+# NB resin keeps the brass thread and its existing allowance untouched: it was
+# measured on the first print at 0.18 mm clearance with 0.97 mm engagement,
+# close to the brass pair itself, so resin parts stay interchangeable with brass
+# originals. Only FDM gets the redrawn joint.
+#
+# FDM's bore allowance is applied ONCE, to the external member only. Applying it
+# to both (as the spider joint must, since only one member is printed) gave a
+# printed pair double the intended slop -- 0.5 mm radial -- and that is what let
+# the inner plug tilt and cross-thread before the malformed crests could catch.
 STL_VARIANTS = {
-    "resin": 0.10,   # SLA resolves fine threads well -> tight
-    "fdm": 0.25,     # FDM is coarser -> generous
+    "resin": PrintVariant(clearance=0.10),   # SLA resolves fine threads well
+    "fdm": PrintVariant(                     # FDM is coarser -> generous
+        clearance=0.25,
+        bore_joint=FDM_BORE_JOINT,
+        bore_clearance_external=0.30,        # the whole allowance, on the shaft
+        bore_clearance_internal=0.0,         # bore stays nominal
+    ),
 }
 
 # Locking-screw head recess for PRINTED parts only (mm). The brass original
@@ -62,9 +124,12 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
     print(f"plug: master volume={plug_master.volume:.0f} mm^3 valid "
           f"({time.time()-t0:.1f}s)")
     if not skip_stl:
-        for variant, clr in STL_VARIANTS.items():
+        for variant, cfg in STL_VARIANTS.items():
             tv = time.time()
-            part = build_plug(PLUG, threads=True, clearance=clr)
+            clr = cfg.clearance
+            part = build_plug(PLUG, threads=True, clearance=clr,
+                              bore_joint=cfg.bore_joint,
+                              bore_clearance=cfg.bore_clearance_internal)
             validate(part, f"plug ({variant})")
             stl_path = STL_DIR / f"plug_{variant}.stl"
             note = export_watertight_stl(part, stl_path, f"plug ({variant})")
@@ -86,13 +151,16 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
             print(f"inner_plug[{top}]:")
         if skip_stl:
             continue
-        for variant, clr in STL_VARIANTS.items():
+        for variant, cfg in STL_VARIANTS.items():
             tv = time.time()
+            clr = cfg.clearance
             # Printed STLs get a plain tap-drill locking-screw hole (hand-tapped
             # later); the fine thread lives only in the STEP master.
             part = build_inner_plug(PLUG, threads=True, clearance=clr, top=top,
                                     locking_screw_thread=False,
-                                    lock_counterbore_d=PRINTED_LOCK_COUNTERBORE_D)
+                                    lock_counterbore_d=PRINTED_LOCK_COUNTERBORE_D,
+                                    bore_joint=cfg.bore_joint,
+                                    bore_clearance=cfg.bore_clearance_external)
             validate(part, f"inner_plug[{top}] ({variant})")
             stl_path = STL_DIR / f"inner_plug{suffix}_{variant}.stl"
             note = export_watertight_stl(part, stl_path, f"inner_plug[{top}] ({variant})")

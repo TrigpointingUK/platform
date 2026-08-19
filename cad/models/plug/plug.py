@@ -32,6 +32,7 @@ from common.threads import (
     keep_largest_solid,
 )
 from models.plug.lettering import engrave_plug_text
+from common.specs import ThreadSpec
 from models.plug.params import PLUG, PlugParams
 
 
@@ -67,6 +68,8 @@ def build_plug(
     threads: bool = True,
     clearance: float = 0.0,
     text: bool = True,
+    bore_joint: ThreadSpec | None = None,
+    bore_clearance: float | None = None,
 ):
     """Return the outer plug as a build123d ``Part``.
 
@@ -75,6 +78,11 @@ def build_plug(
     the external thread shrinks and the internal bore thread grows. ``text``
     engraves the OS lettering into the top surface.
     """
+    # The bore joint (and its allowance) can be swapped per print process; the
+    # spider joint never can -- it has to mate with a real pillar spider.
+    bore = bore_joint if bore_joint is not None else p.bore_joint
+    bore_clr = clearance if bore_clearance is None else bore_clearance
+
     total_h = p.lower_h + p.middle_h + p.upper_h
     z_mid_base = p.lower_h
     z_mid_top = p.lower_h + p.middle_h
@@ -113,7 +121,7 @@ def build_plug(
         z0 = p.bore_thread_plain_bottom
         z1 = total_h - p.bore_chamfer
         tap = internal_thread_tap(
-            p.bore_joint, z1 - z0, z_base=z0, clearance=clearance
+            bore, z1 - z0, z_base=z0, clearance=bore_clr
         )
         bore_top_r = tap.drill_radius  # the passage the mouth chamfer breaks into
         part = part - Pos(0, 0, total_h / 2) * Cylinder(
@@ -125,7 +133,7 @@ def build_plug(
         # below the thread keeps the minor (drill) diameter for its lower part,
         # but its upper part -- nearest the thread -- is bored out to the
         # thread's major (root) diameter, matching how deep the grooves reach.
-        relief_r = p.bore_joint.major_diameter / 2 + clearance
+        relief_r = bore.major_diameter / 2 + bore_clr
         relief_bot = z0 * (1 - p.bore_relief_frac)
         part = part - Pos(0, 0, (relief_bot + z0) / 2) * Cylinder(
             radius=relief_r, height=z0 - relief_bot
