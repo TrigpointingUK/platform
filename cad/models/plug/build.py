@@ -23,7 +23,8 @@ from common.export import export_watertight_stl, validate
 from common.specs import ThreadSpec
 from common.paths import CAD_DIR, STEP_DIR, STL_DIR
 from models.plug.inner_plug import build_inner_plug
-from models.plug.lettering import CAP_HEIGHT, FONT, plug_text_metrics
+from models.plug.lettering import (CAP_HEIGHT, FONT, plug_text_metrics,
+                                   usable_span_deg)
 from models.plug.params import PLUG
 from models.plug.plug import build_plug
 from models.plug.top_surfaces import DEFAULT, PRESETS
@@ -121,10 +122,9 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
     # The lettering is fitted to the arc the screw holes leave free, so the
     # letter gap is an OUTPUT, not a setting. Report it: it is the first thing
     # to look at if the engraving comes back looking merged.
-    fs, gap = plug_text_metrics()
-    note = "" if gap >= 0.4 else "  <- below one 0.4 mm extrusion; FDM will merge them"
-    print(f"lettering: {FONT} at {CAP_HEIGHT} mm caps (font_size {fs:.2f}), "
-          f"letter gap {gap:.3f} mm{note}")
+    fs, condense = plug_text_metrics()
+    print(f"lettering: {FONT} at {CAP_HEIGHT} mm caps, condensed to "
+          f"{condense:.3f} of natural width to fit {usable_span_deg():.1f} deg")
 
     # ---- Outer plug -------------------------------------------------------
     t0 = time.time()

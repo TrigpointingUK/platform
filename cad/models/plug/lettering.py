@@ -5,71 +5,95 @@ Real OS plugs are cast with "TRIANGULATION STATION" arcing over the top and
 clockwise when viewed from above. The lettering is **cut into** the top surface
 (engraved), not raised.
 
-The letters on the brass original are 8 mm tall in a **highly condensed** face,
-crammed together with what is charitably called kerning -- the consequence of
-fitting 21 characters into the arc between the two spider-screw holes. That is
-not a stylistic choice to be tidied up; it is what the part looks like, and it
-falls out of the arithmetic. At 8 mm caps the phrase needs more arc than exists,
-so the narrowest face available is used and the letters are then set on a
-constant gap computed to fill the space exactly (see ``common.engraving``).
+Measured on the brass original: the letters are 8 mm tall, their bottoms on a
+Ø59 mm circle and their tops on Ø75 mm. They are set in a **highly condensed**
+face and crammed together, which is not a style choice but arithmetic --
+"TRIANGULATION STATION" at 8 mm caps wants about 96 mm of ink, and the arc
+between the two spider-screw holes at that radius offers roughly 84 mm. The
+caster squeezed; so do we.
+
+So the letters here are laid out rather than typeset: each glyph is narrowed
+horizontally (height untouched) by a factor solved to fill the available arc,
+and they are set on a constant ink gap. That reproduces both traits at once --
+condensed letterforms, and kerning that is absent rather than merely bad, every
+pair spaced identically however the shapes fit together.
 
 The generic mechanism lives in ``common.engraving``; this module holds only the
-plug's font/size/depth and the two phrases.
+plug's font/size/placement and the two phrases.
 """
 
 from __future__ import annotations
 
-from common.engraving import cap_height_font_size, engrave_arc_texts, fit_letter_gap
+import math
+
+from common.engraving import cap_height_font_size, engrave_arc_texts, fit_condense
+from models.plug.params import PLUG
 
 # --- Tuneable lettering parameters -----------------------------------------
-# The narrowest face on hand; a stand-in for the OS cast letterform, which has
-# not been identified. If it is missing, the layout still fits the arc (the gap
-# is computed from whatever glyphs come back) but will crowd, so build_plug
-# reports the gap it ended up with.
+# The narrowest face on hand, then condensed further. A stand-in: the OS cast
+# letterform has not been identified.
 FONT = "Nimbus Sans Narrow"
-CAP_HEIGHT = 8.0  # [D] mm, measured on the brass original
-# Baseline radius. Letters grow OUTWARD from here, so this plus the cap height
-# (plus a little round-letter overshoot) has to stay inside the top face, which
-# ends at upper_r - upper_chamfer = 43.73 mm.
-TEXT_RADIUS = 35.0
-WORD_SPACE = 2.0      # mm, between words -- wide enough to read as a space
+
+# [D] Measured on the brass original: bottoms on Ø59, tops on Ø75.
+TEXT_RADIUS = 29.5    # mm, baseline (letter bottoms); letters grow OUTWARD
+CAP_HEIGHT = 8.0      # mm = (75 - 59) / 2
+
+LETTER_GAP = 0.25     # mm of bare metal between adjacent glyphs
+WORD_SPACE = 1.8      # mm between words -- wide enough to still read as a space
+HOLE_MARGIN = 1.5     # deg of clear air to leave either side of a screw hole
 ENGRAVE_DEPTH = 0.6   # mm, how deep the letters cut below the surface
 
-# (text, centre angle deg, arc span deg). The span is what the phrase is fitted
-# into, centred on the given angle. 166 deg is what the two Ø9 mm spider-screw
-# holes at 0/180 leave free: each blocks +/-6.71 deg at its widest.
-LETTER_SPAN = 166.0
+
+def usable_span_deg() -> float:
+    """Arc between the two spider-screw holes that the lettering may occupy.
+
+    The holes sit at 0/180 deg. What matters is the widest angle a hole subtends
+    anywhere in the radial band the letters actually cross -- at the top of the
+    letters, not at the hole's own centre radius -- so scan the band.
+    """
+    c, hole_r = PLUG.clr_hole_spacing / 2, PLUG.clr_hole_r
+    worst = 0.0
+    for i in range(201):
+        r = TEXT_RADIUS + CAP_HEIGHT * i / 200
+        if abs(r - c) < hole_r:
+            worst = max(worst, math.degrees(
+                math.acos((r * r + c * c - hole_r * hole_r) / (2 * r * c))))
+    return 180.0 - 2.0 * (worst + HOLE_MARGIN)
+
+
+# (text, centre angle deg, arc span deg) -- each phrase is fitted into the span
+# and centred on the angle.
 TEXTS = [
-    ("TRIANGULATION STATION", 90.0, LETTER_SPAN),
-    ("ORDNANCE SURVEY", 270.0, LETTER_SPAN),
+    ("TRIANGULATION STATION", 90.0, usable_span_deg()),
+    ("ORDNANCE SURVEY", 270.0, usable_span_deg()),
 ]
 
 
 def plug_text_metrics():
-    """``(font_size, letter_gap)`` actually used, for reporting at build time.
+    """``(font_size, condense)`` actually used, for reporting at build time.
 
-    The gap is fitted to the LONGEST phrase and then shared, so both arcs are
-    lettered identically and the shorter one simply occupies less of its span.
-    A gap at or below zero means the phrase cannot fit without glyphs colliding.
+    ``condense`` is fitted to the LONGEST phrase and then shared, so both arcs
+    are lettered identically and the shorter one simply occupies less of its
+    span. It is an output of the geometry, not a setting.
     """
     font_size = cap_height_font_size(FONT, CAP_HEIGHT)
     longest = max((t for t, _, _ in TEXTS), key=len)
-    gap = fit_letter_gap(
-        longest, span_deg=LETTER_SPAN, radius=TEXT_RADIUS,
-        font=FONT, font_size=font_size, word_space=WORD_SPACE,
+    condense = fit_condense(
+        longest, span_deg=usable_span_deg(), radius=TEXT_RADIUS, font=FONT,
+        font_size=font_size, word_space=WORD_SPACE, letter_gap=LETTER_GAP,
     )
-    return font_size, gap
+    return font_size, condense
 
 
 def engrave_plug_text(part, z_top: float):
     """Subtract both arcs of engraved lettering from ``part`` at height
     ``z_top`` (the plug's top surface). Returns the engraved part."""
-    font_size, letter_gap = plug_text_metrics()
-    if letter_gap <= 0:
+    font_size, condense = plug_text_metrics()
+    if condense <= 0.5:
         raise ValueError(
-            f"lettering does not fit: {CAP_HEIGHT} mm caps in {FONT} need more "
-            f"than the {LETTER_SPAN} deg available at r={TEXT_RADIUS} "
-            f"(gap {letter_gap:.3f} mm). Lower CAP_HEIGHT or find a narrower face."
+            f"lettering will not fit legibly: {CAP_HEIGHT} mm caps in {FONT} "
+            f"need squeezing to {condense:.2f} of natural width in the "
+            f"{usable_span_deg():.1f} deg available at r={TEXT_RADIUS}."
         )
     return engrave_arc_texts(
         part,
@@ -79,6 +103,7 @@ def engrave_plug_text(part, z_top: float):
         font=FONT,
         font_size=font_size,
         depth=ENGRAVE_DEPTH,
-        letter_gap=letter_gap,
+        letter_gap=LETTER_GAP,
         word_space=WORD_SPACE,
+        condense=condense,
     )
