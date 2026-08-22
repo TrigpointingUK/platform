@@ -23,6 +23,7 @@ from common.export import export_watertight_stl, validate
 from common.specs import ThreadSpec
 from common.paths import CAD_DIR, STEP_DIR, STL_DIR
 from models.plug.inner_plug import build_inner_plug
+from models.plug.lettering import CAP_HEIGHT, FONT, plug_text_metrics
 from models.plug.params import PLUG
 from models.plug.plug import build_plug
 from models.plug.top_surfaces import DEFAULT, PRESETS
@@ -117,6 +118,14 @@ INNER_TOPS = ["flat", "tuk-logo", "tuk-logo-emboss", "trig-5169-qr"]
 
 def run(*, threads: bool = True, skip_stl: bool = False) -> None:
     """Build, validate and export the plug + inner plug."""
+    # The lettering is fitted to the arc the screw holes leave free, so the
+    # letter gap is an OUTPUT, not a setting. Report it: it is the first thing
+    # to look at if the engraving comes back looking merged.
+    fs, gap = plug_text_metrics()
+    note = "" if gap >= 0.4 else "  <- below one 0.4 mm extrusion; FDM will merge them"
+    print(f"lettering: {FONT} at {CAP_HEIGHT} mm caps (font_size {fs:.2f}), "
+          f"letter gap {gap:.3f} mm{note}")
+
     # ---- Outer plug -------------------------------------------------------
     t0 = time.time()
     plug_master = build_plug(PLUG, threads=threads, clearance=0.0)
