@@ -122,9 +122,12 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
     # The lettering is fitted to the arc the screw holes leave free, so the
     # letter gap is an OUTPUT, not a setting. Report it: it is the first thing
     # to look at if the engraving comes back looking merged.
-    fs, condense = plug_text_metrics()
+    fs, condense, specs = plug_text_metrics()
     print(f"lettering: {FONT} at {CAP_HEIGHT} mm caps, condensed to "
           f"{condense:.3f} of natural width to fit {usable_span_deg():.1f} deg")
+    for txt, _, _, gap, space in specs:
+        print(f"    {txt:24s} letter gap {gap:5.2f} mm, word gap "
+              f"{space + 2 * gap:5.2f} mm")
 
     # ---- Outer plug -------------------------------------------------------
     t0 = time.time()

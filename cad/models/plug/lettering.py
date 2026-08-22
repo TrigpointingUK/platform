@@ -18,6 +18,12 @@ and they are set on a constant ink gap. That reproduces both traits at once --
 condensed letterforms, and kerning that is absent rather than merely bad, every
 pair spaced identically however the shapes fit together.
 
+The two phrases share those letterforms -- one set of stamps -- but not their
+spacing. "ORDNANCE SURVEY" has seven fewer characters to fill the same arc
+with, so on the original it is simply set looser, letters and word gap both.
+Each phrase therefore gets its own gap, solved to bring its first and last
+letter as close to the screw holes as the long phrase's do.
+
 The generic mechanism lives in ``common.engraving``; this module holds only the
 plug's font/size/placement and the two phrases.
 """
@@ -26,7 +32,8 @@ from __future__ import annotations
 
 import math
 
-from common.engraving import cap_height_font_size, engrave_arc_texts, fit_condense
+from common.engraving import (cap_height_font_size, engrave_arc_texts,
+                              fit_condense, fit_letter_gap)
 from models.plug.params import PLUG
 
 # --- Tuneable lettering parameters -----------------------------------------
@@ -38,8 +45,14 @@ FONT = "Nimbus Sans Narrow"
 TEXT_RADIUS = 29.5    # mm, baseline (letter bottoms); letters grow OUTWARD
 CAP_HEIGHT = 8.0      # mm = (75 - 59) / 2
 
-LETTER_GAP = 0.25     # mm of bare metal between adjacent glyphs
+LETTER_GAP = 0.25     # mm of bare metal between adjacent glyphs, on the phrase
+#                       that has to be squeezed hardest; this is what sets the
+#                       condense factor. Other phrases get a gap solved to fill.
 WORD_SPACE = 1.8      # mm between words -- wide enough to still read as a space
+# Per-phrase multiplier on WORD_SPACE. "ORDNANCE SURVEY" carries a much wider
+# word gap on the original -- roughly 4x the one in "TRIANGULATION STATION" --
+# which is how the caster took up some of the slack from the shorter phrase.
+WORD_SPACE_SCALE = {"ORDNANCE SURVEY": 4.0}
 HOLE_MARGIN = 1.5     # deg of clear air to leave either side of a screw hole
 ENGRAVE_DEPTH = 0.6   # mm, how deep the letters cut below the surface
 
@@ -61,34 +74,44 @@ def usable_span_deg() -> float:
     return 180.0 - 2.0 * (worst + HOLE_MARGIN)
 
 
-# (text, centre angle deg, arc span deg) -- each phrase is fitted into the span
-# and centred on the angle.
-TEXTS = [
-    ("TRIANGULATION STATION", 90.0, usable_span_deg()),
-    ("ORDNANCE SURVEY", 270.0, usable_span_deg()),
+# (text, centre angle deg) -- both are fitted into usable_span_deg() and
+# centred on the given angle.
+PHRASES = [
+    ("TRIANGULATION STATION", 90.0),
+    ("ORDNANCE SURVEY", 270.0),
 ]
 
 
 def plug_text_metrics():
-    """``(font_size, condense)`` actually used, for reporting at build time.
+    """``(font_size, condense, specs)`` actually used, for reporting at build time.
 
-    ``condense`` is fitted to the LONGEST phrase and then shared, so both arcs
-    are lettered identically and the shorter one simply occupies less of its
-    span. It is an output of the geometry, not a setting.
+    ``condense`` is fitted to the phrase needing the most squeezing and then
+    shared -- one set of letterforms. Each phrase's spacing is then solved
+    separately so it fills the same arc. Both are outputs of the geometry, not
+    settings. ``specs`` is the 5-tuple list ``engrave_arc_texts`` wants.
     """
     font_size = cap_height_font_size(FONT, CAP_HEIGHT)
-    longest = max((t for t, _, _ in TEXTS), key=len)
+    span = usable_span_deg()
+    longest = max((t for t, _ in PHRASES), key=len)
     condense = fit_condense(
-        longest, span_deg=usable_span_deg(), radius=TEXT_RADIUS, font=FONT,
+        longest, span_deg=span, radius=TEXT_RADIUS, font=FONT,
         font_size=font_size, word_space=WORD_SPACE, letter_gap=LETTER_GAP,
     )
-    return font_size, condense
+    specs = []
+    for txt, centre in PHRASES:
+        word_space = WORD_SPACE * WORD_SPACE_SCALE.get(txt, 1.0)
+        gap = fit_letter_gap(
+            txt, span_deg=span, radius=TEXT_RADIUS, font=FONT,
+            font_size=font_size, word_space=word_space, condense=condense,
+        )
+        specs.append((txt, centre, span, gap, word_space))
+    return font_size, condense, specs
 
 
 def engrave_plug_text(part, z_top: float):
     """Subtract both arcs of engraved lettering from ``part`` at height
     ``z_top`` (the plug's top surface). Returns the engraved part."""
-    font_size, condense = plug_text_metrics()
+    font_size, condense, specs = plug_text_metrics()
     if condense <= 0.5:
         raise ValueError(
             f"lettering will not fit legibly: {CAP_HEIGHT} mm caps in {FONT} "
@@ -97,13 +120,11 @@ def engrave_plug_text(part, z_top: float):
         )
     return engrave_arc_texts(
         part,
-        TEXTS,
+        specs,
         z_top=z_top,
         radius=TEXT_RADIUS,
         font=FONT,
         font_size=font_size,
         depth=ENGRAVE_DEPTH,
-        letter_gap=LETTER_GAP,
-        word_space=WORD_SPACE,
         condense=condense,
     )

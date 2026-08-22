@@ -96,6 +96,21 @@ def fit_condense(txt, *, span_deg, radius, font, font_size, word_space,
     return room / ink
 
 
+def fit_letter_gap(txt, *, span_deg, radius, font, font_size, word_space,
+                   condense=1.0) -> float:
+    """The constant letter gap that makes ``txt`` exactly fill ``span_deg``.
+
+    The counterpart to :func:`fit_condense`: there the glyph width is solved
+    with the spacing fixed, here the spacing is solved with the glyphs fixed.
+    Use this for phrases that share a set of letterforms but each have their own
+    arc to fill -- a short phrase simply gets set looser.
+    """
+    items = _glyph_items(txt, font=font, font_size=font_size,
+                         word_space=word_space, condense=condense)
+    ink = sum(w for _, w in items)
+    return (math.radians(span_deg) * radius - ink) / (len(items) - 1)
+
+
 def _laid_out_glyphs(txt, *, centre_deg, radius, font, font_size,
                      letter_gap, word_space, condense=1.0):
     """Place each glyph individually along the arc on a constant gap.
@@ -186,9 +201,16 @@ def engrave_arc_texts(
     word_space: float | None = None,
     condense: float = 1.0,
 ):
-    """Subtract each ``(text, centre_deg, span_deg)`` arc from ``part`` at
-    height ``z_top``. Returns the engraved part."""
-    for txt, centre_deg, span_deg in texts:
+    """Subtract each arc of text from ``part`` at height ``z_top``.
+
+    Each entry is ``(text, centre_deg, span_deg)``, or
+    ``(text, centre_deg, span_deg, letter_gap, word_space)`` to give that phrase
+    its own spacing while sharing everything else. Returns the engraved part.
+    """
+    for entry in texts:
+        txt, centre_deg, span_deg = entry[:3]
+        gap = entry[3] if len(entry) > 3 else letter_gap
+        space = entry[4] if len(entry) > 4 else word_space
         part = part - arc_text_cutter(
             txt,
             centre_deg=centre_deg,
@@ -199,8 +221,8 @@ def engrave_arc_texts(
             font_size=font_size,
             depth=depth,
             overshoot=overshoot,
-            letter_gap=letter_gap,
-            word_space=word_space,
+            letter_gap=gap,
+            word_space=space,
             condense=condense,
         )
     return part
