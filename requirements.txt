@@ -1,6 +1,6 @@
 fastapi==0.141.1
 starlette>=1.6.0  # CVE-2025-62727 fix (DoS via Range header in FileResponse)
-uvicorn[standard]==0.52.3
+uvicorn[standard]==0.52.4
 sqlalchemy==2.0.52
 psycopg2-binary==2.9.12
 geoalchemy2==0.20.0
@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.34.2
-boto3==1.43.72
+boto3==1.43.75
 types-requests==2.33.0.20260712
 
 # Redis/ElastiCache for token caching
