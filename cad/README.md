@@ -84,6 +84,38 @@ venv/bin/python -m models.driver.driver
 - **`step/driver.step`, `stl/driver.stl`** — the driver tool (single solid, no
   thread-clearance variants; its only fit dimension is the peg bore).
 
+### The FDM bore thread is not the brass thread
+
+The STEP master and the **resin** STLs carry the real 14 TPI Whitworth bore
+thread, so resin parts interchange with brass originals. The **FDM** STLs do
+not: they use `FDM_BORE_JOINT`, a 4 mm-pitch 90° trapezoid, and mate only with
+each other.
+
+This is not a preference, it is printability. A V-form thread's flanks overhang
+at **62.5° from vertical at every pitch** — depth and axial run both scale with
+pitch, so coarsening it never helps — and 14 TPI Whitworth also asks for a
+0.30 mm crest flat, narrower than one 0.42 mm extrusion, so the crest never
+forms at all. The first FDM pair would not screw together for exactly this
+reason, even though the CAD pair mates freely with 0.48 mm of clearance.
+
+Assuming a **0.4 mm nozzle and 0.2 mm layers**, the replacement is sized so that
+every feature is printable: 45° flanks (the steepest FDM holds unsupported,
+putting the radial step per layer equal to one layer height), 0.8 mm — two
+extrusions — at both the crest flat and the root gap, 1.2 mm deep, 20 layers per
+turn. Change the nozzle or layer height and `FDM_BORE_JOINT.crest_flat` and
+pitch should be revisited; a 0.6 mm nozzle would need roughly a 5 mm pitch.
+
+The allowance is applied **once**, entirely to the external member
+(`bore_clearance_external` 0.30, `bore_clearance_internal` 0). Both members of
+this joint are printed, so allowing on each — which is right for the spider
+joint, where only one member is printed — gave the assembled pair double the
+intended slop. That is what let the inner plug tilt and cross-thread.
+
+The **spider joint keeps its 8 TPI Whitworth form** in every output: it has to
+mate with a real pillar spider, so it is not ours to redraw. It carries the same
+62.5° overhang, though with a 0.529 mm crest flat and 16 layers per turn it is
+better placed than the bore thread was. It is untested against a real spider.
+
 ## Customising the inner-plug top
 
 The inner plug's top is the one exposed face, so it can be personalised.
@@ -122,7 +154,7 @@ Notes:
 `models/driver/` is a **face/pin spanner** for screwing the plug in and out of
 the pillar spider. Two steel pegs drop into the plug's two upper-ring clearance
 holes (Ø9 mm, 77 mm apart — the spider-screw pattern) so the whole plug can be
-rotated; that is the stiff 63.8 mm 8 TPI joint, the one that seizes.
+rotated; that is the stiff 64.7 mm 8 TPI joint, the one that seizes.
 
 - **Steel pegs, not printed.** At a firm ~40 N·m removal torque each peg carries
   ~520 N in transverse shear; a printed 8 mm peg shears across its layer lines
@@ -195,8 +227,9 @@ pitch is the thread-gauge TPI reading (`pitch_mm = 25.4 / TPI`):
 
 | Joint (`ThreadSpec`) | Major Ø | Form | Pitch |
 |----------------------|---------|------|-------|
-| `spider_joint` (plug ↔ spider) | 63.8 mm | Whitworth 55° | 8 TPI (3.175 mm) |
-| `bore_joint` (inner plug ↔ bore) | 38 mm | Whitworth 55° | 14 TPI (1.814 mm) |
+| `spider_joint` (plug ↔ spider) | 64.7 mm | Whitworth 55° | 8 TPI (3.175 mm) |
+| `bore_joint` (inner plug ↔ bore) | 39.3 mm | Whitworth 55° | 14 TPI (1.814 mm) |
+| `FDM_BORE_JOINT` (**FDM prints only**) | 39.3 mm | trapezoid 90° | 4.0 mm (6.35 TPI) |
 | `locking_screw_joint` | ~4 mm | Whitworth 55° | 32 TPI (0.794 mm) — 5/32″ BSW |
 
 Major diameters are the dimensioned values (the gauge gives form + TPI, not
@@ -252,3 +285,15 @@ time (`STL_VARIANTS`). Refine `params.py` if a trial fit needs it.
   fills any face OCCT skipped with `trimesh`, and asserts the mesh has **no open
   edges** before writing, so a genuine hole fails the build. A few pinch edges
   are tolerated (slicers handle them). The STEP master is the exact B-rep.
+- **Mesh fineness is set by an absolute chord deflection**, `STL_LINEAR_TOL` in
+  [`common/export.py`](common/export.py) — the furthest the flat mesh may stray
+  from the true surface, currently 0.005 mm. Because it is absolute it is
+  radius-adaptive: the Ø92 mm upper ring gets ~300 facets while a Ø6 mm hole
+  needs only ~77. Note this means **not** using build123d's `export_stl`, which
+  hardcodes OCCT's `isRelative=True` and so scales the deflection by each edge's
+  own size — that makes the facet count independent of radius, and was why the
+  first printed prototype came out with a visibly faceted 42-sided upper ring
+  (a 6.9 mm chord, 129 µm off true). Raising the *angular* tolerance is not the
+  fix: it is equally radius-blind, and tightening it inflates the lettering and
+  logo tops by an order of magnitude for no visible gain, so it is left at 0.3
+  rad purely as a backstop for curves too small to divide by chord length.

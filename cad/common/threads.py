@@ -1,4 +1,4 @@
-"""True helical thread helpers, form-aware (Whitworth 55 deg or ISO 60 deg).
+"""True helical thread helpers, form-aware (Whitworth, ISO or printable).
 
 Unlike the render model (bump-maps with no helix angle) these produce real
 swept-helix geometry with correct flank angle and lead, suitable for a
@@ -11,6 +11,10 @@ Thread form is taken from ``ThreadSpec.form``:
   rounded crest/root approximated by flats of ~pitch/6. This is what the real
   OS plug threads measured as.
 * ``"iso"`` -- 60 deg ISO metric, via bd_warehouse ``IsoThread``.
+* ``"trapezoid"`` -- a 90 deg symmetric form with 45 deg flanks, sized by
+  ``ThreadSpec.crest_flat``. Not a real fastener thread: it exists because a
+  V-form thread's flanks are a 62.5 deg overhang at *any* pitch, which FDM
+  cannot print. See ``_trapezoid_depth``.
 
 Two robustness lessons are baked in here:
 
@@ -48,9 +52,41 @@ _WHIT_APEX_W = 1.0 / 6.0   # crest flat (narrow, at the major diameter)
 _WHIT_ROOT_W = 5.0 / 6.0   # rib base width (at the minor diameter)
 
 
+def _trapezoid_depth(spec: ThreadSpec) -> float:
+    """Radial depth of a ``trapezoid``-form thread.
+
+    The form is a symmetric trapezoid with **45 degree flanks**, defined by the
+    pitch and one crest flat ``f``. Ribs and the gaps between them are both
+    ``f`` wide at their tips, so the rib base is ``pitch - f`` and each flank
+    runs ``(pitch - 2f)/2`` axially -- which, at 45 degrees, is also the depth.
+
+    Why 45 degrees: printed with the axis vertical, a thread flank is an
+    overhang, and 45 deg is the steepest an FDM machine holds without support.
+    It puts the radial step per layer equal to the layer height, so each
+    perimeter lands on roughly half the bead below it. A Whitworth flank is
+    62.5 deg *at every pitch* -- depth and axial run both scale with pitch, so
+    coarsening a V-form thread never fixes it. Making both flats a whole number
+    of extrusion widths keeps crest and root printable too.
+    """
+    return (spec.pitch - 2.0 * spec.crest_flat) / 2.0
+
+
 def _external_thread(spec: ThreadSpec, major: float, length: float):
     """Build an external-form thread solid for ``spec`` at the given (already
     clearance-adjusted) ``major`` diameter. Returns ``(thread, min_radius)``."""
+    if spec.form == "trapezoid":
+        apex_r = major / 2.0
+        root_r = apex_r - _trapezoid_depth(spec)
+        thread = Thread(
+            apex_radius=apex_r,
+            apex_width=spec.crest_flat,
+            root_radius=root_r,
+            root_width=spec.pitch - spec.crest_flat,
+            pitch=spec.pitch,
+            length=length,
+            end_finishes=_ENDS,
+        )
+        return thread, root_r
     if spec.form == "whitworth":
         apex_r = major / 2.0
         root_r = apex_r - _WHIT_DEPTH * spec.pitch
@@ -79,6 +115,8 @@ def external_min_radius(spec: ThreadSpec, clearance: float = 0.0) -> float:
     """Minor radius of the external thread (the core cylinder radius) for
     ``spec`` at the given radial ``clearance``."""
     major = spec.major_diameter - 2.0 * clearance
+    if spec.form == "trapezoid":
+        return major / 2.0 - _trapezoid_depth(spec)
     if spec.form == "whitworth":
         return major / 2.0 - _WHIT_DEPTH * spec.pitch
     # ISO: cheap probe (min_radius depends only on major & pitch).

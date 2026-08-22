@@ -31,13 +31,19 @@ class PlugParams:
     # ---- Outer plug: three stacked annular rings + through-bore -----------
     # [D] tags below match the render model's own annotations.
     upper_r: float = 46.0  # [D] 92 mm upper ring dia / 2
-    upper_h: float = 6.0  # [D] 6 mm thick
-    upper_chamfer: float = 3.0  # [D] 3 mm 45 deg chamfer, top outer edge
-    middle_r: float = 31.9  # [D] ~63.8 mm dia / 2 (fraction under 64 mm)
-    middle_h: float = 9.0  # [D] 9 mm thick
+    upper_h: float = 6.8  # [D] 6.8 mm thick, measured on the brass original
+    upper_chamfer: float = 6.8 / 3  # [E] 45 deg chamfer, top outer edge. On the
+    #                                   original the bevel is about a third of the
+    #                                   ring's thickness, the rest cylindrical
+    #                                   (judged by eye side-on, hence [E]).
+    middle_r: float = 32.35  # [D] 64.7 mm dia / 2 = the spider thread's crest;
+    #                            only used for the threads-off preview, so it must
+    #                            track spider_joint.major_diameter below
+    middle_h: float = 9.8  # [D] 9.8 mm thick, measured on the brass original
     lower_r: float = 23.0  # [D] 46 mm dia / 2
-    lower_h: float = 9.0  # [D] 9 mm thick
-    bore_r: float = 19.0  # [D] 38 mm inner dia / 2
+    lower_h: float = 10.0  # [D] 10 mm thick, measured on the brass original
+    bore_r: float = 19.65  # [D] 39.3 mm dia / 2; tracks bore_joint's major
+    #                          diameter and is only used for threads-off previews
     bore_chamfer: float = 1.0  # [D] 1 mm chamfer, top of bore
 
     # Clearance holes in the upper ring (for the spider shelf screws)
@@ -46,27 +52,47 @@ class PlugParams:
 
     # Cotter-pin cross hole through the lower annulus
     cotter_r: float = 1.5  # [D] 3 mm peg dia / 2
-    cotter_z_from_shelf: float = 13.0  # [D] 13 mm below the upper-ring base
+    # Height is given as a fraction of the lower annulus's depth, measured DOWN
+    # from its top face, because that is how the hole reads on the part -- a bit
+    # below centre in the annulus it passes through. Anchoring it to the shelf
+    # instead (the old '13 mm below the upper-ring base') made it drift relative
+    # to the annulus every time a ring height was corrected.
+    cotter_z_frac: float = 0.45  # [E] 45% down the lower annulus
+    cotter_bearing: float = 90.0  # [D] deg; at RIGHT ANGLES to the upper ring's
+    #                                 two clearance holes, which lie on 0/180
 
     # Bottom of bore left plain (unthreaded run-out)
-    bore_thread_plain_bottom: float = 3.0  # [D] bottom 3 mm of bore plain
+    bore_thread_plain_bottom: float = 4.5  # [D] bottom 4.5 mm of bore plain
     # Of that plain run-out, the fraction nearest the thread that is bored out
     # to the thread's major (root) diameter; the remainder stays at the minor
     # (drill) diameter. The real plug has the upper half relieved.
-    bore_relief_frac: float = 0.5  # [D] top half of the plain bottom at major dia
+    bore_relief_frac: float = 2.5 / 4.5  # [D] of the 4.5 mm plain run, the upper
+    #                                        2.5 mm is at major dia and the bottom
+    #                                        2.0 mm stays at the drill (minor) dia
 
     # ---- Inner plug: threaded cylinder with blind holes ------------------
-    ip_r: float = 18.9  # [D] ~37.8 mm dia / 2 (fraction under 38 mm)
-    ip_h: float = 22.0  # [D] 22 mm thick
+    ip_r: float = 19.65  # [D] Ø39.3 mm / 2 = the max thread diameter measured on
+    #                        the brass inner plug, i.e. its thread crest. Also sets
+    #                        where the locking screw's counterbore starts, so it
+    #                        must track bore_joint's major diameter.
+    ip_h: float = 24.2  # [D] 24.2 mm thick, measured on the brass original
     ip_chamfer: float = 1.0  # [D] 1 mm chamfer, top edge
-    ip_hole_r: float = 3.0  # [D] 6 mm blind holes / 2
-    ip_centre_depth: float = 16.0  # [D] centre hole 16 mm deep
+    # The centre and side blind holes are NOT the same diameter on the original.
+    ip_centre_r: float = 3.65  # [D] Ø7.3 mm centre blind hole / 2
+    ip_side_r: float = 3.35  # [D] Ø6.7 mm side blind holes / 2
+    ip_centre_depth: float = 17.2  # [D] centre hole 17.2 mm deep
     ip_side_depth: float = 8.0  # [D] side holes 8 mm deep
     ip_side_spacing: float = 27.0  # [D] side holes 27 mm apart
 
     # Radial pivot hole near the base (for the cotter pin to bear on)
     ip_pivot_r: float = 1.5  # [E] 3 mm dia / 2
-    ip_pivot_z: float = 3.5  # [E] 3.5 mm above the bottom face
+    ip_pivot_z: float = 3.1  # [E] above the inner plug's bottom face. Derived, not
+    #                            measured: the inner plug seats flush with the plug
+    #                            top, so its base sits at total_h - ip_h = 2.4 mm,
+    #                            and the cotter hole is at lower_h * (1 - 0.45) =
+    #                            5.5 mm; 5.5 - 2.4 = 3.1 puts the two holes on one
+    #                            axis. Re-derive if ip_h, lower_h, upper_h or
+    #                            cotter_z_frac move.
     ip_pivot_bearing: float = 0.0  # [E] degrees, along +X
 
     # Recessed locking-screw hole (locks the inner plug against the bore).
@@ -88,7 +114,8 @@ class PlugParams:
     spider_joint: ThreadSpec = field(
         default_factory=lambda: ThreadSpec(
             name="plug-to-spider",
-            major_diameter=63.8,  # [D] ~63.8 mm middle-ring dia
+            major_diameter=64.7,  # [D] re-measured 2026-08-19; supersedes the
+            #                          earlier ~63.8 carried over from the render model
             pitch=25.4 / 8,  # [D] 8 TPI Whitworth = 3.175 mm
             form="whitworth",
             provenance="[D]",
@@ -99,7 +126,11 @@ class PlugParams:
     bore_joint: ThreadSpec = field(
         default_factory=lambda: ThreadSpec(
             name="innerplug-to-bore",
-            major_diameter=38.0,  # [D] = bore dia
+            major_diameter=39.3,  # [D] max thread dia measured on the brass inner
+            #                         plug. The brass bore's 37.5 mm minimum then
+            #                         implies a 0.26 mm radial allowance in the
+            #                         female -- almost exactly the FDM print
+            #                         clearance -- which corroborates 14 TPI.
             pitch=25.4 / 14,  # [D] 14 TPI Whitworth = 1.814 mm
             form="whitworth",
             provenance="[D]",

@@ -23,6 +23,7 @@ from typing import Iterable
 
 import segno
 from build123d import (
+    Align,
     BuildLine,
     BuildSketch,
     CenterArc,
@@ -31,8 +32,10 @@ from build123d import (
     Plane,
     Pos,
     Rectangle,
+    Rot,
     Text,
     extrude,
+    scale,
 )
 from ocpsvg import ColorAndLabel, import_svg_document
 from OCP.BRepCheck import BRepCheck_Analyzer
@@ -43,6 +46,96 @@ _OVERSHOOT = 0.4  # mm
 
 
 # ================================================================== arc text
+
+def cap_height_font_size(font: str, cap_height: float) -> float:
+    """``font_size`` that renders capitals ``cap_height`` mm tall.
+
+    ``Text``'s ``font_size`` is the em size, not the cap height -- for most
+    faces caps are only ~0.7 em, so asking for 7 mm gets letters barely 5 mm
+    tall. Measure the face rather than assume the ratio.
+    """
+    cap = Text("H", font_size=10.0, font=font, align=(Align.CENTER, Align.MIN))
+    bb = cap.bounding_box()
+    return cap_height * 10.0 / (bb.max.Y - bb.min.Y)
+
+
+def _glyph_items(txt, *, font, font_size, word_space, condense=1.0):
+    """``[(glyph_sketch | None, width), ...]`` -- ``None`` marks a word space.
+
+    ``condense`` narrows each glyph horizontally without touching its height,
+    which is what a condensed face does. Applied per glyph rather than to the
+    finished arc, because the arc is curved and a non-uniform scale of it would
+    not stay circular.
+    """
+    items = []
+    for ch in txt:
+        if ch == " ":
+            items.append((None, word_space))
+        else:
+            g = Text(ch, font_size=font_size, font=font,
+                     align=(Align.CENTER, Align.MIN))
+            if condense != 1.0:
+                g = scale(g, by=(condense, 1.0, 1.0))
+            bb = g.bounding_box()
+            items.append((g, bb.max.X - bb.min.X))
+    return items
+
+
+def fit_condense(txt, *, span_deg, radius, font, font_size, word_space,
+                 letter_gap) -> float:
+    """Horizontal glyph scale that makes ``txt`` exactly fill ``span_deg``.
+
+    Returns 1.0 or more when the phrase already fits at natural width. Below
+    about 0.6 the letters stop being legible, so the caller should sanity-check
+    the result rather than trust it blindly.
+    """
+    items = _glyph_items(txt, font=font, font_size=font_size, word_space=word_space)
+    ink = sum(w for g, w in items if g is not None)
+    spaces = sum(w for g, w in items if g is None)
+    room = (math.radians(span_deg) * radius) - spaces - letter_gap * (len(items) - 1)
+    return room / ink
+
+
+def fit_letter_gap(txt, *, span_deg, radius, font, font_size, word_space,
+                   condense=1.0) -> float:
+    """The constant letter gap that makes ``txt`` exactly fill ``span_deg``.
+
+    The counterpart to :func:`fit_condense`: there the glyph width is solved
+    with the spacing fixed, here the spacing is solved with the glyphs fixed.
+    Use this for phrases that share a set of letterforms but each have their own
+    arc to fill -- a short phrase simply gets set looser.
+    """
+    items = _glyph_items(txt, font=font, font_size=font_size,
+                         word_space=word_space, condense=condense)
+    ink = sum(w for _, w in items)
+    return (math.radians(span_deg) * radius - ink) / (len(items) - 1)
+
+
+def _laid_out_glyphs(txt, *, centre_deg, radius, font, font_size,
+                     letter_gap, word_space, condense=1.0):
+    """Place each glyph individually along the arc on a constant gap.
+
+    ``Text(path=...)`` lays text out on the font's own metrics, which for the
+    plug's phrases overruns the space between the spider-screw holes once the
+    letters are the height the original casts them. The original solves this the
+    way the caster did -- keep the letters full height and jam them together --
+    so glyphs are positioned here on a constant *ink* gap. That also reproduces
+    the original's kerning, which is not so much bad as absent: every pair is
+    spaced identically regardless of shape, so "AT" gapes and "II" crowds.
+    """
+    items = _glyph_items(txt, font=font, font_size=font_size,
+                         word_space=word_space, condense=condense)
+    total = sum(w for _, w in items) + letter_gap * (len(items) - 1)
+    placed, s = None, 0.0
+    for glyph, w in items:
+        if glyph is not None:
+            # Clockwise from above (decreasing angle), letter-tops outward.
+            ang = centre_deg + math.degrees((total / 2 - (s + w / 2)) / radius)
+            here = Rot(0, 0, ang - 90) * Pos(0, radius, 0) * glyph
+            placed = here if placed is None else placed + here
+        s += w + letter_gap
+    return placed
+
 
 def arc_text_cutter(
     txt: str,
@@ -55,12 +148,27 @@ def arc_text_cutter(
     font_size: float,
     depth: float,
     overshoot: float = _OVERSHOOT,
+    letter_gap: float | None = None,
+    word_space: float | None = None,
+    condense: float = 1.0,
 ):
     """A downward-extruded cutter solid for one arc of engraved text.
 
     The arc is traversed clockwise (negative ``arc_size``) so the text reads
     clockwise from above with letter-tops facing outward.
+
+    With ``letter_gap`` given, glyphs are placed individually on that constant
+    ink gap instead of using the font's own metrics -- see
+    :func:`_laid_out_glyphs`. ``span_deg`` is then only the centring reference.
     """
+    if letter_gap is not None:
+        placed = _laid_out_glyphs(
+            txt, centre_deg=centre_deg, radius=radius, font=font,
+            font_size=font_size, letter_gap=letter_gap, condense=condense,
+            word_space=word_space if word_space is not None else font_size * 0.25,
+        )
+        return extrude(Pos(0, 0, z_top + overshoot) * placed,
+                       amount=-(depth + overshoot))
     with BuildSketch(Plane.XY.offset(z_top + overshoot)) as sk:
         with BuildLine():
             arc = CenterArc(
@@ -89,10 +197,20 @@ def engrave_arc_texts(
     font_size: float,
     depth: float,
     overshoot: float = _OVERSHOOT,
+    letter_gap: float | None = None,
+    word_space: float | None = None,
+    condense: float = 1.0,
 ):
-    """Subtract each ``(text, centre_deg, span_deg)`` arc from ``part`` at
-    height ``z_top``. Returns the engraved part."""
-    for txt, centre_deg, span_deg in texts:
+    """Subtract each arc of text from ``part`` at height ``z_top``.
+
+    Each entry is ``(text, centre_deg, span_deg)``, or
+    ``(text, centre_deg, span_deg, letter_gap, word_space)`` to give that phrase
+    its own spacing while sharing everything else. Returns the engraved part.
+    """
+    for entry in texts:
+        txt, centre_deg, span_deg = entry[:3]
+        gap = entry[3] if len(entry) > 3 else letter_gap
+        space = entry[4] if len(entry) > 4 else word_space
         part = part - arc_text_cutter(
             txt,
             centre_deg=centre_deg,
@@ -103,6 +221,9 @@ def engrave_arc_texts(
             font_size=font_size,
             depth=depth,
             overshoot=overshoot,
+            letter_gap=gap,
+            word_space=space,
+            condense=condense,
         )
     return part
 

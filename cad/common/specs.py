@@ -22,6 +22,12 @@ class ThreadSpec:
     name: str
     major_diameter: float  # mm, nominal (external crest dia)
     pitch: float  # mm
-    form: str = "whitworth"  # "whitworth" (55 deg BSW) or "iso" (60 deg metric)
+    # "whitworth" (55 deg BSW), "iso" (60 deg metric) or "trapezoid" (a
+    # 3D-printable 90 deg form -- see ``crest_flat``).
+    form: str = "whitworth"
     provenance: str = "[E]"
     note: str = ""
+    # ``trapezoid`` form only: the axial width of the crest flat, in mm. It is
+    # the single free parameter of that form -- the depth and the flank angle
+    # follow from it and the pitch (see ``common.threads``). Ignored otherwise.
+    crest_flat: float = 0.0
