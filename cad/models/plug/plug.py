@@ -32,6 +32,7 @@ from common.threads import (
     keep_largest_solid,
 )
 from models.plug.lettering import engrave_plug_text
+from common.specs import ThreadSpec
 from models.plug.params import PLUG, PlugParams
 
 
@@ -67,6 +68,8 @@ def build_plug(
     threads: bool = True,
     clearance: float = 0.0,
     text: bool = True,
+    bore_joint: ThreadSpec | None = None,
+    bore_clearance: float | None = None,
 ):
     """Return the outer plug as a build123d ``Part``.
 
@@ -75,6 +78,11 @@ def build_plug(
     the external thread shrinks and the internal bore thread grows. ``text``
     engraves the OS lettering into the top surface.
     """
+    # The bore joint (and its allowance) can be swapped per print process; the
+    # spider joint never can -- it has to mate with a real pillar spider.
+    bore = bore_joint if bore_joint is not None else p.bore_joint
+    bore_clr = clearance if bore_clearance is None else bore_clearance
+
     total_h = p.lower_h + p.middle_h + p.upper_h
     z_mid_base = p.lower_h
     z_mid_top = p.lower_h + p.middle_h
@@ -108,12 +116,30 @@ def build_plug(
 
     # ---- Central bore ----------------------------------------------------
     # Threaded: drill to the thread minor diameter, then tap the grooves. The
-    # bottom run and the top chamfer region are left plain (run-outs).
+    # thread now runs full-depth to the top face, where the mouth chamfer cuts
+    # its lead-in; only the bottom is left plain (a run-out relief).
     if threads:
         z0 = p.bore_thread_plain_bottom
-        z1 = total_h - p.bore_chamfer
+        relief_bot = z0 * (1 - p.bore_relief_frac)
+        # Run the tap tool BEYOND the thread it is cutting, so that its faded
+        # ends land where they cannot hurt.
+        #
+        # A fade tapers the tool's rib to nothing over roughly half a pitch. On
+        # an *external* thread that is exactly right -- no knife edges, and an
+        # easier start. On an *internal* thread it is a trap: a shallower rib
+        # carves a shallower groove, so the bore narrows towards the drill
+        # diameter and stops admitting the mating crest. The result is a
+        # constriction the inner plug's full-depth thread physically cannot
+        # screw past -- it is not a cosmetic run-out, it jams the assembly.
+        # Measured on the first build, the bore was up to 0.9 mm under the
+        # inner plug's crest for 2.2 mm below the mouth.
+        #
+        # A real tapped hole has full-depth thread right up to its chamfer, so
+        # put the fades outside the part: above the top face, and down inside
+        # the run-out relief, which is bored out to the major diameter anyway.
         tap = internal_thread_tap(
-            p.bore_joint, z1 - z0, z_base=z0, clearance=clearance
+            bore, (total_h + bore.pitch) - relief_bot,
+            z_base=relief_bot, clearance=bore_clr,
         )
         bore_top_r = tap.drill_radius  # the passage the mouth chamfer breaks into
         part = part - Pos(0, 0, total_h / 2) * Cylinder(
@@ -125,8 +151,12 @@ def build_plug(
         # below the thread keeps the minor (drill) diameter for its lower part,
         # but its upper part -- nearest the thread -- is bored out to the
         # thread's major (root) diameter, matching how deep the grooves reach.
-        relief_r = p.bore_joint.major_diameter / 2 + clearance
-        relief_bot = z0 * (1 - p.bore_relief_frac)
+        # Strictly LARGER than the tap tool's crest, not equal to it. The tool
+        # now runs down into this relief, and two surfaces meeting at an exactly
+        # equal radius give OCCT a valid solid whose triangulation leaks (the
+        # same grazing trap as the keydriver's bend fillet). 0.05 mm breaks it
+        # and is immaterial in a clearance groove.
+        relief_r = bore.major_diameter / 2 + bore_clr + 0.05
         part = part - Pos(0, 0, (relief_bot + z0) / 2) * Cylinder(
             radius=relief_r, height=z0 - relief_bot
         )
@@ -149,11 +179,17 @@ def build_plug(
         )
 
     # ---- Cotter-pin hole through one side of the lower annulus ------------
-    # Single-sided: from the +X outer surface inward to the axis only (through
-    # the near wall and into the bore), not out through the far wall.
-    z_cotter = z_mid_top - p.cotter_z_from_shelf
+    # Single-sided: from the outer surface inward to the axis only (through the
+    # near wall and into the bore), not out through the far wall. It sits at
+    # ``cotter_bearing``, at right angles to the upper ring's clearance holes.
+    z_cotter = p.lower_h * (1.0 - p.cotter_z_frac)
     cp_len = p.lower_r + 1.0
-    part = part - Pos(cp_len / 2, 0, z_cotter) * Rot(0, 90, 0) * Cylinder(
+    cb = math.radians(p.cotter_bearing)
+    # Orient along the radial direction: Z->X first, THEN spin by the bearing --
+    # a single Rot(0, 90, bearing) would spin the tool while still on the Z axis.
+    part = part - Pos(
+        (cp_len / 2) * math.cos(cb), (cp_len / 2) * math.sin(cb), z_cotter
+    ) * Rot(0, 0, p.cotter_bearing) * Rot(0, 90, 0) * Cylinder(
         radius=p.cotter_r, height=cp_len
     )
 

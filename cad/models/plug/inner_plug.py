@@ -31,6 +31,7 @@ from common.threads import (
     internal_thread_tap,
     keep_largest_solid,
 )
+from common.specs import ThreadSpec
 from models.plug.params import PLUG, PlugParams
 from models.plug.top_surfaces import DEFAULT, resolve
 
@@ -42,6 +43,9 @@ def build_inner_plug(
     clearance: float = 0.0,
     top: str = DEFAULT,
     locking_screw_thread: bool = True,
+    lock_counterbore_d: float | None = None,
+    bore_joint: ThreadSpec | None = None,
+    bore_clearance: float | None = None,
 ):
     """Return the inner plug as a build123d ``Part``.
 
@@ -51,13 +55,23 @@ def build_inner_plug(
     leaves the original plain top. ``locking_screw_thread=False`` leaves the
     locking-screw hole as a plain tap-drill hole (for hand-tapping / printed
     parts) instead of modelling the fine internal thread.
+    ``lock_counterbore_d`` overrides the locking screw's head recess diameter;
+    ``None`` keeps the original's (``p.ip_lock_counterbore_d``). Like
+    ``locking_screw_thread`` this exists so printed parts can deviate from the
+    brass original without contaminating the STEP master.
     """
+    # Matches build_plug: the bore joint and its allowance are per-process.
+    # ``clearance`` still governs the locking-screw hole, which is a real
+    # fastener and so keeps the original thread whatever the process.
+    bore = bore_joint if bore_joint is not None else p.bore_joint
+    bore_clr = clearance if bore_clearance is None else bore_clearance
+
     ip_h = p.ip_h
     z_thread_top = ip_h - p.ip_chamfer
 
     # Core radius: minor diameter under the thread, or nominal without threads.
     if threads:
-        core_r = external_min_radius(p.bore_joint, clearance)
+        core_r = external_min_radius(bore, bore_clr)
     else:
         core_r = p.ip_r
 
@@ -77,13 +91,13 @@ def build_inner_plug(
     # ---- External thread on the wall -------------------------------------
     if threads:
         part = part + external_thread_shaft(
-            p.bore_joint, z_thread_top, z_base=0.0, clearance=clearance
+            bore, z_thread_top, z_base=0.0, clearance=bore_clr
         )
 
     # ---- Blind holes in the base -----------------------------------------
     # Centre hole
     part = part - Pos(0, 0, p.ip_centre_depth / 2) * Cylinder(
-        radius=p.ip_hole_r, height=p.ip_centre_depth
+        radius=p.ip_centre_r, height=p.ip_centre_depth
     )
     # Two side holes
     side_d = p.ip_side_spacing / 2
@@ -91,7 +105,7 @@ def build_inner_plug(
         x = side_d * math.cos(math.radians(ang))
         y = side_d * math.sin(math.radians(ang))
         part = part - Pos(x, y, p.ip_side_depth / 2) * Cylinder(
-            radius=p.ip_hole_r, height=p.ip_side_depth
+            radius=p.ip_side_r, height=p.ip_side_depth
         )
 
     # ---- Radial pivot hole (single-sided, for the cotter pin) ------------
@@ -111,8 +125,9 @@ def build_inner_plug(
         z=p.ip_lock_z,
         bearing_deg=p.ip_lock_bearing,
         length=p.ip_r + 2.0,  # axis out to just past the surface
-        central_r=p.ip_hole_r,
-        counterbore_d=p.ip_lock_counterbore_d,
+        central_r=p.ip_centre_r,
+        counterbore_d=(p.ip_lock_counterbore_d if lock_counterbore_d is None
+                       else lock_counterbore_d),
         counterbore_depth=p.ip_lock_counterbore_depth,
         clearance=clearance,
         thread=locking_screw_thread,
