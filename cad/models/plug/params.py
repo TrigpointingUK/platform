@@ -53,6 +53,8 @@ class PlugParams:
     # Cotter-pin cross hole through the lower annulus
     cotter_r: float = 1.5  # [D] 3 mm peg dia / 2
     cotter_z_from_shelf: float = 13.0  # [D] 13 mm below the upper-ring base
+    cotter_bearing: float = 90.0  # [D] deg; at RIGHT ANGLES to the upper ring's
+    #                                 two clearance holes, which lie on 0/180
 
     # Bottom of bore left plain (unthreaded run-out)
     bore_thread_plain_bottom: float = 4.5  # [D] bottom 4.5 mm of bore plain

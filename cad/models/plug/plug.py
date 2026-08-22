@@ -179,11 +179,17 @@ def build_plug(
         )
 
     # ---- Cotter-pin hole through one side of the lower annulus ------------
-    # Single-sided: from the +X outer surface inward to the axis only (through
-    # the near wall and into the bore), not out through the far wall.
+    # Single-sided: from the outer surface inward to the axis only (through the
+    # near wall and into the bore), not out through the far wall. It sits at
+    # ``cotter_bearing``, at right angles to the upper ring's clearance holes.
     z_cotter = z_mid_top - p.cotter_z_from_shelf
     cp_len = p.lower_r + 1.0
-    part = part - Pos(cp_len / 2, 0, z_cotter) * Rot(0, 90, 0) * Cylinder(
+    cb = math.radians(p.cotter_bearing)
+    # Orient along the radial direction: Z->X first, THEN spin by the bearing --
+    # a single Rot(0, 90, bearing) would spin the tool while still on the Z axis.
+    part = part - Pos(
+        (cp_len / 2) * math.cos(cb), (cp_len / 2) * math.sin(cb), z_cotter
+    ) * Rot(0, 0, p.cotter_bearing) * Rot(0, 90, 0) * Cylinder(
         radius=p.cotter_r, height=cp_len
     )
 

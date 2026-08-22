@@ -17,7 +17,7 @@ import time
 
 from dataclasses import dataclass
 
-from build123d import Compound, Pos, export_step
+from build123d import Compound, Pos, Rot, export_step
 
 from common.export import export_watertight_stl, validate
 from common.specs import ThreadSpec
@@ -171,7 +171,14 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
     plug_master.label = "Plug"
     # Seat the inner plug in the bore with its top flush with the plug top.
     seat = (PLUG.lower_h + PLUG.middle_h + PLUG.upper_h) - PLUG.ip_h
-    inner = Pos(0, 0, seat) * inner_flat_master
+    # Spin the inner plug so its pivot hole meets the plug's cotter hole. This
+    # is a placement choice, not a change to the part: the inner plug is a screw,
+    # so where its features land relative to the plug depends on how far it is
+    # wound in. Its own datum stays put -- the pivot hole is deliberately at
+    # right angles to the two side blind holes, and rotating the part itself
+    # would drive the pivot straight through one of them.
+    phase = PLUG.cotter_bearing - PLUG.ip_pivot_bearing
+    inner = Pos(0, 0, seat) * Rot(0, 0, phase) * inner_flat_master
     inner.label = "InnerPlug"
     assembly = Compound(children=[plug_master, inner])
     assembly.label = "PlugAssembly"
