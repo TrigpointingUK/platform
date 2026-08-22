@@ -182,7 +182,7 @@ def build_plug(
     # Single-sided: from the outer surface inward to the axis only (through the
     # near wall and into the bore), not out through the far wall. It sits at
     # ``cotter_bearing``, at right angles to the upper ring's clearance holes.
-    z_cotter = z_mid_top - p.cotter_z_from_shelf
+    z_cotter = p.lower_h * (1.0 - p.cotter_z_frac)
     cp_len = p.lower_r + 1.0
     cb = math.radians(p.cotter_bearing)
     # Orient along the radial direction: Z->X first, THEN spin by the bearing --

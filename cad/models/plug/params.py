@@ -52,7 +52,12 @@ class PlugParams:
 
     # Cotter-pin cross hole through the lower annulus
     cotter_r: float = 1.5  # [D] 3 mm peg dia / 2
-    cotter_z_from_shelf: float = 13.0  # [D] 13 mm below the upper-ring base
+    # Height is given as a fraction of the lower annulus's depth, measured DOWN
+    # from its top face, because that is how the hole reads on the part -- a bit
+    # below centre in the annulus it passes through. Anchoring it to the shelf
+    # instead (the old '13 mm below the upper-ring base') made it drift relative
+    # to the annulus every time a ring height was corrected.
+    cotter_z_frac: float = 0.45  # [E] 45% down the lower annulus
     cotter_bearing: float = 90.0  # [D] deg; at RIGHT ANGLES to the upper ring's
     #                                 two clearance holes, which lie on 0/180
 
@@ -81,12 +86,13 @@ class PlugParams:
 
     # Radial pivot hole near the base (for the cotter pin to bear on)
     ip_pivot_r: float = 1.5  # [E] 3 mm dia / 2
-    ip_pivot_z: float = 4.4  # [E] above the inner plug's bottom face. Derived, not
+    ip_pivot_z: float = 3.1  # [E] above the inner plug's bottom face. Derived, not
     #                            measured: the inner plug seats flush with the plug
     #                            top, so its base sits at total_h - ip_h = 2.4 mm,
-    #                            and the cotter hole is at 19.8 - 13 = 6.8 mm; 6.8 -
-    #                            2.4 = 4.4 puts the two holes on one axis. Re-derive
-    #                            if ip_h, any ring height or cotter_z_from_shelf move.
+    #                            and the cotter hole is at lower_h * (1 - 0.45) =
+    #                            5.5 mm; 5.5 - 2.4 = 3.1 puts the two holes on one
+    #                            axis. Re-derive if ip_h, lower_h, upper_h or
+    #                            cotter_z_frac move.
     ip_pivot_bearing: float = 0.0  # [E] degrees, along +X
 
     # Recessed locking-screw hole (locks the inner plug against the bore).
