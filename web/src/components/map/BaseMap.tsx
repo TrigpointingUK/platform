@@ -168,7 +168,7 @@ function TilePreloader({ tileLayer, bufferTiles = 3 }: { tileLayer: TileLayerTyp
       const entries = Array.from(preloadedTilesRef.current);
       preloadedTilesRef.current = new Set(entries.slice(-500));
     }
-  }, [map, tileLayer.crs, latLngToTile, bufferTiles, getTileUrl]);
+  }, [map, tileLayer.crs, tileLayer.referrerPolicy, latLngToTile, bufferTiles, getTileUrl]);
 
   // Debounced preload on map movement
   useEffect(() => {
