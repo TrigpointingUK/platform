@@ -31,6 +31,7 @@ export interface TileLayer {
   subdomains?: string[];
   tileSize?: number;
   crs?: string; // Coordinate Reference System (e.g., 'EPSG:3857', 'EPSG:27700')
+  referrerPolicy?: Exclude<ReferrerPolicy, ''>;
 }
 
 // Get tile server URLs from environment variables with fallbacks
@@ -100,6 +101,8 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     maxNativeZoom: 19,
     crs: 'EPSG:3857',
     subdomains: ['a', 'b', 'c'],
+    // OSM requires a Referer header to identify websites using its public tiles.
+    referrerPolicy: 'strict-origin-when-cross-origin',
   },
   
 
@@ -268,4 +271,3 @@ export const MAP_CONFIG = {
     crossOrigin: 'anonymous' as const,
   },
 };
-

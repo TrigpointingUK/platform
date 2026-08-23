@@ -34,7 +34,7 @@ vi.mock('react-leaflet', () => ({
       {children}
     </div>
   ),
-  TileLayer: (props: { url?: string; attribution?: string; maxZoom?: number; minZoom?: number; tileSize?: number; crossOrigin?: string }) => (
+  TileLayer: (props: { url?: string; attribution?: string; maxZoom?: number; minZoom?: number; tileSize?: number; crossOrigin?: string; referrerPolicy?: string }) => (
     <div 
       data-testid="tile-layer"
       data-url={props.url}
@@ -43,6 +43,7 @@ vi.mock('react-leaflet', () => ({
       data-min-zoom={props.minZoom}
       data-tile-size={props.tileSize}
       data-cross-origin={props.crossOrigin}
+      data-referrer-policy={props.referrerPolicy}
     />
   ),
   ScaleControl: (props: { position?: string; imperial?: boolean }) => (
@@ -165,6 +166,13 @@ describe('BaseMap', () => {
       
       const tileLayer = screen.getByTestId('tile-layer');
       expect(tileLayer.getAttribute('data-cross-origin')).toBe('anonymous');
+    });
+
+    it('should send OSM tiles an origin-only referrer', () => {
+      render(<BaseMap {...defaultProps} />);
+
+      const tileLayer = screen.getByTestId('tile-layer');
+      expect(tileLayer.getAttribute('data-referrer-policy')).toBe('strict-origin-when-cross-origin');
     });
   });
 
@@ -440,4 +448,3 @@ describe('BaseMap', () => {
     });
   });
 });
-

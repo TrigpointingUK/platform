@@ -1,8 +1,8 @@
 -r requirements.txt
 
 # Additional development dependencies
-pre-commit==4.6.1
+pre-commit==4.6.2
 bandit==1.9.4
 pip-audit==2.10.1
-diff-cover==10.5.0
+diff-cover==10.5.1
 pip-licenses==5.5.5

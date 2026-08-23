@@ -155,6 +155,9 @@ function TilePreloader({ tileLayer, bufferTiles = 3 }: { tileLayer: TileLayerTyp
         
         // Create an image to fetch the tile into browser cache
         const img = new Image();
+        if (tileLayer.referrerPolicy) {
+          img.referrerPolicy = tileLayer.referrerPolicy;
+        }
         img.crossOrigin = 'anonymous';
         img.src = getTileUrl(x, y, zoom);
       }
@@ -165,7 +168,7 @@ function TilePreloader({ tileLayer, bufferTiles = 3 }: { tileLayer: TileLayerTyp
       const entries = Array.from(preloadedTilesRef.current);
       preloadedTilesRef.current = new Set(entries.slice(-500));
     }
-  }, [map, tileLayer.crs, latLngToTile, bufferTiles, getTileUrl]);
+  }, [map, tileLayer.crs, tileLayer.referrerPolicy, latLngToTile, bufferTiles, getTileUrl]);
 
   // Debounced preload on map movement
   useEffect(() => {
@@ -279,6 +282,7 @@ export default function BaseMap({
           {...(tileLayer.subdomains ? { subdomains: tileLayer.subdomains } : {})}
           tileSize={tileLayer.tileSize || 256}
           crossOrigin="anonymous"
+          referrerPolicy={tileLayer.referrerPolicy}
           keepBuffer={10}
           updateWhenIdle={false}
           updateInterval={50}
@@ -297,4 +301,3 @@ export default function BaseMap({
     </div>
   );
 }
-
