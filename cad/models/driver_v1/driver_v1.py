@@ -44,7 +44,7 @@ from build123d import (
 from common.engraving import svg_relief
 from common.threads import keep_largest_solid
 from common.tuk import LOGO_FRAC, LOGO_SVG
-from models.driver.params import DRIVER, DriverParams
+from models.driver_v1.params import DRIVER, DriverParams
 from models.plug.params import PLUG, PlugParams
 
 _LOGO_FILL = 0.85  # logo scaled to this fraction of the plateau's minor radius
@@ -210,7 +210,7 @@ def _vent_grooves(part, smooth, p: DriverParams, plug: PlugParams, body_h: float
     return part
 
 
-def build_driver(
+def build_driver_v1(
     p: DriverParams = DRIVER,
     plug: PlugParams = PLUG,
     *,
@@ -281,9 +281,9 @@ if __name__ == "__main__":
     import time
 
     t0 = time.time()
-    part = build_driver()
+    part = build_driver_v1()
     print(
-        f"driver: volume={part.volume:.0f} mm^3  valid={part.is_valid}  "
+        f"driver_v1: volume={part.volume:.0f} mm^3  valid={part.is_valid}  "
         f"built in {time.time()-t0:.1f}s"
     )
     bb = part.bounding_box()

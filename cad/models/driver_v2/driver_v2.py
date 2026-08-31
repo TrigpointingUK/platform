@@ -27,13 +27,13 @@ from build123d import (
 )
 
 from common.threads import keep_largest_solid
-from models.driver.driver import build_driver
-from models.driver.params import DRIVER, DriverParams
-from models.keydriver.params import KEYSTORE, KeyStoreParams
+from models.driver_v1.driver_v1 import build_driver_v1
+from models.driver_v1.params import DRIVER, DriverParams
+from models.driver_v2.params import KEYSTORE, KeyStoreParams
 from models.plug.params import PLUG, PlugParams
 
 
-def build_keydriver(
+def build_driver_v2(
     p: DriverParams = DRIVER,
     plug: PlugParams = PLUG,
     ks: KeyStoreParams = KEYSTORE,
@@ -44,7 +44,7 @@ def build_keydriver(
     """Return the key-storing driver as a build123d ``Part``.
 
     Everything below the key cavities is the ordinary driver; ``knurl``/``logo``
-    are forwarded to :func:`build_driver`.
+    are forwarded to :func:`build_driver_v1`.
     """
     # The long-arm channel passes over the left dowel bore -- keep it clear.
     peg_clear = ks.y_offset - ks.bore_dia / 2 - p.peg_bore_dia / 2
@@ -54,7 +54,7 @@ def build_keydriver(
             f"(Ø{p.peg_bore_dia}); raise y_offset"
         )
 
-    part = build_driver(p, plug, knurl=knurl, logo=logo)
+    part = build_driver_v1(p, plug, knurl=knurl, logo=logo)
 
     # ---- Key rest geometry in the driver frame ---------------------------
     a = p.body_r * p.plan_aspect  # ellipse semi-axes at the knurl crest (X, Y)
@@ -176,9 +176,9 @@ if __name__ == "__main__":
     import time
 
     t0 = time.time()
-    part = build_keydriver()
+    part = build_driver_v2()
     print(
-        f"keydriver: volume={part.volume:.0f} mm^3  valid={part.is_valid}  "
+        f"driver_v2: volume={part.volume:.0f} mm^3  valid={part.is_valid}  "
         f"built in {time.time()-t0:.1f}s"
     )
     bb = part.bounding_box()

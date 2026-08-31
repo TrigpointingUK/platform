@@ -154,7 +154,7 @@ def build_plug(
         # Strictly LARGER than the tap tool's crest, not equal to it. The tool
         # now runs down into this relief, and two surfaces meeting at an exactly
         # equal radius give OCCT a valid solid whose triangulation leaks (the
-        # same grazing trap as the keydriver's bend fillet). 0.05 mm breaks it
+        # same grazing trap as the driver_v2 bend fillet). 0.05 mm breaks it
         # and is immaterial in a clearance groove.
         relief_r = bore.major_diameter / 2 + bore_clr + 0.05
         part = part - Pos(0, 0, (relief_bot + z0) / 2) * Cylinder(

@@ -10,7 +10,8 @@ components so far, with more expected:
   where the threads are bump-maps with no helix angle, this has **true helical
   threads** with correct flank form and lead — suitable for a functional print or
   a milling/casting master.
-- **driver** — a hand tool to screw the plug in/out of the pillar (see
+- **driver** — a hand tool to screw the plug in/out of the pillar, in two
+  versions (`driver_v1`, and `driver_v2` which stores a hex key inside it; see
   [Plug driver tool](#plug-driver-tool)).
 
 Each component is a self-contained package under `models/`; shared machinery
@@ -36,10 +37,14 @@ cad/
 │   │   ├─ lettering.py    # "TRIANGULATION STATION" / "ORDNANCE SURVEY" arcs
 │   │   ├─ top_surfaces.py # inner-plug top treatments (flat / logo / QR) + presets
 │   │   └─ build.py        # plug recipe: run(*, threads, skip_stl)
-│   └─ driver/             # plug driver tool
-│       ├─ params.py       # every driver dimension, provenance-tagged. EDIT THIS.
-│       ├─ driver.py       # ellipsoidal sawtooth-knurled disc + peg bores
-│       └─ build.py        # driver recipe: run(*, threads, skip_stl)
+│   ├─ driver_v1/          # plug driver tool, v1: the bare tool
+│   │   ├─ params.py       # every driver dimension, provenance-tagged. EDIT THIS.
+│   │   ├─ driver_v1.py    # ellipsoidal sawtooth-knurled disc + peg bores
+│   │   └─ build.py        # driver_v1 recipe: run(*, threads, skip_stl)
+│   └─ driver_v2/          # v2 = v1 + a 4 mm hex key stored inside the body
+│       ├─ params.py       # key channel / slot / magnet / O-ring dimensions
+│       ├─ driver_v2.py    # build_driver_v1() + the key-storage cavities
+│       └─ build.py        # driver_v2 recipe
 ├─ build.py                # orchestrator (build all, or named components)
 ├─ step/  stl/             # generated output (reproducible)
 └─ requirements.txt  venv/
@@ -55,13 +60,13 @@ venv/bin/python -m pip install -r requirements.txt
 # Run everything from the cad/ root (it must be on sys.path for the packages).
 venv/bin/python build.py               # every component: STEP masters + STLs
 venv/bin/python build.py plug          # just the named component(s)
-venv/bin/python build.py driver
+venv/bin/python build.py driver_v2     # driver_v1 / driver_v2
 venv/bin/python build.py --step-only   # nominal STEP masters only
 venv/bin/python build.py --fast        # no threads (quick dimensional check)
 
 # Build/inspect one module directly (prints its volume + bounding box):
 venv/bin/python -m models.plug.plug
-venv/bin/python -m models.driver.driver
+venv/bin/python -m models.driver_v2.driver_v2
 ```
 
 > Python 3.12 is used deliberately: `cadquery-ocp` (the OpenCASCADE binding)
@@ -81,8 +86,9 @@ venv/bin/python -m models.driver.driver
   allowed separately per member, see below). Tune after trial fits.
 - Extra STLs are produced for each customised inner-plug top (see below), named
   `inner_plug_<preset>_<variant>.stl`.
-- **`step/driver.step`, `stl/driver.stl`** — the driver tool (single solid, no
-  thread-clearance variants; its only fit dimension is the peg bore).
+- **`step/driver_v<n>.step`, `stl/driver_v<n>.stl`** — the driver tool, one pair
+  per version (single solid each, no thread-clearance variants; its only fit
+  dimension is the peg bore).
 
 ### The FDM bore thread is not the brass thread
 
@@ -182,7 +188,7 @@ Notes:
 
 ## Plug driver tool
 
-`models/driver/` is a **face/pin spanner** for screwing the plug in and out of
+`models/driver_v1/` is a **face/pin spanner** for screwing the plug in and out of
 the pillar spider. Two steel pegs drop into the plug's two upper-ring clearance
 holes (Ø9 mm, 77 mm apart — the spider-screw pattern) so the whole plug can be
 rotated; that is the stiff 64.7 mm 8 TPI joint, the one that seizes.
@@ -241,8 +247,8 @@ methacrylate / structural-acrylic adhesive, or knurl the dowel ends, if printing
 in PA.)
 
 Body size/height, tooth count/depth, ramp/steep split and the flat radii are
-ergonomic estimates flagged `[E]` in `models/driver/params.py` — iterate there;
-no geometry code changes.
+ergonomic estimates flagged `[E]` in `models/driver_v1/params.py` — iterate
+there; no geometry code changes.
 
 ## Coordinate frame
 

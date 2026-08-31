@@ -16,15 +16,15 @@ from __future__ import annotations
 import argparse
 
 from common.paths import ensure_dirs
-from models.driver import build as driver_build
-from models.keydriver import build as keydriver_build
+from models.driver_v1 import build as driver_v1_build
+from models.driver_v2 import build as driver_v2_build
 from models.plug import build as plug_build
 
 # name -> component build module (each exposes run(*, threads, skip_stl))
 COMPONENTS = {
     "plug": plug_build,
-    "driver": driver_build,
-    "keydriver": keydriver_build,
+    "driver_v1": driver_v1_build,
+    "driver_v2": driver_v2_build,
 }
 
 

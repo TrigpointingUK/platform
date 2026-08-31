@@ -6,7 +6,7 @@ match the convention used by the driver and plug models:
     [D]  Dimensioned  - taken from a mating part / a measured original / a listing.
     [E]  Estimated    - a plausible guess, tune on the first print.
 
-The tool is the ordinary driver (``models.driver``) with a 4 mm hex (allen) key
+The tool is the v1 driver (``models.driver_v1``) with a 4 mm hex (allen) key
 stored inside its body. The key is imagined as a *cutter*: its long arm slides
 down a Ø``bore_dia`` horizontal channel driven parallel to the **major axis**,
 offset in Y by ``y_offset`` so it clears the (left) dowel bore it passes over.
