@@ -7,10 +7,14 @@ match the convention used by the earlier drivers and the plug model:
     [E]  Estimated    - a plausible guess, tune on the first print.
     [S]  Spec         - a nominal engineering-standard value (e.g. a tap drill).
 
-v3 is the v2 key-storing driver (``models.driver_v2``) with a **pair of spare
-screws stashed in the top face**. The screws are spares for the spider shelf
-screws -- the ones that pass through the plug's two Ø9 mm upper-ring clearance
-holes -- so losing one on a windy summit does not end the job.
+v3 is the v2 key-storing driver (``models.driver_v2``) with two additions:
+
+* a **pair of spare screws stashed in the top face** (``ScrewStashParams``).
+  The screws are spares for the spider shelf screws -- the ones that pass
+  through the plug's two Ø9 mm upper-ring clearance holes -- so losing one on a
+  windy summit does not end the job.
+* a **magnetic tray recessed into the base** (``BaseTrayParams``), for the small
+  ferrous oddments a plug swap generates.
 
 Each stash is a single blind bore on the **major axis**, sunk from the flat top
 plateau, in three coaxial sections (top to bottom):
@@ -107,5 +111,66 @@ class ScrewStashParams:
     stash_x: float = 23.0  # [E] stash centres at x = +/- this
 
 
-# Single shared instance; import and override fields as measurements arrive.
+@dataclass(frozen=True)
+class BaseTrayParams:
+    """A magnetic parts tray recessed into the tool's flat base.
+
+    **Every dimension here is set by printability, not by taste.** The tool is
+    printed base-down on the plate (a smooth base, symmetric elliptical layer
+    marks on top -- it works, so nothing should force a re-orientation), which
+    makes this tray a cavity whose roof the printer has to close *over air*. The
+    chamfers below are what keep the slicer from needing support inside it:
+
+    * **Chamfers, never fillets, on anything facing the plate.** A concave fillet
+      between the tray wall and its roof sweeps through every overhang angle from
+      0 deg to 90 deg, and the fully horizontal part is right where it meets the
+      roof. Worse, the slicer reads it as a *sloped surface* rather than a bridge,
+      so it gets none of the bridge flow / fan / anchoring treatment and simply
+      droops. A 45 deg chamfer holds one constant, self-supporting angle instead.
+      (A sharp 90 deg corner is second best -- the slicer at least recognises a
+      clean bridge. The fillet is the worst of the three.)
+    * Each chamfer below is **45 deg by construction**: its height equals its
+      radial run, so no field can be edited into an unprintable overhang.
+    * ``roof_chamfer`` also shortens the one span that no chamfer can remove --
+      the flat roof, which must bridge whatever the wall does.
+    """
+
+    # ---- The tray --------------------------------------------------------
+    dia: float = 35.0  # [E] mouth Ø at the base face
+    depth: float = 5.0  # [E] to the roof
+    roof_chamfer: float = 2.0  # [E] 45 deg, closing the wall into the roof. The
+    #                              roof is therefore Ø(dia - 2*this) = Ø31, which
+    #                              is the span the printer bridges. Raise it to
+    #                              shorten that bridge (at 5.0 the tray becomes a
+    #                              fully drafted Ø35 -> Ø25 cone, the safest
+    #                              possible shape); lower it only if something
+    #                              has to sit flat and full-width in the tray.
+    mouth_chamfer: float = 0.5  # [E] 45 deg at the base face. Absorbs the
+    #                               first-layer squish ("elephant's foot"), which
+    #                               would otherwise leave the mouth slightly
+    #                               undersize with a rolled lip.
+
+    # ---- Retention magnet (BOM item; only its pocket is modelled) --------
+    # Same convention as the dowel bores and v2's magnet: a clearance pocket for
+    # an epoxy annulus, never an interference fit into printed plastic.
+    magnet_dia: float = 8.0  # [D] Ø8 disc
+    magnet_thick: float = 3.0  # [D] 3 mm thick
+    magnet_pocket_dia: float = 8.3  # [E] glue clearance: ~0.3 mm epoxy annulus
+    magnet_pocket_depth: float = 3.3  # [E] a touch over the disc, so it seats
+    #                                     just below the tray roof
+    magnet_mouth_chamfer: float = 0.5  # [E] 45 deg where the pocket opens into
+    #                                      the roof. This one earns its keep
+    #                                      twice: it is the usual lead-in and
+    #                                      glue fillet, AND it is what keeps the
+    #                                      pocket printable. The pocket's mouth
+    #                                      is a hole in the middle of the roof's
+    #                                      bridge layer, so its perimeter is laid
+    #                                      down in mid-air and sags inward; the
+    #                                      chamfer puts that sagging loop at
+    #                                      Ø(pocket + 2*this), clear of the bore,
+    #                                      so droop cannot foul the magnet.
+
+
+# Single shared instances; import and override fields as measurements arrive.
 SCREWSTASH = ScrewStashParams()
+BASETRAY = BaseTrayParams()

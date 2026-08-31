@@ -1,18 +1,27 @@
 """Screw-stashing driver (v3): the v2 key-storing driver plus two spare screws.
 
-Everything below the screw stashes is the v2 tool -- the sculpted elliptical
-sawtooth-knurled knob with its two glued steel pegs, the embossed logo, and the
-4 mm hex key stored inside the body (``models.driver_v2``). v3 adds a **pair of
-stashes for spare spider shelf screws**, sunk into the flat top plateau on the
-major axis, one each side of the logo.
+Everything underneath is the v2 tool -- the sculpted elliptical sawtooth-knurled
+knob with its two glued steel pegs, the embossed logo, and the 4 mm hex key
+stored inside the body (``models.driver_v2``). v3 adds two things:
 
-Each stash is a three-section blind bore: a head recess at the plug's own Ø9
-clearance-hole diameter (deep enough that the head sits below flush), a plain
-shaft hole at tap-drill size that the user taps by hand so the screw threads in
-and cannot fall out, and a relief below that for the tap's tapered lead. See
-``params.py`` for the concept and dimensions.
+* **Screw stashes.** A pair of three-section blind bores sunk into the flat top
+  plateau on the major axis, one each side of the logo: a head recess at the
+  plug's own Ø9 clearance-hole diameter (deep enough that the head sits below
+  flush), a plain shaft hole at tap-drill size that the user taps by hand so the
+  screw threads in and cannot fall out, and a relief below that for the tap's
+  tapered lead.
+* **A magnetic parts tray** recessed into the flat base, with a pocket for a Ø8
+  disc magnet in the middle of its roof.
 
-Only the plastic body is modelled; the screws, like the dowel pegs, the magnet
+The two features are cut from opposite faces and never meet: the stashes bottom
+out at z = 17 on the major axis, the tray's magnet pocket tops out at z = 8.3 on
+the centreline.
+
+The tool is printed **base-down**, so the tray is a cavity the printer must roof
+over air. Its geometry is chamfered accordingly -- see ``BaseTrayParams`` for
+why every one of those is a chamfer and not a fillet.
+
+Only the plastic body is modelled; the screws, like the dowel pegs, the magnets
 and the O-ring, are BOM items.
 
 Local frame is the driver's: z = 0 at the flat base, +z upward, major axis = X.
@@ -26,7 +35,12 @@ from common.threads import keep_largest_solid
 from models.driver_v1.params import DRIVER, DriverParams
 from models.driver_v2.driver_v2 import build_driver_v2
 from models.driver_v2.params import KEYSTORE, KeyStoreParams
-from models.driver_v3.params import SCREWSTASH, ScrewStashParams
+from models.driver_v3.params import (
+    BASETRAY,
+    SCREWSTASH,
+    BaseTrayParams,
+    ScrewStashParams,
+)
 from models.plug.params import PLUG, PlugParams
 
 # v1 starts each sighting groove this far inboard of its vent hole, so the top
@@ -94,22 +108,80 @@ def _stash_cutter(x: float, head_dia: float, z_plateau: float,
     return cut
 
 
+def _tray_cutter(t: BaseTrayParams):
+    """The base tray + its magnet pocket at the axis, as ONE fused solid.
+
+    Cut upward from the base (z = 0), which is the face on the build plate, so
+    every surface here is an overhang in print orientation. Bottom to top:
+
+        mouth chamfer -> straight wall -> roof chamfer -> [roof: bridged] ->
+        magnet-pocket mouth chamfer -> magnet pocket -> [pocket roof: bridged]
+
+    The three chamfers are all 45 deg (height == radial run), the steepest angle
+    that still prints unsupported. The two flat roofs are bridges, which no
+    amount of CAD removes -- ``roof_chamfer`` just shortens the long one.
+    """
+    r = t.dia / 2.0
+    mr = t.magnet_pocket_dia / 2.0
+    z_wall = t.depth - t.roof_chamfer  # where the wall starts closing in
+    z_pocket = t.depth + t.magnet_pocket_depth
+
+    # Mouth chamfer at the base face: takes the first-layer squish, and leaves a
+    # clean lip instead of a rolled one.
+    cut = Pos(0, 0, 0) * Cone(
+        bottom_radius=r + t.mouth_chamfer, top_radius=r, height=t.mouth_chamfer,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    )
+
+    # Straight wall, overshooting below the base so the boolean is clean.
+    cut = cut + Pos(0, 0, (z_wall - 1.0) / 2) * Cylinder(
+        radius=r, height=z_wall + 1.0
+    )
+
+    # Roof chamfer: the wall closes into the roof at 45 deg rather than meeting it
+    # at a corner, and the bridge that follows is 2*roof_chamfer shorter.
+    if t.roof_chamfer > 0:
+        cut = cut + Pos(0, 0, z_wall) * Cone(
+            bottom_radius=r, top_radius=r - t.roof_chamfer, height=t.roof_chamfer,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+
+    # Magnet-pocket mouth chamfer: lead-in, glue fillet, and -- see params -- the
+    # thing that keeps the bridge layer's sagging perimeter out of the bore.
+    if t.magnet_mouth_chamfer > 0:
+        c = t.magnet_mouth_chamfer
+        cut = cut + Pos(0, 0, t.depth) * Cone(
+            bottom_radius=mr + c, top_radius=mr, height=c,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+
+    # The pocket itself.
+    cut = cut + Pos(0, 0, (t.depth + z_pocket) / 2) * Cylinder(
+        radius=mr, height=z_pocket - t.depth
+    )
+
+    return cut
+
+
 def build_driver_v3(
     p: DriverParams = DRIVER,
     plug: PlugParams = PLUG,
     ks: KeyStoreParams = KEYSTORE,
     s: ScrewStashParams = SCREWSTASH,
+    t: BaseTrayParams = BASETRAY,
     *,
     knurl: bool = True,
     logo: bool = True,
     stash: bool = True,
+    tray: bool = True,
 ):
-    """Return the screw-stashing driver as a build123d ``Part``.
+    """Return the v3 driver as a build123d ``Part``.
 
-    Everything but the stashes is :func:`models.driver_v2.driver_v2.build_driver_v2`;
-    ``knurl``/``logo`` are forwarded to it. ``stash=False`` gives the plain v2 tool
-    (useful for A/B comparison). The head-recess diameter is read from ``plug``
-    -- it is the same hole the screw passes through on the real part.
+    Everything but the stashes and the tray is
+    :func:`models.driver_v2.driver_v2.build_driver_v2`; ``knurl``/``logo`` are
+    forwarded to it. ``stash``/``tray`` drop either addition (useful for A/B
+    comparison). The stash head-recess diameter is read from ``plug`` -- it is the
+    same hole the screw passes through on the real part.
     """
     head_dia = 2.0 * plug.clr_hole_r  # Ø9: the plug's own clearance hole
     body_h = 2.0 * p.body_half_h
@@ -117,13 +189,16 @@ def build_driver_v3(
 
     if stash:
         _check(p, plug, ks, s, head_dia=head_dia, body_h=body_h, peg_x=peg_x)
+    if tray:
+        _check_tray(p, plug, ks, t, peg_x=peg_x)
 
     part = build_driver_v2(p, plug, ks, knurl=knurl, logo=logo)
-    if not stash:
-        return part
 
-    for x in (s.stash_x, -s.stash_x):
-        part = part - _stash_cutter(x, head_dia, body_h, s)
+    if stash:
+        for x in (s.stash_x, -s.stash_x):
+            part = part - _stash_cutter(x, head_dia, body_h, s)
+    if tray:
+        part = part - _tray_cutter(t)
 
     return keep_largest_solid(part)
 
@@ -194,6 +269,57 @@ def _check(p: DriverParams, plug: PlugParams, ks: KeyStoreParams,
             f"stash bottoms at z={z_blind:.1f}, leaving under {_MIN_FLOOR} mm of "
             f"floor; shorten relief_depth or the tool is too shallow for it"
         )
+
+
+def _check_tray(p: DriverParams, plug: PlugParams, ks: KeyStoreParams,
+                t: BaseTrayParams, *, peg_x: float) -> None:
+    """Fail loudly if the base tray would foul the body, or print badly.
+
+    The printability checks are here rather than left to the slicer because the
+    tool is printed base-down without support: an edit that turns a 45 deg
+    chamfer into a 60 deg one produces a part that still looks fine in CAD and
+    droops on the plate.
+    """
+    r = t.dia / 2.0
+    mr = t.magnet_pocket_dia / 2.0
+
+    # In plan: stay on the flat base, and clear of the dowel bores.
+    if r + t.mouth_chamfer > p.base_flat_r:
+        raise ValueError(
+            f"tray (Ø{t.dia} + chamfer) reaches r={r + t.mouth_chamfer:.1f}, past "
+            f"the flat base's minor radius {p.base_flat_r}; it would break out "
+            f"through the rounded base edge"
+        )
+    peg_r = p.peg_bore_dia / 2.0 + p.peg_groove_depth
+    if r + t.mouth_chamfer > peg_x - peg_r:
+        raise ValueError(
+            f"tray reaches x={r + t.mouth_chamfer:.1f}, into the peg bore's "
+            f"keying grooves (x >= {peg_x - peg_r:.1f})"
+        )
+
+    # In section: leave plastic between the magnet pocket and v2's key channel,
+    # which crosses over the tray in plan.
+    z_pocket = t.depth + t.magnet_pocket_depth
+    key_floor = ks.z_plane - ks.bore_dia / 2.0
+    if z_pocket >= key_floor:
+        raise ValueError(
+            f"magnet pocket tops out at z={z_pocket:.1f}, into v2's key channel "
+            f"(underside z={key_floor:.1f}); shallower tray or a thinner magnet"
+        )
+
+    # Printability, base-down and unsupported.
+    if t.roof_chamfer > t.depth:
+        raise ValueError(
+            f"roof_chamfer {t.roof_chamfer} exceeds the tray depth {t.depth}"
+        )
+    roof_r = r - t.roof_chamfer
+    if roof_r <= mr + t.magnet_mouth_chamfer:
+        raise ValueError(
+            f"roof (Ø{2 * roof_r:.1f}) is no wider than the magnet pocket mouth "
+            f"(Ø{2 * (mr + t.magnet_mouth_chamfer):.1f}); nothing left to bridge from"
+        )
+    if t.mouth_chamfer < 0 or t.magnet_mouth_chamfer < 0 or t.roof_chamfer < 0:
+        raise ValueError("tray chamfers must be >= 0 (a negative one is an undercut)")
 
 
 if __name__ == "__main__":

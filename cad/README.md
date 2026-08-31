@@ -202,7 +202,7 @@ fix to them. Print whichever you want; they are separate build targets.
 |---------|------|---------|
 | **v1** | the bare tool: knurled elliptical knob + two glued steel pegs | `models/driver_v1/` |
 | **v2** | a 4 mm hex key stored inside the body | `models/driver_v2/` |
-| **v3** | a pair of spare spider screws stashed in the top face | `models/driver_v3/` |
+| **v3** | spare screws stashed in the top face + a magnetic tray in the base | `models/driver_v3/` |
 
 ### v1 — the tool itself
 
@@ -285,9 +285,16 @@ near the mouth — a 4 × 1.5 mm NBR ring stands ~0.5 mm proud and grips the key
 across-corners as it passes. Set `oring_groove_dia <= bore_dia` to drop the
 gland, or `magnet_dia` to zero out the magnet.
 
-### v3 — a pair of spare screws in the top face
+### v3 — spare screws in the top, a magnetic tray in the base
 
-`models/driver_v3/` sinks two **spare-screw stashes** into the flat top plateau,
+`models/driver_v3/` adds two things to v2: **spare-screw stashes** in the top
+plateau and a **magnetic parts tray** in the base. They are cut from opposite
+faces and never meet — the stashes bottom out at z = 17 on the major axis, the
+tray's magnet pocket tops out at z = 8.3 on the centreline.
+
+#### Spare-screw stashes
+
+It sinks two stashes into the flat top plateau,
 on the major axis, one each side of the logo. Lose a spider shelf screw on a
 windy summit and there is a spare in the tool that drove the plug out.
 
@@ -328,6 +335,50 @@ fouls.
 **BOM (in addition to v1/v2):** 2× spare spider shelf screw. **After printing:**
 tap both shaft holes (0.8 mm / 30 TPI / 2BA — whichever the real screw gauges
 as); the head recesses and relief need no work.
+
+#### Magnetic base tray
+
+A Ø35 × 5 mm tray recessed into the flat base, with a **Ø8 × 3 mm disc magnet**
+epoxied into a pocket in the middle of its roof, to hold the small ferrous
+oddments a plug swap generates. It sits inside the peg circle (16 mm clear of the
+nearest dowel-bore feature) and 8.5 mm inside the flat base's minor radius.
+
+**Its shape is dictated by printing, not by taste.** The tool prints **base-down**
+— smooth base, symmetric elliptical layer marks on top — so the tray is a cavity
+whose roof the printer has to close *over air*, and it must do so without
+support (support inside a Ø35 × 5 pocket is miserable to remove and would mar the
+face the magnet bonds to). Three rules follow:
+
+- **Chamfers, never fillets, on anything facing the plate.** A concave fillet
+  between the tray wall and its roof sweeps through *every* overhang angle from
+  0° to 90°, and the fully horizontal part lands exactly where it meets the roof.
+  Worse, the slicer reads a fillet as a *sloped surface* rather than a bridge, so
+  it gets none of the bridge flow / fan / anchoring treatment and simply droops.
+  A 45° chamfer holds one constant, self-supporting angle. Ranked: **45° chamfer
+  > sharp 90° corner > fillet** — the fillet is the worst of the three, which is
+  the opposite of the usual instinct.
+- **Every chamfer is 45° by construction** — its height equals its radial run, so
+  no parameter edit can quietly produce an unprintable overhang. Verified on the
+  built solid: every tray wall measures 45.0° from vertical.
+- **The flat roof must bridge, and no chamfer removes that.** `roof_chamfer`
+  (2 mm) shortens it from Ø35 to Ø31; raise it to 5 mm and the tray becomes a
+  fully drafted Ø35 → Ø25 cone, the safest possible shape, at the cost of tray
+  volume.
+
+The **magnet pocket's mouth chamfer** is the one that earns its keep twice. The
+pocket opens as a hole in the middle of the roof's bridge layer, so its perimeter
+is laid down in mid-air and sags inward — straight into the space the magnet
+needs. The 0.5 mm × 45° chamfer puts that sagging loop at Ø9.3, half a millimetre
+radially clear of the Ø8.3 bore, so droop cannot foul the magnet. It is also the
+usual lead-in and glue fillet.
+
+`build_driver_v3` checks the printability constraints as well as the geometric
+ones, because an edit that turns a 45° chamfer into a 60° one still looks fine in
+CAD and droops on the plate.
+
+**BOM:** 1× Ø8 × 3 mm disc magnet + structural epoxy (the pocket is Ø8.3 × 3.3,
+a clearance fit for an epoxy annulus, same convention as the dowel bores).
+**Slicing:** supports **off**; nothing in the part needs them.
 
 ## Coordinate frame
 
