@@ -77,8 +77,8 @@ venv/bin/python -m models.driver.driver
   a print allowance into it.
 - **`stl/<part>_resin.stl`, `stl/<part>_fdm.stl`** — one printable mesh per part
   per process, with a radial thread clearance applied for a running fit (resin
-  0.10 mm, FDM 0.25 mm — starting points, tune after trial fits at the print
-  shop).
+  0.10 mm, FDM 0.25 mm on the spider thread; the inner-plug/bore joint is
+  allowed separately per member, see below). Tune after trial fits.
 - Extra STLs are produced for each customised inner-plug top (see below), named
   `inner_plug_<preset>_<variant>.stl`.
 - **`step/driver.step`, `stl/driver.stl`** — the driver tool (single solid, no
@@ -110,6 +110,37 @@ The allowance is applied **once**, entirely to the external member
 this joint are printed, so allowing on each — which is right for the spider
 joint, where only one member is printed — gave the assembled pair double the
 intended slop. That is what let the inner plug tilt and cross-thread.
+
+### The bore joint is allowed per member
+
+Both members of the inner-plug/bore joint are printed, so its allowance is given
+per member (`bore_clearance_external` on the shaft, `bore_clearance_internal` on
+the bore) rather than once for the joint. Allowing the full figure on each — the
+right thing for the spider joint, where only one member is printed — gives the
+assembled pair double the intended slop.
+
+Where the allowance sits is a design decision, not bookkeeping, because the
+**resin** parts have to interchange with brass in both directions. Calipers on
+the round-2 print showed the resin inner plug exactly 0.2 mm under the brass one
+on diameter — precisely the 0.10 mm radial allowance the STL asked for — so
+resin tracks the model faithfully and every fit here is a modelling choice.
+
+The brass original puts its whole allowance on the female: the brass bore is cut
+**0.26 mm** generous (37.5 mm minor against a 39.3 mm crest) and the shaft is
+nominal. The resin variant now does the same, at 0.30 mm — the brass figure plus
+a little for resin's surface texture, since 0.26 mm is an allowance for smooth
+machined metal:
+
+| Fit | Radial clearance | Engagement |
+|-----|------------------|------------|
+| printed shaft ↔ printed bore | 0.30 mm | 0.86 mm (74%) |
+| brass shaft ↔ printed bore | 0.30 mm | 0.86 mm (74%) |
+| printed shaft ↔ brass bore | 0.26 mm | 0.90 mm (78%) |
+
+The round-2 print brackets that choice from both sides: at 0.20 mm the printed
+pair needed PTFE and ten minutes of working in before it ran by hand, while
+0.36 mm (printed shaft in a brass bore) ran freely. It is also well short of the
+0.5 mm that let the FDM pair tilt and cross-thread.
 
 The **spider joint keeps its 8 TPI Whitworth form** in every output: it has to
 mate with a real pillar spider, so it is not ours to redraw. It carries the same
