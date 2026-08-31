@@ -15,6 +15,30 @@ v3 is the v2 key-storing driver (``models.driver_v2``) with two additions:
   windy summit does not end the job.
 * a **magnetic tray recessed into the base** (``BaseTrayParams``), for the small
   ferrous oddments a plug swap generates.
+* a **second pin spanner in the +X end** (``SidePinParams``), so the one tool
+  also drives the *inner* plug. Two Ø6 steel pins drop into the inner plug's two
+  Ø6.7 blind holes; the tool is then held with its major axis vertical and turned
+  about that axis.
+
+Those side pins force two changes to the shared body, so v3 does not use the
+stock ``DRIVER``/``KEYSTORE`` instances -- it overrides them below into
+``DRIVER_V3``/``KEYSTORE_V3``, leaving v1 and v2 exactly as they were printed:
+
+* **The tool gets thicker** (40 -> 45 mm) **and squarer in profile**. The pins
+  must be spaced 27 mm apart *vertically*, not across the tool: at the +X end the
+  plan ellipse has narrowed so fast that a Y-spaced pair's bores would break out
+  through the side wall 3.7 mm before reaching the surface. Stacked vertically
+  they need 27 + 6.3 = 33.3 mm of *straight knurl band* to sit in, plus a wall
+  top and bottom. v1's 40 mm body has only 25 mm of band, so the bores would
+  break clean out of it. 45 mm buys 5 mm; the other 9 comes out of the shoulders,
+  which shrink from 8 mm of rounded base edge and 7 mm of sculpted top to 3 mm of
+  each. That is the real price of the side pins -- the tool keeps its plan
+  ellipse exactly, but its profile is noticeably squarer, a thick knurled disc
+  with softened edges rather than a discus.
+* **The knurl fades out at both ends.** Every feature that breaks the rim there
+  -- the pin mouths, and on the -X end the key flare, the short-arm slot and the
+  finger scoop -- would otherwise truncate whatever teeth it landed on into thin
+  sharp spikes.
 
 Each stash is a single blind bore on the **major axis**, sunk from the flat top
 plateau, in three coaxial sections (top to bottom):
@@ -41,9 +65,11 @@ along X (through the pegs), minor along Y.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from common.specs import ThreadSpec
+from models.driver_v1.params import DRIVER
+from models.driver_v2.params import KEYSTORE
 
 
 @dataclass(frozen=True)
@@ -171,6 +197,169 @@ class BaseTrayParams:
     #                                      so droop cannot foul the magnet.
 
 
+@dataclass(frozen=True)
+class SidePinParams:
+    """Ø6 steel pins in the +X end, for driving the **inner** plug.
+
+    The inner plug has two blind holes in its top face (``PLUG.ip_side_spacing``
+    apart, Ø``2*ip_side_r`` x ``ip_side_depth`` deep) -- the pin-spanner pattern.
+    Two pins protruding from this end drop into them, so the same tool that
+    breaks the big spider joint also turns the inner plug out of the bore. The
+    pins are glued into blind bores exactly as v1's dowel pegs are: a clearance
+    fit with annular keying grooves, a mouth chamfer and a vent, never a press
+    fit (an interference fit wedges printed layers apart).
+
+    They sit at **y = 0**, where the surface normal is exactly +X, so both bores
+    meet the end square. Their **spacing is owned by the plug** and read from
+    there at build time, like the peg spacing.
+
+    **The mouths need a spherical dish, not a chamfer.** The +X tip has a plan
+    radius of curvature of only 15 mm and is *narrower than the bore*: the body
+    is 6.3 mm wide only 0.33 mm back from the tip. Over that last 0.33 mm the
+    bore is wider than the nose it is being drilled into, so its wall runs out
+    tangentially to the surface and each mouth ends up ringed by webs that taper
+    to zero thickness -- knife edges, and unprintable besides. A 45 deg chamfer
+    makes that worse, not better, because it needs the body to be 8.3 mm wide and
+    that only happens 0.63 mm back.
+
+    A **spherical countersink** fixes it at the root. A sphere of radius
+    ``mouth_dish_r`` centred out on the bore axis, biting ``mouth_dish_d`` deep at
+    the tip, *swallows the whole region where the bore is wider than the nose* --
+    so the tangency never appears in the finished solid -- and its own rim meets
+    the elliptical flank at a shallow angle everywhere, about 139 deg included.
+    What is left is a shallow oval dimple at each pin, blending smoothly into the
+    flank. It is the same trick that blunts the finger scoop's rim at the other
+    end of the tool.
+
+    This is why there is no truncated nose: ``nose_flat_back`` defaults to 0 and
+    **the plan ellipse is left whole**. Cutting the tip off to a flat also works
+    (and gives a bearing pad square to the pins), but it costs the tool's shape
+    and 3 mm of bore depth for something the dish does without either.
+
+    Held for this job the tool is a 120 mm lever turned about its own major axis;
+    the grip is the knurled waist at |x| < 30, which the end fade leaves intact.
+    """
+
+    # ---- The pins (BOM items; only their bores are modelled) -------------
+    pin_dia: float = 6.0  # [D] Ø6 silver-steel / dowel (in the plug's Ø6.7 holes)
+    pin_bore_dia: float = 6.3  # [E] glue clearance: ~0.3 mm epoxy annulus, the
+    #                              same allowance v1 gives its Ø8 dowels
+    protrusion: float = 6.5  # [E] stick-out beyond the nose. The plug's side
+    #                            holes are 8 mm deep, so this bottoms 1.5 mm
+    #                            short and the pins take the load in shear.
+    bore_depth: float = 14.0  # [E] embedment, from the ellipse's tip. NOT free:
+    #                             the +X dowel peg bore's keying grooves reach
+    #                             x = 43.45 and the lower pin bore passes right
+    #                             over them, so the blind end has to stop short of
+    #                             those. 14.0 puts it at x = 46.0, 2.55 mm clear.
+    #                             The dish opens the outer 1.1 mm of it, leaving
+    #                             ~12.9 mm of full-diameter grip on the pin --
+    #                             2.1 x the pin diameter, against 2.5 x for v1's
+    #                             pegs -- and the load here is pure transverse
+    #                             shear in the LAYER PLANE (rotating about the
+    #                             major axis pushes each pin along +/-Y), which is
+    #                             the direction printed plastic bears best.
+
+    # Keying + glue management, same scheme as v1's peg bores:
+    groove_n: int = 2  # [E] annular grooves; cured epoxy keys into them. Two,
+    #                      not v1's three: this bore is 11 mm long against v1's
+    #                      25, and the grooves are spread over the middle 3 mm of
+    #                      it, so three 1.5 mm rings would run together into one
+    #                      continuous counterbore with no shoulders to key on.
+    groove_depth: float = 0.8  # [E] radial extra depth of each groove
+    groove_h: float = 1.5  # [E] axial height of each groove
+    # ---- Mouth treatment: a spherical dish (see the class docstring) -----
+    mouth_dish_r: float = 9.0  # [E] countersink sphere radius, centred on the
+    #                               bore axis at (nose - d + r). A bigger radius
+    #                               is a blunter blend, but it also reaches
+    #                               further up and down the nose -- sqrt(2rd - d^2)
+    #                               -- and on a 45 mm body there is only 6.0 mm of
+    #                               band above each bore to reach into. r=10 at
+    #                               d=2 reaches exactly 6.0 -- tangent to the
+    #                               band/sculpt junction, the sort of exact touch
+    #                               v2's mesh_gap exists to avoid -- so 9.0 backs
+    #                               it off to 5.66 and keeps 0.34 mm of daylight.
+    #                               0 falls back to the conical mouth_chamfer.
+    mouth_dish_d: float = 2.0  # [E] how deep it bites on the axis, at the tip.
+    #                              Enough that the sphere swallows the whole
+    #                              region where the bore is wider than the nose,
+    #                              which build_driver_v3 checks: this clears it by
+    #                              0.52 mm and leaves a 132 deg rim.
+    mouth_chamfer: float = 2.0  # [E] plain 45 deg lead-in, used ONLY when the
+    #                               dish is switched off. It CAN do the job, but
+    #                               only at this size or more: the cone has to
+    #                               reach the corner of the breakout region, where
+    #                               a point sits at the full bore radius in y and
+    #                               z at once (r*sqrt(2) = 4.45 mm from the axis),
+    #                               and 1.0 mm does not -- measured, it leaves 8
+    #                               slivers in a 1331-point sample where 2.0 mm
+    #                               leaves none. It is the cheaper option and the
+    #                               rim is blunt enough to handle, just less blunt
+    #                               than the dish: ~121 deg against ~136 deg.
+
+    # ---- Truncated nose: the rejected alternative, kept switchable -------
+    # Cutting the tip off to a flat face solves the same problem and throws in a
+    # bearing pad square to the pins, but it costs the elliptical silhouette and
+    # 3 mm of bore depth. The dish does the job without either, so this is OFF.
+    nose_flat_back: float = 0.0  # [E] mm to cut off the +X tip; 0 = full ellipse
+    nose_round: float = 1.5  # [E] fillet round the flat's rim, if one is cut
+    vent_dia: float = 1.5  # [E] vent from the blind end so pushing a pin in
+    #                          cannot hydraulic-lock on trapped epoxy
+    vent_inset: float = 1.0  # [E] vent axis this far inboard of the blind end
+    #                            (in the pocket the pin tip leaves empty)
+    # Each vent runs to whichever face is nearer: the lower pin's drops to the
+    # flat base, the upper pin's rises to the sculpted top, where it surfaces
+    # inside the sighting groove alongside the existing peg vents.
+
+
+# ---- v3's body overrides ------------------------------------------------
+# v3 does not reshape v1: it hands build_driver_v1 a different DriverParams.
+# v1 and v2 keep the stock DRIVER and print exactly as before.
+DRIVER_V3 = replace(
+    DRIVER,
+    # 45 mm tall, with a 39 mm straight band (z 3..42) to carry the pin bores at
+    # z = 9 and 36. That leaves 2.85 mm of wall under the lower mouth and over the
+    # upper one -- thin, but thickening fast as each bore runs inboard, and the
+    # figure the build-time check is set against.
+    body_half_h=22.5,
+    band_half_h=19.5,
+    top_lip=0.0,  # no straight lip above the band: there is no room for one
+    # The sculpted top now has only 3 mm of rise. Over v1's 16 mm of radius change
+    # that makes the spline bulge 0.88 mm proud of the plateau -- a raised ridge
+    # round the logo. Widening the plateau shortens the run the spline has to
+    # cover and kills it (0.05 mm, on a par with v1's own 0.015).
+    plateau_r=22.0,
+    # ...but plateau_r also sets the logo's size, and a Ø44 plateau would render
+    # it 1.6x larger than on v1 and v2. Drop the fill to hold the badge at exactly
+    # the size it is on the other two: 22.0 * 0.541 = 11.9 = 14.0 * 0.85.
+    logo_fill=0.541,
+    # Teeth full depth to |x| = 30, gone by |x| = 45. The furthest-inboard thing
+    # that breaks the rim is the finger scoop at |x| = 46.2, so 45 clears every
+    # end feature; the 15 mm fade spans about 2.5 teeth, which reads as the knurl
+    # dying away rather than stopping.
+    knurl_fade_start=0.50,
+    knurl_fade_end=0.75,
+    knurl_crest_out=0.3,
+)
+
+# The key channel is specified as running along the tool's equator, so it has to
+# follow body_half_h up. (build_driver_v3 checks that these two still agree.)
+KEYSTORE_V3 = replace(
+    KEYSTORE,
+    z_plane=DRIVER_V3.body_half_h,
+    # Soften the -X entrance. The knurl fade above does most of the work -- it is
+    # the truncated teeth that made the spikes -- and these take the rest of what
+    # can be taken: the finger scoop becomes a wide shallow cap (Ø28 x 6 deep)
+    # whose rim meets the surface at about 46 deg rather than square on, and the
+    # slot mouth loses its four sharp corner points. See the note in
+    # build_driver_v3 for the one edge that is NOT fixed.
+    scoop_r=20.0,
+    scoop_depth=6.0,
+    bar_slot_round=1.5,
+)
+
+
 # Single shared instances; import and override fields as measurements arrive.
 SCREWSTASH = ScrewStashParams()
 BASETRAY = BaseTrayParams()
+SIDEPIN = SidePinParams()

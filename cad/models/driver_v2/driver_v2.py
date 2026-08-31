@@ -11,7 +11,7 @@ Local frame is the driver's: z = 0 at the flat base, +z upward, major axis = X.
 
 from __future__ import annotations
 
-from math import sqrt
+from math import hypot, sqrt
 
 from build123d import (
     Axis,
@@ -22,6 +22,7 @@ from build123d import (
     Rotation,
     Sphere,
     Torus,
+    fillet,
     make_face,
     revolve,
 )
@@ -89,6 +90,12 @@ def build_driver_v2(
     slot = Pos((x_beyond + x_slot_hi) / 2, y_mid, ks.z_plane) * Box(
         x_slot_hi - x_beyond, ks.short_arm, ks.bar_slot
     )
+    # Round the cutter's lengthwise edges, so the slot's mouth has no sharp
+    # corner points. Done on the Box, before it is used: OCCT fillets a Box
+    # happily and refuses the same edges once they are spline-bounded cavity
+    # edges in the finished solid.
+    if ks.bar_slot_round > 0:
+        slot = fillet(slot.edges().filter_by(Axis.X), radius=ks.bar_slot_round)
 
     channel = bore + slot
 
@@ -167,7 +174,18 @@ def build_driver_v2(
     if ks.scoop_r > 0:
         y_scoop = y_hi + (y_lo - y_hi) * ks.scoop_frac
         x_scoop = -a * sqrt(1.0 - (y_scoop / b) ** 2)
-        part = part - Pos(x_scoop, y_scoop, ks.z_plane) * Sphere(radius=ks.scoop_r)
+        # With scoop_depth set, back the sphere's centre off along the outward
+        # surface normal so the dish is a shallow cap rather than a hemisphere:
+        # same purchase for a finger, but the rim meets the surface at a slope
+        # instead of square on. See params for the geometry.
+        off = 0.0
+        if 0.0 < ks.scoop_depth < ks.scoop_r:
+            off = ks.scoop_r - ks.scoop_depth
+        nx, ny = x_scoop / (a * a), y_scoop / (b * b)  # outward ellipse normal
+        nl = hypot(nx, ny)
+        part = part - Pos(
+            x_scoop + off * nx / nl, y_scoop + off * ny / nl, ks.z_plane
+        ) * Sphere(radius=ks.scoop_r)
 
     return keep_largest_solid(part)
 

@@ -63,6 +63,28 @@ class DriverParams:
     #                            and bites while tightening slips. Flip if the
     #                            spider thread proves left-handed.
 
+    # Fading the teeth out toward the two ENDS of the ellipse. Anything that
+    # breaks the rim there -- a bore mouth, a scoop, a slot -- truncates whatever
+    # teeth it lands on into thin sharp spikes, so a tool with end features wants
+    # smooth end caps. Both thresholds are |x| / semi-major, measured on the
+    # crest ellipse: teeth are full depth inside ``knurl_fade_start`` and gone
+    # beyond ``knurl_fade_end``, smoothstepped between. The DEFAULTS DISABLE THE
+    # FADE (start = end = 1.0), so v1 and v2 are unchanged; v3 overrides them.
+    knurl_fade_start: float = 1.0  # [E] |x|/a where the teeth begin to shallow
+    knurl_fade_end: float = 1.0  # [E] |x|/a where they vanish altogether
+    knurl_crest_out: float = 0.0  # [E] lift the cutting wheel's crests this far
+    #                                 OUTSIDE the body. The knurl is made by
+    #                                 intersecting the wheel with the body, so a
+    #                                 crest that pokes out is clipped back to the
+    #                                 body's own surface -- which (a) lets the
+    #                                 faded end caps stay exactly, smoothly
+    #                                 elliptical instead of picking up the
+    #                                 wheel's polygon facets, and (b) takes the
+    #                                 knife edge off every tooth crest, replacing
+    #                                 it with a narrow flat of the true surface.
+    #                                 Must exceed the polygon's worst sagitta
+    #                                 (~0.24 mm at 46 teeth). 0 = off.
+
     # ---- Steel dowel pegs (BOM item; only their bores are modelled) ------
     # The dowels are glued in (structural epoxy) -- see README. The bore is a
     # clearance fit with mechanical-keying features, not an interference/press
@@ -91,6 +113,13 @@ class DriverParams:
     vent_groove_depth: float = 1.0  # [E] groove depth (follows the sculpted top)
     # Embossed TrigpointingUK logo on the flat plateau.
     logo_amount: float = 0.9  # [E] emboss height proud of the plateau
+    logo_fill: float = 0.85  # [E] the artwork is scaled so its bounding circle is
+    #                            this fraction of the plateau's MINOR radius. It is
+    #                            a knob of its own because plateau_r is set by the
+    #                            body's shape, not by how big the badge should be:
+    #                            a version that needs a wider plateau (v3, whose
+    #                            shallow sculpt would otherwise bulge) can drop
+    #                            this to keep the logo the same physical size.
 
 
 # Single shared instance; import and override fields as measurements arrive.

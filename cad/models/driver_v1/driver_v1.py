@@ -47,9 +47,6 @@ from common.tuk import LOGO_FRAC, LOGO_SVG
 from models.driver_v1.params import DRIVER, DriverParams
 from models.plug.params import PLUG, PlugParams
 
-_LOGO_FILL = 0.85  # logo scaled to this fraction of the plateau's minor radius
-
-
 def _body(p: DriverParams):
     """Revolve the sculpted knob profile (round; stretched to an ellipse later).
 
@@ -104,33 +101,62 @@ def _phi_at_arclen(s: float, phis, cum) -> float:
     return phis[k] + t * (phis[k + 1] - phis[k])
 
 
+def _tooth_fade(u: float, start: float, end: float) -> float:
+    """Tooth-depth multiplier at ``u`` = |x| / semi-major: 1 inside ``start``,
+    0 beyond ``end``, smoothstepped between (zero slope at both ends, so the
+    teeth die away without a visible step)."""
+    if end <= start:
+        return 1.0 if u <= start else 0.0
+    if u <= start:
+        return 1.0
+    if u >= end:
+        return 0.0
+    s = (u - start) / (end - start)
+    return 1.0 - s * s * (3.0 - 2.0 * s)
+
+
 def _elliptical_sawtooth_wheel(a: float, b: float, n: int, depth: float,
-                               steep_frac: float, z0: float, z1: float):
+                               steep_frac: float, z0: float, z1: float,
+                               fade_start: float = 1.0, fade_end: float = 1.0,
+                               crest_out: float = 0.0):
     """A toothed elliptical prism spanning ``z0..z1``: ``n`` sawteeth of equal
     *arc length* round the ellipse (semi-axes a=X, b=Y), so every tooth is the
     same linear size regardless of the ellipse's varying curvature.
 
-    Crests sit on the ellipse, roots are inset ``depth`` along the inward normal.
-    Each tooth rises steeply from root to crest over ``steep_frac`` of its pitch,
-    then ramps gently back down to the next root. The steep face is thus on the
-    clockwise (decreasing arc-length) side of the crest, so a gripping hand turning
-    the knob **anticlockwise** drives against those near-radial faces and bites,
-    while a clockwise (tightening) turn pushes the shallow ramps and slips.
+    Crests sit ``crest_out`` outside the ellipse, roots are inset along the
+    inward normal. Each tooth rises steeply from root to crest over
+    ``steep_frac`` of its pitch, then ramps gently back down to the next root.
+    The steep face is thus on the clockwise (decreasing arc-length) side of the
+    crest, so a gripping hand turning the knob **anticlockwise** drives against
+    those near-radial faces and bites, while a clockwise (tightening) turn pushes
+    the shallow ramps and slips.
+
+    Toward the ellipse's two ENDS the teeth fade out (see :func:`_tooth_fade`).
+    The root's inset is blended from ``depth`` down to ``-crest_out``, so a fully
+    faded tooth has root *and* crest outside the body: the wheel then cuts
+    nothing at all there and the end caps keep the body's own smooth surface.
     """
     phis, cum = _ellipse_arclen_table(a, b)
     pitch = cum[-1] / n
     pts = []
-    for i in range(n):
-        # Root: inset along the outward ellipse normal at this arc-length station.
-        ph = _phi_at_arclen(i * pitch, phis, cum)
+
+    def on_ellipse(ph, offset):
+        """Point ``offset`` outside the ellipse at parametric angle ``ph``."""
         ex, ey = a * cos(ph), b * sin(ph)
         nx, ny = cos(ph) / a, sin(ph) / b  # gradient of (x/a)^2+(y/b)^2, outward
         nl = hypot(nx, ny)
-        pts.append((ex - depth * nx / nl, ey - depth * ny / nl))
-        # Crest: on the ellipse, a short steep rise later (steep face on the
-        # clockwise side); the gentle ramp then runs on to the next root.
+        return (ex + offset * nx / nl, ey + offset * ny / nl)
+
+    for i in range(n):
+        # Root: inset along the outward ellipse normal at this arc-length station,
+        # by a depth that fades to -crest_out toward the ends.
+        ph = _phi_at_arclen(i * pitch, phis, cum)
+        f = _tooth_fade(abs(a * cos(ph)) / a, fade_start, fade_end)
+        pts.append(on_ellipse(ph, -(f * depth - (1.0 - f) * crest_out)))
+        # Crest: a short steep rise later (steep face on the clockwise side); the
+        # gentle ramp then runs on to the next root.
         ph = _phi_at_arclen(i * pitch + steep_frac * pitch, phis, cum)
-        pts.append((a * cos(ph), b * sin(ph)))
+        pts.append(on_ellipse(ph, crest_out))
 
     with BuildPart() as bp:
         with BuildSketch(Plane.XY.offset(z0)):
@@ -248,7 +274,9 @@ def build_driver_v1(
         z1 = p.body_half_h + p.band_half_h
         band = Pos(0, 0, (z0 + z1) / 2) * Cylinder(radius=a + 5.0, height=z1 - z0)
         wheel = _elliptical_sawtooth_wheel(
-            a, b, p.n_teeth, p.tooth_depth, p.steep_frac, z0 - 1.0, z1 + 1.0
+            a, b, p.n_teeth, p.tooth_depth, p.steep_frac, z0 - 1.0, z1 + 1.0,
+            fade_start=p.knurl_fade_start, fade_end=p.knurl_fade_end,
+            crest_out=p.knurl_crest_out,
         )
         if not p.catch_ccw:
             wheel = mirror(wheel, Plane.XZ)  # flip chirality (steep faces anticlockwise)
@@ -271,7 +299,7 @@ def build_driver_v1(
     if logo:
         part = svg_relief(
             part, z_top=body_h, radius=p.plateau_r, frac_map=LOGO_FRAC,
-            svg_path=LOGO_SVG, amount=p.logo_amount, fill=_LOGO_FILL, raised=True,
+            svg_path=LOGO_SVG, amount=p.logo_amount, fill=p.logo_fill, raised=True,
         )
 
     return keep_largest_solid(part)

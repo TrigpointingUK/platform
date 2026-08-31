@@ -97,6 +97,25 @@ class KeyStoreParams:
     #                            0.5 = middle (symmetric), 1.0 = free tip. Hooking the
     #                            free tip is less symmetric but more ergonomic.
 
+    # ---- Softening the -X end (both DEFAULT OFF, so v2 is unchanged) ------
+    # ``scoop_r`` alone puts the sphere's centre ON the surface, so the dish is a
+    # hemisphere and its rim meets the surface at 90 deg -- an edge you can feel,
+    # right where a finger is meant to hook. Setting ``scoop_depth`` instead
+    # pushes the centre back out along the surface normal until the cap is only
+    # that deep, which for a given depth trades dish width for rim angle: the rim
+    # tangent makes arcsin(rho / scoop_r) with the surface, where the cap's radius
+    # is rho = sqrt(2*scoop_r*scoop_depth - scoop_depth^2). A bigger scoop_r at
+    # the same depth is a wider, shallower, blunter dish. 0 = centre on the
+    # surface, i.e. a hemisphere, as v2 has it.
+    scoop_depth: float = 0.0  # [E] cap depth; 0 keeps the v2 hemisphere
+    bar_slot_round: float = 0.0  # [E] fillet the slot CUTTER's four lengthwise
+    #                                edges before subtracting it, so the slot's
+    #                                mouth is a rounded rectangle rather than one
+    #                                with four sharp corner points. Filleting the
+    #                                cutter works where filleting the finished
+    #                                solid does not -- a Box is trivial for OCCT,
+    #                                the cavity's spline-bounded edges are not.
+
 
 # Single shared instance; import and override fields as measurements arrive.
 KEYSTORE = KeyStoreParams()
