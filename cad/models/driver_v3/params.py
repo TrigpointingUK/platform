@@ -147,6 +147,13 @@ class BaseTrayParams:
     makes this tray a cavity whose roof the printer has to close *over air*. The
     chamfers below are what keep the slicer from needing support inside it:
 
+    * **The chamfers are lofted between ellipses, not scaled from a round cone.**
+      Scaling a circular cutter by the plan ratio would scale its chamfer too, and
+      a 45 deg cone stretched 1.19x in X comes out at 50 deg from vertical --
+      past the self-supporting limit, in the one direction nobody would think to
+      check. Each chamfer instead shrinks *both* semi-axes by the same amount over
+      the same height, so every point moves inward by exactly that amount and the
+      slope is at most 45 deg in every direction.
     * **Chamfers, never fillets, on anything facing the plate.** A concave fillet
       between the tray wall and its roof sweeps through every overhang angle from
       0 deg to 90 deg, and the fully horizontal part is right where it meets the
@@ -162,15 +169,27 @@ class BaseTrayParams:
     """
 
     # ---- The tray --------------------------------------------------------
-    dia: float = 35.0  # [E] mouth Ø at the base face
+    # Elliptical in plan, echoing the tool. Only the MINOR axis is given here;
+    # the major is DERIVED at build time (see ``_tray_axes``) from the rule that
+    # sets it: the tray should stand off the dowel pegs by the same distance it
+    # stands off the tool's edge on the minor axis. Both are measured edge to
+    # edge -- tray wall to peg BORE, tray wall to the tool's Ø60 minor rim -- so
+    # at minor = 45 the gap is 30 - 22.5 = 7.5 mm each way and the major comes
+    # out at 2 x (38.5 - 4.15 - 7.5) = 53.7 mm. Deriving it means the balance
+    # survives any change to the body or the peg spacing.
+    minor: float = 45.0  # [E] minor axis (Y) of the mouth at the base face
     depth: float = 5.0  # [E] to the roof
-    roof_chamfer: float = 2.0  # [E] 45 deg, closing the wall into the roof. The
-    #                              roof is therefore Ø(dia - 2*this) = Ø31, which
-    #                              is the span the printer bridges. Raise it to
-    #                              shorten that bridge (at 5.0 the tray becomes a
-    #                              fully drafted Ø35 -> Ø25 cone, the safest
-    #                              possible shape); lower it only if something
-    #                              has to sit flat and full-width in the tray.
+    roof_chamfer: float = 2.0  # [E] 45 deg, closing the wall into the roof, and
+    #                              the only dial on the one span the printer has
+    #                              to bridge. NOTE the enlarged tray made that
+    #                              span a good deal longer: the roof is now
+    #                              49.7 x 41.0 mm where the old Ø35 tray gave
+    #                              Ø31. A slicer bridges the short way, so ~41 mm
+    #                              is the number that matters -- long, but this is
+    #                              the inside of a tray and the roughness is
+    #                              invisible. Raise this to shorten it (at 5.0 the
+    #                              tray becomes a fully drafted cone, the safest
+    #                              possible shape) if a test print disappoints.
     mouth_chamfer: float = 0.5  # [E] 45 deg at the base face. Absorbs the
     #                               first-layer squish ("elephant's foot"), which
     #                               would otherwise leave the mouth slightly

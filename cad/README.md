@@ -345,18 +345,35 @@ as); the head recesses and relief need no work.
 
 #### Magnetic base tray
 
-A Ø35 × 5 mm tray recessed into the flat base, with a **Ø8 × 3 mm disc magnet**
-epoxied into a pocket in the middle of its roof, to hold the small ferrous
-oddments a plug swap generates. It sits inside the peg circle (16 mm clear of the
-nearest dowel-bore feature), 8.5 mm inside the flat base's minor radius, and
-11.7 mm below v2's key channel.
+A **53.7 × 45 × 5 mm elliptical** tray recessed into the flat base, echoing the
+tool's own plan, with a **Ø8 × 3 mm disc magnet** epoxied into a pocket in the
+middle of its roof, to hold the small ferrous oddments a plug swap generates.
+
+**Only the minor axis is given; the major is derived** from the rule that
+balances the tray in the base face — it should stand off the dowel pegs by the
+same distance it stands off the tool's own edge on the minor axis. Both are
+clearances measured edge to edge (tray wall to peg *bore*, tray wall to the
+tool's Ø60 minor rim), so at minor = 45 the gap is 30 − 22.5 = **7.5 mm each
+way** and the major falls out at 2 × (38.5 − 4.15 − 7.5) = **53.7 mm**. Deriving
+it keeps that balance true through any later change to the body radius, the peg
+spacing or the bore size — `_tray_axes` is the whole of it. The tray clears the
+peg keying grooves by 6.2 mm and sits 11.7 mm below v2's key channel.
 
 **Its shape is dictated by printing, not by taste.** The tool prints **base-down**
 — smooth base, symmetric elliptical layer marks on top — so the tray is a cavity
 whose roof the printer has to close *over air*, and it must do so without
-support (support inside a Ø35 × 5 pocket is miserable to remove and would mar the
-face the magnet bonds to). Three rules follow:
+support (support inside a 54 × 45 × 5 mm pocket is miserable to remove, and
+would mar the face the magnet bonds to). Three rules follow:
 
+- **The chamfers are lofted between ellipses, not scaled from a round cone.**
+  This is the trap the elliptical tray sets. Scaling a circular cutter by the
+  plan ratio scales its chamfer too, and a 45° cone stretched 1.19× in X comes
+  out at **50° from vertical** — past the self-supporting limit, in the one
+  direction nobody would think to check. Each chamfer instead shrinks *both*
+  semi-axes by the same amount over the same height, so every point of the
+  section moves inward by exactly that amount and the slope stays at or under 45°
+  in every direction. Verified on the built solid: **1.00 in both the X and Y
+  columns**, through both chamfers.
 - **Chamfers, never fillets, on anything facing the plate.** A concave fillet
   between the tray wall and its roof sweeps through *every* overhang angle from
   0° to 90°, and the fully horizontal part lands exactly where it meets the roof.
@@ -365,13 +382,14 @@ face the magnet bonds to). Three rules follow:
   A 45° chamfer holds one constant, self-supporting angle. Ranked: **45° chamfer
   > sharp 90° corner > fillet** — the fillet is the worst of the three, which is
   the opposite of the usual instinct.
-- **Every chamfer is 45° by construction** — its height equals its radial run, so
-  no parameter edit can quietly produce an unprintable overhang. Verified on the
-  built solid: every tray wall measures 45.0° from vertical.
-- **The flat roof must bridge, and no chamfer removes that.** `roof_chamfer`
-  (2 mm) shortens it from Ø35 to Ø31; raise it to 5 mm and the tray becomes a
-  fully drafted Ø35 → Ø25 cone, the safest possible shape, at the cost of tray
-  volume.
+- **Every chamfer is 45° by construction** — its height equals its inward run, so
+  no parameter edit can quietly produce an unprintable overhang.
+- **The flat roof must bridge, and no chamfer removes that.** This is what the
+  bigger tray costs: the roof is now **49.7 × 41.0 mm** where the old Ø35 tray
+  gave Ø31. A slicer bridges the short way, so ~41 mm is the number that matters
+  — long, but this is the inside of a tray and the roughness is invisible.
+  `roof_chamfer` (2 mm) is the dial; raise it and the tray drafts toward a cone,
+  shortening the bridge at the cost of tray volume.
 
 The **magnet pocket's mouth chamfer** is the one that earns its keep twice. The
 pocket opens as a hole in the middle of the roof's bridge layer, so its perimeter
@@ -384,8 +402,9 @@ usual lead-in and glue fillet.
 ones, because an edit that turns a 45° chamfer into a 60° one still looks fine in
 CAD and droops on the plate.
 
-**BOM:** 1× Ø8 × 3 mm disc magnet + structural epoxy (the pocket is Ø8.3 × 3.3,
-a clearance fit for an epoxy annulus, same convention as the dowel bores).
+The magnet pocket stays **round** — the magnet is. **BOM:** 1× Ø8 × 3 mm disc
+magnet + structural epoxy (the pocket is Ø8.3 × 3.3, a clearance fit for an epoxy
+annulus, same convention as the dowel bores).
 **Slicing:** supports **off**; nothing in the part needs them.
 
 #### Inner-plug pin spanner (+X end)

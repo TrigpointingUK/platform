@@ -65,12 +65,17 @@ from build123d import (
     Align,
     Axis,
     Box,
+    BuildPart,
+    BuildSketch,
     Cone,
     Cylinder,
+    Ellipse,
+    Plane,
     Pos,
     Rotation,
     Sphere,
     fillet,
+    loft,
 )
 
 from common.threads import keep_largest_solid
@@ -166,7 +171,23 @@ def _stash_cutter(x: float, head_dia: float, z_plateau: float,
     return cut
 
 
-def _tray_cutter(t: BaseTrayParams):
+def _tray_axes(p: DriverParams, plug: PlugParams, t: BaseTrayParams):
+    """Semi-axes ``(a, b)`` of the elliptical base tray.
+
+    ``b`` is given (half of ``minor``); ``a`` is **derived** from the rule that
+    balances the tray in the base face: it should stand off the dowel pegs by the
+    same distance it stands off the tool's own edge on the minor axis. Both are
+    clearances, measured edge to edge -- the tray wall to the peg BORE, and the
+    tray wall to the tool's Ø60 minor rim. Deriving it keeps that balance true
+    through any change to the body radius, the peg spacing or the bore size.
+    """
+    b = t.minor / 2.0
+    gap = p.body_r - b  # clearance to the tool's minor-axis edge
+    a = plug.clr_hole_spacing / 2.0 - p.peg_bore_dia / 2.0 - gap
+    return a, b
+
+
+def _tray_cutter(t: BaseTrayParams, a: float, b: float):
     """The base tray + its magnet pocket at the axis, as ONE fused solid.
 
     Cut upward from the base (z = 0), which is the face on the build plate, so
@@ -175,37 +196,40 @@ def _tray_cutter(t: BaseTrayParams):
         mouth chamfer -> straight wall -> roof chamfer -> [roof: bridged] ->
         magnet-pocket mouth chamfer -> magnet pocket -> [pocket roof: bridged]
 
-    The three chamfers are all 45 deg (height == radial run), the steepest angle
-    that still prints unsupported. The two flat roofs are bridges, which no
-    amount of CAD removes -- ``roof_chamfer`` just shortens the long one.
+    The tray is elliptical, so its two chamfers are **lofted between ellipses**
+    rather than scaled from a cone: each shrinks both semi-axes by the same amount
+    over the same height, which moves every point of the section inward by exactly
+    that amount and holds the slope at 45 deg or shallower in every direction. A
+    round cone scaled by the plan ratio would reach 50 deg in X and quietly stop
+    being self-supporting. The two flat roofs are bridges, which no amount of CAD
+    removes -- ``roof_chamfer`` just shortens the long one.
     """
-    r = t.dia / 2.0
     mr = t.magnet_pocket_dia / 2.0
-    z_wall = t.depth - t.roof_chamfer  # where the wall starts closing in
+    c0, c1 = t.mouth_chamfer, t.roof_chamfer
+    z_wall = t.depth - c1  # where the wall starts closing in
     z_pocket = t.depth + t.magnet_pocket_depth
 
-    # Mouth chamfer at the base face: takes the first-layer squish, and leaves a
-    # clean lip instead of a rolled one.
-    cut = Pos(0, 0, 0) * Cone(
-        bottom_radius=r + t.mouth_chamfer, top_radius=r, height=t.mouth_chamfer,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
+    # Sections bottom to top; the first overshoots below the base so the boolean
+    # is clean. Equal sections in a row loft to a straight prism.
+    sections = []
+    if c0 > 0:
+        sections += [(-1.0, a + c0, b + c0), (0.0, a + c0, b + c0), (c0, a, b)]
+    else:
+        sections.append((-1.0, a, b))
+    sections.append((z_wall, a, b))
+    if c1 > 0:
+        sections.append((t.depth, a - c1, b - c1))
 
-    # Straight wall, overshooting below the base so the boolean is clean.
-    cut = cut + Pos(0, 0, (z_wall - 1.0) / 2) * Cylinder(
-        radius=r, height=z_wall + 1.0
-    )
-
-    # Roof chamfer: the wall closes into the roof at 45 deg rather than meeting it
-    # at a corner, and the bridge that follows is 2*roof_chamfer shorter.
-    if t.roof_chamfer > 0:
-        cut = cut + Pos(0, 0, z_wall) * Cone(
-            bottom_radius=r, top_radius=r - t.roof_chamfer, height=t.roof_chamfer,
-            align=(Align.CENTER, Align.CENTER, Align.MIN),
-        )
+    with BuildPart() as bp:
+        for z, ax, by in sections:
+            with BuildSketch(Plane.XY.offset(z)):
+                Ellipse(ax, by)
+        loft(ruled=True)
+    cut = bp.part
 
     # Magnet-pocket mouth chamfer: lead-in, glue fillet, and -- see params -- the
-    # thing that keeps the bridge layer's sagging perimeter out of the bore.
+    # thing that keeps the bridge layer's sagging perimeter out of the bore. The
+    # pocket stays round: the magnet is.
     if t.magnet_mouth_chamfer > 0:
         c = t.magnet_mouth_chamfer
         cut = cut + Pos(0, 0, t.depth) * Cone(
@@ -385,7 +409,7 @@ def build_driver_v3(
         for x in (s.stash_x, -s.stash_x):
             part = part - _stash_cutter(x, head_dia, body_h, s)
     if tray:
-        part = part - _tray_cutter(t)
+        part = part - _tray_cutter(t, *_tray_axes(p, plug, t))
     if pins:
         half = plug.ip_side_spacing / 2.0  # owned by the inner plug
         for z, vent_up in ((p.body_half_h + half, True),
@@ -472,21 +496,37 @@ def _check_tray(p: DriverParams, plug: PlugParams, ks: KeyStoreParams,
     chamfer into a 60 deg one produces a part that still looks fine in CAD and
     droops on the plate.
     """
-    r = t.dia / 2.0
+    a, b = _tray_axes(p, plug, t)
     mr = t.magnet_pocket_dia / 2.0
+    # The mouth chamfer is the widest section, c0 outside the nominal ellipse.
+    a_out, b_out = a + t.mouth_chamfer, b + t.mouth_chamfer
 
-    # In plan: stay on the flat base, and clear of the dowel bores.
-    if r + t.mouth_chamfer > p.base_flat_r:
+    if a <= 0 or b <= 0:
         raise ValueError(
-            f"tray (Ø{t.dia} + chamfer) reaches r={r + t.mouth_chamfer:.1f}, past "
-            f"the flat base's minor radius {p.base_flat_r}; it would break out "
-            f"through the rounded base edge"
+            f"derived tray semi-axes are ({a:.1f}, {b:.1f}); the minor axis "
+            f"{t.minor} leaves no room for a major one. Shrink it"
+        )
+    if a < b:
+        raise ValueError(
+            f"derived tray major {2*a:.1f} is under its minor {2*b:.1f}: the "
+            f"balance rule has inverted the ellipse. Shrink minor, or the pegs "
+            f"are too close in for a tray this wide"
+        )
+
+    # In plan: stay on the FLAT base (an ellipse of its own, semi-axes
+    # base_flat_r * plan_aspect by base_flat_r -- concentric and axis-aligned, so
+    # comparing semi-axes settles containment), and clear the dowel bores.
+    if b_out > p.base_flat_r or a_out > p.base_flat_r * p.plan_aspect:
+        raise ValueError(
+            f"tray ({2*a_out:.1f} x {2*b_out:.1f} at its widest) does not fit the "
+            f"flat base ({2*p.base_flat_r*p.plan_aspect:.0f} x "
+            f"{2*p.base_flat_r:.0f}); it would break out through the rounded edge"
         )
     peg_r = p.peg_bore_dia / 2.0 + p.peg_groove_depth
-    if r + t.mouth_chamfer > peg_x - peg_r:
+    if a_out > peg_x - peg_r:
         raise ValueError(
-            f"tray reaches x={r + t.mouth_chamfer:.1f}, into the peg bore's "
-            f"keying grooves (x >= {peg_x - peg_r:.1f})"
+            f"tray reaches x={a_out:.1f}, into the peg bore's keying grooves "
+            f"(x >= {peg_x - peg_r:.1f})"
         )
 
     # In section: leave plastic between the magnet pocket and v2's key channel,
@@ -504,11 +544,12 @@ def _check_tray(p: DriverParams, plug: PlugParams, ks: KeyStoreParams,
         raise ValueError(
             f"roof_chamfer {t.roof_chamfer} exceeds the tray depth {t.depth}"
         )
-    roof_r = r - t.roof_chamfer
-    if roof_r <= mr + t.magnet_mouth_chamfer:
+    roof_b = b - t.roof_chamfer  # the roof's narrow way, and the bridge that counts
+    if roof_b <= mr + t.magnet_mouth_chamfer:
         raise ValueError(
-            f"roof (Ø{2 * roof_r:.1f}) is no wider than the magnet pocket mouth "
-            f"(Ø{2 * (mr + t.magnet_mouth_chamfer):.1f}); nothing left to bridge from"
+            f"roof is {2 * roof_b:.1f} mm across its narrow way, no wider than the "
+            f"magnet pocket mouth (Ø{2 * (mr + t.magnet_mouth_chamfer):.1f}); "
+            f"nothing left to bridge from"
         )
     if t.mouth_chamfer < 0 or t.magnet_mouth_chamfer < 0 or t.roof_chamfer < 0:
         raise ValueError("tray chamfers must be >= 0 (a negative one is an undercut)")
