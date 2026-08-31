@@ -10,8 +10,8 @@ components so far, with more expected:
   where the threads are bump-maps with no helix angle, this has **true helical
   threads** with correct flank form and lead — suitable for a functional print or
   a milling/casting master.
-- **driver** — a hand tool to screw the plug in/out of the pillar, in two
-  versions (`driver_v1`, and `driver_v2` which stores a hex key inside it; see
+- **driver** — a hand tool to screw the plug in/out of the pillar, in three
+  successive versions (`driver_v1` … `driver_v3`, each building on the last; see
   [Plug driver tool](#plug-driver-tool)).
 
 Each component is a self-contained package under `models/`; shared machinery
@@ -41,10 +41,14 @@ cad/
 │   │   ├─ params.py       # every driver dimension, provenance-tagged. EDIT THIS.
 │   │   ├─ driver_v1.py    # ellipsoidal sawtooth-knurled disc + peg bores
 │   │   └─ build.py        # driver_v1 recipe: run(*, threads, skip_stl)
-│   └─ driver_v2/          # v2 = v1 + a 4 mm hex key stored inside the body
-│       ├─ params.py       # key channel / slot / magnet / O-ring dimensions
-│       ├─ driver_v2.py    # build_driver_v1() + the key-storage cavities
-│       └─ build.py        # driver_v2 recipe
+│   ├─ driver_v2/          # v2 = v1 + a 4 mm hex key stored inside the body
+│   │   ├─ params.py       # key channel / slot / magnet / O-ring dimensions
+│   │   ├─ driver_v2.py    # build_driver_v1() + the key-storage cavities
+│   │   └─ build.py        # driver_v2 recipe
+│   └─ driver_v3/          # v3 = v2 + a pair of spare screws stashed in the top
+│       ├─ params.py       # screw, stash bore sections, tap drill, placement
+│       ├─ driver_v3.py    # build_driver_v2() + the two stash bores
+│       └─ build.py        # driver_v3 recipe
 ├─ build.py                # orchestrator (build all, or named components)
 ├─ step/  stl/             # generated output (reproducible)
 └─ requirements.txt  venv/
@@ -60,13 +64,13 @@ venv/bin/python -m pip install -r requirements.txt
 # Run everything from the cad/ root (it must be on sys.path for the packages).
 venv/bin/python build.py               # every component: STEP masters + STLs
 venv/bin/python build.py plug          # just the named component(s)
-venv/bin/python build.py driver_v2     # driver_v1 / driver_v2
+venv/bin/python build.py driver_v3     # driver_v1 / driver_v2 / driver_v3
 venv/bin/python build.py --step-only   # nominal STEP masters only
 venv/bin/python build.py --fast        # no threads (quick dimensional check)
 
 # Build/inspect one module directly (prints its volume + bounding box):
 venv/bin/python -m models.plug.plug
-venv/bin/python -m models.driver_v2.driver_v2
+venv/bin/python -m models.driver_v3.driver_v3
 ```
 
 > Python 3.12 is used deliberately: `cadquery-ocp` (the OpenCASCADE binding)
@@ -87,8 +91,8 @@ venv/bin/python -m models.driver_v2.driver_v2
 - Extra STLs are produced for each customised inner-plug top (see below), named
   `inner_plug_<preset>_<variant>.stl`.
 - **`step/driver_v<n>.step`, `stl/driver_v<n>.stl`** — the driver tool, one pair
-  per version (single solid each, no thread-clearance variants; its only fit
-  dimension is the peg bore).
+  per version (single solid each, no thread-clearance variants; the fit
+  dimensions are the peg bore and, on v3, the stash tap drill).
 
 ### The FDM bore thread is not the brass thread
 
@@ -188,6 +192,20 @@ Notes:
 
 ## Plug driver tool
 
+The driver exists in three versions. Each is a **superset of the one before** —
+`driver_v2` calls `build_driver_v1()` and subtracts its extra cavities,
+`driver_v3` calls `build_driver_v2()` and subtracts its own — so the body,
+pegs, knurl and logo are described once, in v1, and every version inherits any
+fix to them. Print whichever you want; they are separate build targets.
+
+| Version | Adds | Package |
+|---------|------|---------|
+| **v1** | the bare tool: knurled elliptical knob + two glued steel pegs | `models/driver_v1/` |
+| **v2** | a 4 mm hex key stored inside the body | `models/driver_v2/` |
+| **v3** | a pair of spare spider screws stashed in the top face | `models/driver_v3/` |
+
+### v1 — the tool itself
+
 `models/driver_v1/` is a **face/pin spanner** for screwing the plug in and out of
 the pillar spider. Two steel pegs drop into the plug's two upper-ring clearance
 holes (Ø9 mm, 77 mm apart — the spider-screw pattern) so the whole plug can be
@@ -249,6 +267,67 @@ in PA.)
 Body size/height, tooth count/depth, ramp/steep split and the flat radii are
 ergonomic estimates flagged `[E]` in `models/driver_v1/params.py` — iterate
 there; no geometry code changes.
+
+### v2 — the hex key lives in the tool
+
+`models/driver_v2/` stores a **4 mm hex (allen) L-key** inside the body, so the
+one tool carries what the job needs. The key is modelled as its own *cutter*: the
+long arm slides down a horizontal Ø5 mm channel parallel to the major axis,
+offset in Y so it passes clear of the left dowel bore; a swept round bend takes
+it into a flat slot cut into the −X end, where the short arm comes to rest just
+inside the elliptical rim. A **spherical finger scoop** at that end gives
+purchase to pull it out.
+
+Two retention options are modelled, both BOM items in their own pockets: a **Ø8
+neodymium disc** let into the slot floor (its pocket pulled outboard so the disc
+drops straight in past the slot wall), and an **O-ring gland** in the bore wall
+near the mouth — a 4 × 1.5 mm NBR ring stands ~0.5 mm proud and grips the key's
+across-corners as it passes. Set `oring_groove_dia <= bore_dia` to drop the
+gland, or `magnet_dia` to zero out the magnet.
+
+### v3 — a pair of spare screws in the top face
+
+`models/driver_v3/` sinks two **spare-screw stashes** into the flat top plateau,
+on the major axis, one each side of the logo. Lose a spider shelf screw on a
+windy summit and there is a spare in the tool that drove the plug out.
+
+Each stash is one blind bore in **three coaxial sections**:
+
+1. **Head recess** — Ø taken from `PLUG.clr_hole_r` (Ø9 mm), i.e. *the same hole
+   the screw passes through on the real part*, read from the plug params at build
+   time exactly as v1 reads the peg spacing, so the two cannot drift apart. It is
+   **5 mm deep against a 4.8 mm head**, so a seated screw sits 0.2 mm *below*
+   flush — nothing protrudes into the palm that grips the knob.
+2. **Shaft hole** — Ø3.8 × 10 mm, printed plain and **tapped by hand after
+   printing**. The screw then threads into its own stash and cannot rattle out
+   with the tool upside-down in a bag. Ø3.8 is the tap drill (major − pitch) for
+   *either* candidate thread: 4.6 − 0.80 = 3.80 for a 0.8 mm metric pitch,
+   4.6 − 0.847 = 3.75 for 30 TPI. The two differ by 0.05 mm, below what an FDM
+   hole resolves, so one printed hole suits both. (Ø4.6 at ~0.8 mm is also within
+   a whisker of **2BA** — Ø4.70, 0.81 mm — which would be unsurprising on OS-era
+   brass hardware.)
+3. **Tap relief** — Ø5 × 8 mm, *wider than the screw's Ø4.6 crest*. A taper tap's
+   first several threads are only partly formed; this gives that lead somewhere
+   to run out, so full-form thread reaches the bottom of section 2 instead of
+   petering out short. It doubles as tip clearance: the screw can never bottom
+   before its head seats.
+
+**Placement** is `stash_x = ±23 mm`, the midpoint of the clear corridor on the
+top face — the embossed logo ends at x = 9.1 and the sighting groove starts at
+x = 36.5 — which also puts the whole Ø9 recess (x = 18.5…27.5) on the **flat**
+plateau, so its floor is a true flat counterbore and the tap starts square.
+Underneath, the Ø5 relief passes 8 mm clear of the peg bore's epoxy keying
+grooves and 5 mm clear of v2's hex-key channel, leaving 17 mm of floor.
+
+Those clearances are all *derived* relationships between params owned by three
+different modules, so `build_driver_v3` **re-checks every one at build time** and
+raises rather than shipping a tool with a stash broken into the peg bore. Move
+`stash_x`, deepen the relief or change the screw and it will tell you what it
+fouls.
+
+**BOM (in addition to v1/v2):** 2× spare spider shelf screw. **After printing:**
+tap both shaft holes (0.8 mm / 30 TPI / 2BA — whichever the real screw gauges
+as); the head recesses and relief need no work.
 
 ## Coordinate frame
 
