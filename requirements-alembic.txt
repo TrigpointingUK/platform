@@ -5,8 +5,8 @@
 # (1.17+ requires Python 3.10+)
 alembic==1.19.1
 
-sqlalchemy==2.0.52
-psycopg2-binary==2.9.12
+sqlalchemy==2.0.53
+psycopg2-binary==2.9.13
 python-dotenv==1.2.3
 
 # GeoAlchemy2 0.14.7 is the last version supporting Python 3.9
@@ -15,6 +15,6 @@ geoalchemy2==0.20.0
 
 # Pydantic for model validation (used by API models)
 # Using 2.11.0 which is the last version supporting Python 3.9
-pydantic==2.13.4
+pydantic==2.13.5
 pydantic-settings==2.15.0
 
