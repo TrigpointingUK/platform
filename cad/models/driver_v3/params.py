@@ -35,10 +35,12 @@ stock ``DRIVER``/``KEYSTORE`` instances -- it overrides them below into
   each. That is the real price of the side pins -- the tool keeps its plan
   ellipse exactly, but its profile is noticeably squarer, a thick knurled disc
   with softened edges rather than a discus.
-* **The knurl fades out at both ends.** Every feature that breaks the rim there
-  -- the pin mouths, and on the -X end the key flare, the short-arm slot and the
-  finger scoop -- would otherwise truncate whatever teeth it landed on into thin
-  sharp spikes.
+* **The knurl fades out at all four ends**, each on its own schedule. Every
+  feature that breaks the rim there -- the pin mouths, and on the -X end the key
+  flare, the short-arm slot and the finger scoop -- would otherwise truncate
+  whatever teeth it landed on into thin sharp spikes. The four ends are crowded
+  very differently, so each stops the same *arc distance* from whatever is carved
+  nearest it rather than all stopping at the same angle.
 
 Each stash is a single blind bore on the **major axis**, sunk from the flat top
 plateau, in three coaxial sections (top to bottom):
@@ -352,12 +354,25 @@ DRIVER_V3 = replace(
     # it 1.6x larger than on v1 and v2. Drop the fill to hold the badge at exactly
     # the size it is on the other two: 22.0 * 0.541 = 11.9 = 14.0 * 0.85.
     logo_fill=0.541,
-    # Teeth full depth to |x| = 30, gone by |x| = 45. The furthest-inboard thing
-    # that breaks the rim is the finger scoop at |x| = 46.2, so 45 clears every
-    # end feature; the 15 mm fade spans about 2.5 teeth, which reads as the knurl
-    # dying away rather than stopping.
-    knurl_fade_start=0.50,
-    knurl_fade_end=0.75,
+    # Each of the four knurl ends stops the same distance -- 1.5 mm of arc -- from
+    # whatever is carved nearest it, rather than all four stopping at the same
+    # angle. How far each feature reaches round the rim from its own tip, solved
+    # from the geometry and confirmed against a knurl-free build:
+    #
+    #     +X/+Y   4.70 mm   the upper pin's mouth dish   -> stop  6.2
+    #     -X/+Y  18.33 mm   the hex key's flared mouth   -> stop 19.8
+    #     -X/-Y  26.82 mm   the finger scoop             -> stop 28.3
+    #     +X/-Y   4.70 mm   the lower pin's mouth dish   -> stop  6.2
+    #
+    # (The short-arm slot reaches 13.29 mm on the +Y side and 14.65 on the -Y, so
+    # it is never the binding feature; the flare and the scoop are.)
+    #
+    # A single fade had to satisfy the worst of the four, so it threw away 21 mm
+    # of arc at each +X end and 8 mm at the key mouth -- and still did not quite
+    # clear the enlarged finger scoop, which overran it by 0.7 mm. Per-end stops
+    # buy back a third of the toothed rim and fix the scoop at the same time.
+    knurl_end_stops=(6.2, 19.8, 28.3, 6.2),
+    knurl_fade_len=15.0,  # ~2.4 teeth at this pitch: reads as dying away
     knurl_crest_out=0.3,
 )
 

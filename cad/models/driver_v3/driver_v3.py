@@ -110,6 +110,9 @@ _MIN_MOUTH_WALL = 2.5
 # Daylight left between a mouth dish and the ends of the straight knurl band.
 _DISH_BAND_GAP = 0.25
 
+# Arc the knurl keeps clear of whatever is carved nearest each of its ends.
+_KNURL_FEATURE_GAP = 1.0
+
 # How blunt a pin mouth's rim has to be. 180 would be a seamless blend, 90 a
 # square-cut hole; the design target is a dish you cannot feel as an edge.
 _MIN_RIM_ANGLE = 130.0
@@ -243,6 +246,36 @@ def _tray_cutter(t: BaseTrayParams, a: float, b: float):
     )
 
     return cut
+
+
+def _arc_from_tip(a: float, b: float, phi: float, n: int = 400) -> float:
+    """Arc length along the ellipse from the +X tip (phi = 0) out to ``phi``."""
+    total, prev = 0.0, b  # the integrand at phi = 0 is b
+    for k in range(1, n + 1):
+        t = phi * k / n
+        f = math.hypot(a * math.sin(t), b * math.cos(t))
+        total += 0.5 * (prev + f) * (phi / n)
+        prev = f
+    return total
+
+
+def _dish_rim_arc(a: float, b: float, x_c: float, R: float) -> float:
+    """How far round the rim, from the +X tip, a mouth dish's rim reaches.
+
+    The dish is a sphere on the bore axis; its rim runs furthest from the tip in
+    the bore's own plane, which is where this solves it. That distance is what the
+    knurl's two +X ends have to clear.
+    """
+    qa = a * a - b * b
+    qb = -2.0 * a * x_c
+    qc = x_c * x_c + b * b - R * R
+    disc = qb * qb - 4.0 * qa * qc
+    if disc < 0.0 or qa == 0.0:
+        return 0.0
+    c = min((-qb - math.sqrt(disc)) / (2.0 * qa), (-qb + math.sqrt(disc)) / (2.0 * qa))
+    if not -1.0 <= c <= 1.0:
+        return 0.0
+    return _arc_from_tip(a, b, math.acos(c))
 
 
 def _dish_rim_angle(a: float, b: float, x_c: float, R: float) -> float | None:
@@ -701,13 +734,23 @@ def _check_pins(p: DriverParams, plug: PlugParams, ks: KeyStoreParams,
                 f"into one counterbore. Use fewer grooves or a shorter groove_h"
             )
 
-    # The teeth must be gone where the mouths break the rim, or each mouth is
-    # cut through a row of sawteeth and ringed with spikes.
-    if p.knurl_fade_end > 1.0:
-        raise ValueError(
-            "knurl_fade_end > 1.0: the teeth never fade, so the pin mouths would "
-            "be cut through them; v3 needs an end-faded knurl"
-        )
+    # The teeth must be gone where the mouths break the rim, or each mouth is cut
+    # through a row of sawteeth and ringed with spikes. The mouths sit at the +X
+    # tip, so it is the two +X ends of the knurl that have to retreat far enough:
+    # past the arc where the dish's rim reaches its furthest from that tip.
+    if sp.mouth_dish_r > 0 and sp.mouth_dish_d > 0:
+        rim_u = _dish_rim_arc(a, b, nose_x - sp.mouth_dish_d + sp.mouth_dish_r,
+                              sp.mouth_dish_r)
+    else:
+        rim_u = _arc_from_tip(a, b, math.asin(min(1.0, (r + sp.mouth_chamfer) / b)))
+    for i in (0, 3):  # the +X/+Y and +X/-Y ends
+        if p.knurl_end_stops[i] < rim_u + _KNURL_FEATURE_GAP:
+            raise ValueError(
+                f"knurl end {i} stops {p.knurl_end_stops[i]:.2f} mm from the +X "
+                f"tip, but a pin mouth reaches {rim_u:.2f} mm round the rim; the "
+                f"teeth would be cut through and left as spikes round it. Raise "
+                f"knurl_end_stops[{i}] to at least {rim_u + _KNURL_FEATURE_GAP:.2f}"
+            )
 
 
 if __name__ == "__main__":

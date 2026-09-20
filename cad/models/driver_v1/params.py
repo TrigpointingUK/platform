@@ -63,15 +63,25 @@ class DriverParams:
     #                            and bites while tightening slips. Flip if the
     #                            spider thread proves left-handed.
 
-    # Fading the teeth out toward the two ENDS of the ellipse. Anything that
-    # breaks the rim there -- a bore mouth, a scoop, a slot -- truncates whatever
-    # teeth it lands on into thin sharp spikes, so a tool with end features wants
-    # smooth end caps. Both thresholds are |x| / semi-major, measured on the
-    # crest ellipse: teeth are full depth inside ``knurl_fade_start`` and gone
-    # beyond ``knurl_fade_end``, smoothstepped between. The DEFAULTS DISABLE THE
-    # FADE (start = end = 1.0), so v1 and v2 are unchanged; v3 overrides them.
-    knurl_fade_start: float = 1.0  # [E] |x|/a where the teeth begin to shallow
-    knurl_fade_end: float = 1.0  # [E] |x|/a where they vanish altogether
+    # Fading the teeth out toward the ENDS of the ellipse. Anything that breaks
+    # the rim there -- a bore mouth, a scoop, a slot -- truncates whatever teeth
+    # it lands on into thin sharp spikes, so a tool with end features wants smooth
+    # end caps.
+    #
+    # There are FOUR such ends, not two, and they rarely want the same treatment:
+    # what crowds the rim on one side of a tip is usually nothing like what crowds
+    # it on the other. So each gets its own stop, given as an ARC LENGTH from its
+    # nearest tip -- arc, not |x|, because near the pointed tip of a 2:1 ellipse a
+    # millimetre of x is three millimetres of surface, and "how far from the
+    # scoop" means the distance a finger travels, not a coordinate difference.
+    # Teeth are absent within ``knurl_end_stops[i]`` of the tip and ramp to full
+    # depth over the next ``knurl_fade_len``, smoothstepped.
+    #
+    # Order is the way the teeth are laid out, anticlockwise from the +X tip:
+    #     (+X/+Y, -X/+Y, -X/-Y, +X/-Y)
+    # The DEFAULTS DISABLE THE FADE (all stops 0), so v1 and v2 are unchanged.
+    knurl_end_stops: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+    knurl_fade_len: float = 0.0  # [E] arc over which each end ramps to full depth
     knurl_crest_out: float = 0.0  # [E] lift the cutting wheel's crests this far
     #                                 OUTSIDE the body. The knurl is made by
     #                                 intersecting the wheel with the body, so a

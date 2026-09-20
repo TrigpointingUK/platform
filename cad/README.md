@@ -499,18 +499,38 @@ sculpted top or the base edge.
 6.5 mm protruding) + structural epoxy. The protrusion bottoms 1.5 mm short in the
 plug's 8 mm holes, so the pins work in shear, not as struts.
 
-#### No knurl at the ends, and what that fixed
+#### The knurl fades at four ends, each on its own schedule
 
-The sawtooth teeth now **fade out toward both ends** — full depth to |x| = 30,
-gone by |x| = 45, smoothstepped between over about 2.5 teeth so the knurl dies
-away rather than stopping. This is not cosmetic. Every feature that breaks the
-rim at an end — the two pin mouths, and at the −X end the key flare, the
-short-arm slot and the finger scoop — was truncating whatever teeth it landed on
-into thin sharp spikes. The furthest-inboard of them is the finger scoop at
-|x| = 46.2, which is what sets the 45 mm threshold.
+The sawtooth teeth **fade out toward the ends of the ellipse**, dying away over
+about 2.4 teeth rather than stopping. This is not cosmetic: every feature that
+breaks the rim at an end — the two pin mouths, and at the −X end the key flare,
+the short-arm slot and the finger scoop — would otherwise truncate whatever teeth
+it landed on into thin sharp spikes.
 
-(The pin mouths sit at |x| = 60, so they need the fade as much as anything at the
-other end.) The fade is driven by `knurl_fade_start` / `knurl_fade_end` /
+There are **four** such ends, not two, and they are crowded very differently. Each
+therefore gets its own stop, given as an **arc length from its nearest tip** —
+arc, not |x|, because near the pointed tip of a 2:1 ellipse a millimetre of x is
+three millimetres of surface, and "how far from the scoop" means the distance a
+finger travels, not a coordinate difference. Every end stops the same **1.5 mm of
+arc** from whatever is carved nearest it:
+
+| end | nearest feature reaches | driven by | teeth stop at |
+|-----|------------------------|-----------|---------------|
+| +X/+Y | 4.70 mm | upper pin's mouth dish | 6.2 mm |
+| −X/+Y | 18.33 mm | hex key's flared mouth | 19.8 mm |
+| −X/−Y | 26.82 mm | finger scoop | 28.3 mm |
+| +X/−Y | 4.70 mm | lower pin's mouth dish | 6.2 mm |
+
+The short-arm slot reaches 13.29 mm on the +Y side and 14.65 on the −Y, so it is
+never the binding feature — the flare and the scoop are.
+
+A single fade had to satisfy the worst of the four at once. It threw away 21 mm of
+arc at each +X end and 8 mm at the key mouth, and *still* did not quite clear the
+enlarged finger scoop, which overran it by 0.7 mm. Per-end stops fix that overrun
+and buy back a third of the toothed rim: measured on the built solid at z = 30,
+**98.2 mm of the 291 mm perimeter carried teeth before, 131.7 mm now — +34%**.
+
+The fade is driven by `knurl_end_stops` / `knurl_fade_len` /
 `knurl_crest_out` on
 `DriverParams`, all **defaulting to no-ops** so v1 and v2 are unaffected.
 `knurl_crest_out` lifts the cutting wheel's crests just outside the body: since
@@ -519,6 +539,10 @@ out gets clipped back to the body's own surface. That does two jobs at once — 
 faded end caps stay exactly, smoothly elliptical instead of picking up the
 wheel's polygon facets, and every tooth crest loses its knife edge for a narrow
 flat of the true surface.
+
+`build_driver_v3` ties the two +X stops to the pin geometry: it solves where the
+mouth dish's rim reaches round the rim and refuses a stop that does not clear it
+by 1 mm, so enlarging the dish cannot silently leave spikes round a pin.
 
 Alongside it the **finger scoop became a shallow cap** — a Ø40 sphere backed off
 to bite 6 mm deep, giving a Ø28.6 dish whose rim meets the surface at 46°
