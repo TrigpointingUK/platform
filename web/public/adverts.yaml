@@ -1,7 +1,7 @@
 - id: 1
   title: TrigpointingUK Android App
   text: Log your trig visits on the go with our free Android app. Available now on Google Play Store.
-  photo: /img/android-qr.png
+  photo: /img/android-qr2.png
   link: https://play.google.com/store/apps/details?id=uk.trigpointing.android
   startDate: null
   endDate: null
@@ -54,3 +54,19 @@
   link: https://trigfigs.co.uk
   startDate: null
   endDate: '2028-02-16'
+
+- id: 8
+  title: Etsy Store
+  text: TrigpointingUK merchandise, including replacement pillar caps
+  photo: /img/etsy1.jpg
+  link: https://trigpointinguk.etsy.com
+  startDate: null
+  endDate: null
+
+- id: 9
+  title: Etsy Store
+  text: TrigpointingUK merchandise, including replacement pillar caps
+  photo: /img/etsy2.png
+  link: https://trigpointinguk.etsy.com
+  startDate: null
+  endDate: null
