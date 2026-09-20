@@ -84,17 +84,51 @@ FDM_BORE_JOINT = ThreadSpec(
 # otherwise; both the mesh and the nominal diameter have since been corrected,
 # so the next print is the first clean measurement of this number.
 #
-# NB resin keeps the brass thread and its existing allowance untouched: it was
-# measured on the first print at 0.18 mm clearance with 0.97 mm engagement,
-# close to the brass pair itself, so resin parts stay interchangeable with brass
-# originals. Only FDM gets the redrawn joint.
+# NB resin keeps the brass thread form, so resin parts stay interchangeable with
+# brass originals. Only FDM gets the redrawn joint.
 #
 # FDM's bore allowance is applied ONCE, to the external member only. Applying it
 # to both (as the spider joint must, since only one member is printed) gave a
 # printed pair double the intended slop -- 0.5 mm radial -- and that is what let
 # the inner plug tilt and cross-thread before the malformed crests could catch.
+#
+# Resin's bore allowance sits ENTIRELY on the bore, the way the brass original
+# does it (round 2, 2026-08-31). Calipers on the second print settled it: the
+# printed inner plug measured exactly 0.2 mm under the brass one on diameter --
+# which is precisely the 0.10 mm radial allowance the STL asked for, so resin
+# reproduces the model faithfully and every fit below is a modelling choice, not
+# process error.
+#
+# That reframes the three fits reported from that print:
+#
+#   * printed inner plug in a printed plug -- 0.20 mm radial. It screwed
+#     together, but needed PTFE spray and ten minutes of working in with tools
+#     before it ran by hand: too tight for a batch that has to work first time.
+#   * BRASS inner plug in a printed plug -- would only start, then jammed. Our
+#     bore was allowed 0.10 mm where the brass female is cut 0.26 mm generous
+#     (its 37.5 mm minor against the 39.3 mm crest), so the brass crests ran out
+#     of groove.
+#   * printed inner plug in a BRASS plug -- loose (0.36 mm radial): the brass
+#     female's 0.26 mm plus our shaft's 0.10 mm, stacked.
+#
+# So the shaft goes to nominal -- Ø39.3, dimensionally the brass inner plug --
+# and the bore carries the lot, which is where a machinist would put it and what
+# the original does. 0.30 mm radial is the brass female's own 0.26 mm plus a
+# little for resin's surface texture, the brass figure being an allowance for
+# smooth machined metal. The print itself brackets it: 0.20 mm was sticky,
+# 0.36 mm ran freely, and 0.30 mm leaves 0.86 mm of flank engaged (74% of the
+# 1.16 mm thread depth), well short of the 0.5 mm that let the FDM pair tilt and
+# cross-thread.
+#
+# Every fit in the family lands within 0.04 mm of the brass pair's own:
+# printed pair 0.30, brass shaft in a printed bore 0.30, printed shaft in a
+# brass bore 0.26 (down from 0.36 -- the loose one is fixed too, for free).
 STL_VARIANTS = {
-    "resin": PrintVariant(clearance=0.10),   # SLA resolves fine threads well
+    "resin": PrintVariant(                   # SLA resolves fine threads well
+        clearance=0.10,
+        bore_clearance_external=0.0,         # shaft: nominal, = the brass part
+        bore_clearance_internal=0.30,        # bore: the whole allowance (was 0.10)
+    ),
     "fdm": PrintVariant(                     # FDM is coarser -> generous
         clearance=0.25,
         bore_joint=FDM_BORE_JOINT,
@@ -145,7 +179,10 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
             validate(part, f"plug ({variant})")
             stl_path = STL_DIR / f"plug_{variant}.stl"
             note = export_watertight_stl(part, stl_path, f"plug ({variant})")
-            print(f"    {variant}: clearance={clr} mm radial [{note}] "
+            bore_clr = clr if cfg.bore_clearance_internal is None \
+                else cfg.bore_clearance_internal
+            print(f"    {variant}: clearance={clr} mm radial, bore "
+                  f"{bore_clr} mm [{note}] "
                   f"-> {stl_path.relative_to(CAD_DIR)}  ({time.time()-tv:.1f}s)")
 
     # ---- Inner plug, once per top-surface preset --------------------------
@@ -176,7 +213,10 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
             validate(part, f"inner_plug[{top}] ({variant})")
             stl_path = STL_DIR / f"inner_plug{suffix}_{variant}.stl"
             note = export_watertight_stl(part, stl_path, f"inner_plug[{top}] ({variant})")
-            print(f"    {variant}: clearance={clr} mm radial [{note}] "
+            bore_clr = clr if cfg.bore_clearance_external is None \
+                else cfg.bore_clearance_external
+            print(f"    {variant}: clearance={clr} mm radial, thread "
+                  f"{bore_clr} mm [{note}] "
                   f"-> {stl_path.relative_to(CAD_DIR)}  ({time.time()-tv:.1f}s)")
 
     # ---- Combined STEP: both parts, assembled, as separate named objects ---

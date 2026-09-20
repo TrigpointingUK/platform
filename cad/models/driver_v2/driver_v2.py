@@ -11,7 +11,7 @@ Local frame is the driver's: z = 0 at the flat base, +z upward, major axis = X.
 
 from __future__ import annotations
 
-from math import sqrt
+from math import hypot, sqrt
 
 from build123d import (
     Axis,
@@ -22,18 +22,19 @@ from build123d import (
     Rotation,
     Sphere,
     Torus,
+    fillet,
     make_face,
     revolve,
 )
 
 from common.threads import keep_largest_solid
-from models.driver.driver import build_driver
-from models.driver.params import DRIVER, DriverParams
-from models.keydriver.params import KEYSTORE, KeyStoreParams
+from models.driver_v1.driver_v1 import build_driver_v1
+from models.driver_v1.params import DRIVER, DriverParams
+from models.driver_v2.params import KEYSTORE, KeyStoreParams
 from models.plug.params import PLUG, PlugParams
 
 
-def build_keydriver(
+def build_driver_v2(
     p: DriverParams = DRIVER,
     plug: PlugParams = PLUG,
     ks: KeyStoreParams = KEYSTORE,
@@ -44,7 +45,7 @@ def build_keydriver(
     """Return the key-storing driver as a build123d ``Part``.
 
     Everything below the key cavities is the ordinary driver; ``knurl``/``logo``
-    are forwarded to :func:`build_driver`.
+    are forwarded to :func:`build_driver_v1`.
     """
     # The long-arm channel passes over the left dowel bore -- keep it clear.
     peg_clear = ks.y_offset - ks.bore_dia / 2 - p.peg_bore_dia / 2
@@ -54,7 +55,7 @@ def build_keydriver(
             f"(Ø{p.peg_bore_dia}); raise y_offset"
         )
 
-    part = build_driver(p, plug, knurl=knurl, logo=logo)
+    part = build_driver_v1(p, plug, knurl=knurl, logo=logo)
 
     # ---- Key rest geometry in the driver frame ---------------------------
     a = p.body_r * p.plan_aspect  # ellipse semi-axes at the knurl crest (X, Y)
@@ -89,6 +90,12 @@ def build_keydriver(
     slot = Pos((x_beyond + x_slot_hi) / 2, y_mid, ks.z_plane) * Box(
         x_slot_hi - x_beyond, ks.short_arm, ks.bar_slot
     )
+    # Round the cutter's lengthwise edges, so the slot's mouth has no sharp
+    # corner points. Done on the Box, before it is used: OCCT fillets a Box
+    # happily and refuses the same edges once they are spline-bounded cavity
+    # edges in the finished solid.
+    if ks.bar_slot_round > 0:
+        slot = fillet(slot.edges().filter_by(Axis.X), radius=ks.bar_slot_round)
 
     channel = bore + slot
 
@@ -167,7 +174,18 @@ def build_keydriver(
     if ks.scoop_r > 0:
         y_scoop = y_hi + (y_lo - y_hi) * ks.scoop_frac
         x_scoop = -a * sqrt(1.0 - (y_scoop / b) ** 2)
-        part = part - Pos(x_scoop, y_scoop, ks.z_plane) * Sphere(radius=ks.scoop_r)
+        # With scoop_depth set, back the sphere's centre off along the outward
+        # surface normal so the dish is a shallow cap rather than a hemisphere:
+        # same purchase for a finger, but the rim meets the surface at a slope
+        # instead of square on. See params for the geometry.
+        off = 0.0
+        if 0.0 < ks.scoop_depth < ks.scoop_r:
+            off = ks.scoop_r - ks.scoop_depth
+        nx, ny = x_scoop / (a * a), y_scoop / (b * b)  # outward ellipse normal
+        nl = hypot(nx, ny)
+        part = part - Pos(
+            x_scoop + off * nx / nl, y_scoop + off * ny / nl, ks.z_plane
+        ) * Sphere(radius=ks.scoop_r)
 
     return keep_largest_solid(part)
 
@@ -176,9 +194,9 @@ if __name__ == "__main__":
     import time
 
     t0 = time.time()
-    part = build_keydriver()
+    part = build_driver_v2()
     print(
-        f"keydriver: volume={part.volume:.0f} mm^3  valid={part.is_valid}  "
+        f"driver_v2: volume={part.volume:.0f} mm^3  valid={part.is_valid}  "
         f"built in {time.time()-t0:.1f}s"
     )
     bb = part.bounding_box()

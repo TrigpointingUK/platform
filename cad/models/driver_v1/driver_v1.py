@@ -44,11 +44,8 @@ from build123d import (
 from common.engraving import svg_relief
 from common.threads import keep_largest_solid
 from common.tuk import LOGO_FRAC, LOGO_SVG
-from models.driver.params import DRIVER, DriverParams
+from models.driver_v1.params import DRIVER, DriverParams
 from models.plug.params import PLUG, PlugParams
-
-_LOGO_FILL = 0.85  # logo scaled to this fraction of the plateau's minor radius
-
 
 def _body(p: DriverParams):
     """Revolve the sculpted knob profile (round; stretched to an ellipse later).
@@ -104,33 +101,79 @@ def _phi_at_arclen(s: float, phis, cum) -> float:
     return phis[k] + t * (phis[k + 1] - phis[k])
 
 
+def _tooth_fade(s: float, perimeter: float, stops, fade_len: float) -> float:
+    """Tooth-depth multiplier for a tooth at arc-length station ``s``.
+
+    Works out which of the ellipse's four ends the tooth belongs to and how far
+    round the rim it sits from that end's tip, then returns 0 within that end's
+    ``stop``, 1 beyond ``stop + fade_len``, smoothstepped between (zero slope at
+    both ends, so the teeth die away without a visible step). ``stops`` is the
+    four-tuple described in ``DriverParams``; a stop of 0 disables its end.
+    """
+    quarter = perimeter / 4.0
+    if s < quarter:                 # +X tip, +Y side
+        i, u = 0, s
+    elif s < 2.0 * quarter:         # -X tip, +Y side
+        i, u = 1, 2.0 * quarter - s
+    elif s < 3.0 * quarter:         # -X tip, -Y side
+        i, u = 2, s - 2.0 * quarter
+    else:                           # +X tip, -Y side
+        i, u = 3, perimeter - s
+
+    stop = stops[i]
+    if stop <= 0.0:
+        return 1.0
+    if u <= stop:
+        return 0.0
+    if fade_len <= 0.0 or u >= stop + fade_len:
+        return 1.0
+    t = (u - stop) / fade_len
+    return t * t * (3.0 - 2.0 * t)
+
+
 def _elliptical_sawtooth_wheel(a: float, b: float, n: int, depth: float,
-                               steep_frac: float, z0: float, z1: float):
+                               steep_frac: float, z0: float, z1: float,
+                               stops=(0.0, 0.0, 0.0, 0.0), fade_len: float = 0.0,
+                               crest_out: float = 0.0):
     """A toothed elliptical prism spanning ``z0..z1``: ``n`` sawteeth of equal
     *arc length* round the ellipse (semi-axes a=X, b=Y), so every tooth is the
     same linear size regardless of the ellipse's varying curvature.
 
-    Crests sit on the ellipse, roots are inset ``depth`` along the inward normal.
-    Each tooth rises steeply from root to crest over ``steep_frac`` of its pitch,
-    then ramps gently back down to the next root. The steep face is thus on the
-    clockwise (decreasing arc-length) side of the crest, so a gripping hand turning
-    the knob **anticlockwise** drives against those near-radial faces and bites,
-    while a clockwise (tightening) turn pushes the shallow ramps and slips.
+    Crests sit ``crest_out`` outside the ellipse, roots are inset along the
+    inward normal. Each tooth rises steeply from root to crest over
+    ``steep_frac`` of its pitch, then ramps gently back down to the next root.
+    The steep face is thus on the clockwise (decreasing arc-length) side of the
+    crest, so a gripping hand turning the knob **anticlockwise** drives against
+    those near-radial faces and bites, while a clockwise (tightening) turn pushes
+    the shallow ramps and slips.
+
+    Toward the ellipse's four ENDS the teeth fade out, each on its own schedule
+    (see :func:`_tooth_fade`). The root's inset is blended from ``depth`` down to
+    ``-crest_out``, so a fully faded tooth has root *and* crest outside the body:
+    the wheel then cuts nothing at all there and the end caps keep the body's own
+    smooth surface.
     """
     phis, cum = _ellipse_arclen_table(a, b)
     pitch = cum[-1] / n
     pts = []
-    for i in range(n):
-        # Root: inset along the outward ellipse normal at this arc-length station.
-        ph = _phi_at_arclen(i * pitch, phis, cum)
+
+    def on_ellipse(ph, offset):
+        """Point ``offset`` outside the ellipse at parametric angle ``ph``."""
         ex, ey = a * cos(ph), b * sin(ph)
         nx, ny = cos(ph) / a, sin(ph) / b  # gradient of (x/a)^2+(y/b)^2, outward
         nl = hypot(nx, ny)
-        pts.append((ex - depth * nx / nl, ey - depth * ny / nl))
-        # Crest: on the ellipse, a short steep rise later (steep face on the
-        # clockwise side); the gentle ramp then runs on to the next root.
+        return (ex + offset * nx / nl, ey + offset * ny / nl)
+
+    for i in range(n):
+        # Root: inset along the outward ellipse normal at this arc-length station,
+        # by a depth that fades to -crest_out toward the ends.
+        ph = _phi_at_arclen(i * pitch, phis, cum)
+        f = _tooth_fade(i * pitch, cum[-1], stops, fade_len)
+        pts.append(on_ellipse(ph, -(f * depth - (1.0 - f) * crest_out)))
+        # Crest: a short steep rise later (steep face on the clockwise side); the
+        # gentle ramp then runs on to the next root.
         ph = _phi_at_arclen(i * pitch + steep_frac * pitch, phis, cum)
-        pts.append((a * cos(ph), b * sin(ph)))
+        pts.append(on_ellipse(ph, crest_out))
 
     with BuildPart() as bp:
         with BuildSketch(Plane.XY.offset(z0)):
@@ -210,7 +253,7 @@ def _vent_grooves(part, smooth, p: DriverParams, plug: PlugParams, body_h: float
     return part
 
 
-def build_driver(
+def build_driver_v1(
     p: DriverParams = DRIVER,
     plug: PlugParams = PLUG,
     *,
@@ -248,7 +291,9 @@ def build_driver(
         z1 = p.body_half_h + p.band_half_h
         band = Pos(0, 0, (z0 + z1) / 2) * Cylinder(radius=a + 5.0, height=z1 - z0)
         wheel = _elliptical_sawtooth_wheel(
-            a, b, p.n_teeth, p.tooth_depth, p.steep_frac, z0 - 1.0, z1 + 1.0
+            a, b, p.n_teeth, p.tooth_depth, p.steep_frac, z0 - 1.0, z1 + 1.0,
+            stops=p.knurl_end_stops, fade_len=p.knurl_fade_len,
+            crest_out=p.knurl_crest_out,
         )
         if not p.catch_ccw:
             wheel = mirror(wheel, Plane.XZ)  # flip chirality (steep faces anticlockwise)
@@ -271,7 +316,7 @@ def build_driver(
     if logo:
         part = svg_relief(
             part, z_top=body_h, radius=p.plateau_r, frac_map=LOGO_FRAC,
-            svg_path=LOGO_SVG, amount=p.logo_amount, fill=_LOGO_FILL, raised=True,
+            svg_path=LOGO_SVG, amount=p.logo_amount, fill=p.logo_fill, raised=True,
         )
 
     return keep_largest_solid(part)
@@ -281,9 +326,9 @@ if __name__ == "__main__":
     import time
 
     t0 = time.time()
-    part = build_driver()
+    part = build_driver_v1()
     print(
-        f"driver: volume={part.volume:.0f} mm^3  valid={part.is_valid}  "
+        f"driver_v1: volume={part.volume:.0f} mm^3  valid={part.is_valid}  "
         f"built in {time.time()-t0:.1f}s"
     )
     bb = part.bounding_box()

@@ -63,6 +63,38 @@ class DriverParams:
     #                            and bites while tightening slips. Flip if the
     #                            spider thread proves left-handed.
 
+    # Fading the teeth out toward the ENDS of the ellipse. Anything that breaks
+    # the rim there -- a bore mouth, a scoop, a slot -- truncates whatever teeth
+    # it lands on into thin sharp spikes, so a tool with end features wants smooth
+    # end caps.
+    #
+    # There are FOUR such ends, not two, and they rarely want the same treatment:
+    # what crowds the rim on one side of a tip is usually nothing like what crowds
+    # it on the other. So each gets its own stop, given as an ARC LENGTH from its
+    # nearest tip -- arc, not |x|, because near the pointed tip of a 2:1 ellipse a
+    # millimetre of x is three millimetres of surface, and "how far from the
+    # scoop" means the distance a finger travels, not a coordinate difference.
+    # Teeth are absent within ``knurl_end_stops[i]`` of the tip and ramp to full
+    # depth over the next ``knurl_fade_len``, smoothstepped.
+    #
+    # Order is the way the teeth are laid out, anticlockwise from the +X tip:
+    #     (+X/+Y, -X/+Y, -X/-Y, +X/-Y)
+    # The DEFAULTS DISABLE THE FADE (all stops 0), so v1 and v2 are unchanged.
+    knurl_end_stops: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+    knurl_fade_len: float = 0.0  # [E] arc over which each end ramps to full depth
+    knurl_crest_out: float = 0.0  # [E] lift the cutting wheel's crests this far
+    #                                 OUTSIDE the body. The knurl is made by
+    #                                 intersecting the wheel with the body, so a
+    #                                 crest that pokes out is clipped back to the
+    #                                 body's own surface -- which (a) lets the
+    #                                 faded end caps stay exactly, smoothly
+    #                                 elliptical instead of picking up the
+    #                                 wheel's polygon facets, and (b) takes the
+    #                                 knife edge off every tooth crest, replacing
+    #                                 it with a narrow flat of the true surface.
+    #                                 Must exceed the polygon's worst sagitta
+    #                                 (~0.24 mm at 46 teeth). 0 = off.
+
     # ---- Steel dowel pegs (BOM item; only their bores are modelled) ------
     # The dowels are glued in (structural epoxy) -- see README. The bore is a
     # clearance fit with mechanical-keying features, not an interference/press
@@ -91,6 +123,13 @@ class DriverParams:
     vent_groove_depth: float = 1.0  # [E] groove depth (follows the sculpted top)
     # Embossed TrigpointingUK logo on the flat plateau.
     logo_amount: float = 0.9  # [E] emboss height proud of the plateau
+    logo_fill: float = 0.85  # [E] the artwork is scaled so its bounding circle is
+    #                            this fraction of the plateau's MINOR radius. It is
+    #                            a knob of its own because plateau_r is set by the
+    #                            body's shape, not by how big the badge should be:
+    #                            a version that needs a wider plateau (v3, whose
+    #                            shallow sculpt would otherwise bulge) can drop
+    #                            this to keep the logo the same physical size.
 
 
 # Single shared instance; import and override fields as measurements arrive.
