@@ -83,6 +83,21 @@ class FlushBracketParams:
     kh_d: float = 12.1  # [D] slot depth into the plate
     kh_gap: float = 21.1  # [D] gap between the two slots
     kh_below_bead: float = 5.0  # [D] slot top this far below the top bead's inner edge
+    # The rounded bottom of each pocket is a half-round trough of radius
+    # kh_w/2, swept back into the plate. This angle tilts that sweep upward, so
+    # the trough rises -- and therefore shallows -- toward the back:
+    #
+    #   0 deg   a plain horizontal cylinder: constant section right to the back
+    #           wall, and a crisp lip at the mouth. This is what the reference
+    #           bracket (photo 456973) has.
+    #   ~35 deg atan((kh_w/2) / kh_d): the trough runs out exactly at the back
+    #           wall, so the pocket is a shallow bowl with no deep back corners
+    #           -- the North Ockendon form.
+    #
+    # Sweeping an arc, rather than intersecting an ellipsoid, is what removes
+    # the sharp step at the sides: the arc's ends stay on the pocket's side
+    # walls at every depth, so the wall runs tangentially into the trough.
+    kh_scoop_angle_deg: float = 30.0  # [E]
 
     # Bridging rib across each slot
     rib_h: float = 11.5  # [D] rib height

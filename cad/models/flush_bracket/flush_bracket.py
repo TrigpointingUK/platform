@@ -40,7 +40,6 @@ from build123d import (
     Pos,
     Rectangle,
     Rot,
-    Sphere,
     Face,
     Text,
     ThreePointArc,
@@ -234,23 +233,40 @@ def _raise(face, relief: float, draft_deg: float):
 
 
 def _keyhole_cutter(p: FlushBracketParams, lay: _Layout, cx: float):
-    """One keyhole slot: a cuboid with an ellipsoidal scoop at its bottom.
+    """One keyhole pocket: a U-shaped profile lofted back into the plate.
 
-    The scoop's cross-section at every z is an ellipse centred on the plate's
-    front face, so the slot's back wall sweeps forward as it descends and there
-    is no shelf at the bottom -- as cast.
+    The pocket is **one** solid, not a cuboid unioned with a rounded bottom.
+    That matters more than it sounds. Unioning them leaves the trough tangent
+    to the pocket's side walls and its end cap coplanar with the back wall --
+    two of the cases OCCT's booleans handle worst -- and the result is a ring
+    of sliver faces lying in the junction plane, which reads as a step exactly
+    where the rectangular and rounded parts meet. Tangency cannot be designed
+    out, because a rounded bottom meeting a flat wall smoothly *is* tangency.
+    So the union goes instead: the profile is a single closed wire, straight
+    sides running into an arc, and the junction is an edge within one face
+    rather than a boolean between two.
+
+    ``kh_scoop_angle_deg`` raises the arc's centre on the back profile, so the
+    trough shallows toward the back. At 0 the two profiles are identical and
+    the loft is a plain prism.
     """
-    slot = Pos(cx, -p.kh_d / 2, (lay.kh_z_top + lay.kh_z_bot) / 2) * Box(
-        p.kh_w, p.kh_d, p.kh_h
-    )
-    # Half-ellipsoid, semi-axes (kh_w/2, kh_d, kh_w/2), centred on the front
-    # face at the slot bottom, keeping only the lower half.
-    ball = scale(Sphere(1.0), by=(p.kh_w / 2, p.kh_d, lay.kh_scoop_r))
-    ball = Pos(cx, 0, lay.kh_z_bot) * ball
-    lower = Pos(cx, 0, lay.kh_z_bot - lay.kh_scoop_r) * Box(
-        p.kh_w * 2, p.kh_d * 4, lay.kh_scoop_r * 2
-    )
-    return slot + (ball & lower)
+    r = lay.kh_scoop_r
+    rise = p.kh_d * math.tan(math.radians(p.kh_scoop_angle_deg))
+
+    def _profile(z_centre: float):
+        with BuildSketch(Plane.XZ) as sk:
+            with BuildLine():
+                Line((cx - r, lay.kh_z_top), (cx - r, z_centre))
+                ThreePointArc((cx - r, z_centre), (cx, z_centre - r),
+                              (cx + r, z_centre))
+                Line((cx + r, z_centre), (cx + r, lay.kh_z_top))
+                Line((cx + r, lay.kh_z_top), (cx - r, lay.kh_z_top))
+            make_face()
+        return sk.sketch.faces()[0]
+
+    front = _profile(lay.kh_z_bot)
+    back = Pos(0, -p.kh_d, 0) * _profile(lay.kh_z_bot + rise)
+    return loft([back, front], ruled=True)
 
 
 def _bridging_rib(p: FlushBracketParams, lay: _Layout, cx: float):

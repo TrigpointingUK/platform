@@ -153,11 +153,17 @@ number you record.
 | # | Measurement | Parameter | Current |
 |---|---|---|---|
 | E1 | Keyhole slot width, cuboid height, depth into the plate | `kh_w`, `kh_h`, `kh_d` | 16.9, 28.0, 12.1 |
+| E1a | Depth of the rounded trough **at the back wall** vs at the mouth | `kh_scoop_angle_deg` | 0 (equal) |
 | E2 | Gap between the two slots | `kh_gap` | 21.1 |
 | E3 | Slot top below the top bead's inner edge | `kh_below_bead` | 5.0 |
 | E4 | Bridging rib: height, thickness, edge radius, top below the slot top | `rib_h`, `rib_d`, `rib_bevel`, `rib_below_slot_top` | 11.5, 5.0, 2.0, 11.6 |
 | E5 | Total plate depth, front face to back | `total_plate_d` | 20.9 |
 | E6 | Front plate depth (front face to the step at the back, if visible) | `near_d_frac` | 6.97 |
+
+E1a is the easy way to pin the trough's form without measuring an angle: at 0°
+the trough is a cylinder and is exactly as deep at the back as at the mouth; at
+~35° it has run out completely by the back wall. Anything between is
+`atan(rise / kh_d)` where `rise` is the difference of the two depths.
 
 The keying bar and anchor (`bar_*`, `anchor_*`) are buried in the concrete on a
 fitted bracket and can only be measured on a salvaged one.

@@ -669,6 +669,45 @@ scale — a 1:5 model has five-times-smaller features and gets proportionally
 fewer facets (2.4 MB at 1:1 down to 451 kB at 1:10). Meshing once and scaling
 the mesh would instead carry 1:1 facet counts into every reduction.
 
+### The keyhole troughs are swept, not intersected
+
+Each keyhole pocket is **one** solid — a U-shaped profile lofted back into the
+plate — not a cuboid unioned with a rounded bottom.
+
+Two separate problems drove that, and only the second is obvious.
+
+*The ellipsoid.* Originally the rounded bottom was a half-ellipsoid intersected
+with the pocket. Its section where it meets the pocket is an ellipse inscribed
+in the pocket's rectangle, touching only at the mid-points of the sides.
+Measured half-way down the trough's own radius, it ran from 8.43 mm at the
+mouth to **2.80 mm** at the back against side walls at 8.45 mm: a 5.6 mm step.
+
+*The union.* Replacing it with a swept arc fixes the width — 8.438 mm at every
+depth — but only while the sweep is horizontal. Tilt it and the trough's widest
+point rises with depth, so below the cuboid's bottom edge the trough is again
+narrower than the walls, and the step comes back at every non-zero angle. Even
+at zero the union is fragile: the trough is *tangent* to the side walls and its
+end cap *coplanar* with the back wall, two of the cases OCCT's booleans handle
+worst, and it leaves sliver faces lying in the junction plane.
+
+Tangency cannot be designed out — a rounded bottom meeting a flat wall smoothly
+*is* tangency. So the union goes instead. The profile is a single closed wire,
+straight sides running into an arc, and the junction becomes an edge within one
+face rather than a boolean between two. Raising the arc's centre on the back
+profile tilts the trough, and the side walls' lower edges follow the arc's
+tangent point up, so there is no step at any angle.
+
+`kh_scoop_angle_deg` tilts the sweep upward, so the trough shallows toward the
+back:
+
+| angle | form |
+|---|---|
+| 0° | plain horizontal cylinder — constant section to the back wall, crisp lip at the mouth (photo 456973) |
+| ~35° | `atan((kh_w/2) / kh_d)` — the trough runs out exactly at the back wall, giving a shallow bowl with no deep back corners (the North Ockendon form) |
+
+Beyond ~35° the trough vanishes before the back wall and the cuboid's flat
+floor takes over, which is why 45° is about the useful limit.
+
 ### Casting draft on the lettering
 
 The sides of the raised letters and the broad arrow lean inward. A sand-casting
