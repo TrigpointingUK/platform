@@ -14,6 +14,7 @@ import {
   fetchStatuses,
   createTrigAdmin,
   StatusRecord,
+  requireAccessToken,
 } from "../../lib/api";
 
 const ADMIN_AUTH_PARAMS = {
@@ -116,7 +117,7 @@ export default function TrigCreate() {
       setError(null);
 
       try {
-        const token = await getAccessTokenSilently({
+        const token = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
 
@@ -179,7 +180,7 @@ export default function TrigCreate() {
     setSaveSuccess(false);
 
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: { ...ADMIN_AUTH_PARAMS },
       });
 

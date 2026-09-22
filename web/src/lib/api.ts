@@ -27,6 +27,7 @@ export {
   authenticatedPatch,
   authenticatedDelete,
   AuthenticationError,
+  requireAccessToken,
   type GetAccessTokenSilently,
 } from './authenticatedFetch';
 

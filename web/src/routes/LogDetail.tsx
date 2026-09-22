@@ -23,6 +23,7 @@ import {
   DuplicateLogError,
   moveTrigToLogLocation,
   setTrigConditionFromLog,
+  requireAccessToken,
 } from "../lib/api";
 
 export default function LogDetail() {
@@ -81,7 +82,7 @@ export default function LogDetail() {
     setAdminActionPending(true);
     setAdminActionError(null);
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: {
           audience: import.meta.env.VITE_AUTH0_AUDIENCE,
           scope: "openid profile email api:write api:read-pii api:admin",
@@ -107,7 +108,7 @@ export default function LogDetail() {
     setAdminActionPending(true);
     setAdminActionError(null);
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: {
           audience: import.meta.env.VITE_AUTH0_AUDIENCE,
           scope: "openid profile email api:write api:read-pii api:admin",

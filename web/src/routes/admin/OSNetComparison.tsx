@@ -20,6 +20,7 @@ import {
   OSNetComparisonResponse,
   StationDifference,
   fetchOSNetComparison,
+  requireAccessToken,
 } from "../../lib/api";
 
 const AUTH0_AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE as string | undefined;
@@ -364,7 +365,7 @@ export default function OSNetComparison() {
         }
         setError(null);
 
-        const token = await getAccessTokenSilently({
+        const token = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: ADMIN_AUTH_PARAMS,
         });
         const data = await fetchOSNetComparison(token, forceRefresh);

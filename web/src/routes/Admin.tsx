@@ -24,6 +24,7 @@ import {
   reissueLegacyUserEmail,
   searchLegacyUsers,
   TrigNeedsAttentionSummary,
+  requireAccessToken,
 } from "../lib/api";
 
 // const ADMIN_REAUTH_DELAY_MS = import.meta.env.MODE === "test" ? 0 : 5000;
@@ -197,7 +198,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
     searchTimeoutRef.current = window.setTimeout(() => {
       (async () => {
         try {
-          const token = await getAccessTokenSilently({
+          const token = await requireAccessToken(getAccessTokenSilently, {
             authorizationParams: { ...ADMIN_AUTH_PARAMS },
           });
           const data = await searchLegacyUsers(trimmedQuery, token);
@@ -305,7 +306,7 @@ function LegacyMigrationCard({ getAccessTokenSilently }: LegacyMigrationCardProp
       setMigrationMessage(null);
 
       try {
-        const token = await getAccessTokenSilently({
+        const token = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
         const response = isReissue
@@ -593,7 +594,7 @@ function NeedsAttentionCard({ getAccessTokenSilently }: NeedsAttentionCardProps)
       setError(null);
 
       try {
-        const token = await getAccessTokenSilently({
+        const token = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
         const data = await fetchNeedsAttentionSummary(token);
@@ -721,7 +722,7 @@ function LogsNeedsAttentionCard({ getAccessTokenSilently }: LogsNeedsAttentionCa
       setError(null);
 
       try {
-        const token = await getAccessTokenSilently({
+        const token = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
         const data = await fetchLogsNeedsAttentionSummary(token);
@@ -879,7 +880,7 @@ function DeleteAccountAdminCard({ getAccessTokenSilently }: DeleteAccountAdminCa
     searchTimeoutRef.current = window.setTimeout(() => {
       (async () => {
         try {
-          const token = await getAccessTokenSilently({
+          const token = await requireAccessToken(getAccessTokenSilently, {
             authorizationParams: { ...ADMIN_AUTH_PARAMS },
           });
           const data = await searchLegacyUsers(trimmed, token);
@@ -1071,7 +1072,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
     targetSearchTimeoutRef.current = window.setTimeout(() => {
       (async () => {
         try {
-          const token = await getAccessTokenSilently({
+          const token = await requireAccessToken(getAccessTokenSilently, {
             authorizationParams: { ...ADMIN_AUTH_PARAMS },
           });
           const data = await searchLegacyUsers(trimmedQuery, token);
@@ -1124,7 +1125,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
     sourceSearchTimeoutRef.current = window.setTimeout(() => {
       (async () => {
         try {
-          const token = await getAccessTokenSilently({
+          const token = await requireAccessToken(getAccessTokenSilently, {
             authorizationParams: { ...ADMIN_AUTH_PARAMS },
           });
           const data = await searchLegacyUsers(trimmedQuery, token);
@@ -1165,7 +1166,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
     setMergeResult(null);
 
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: { ...ADMIN_AUTH_PARAMS },
       });
       const response = await mergeUsers(
@@ -1197,7 +1198,7 @@ function MergeUsersCard({ getAccessTokenSilently }: MergeUsersCardProps) {
     setError(null);
 
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: { ...ADMIN_AUTH_PARAMS },
       });
       const response = await mergeUsers(
@@ -1557,7 +1558,7 @@ export default function Admin() {
       setIsCheckingScope(true);
 
       try {
-        const token = await getAccessTokenSilently({
+        const token = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
 

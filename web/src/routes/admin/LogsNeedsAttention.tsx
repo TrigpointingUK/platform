@@ -14,6 +14,7 @@ import {
   OrphanedLogItem,
   DuplicateLogItem,
   DuplicateLogGroupEntry,
+  requireAccessToken,
 } from "../../lib/api";
 
 const ADMIN_AUTH_PARAMS = {
@@ -360,7 +361,7 @@ export default function LogsNeedsAttention() {
     setError(null);
 
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: { ...ADMIN_AUTH_PARAMS },
       });
       const data = await fetchLogsNeedsAttention({ skip, limit }, token);
@@ -388,7 +389,7 @@ export default function LogsNeedsAttention() {
     setDeletingLogId(logId);
     
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: { ...ADMIN_AUTH_PARAMS },
       });
 

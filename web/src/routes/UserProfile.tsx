@@ -15,6 +15,7 @@ import { useInfiniteLogs } from "../hooks/useInfiniteLogs";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useCanonical } from "../hooks/useCanonical";
 import { useNoIndex } from "../hooks/useNoIndex";
+import { requireAccessToken } from "../lib/api";
 
 // Helper function to decode JWT payload
 interface JWTPayload {
@@ -71,7 +72,7 @@ export default function UserProfile() {
     const extractScopes = async () => {
       if (isOwnProfile) {
         try {
-          const token = await getAccessTokenSilently();
+          const token = await requireAccessToken(getAccessTokenSilently);
           const decoded = decodeJWT(token);
 
           if (decoded) {
