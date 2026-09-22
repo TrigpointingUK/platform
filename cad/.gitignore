@@ -9,3 +9,7 @@ stl/flush_bracket_*.stl
 # Python cruft
 __pycache__/
 *.pyc
+
+# fbfit working data: harvested photographs, rectifications and stacks.
+# Large, reproducible from the API, and the photographs are not ours to commit.
+fbfit/work/
