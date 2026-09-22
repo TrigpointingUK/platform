@@ -47,6 +47,12 @@ vi.mock("../../../lib/api", () => ({
   deleteType: vi.fn(),
   reorderTypes: vi.fn(),
   fetchTypeUsage: vi.fn(),
+  requireAccessToken: vi.fn(
+    async (
+      getAccessTokenSilently: (options?: unknown) => Promise<string | undefined>,
+      options?: unknown
+    ) => await getAccessTokenSilently(options)
+  ),
 }));
 
 // Mock DnD Kit

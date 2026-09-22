@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useLocation } from "react-router-dom";
+import { requireAccessToken } from "../lib/api";
 
 interface UseAdminAuthResult {
   hasAdminRole: boolean;
@@ -115,7 +116,7 @@ export function useAdminAuth(): UseAdminAuthResult {
         // Using default behaviour allows automatic token refresh if needed
         // IMPORTANT: request using the admin audience/scope cache key, otherwise Auth0 may
         // hand back a "basic" cached token even if we've previously acquired api:admin.
-        const currentToken = await getAccessTokenSilently({
+        const currentToken = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...adminAuthParams },
         });
         

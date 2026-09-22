@@ -25,6 +25,7 @@ import {
   applyIrelandImportCSV,
   createTrigFromIrelandCSV,
   bulkCreateTrigsFromIrelandCSV,
+  requireAccessToken,
 } from "../../lib/api";
 
 const AUTH0_AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE as string | undefined;
@@ -456,7 +457,7 @@ export default function IrelandImport() {
     try {
       setLoading(true);
       setError(null);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       const data = await fetchIrelandImportComparison(token);
@@ -481,7 +482,7 @@ export default function IrelandImport() {
   const handleApply = async (trigId: number, csvRowIndex: number) => {
     try {
       setApplying(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       await applyIrelandImportCSV(token, trigId, csvRowIndex);
@@ -501,7 +502,7 @@ export default function IrelandImport() {
   const handleCreate = async (csvRowIndex: number) => {
     try {
       setApplying(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       const result = await createTrigFromIrelandCSV(token, csvRowIndex);
@@ -528,7 +529,7 @@ export default function IrelandImport() {
 
     try {
       setApplying(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       const result = await bulkCreateTrigsFromIrelandCSV(token);

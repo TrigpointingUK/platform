@@ -37,6 +37,7 @@ import {
   deleteType,
   reorderTypes,
   fetchTypeUsage,
+  requireAccessToken,
 } from "../../lib/api";
 
 // DnD Kit imports
@@ -396,7 +397,7 @@ export default function TypesAdmin() {
     try {
       setIsLoading(true);
       setError(null);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       const data = await fetchCategoriesWithTypes(token);
@@ -445,7 +446,7 @@ export default function TypesAdmin() {
   const handleCategorySubmit = async () => {
     try {
       setCategorySubmitting(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
 
@@ -505,7 +506,7 @@ export default function TypesAdmin() {
 
     // Save to server
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       await reorderCategories(
@@ -552,7 +553,7 @@ export default function TypesAdmin() {
   const handleTypeSubmit = async () => {
     try {
       setTypeSubmitting(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
 
@@ -586,7 +587,7 @@ export default function TypesAdmin() {
 
   const handleDeleteType = async (type: TrigType) => {
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       const usage = await fetchTypeUsage(type.id, token);
@@ -621,7 +622,7 @@ export default function TypesAdmin() {
 
     // Save to server
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       await reorderTypes(categoryId, newOrder, token);
@@ -643,7 +644,7 @@ export default function TypesAdmin() {
 
     try {
       setDeleteSubmitting(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
 

@@ -10,11 +10,14 @@
 import type { GetTokenSilentlyOptions } from "@auth0/auth0-react";
 
 /**
- * Type for the getAccessTokenSilently function from Auth0
+ * Type for the getAccessTokenSilently function from Auth0.
+ *
+ * Auth0 returns `undefined` rather than throwing in some no-session cases, so
+ * callers must guard the result before using it as a bearer token.
  */
 export type GetAccessTokenSilently = (
   options?: GetTokenSilentlyOptions
-) => Promise<string>;
+) => Promise<string | undefined>;
 
 /**
  * Custom error class for authentication failures
@@ -29,6 +32,29 @@ export class AuthenticationError extends Error {
     this.code = code;
     this.status = status;
   }
+}
+
+/**
+ * Fetch an access token, rejecting the `undefined` result that Auth0 returns
+ * when there is no usable session.
+ *
+ * Use this wherever a bearer token string is required.
+ *
+ * @throws AuthenticationError if no token is available
+ */
+export async function requireAccessToken(
+  getAccessTokenSilently: GetAccessTokenSilently,
+  options?: GetTokenSilentlyOptions
+): Promise<string> {
+  const token = await getAccessTokenSilently(options);
+  if (!token) {
+    throw new AuthenticationError(
+      "token_retrieval_failed",
+      "Failed to get authentication token - please log in again",
+      401
+    );
+  }
+  return token;
 }
 
 /**
@@ -60,7 +86,7 @@ export async function authenticatedFetch(
   retried = false
 ): Promise<Response> {
   // Get access token (use default behaviour which auto-refreshes if needed)
-  let token: string;
+  let token: string | undefined;
   try {
     token = await getAccessTokenSilently();
   } catch (error) {
@@ -72,6 +98,14 @@ export async function authenticatedFetch(
         401
       );
     }
+    throw new AuthenticationError(
+      "token_retrieval_failed",
+      "Failed to get authentication token - please log in again",
+      401
+    );
+  }
+
+  if (!token) {
     throw new AuthenticationError(
       "token_retrieval_failed",
       "Failed to get authentication token - please log in again",
@@ -95,6 +129,14 @@ export async function authenticatedFetch(
     try {
       // Force token refresh by bypassing cache
       const freshToken = await getAccessTokenSilently({ cacheMode: "off" });
+
+      if (!freshToken) {
+        throw new AuthenticationError(
+          "token_invalid_after_refresh",
+          "Authentication failed. Please log out and log back in.",
+          401
+        );
+      }
 
       // Retry the request with the fresh token
       const retryResponse = await fetch(url, {
