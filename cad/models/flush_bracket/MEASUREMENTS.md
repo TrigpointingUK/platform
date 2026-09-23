@@ -143,7 +143,13 @@ number you record.
 | D4 | `B`: width, height; gap from its outer edge to the bead's inner edge; top below the bottom of `O` | `b_w`, `b_h`, `b_gap_from_bead`, `b_below_os` | 16.7, 24.9, 4.9, 13.6 |
 | D5 | `M`: the same four | `m_w`, `m_h`, `m_gap_from_bead`, `m_below_os` | 17.6, 24.5, 2.9, 14.7 |
 | D6 | Letter relief height | `let_relief` | 4.5 |
-| D7 | Number: digit height, stroke width, baseline above the bottom bead, digit pitch | `num_cap_h`, `num_margin_bottom` | 22.0, 12.0 |
+| D6a | Stroke width across a straight stroke — the B's upright | `let_stroke_w` | 4.2 |
+| D6b | Same across a digit's flat top bar | `num_stroke_w` | 4.2 |
+| D7 | Number: digit cap height | `num_cap_h` | 19.4 |
+| D7a | Number: digit width (they are close to square on BsM) | `num_digit_w` | 17.0 |
+| D7b | Number: gap between adjacent digits, **each gap separately** | `num_gap`, `num_kerning` | 2.5 |
+| D7c | Number: baseline above the bottom bead's inner edge | `num_margin_bottom` | 18.0 |
+| D7d | Is the number on a raised panel? If so, how proud, and how far the panel extends beyond the digits | `num_panel_proud`, `num_panel_margin` | 0 (off) |
 | D8 | On a **BsM** bracket (3200–3699): the middle `S` — width, height, and its baseline against `B` and `M` | `bsm_s_w_frac`, `bsm_s_h_frac` | derived |
 
 ---
@@ -167,6 +173,39 @@ the trough is a cylinder and is exactly as deep at the back as at the mouth; at
 
 The keying bar and anchor (`bar_*`, `anchor_*`) are buried in the concrete on a
 fitted bracket and can only be measured on a salvaged one.
+
+---
+
+D6a/D6b are the weight of the lettering. The glyphs are drawn as skeletons
+swept with a circular pen (`glyphs.py`), so the stroke width is a dimension in
+its own right rather than a by-product of choosing a typeface — measure it
+across a straight run, away from any join.
+
+D7b is worth taking gap by gap rather than as a single pitch. Cast numerals
+were struck individually and the spacing errors are part of a bracket's
+identity — North Ockendon's middle `3` and `5` sit about 0.7 mm tight, and that
+is recorded as `num_kerning`, not averaged away.
+
+---
+
+## Where measurements go
+
+Anything specific to one bracket goes in `brackets.toml` under its number **as
+cast on the plate** — so S3353 is filed under `"3353"`, since a BsM plate
+carries a bare number:
+
+```toml
+[brackets."3353"]
+trig_id = 5169
+name = "North Ockendon"
+measured_by = "IH"
+measured_on = 2026-09-22
+num_cap_h = 19.6        # any field of FlushBracketParams
+```
+
+Anything that looks like it holds for a whole era goes under `[styles.<name>]`
+instead. Keys are checked against the parameter set, so a typo is an error
+rather than a measurement that quietly fails to take.
 
 ---
 

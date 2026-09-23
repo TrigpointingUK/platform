@@ -745,6 +745,49 @@ the operation working at all on every glyph rather than on some of them.
 It also puts this on the same footing as the glyph library: outlines derived
 from photographs arrive as raster masks and come through the same path.
 
+### The measurement database
+
+`params.py` holds one set of dimensions. Real brackets vary in two different
+ways, and `brackets.toml` keeps them apart:
+
+```toml
+[styles.bsm]              # defaults for a whole production era
+num_cap_h = 19.4
+num_digit_w = 17.0
+
+[brackets."3353"]         # one particular casting
+trig_id = 5169
+name = "North Ockendon"
+num_kerning = [0.0, -0.7, 0.0]
+kh_scoop_angle_deg = 20.0
+```
+
+Layers apply in order — `params.py`, then the style's table, then the
+bracket's — and `brackets.resolve()` reports which contributed, so a figure can
+always be traced to where it came from.
+
+Three things are deliberate:
+
+- **Keys are field names of `FlushBracketParams`, and an unknown one raises.**
+  The file is hand-edited, and a silently-dropped typo would be
+  indistinguishable from a measurement that did not take. The error suggests
+  near matches.
+- **Brackets are keyed by the number *as cast*.** A BsM plate carries a bare
+  number, so S3353 is filed under `"3353"` and both spellings resolve to it.
+- **Adding a parameter later needs no change to the loader.** Give it a field
+  and a default in `params.py` and it is immediately settable at either layer.
+  `tomllib` is standard library, so this costs no dependency, and TOML takes
+  comments — which is where a measurement's provenance goes.
+
+Kerning errors are recorded rather than tidied away: on North Ockendon the
+middle `3` and `5` sit about 0.7 mm tight, and that is a large part of what
+makes that particular bracket recognisable.
+
+`num_panel_proud` models the raised rectangle some brackets carry the number
+on. It defaults to off and is per-bracket, because whether it is a style, a
+period, or simply how a given pattern was made is not yet known — there is no
+point inventing a rule before there are enough measurements to see one.
+
 ### Not yet modelled
 
 The **bracket number** — the whole point of an authentic replica — is not here

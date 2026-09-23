@@ -28,22 +28,20 @@ confirmed, and corrected:
   noticeably lighter, smaller legends than S3700+ and the 5-digit series, where
   ``O S B M`` nearly fills the plate width.
 
-Fonts
------
-Every one of these is a **grotesque sans** -- no serifs anywhere on any
-bracket. The faces named below are the closest system approximations and are
-explicitly a stop-gap: real castings were lettered with punch sets no digital
-font reproduces, and the differences show at close range. They are tagged [E]
-for that reason. Replacing them with traced outlines per style is the point of
-the glyph-library work, and only this module should need to change.
+Letterforms
+-----------
+There is no typeface here, and there was never going to be one. The cast
+numerals are geometric -- flat bars, straight diagonals, circular bowls -- and
+no digital font has them. They are drawn instead, as skeletons swept with a
+circular pen, in ``glyphs.py``. A style may one day select between variant
+glyph sets; for now there is a single set and the weight comes from
+``let_stroke_w`` and ``num_stroke_w``.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-
-from build123d import FontStyle
 
 
 @dataclass(frozen=True)
@@ -59,8 +57,6 @@ class BracketStyle:
     series_letter: str
     #: Multiplier on the measured O/S/B/M letter boxes in ``params``.
     letter_scale: float
-    font: str  # [E] closest system approximation
-    font_style: FontStyle  # [E]
     note: str = ""
 
     @property
@@ -68,20 +64,12 @@ class BracketStyle:
         return self.series_letter == "in-legend"
 
 
-# A single grotesque, varied by weight and size, stands in for every era until
-# traced outlines exist. Condensed, because the cast letterforms are narrower
-# than a default sans -- though each letter is also squeezed to its own
-# measured box, so this mostly sets stroke weight.
-_FACE = "DejaVu Sans Condensed"
-
 STYLES = {
     "2gl": BracketStyle(
         name="2gl",
         era="Second Geodetic Levelling, 1912-21 (applied from 1935/36)",
         series_letter="none",
         letter_scale=0.92,
-        font=_FACE,
-        font_style=FontStyle.BOLD,
         note="Unused plates left over from the 2GL, put on the earliest "
              "primary stations. Bare number, no prefix letter.",
     ),
@@ -90,8 +78,6 @@ STYLES = {
         era="Secondary levelling, 1930s",
         series_letter="in-number",
         letter_scale=0.92,
-        font=_FACE,
-        font_style=FontStyle.BOLD,
         note="Lighter, smaller legend than the later series.",
     ),
     "bsm": BracketStyle(
@@ -99,8 +85,6 @@ STYLES = {
         era="c.1940",
         series_letter="in-legend",
         letter_scale=1.0,
-        font=_FACE,
-        font_style=FontStyle.BOLD,
         note="The 'BsM' brackets. The number font was enlarged until there "
              "was no room for a prefix, so the S moved into the legend "
              "between the B and the M, and the number below is bare.",
@@ -110,8 +94,6 @@ STYLES = {
         era="post-war Secondary",
         series_letter="in-number",
         letter_scale=1.0,
-        font=_FACE,
-        font_style=FontStyle.BOLD,
         note="Bold, large legend filling most of the plate width.",
     ),
     "five-digit": BracketStyle(
@@ -119,8 +101,6 @@ STYLES = {
         era="late Secondary, 5-digit numbering",
         series_letter="none",
         letter_scale=1.0,
-        font=_FACE,
-        font_style=FontStyle.BOLD,
         note="Five digits left no room for the S, so it was dropped.",
     ),
     "unknown": BracketStyle(
@@ -128,8 +108,6 @@ STYLES = {
         era="unknown",
         series_letter="in-number",
         letter_scale=1.0,
-        font=_FACE,
-        font_style=FontStyle.BOLD,
         note="Fallback: the number is unreadable, absent or not a recognised "
              "series. The legend is rendered; no number is.",
     ),

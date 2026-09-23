@@ -6,6 +6,12 @@ step/*.step
 # stl/*.stl
 stl/flush_bracket_*.stl
 
+# ...but the flush bracket is built as a specimen set -- one mesh per bracket
+# number, and the set grows every time another casting is measured. That is
+# several megabytes per entry of output that build.py reproduces exactly, so
+# unlike the plug and driver meshes these are not committed.
+stl/flush_bracket*.stl
+
 # Python cruft
 __pycache__/
 *.pyc

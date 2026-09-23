@@ -25,8 +25,8 @@ from build123d import export_step, scale
 
 from common.export import export_watertight_stl, validate
 from common.paths import CAD_DIR, STEP_DIR, STL_DIR
+from models.flush_bracket.brackets import resolve as resolve_bracket
 from models.flush_bracket.flush_bracket import build_flush_bracket
-from models.flush_bracket.params import FB
 
 # Printable variants. The full casting is the honest object; the plate-only
 # version drops everything behind the front plate, which is what most people
@@ -38,6 +38,24 @@ ALL_VARIANTS = {
 
 # Reduction ratios offered. 1 is the real bracket.
 ALL_SCALES = [1, 2, 5, 10]
+
+# Which brackets to build. None is the generic one -- style defaults and no
+# number. Any other entry is looked up in brackets.toml, so it carries whatever
+# has been measured for that particular casting.
+#
+# A specimen set covering every lettering style, so the styles can be compared
+# side by side rather than one at a time:
+#
+#   2990    2gl          bare number, no prefix
+#   S1852   s-early      lighter, smaller legend
+#   S3353   bsm          North Ockendon -- B S M, bare number, measured
+#   S3701   s-late       bold, S prefix
+#   S7659   s-late       a second, to see a different digit set
+#   10603   five-digit   no prefix, narrower digits
+#   12351   five-digit   a second
+NUMBERS: list[str | None] = [
+    None, "2990", "S1852", "S3353", "S3701", "S7659", "10603", "12351",
+]
 
 # ---- Development setting -------------------------------------------------
 # While the lettering is still being worked out there is no point re-exporting
@@ -55,9 +73,24 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
     """Build, validate and export the flush bracket."""
     del threads  # no threaded features on this part
 
+    for number in NUMBERS:
+        _build_one(number, skip_stl=skip_stl)
+
+
+def _build_one(number: str | None, *, skip_stl: bool) -> None:
+    tag = "" if number is None else f"_{number}"
+    label = "generic" if number is None else number
+    resolved = resolve_bracket(number)
+    p = resolved.params
+    if number is not None:
+        who = f" -- {resolved.name}" if resolved.name else ""
+        print(f"flush_bracket [{label}]{who}: style {resolved.style.name}, "
+              f"plate reads {resolved.legend!r}")
+        print(f"    from {' + '.join(resolved.applied)}")
+
     t0 = time.time()
-    master = build_flush_bracket(FB, keying=True)
-    validate(master, "flush_bracket (master)")
+    master = build_flush_bracket(number=number, keying=True)
+    validate(master, f"flush_bracket ({label}) master")
     bb = master.bounding_box()
     print(
         f"flush_bracket: master volume={master.volume:.0f} mm^3 valid, "
@@ -65,12 +98,12 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
         f"({time.time() - t0:.1f}s)"
     )
     print(
-        f"    plate {FB.w} x {FB.h} mm, bead r{FB.bead_r} "
-        f"-> {FB.w + 2 * FB.bead_r} x {FB.h + 2 * FB.bead_r} mm overall"
+        f"    plate {p.w} x {p.h} mm, bead r{p.bead_r} "
+        f"-> {p.w + 2 * p.bead_r} x {p.h + 2 * p.bead_r} mm overall"
     )
 
     master.label = "FlushBracket"
-    step_path = STEP_DIR / "flush_bracket.step"
+    step_path = STEP_DIR / f"flush_bracket{tag}.step"
     export_step(master, str(step_path))
     print(f"    master -> {step_path.relative_to(CAD_DIR)}")
 
@@ -78,14 +111,15 @@ def run(*, threads: bool = True, skip_stl: bool = False) -> None:
         return
 
     for variant, kwargs in VARIANTS.items():
-        part = master if kwargs["keying"] else build_flush_bracket(FB, **kwargs)
-        validate(part, f"flush_bracket ({variant})")
+        part = master if kwargs["keying"] else build_flush_bracket(
+            number=number, **kwargs)
+        validate(part, f"flush_bracket ({label} {variant})")
         for ratio in SCALES:
             tv = time.time()
             sized = part if ratio == 1 else scale(part, by=1 / ratio)
-            stl_path = STL_DIR / f"flush_bracket_{variant}_1-{ratio}.stl"
+            stl_path = STL_DIR / f"flush_bracket{tag}_{variant}_1-{ratio}.stl"
             note = export_watertight_stl(
-                sized, stl_path, f"flush_bracket ({variant} 1:{ratio})"
+                sized, stl_path, f"flush_bracket ({label} {variant} 1:{ratio})"
             )
             kb = stl_path.stat().st_size / 1024
             print(

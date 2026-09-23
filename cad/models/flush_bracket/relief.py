@@ -149,6 +149,48 @@ def _loft_pair(base: np.ndarray, top: np.ndarray, y0: float, y1: float):
     return loft([_face_at(base, y0), _face_at(top, y1)], ruled=True)
 
 
+def solid_from_mask(mask: np.ndarray, origin, relief: float, draft_deg: float,
+                    embed: float = 0.0, px_per_mm: float = PX_PER_MM):
+    """Raise an already-rasterised outline, with draft, exactly as ``drafted``.
+
+    The entry point for shapes that are born as rasters rather than as B-rep
+    faces -- the drawn glyphs, and in due course the outlines traced from
+    photographs. Both then take the same path to a solid as everything else.
+    """
+    d = relief * math.tan(math.radians(draft_deg)) if draft_deg > 0 else 0.0
+    b_out, b_holes = _contours_mm(mask, origin, px_per_mm)
+    if b_out is None:
+        raise ValueError("empty mask")
+
+    if d <= 0:
+        solid = _loft_pair(b_out, b_out, 0.0, relief)
+        for bh in b_holes:
+            solid -= _loft_pair(bh, bh, -0.001, relief + 0.001)
+    else:
+        dist = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
+        top = (dist > d * px_per_mm).astype(np.uint8) * 255
+        t_out, t_holes = _contours_mm(top, origin, px_per_mm)
+        if t_out is None:
+            raise ValueError(
+                f"draft of {draft_deg} deg consumes this outline entirely")
+        if len(b_holes) != len(t_holes):
+            raise ValueError(
+                f"draft of {draft_deg} deg closes a counter "
+                f"({len(b_holes)} holes at the base, {len(t_holes)} at the top)")
+        solid = _loft_pair(b_out, t_out, 0.0, relief)
+        for bh in b_holes:
+            th = min(t_holes,
+                     key=lambda p: np.hypot(*(_centroid(p) - _centroid(bh))))
+            solid -= _loft_pair(bh, th, -0.001, relief + 0.001)
+
+    if embed:
+        stub = _loft_pair(b_out, b_out, -embed, 0.0)
+        for bh in b_holes:
+            stub -= _loft_pair(bh, bh, -embed - 0.001, 0.001)
+        solid += stub
+    return solid
+
+
 def drafted(face, relief: float, draft_deg: float, embed: float = 0.0,
             px_per_mm: float = PX_PER_MM):
     """Raise ``face`` (in the world XZ plane) to ``relief`` mm with draft.

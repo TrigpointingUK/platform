@@ -195,6 +195,11 @@ class FlushBracketParams:
     # they are individually punched and are NOT a uniform typeface run. Sizes
     # are the letter's bounding box; the glyph is scaled to fill it.
     let_relief: float = 4.5  # [D] protrusion, all four letters
+    # The glyphs are drawn as skeletons swept with a circular pen (glyphs.py),
+    # so the stroke width is a dimension in its own right rather than a
+    # by-product of a typeface. Measure it across a straight stroke -- the
+    # upright of the B, or a digit's flat top bar.
+    let_stroke_w: float = 4.2  # [E] legend letter stroke
 
     os_below_bead: float = 48.4  # [D] top of O and S below the top bead inner edge
     os_w: float = 16.0  # [D]
@@ -227,9 +232,28 @@ class FlushBracketParams:
     # whatever the customer asks for). Bounded by the B/M bottoms above and the
     # bottom bead below. Not yet measured on a real bracket: the figures here
     # are derived from the render model's letter placement, so [E].
+    # Per-style values live in brackets.toml; these are the fallbacks.
     num_relief: float = 4.5  # [E] assumed same as the OSBM letters
-    num_cap_h: float = 22.0  # [E] nominal digit cap height
-    num_margin_bottom: float = 12.0  # [E] baseline above the bottom bead inner edge
+    num_stroke_w: float = 3.6  # [E] digit stroke
+    num_cap_h: float = 19.4  # [E] digit cap height
+    num_digit_w: float = 14.0  # [E] digit width. Each digit is squeezed to this
+    #                               box, as the OSBM letters are, because cast
+    #                               numerals are not a uniform typeface run.
+    num_gap: float = 2.5  # [E] nominal gap between successive digits
+    # Per-gap adjustments, added to num_gap; one fewer entry than there are
+    # characters. Negative tightens. This is where a casting's own kerning
+    # errors are recorded -- they are a large part of what makes a particular
+    # bracket recognisable, so they are modelled rather than tidied away.
+    # Shorter than needed is fine: missing entries are zero.
+    num_kerning: tuple[float, ...] = ()  # [E]
+    num_margin_bottom: float = 18.0  # [E] baseline above the bottom bead inner edge
+
+    # Some brackets carry the number on a panel slightly proud of the plate
+    # face. Whether that is a style, a period, or simply how a given pattern
+    # was made is not yet known -- so it is a per-bracket setting with no
+    # default, pending enough measurements to see whether a rule exists.
+    num_panel_proud: float = 0.0  # [E] 0 disables the panel entirely
+    num_panel_margin: float = 3.0  # [E] panel edge beyond the digits
 
     # ---- Casting draft ----------------------------------------------------
     # The sides of the raised lettering and the broad arrow are not vertical:

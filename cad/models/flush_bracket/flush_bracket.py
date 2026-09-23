@@ -25,6 +25,7 @@ it cut in the other order.
 
 from __future__ import annotations
 
+import dataclasses
 import math
 
 from build123d import (
@@ -41,7 +42,6 @@ from build123d import (
     Rectangle,
     Rot,
     Face,
-    Text,
     ThreePointArc,
     Transition,
     Vector,
@@ -52,15 +52,18 @@ from build123d import (
     loft,
     make_face,
     mirror,
-    scale,
     sweep,
 )
 
 from models.flush_bracket.params import FB, FlushBracketParams
+from models.flush_bracket import glyphs
+from models.flush_bracket import relief as relief_mod
 from models.flush_bracket.relief import drafted
+from models.flush_bracket.brackets import resolve as resolve_bracket
 from models.flush_bracket.styles import (
     DEFAULT_STYLE,
     BracketStyle,
+    legend_number,
     resolve_style,
 )
 
@@ -448,33 +451,99 @@ def _broad_arrow(p: FlushBracketParams, lay: _Layout):
 
 
 def _letter(p: FlushBracketParams, style: BracketStyle, glyph: str, cx: float,
-            w: float, h: float, z_top: float):
-    """One raised letter, scaled to its individually measured box.
+            w: float, h: float, z_top: float, stroke: float | None = None,
+            width_scale: float = 1.0):
+    """One raised character, drawn from the OS glyph set.
 
-    The glyph is drawn at a nominal size then squeezed to the measured width
-    and height, because on a real casting the letters are individually punched
-    and are NOT a uniform typeface run. The face comes from the bracket's style
-    (every era is a grotesque sans; the weight and size differ) and is an
-    approximation -- replacing it with traced outlines is the whole point of
-    the glyph-library work.
+    ``h`` is the ink height and ``cx`` the centre of the cell it sits in. The
+    glyph's proportions come from ``glyphs.py``; ``width_scale`` narrows the
+    whole set together when the cell is tighter than a full-width digit, which
+    is what the five-digit series needs. Scaling the set rather than each glyph
+    to its cell keeps a 1 narrow instead of stretching it to a digit's width.
 
-    The squeeze is applied to the flat **outline**, before the extrusion, not
-    to the finished solid. Scaling a drafted solid by different factors in x
-    and z would leave the draft angle different on a letter's vertical strokes
-    than on its horizontal ones, which no casting pattern does.
+    ``style`` is no longer used to pick a typeface -- there isn't one -- but is
+    kept so a style can select a variant glyph set when there is more than one.
     """
-    with BuildSketch(Plane.XZ) as sk:
-        Text(glyph, font_size=100.0, font=style.font,
-             font_style=style.font_style)
-    # Plane.XZ's local +x is world +x, which this frame shows to the LEFT, so a
-    # glyph drawn on it comes out mirrored on the casting. Flip it back. (The
-    # render model does the same thing, by negating each vertex's x.)
-    face = mirror(sk.sketch, about=Plane.YZ)
-    bb = face.bounding_box()
-    face = scale(face, by=(w / bb.size.X, 1.0, h / bb.size.Z))
-    bb = face.bounding_box()
-    face = Pos(cx - bb.center().X, 0, (z_top - h / 2) - bb.center().Z) * face
-    return _raise(face, p.let_relief, p.relief_draft_deg)
+    g = glyphs.GLYPHS.get(glyph)
+    if g is None:
+        raise ValueError(f"no glyph drawn for {glyph!r}; see glyphs.py")
+    del style, w
+    stroke = p.let_stroke_w if stroke is None else stroke
+    if width_scale != 1.0:
+        g = dataclasses.replace(g, width=g.width * width_scale)
+    mask, origin = glyphs.glyph_mask(g, cap_mm=h, stroke_mm=stroke,
+                                     px_per_mm=glyphs.PX_PER_MM)
+    try:
+        solid = relief_mod.solid_from_mask(
+            mask, origin, relief=p.let_relief, draft_deg=p.relief_draft_deg,
+            embed=EMBED, px_per_mm=glyphs.PX_PER_MM)
+    except ValueError as exc:
+        raise ValueError(
+            f"glyph {glyph!r} at {h:.2f} mm cap, {stroke:.2f} mm stroke: {exc}"
+        ) from exc
+    # The glyph is drawn with x running rightward, but this frame shows +x to
+    # the viewer's LEFT, so it has to be flipped or every character comes out
+    # reversed on the casting.
+    solid = mirror(solid, about=Plane.YZ)
+    # The mask places the ink at x 0..width*h, z 0..h; move it onto the cell.
+    bb = solid.bounding_box()
+    return Pos(cx - bb.center().X, 0, (z_top - h / 2) - bb.center().Z) * solid
+
+
+def number_layout(p: FlushBracketParams, text: str):
+    """Where each character of the number sits: (char, centre x) and the total.
+
+    Characters are laid out on a nominal pitch and then adjusted per gap by
+    ``num_kerning``, which is how a particular casting's own spacing errors are
+    carried. Remember the frame: **+x is to the viewer's left**, so the first
+    character read is the one at the highest x.
+    """
+    n = len(text)
+    kern = list(p.num_kerning)[: max(0, n - 1)]
+    kern += [0.0] * (max(0, n - 1) - len(kern))
+    gaps = [p.num_gap + k for k in kern]
+    total = n * p.num_digit_w + sum(gaps)
+
+    placed, x = [], total / 2
+    for i, ch in enumerate(text):
+        placed.append((ch, x - p.num_digit_w / 2))
+        x -= p.num_digit_w + (gaps[i] if i < n - 1 else 0.0)
+    return total, placed
+
+
+def _number(p: FlushBracketParams, style: BracketStyle, lay: _Layout,
+            text: str):
+    """The raised bracket number."""
+    z_top = lay.num_z_bot + p.num_cap_h
+    _, placed = number_layout(p, text)
+    # Fit the glyph set to the cell. A full-width digit is FULL_WIDTH cap
+    # heights of ink, so anything narrower than that has to be scaled or
+    # adjacent digits overlap -- which the five-digit series would, badly.
+    width_scale = p.num_digit_w / (glyphs.FULL_WIDTH * p.num_cap_h)
+    solid = None
+    for ch, cx in placed:
+        g = _letter(p, style, ch, cx, p.num_digit_w, p.num_cap_h, z_top,
+                    stroke=p.num_stroke_w, width_scale=width_scale)
+        solid = g if solid is None else solid + g
+    return solid
+
+
+def _number_panel(p: FlushBracketParams, lay: _Layout, text: str):
+    """The rectangle some brackets carry the number on, proud of the plate.
+
+    Returns None unless ``num_panel_proud`` is set. Whether this is a style, a
+    period or simply how a given pattern was made is not yet known, so nothing
+    enables it by default -- it is per-bracket until enough are measured to
+    show whether a rule exists.
+    """
+    if p.num_panel_proud <= 0:
+        return None
+    total, _ = number_layout(p, text)
+    m = p.num_panel_margin
+    z_lo = lay.num_z_bot - m
+    z_hi = lay.num_z_bot + p.num_cap_h + m
+    face = _front_section(0.0, total + 2 * m, z_lo, z_hi)
+    return _raise(face, p.num_panel_proud, p.relief_draft_deg)
 
 
 def _keying(p: FlushBracketParams, lay: _Layout):
@@ -499,7 +568,7 @@ def _keying(p: FlushBracketParams, lay: _Layout):
 # Assembly
 # --------------------------------------------------------------------------
 def build_flush_bracket(
-    p: FlushBracketParams = FB,
+    p: FlushBracketParams | None = None,
     *,
     keying: bool = True,
     lettering: bool = True,
@@ -511,12 +580,25 @@ def build_flush_bracket(
     ``keying`` includes the rear plate, bar and anchor (the full casting).
     ``lettering`` adds the raised legend and the broad arrow.
 
-    ``number`` is the bracket's number, e.g. "S1852". It selects the lettering
-    style -- which controls the face, its weight and size, and whether the
-    legend reads ``B M`` or the BsM series' ``B S M``. Pass ``style`` to
-    override that choice. The number itself is not yet cast onto the plate.
+    ``number`` is the bracket's number, e.g. "S1852". It does two things: it
+    selects the lettering style -- the face, its size, and whether the legend
+    reads ``B M`` or the BsM series' ``B S M`` -- and it looks the bracket up
+    in ``brackets.toml``, so any measurements recorded for that particular
+    casting are applied. The number is then cast onto the plate as it really
+    reads, which for a BsM bracket means without its S.
+
+    Leaving ``p`` as None resolves the dimensions through that database. Pass
+    an explicit ``FlushBracketParams`` to bypass it, and ``style`` to override
+    the style choice alone.
     """
-    style = style or (resolve_style(number) if number else DEFAULT_STYLE)
+    if p is None:
+        resolved = resolve_bracket(number)
+        p = resolved.params
+        style = style or resolved.style
+        legend = resolved.legend
+    else:
+        style = style or (resolve_style(number) if number else DEFAULT_STYLE)
+        legend = legend_number(number) if number else None
     lay = _Layout(p, style)
 
     # The plate body. With the keying structure it is the thin front plate,
@@ -546,6 +628,11 @@ def build_flush_bracket(
         part += _broad_arrow(p, lay)
         for glyph, cx, w, h, z_top in lay.letters:
             part += _letter(p, style, glyph, cx, w, h, z_top)
+        if legend:
+            panel = _number_panel(p, lay, legend)
+            if panel is not None:
+                part += panel
+            part += _number(p, style, lay, legend)
 
     # Fillet the bar's two junctions the way the casting's own radii run.
     if keying and lay.bar_fillet > 0:
