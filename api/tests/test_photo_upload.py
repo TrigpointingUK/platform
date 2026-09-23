@@ -234,3 +234,120 @@ def test_create_photo_comprehensive_validation(
         headers=headers,
     )
     assert resp_invalid2.status_code == 422  # Validation error
+
+
+@patch("api.services.image_processor.ImageProcessor.process_image")
+@patch("api.services.s3_service.S3Service.upload_photo_and_thumbnail")
+def test_create_photo_licence_defaults_to_user_preference(
+    mock_s3_upload, mock_image_processor, client: TestClient, db: Session
+):
+    """Omitting the licence falls back to the user's own licence preference."""
+    mock_image_processor.return_value = (
+        (100, 100),
+        b"processed_image",
+        (50, 50),
+        b"thumbnail",
+    )
+    mock_s3_upload.return_value = ("photo_key", "thumb_key")
+
+    user, tlog = seed_user_and_tlog(db)
+    user.public_ind = "Y"  # type: ignore[assignment]
+    db.commit()
+
+    headers = {"Authorization": f"Bearer auth0_user_{user.id}"}
+
+    resp = client.post(
+        f"{settings.API_V1_STR}/photos/?log_id={tlog.id}",
+        files={"file": ("test.jpg", create_test_image(), "image/jpeg")},
+        data={
+            "caption": "No licence supplied",
+            "text_desc": "Test description",
+            "type": "T",
+        },
+        headers=headers,
+    )
+
+    assert resp.status_code == 201, resp.json()
+    assert resp.json()["license"] == "Y"
+
+
+@patch("api.services.image_processor.ImageProcessor.process_image")
+@patch("api.services.s3_service.S3Service.upload_photo_and_thumbnail")
+def test_create_photo_licence_default_respects_private_preference(
+    mock_s3_upload, mock_image_processor, client: TestClient, db: Session
+):
+    """A user whose preference is private gets a private photo by default."""
+    mock_image_processor.return_value = (
+        (100, 100),
+        b"processed_image",
+        (50, 50),
+        b"thumbnail",
+    )
+    mock_s3_upload.return_value = ("photo_key", "thumb_key")
+
+    user, tlog = seed_user_and_tlog(db)
+    user.public_ind = "N"  # type: ignore[assignment]
+    db.commit()
+
+    headers = {"Authorization": f"Bearer auth0_user_{user.id}"}
+
+    resp = client.post(
+        f"{settings.API_V1_STR}/photos/?log_id={tlog.id}",
+        files={"file": ("test.jpg", create_test_image(), "image/jpeg")},
+        data={
+            "caption": "No licence supplied",
+            "text_desc": "Test description",
+            "type": "T",
+        },
+        headers=headers,
+    )
+
+    assert resp.status_code == 201, resp.json()
+    assert resp.json()["license"] == "N"
+
+
+@patch("api.services.image_processor.ImageProcessor.process_image")
+@patch("api.services.s3_service.S3Service.upload_photo_and_thumbnail")
+def test_create_photo_explicit_licence_overrides_preference(
+    mock_s3_upload, mock_image_processor, client: TestClient, db: Session
+):
+    """An explicit licence still wins over the user's preference."""
+    mock_image_processor.return_value = (
+        (100, 100),
+        b"processed_image",
+        (50, 50),
+        b"thumbnail",
+    )
+    mock_s3_upload.return_value = ("photo_key", "thumb_key")
+
+    user, tlog = seed_user_and_tlog(db)
+    user.public_ind = "Y"  # type: ignore[assignment]
+    db.commit()
+
+    headers = {"Authorization": f"Bearer auth0_user_{user.id}"}
+
+    resp = client.post(
+        f"{settings.API_V1_STR}/photos/?log_id={tlog.id}",
+        files={"file": ("test.jpg", create_test_image(), "image/jpeg")},
+        data={
+            "caption": "Explicit licence",
+            "text_desc": "Test description",
+            "type": "T",
+            "license": "C",
+        },
+        headers=headers,
+    )
+
+    assert resp.status_code == 201, resp.json()
+    assert resp.json()["license"] == "C"
+
+
+def test_resolve_photo_licence_falls_back_to_private():
+    """Unset or unrecognised preferences resolve to the most restrictive licence."""
+    from api.api.v1.endpoints.photos import resolve_photo_licence
+
+    assert resolve_photo_licence(None, User(public_ind=None)) == "N"
+    assert resolve_photo_licence(None, User(public_ind="")) == "N"
+    assert resolve_photo_licence(None, User(public_ind="X")) == "N"
+    assert resolve_photo_licence(None, User(public_ind="y")) == "Y"
+    assert resolve_photo_licence("N", User(public_ind="Y")) == "N"

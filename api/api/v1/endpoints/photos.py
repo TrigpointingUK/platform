@@ -4,6 +4,7 @@ Photo endpoints (CRuD) and user photo count, plus filtered collections.
 
 import io
 import logging
+from typing import Optional
 
 import requests
 from fastapi import (
@@ -46,6 +47,32 @@ from api.utils.url import join_url
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+VALID_PHOTO_LICENCES = ("Y", "C", "N")
+
+
+def resolve_photo_licence(licence: Optional[str], user: User) -> str:
+    """
+    Work out the licence to store against a photo.
+
+    When the caller supplies a licence it wins (and must be valid). When it is
+    omitted we fall back to the user's own licence preference
+    (``user.public_ind``), and finally to "N" - the most restrictive option -
+    if that preference is missing or holds a value we don't recognise.
+    """
+    if licence is not None:
+        if licence not in VALID_PHOTO_LICENCES:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Invalid license: must be one of "
+                    f"{', '.join(VALID_PHOTO_LICENCES)}"
+                ),
+            )
+        return licence
+
+    preference = str(user.public_ind or "").upper()
+    return preference if preference in VALID_PHOTO_LICENCES else "N"
 
 
 @router.get("", openapi_extra=openapi_lifecycle("beta"))
@@ -172,7 +199,13 @@ def create_photo(
     caption: str = Form("", description="Photo caption (optional)"),
     text_desc: str = Form("", description="Photo description"),
     type: str = Form(..., pattern="^[TFLPO]$", description="Photo type"),
-    license: str = Form(..., pattern="^[YCN]$", description="License"),
+    license: Optional[str] = Form(
+        None,
+        description=(
+            "Licence (Y=public domain, C=creative commons, N=private). "
+            "Omit to use the licence preference from the user's profile."
+        ),
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -183,8 +216,11 @@ def create_photo(
     - **caption**: Photo caption (optional, defaults to empty)
     - **text_desc**: Photo description (optional)
     - **type**: Photo type (T=trigpoint, F=flush bracket, L=landscape, P=people, O=other)
-    - **license**: License (Y=public domain, C=creative commons, N=private)
+    - **license**: Licence (Y=public domain, C=creative commons, N=private).
+      Optional - when omitted, the uploading user's licence preference
+      (``public_ind`` on their profile) is used, falling back to N.
     """
+    photo_licence = resolve_photo_licence(license, current_user)
     # Log photo upload attempt
     logger.info(
         f"Photo upload started: log_id={log_id}, user_id={current_user.id}, "
@@ -306,7 +342,7 @@ def create_photo(
                 "name": caption,
                 "text_desc": text_desc,
                 "ip_addr": client_ip,
-                "public_ind": license,
+                "public_ind": photo_licence,
                 "deleted_ind": "N",
                 "source": "F",
             },
