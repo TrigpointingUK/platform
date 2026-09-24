@@ -28,6 +28,7 @@ import {
   updateCondition,
   deleteCondition,
   fetchConditionUsage,
+  requireAccessToken,
 } from "../../lib/api";
 
 const AUTH0_AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE as string | undefined;
@@ -396,7 +397,7 @@ export default function ConditionAdmin() {
     try {
       setLoading(true);
       setError(null);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       const data = await fetchAllConditions(token);
@@ -422,7 +423,7 @@ export default function ConditionAdmin() {
   ) => {
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       await createCondition(data as ConditionCreateInput, token);
@@ -445,7 +446,7 @@ export default function ConditionAdmin() {
     if (!editingCondition) return;
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       await updateCondition(
@@ -472,7 +473,7 @@ export default function ConditionAdmin() {
 
     // Fetch usage count
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       const usage = await fetchConditionUsage(condition.code, token);
@@ -487,7 +488,7 @@ export default function ConditionAdmin() {
     if (!deletingCondition) return;
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: ADMIN_AUTH_PARAMS,
       });
       await deleteCondition(deletingCondition.code, token);

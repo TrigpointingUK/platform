@@ -28,6 +28,7 @@ def cached(
     include_query_params: bool = True,
     version: str = "v1",
     cache_control: Optional[str] = None,
+    vary_on_user: bool = False,
 ):
     """
     Decorator to cache endpoint responses in Redis.
@@ -40,6 +41,9 @@ def cached(
         include_query_params: Whether to include query params in cache key
         version: Cache version for invalidation
         cache_control: Optional Cache-Control header value for Cloudflare caching
+        vary_on_user: Include the authenticated user's ID in the cache key. Use
+            this whenever the response can depend on `current_user` - otherwise
+            one user's personalised result is served to everyone else.
 
     Usage:
         @router.get("/trigs/{trig_id}")
@@ -102,6 +106,11 @@ def cached(
                     and v is not None
                     and k != resource_id_param
                 }
+
+            if vary_on_user:
+                user = kwargs.get("current_user")
+                params = params or {}
+                params["_user_id"] = int(user.id) if user is not None else None
 
             cache_key = generate_cache_key(
                 resource_type=resource_type,
@@ -251,6 +260,11 @@ def cached(
                     and v is not None
                     and k != resource_id_param
                 }
+
+            if vary_on_user:
+                user = kwargs.get("current_user")
+                params = params or {}
+                params["_user_id"] = int(user.id) if user is not None else None
 
             cache_key = generate_cache_key(
                 resource_type=resource_type,

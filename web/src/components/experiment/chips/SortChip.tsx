@@ -27,6 +27,9 @@ export interface SortChipProps {
   requiresLocation?: boolean;
   /** Whether location is available */
   hasLocation?: boolean;
+  /** Disable the chip for some other reason, explained by disabledReason */
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export function SortChip({
@@ -38,9 +41,12 @@ export function SortChip({
   icon,
   requiresLocation = false,
   hasLocation = true,
+  disabled = false,
+  disabledReason,
 }: SortChipProps) {
   const isActive = activeSortKey === sortKey;
-  const isDisabled = requiresLocation && !hasLocation;
+  const needsLocation = requiresLocation && !hasLocation;
+  const isDisabled = needsLocation || disabled;
 
   const handleClick = () => {
     if (isDisabled) return;
@@ -71,7 +77,13 @@ export function SortChip({
             : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500 cursor-pointer"
         }
       `}
-      title={isDisabled ? "Requires a location to be set" : undefined}
+      title={
+        needsLocation
+          ? "Requires a location to be set"
+          : disabled
+            ? disabledReason
+            : undefined
+      }
     >
       {icon && <span className="flex-shrink-0">{icon}</span>}
       <span className="flex-1 text-left truncate">{label}</span>

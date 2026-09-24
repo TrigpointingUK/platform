@@ -66,6 +66,8 @@ def trigs_to_csv(
     trigs: list[Trig],
     user_logs: Optional[dict[int, dict[str, Any]]] = None,
     county_names: Optional[dict[int, str]] = None,
+    first_logs: Optional[dict[int, tuple[Any, Any]]] = None,
+    sequence: bool = False,
 ) -> str:
     """
     Convert trigpoints to CSV format.
@@ -74,6 +76,9 @@ def trigs_to_csv(
         trigs: List of Trig objects
         user_logs: Optional mapping of trig_id to user's log data
         county_names: Optional mapping of trig_id to county name (from trig_area)
+        first_logs: Optional mapping of trig_id to (date, time) of the user's
+            first log - adds first_log_date / first_log_time columns
+        sequence: Prepend a 1-based `sequence` column numbering the rows
 
     Returns:
         CSV string
@@ -104,17 +109,23 @@ def trigs_to_csv(
         "historic_use",
     ]
 
+    if sequence:
+        fieldnames.insert(0, "sequence")
+
     # Add user log fields if provided
     if user_logs is not None:
         fieldnames.extend(["logged", "log_date", "log_condition", "log_comment"])
 
+    if first_logs is not None:
+        fieldnames.extend(["first_log_date", "first_log_time"])
+
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
 
-    for trig in trigs:
+    for position, trig in enumerate(trigs, start=1):
         type_code, type_name = _get_type_info(trig)
         category_code, category_name = _get_category_info(trig)
-        row = {
+        row: dict[str, Any] = {
             "id": trig.id,
             "waypoint": trig.waypoint,
             "name": trig.name,
@@ -154,6 +165,14 @@ def trigs_to_csv(
                 row["log_date"] = ""
                 row["log_condition"] = ""
                 row["log_comment"] = ""
+
+        if sequence:
+            row["sequence"] = position
+
+        if first_logs is not None:
+            first_date, first_time = first_logs.get(int(trig.id), (None, None))
+            row["first_log_date"] = first_date.isoformat() if first_date else ""
+            row["first_log_time"] = first_time.isoformat() if first_time else ""
 
         writer.writerow(row)
 

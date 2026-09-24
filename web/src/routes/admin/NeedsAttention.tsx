@@ -8,6 +8,7 @@ import { useAdminAuth } from "../../hooks/useAdminAuth";
 import {
   fetchNeedsAttentionTrigs,
   TrigNeedsAttentionListItem,
+  requireAccessToken,
 } from "../../lib/api";
 
 const ADMIN_AUTH_PARAMS = {
@@ -38,7 +39,7 @@ export default function NeedsAttention() {
       setError(null);
 
       try {
-        const token = await getAccessTokenSilently({
+        const token = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
         const data = await fetchNeedsAttentionTrigs({ skip, limit }, token);

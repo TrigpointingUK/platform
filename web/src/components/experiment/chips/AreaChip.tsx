@@ -6,18 +6,22 @@
  * - Toggleable list of all areas of that type
  * - Sort by alphabetical or distance from search location
  * - Current location's area highlighted at top
+ * - Selections are all of one area type: combining, say, a county with an
+ *   OS map sheet is confusing, so picking an area of another type replaces
+ *   the selection
  */
 
 import { useState, useMemo, useEffect } from "react";
 import { MapIcon, SortAsc, Navigation, Loader2 } from "lucide-react";
 import { FilterChip, FilterListItem } from "../FilterChip";
 import { useAreaTypes, useAreasByType } from "../../../hooks/useReferenceData";
+import type { SelectedArea } from "./areaSelection";
 
 type SortMode = "name" | "distance";
 
 export interface AreaChipProps {
-  selectedAreaIds: number[];
-  onToggleArea: (areaId: number) => void;
+  selectedAreas: SelectedArea[];
+  onToggleArea: (area: SelectedArea) => void;
   onClear: () => void;
   /** Current search location for distance sorting */
   centerLat?: number | null;
@@ -27,7 +31,7 @@ export interface AreaChipProps {
 }
 
 export function AreaChip({
-  selectedAreaIds,
+  selectedAreas,
   onToggleArea,
   onClear,
   centerLat,
@@ -40,15 +44,20 @@ export function AreaChip({
   // Fetch area types
   const { data: areaTypes, isLoading: isLoadingTypes } = useAreaTypes();
 
-  // Set default area type when loaded
+  const selectedAreaIds = selectedAreas.map((a) => a.id);
+  const selectionType = selectedAreas[0]
+    ? { id: selectedAreas[0].areaTypeId, name: selectedAreas[0].areaTypeName }
+    : null;
+
+  // Set default area type when loaded: the type of any existing selection,
+  // otherwise historic counties (or the first type)
   useEffect(() => {
     if (areaTypes && areaTypes.length > 0 && selectedAreaTypeId === null) {
-      // Try to find "historic_county" or use first type
       const historicCounty = areaTypes.find((t) => t.code === "historic_county");
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Initializing default from async API data
-      setSelectedAreaTypeId(historicCounty?.id || areaTypes[0].id);
+      setSelectedAreaTypeId(selectionType?.id ?? historicCounty?.id ?? areaTypes[0].id);
     }
-  }, [areaTypes, selectedAreaTypeId]);
+  }, [areaTypes, selectedAreaTypeId, selectionType?.id]);
 
   // Fetch areas for the selected type
   const hasLocation = centerLat != null && centerLon != null;
@@ -77,22 +86,28 @@ export function AreaChip({
     return sorted;
   }, [areas, containingAreaId]);
 
-  const selectedCount = selectedAreaIds.length;
-  const selectedInType = (areas || []).filter((a) => selectedAreaIds.includes(a.id));
+  const selectedCount = selectedAreas.length;
 
-  // For area filter: empty = all (no filter), specific IDs = filter
+  // For area filter: empty = all (no filter), specific areas = filter
   let summary: string;
-  if (isLoadingTypes || isLoadingAreas) {
-    summary = "Loading...";
-  } else if (selectedCount === 0) {
-    summary = "All"; // Empty array = no filter = all areas
-  } else if (selectedInType.length === 1) {
-    summary = selectedInType[0].name;
-  } else if (selectedInType.length > 0) {
-    summary = `${selectedInType.length} areas`;
+  if (selectedCount === 0) {
+    summary = isLoadingTypes ? "Loading..." : "All"; // Empty = no filter = all areas
+  } else if (selectedCount === 1) {
+    summary = selectedAreas[0].name;
   } else {
-    summary = `${selectedCount} selected`;
+    summary = selectionType
+      ? `${selectedCount} ${selectionType.name} areas`
+      : `${selectedCount} areas`;
   }
+
+  // Describes the current selection in the "will replace" warning
+  const selectionLabel =
+    selectedCount <= 3 ? selectedAreas.map((a) => a.name).join(", ") : summary;
+
+  // Ticking an area here would replace a selection of another type
+  const shownType = areaTypes?.find((t) => t.id === selectedAreaTypeId);
+  const willReplaceSelection =
+    selectionType !== null && shownType !== undefined && shownType.id !== selectionType.id;
 
   // Active when any specific areas are selected (filtering is happening)
   const isActive = selectedCount > 0;
@@ -172,6 +187,13 @@ export function AreaChip({
             </div>
           </div>
 
+          {willReplaceSelection && (
+            <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20">
+              Areas of different types can't be combined. Ticking one here
+              replaces your current selection ({selectionLabel}).
+            </div>
+          )}
+
           {/* Clear selection button - only show when areas are selected */}
           {selectedAreaIds.length > 0 && (
             <div className="flex gap-2 px-3 py-2 border-b border-[color:var(--color-border)]">
@@ -203,7 +225,14 @@ export function AreaChip({
                     <FilterListItem
                       label={area.name}
                       checked={selectedAreaIds.includes(area.id)}
-                      onChange={() => onToggleArea(area.id)}
+                      onChange={() =>
+                        onToggleArea({
+                          id: area.id,
+                          name: area.name,
+                          areaTypeId: area.area_type?.id ?? area.area_type_id,
+                          areaTypeName: area.area_type?.name ?? shownType?.name ?? "",
+                        })
+                      }
                       icon={
                         isContaining ? (
                           <span className="text-trig-green-600 dark:text-trig-green-400" title="Your current location is in this area">

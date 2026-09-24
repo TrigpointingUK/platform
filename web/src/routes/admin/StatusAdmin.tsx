@@ -28,6 +28,7 @@ import {
   updateStatus,
   deleteStatus,
   fetchStatusUsage,
+  requireAccessToken,
 } from "../../lib/api";
 
 const AUTH0_AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE as string | undefined;
@@ -248,7 +249,7 @@ export default function StatusAdmin() {
     try {
       setLoading(true);
       setError(null);
-      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
+      const token = await requireAccessToken(getAccessTokenSilently, { authorizationParams: ADMIN_AUTH_PARAMS });
       const data = await fetchAllStatuses(token);
       setStatuses(data);
     } catch (err) {
@@ -270,7 +271,7 @@ export default function StatusAdmin() {
   const handleAddStatus = async (data: StatusCreateInput | StatusUpdateInput) => {
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
+      const token = await requireAccessToken(getAccessTokenSilently, { authorizationParams: ADMIN_AUTH_PARAMS });
       await createStatus(data as StatusCreateInput, token);
       toast.success("Status created successfully");
       setIsAddDialogOpen(false);
@@ -287,7 +288,7 @@ export default function StatusAdmin() {
     if (!editingStatus) return;
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
+      const token = await requireAccessToken(getAccessTokenSilently, { authorizationParams: ADMIN_AUTH_PARAMS });
       await updateStatus(editingStatus.id, data as StatusUpdateInput, token);
       toast.success("Status updated successfully");
       setEditingStatus(null);
@@ -306,7 +307,7 @@ export default function StatusAdmin() {
 
     // Fetch usage count
     try {
-      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
+      const token = await requireAccessToken(getAccessTokenSilently, { authorizationParams: ADMIN_AUTH_PARAMS });
       const usage = await fetchStatusUsage(status.id, token);
       setDeleteUsageCount(usage.usage_count);
     } catch (err) {
@@ -319,7 +320,7 @@ export default function StatusAdmin() {
     if (!deletingStatus) return;
     try {
       setIsSubmitting(true);
-      const token = await getAccessTokenSilently({ authorizationParams: ADMIN_AUTH_PARAMS });
+      const token = await requireAccessToken(getAccessTokenSilently, { authorizationParams: ADMIN_AUTH_PARAMS });
       await deleteStatus(deletingStatus.id, token);
       toast.success("Status deleted successfully");
       setDeletingStatus(null);

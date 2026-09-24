@@ -17,6 +17,7 @@ import {
   fetchAdminAccountDeletionSummary,
   postAccountDeletionEmailBackupMe,
   postAdminAccountDeletionEmailBackup,
+  requireAccessToken,
 } from "../lib/api";
 
 const AUTH0_AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE as string | undefined;
@@ -87,11 +88,11 @@ export default function AccountDeletion() {
   const fetchToken = useCallback(
     async (forAdminApi: boolean) => {
       if (forAdminApi) {
-        return getAccessTokenSilently({
+        return requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
       }
-      return getAccessTokenSilently();
+      return requireAccessToken(getAccessTokenSilently);
     },
     [getAccessTokenSilently]
   );

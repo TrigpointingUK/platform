@@ -37,6 +37,13 @@ cad/
 │   │   ├─ lettering.py    # "TRIANGULATION STATION" / "ORDNANCE SURVEY" arcs
 │   │   ├─ top_surfaces.py # inner-plug top treatments (flat / logo / QR) + presets
 │   │   └─ build.py        # plug recipe: run(*, threads, skip_stl)
+│   ├─ flush_bracket/      # OS flush bracket (the numbered plate on the pillar)
+│   │   ├─ params.py       # every bracket dimension, provenance-tagged. EDIT THIS.
+│   │   ├─ styles.py       # lettering style per number range (era). EDIT FONTS HERE.
+│   │   ├─ relief.py       # raising a flat outline with casting draft
+│   │   ├─ MEASUREMENTS.md # caliper sheet: what still needs measuring
+│   │   ├─ flush_bracket.py# plate, beading, keyholes, staff slot, arrow, OSBM
+│   │   └─ build.py        # bracket recipe: variants x reduction scales
 │   ├─ driver_v1/          # plug driver tool, v1: the bare tool
 │   │   ├─ params.py       # every driver dimension, provenance-tagged. EDIT THIS.
 │   │   ├─ driver_v1.py    # ellipsoidal sawtooth-knurled disc + peg bores
@@ -90,6 +97,9 @@ venv/bin/python -m models.driver_v3.driver_v3
   allowed separately per member, see below). Tune after trial fits.
 - Extra STLs are produced for each customised inner-plug top (see below), named
   `inner_plug_<preset>_<variant>.stl`.
+- **`step/flush_bracket.step`**, **`stl/flush_bracket_<variant>_1-<n>.stl`** —
+  the flush bracket, as the full casting (`full`) and as a flat-backed
+  wall-hangable replica (`plate`), each at 1:1, 1:2, 1:5 and 1:10.
 - **`step/driver_v<n>.step`, `stl/driver_v<n>.stl`** — the driver tool, one pair
   per version (single solid each, no thread-clearance variants; the fit
   dimensions are the peg bore and, on v3, the stash tap drill).
@@ -560,12 +570,255 @@ ellipse's nose, so its mouth wanders over ~6 mm in x between the middle of the
 opening and its ends. That is a deburring job on the print, or a differently
 built slot in a later version.
 
+## Flush bracket
+
+The numbered bronze plate set into the pillar's face. Ported from
+`Blender/Hotine/trig_pillar.py:build_flush_bracket`, which already carried the
+dimensions; this is the same object re-cut as an exact B-rep so it can be
+measured and printed rather than only rendered.
+
+Features, front to back: half-round beading mitred round all four edges; two
+keyhole pockets with ellipsoidal scooped bottoms, each bridged by a convex rib;
+a wedge-shaped staff slot cut clean through; the trapezoidal ledge that is the
+levelling datum; the raised broad arrow; and the raised `O S B M`, arranged
+around the slot rather than in a line. Behind, on the `full` variant, the rear
+plate, keying bar and anchor block that lock the casting into the concrete.
+
+### The broad arrow is one mass, not three legs
+
+Worth stating because the render model has it the other way round, and so did
+this port until it was checked against a photograph. The arrow is a **single
+solid trapezium** standing proud of the plate, with **two V-grooves cut into
+its front face** dividing its lower part into three lobes. The grooves do not
+part the mass and the plate is never visible between the lobes; each groove
+runs out to nothing part-way up, which is why the two appear to converge near
+the apex.
+
+The grooves are **not of constant depth**. Each is deepest at the bottom edge,
+where its two draft faces meet *on the plate face* with nothing flat between
+them, and shallows steadily to nothing at its upper end. Because the V keeps a
+constant half-angle, its width at the surface grows in step with its depth, so
+a groove starts as a hairline near the apex and opens out as it descends.
+
+That falls out of lofting each cutter from a single point **on the arrow's
+front surface** to the full section at the bottom. Anchoring the tip to the
+plate instead — the obvious reading of "the faces meet at the plate" — puts
+the cutter below the surface near the top and hollows the arrow out from
+inside rather than grooving it.
+
+**The arrow and the ledge are one wedge, and must be built as one.** On the
+casting, the arrow's flank and the ledge's side are a single continuous plane.
+That plane is pinned by two edges meeting at the arrow's top-front corner: the
+front face's flank edge running down, and the ledge's side edge running back.
+
+Building the ledge separately, as a constant-thickness slab, does not merely
+make this awkward — it makes it **impossible**. A slab's side edges are
+vertical, and a plane containing both a vertical edge and the arrow's flank
+edge would have to be `y = const`, a flank with no draft at all. Modelled
+apart, the two surfaces come out non-coplanar with a void between them. So
+there is deliberately no ledge *thickness* parameter: the ledge is the top
+surface of the wedge, not an object in its own right.
+
+A consequence worth knowing: **the flank's draft is derived, not chosen.** With
+the ledge opening from `ba_w_top` at the front to the full opening width at the
+back, the flanks lean at `atan((hole_w/2 − ba_w_top/2) / ledge_depth)` ≈ 18°,
+appreciably more than the 13° the lettering uses. `relief_draft_deg` still
+drafts the arrow's *bottom* edge, which is a free edge and genuinely
+unconstrained.
+
+The ledge's widths and depth are likewise derived in `_Layout` from the
+features they run between — front edge = the arrow's top edge, back edge = the
+full opening width, depth = `ba_relief + total_plate_d` — so none of them can
+drift out of agreement.
+
+The flank planes are drawn outward from the front face, so near the top they
+pass outside the arrow's own footprint and only meet plate where there *is*
+plate — below the opening's edge. Where that happens **varies between
+brackets**, and is `hole_front_bot_frac`: 1.0 puts it right at the bottom of
+the arrow (as on the North Ockendon pillar), ~0.55 just over halfway down (as
+on the reference photograph).
+
+The opening itself is now a plain rectangular slot. It used to be lofted with a
+sloping floor, which was an attempt to model in the *opening* something that
+belongs to the arrow — the ledge is the floor at the back, and the wedge fills
+the rest from below.
+
+Proportions came from a reference photograph — the arrow's top edge is about
+0.46 of its bottom edge, a ratio that survives the photograph's perspective
+because the whole arrow sits within a few centimetres. The absolute sizes do
+not survive it, and are the first thing on the caliper sheet.
+
+### Two things worth knowing
+
+**The plate-only variant is not just the front plate.** The keyhole pockets are
+12.1 mm deep and the front plate is 6.97 mm, so building `keying=False` as the
+front plate alone perforates the back. It is instead a solid slab of the same
+*total* depth (20.9 mm) with a flat back, which keeps the pockets blind.
+
+**Cut the openings before adding the relief.** The keyholes and the staff slot
+are subtracted first, then the bead, arrow, ledge and letters are unioned on.
+The render model works the other way round and therefore needs extra fill
+volumes to repair the arrow where the slot had already cut through it; in a
+B-rep the ordering alone removes the problem.
+
+### Scale
+
+The reduction is applied to the **B-rep, before meshing**, so the absolute chord
+tolerance in `common/export.py` does the right thing without being told about
+scale — a 1:5 model has five-times-smaller features and gets proportionally
+fewer facets (2.4 MB at 1:1 down to 451 kB at 1:10). Meshing once and scaling
+the mesh would instead carry 1:1 facet counts into every reduction.
+
+### The keyhole troughs are swept, not intersected
+
+Each keyhole pocket is **one** solid — a U-shaped profile lofted back into the
+plate — not a cuboid unioned with a rounded bottom.
+
+Two separate problems drove that, and only the second is obvious.
+
+*The ellipsoid.* Originally the rounded bottom was a half-ellipsoid intersected
+with the pocket. Its section where it meets the pocket is an ellipse inscribed
+in the pocket's rectangle, touching only at the mid-points of the sides.
+Measured half-way down the trough's own radius, it ran from 8.43 mm at the
+mouth to **2.80 mm** at the back against side walls at 8.45 mm: a 5.6 mm step.
+
+*The union.* Replacing it with a swept arc fixes the width — 8.438 mm at every
+depth — but only while the sweep is horizontal. Tilt it and the trough's widest
+point rises with depth, so below the cuboid's bottom edge the trough is again
+narrower than the walls, and the step comes back at every non-zero angle. Even
+at zero the union is fragile: the trough is *tangent* to the side walls and its
+end cap *coplanar* with the back wall, two of the cases OCCT's booleans handle
+worst, and it leaves sliver faces lying in the junction plane.
+
+Tangency cannot be designed out — a rounded bottom meeting a flat wall smoothly
+*is* tangency. So the union goes instead. The profile is a single closed wire,
+straight sides running into an arc, and the junction becomes an edge within one
+face rather than a boolean between two. Raising the arc's centre on the back
+profile tilts the trough, and the side walls' lower edges follow the arc's
+tangent point up, so there is no step at any angle.
+
+`kh_scoop_angle_deg` tilts the sweep upward, so the trough shallows toward the
+back:
+
+| angle | form |
+|---|---|
+| 0° | plain horizontal cylinder — constant section to the back wall, crisp lip at the mouth (photo 456973) |
+| ~35° | `atan((kh_w/2) / kh_d)` — the trough runs out exactly at the back wall, giving a shallow bowl with no deep back corners (the North Ockendon form) |
+
+Beyond ~35° the trough vanishes before the back wall and the cuboid's flat
+floor takes over, which is why 45° is about the useful limit.
+
+### Casting draft on the lettering
+
+The sides of the raised letters and the broad arrow lean inward. A sand-casting
+pattern has to leave its mould, and on a flush bracket the lean is pronounced —
+far more than the 1–3° of ordinary engineering draft. Observed on a real
+bracket: **the top of a letter is roughly half the area of its base.**
+
+A single draft *angle* is the parameter, since that is what lets a pattern
+draw; the area ratio is a consequence and differs per glyph with stroke width.
+`relief_draft_deg = 13°` is calibrated to that observation, giving
+
+| O | S | B | M | mean |
+|---|---|---|---|---|
+| 0.54 | 0.58 | 0.62 | 0.49 | 0.52 |
+
+`flush_bracket.letter_draft_ratios()` reports these, to re-check against a real
+casting as more are measured.
+
+**Why `relief.py` exists.** The obvious implementation is
+`extrude(..., taper=)`, and it does not work. OCCT's draft and 2-D offset are
+both built on `BRepOffsetAPI`, which fails on glyph outlines: of `O S B M`,
+`S` and `B` fail outright, `M` fails once squeezed to its measured box, and an
+asymmetric chamfer fails on all three. Font outlines are spline-heavy with
+near-tangent joins and sharp reflex corners — the worst case for offsetting.
+
+So the offset is computed on a raster instead: a uniform inward offset is
+exactly a threshold on the distance transform, which cannot self-intersect,
+and which grows the counters of `O`, `B` and `8` in the same step (material
+leaning inward means a counter opens out). The base and top outlines are then
+traced back, **resampled to a common vertex count** — without that, ruled
+lofting fails on `M`, `2`, `5` and `7` — and lofted. This costs ~18 s on a full
+bracket and pulls OpenCV into the model's dependencies, which is the price of
+the operation working at all on every glyph rather than on some of them.
+
+It also puts this on the same footing as the glyph library: outlines derived
+from photographs arrive as raster masks and come through the same path.
+
+### The measurement database
+
+`params.py` holds one set of dimensions. Real brackets vary in two different
+ways, and `brackets.toml` keeps them apart:
+
+```toml
+[styles.bsm]              # defaults for a whole production era
+num_cap_h = 19.4
+num_digit_w = 17.0
+
+[brackets."3353"]         # one particular casting
+trig_id = 5169
+name = "North Ockendon"
+num_kerning = [0.0, -0.7, 0.0]
+kh_scoop_angle_deg = 20.0
+```
+
+Layers apply in order — `params.py`, then the style's table, then the
+bracket's — and `brackets.resolve()` reports which contributed, so a figure can
+always be traced to where it came from.
+
+Three things are deliberate:
+
+- **Keys are field names of `FlushBracketParams`, and an unknown one raises.**
+  The file is hand-edited, and a silently-dropped typo would be
+  indistinguishable from a measurement that did not take. The error suggests
+  near matches.
+- **Brackets are keyed by the number *as cast*.** A BsM plate carries a bare
+  number, so S3353 is filed under `"3353"` and both spellings resolve to it.
+- **Adding a parameter later needs no change to the loader.** Give it a field
+  and a default in `params.py` and it is immediately settable at either layer.
+  `tomllib` is standard library, so this costs no dependency, and TOML takes
+  comments — which is where a measurement's provenance goes.
+
+Kerning errors are recorded rather than tidied away: on North Ockendon the
+middle `3` and `5` sit about 0.7 mm tight, and that is a large part of what
+makes that particular bracket recognisable.
+
+`num_panel_proud` models the raised rectangle some brackets carry the number
+on. It defaults to off and is per-bracket, because whether it is a style, a
+period, or simply how a given pattern was made is not yet known — there is no
+point inventing a rule before there are enough measurements to see one.
+
+### Not yet modelled
+
+The **bracket number** — the whole point of an authentic replica — is not here
+yet. It needs a per-style glyph set and a layout rule keyed off the number
+itself (S01–S1134 carry the `S` below the number, S3200–S3677 are the enlarged
+"BsM" style with it between the B and M, 5-digit brackets drop it, and so on).
+The `num_*` parameters reserve the panel below `B`/`M` for it. The OSBM letters
+meanwhile use a system font squeezed to each letter's measured box, which is a
+stop-gap: real castings are individually punched.
+
+Every `[D]` in `params.py` was dimensioned from *imagery*, not calipers — the
+render model measured photographs against the known plate width. Published
+plate sizes (90 x 175 mm is commonly quoted) disagree with the render model's
+85.5 x 172, which is exactly why a physical measurement is the next step. No
+geometry code changes when it arrives: every feature is anchored to a plate edge
+or to another feature, never to an absolute coordinate.
+
 ## Coordinate frame
 
 Each part is modelled standalone: **z = 0 at the part's lowest face, +z up**,
 revolved about the Z axis. (This differs from the pillar-assembly frame in the
 render model, where the plug sits ~1.17 m up.) The driver uses the same
 convention: z = 0 at its flat base, pegs protruding downward (−z).
+
+The flush bracket is the exception, being a plate rather than a solid of
+revolution: **z = 0 at the plate's bottom edge**, x = 0 on its centreline, and
+**y = 0 at its front face** with +y forward, so the plate body is at y < 0 and
+everything proud of it at y > 0. Note that viewed from the front (from +y),
+**+x runs to the LEFT** — the render model's handedness, kept deliberately so
+its measured x offsets transcribe without a mirror at every step. The glyphs
+themselves are mirrored back once, inside `_letter()`.
 
 ## Thread specifications (measured)
 

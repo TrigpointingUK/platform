@@ -96,9 +96,16 @@ export function useAuthToken(): UseAuthTokenResult {
       }
 
       try {
-        return await getAccessTokenSilently({
+        const token = await getAccessTokenSilently({
           cacheMode: forceRefresh ? "off" : undefined,
         });
+        if (!token) {
+          throw new AuthError(
+            "no_token",
+            "No access token available - please log in again"
+          );
+        }
+        return token;
       } catch (error) {
         // Handle specific Auth0 errors
         if (isAuth0Error(error)) {
@@ -156,7 +163,7 @@ export function useAccessToken() {
       });
       return "";
     }
-    return await getAccessTokenSilently();
+    return (await getAccessTokenSilently()) ?? "";
   };
 
   return { getToken };

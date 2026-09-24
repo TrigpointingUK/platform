@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useFloating, flip, shift, offset, autoUpdate, FloatingPortal } from "@floating-ui/react";
 import { authenticatedFetch } from "../../lib/api";
+import { buildTrigFilterParams } from "../../lib/trigFilterParams";
 
 interface DownloadButtonProps {
   /** Status IDs to filter by */
@@ -18,6 +19,15 @@ interface DownloadButtonProps {
   onlyFound?: boolean;
   /** Exclude trigpoints already logged by the user */
   excludeFound?: boolean;
+  /**
+   * Complete filter query parameters (from buildTrigFilterParams). When given,
+   * these are used instead of the individual filter props above.
+   */
+  filterParams?: URLSearchParams;
+  /** Sort order for the exported rows (e.g. "logged") */
+  order?: string;
+  /** Whose logs "include log data" refers to, when not the signed-in user */
+  logUserName?: string;
   /** Additional CSS classes */
   className?: string;
 }
@@ -46,6 +56,9 @@ export function DownloadButton({
   maxKm,
   onlyFound,
   excludeFound,
+  filterParams,
+  order,
+  logUserName,
   className = "",
 }: DownloadButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -89,29 +102,20 @@ export function DownloadButton({
   }, [isOpen, refs.reference, refs.floating]);
 
   const buildDownloadUrl = (format: DownloadFormat): string => {
-    const params = new URLSearchParams();
+    const params = filterParams
+      ? new URLSearchParams(filterParams)
+      : buildTrigFilterParams({
+          statusIds,
+          areaId: areaId ?? undefined,
+          lat: lat ?? undefined,
+          lon: lon ?? undefined,
+          maxKm: maxKm || undefined,
+          showLogged: !excludeFound,
+          showNotLogged: !onlyFound,
+        });
     params.set("format", format);
-
-    if (statusIds && statusIds.length > 0) {
-      params.set("status_ids", statusIds.join(","));
-    }
-    if (areaId) {
-      params.set("area_id", areaId.toString());
-    }
-    if (lat !== null && lat !== undefined) {
-      params.set("lat", lat.toString());
-    }
-    if (lon !== null && lon !== undefined) {
-      params.set("lon", lon.toString());
-    }
-    if (maxKm) {
-      params.set("max_km", maxKm.toString());
-    }
-    if (onlyFound) {
-      params.set("only_found", "true");
-    }
-    if (excludeFound) {
-      params.set("exclude_found", "true");
+    if (order) {
+      params.set("order", order);
     }
     if (includeMyLogs) {
       params.set("include_my_logs", "true");
@@ -226,7 +230,9 @@ export function DownloadButton({
                   onChange={(e) => setIncludeMyLogs(e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 dark:bg-gray-700"
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-200">Include my log data</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200">
+                  Include {logUserName ? `${logUserName}'s` : "my"} log data
+                </span>
               </label>
             </div>
 

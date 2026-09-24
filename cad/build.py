@@ -19,11 +19,13 @@ from common.paths import ensure_dirs
 from models.driver_v1 import build as driver_v1_build
 from models.driver_v2 import build as driver_v2_build
 from models.driver_v3 import build as driver_v3_build
+from models.flush_bracket import build as flush_bracket_build
 from models.plug import build as plug_build
 
 # name -> component build module (each exposes run(*, threads, skip_stl))
 COMPONENTS = {
     "plug": plug_build,
+    "flush_bracket": flush_bracket_build,
     "driver_v1": driver_v1_build,
     "driver_v2": driver_v2_build,
     "driver_v3": driver_v3_build,

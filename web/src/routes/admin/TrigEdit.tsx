@@ -16,6 +16,7 @@ import {
   updateTrigAdmin,
   TrigAdminDetail,
   StatusRecord,
+  requireAccessToken,
 } from "../../lib/api";
 
 const ADMIN_AUTH_PARAMS = {
@@ -135,7 +136,7 @@ export default function TrigEdit() {
       setError(null);
 
       try {
-        const token = await getAccessTokenSilently({
+        const token = await requireAccessToken(getAccessTokenSilently, {
           authorizationParams: { ...ADMIN_AUTH_PARAMS },
         });
 
@@ -224,7 +225,7 @@ export default function TrigEdit() {
     setSaveSuccess(false);
 
     try {
-      const token = await getAccessTokenSilently({
+      const token = await requireAccessToken(getAccessTokenSilently, {
         authorizationParams: { ...ADMIN_AUTH_PARAMS },
       });
 

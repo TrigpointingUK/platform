@@ -1,0 +1,71 @@
+# Flush bracket measurement database.
+#
+# Two layers, both optional, applied over the defaults in params.py:
+#
+#   [styles.<name>]     defaults for every bracket of one lettering style
+#                       (see styles.py for how a number maps to a style)
+#   [brackets.<number>] overrides for one particular bracket
+#
+# Keys are field names of FlushBracketParams. An unknown key is an error
+# rather than being ignored, so a typo surfaces immediately.
+#
+# Bracket keys are the number AS CAST ON THE PLATE, which is what you read off
+# it: a BsM plate carries a bare number, so S3353 is filed under "3353". Both
+# spellings resolve to the same entry.
+#
+# Metadata keys allowed anywhere, and ignored by the model: trig_id, name,
+# note, measured_by, measured_on.
+
+# ---------------------------------------------------------------------------
+# Per-style defaults
+# ---------------------------------------------------------------------------
+
+[styles.bsm]
+note = """The number font was enlarged until the S no longer fitted in front \
+of it, which is why the S moved up into the legend. The digits are close to \
+square and nearly fill the plate width."""
+num_cap_h = 19.4      # [E] from photo 31083 (S3353), scaled on plate height
+num_digit_w = 17.0    # [E] ditto -- the digits are almost as wide as they are tall
+num_gap = 2.5         # [E] ditto
+
+[styles.2gl]
+note = "Unused 2GL plates applied from 1935/36. Bare number, no prefix."
+num_digit_w = 14.0    # [E] at most four digits, and no prefix to fit
+num_stroke_w = 3.6    # [E]
+
+[styles.s-early]
+note = """Lighter, smaller legend than the later series. The stroke has to \
+come down with the cap height: at the BsM weight an S of this size closes its \
+own bays into counters, and the casting draft then shuts one of them."""
+num_cap_h = 17.0      # [E]
+num_digit_w = 10.0    # [E]
+num_stroke_w = 2.6    # [E]
+
+[styles.s-late]
+note = """Bold, large legend filling most of the plate width. The S prefix \
+makes five characters, so they are narrower than a BsM bracket's four -- and \
+the stroke comes down with them, or the S closes its own bays into counters."""
+num_digit_w = 13.0    # [E] S + four digits
+num_stroke_w = 3.2    # [E]
+
+[styles.five-digit]
+note = """Five digits left no room for the S, so it was dropped. They are \
+narrower than a four-digit bracket's, and correspondingly lighter."""
+num_digit_w = 13.0    # [E] five of them have to fit, so they are narrower
+num_stroke_w = 3.2    # [E]
+
+# ---------------------------------------------------------------------------
+# Per-bracket overrides
+# ---------------------------------------------------------------------------
+
+[brackets."3353"]
+trig_id = 5169
+name = "North Ockendon"
+note = """Directly measurable. Noticeable kerning error: the middle 3 and 5 \
+sit slightly too close together. The sides of the arrow pocket run nearly to \
+the bottom of the arrow's edges."""
+# Gaps between successive digits, one fewer than there are digits. Added to
+# num_gap, so negative tightens. Here: 3-3 normal, 3-5 tight, 5-3 normal.
+num_kerning = [0.0, -0.7, 0.0]
+kh_scoop_angle_deg = 20.0
+hole_front_bot_frac = 0.95

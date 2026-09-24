@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
+from api.api.trig_filters import TrigFilters, validate_trig_order
 from api.core.logging import get_logger
 from api.crud import tphoto as tphoto_crud
 from api.crud import trig as trig_crud
@@ -66,7 +67,7 @@ def _get_user_logs_map(db: Session, user_id: int) -> dict[int, dict]:
     """
     from api.models.user import TLog
 
-    logs = db.query(TLog).filter(TLog.user_id == user_id).all()
+    logs = db.query(TLog).filter(TLog.user_id == user_id, TLog.status == "P").all()
 
     result: dict[int, dict[str, str]] = {}
     for log in logs:
@@ -95,36 +96,20 @@ def download_trigs(
     format: Literal["csv", "geojson", "kml", "gpx", "kmz"] = Query(
         "csv", description="Output format (csv, geojson, kml, kmz, gpx)"
     ),
-    # Filters (reusing existing list_trigs patterns)
-    categories: Optional[str] = Query(
+    filters: TrigFilters = Depends(),
+    order: Optional[str] = Query(
         None,
-        description="Comma-separated category codes to filter by (e.g., 'PILLAR,FBM')",
+        description=(
+            "Sort order: id | name | distance | height | score | logged "
+            "(prefix with - for descending)"
+        ),
     ),
-    area_id: Optional[int] = Query(
-        None, description="Filter to trigpoints within the specified area"
-    ),
-    lat: Optional[float] = Query(
-        None, description="Centre latitude for distance filter"
-    ),
-    lon: Optional[float] = Query(
-        None, description="Centre longitude for distance filter"
-    ),
-    max_km: Optional[float] = Query(
-        None, ge=0, description="Maximum distance from centre (km)"
-    ),
-    county: Optional[str] = Query(None, description="Filter by county (exact match)"),
-    name: Optional[str] = Query(None, description="Filter by trig name (contains)"),
-    # User-specific options (require authentication)
     include_my_logs: bool = Query(
-        False, description="Include user's log data in export (requires authentication)"
-    ),
-    only_found: bool = Query(
         False,
-        description="Include only trigpoints logged by user (requires authentication)",
-    ),
-    exclude_found: bool = Query(
-        False,
-        description="Exclude trigpoints already logged by user (requires authentication)",
+        description=(
+            "Include log data in the export - for the logged_by user if given, "
+            "otherwise your own"
+        ),
     ),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
@@ -133,8 +118,8 @@ def download_trigs(
     """
     Download trigpoints in the specified format (requires authentication).
 
-    Supports filtering by status, area, location/distance, county, and name.
-    You can also include your personal log data and filter by logged/not-logged status.
+    Accepts the same filters as `GET /trigs`, including `logged_by` to filter
+    on (and include) another user's logs.
 
     **Formats:**
     - `csv`: Comma-separated values (spreadsheet compatible)
@@ -142,6 +127,10 @@ def download_trigs(
     - `kml`: Keyhole Markup Language (Google Earth)
     - `gpx`: GPS Exchange Format (GPS devices)
     - `kmz`: Zipped KML with embedded icons (Google Earth / My Maps)
+
+    CSV exports looking at someone's logs also get `first_log_date` and
+    `first_log_time` columns; with `order=logged` a `sequence` column numbers
+    the rows (so row 1000 of a pillars export is the 1000th pillar logged).
 
     **Rate limits:** This endpoint is rate-limited to prevent abuse.
     """
@@ -161,35 +150,24 @@ def download_trigs(
         )
         raise HTTPException(status_code=429, detail=error_message)
 
-    # Parse categories from comma-separated string
-    parsed_categories: Optional[list[str]] = None
-    if categories:
-        parsed_categories = [
-            c.strip().upper() for c in categories.split(",") if c.strip()
-        ]
-
     # Mutually exclusive filters
-    if only_found and exclude_found:
+    if filters.only_found and filters.exclude_found:
         raise HTTPException(
             status_code=400,
             detail="Cannot use both only_found and exclude_found simultaneously",
         )
 
+    log_user_id = filters.resolve_log_user_id(db, current_user)
+    validate_trig_order(order, log_user_id)
+
     # Fetch trigpoints with filters
     trigs = trig_crud.list_trigs_filtered(
         db,
-        name=name,
-        county=county,
         skip=0,
         limit=MAX_IMMEDIATE_TRIGS,
-        center_lat=lat,
-        center_lon=lon,
-        max_km=max_km,
-        category_codes=parsed_categories,
-        exclude_found_by_user_id=user_id if exclude_found else None,
-        only_found_by_user_id=user_id if only_found else None,
-        exclude_soft_deleted=True,
-        area_id=area_id,
+        order=order,
+        log_user_id=log_user_id,
+        **filters.crud_kwargs(log_user_id),
     )
 
     # Get count for logging
@@ -198,13 +176,22 @@ def download_trigs(
         f"Download request: format={format}, count={count}, user={user_id or 'anonymous'}"
     )
 
-    # Get user logs if requested
+    # Get log data if requested
     user_logs: Optional[dict[int, dict]] = None
-    if include_my_logs and user_id:
-        user_logs = _get_user_logs_map(db, user_id)
+    if include_my_logs and log_user_id is not None:
+        user_logs = _get_user_logs_map(db, log_user_id)
+
+    trig_ids = [int(t.id) for t in trigs]
+
+    # First-log dates and numbering, for "which was my Nth pillar" questions
+    ordered_by_logged = order is not None and order.lstrip("-") == "logged"
+    first_logs = None
+    if log_user_id is not None and (
+        include_my_logs or filters.logged_by is not None or ordered_by_logged
+    ):
+        first_logs = trig_crud.get_first_logs(db, log_user_id, trig_ids)
 
     # Batch-fetch county names for all trigs (from trig_area table)
-    trig_ids = [int(t.id) for t in trigs]
     county_names = get_county_names_for_trigs(db, trig_ids)
 
     # Generate output in requested format
@@ -212,7 +199,13 @@ def download_trigs(
     content: str | bytes
 
     if format == "csv":
-        content = trigs_to_csv(trigs, user_logs, county_names)
+        content = trigs_to_csv(
+            trigs,
+            user_logs,
+            county_names,
+            first_logs=first_logs,
+            sequence=order == "logged",
+        )
         filename = f"trigpoints_{timestamp}.csv"
         media_type = "text/csv"
 
@@ -260,30 +253,7 @@ def download_trigs(
     openapi_extra=openapi_lifecycle("beta", note="Preview count before download"),
 )
 def download_trigs_count(
-    categories: Optional[str] = Query(
-        None,
-        description="Comma-separated category codes to filter by (e.g., 'PILLAR,FBM')",
-    ),
-    area_id: Optional[int] = Query(
-        None, description="Filter to trigpoints within the specified area"
-    ),
-    lat: Optional[float] = Query(
-        None, description="Centre latitude for distance filter"
-    ),
-    lon: Optional[float] = Query(
-        None, description="Centre longitude for distance filter"
-    ),
-    max_km: Optional[float] = Query(
-        None, ge=0, description="Maximum distance from centre (km)"
-    ),
-    county: Optional[str] = Query(None, description="Filter by county (exact match)"),
-    name: Optional[str] = Query(None, description="Filter by trig name (contains)"),
-    only_found: bool = Query(
-        False, description="Include only trigpoints logged by user"
-    ),
-    exclude_found: bool = Query(
-        False, description="Exclude trigpoints already logged by user"
-    ),
+    filters: TrigFilters = Depends(),
     _lc=lifecycle("beta"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -292,35 +262,16 @@ def download_trigs_count(
     Get a count of trigpoints that would be included in a download (requires authentication).
 
     Use this endpoint to preview the size of a download before requesting it.
+    Accepts the same filters as the download itself.
     """
-    # Parse categories from comma-separated string
-    parsed_categories: Optional[list[str]] = None
-    if categories:
-        parsed_categories = [
-            c.strip().upper() for c in categories.split(",") if c.strip()
-        ]
-
-    user_id = int(current_user.id)
-
-    if only_found and exclude_found:
+    if filters.only_found and filters.exclude_found:
         raise HTTPException(
             status_code=400,
             detail="Cannot use both only_found and exclude_found simultaneously",
         )
 
-    count = trig_crud.count_trigs_filtered(
-        db,
-        name=name,
-        county=county,
-        center_lat=lat,
-        center_lon=lon,
-        max_km=max_km,
-        category_codes=parsed_categories,
-        exclude_found_by_user_id=user_id if exclude_found else None,
-        only_found_by_user_id=user_id if only_found else None,
-        exclude_soft_deleted=True,
-        area_id=area_id,
-    )
+    log_user_id = filters.resolve_log_user_id(db, current_user)
+    count = trig_crud.count_trigs_filtered(db, **filters.crud_kwargs(log_user_id))
 
     return {
         "count": count,
