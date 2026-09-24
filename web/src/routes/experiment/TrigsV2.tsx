@@ -7,13 +7,18 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Filter, RotateCcw, FlaskConical, HelpCircle, ArrowUpDown, Mountain, Trophy, SortAsc, MapPin } from "lucide-react";
+import { Filter, RotateCcw, ArrowUpDown, Mountain, Trophy, SortAsc, MapPin, CalendarCheck, List, Map as MapIcon } from "lucide-react";
 
 import Card from "../../components/ui/Card";
 import { TrigCard } from "../../components/trigs/TrigCard";
+import { DownloadButton } from "../../components/trigs/DownloadButton";
+import { TrigsV2Map } from "../../components/experiment/TrigsV2Map";
 import { useInfiniteTrigs } from "../../hooks/useInfiniteTrigs";
+import { useTrigPoints } from "../../hooks/useTrigPoints";
+import { buildTrigFilterParams, type TrigFilterOptions } from "../../lib/trigFilterParams";
+import { readAreaIds, readSelection, writeSelection } from "../../lib/trigsPageParams";
 import { useUserLoggedTrigs } from "../../hooks/useUserLoggedTrigs";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import AddToListButton from "../../components/lists/AddToListButton";
@@ -25,6 +30,7 @@ import {
   useConditions,
   useHistoricUseValues,
   useCurrentUseValues,
+  useAreasByIds,
 } from "../../hooks/useReferenceData";
 
 // Import filter chips
@@ -34,25 +40,21 @@ import {
   HistoricUseChip,
   CurrentUseChip,
   ConditionChip,
-  MyLogsChip,
+  LogsChip,
   TypeChip,
   AreaChip,
-  HistoricCountyChip,
+  toggleAreaSelection,
   SortChip,
   ALL_CATEGORY_IDS,
-  HISTORIC_COUNTIES,
-  ALL_LOGGED_CONDITION_CODES,
   type SortDirection,
+  type LogUser,
+  type SelectedArea,
 } from "../../components/experiment/chips";
 
 // Default location: Buxton
 const DEFAULT_LAT = 53.2585;
 const DEFAULT_LON = -1.9106;
 const DEFAULT_LOCATION_NAME = "Buxton";
-const DEFAULT_MAX_KM = 200;
-
-// Get all county IDs for the historic county chip (still using mock data)
-const ALL_COUNTY_IDS = HISTORIC_COUNTIES.map((county) => county.id);
 
 export default function TrigsV2() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -69,8 +71,13 @@ export default function TrigsV2() {
   // Track if we've attempted to get user location
   const locationAttemptedRef = useRef(false);
   
-  // Track if we've initialized filters from API data
-  const filtersInitializedRef = useRef(false);
+  // The URL as the page was opened. Filters whose options come from the API
+  // are restored from this once those options have loaded.
+  const [initialParams] = useState(() => new URLSearchParams(searchParams));
+
+  // Whether those filters have been restored. Until then the URL is left
+  // alone, so it can't be rewritten before it has been read.
+  const [filtersReady, setFiltersReady] = useState(false);
 
   // ==========================================================================
   // Reference Data (from API)
@@ -120,17 +127,21 @@ export default function TrigsV2() {
   );
 
   // Categories (status IDs: 10=Pillar, 20=FBM, etc.)
-  const [selectedCategories, setSelectedCategories] = useState<number[]>(() => {
-    const categories = searchParams.get("categories");
-    if (categories) return categories.split(",").map(Number).filter((n) => !isNaN(n));
-    return [...ALL_CATEGORY_IDS]; // Default to all categories
+  const [selectedCategories, setSelectedCategories] = useState<number[]>(() =>
+    readSelection(searchParams, "categories", ALL_CATEGORY_IDS)
+  );
+
+  // Distance/radius - unlimited by default; the location still sets the
+  // origin for sorting by distance
+  const [maxKm, setMaxKm] = useState<number | null>(() => {
+    const km = parseInt(searchParams.get("maxKm") || "", 10);
+    return km > 0 ? km : null;
   });
 
-  // Distance/radius
-  const [maxKm, setMaxKm] = useState<number | null>(() => {
-    const km = searchParams.get("maxKm");
-    return km ? parseInt(km, 10) : DEFAULT_MAX_KM;
-  });
+  // List or map view
+  const [view, setView] = useState<"list" | "map">(() =>
+    searchParams.get("view") === "map" ? "map" : "list"
+  );
 
   // Historic use filter - starts empty, populated when API data loads
   const [selectedHistoricUse, setSelectedHistoricUse] = useState<string[]>([]);
@@ -144,47 +155,70 @@ export default function TrigsV2() {
   // Type filter - starts empty, populated when API data loads
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
-  // My logs filter - now with individual conditions for logged trigs
-  const [selectedLoggedConditions, setSelectedLoggedConditions] = useState<string[]>(
-    () => [...ALL_LOGGED_CONDITION_CODES]
+  // Logs filter, with individual conditions for logged trigs. Stored as the
+  // conditions switched *off*, so "all conditions" holds before the list has
+  // loaded from the API and covers every code the API returns.
+  const [deselectedLoggedConditions, setDeselectedLoggedConditions] = useState<string[]>(
+    () => searchParams.get("loggedExclude")?.split(",").filter(Boolean) ?? []
   );
-  const [showNotLogged, setShowNotLogged] = useState<boolean>(true);
-
-  // Area filter (for full area chip) - start with empty (will be managed by chip)
-  const [selectedAreaIds, setSelectedAreaIds] = useState<number[]>([]);
-
-  // Historic county filter (for dedicated county chip) - start with all selected
-  const [selectedCountyIds, setSelectedCountyIds] = useState<number[]>(
-    () => [...ALL_COUNTY_IDS]
+  const selectedLoggedConditions = allConditionCodes.filter(
+    (code) => !deselectedLoggedConditions.includes(code)
   );
+  const noLoggedConditions =
+    allConditionCodes.length > 0 && selectedLoggedConditions.length === 0;
+  const [showNotLogged, setShowNotLogged] = useState<boolean>(
+    () => searchParams.get("notLogged") !== "0"
+  );
+
+  // Whose logs the log filters and "logged date" sort refer to: null means
+  // the signed-in user
+  const [logUser, setLogUser] = useState<LogUser | null>(() => {
+    const id = parseInt(searchParams.get("loggedBy") || "", 10);
+    const name = searchParams.get("loggedByName");
+    return id > 0 && name ? { id, name } : null;
+  });
+  const hasLogUser = logUser !== null || isAuthenticated;
+
+  // Area filter (for full area chip) - empty means no area filter. All
+  // selected areas are of one area type (see toggleAreaSelection).
+  const [selectedAreas, setSelectedAreas] = useState<SelectedArea[]>([]);
+  const selectedAreaIds = useMemo(() => selectedAreas.map((a) => a.id), [selectedAreas]);
+
+  // Areas from the URL, looked up for their names and types
+  const [initialAreaIds] = useState(() => readAreaIds(initialParams));
+  const initialAreas = useAreasByIds(initialAreaIds);
 
   // ==========================================================================
   // Initialize filters when API data loads
   // ==========================================================================
   
   useEffect(() => {
-    if (filtersInitializedRef.current) return;
-    
-    // Wait until all reference data is loaded
-    if (!categories || !conditions || !historicUseValues || !currentUseValues) return;
-    
-    filtersInitializedRef.current = true;
-    
-    // Check URL params for types filter
-    const typesParam = searchParams.get("types");
-    if (typesParam) {
-      const urlTypes = typesParam.split(",").filter((t) => allTypeCodes.includes(t));
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initialising state from URL params on first data load
-      setSelectedTypes(urlTypes.length > 0 ? urlTypes : allTypeCodes);
-    } else {
-      setSelectedTypes(allTypeCodes);
-    }
-    
-    // Initialize other filters to "all" (unfiltered) state
-    setSelectedConditions(allConditionCodes);
-    setSelectedHistoricUse(allHistoricUseValues);
-    setSelectedCurrentUse(allCurrentUseValues);
-  }, [categories, conditions, historicUseValues, currentUseValues, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues, searchParams]);
+    if (filtersReady) return;
+
+    // Wait until all reference data, and any areas from the URL, have loaded
+    if (!categories || !conditions || !historicUseValues || !currentUseValues || !initialAreas) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initialising state from URL params on first data load
+    setSelectedTypes(readSelection(initialParams, "types", allTypeCodes));
+    setSelectedConditions(readSelection(initialParams, "conditions", allConditionCodes));
+    setSelectedHistoricUse(readSelection(initialParams, "historicUse", allHistoricUseValues));
+    setSelectedCurrentUse(readSelection(initialParams, "currentUse", allCurrentUseValues));
+
+    // Areas of one type only, as the chip allows (see toggleAreaSelection)
+    const areaTypeId = initialAreas[0]?.area_type?.id ?? initialAreas[0]?.area_type_id;
+    setSelectedAreas(
+      initialAreas
+        .map((area) => ({
+          id: area.id,
+          name: area.name,
+          areaTypeId: area.area_type?.id ?? area.area_type_id,
+          areaTypeName: area.area_type?.name ?? "",
+        }))
+        .filter((area) => area.areaTypeId === areaTypeId)
+    );
+
+    setFiltersReady(true);
+  }, [filtersReady, categories, conditions, historicUseValues, currentUseValues, initialAreas, initialParams, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
 
   // ==========================================================================
   // Sort State
@@ -202,6 +236,9 @@ export default function TrigsV2() {
     setSortKey(newSortKey);
     setSortDirection(newDirection);
   }, []);
+
+  // "Logged date" needs someone's logs to sort by
+  const effectiveSortKey = sortKey === "logged" && !hasLogUser ? "distance" : sortKey;
 
   // ==========================================================================
   // Location Geolocation
@@ -290,7 +327,7 @@ export default function TrigsV2() {
   }, []);
 
   const handleToggleLoggedCondition = useCallback((code: string) => {
-    setSelectedLoggedConditions((prev) =>
+    setDeselectedLoggedConditions((prev) =>
       prev.includes(code)
         ? prev.filter((c) => c !== code)
         : [...prev, code]
@@ -307,37 +344,30 @@ export default function TrigsV2() {
     });
   }, []);
 
-  const handleToggleArea = useCallback((areaId: number) => {
-    setSelectedAreaIds((prev) => {
-      if (prev.includes(areaId)) {
-        return prev.filter((a) => a !== areaId);
-      } else {
-        return [...prev, areaId];
-      }
-    });
+  const handleToggleArea = useCallback((area: SelectedArea) => {
+    setSelectedAreas((prev) => toggleAreaSelection(prev, area));
   }, []);
 
-  const handleToggleCounty = useCallback((countyId: number) => {
-    setSelectedCountyIds((prev) => {
-      if (prev.includes(countyId)) {
-        return prev.filter((c) => c !== countyId);
-      } else {
-        return [...prev, countyId];
-      }
-    });
-  }, []);
+  const handleLogUserChange = useCallback((user: LogUser | null) => {
+    setLogUser(user);
+    if (user === null && !isAuthenticated) {
+      // Nobody's logs to filter on any more, so drop the log filters
+      setDeselectedLoggedConditions([]);
+      setShowNotLogged(true);
+    }
+  }, [isAuthenticated]);
 
   const handleClearAllFilters = useCallback(() => {
     setSelectedCategories(ALL_CATEGORY_IDS);
-    setMaxKm(DEFAULT_MAX_KM);
+    setMaxKm(null);
     setSelectedHistoricUse(allHistoricUseValues);
     setSelectedCurrentUse(allCurrentUseValues);
     setSelectedConditions(allConditionCodes);
-    setSelectedLoggedConditions([...ALL_LOGGED_CONDITION_CODES]);
+    setDeselectedLoggedConditions([]);
     setShowNotLogged(true);
+    setLogUser(null);
     setSelectedTypes(allTypeCodes);
-    setSelectedAreaIds([]); // Area chip manages its own "all" state
-    setSelectedCountyIds([...ALL_COUNTY_IDS]);
+    setSelectedAreas([]);
   }, [allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
 
   // ==========================================================================
@@ -346,6 +376,8 @@ export default function TrigsV2() {
   
   // Update URL when filter/sort state changes
   useEffect(() => {
+    if (!filtersReady) return;
+
     const params = new URLSearchParams();
     
     // Location
@@ -359,9 +391,28 @@ export default function TrigsV2() {
       params.set("location", locationName);
     }
     
-    // Radius (only if not default)
-    if (maxKm !== null && maxKm !== DEFAULT_MAX_KM) {
+    // Radius (only if limited)
+    if (maxKm !== null) {
       params.set("maxKm", maxKm.toString());
+    }
+
+    // Whose logs
+    if (logUser) {
+      params.set("loggedBy", logUser.id.toString());
+      params.set("loggedByName", logUser.name);
+    }
+
+    // Logs filter (only if narrowed)
+    if (deselectedLoggedConditions.length > 0) {
+      params.set("loggedExclude", deselectedLoggedConditions.join(","));
+    }
+    if (!showNotLogged) {
+      params.set("notLogged", "0");
+    }
+
+    // View
+    if (view === "map") {
+      params.set("view", "map");
     }
     
     // Sort (only if not default)
@@ -372,21 +423,26 @@ export default function TrigsV2() {
       params.set("dir", sortDirection);
     }
     
-    // Categories (only if not all selected)
-    if (selectedCategories.length > 0 && selectedCategories.length < ALL_CATEGORY_IDS.length) {
-      params.set("categories", selectedCategories.join(","));
-    }
-    
-    // Types (only if filtering and not all selected)
-    if (selectedTypes.length > 0 && selectedTypes.length < allTypeCodes.length) {
-      params.set("types", selectedTypes.join(","));
+    // Multi-select filters (only if not all selected)
+    writeSelection(params, "categories", selectedCategories, ALL_CATEGORY_IDS);
+    writeSelection(params, "types", selectedTypes, allTypeCodes);
+    writeSelection(params, "conditions", selectedConditions, allConditionCodes);
+    writeSelection(params, "historicUse", selectedHistoricUse, allHistoricUseValues);
+    writeSelection(params, "currentUse", selectedCurrentUse, allCurrentUseValues);
+
+    // Areas
+    if (selectedAreaIds.length > 0) {
+      params.set("areas", selectedAreaIds.join(","));
     }
     
     // Update URL without triggering navigation
     setSearchParams(params, { replace: true });
   }, [
-    centerLat, centerLon, locationName, maxKm, sortKey, sortDirection,
-    selectedCategories, selectedTypes, allTypeCodes.length, setSearchParams
+    filtersReady, centerLat, centerLon, locationName, maxKm, sortKey, sortDirection,
+    selectedCategories, selectedTypes, selectedConditions, selectedHistoricUse,
+    selectedCurrentUse, selectedAreaIds, allTypeCodes, allConditionCodes,
+    allHistoricUseValues, allCurrentUseValues, logUser, view,
+    deselectedLoggedConditions, showNotLogged, setSearchParams
   ]);
 
   // ==========================================================================
@@ -394,7 +450,7 @@ export default function TrigsV2() {
   // ==========================================================================
 
   // Build order string with direction prefix
-  const orderParam = sortDirection === "desc" ? `-${sortKey}` : sortKey;
+  const orderParam = sortDirection === "desc" ? `-${effectiveSortKey}` : effectiveSortKey;
 
   // Only send types filter when not all types are selected
   const typesFilter = useMemo(() => {
@@ -424,6 +480,30 @@ export default function TrigsV2() {
     return selectedConditions;
   }, [selectedConditions, allConditionCodes.length]);
 
+  // The complete filter set, shared by the list, the map and downloads
+  const filterOptions: TrigFilterOptions = {
+    lat: centerLat ?? undefined,
+    lon: centerLon ?? undefined,
+    maxKm: maxKm ?? undefined,
+    statusIds: selectedCategories.length > 0 ? selectedCategories : undefined,
+    types: typesFilter,
+    historicUse: historicUseFilter,
+    currentUse: currentUseFilter,
+    conditions: conditionsFilter,
+    ...(hasLogUser && {
+      loggedBy: logUser?.id,
+      showLogged: !noLoggedConditions,
+      showNotLogged,
+      // Only narrow by logged condition for a partial selection - "all" means
+      // any log, whatever its condition code
+      loggedConditions:
+        deselectedLoggedConditions.length > 0 && !noLoggedConditions
+          ? selectedLoggedConditions
+          : undefined,
+    }),
+    areaIds: selectedAreaIds.length > 0 ? selectedAreaIds : undefined,
+  };
+
   const {
     data,
     fetchNextPage,
@@ -431,21 +511,22 @@ export default function TrigsV2() {
     isFetchingNextPage,
     isLoading,
     error,
-  } = useInfiniteTrigs({
-    lat: centerLat ?? undefined,
-    lon: centerLon ?? undefined,
-    statusIds: selectedCategories.length > 0 ? selectedCategories : undefined,
-    types: typesFilter,
-    historicUse: historicUseFilter,
-    currentUse: currentUseFilter,
-    conditions: conditionsFilter,
-    showLogged: selectedLoggedConditions.length > 0,
-    showNotLogged,
-    loggedConditions: selectedLoggedConditions.length > 0 ? selectedLoggedConditions : undefined,
-    maxKm: maxKm ?? undefined,
-    order: orderParam,
-    areaIds: selectedAreaIds.length > 0 ? selectedAreaIds : undefined,
-  });
+  } = useInfiniteTrigs({ ...filterOptions, order: orderParam });
+
+  // The map plots the whole filtered set. The centre only matters to it
+  // when it limits the radius, so leave it out otherwise (better caching).
+  const {
+    data: mapPoints,
+    isLoading: isMapLoading,
+    error: mapError,
+  } = useTrigPoints(
+    maxKm === null ? { ...filterOptions, lat: undefined, lon: undefined } : filterOptions,
+    view === "map",
+  );
+
+  // Number the rows when the list is someone's logged trigs in logging order,
+  // so e.g. #1000 of their pillars is their 1000th pillar
+  const showPositions = effectiveSortKey === "logged" && hasLogUser && !showNotLogged;
 
   const allTrigs = data?.pages.flatMap((page) => page.items) || [];
   const totalCount = data?.pages[0]?.pagination.total || 0;
@@ -488,45 +569,24 @@ export default function TrigsV2() {
     if (selectedHistoricUse.length !== allHistoricUseValues.length) count++;
     if (selectedCurrentUse.length !== allCurrentUseValues.length) count++;
     if (selectedConditions.length !== allConditionCodes.length) count++;
-    if (selectedLoggedConditions.length !== ALL_LOGGED_CONDITION_CODES.length || !showNotLogged) count++;
+    if (
+      hasLogUser &&
+      (deselectedLoggedConditions.length > 0 || !showNotLogged || logUser !== null)
+    ) count++;
     if (selectedTypes.length !== allTypeCodes.length) count++;
-    if (selectedAreaIds.length > 0) count++; // Area is active when any specific areas selected
-    if (selectedCountyIds.length !== ALL_COUNTY_IDS.length) count++;
+    if (selectedAreas.length > 0) count++; // Area is active when any specific areas selected
     return count;
   }, [
     selectedCategories, maxKm, selectedHistoricUse, selectedCurrentUse,
-    selectedConditions, selectedLoggedConditions, showNotLogged, selectedTypes,
-    selectedAreaIds, selectedCountyIds, allTypeCodes.length, allConditionCodes.length,
+    selectedConditions, deselectedLoggedConditions, showNotLogged, hasLogUser, logUser, selectedTypes,
+    selectedAreas, allTypeCodes.length, allConditionCodes.length,
     allHistoricUseValues.length, allCurrentUseValues.length
   ]);
 
   return (
     <>
-      <title>Trigs v2 (Experiment) | TrigpointingUK</title>
+      <title>Trigpoints | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
-        {/* Page Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg">
-              <FlaskConical className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Trigs v2 <span className="text-amber-600 dark:text-amber-400">(Experiment)</span>
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Exploring filter chips UI pattern
-              </p>
-            </div>
-          </div>
-          
-          {/* Experiment notice */}
-          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
-            <strong>This is an experimental page.</strong> We're testing a filter chips approach 
-            for the trigs browser. <Link to="/experiment" className="underline hover:text-amber-600">View all experiments</Link>
-          </div>
-        </div>
-
         {/* Main Filter Panel */}
         <Card className="mb-6">
           <div className="p-4">
@@ -612,21 +672,23 @@ export default function TrigsV2() {
                   onSelectNone={() => setSelectedConditions([])}
                 />
                 
-                <MyLogsChip
+                <LogsChip
                   selectedLoggedConditions={selectedLoggedConditions}
                   showNotLogged={showNotLogged}
                   onToggleLoggedCondition={handleToggleLoggedCondition}
                   onToggleNotLogged={() => setShowNotLogged((prev) => !prev)}
-                  onSelectAllLogged={() => setSelectedLoggedConditions([...ALL_LOGGED_CONDITION_CODES])}
-                  onSelectNoneLogged={() => setSelectedLoggedConditions([])}
+                  onSelectAllLogged={() => setDeselectedLoggedConditions([])}
+                  onSelectNoneLogged={() => setDeselectedLoggedConditions([...allConditionCodes])}
                   isAuthenticated={isAuthenticated}
+                  logUser={logUser}
+                  onLogUserChange={handleLogUserChange}
                 />
                 
                 {/* Area chip */}
                 <AreaChip
-                  selectedAreaIds={selectedAreaIds}
+                  selectedAreas={selectedAreas}
                   onToggleArea={handleToggleArea}
-                  onClear={() => setSelectedAreaIds([])}
+                  onClear={() => setSelectedAreas([])}
                   centerLat={centerLat}
                   centerLon={centerLon}
                   containingAreaId={null}
@@ -648,7 +710,7 @@ export default function TrigsV2() {
                 <SortChip
                   label="Distance"
                   sortKey="distance"
-                  activeSortKey={sortKey}
+                  activeSortKey={effectiveSortKey}
                   sortDirection={sortDirection}
                   onSort={handleSort}
                   icon={<MapPin className="w-3.5 h-3.5" />}
@@ -659,7 +721,7 @@ export default function TrigsV2() {
                 <SortChip
                   label="Alphabetically"
                   sortKey="name"
-                  activeSortKey={sortKey}
+                  activeSortKey={effectiveSortKey}
                   sortDirection={sortDirection}
                   onSort={handleSort}
                   icon={<SortAsc className="w-3.5 h-3.5" />}
@@ -668,7 +730,7 @@ export default function TrigsV2() {
                 <SortChip
                   label="Score"
                   sortKey="score"
-                  activeSortKey={sortKey}
+                  activeSortKey={effectiveSortKey}
                   sortDirection={sortDirection}
                   onSort={handleSort}
                   icon={<Trophy className="w-3.5 h-3.5" />}
@@ -677,113 +739,155 @@ export default function TrigsV2() {
                 <SortChip
                   label="Height"
                   sortKey="height"
-                  activeSortKey={sortKey}
+                  activeSortKey={effectiveSortKey}
                   sortDirection={sortDirection}
                   onSort={handleSort}
                   icon={<Mountain className="w-3.5 h-3.5" />}
                 />
-              </div>
-            </div>
 
-            {/* Row 4: Alternatives - chips under consideration */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <HelpCircle className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                  Alternatives
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  (seeking feedback on these)
-                </span>
-              </div>
-              
-              {/* Alternative chips */}
-              <div className="flex flex-wrap gap-2">
-                <HistoricCountyChip
-                  selectedCountyIds={selectedCountyIds}
-                  onToggleCounty={handleToggleCounty}
-                  onSelectAll={() => setSelectedCountyIds([...ALL_COUNTY_IDS])}
-                  onSelectNone={() => setSelectedCountyIds([])}
-                  containingCountyId={null}
+                <SortChip
+                  label="Logged date"
+                  sortKey="logged"
+                  activeSortKey={effectiveSortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  icon={<CalendarCheck className="w-3.5 h-3.5" />}
+                  disabled={!hasLogUser}
+                  disabledReason="Sign in, or pick a user in the Logs filter"
                 />
               </div>
             </div>
 
             {/* Results summary */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 {isLoading || centerLat === null || centerLon === null ? (
                   <span>Loading...</span>
                 ) : (
                   <span>
-                    Showing <strong>{allTrigs.length}</strong> of <strong>{totalCount}</strong> trigpoints
-                    {locationName && ` near ${locationName}`}
+                    <strong>{totalCount.toLocaleString("en-GB")}</strong> trigpoints
+                    {maxKm !== null && locationName && ` within ${maxKm} km of ${locationName}`}
+                    {logUser && ` · logs by ${logUser.name}`}
+                    {view === "list" && totalCount > allTrigs.length && (
+                      <> · showing {allTrigs.length.toLocaleString("en-GB")}</>
+                    )}
                   </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* List / map toggle */}
+                <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden" role="group" aria-label="View">
+                  {([
+                    { value: "list", label: "List", Icon: List },
+                    { value: "map", label: "Map", Icon: MapIcon },
+                  ] as const).map(({ value, label, Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setView(value)}
+                      aria-pressed={view === value}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
+                        view === value
+                          ? "bg-trig-green-50 dark:bg-trig-green-900/30 text-trig-green-700 dark:text-trig-green-300"
+                          : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {isAuthenticated && (
+                  <DownloadButton
+                    filterParams={buildTrigFilterParams(filterOptions)}
+                    order={orderParam}
+                    logUserName={logUser?.name}
+                  />
                 )}
               </div>
             </div>
           </div>
         </Card>
 
+        {view === "map" && (
+          <TrigsV2Map
+            trigs={mapPoints?.trigs ?? []}
+            isLoading={isMapLoading}
+            error={mapError}
+            truncated={mapPoints?.truncated ?? false}
+            showListActions={showListActions}
+          />
+        )}
+
         {/* Trigpoint List */}
-        <div>
-          {error && (
-            <div className="mx-4 mt-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
-              Error loading trigpoints: {error.message}
-            </div>
-          )}
-
-          {!isLoading && allTrigs.length === 0 && (
-            <div className="mx-4 mt-8 text-center py-12">
-              <div className="text-gray-400 dark:text-gray-500 text-5xl mb-4">📍</div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                No trigpoints found
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400">
-                Try adjusting your filters or selecting a different location.
-              </p>
-            </div>
-          )}
-
-          {allTrigs.length > 0 && (
-            <>
-              {/* Trigpoint cards */}
-              <div className="bg-white dark:bg-gray-800 mx-4 mt-4 rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
-                {allTrigs.map((trig) => (
-                  <TrigCard
-                    key={trig.id}
-                    trig={trig}
-                    showDistance={centerLat !== null && centerLon !== null}
-                    centerLat={centerLat ?? 0}
-                    centerLon={centerLon ?? 0}
-                    distanceUnit={(userProfile?.prefs?.distance_ind as 'K' | 'M') || 'K'}
-                    logStatus={getLogStatus(trig.id)}
-                    actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
-                  />
-                ))}
+        {view === "list" && (
+          <div>
+            {error && (
+              <div className="mx-4 mt-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
+                Error loading trigpoints: {error.message}
               </div>
+            )}
 
-              {/* Infinite scroll sentinel */}
-              {hasNextPage && <div ref={sentinelRef} className="h-px" />}
+            {!isLoading && allTrigs.length === 0 && (
+              <div className="mx-4 mt-8 text-center py-12">
+                <div className="text-gray-400 dark:text-gray-500 text-5xl mb-4">📍</div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                  No trigpoints found
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Try adjusting your filters or selecting a different location.
+                </p>
+              </div>
+            )}
 
-              {/* Loading indicator */}
-              {isFetchingNextPage && (
-                <div className="mx-4 my-6 text-center">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 dark:border-blue-400"></div>
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading more...</p>
+            {allTrigs.length > 0 && (
+              <>
+                {/* Trigpoint cards */}
+                <div className="bg-white dark:bg-gray-800 mx-4 mt-4 rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
+                  {allTrigs.map((trig, index) => (
+                    <TrigCard
+                      key={trig.id}
+                      trig={trig}
+                      position={
+                        showPositions
+                          ? sortDirection === "asc" ? index + 1 : totalCount - index
+                          : undefined
+                      }
+                      firstLoggedDate={trig.first_logged_date}
+                      showDistance={centerLat !== null && centerLon !== null}
+                      centerLat={centerLat ?? 0}
+                      centerLon={centerLon ?? 0}
+                      distanceUnit={(userProfile?.prefs?.distance_ind as 'K' | 'M') || 'K'}
+                      logStatus={getLogStatus(trig.id)}
+                      actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
+                    />
+                  ))}
                 </div>
-              )}
-            </>
-          )}
 
-          {/* Initial loading indicator */}
-          {isLoading && (
-            <div className="mx-4 my-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
-              <p className="mt-4 text-gray-500 dark:text-gray-400">Loading trigpoints...</p>
-            </div>
-          )}
-        </div>
+                {/* Infinite scroll sentinel */}
+                {hasNextPage && <div ref={sentinelRef} className="h-px" />}
+
+                {/* Loading indicator */}
+                {isFetchingNextPage && (
+                  <div className="mx-4 my-6 text-center">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 dark:border-blue-400"></div>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading more...</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Initial loading indicator */}
+            {isLoading && (
+              <div className="mx-4 my-12 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
+                <p className="mt-4 text-gray-500 dark:text-gray-400">Loading trigpoints...</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

@@ -30,6 +30,19 @@ interface TrigCardProps {
   logStatus?: UserLogStatus | null;
   actions?: ReactNode;
   noBorder?: boolean;
+  /** Position in a ranked list, shown as "#N" (e.g. the Nth trig logged) */
+  position?: number;
+  /** ISO date the trig was first logged by the user being looked at */
+  firstLoggedDate?: string | null;
+}
+
+function formatLoggedDate(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 // Helper to get category badge info (icon, abbrev and color) based on category_code
@@ -123,6 +136,8 @@ export function TrigCard({
   logStatus = null,
   actions,
   noBorder = false,
+  position,
+  firstLoggedDate,
 }: TrigCardProps) {
   const { getConditionInfo } = useConditionInfo();
 
@@ -158,6 +173,15 @@ export function TrigCard({
         {/* Left side: Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
+            {position !== undefined && (
+              <span
+                className="flex-shrink-0 min-w-10 text-right font-mono text-sm font-semibold text-gray-500 dark:text-gray-400"
+                title={`Number ${position} in this list`}
+              >
+                #{position.toLocaleString("en-GB")}
+              </span>
+            )}
+
             {/* Category badge */}
             {categoryInfo.icon ? (
               <img
@@ -232,6 +256,14 @@ export function TrigCard({
                 <span className="text-gray-400 dark:text-gray-500">•</span>
                 <span className="text-gray-500 dark:text-gray-400 text-xs" title="Height above sea level">
                   {trig.wgs_height.toFixed(0)}m
+                </span>
+              </>
+            )}
+            {firstLoggedDate && (
+              <>
+                <span className="text-gray-400 dark:text-gray-500">•</span>
+                <span className="text-trig-green-700 dark:text-trig-green-400 text-xs" title="First logged">
+                  Logged {formatLoggedDate(firstLoggedDate)}
                 </span>
               </>
             )}

@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from api.api.deps import get_current_user_optional, get_db
 from api.api.lifecycle import lifecycle, openapi_lifecycle
+from api.api.trig_filters import TrigFilters, validate_trig_order
 from api.core.logging import get_logger
 from api.core.metrics import get_metrics_collector
 from api.crud import area as area_crud
@@ -65,6 +66,9 @@ logger = get_logger(__name__)
 CACHE_VALIDATION_INTERVAL_SECONDS = 60
 CACHE_PERSIST_TTL: Optional[int] = None  # Persist until explicitly replaced
 CACHE_VERSION = "v2"
+
+# Upper bound on /trigs/points - comfortably above the whole trig table
+TRIG_POINTS_LIMIT = 50000
 
 
 def _build_etag(data_timestamp: Optional[str]) -> str:
@@ -790,6 +794,65 @@ def _get_trig_cached(
     )
 
 
+TRIG_POINT_FIELDS = [
+    "id",
+    "waypoint",
+    "name",
+    "lat",
+    "lon",
+    "condition",
+    "osgb_gridref",
+    "type_name",
+    "category_code",
+]
+
+
+@router.get(
+    "/points",
+    openapi_extra=openapi_lifecycle(
+        "beta", note="Every trig matching the filters, compact, for map plotting"
+    ),
+)
+@cached(
+    resource_type="trigs", ttl=43200, subresource="points", vary_on_user=True
+)  # 12 hours
+def list_trig_points(
+    filters: TrigFilters = Depends(),
+    _lc=lifecycle("beta"),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_optional),
+):
+    """
+    All trigs matching the filters (same parameters as `GET /trigs`), unpaginated.
+
+    Returns a compact table to keep the payload small: `fields` names the
+    columns and each entry in `rows` is one trig in that column order.
+    """
+    log_user_id = filters.resolve_log_user_id(db, current_user)
+    rows = trig_crud.list_trig_points(
+        db, limit=TRIG_POINTS_LIMIT, **filters.crud_kwargs(log_user_id)
+    )
+    return {
+        "fields": TRIG_POINT_FIELDS,
+        "rows": [
+            [
+                int(row.id),
+                row.waypoint,
+                row.name,
+                float(row.wgs_lat),
+                float(row.wgs_long),
+                row.condition,
+                row.osgb_gridref,
+                row.type_name,
+                row.category_code,
+            ]
+            for row in rows
+        ],
+        "total": len(rows),
+        "truncated": len(rows) >= TRIG_POINTS_LIMIT,
+    }
+
+
 @router.get(
     "/{trig_id}",
     response_model=TrigWithIncludes,
@@ -886,50 +949,18 @@ def get_trig_by_waypoint(
     "",
     openapi_extra=openapi_lifecycle("beta", note="Filtered collection listing"),
 )
-@cached(resource_type="trigs", ttl=43200, subresource="list")  # 12 hours
+@cached(
+    resource_type="trigs", ttl=43200, subresource="list", vary_on_user=True
+)  # 12 hours
 def list_trigs(
-    name: Optional[str] = Query(None, description="Filter by trig name (contains)"),
-    county: Optional[str] = Query(None, description="Filter by county (exact)"),
-    lat: Optional[float] = Query(None, description="Centre latitude (WGS84)"),
-    lon: Optional[float] = Query(None, description="Centre longitude (WGS84)"),
-    max_km: Optional[float] = Query(
-        None, ge=0, description="Max distance from centre (km)"
-    ),
+    filters: TrigFilters = Depends(),
     order: Optional[str] = Query(
         None,
-        description="Sort order: id | name | distance | height | score (prefix with - for descending)",
-    ),
-    types: Optional[str] = Query(
-        None, description="Comma-separated type codes to include (e.g., 'HOTINE,FBM')"
-    ),
-    categories: Optional[str] = Query(
-        None,
-        description="Comma-separated category codes to include (e.g., 'PILLAR,FBM')",
-    ),
-    exclude_found: Optional[bool] = Query(
-        False, description="Exclude trigpoints already logged by authenticated user"
-    ),
-    only_found: Optional[bool] = Query(
-        False, description="Include only trigpoints logged by authenticated user"
-    ),
-    area_id: Optional[int] = Query(
-        None, description="Filter to trigpoints within the specified area"
-    ),
-    area_ids: Optional[str] = Query(
-        None, description="Comma-separated area IDs (multi-select)"
-    ),
-    historic_use: Optional[str] = Query(
-        None, description="Comma-separated historic use values to include"
-    ),
-    current_use: Optional[str] = Query(
-        None, description="Comma-separated current use values to include"
-    ),
-    conditions: Optional[str] = Query(
-        None, description="Comma-separated condition codes to include"
-    ),
-    logged_conditions: Optional[str] = Query(
-        None,
-        description="Comma-separated condition codes - show trigs logged by user with these conditions",
+        description=(
+            "Sort order: id | name | distance | height | score | logged "
+            "(prefix with - for descending). 'logged' sorts by the log user's "
+            "first log of each trigpoint."
+        ),
     ),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
@@ -943,115 +974,45 @@ def list_trigs(
     Filters:
     - types: Filter by type code (e.g., "HOTINE,FBM,BOLT")
     - categories: Filter by category code (e.g., "PILLAR,FBM,SURVEY_MARK")
-    - exclude_found: Exclude trigpoints the user has already logged (requires authentication)
-    - only_found: Include only trigpoints the user has logged (requires authentication)
+    - logged_by: User whose logs the log filters and 'logged' sort refer to
+      (defaults to the authenticated user)
+    - exclude_found: Exclude trigpoints the log user has logged
+    - only_found: Include only trigpoints the log user has logged
     - area_id: Filter to trigpoints within a specific geographic area
     - area_ids: Filter to trigpoints within multiple areas (comma-separated)
     - historic_use: Filter by historic use values (comma-separated)
     - current_use: Filter by current use values (comma-separated)
     - conditions: Filter by condition codes (comma-separated)
-    - logged_conditions: Filter by conditions user logged trigs with (comma-separated)
+    - logged_conditions: Filter by conditions the log user logged trigs with
+
+    Draft logs never count as a find. When `logged_by` is given, or the order
+    is `logged`, each item includes `first_logged_date` / `first_logged_time`.
 
     Always excludes soft-deleted records (status_id >= 90).
     """
     # Record trig search metric
     metrics = get_metrics_collector()
     if metrics:
-        search_type = "nearby" if (lat and lon and max_km) else "general"
+        search_type = "nearby" if (filters.has_centre and filters.max_km) else "general"
         metrics.record_trig_search(search_type)
 
-    # Parse type codes
-    type_codes_list = None
-    if types:
-        type_codes_list = [t.strip() for t in types.split(",") if t.strip()]
-
-    # Parse category codes (new system)
-    category_codes_list = None
-    if categories:
-        category_codes_list = [c.strip() for c in categories.split(",") if c.strip()]
-
-    # Get user ID for exclude_found filter
-    exclude_found_by_user_id = None
-    if exclude_found and current_user:
-        exclude_found_by_user_id = int(current_user.id)
-
-    # Get user ID for only_found filter
-    only_found_by_user_id = None
-    if only_found and current_user:
-        only_found_by_user_id = int(current_user.id)
-
-    # Parse area_ids (multi-select)
-    area_ids_list = None
-    if area_ids:
-        area_ids_list = [int(a.strip()) for a in area_ids.split(",") if a.strip()]
-
-    # Parse historic_use values
-    historic_use_list = None
-    if historic_use:
-        historic_use_list = [h.strip() for h in historic_use.split(",") if h.strip()]
-
-    # Parse current_use values
-    current_use_list = None
-    if current_use:
-        current_use_list = [c.strip() for c in current_use.split(",") if c.strip()]
-
-    # Parse condition codes
-    conditions_list = None
-    if conditions:
-        conditions_list = [c.strip() for c in conditions.split(",") if c.strip()]
-
-    # Parse logged_conditions codes
-    logged_conditions_list = None
-    if logged_conditions:
-        logged_conditions_list = [
-            c.strip() for c in logged_conditions.split(",") if c.strip()
-        ]
+    log_user_id = filters.resolve_log_user_id(db, current_user)
+    validate_trig_order(order, log_user_id)
+    crud_kwargs = filters.crud_kwargs(log_user_id)
 
     items_with_distance = trig_crud.list_trigs_filtered_with_distance(
         db,
-        name=name,
-        county=county,
         skip=skip,
         limit=limit,
-        center_lat=lat,
-        center_lon=lon,
-        max_km=max_km,
         order=order,
-        type_codes=type_codes_list,
-        category_codes=category_codes_list,
-        exclude_found_by_user_id=exclude_found_by_user_id,
-        only_found_by_user_id=only_found_by_user_id,
-        exclude_soft_deleted=True,  # Always exclude status_id >= 90
-        area_id=area_id,
-        area_ids=area_ids_list,
-        historic_use=historic_use_list,
-        current_use=current_use_list,
-        conditions=conditions_list,
-        logged_conditions=logged_conditions_list,
+        log_user_id=log_user_id,
+        **crud_kwargs,
     )
     # Unpack (Trig, distance_m) tuples - distance_m is from PostGIS ST_Distance
     items = [trig for trig, _ in items_with_distance]
     distances_m = {trig.id: dist_m for trig, dist_m in items_with_distance}
 
-    total = trig_crud.count_trigs_filtered(
-        db,
-        name=name,
-        county=county,
-        center_lat=lat,
-        center_lon=lon,
-        max_km=max_km,
-        type_codes=type_codes_list,
-        category_codes=category_codes_list,
-        exclude_found_by_user_id=exclude_found_by_user_id,
-        only_found_by_user_id=only_found_by_user_id,
-        exclude_soft_deleted=True,  # Always exclude status_id >= 90
-        area_id=area_id,
-        area_ids=area_ids_list,
-        historic_use=historic_use_list,
-        current_use=current_use_list,
-        conditions=conditions_list,
-        logged_conditions=logged_conditions_list,
-    )
+    total = trig_crud.count_trigs_filtered(db, **crud_kwargs)
 
     # Batch-fetch scores for all returned trigs
     from api.models.trigstats import TrigStats
@@ -1066,6 +1027,14 @@ def list_trigs(
         int(s.id): float(s.score_baysian) if s.score_baysian else None
         for s in scores_raw
     }
+
+    # First-log dates, when the caller is looking at someone's logs
+    first_logs = None
+    wants_log_dates = filters.logged_by is not None or (
+        order is not None and order.lstrip("-") == "logged"
+    )
+    if wants_log_dates and log_user_id is not None:
+        first_logs = trig_crud.get_first_logs(db, log_user_id, trig_ids)
 
     # serialise with type information
     items_serialized = []
@@ -1084,43 +1053,17 @@ def list_trigs(
         dist_m = distances_m.get(trig.id)
         if dist_m is not None:
             data["distance_km"] = round(dist_m / 1000, 1)
+        if first_logs is not None:
+            logged_date, logged_time = first_logs.get(int(trig.id), (None, None))
+            data["first_logged_date"] = logged_date.isoformat() if logged_date else None
+            data["first_logged_time"] = logged_time.isoformat() if logged_time else None
         items_serialized.append(data)
 
     has_more = (skip + len(items)) < total
     base = "/v1/trigs"
-    params = []
-    if name:
-        params.append(f"name={name}")
-    if county:
-        params.append(f"county={county}")
-    if lat is not None:
-        params.append(f"lat={lat}")
-    if lon is not None:
-        params.append(f"lon={lon}")
-    if max_km is not None:
-        params.append(f"max_km={max_km}")
+    params = filters.query_string_parts()
     if order:
         params.append(f"order={order}")
-    if types:
-        params.append(f"types={types}")
-    if categories:
-        params.append(f"categories={categories}")
-    if exclude_found:
-        params.append("exclude_found=true")
-    if only_found:
-        params.append("only_found=true")
-    if area_id is not None:
-        params.append(f"area_id={area_id}")
-    if area_ids:
-        params.append(f"area_ids={area_ids}")
-    if historic_use:
-        params.append(f"historic_use={historic_use}")
-    if current_use:
-        params.append(f"current_use={current_use}")
-    if conditions:
-        params.append(f"conditions={conditions}")
-    if logged_conditions:
-        params.append(f"logged_conditions={logged_conditions}")
     params.append(f"limit={limit}")
     # self link
     self_link = base + "?" + "&".join(params + [f"skip={skip}"])
@@ -1132,7 +1075,7 @@ def list_trigs(
         base + "?" + "&".join(params + [f"skip={prev_offset}"]) if skip > 0 else None
     )
 
-    response = {
+    response: dict[str, Any] = {
         "items": items_serialized,
         "pagination": {
             "total": total,
@@ -1142,14 +1085,16 @@ def list_trigs(
         },
         "links": {"self": self_link, "next": next_link, "prev": prev_link},
     }
-    if lat is not None and lon is not None:
+    if filters.has_centre:
         response["context"] = {
-            "centre": {"lat": lat, "lon": lon, "srid": 4326},
-            "max_km": max_km,
+            "centre": {"lat": filters.lat, "lon": filters.lon, "srid": 4326},
+            "max_km": filters.max_km,
             "order": order or "distance",
         }
     else:
         response["context"] = {"order": order or "id"}
+    if filters.logged_by is not None:
+        response["context"]["logged_by"] = filters.logged_by
     return response
 
 

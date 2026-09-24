@@ -93,6 +93,7 @@ def invalidate_log_caches(trig_id: int, user_id: int, log_id: Optional[int] = No
         f"trig:{trig_id}:*",  # All trig-related caches
         f"user:{user_id}:*",  # All user-related caches
         "trigs:list:*",  # List queries (but NOT export)
+        "trigs:points:*",  # Map point sets (logged/not-logged filters)
         "logs:list:*",  # All log list queries
     ]
 
@@ -157,7 +158,9 @@ def invalidate_trig_caches(trig_id: int):
     """
     patterns = [
         f"trig:{trig_id}:*",  # All trig-related caches
-        "trigs:list:v1:*",  # Trig list queries only (not export/geojson)
+        # Keys are trigs:list:params_<hash>:v1, so match on the prefix
+        "trigs:list:*",  # Trig list queries only (not export/geojson)
+        "trigs:points:*",  # Map point sets
     ]
 
     invalidate_patterns(patterns)

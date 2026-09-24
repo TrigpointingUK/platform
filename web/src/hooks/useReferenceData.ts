@@ -4,7 +4,7 @@
  * These hooks cache the data for 24 hours since reference data rarely changes.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 
 const API_BASE = import.meta.env.VITE_API_BASE as string;
 
@@ -188,6 +188,36 @@ export function useAreasByType(options: UseAreasByTypeOptions) {
       return response.json();
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
+  });
+}
+
+// =============================================================================
+// Areas by ID Hook
+// =============================================================================
+
+/**
+ * Look up specific areas by ID, e.g. to restore an area filter from a link.
+ * Returns undefined until every lookup has finished; areas that no longer
+ * exist are left out.
+ */
+export function useAreasByIds(ids: number[]): Area[] | undefined {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ["reference", "area", id],
+      queryFn: async (): Promise<Area | null> => {
+        const response = await fetch(`${API_BASE}/v1/areas/${id}`);
+        if (response.status === 404) return null;
+        if (!response.ok) {
+          throw new Error("Failed to fetch area");
+        }
+        return response.json();
+      },
+      staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    })),
+    combine: (results) =>
+      results.every((r) => !r.isPending)
+        ? results.map((r) => r.data).filter((area): area is Area => !!area)
+        : undefined,
   });
 }
 

@@ -30,6 +30,9 @@ class CacheKeyEncoder(json.JSONEncoder):
             return obj.isoformat()
         if isinstance(obj, date):
             return obj.isoformat()
+        # Dependency objects (e.g. TrigFilters) describe their own key params
+        if hasattr(obj, "cache_key_params"):
+            return obj.cache_key_params()
         return super().default(obj)
 
 

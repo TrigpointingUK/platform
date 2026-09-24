@@ -185,3 +185,20 @@ describe('TrigCard', () => {
   });
 });
 
+
+describe('TrigCard ranking and logged date', () => {
+  it('shows the position when given', () => {
+    renderWithProviders(<TrigCard trig={baseTrig} position={1000} />);
+    expect(screen.getByText('#1,000')).toBeInTheDocument();
+  });
+
+  it('shows no position by default', () => {
+    renderWithProviders(<TrigCard trig={baseTrig} />);
+    expect(screen.queryByText(/^#/)).not.toBeInTheDocument();
+  });
+
+  it('shows the first logged date in British format', () => {
+    renderWithProviders(<TrigCard trig={baseTrig} firstLoggedDate="2021-05-05" />);
+    expect(screen.getByText('Logged 5 May 2021')).toBeInTheDocument();
+  });
+});

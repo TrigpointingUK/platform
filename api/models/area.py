@@ -10,7 +10,7 @@ import sys
 
 from geoalchemy2 import Geography
 from sqlalchemy import DECIMAL, Column, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 
 from api.db.database import Base
 
@@ -68,13 +68,20 @@ class Area(Base):
     # PostGIS Geography column for polygon/multipolygon boundaries
     # Using SRID 4326 (WGS84) for consistency with trig.location
     # MULTIPOLYGON handles both simple polygons and complex multi-part areas
-    boundary = Column(
-        (
-            Geography(geometry_type="MULTIPOLYGON", srid=4326)
-            if not _IS_SQLITE
-            else String
-        ),
-        nullable=False,
+    #
+    # Deferred: boundaries are huge (a single country is ~8 MB, all historic
+    # counties ~68 MB) and are only needed inside spatial SQL or the GeoJSON
+    # boundary query. Loading them with every Area object made listing areas
+    # by type transfer hundreds of MB.
+    boundary = deferred(
+        Column(
+            (
+                Geography(geometry_type="MULTIPOLYGON", srid=4326)
+                if not _IS_SQLITE
+                else String
+            ),
+            nullable=False,
+        )
     )
 
     # Optional hierarchy (e.g., parish -> district -> county -> region)
