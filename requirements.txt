@@ -1,11 +1,11 @@
 fastapi==0.141.1
 starlette>=1.6.0  # CVE-2025-62727 fix (DoS via Range header in FileResponse)
-uvicorn[standard]==0.52.4
+uvicorn[standard]==0.53.0
 sqlalchemy==2.0.54
 psycopg2-binary==2.9.13
 geoalchemy2==0.20.0
 cryptography==50.0.1
-PyJWT==2.13.0
+PyJWT==2.14.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.3.0
 crypt-r>=3.13.1  # Replacement for removed crypt module (Python 3.13+)
@@ -13,7 +13,7 @@ python-multipart==0.0.32  # CVE-2026-42561 fix
 pydantic[email]==2.13.5
 pydantic-settings==2.15.0
 python-dotenv==1.2.3
-alembic==1.19.1
+alembic==1.20.0
 
 # Testing dependencies
 pytest==9.1.1
@@ -34,10 +34,10 @@ redis==8.1.0
 # Image processing
 Pillow==12.3.0
 numpy==2.5.3
-onnxruntime==1.29.0
+onnxruntime==1.30.0
 
 # Geodesy - accurate coordinate transformations
-pyproj==3.7.2
+pyproj==3.8.0
 
 # Profiling
 pyinstrument==5.1.3
