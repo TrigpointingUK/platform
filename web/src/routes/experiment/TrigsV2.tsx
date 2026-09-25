@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Filter, RotateCcw, ArrowUpDown, Mountain, Trophy, SortAsc, MapPin, CalendarCheck, List, Map as MapIcon } from "lucide-react";
+import { Filter, RotateCcw, ArrowUpDown, Mountain, Trophy, SortAsc, MapPin, CalendarCheck, List, Map as MapIcon, ChevronDown, ChevronUp } from "lucide-react";
 
 import Card from "../../components/ui/Card";
 import { TrigCard } from "../../components/trigs/TrigCard";
@@ -58,6 +58,10 @@ const DEFAULT_LOCATION_NAME = "Buxton";
 
 // What LocationSearch calls the device's own location
 const DEVICE_LOCATION_NAME = "Current location";
+
+const FILTERS_COLLAPSED_KEY = "trigsV2.filtersCollapsed";
+const FILTER_TOGGLE_CLASSES =
+  "shrink-0 p-1 -m-1 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700";
 
 export default function TrigsV2() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -148,6 +152,29 @@ export default function TrigsV2() {
   const [view, setView] = useState<"list" | "map">(() =>
     searchParams.get("view") === "map" ? "map" : "list"
   );
+
+  // Bumped to make the map zoom back out to fit all the trigs
+  const [mapFitRequest, setMapFitRequest] = useState(0);
+
+  // Filter panel collapsed to just the results row, to leave room on small
+  // screens. Remembered per browser.
+  const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(FILTERS_COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleFiltersCollapsed = useCallback(() => {
+    setFiltersCollapsed((prev) => {
+      try {
+        localStorage.setItem(FILTERS_COLLAPSED_KEY, prev ? "0" : "1");
+      } catch {
+        // Storage unavailable - just don't remember it
+      }
+      return !prev;
+    });
+  }, []);
 
   // Historic use filter - starts empty, populated when API data loads
   const [selectedHistoricUse, setSelectedHistoricUse] = useState<string[]>([]);
@@ -594,11 +621,26 @@ export default function TrigsV2() {
       <title>Trigpoints | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
         {/* Main Filter Panel */}
-        <Card className="mb-6">
-          <div className="p-4">
+        <Card className={filtersCollapsed ? "mb-3 p-0!" : "mb-6"}>
+          <div className={filtersCollapsed ? "px-3 py-1.5" : "p-4"}>
+            {/* Hidden rather than unmounted when collapsed, so the chips keep
+                any state of their own */}
+            <div id="trigs-filter-rows" hidden={filtersCollapsed}>
             {/* Row 1: Location chips */}
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-3">
+                {/* Collapse at the top of the open form; expand is on the results row */}
+                <button
+                  type="button"
+                  onClick={toggleFiltersCollapsed}
+                  aria-expanded={true}
+                  aria-controls="trigs-filter-rows"
+                  aria-label="Hide filters"
+                  title="Hide filters"
+                  className={FILTER_TOGGLE_CLASSES}
+                >
+                  <ChevronUp className="w-5 h-5" />
+                </button>
                 <MapPin className="w-4 h-4 text-gray-400" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Location
@@ -764,9 +806,33 @@ export default function TrigsV2() {
               </div>
             </div>
 
+            </div>
+
             {/* Results summary */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div
+              className={`flex flex-wrap items-center justify-between gap-3 ${
+                filtersCollapsed ? "" : "mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"
+              }`}
+            >
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                {filtersCollapsed && (
+                  <button
+                    type="button"
+                    onClick={toggleFiltersCollapsed}
+                    aria-expanded={false}
+                    aria-controls="trigs-filter-rows"
+                    aria-label="Show filters"
+                    title="Show filters"
+                    className={FILTER_TOGGLE_CLASSES}
+                  >
+                    <ChevronDown className="w-5 h-5" />
+                  </button>
+                )}
+                {filtersCollapsed && activeFilterCount > 0 && (
+                  <span className="shrink-0 px-2 py-0.5 text-xs font-medium bg-trig-green-100 dark:bg-trig-green-900/30 text-trig-green-700 dark:text-trig-green-300 rounded-full">
+                    {activeFilterCount} {activeFilterCount === 1 ? "filter" : "filters"}
+                  </span>
+                )}
                 {isLoading || centerLat === null || centerLon === null ? (
                   <span>Loading...</span>
                 ) : (
@@ -791,8 +857,13 @@ export default function TrigsV2() {
                     <button
                       key={value}
                       type="button"
-                      onClick={() => setView(value)}
+                      onClick={() => {
+                        // Map again while on the map: zoom back out to fit all the trigs
+                        if (value === "map" && view === "map") setMapFitRequest((n) => n + 1);
+                        setView(value);
+                      }}
                       aria-pressed={view === value}
+                      aria-label={label}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
                         view === value
                           ? "bg-trig-green-50 dark:bg-trig-green-900/30 text-trig-green-700 dark:text-trig-green-300"
@@ -800,7 +871,7 @@ export default function TrigsV2() {
                       }`}
                     >
                       <Icon className="w-4 h-4" />
-                      {label}
+                      <span className="hidden sm:inline">{label}</span>
                     </button>
                   ))}
                 </div>
@@ -825,7 +896,9 @@ export default function TrigsV2() {
             error={mapError}
             truncated={mapPoints?.truncated ?? false}
             showListActions={showListActions}
-            location={
+            areaIds={selectedAreaIds}
+            fitRequest={mapFitRequest}
+            centre={
               centerLat !== null && centerLon !== null
                 ? { lat: centerLat, lon: centerLon, name: locationName }
                 : undefined

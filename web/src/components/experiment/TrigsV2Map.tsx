@@ -7,8 +7,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
-import { CircleMarker, Tooltip, useMap } from "react-leaflet";
-import { latLngBounds } from "leaflet";
+import { CircleMarker, Marker, Pane, Tooltip, useMap } from "react-leaflet";
+import { divIcon, latLngBounds } from "leaflet";
+import AreaBoundaryLayer from "../map/AreaBoundaryLayer";
 import BaseMap from "../map/BaseMap";
 import TrigMarker from "../map/TrigMarker";
 import HeatmapLayer from "../map/HeatmapLayer";
@@ -21,9 +22,23 @@ import {
   getTileLayer,
   MAP_CONFIG,
 } from "../../lib/mapConfig";
+import { useAreaBoundaries } from "../../hooks/useAreaBoundary";
+import { useWatchedDeviceLocation } from "../../hooks/useDeviceLocation";
 
 // Above this many markers in view, show a density heatmap instead
 const MAX_VISIBLE_MARKERS = 1000;
+
+// Small yellow star marking the search centre. Drawn in the marker pane, so it
+// sits on top of the blue current-location circle when they coincide.
+const CENTRE_ICON = divIcon({
+  className: "",
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18">
+    <path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7.3L12 17.8 5.8 21.5l1.6-7.3L2 9.5l7.1-.6z"
+      fill="#facc15" stroke="#854d0e" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>`,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
 
 interface MapView {
   center: [number, number];
@@ -67,22 +82,25 @@ function ViewportTracker({
 const FIT_REGION = { south: 49, north: 61.5, west: -11, east: 2.5 };
 
 /**
- * Zoom to fit the trigpoints whenever the filtered set changes. `fittedRef`
- * lives outside the map, so a remount (e.g. switching to a layer with a
- * different projection) keeps the user's view rather than fitting again.
+ * Zoom to fit the trigpoints whenever the filtered set changes, or when
+ * `fitRequest` changes. `fittedRef` lives outside the map, so a remount (e.g.
+ * switching to a layer with a different projection) keeps the user's view
+ * rather than fitting again.
  */
 function FitToTrigs({
   trigs,
+  fitRequest,
   fittedRef,
 }: {
   trigs: TrigData[];
-  fittedRef: MutableRefObject<TrigData[] | null>;
+  fitRequest: number;
+  fittedRef: MutableRefObject<{ trigs: TrigData[]; fitRequest: number } | null>;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    if (fittedRef.current === trigs) return;
-    fittedRef.current = trigs;
+    if (fittedRef.current?.trigs === trigs && fittedRef.current.fitRequest === fitRequest) return;
+    fittedRef.current = { trigs, fitRequest };
     const points = trigs
       .map((t) => [Number(t.wgs_lat), Number(t.wgs_long)] as [number, number])
       .filter(
@@ -94,7 +112,7 @@ function FitToTrigs({
       );
     if (points.length === 0) return;
     map.fitBounds(latLngBounds(points), { padding: [24, 24], maxZoom: 13 });
-  }, [map, trigs, fittedRef]);
+  }, [map, trigs, fitRequest, fittedRef]);
 
   return null;
 }
@@ -105,9 +123,15 @@ export interface TrigsV2MapProps {
   error: Error | null;
   truncated: boolean;
   showListActions: boolean;
-  /** The page's Location, marked on the map */
-  location?: { lat: number; lon: number; name: string };
+  /** The search centre, marked with a star */
+  centre?: { lat: number; lon: number; name: string };
+  /** Areas the trigs are filtered to, outlined on the map */
+  areaIds?: number[];
+  /** Change to zoom back out to fit all the trigs */
+  fitRequest?: number;
 }
+
+const NO_AREAS: number[] = [];
 
 export function TrigsV2Map({
   trigs,
@@ -115,11 +139,15 @@ export function TrigsV2Map({
   error,
   truncated,
   showListActions,
-  location,
+  centre,
+  areaIds = NO_AREAS,
+  fitRequest = 0,
 }: TrigsV2MapProps) {
   const [tileLayerId, setTileLayerId] = useState(getPreferredTileLayer);
   const [bounds, setBounds] = useState<MapBounds | null>(null);
-  const fittedRef = useRef<TrigData[] | null>(null);
+  const fittedRef = useRef<{ trigs: TrigData[]; fitRequest: number } | null>(null);
+  const areaBoundaries = useAreaBoundaries(areaIds);
+  const deviceLocation = useWatchedDeviceLocation();
 
   // The view the map starts from - only read when it mounts, i.e. first time
   // and whenever a change of projection remounts it
@@ -170,21 +198,6 @@ export function TrigsV2Map({
 
   return (
     <div className="mx-4 mt-4">
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
-        {isLoading ? (
-          <span>Loading map…</span>
-        ) : (
-          <span>
-            <strong>{trigs.length.toLocaleString("en-GB")}</strong> trigpoints on the map
-          </span>
-        )}
-        {showHeatmap && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            Showing density - zoom in to see individual trigpoints
-          </span>
-        )}
-      </div>
-
       {truncated && (
         <div className="mb-2 p-2 text-sm rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200">
           Only the first {trigs.length.toLocaleString("en-GB")} trigpoints are shown - narrow your filters to see the rest.
@@ -206,7 +219,21 @@ export function TrigsV2Map({
           tileLayerId={tileLayerId}
         >
           <ViewportTracker onChange={setBounds} viewRef={viewRef} />
-          <FitToTrigs trigs={trigs} fittedRef={fittedRef} />
+          <FitToTrigs trigs={trigs} fitRequest={fitRequest} fittedRef={fittedRef} />
+          {/* Below the overlay pane (400), so outlines never cover the markers.
+              The view fits the trigs, not the outlines. */}
+          <Pane name="area-boundaries" style={{ zIndex: 350 }}>
+            {areaBoundaries.map((area) => (
+              <AreaBoundaryLayer
+                key={area.id}
+                boundary={area.boundary}
+                name={area.name}
+                areaTypeName={area.area_type.name}
+                fitBounds={false}
+                pane="area-boundaries"
+              />
+            ))}
+          </Pane>
           {showHeatmap ? (
             <HeatmapLayer trigpoints={trigs} />
           ) : (
@@ -219,15 +246,25 @@ export function TrigsV2Map({
               />
             ))
           )}
-          {location && (
+          {deviceLocation && (
             // Same blue as the location circle on the popup mini-maps
             <CircleMarker
-              center={[location.lat, location.lon]}
+              center={[deviceLocation.lat, deviceLocation.lon]}
               radius={10}
               pathOptions={{ color: "#2563eb", weight: 2, fillColor: "#3b82f6", fillOpacity: 0.3 }}
             >
-              {location.name && <Tooltip direction="top">{location.name}</Tooltip>}
+              <Tooltip direction="top">Your location</Tooltip>
             </CircleMarker>
+          )}
+          {centre && (
+            <Marker
+              position={[centre.lat, centre.lon]}
+              icon={CENTRE_ICON}
+              zIndexOffset={1000}
+              keyboard={false}
+            >
+              {centre.name && <Tooltip direction="top" offset={[0, -8]}>Centre: {centre.name}</Tooltip>}
+            </Marker>
           )}
         </BaseMap>
 
@@ -235,6 +272,11 @@ export function TrigsV2Map({
         <div className="absolute top-2 right-2 z-[1001]">
           <TilesetSelector value={tileLayerId} onChange={handleTilesetChange} />
         </div>
+        {isLoading && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1001] px-3 py-1 rounded-full text-sm bg-white/90 dark:bg-gray-800/90 text-gray-700 dark:text-gray-300 shadow">
+            Loading map…
+          </div>
+        )}
       </div>
     </div>
   );
