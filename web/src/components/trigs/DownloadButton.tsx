@@ -28,9 +28,18 @@ interface DownloadButtonProps {
   order?: string;
   /** Whose logs "include log data" refers to, when not the signed-in user */
   logUserName?: string;
+  /** "subtle" for a quiet text button beside more important controls */
+  variant?: "primary" | "subtle";
   /** Additional CSS classes */
   className?: string;
 }
+
+const BUTTON_STYLES = {
+  primary:
+    "gap-2 px-4 py-2 font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm",
+  subtle:
+    "gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg",
+};
 
 type DownloadFormat = "csv" | "geojson" | "kml" | "kmz" | "gpx";
 
@@ -59,6 +68,7 @@ export function DownloadButton({
   filterParams,
   order,
   logUserName,
+  variant = "primary",
   className = "",
 }: DownloadButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -181,7 +191,7 @@ export function DownloadButton({
         ref={refs.setReference}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+        className={`inline-flex items-center text-sm transition-colors disabled:opacity-50 ${BUTTON_STYLES[variant]}`}
         disabled={isLoading}
       >
         {isLoading ? (

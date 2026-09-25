@@ -56,6 +56,9 @@ const DEFAULT_LAT = 53.2585;
 const DEFAULT_LON = -1.9106;
 const DEFAULT_LOCATION_NAME = "Buxton";
 
+// What LocationSearch calls the device's own location
+const DEVICE_LOCATION_NAME = "Current location";
+
 export default function TrigsV2() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth0();
@@ -113,18 +116,21 @@ export default function TrigsV2() {
   // Filter State
   // ==========================================================================
 
-  // Location
-  const [centerLat, setCenterLat] = useState<number | null>(() => {
+  // Location. Only a place the user picked is kept in the URL; otherwise the
+  // page uses the device's location afresh on each visit (falling back to
+  // Buxton), so refreshes follow the device and shared links don't carry the
+  // sharer's whereabouts. Older links saved "Current location" coordinates -
+  // those are ignored in favour of the device.
+  const [urlLocation] = useState(() => {
     const lat = parseFloat(searchParams.get("lat") || "");
-    return lat || null;
-  });
-  const [centerLon, setCenterLon] = useState<number | null>(() => {
     const lon = parseFloat(searchParams.get("lon") || "");
-    return lon || null;
+    const name = searchParams.get("location") || "";
+    return lat && lon && name !== DEVICE_LOCATION_NAME ? { lat, lon, name } : null;
   });
-  const [locationName, setLocationName] = useState<string>(
-    () => searchParams.get("location") || ""
-  );
+  const [centerLat, setCenterLat] = useState<number | null>(urlLocation?.lat ?? null);
+  const [centerLon, setCenterLon] = useState<number | null>(urlLocation?.lon ?? null);
+  const [locationName, setLocationName] = useState<string>(urlLocation?.name ?? "");
+  const [locationChosen, setLocationChosen] = useState(urlLocation !== null);
 
   // Categories (status IDs: 10=Pillar, 20=FBM, etc.)
   const [selectedCategories, setSelectedCategories] = useState<number[]>(() =>
@@ -263,13 +269,16 @@ export default function TrigsV2() {
       (position) => {
         setCenterLat(position.coords.latitude);
         setCenterLon(position.coords.longitude);
-        setLocationName("Current location");
+        setLocationName(DEVICE_LOCATION_NAME);
       },
+      // Blocked, or no fix in time
       () => {
         setCenterLat(DEFAULT_LAT);
         setCenterLon(DEFAULT_LON);
         setLocationName(DEFAULT_LOCATION_NAME);
-      }
+      },
+      // A fix from the last few minutes is fine; don't hang on a slow one
+      { maximumAge: 5 * 60 * 1000, timeout: 15 * 1000 }
     );
   }, [centerLat]);
 
@@ -282,6 +291,7 @@ export default function TrigsV2() {
       setCenterLat(lat);
       setCenterLon(lon);
       setLocationName(name);
+      setLocationChosen(name !== DEVICE_LOCATION_NAME);
     },
     []
   );
@@ -380,14 +390,10 @@ export default function TrigsV2() {
 
     const params = new URLSearchParams();
     
-    // Location
-    if (centerLat !== null) {
+    // Location, only if the user picked it
+    if (locationChosen && centerLat !== null && centerLon !== null) {
       params.set("lat", centerLat.toFixed(5));
-    }
-    if (centerLon !== null) {
       params.set("lon", centerLon.toFixed(5));
-    }
-    if (locationName) {
       params.set("location", locationName);
     }
     
@@ -438,7 +444,7 @@ export default function TrigsV2() {
     // Update URL without triggering navigation
     setSearchParams(params, { replace: true });
   }, [
-    filtersReady, centerLat, centerLon, locationName, maxKm, sortKey, sortDirection,
+    filtersReady, locationChosen, centerLat, centerLon, locationName, maxKm, sortKey, sortDirection,
     selectedCategories, selectedTypes, selectedConditions, selectedHistoricUse,
     selectedCurrentUse, selectedAreaIds, allTypeCodes, allConditionCodes,
     allHistoricUseValues, allCurrentUseValues, logUser, view,
@@ -804,6 +810,7 @@ export default function TrigsV2() {
                     filterParams={buildTrigFilterParams(filterOptions)}
                     order={orderParam}
                     logUserName={logUser?.name}
+                    variant="subtle"
                   />
                 )}
               </div>
@@ -818,6 +825,11 @@ export default function TrigsV2() {
             error={mapError}
             truncated={mapPoints?.truncated ?? false}
             showListActions={showListActions}
+            location={
+              centerLat !== null && centerLon !== null
+                ? { lat: centerLat, lon: centerLon, name: locationName }
+                : undefined
+            }
           />
         )}
 
