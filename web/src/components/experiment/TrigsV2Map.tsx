@@ -6,12 +6,13 @@
  * viewport and switches to a heatmap when too many would be visible.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { useMap } from "react-leaflet";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { CircleMarker, Tooltip, useMap } from "react-leaflet";
 import { latLngBounds } from "leaflet";
 import BaseMap from "../map/BaseMap";
 import TrigMarker from "../map/TrigMarker";
 import HeatmapLayer from "../map/HeatmapLayer";
+import TilesetSelector from "../map/TilesetSelector";
 import AddToListButton from "../lists/AddToListButton";
 import type { MapBounds, TrigData } from "../map/types";
 import {
@@ -24,7 +25,18 @@ import {
 // Above this many markers in view, show a density heatmap instead
 const MAX_VISIBLE_MARKERS = 1000;
 
-function ViewportTracker({ onChange }: { onChange: (bounds: MapBounds) => void }) {
+interface MapView {
+  center: [number, number];
+  zoom: number;
+}
+
+function ViewportTracker({
+  onChange,
+  viewRef,
+}: {
+  onChange: (bounds: MapBounds) => void;
+  viewRef: MutableRefObject<MapView>;
+}) {
   const map = useMap();
 
   useEffect(() => {
@@ -36,13 +48,15 @@ function ViewportTracker({ onChange }: { onChange: (bounds: MapBounds) => void }
         east: bounds.getEast(),
         west: bounds.getWest(),
       });
+      const center = map.getCenter();
+      viewRef.current = { center: [center.lat, center.lng], zoom: map.getZoom() };
     };
     update();
     map.on("moveend", update);
     return () => {
       map.off("moveend", update);
     };
-  }, [map, onChange]);
+  }, [map, onChange, viewRef]);
 
   return null;
 }
@@ -52,11 +66,23 @@ function ViewportTracker({ onChange }: { onChange: (bounds: MapBounds) => void }
 // few bad positions can't drag the map off the UK.
 const FIT_REGION = { south: 49, north: 61.5, west: -11, east: 2.5 };
 
-/** Zoom to fit the trigpoints whenever the filtered set changes. */
-function FitToTrigs({ trigs }: { trigs: TrigData[] }) {
+/**
+ * Zoom to fit the trigpoints whenever the filtered set changes. `fittedRef`
+ * lives outside the map, so a remount (e.g. switching to a layer with a
+ * different projection) keeps the user's view rather than fitting again.
+ */
+function FitToTrigs({
+  trigs,
+  fittedRef,
+}: {
+  trigs: TrigData[];
+  fittedRef: MutableRefObject<TrigData[] | null>;
+}) {
   const map = useMap();
 
   useEffect(() => {
+    if (fittedRef.current === trigs) return;
+    fittedRef.current = trigs;
     const points = trigs
       .map((t) => [Number(t.wgs_lat), Number(t.wgs_long)] as [number, number])
       .filter(
@@ -68,7 +94,7 @@ function FitToTrigs({ trigs }: { trigs: TrigData[] }) {
       );
     if (points.length === 0) return;
     map.fitBounds(latLngBounds(points), { padding: [24, 24], maxZoom: 13 });
-  }, [map, trigs]);
+  }, [map, trigs, fittedRef]);
 
   return null;
 }
@@ -79,6 +105,8 @@ export interface TrigsV2MapProps {
   error: Error | null;
   truncated: boolean;
   showListActions: boolean;
+  /** The page's Location, marked on the map */
+  location?: { lat: number; lon: number; name: string };
 }
 
 export function TrigsV2Map({
@@ -87,19 +115,45 @@ export function TrigsV2Map({
   error,
   truncated,
   showListActions,
+  location,
 }: TrigsV2MapProps) {
-  const [tileLayerId] = useState(getPreferredTileLayer);
+  const [tileLayerId, setTileLayerId] = useState(getPreferredTileLayer);
   const [bounds, setBounds] = useState<MapBounds | null>(null);
+  const fittedRef = useRef<TrigData[] | null>(null);
 
-  const initialZoom = useMemo(() => {
+  // The view the map starts from - only read when it mounts, i.e. first time
+  // and whenever a change of projection remounts it
+  const [startView, setStartView] = useState<MapView>(() => {
     const layer = getTileLayer(tileLayerId);
-    return calculateProjectionZoom(
-      MAP_CONFIG.defaultZoom,
-      "EPSG:3857",
-      layer.crs || "EPSG:3857",
-      layer,
-    );
-  }, [tileLayerId]);
+    return {
+      center: [MAP_CONFIG.defaultCenter.lat, MAP_CONFIG.defaultCenter.lng],
+      zoom: calculateProjectionZoom(
+        MAP_CONFIG.defaultZoom,
+        "EPSG:3857",
+        layer.crs || "EPSG:3857",
+        layer,
+      ),
+    };
+  });
+  const viewRef = useRef<MapView>(startView);
+
+  // Keep the current view across a projection change (zoom levels differ
+  // between projections, so convert it)
+  const handleTilesetChange = useCallback(
+    (newTileLayerId: string) => {
+      const currentCrs = getTileLayer(tileLayerId).crs || "EPSG:3857";
+      const newLayer = getTileLayer(newTileLayerId);
+      const newCrs = newLayer.crs || "EPSG:3857";
+      if (currentCrs !== newCrs) {
+        setStartView({
+          center: viewRef.current.center,
+          zoom: calculateProjectionZoom(viewRef.current.zoom, currentCrs, newCrs, newLayer),
+        });
+      }
+      setTileLayerId(newTileLayerId);
+    },
+    [tileLayerId],
+  );
 
   const visibleTrigs = useMemo(() => {
     if (!bounds) return trigs;
@@ -146,13 +200,13 @@ export function TrigsV2Map({
       {/* relative z-0 contains Leaflet's pane z-indexes so the sticky footer stays on top */}
       <div className="relative z-0 rounded-lg overflow-hidden shadow dark:shadow-gray-900/50">
         <BaseMap
-          center={[MAP_CONFIG.defaultCenter.lat, MAP_CONFIG.defaultCenter.lng]}
-          zoom={initialZoom}
+          center={startView.center}
+          zoom={startView.zoom}
           height="70vh"
           tileLayerId={tileLayerId}
         >
-          <ViewportTracker onChange={setBounds} />
-          <FitToTrigs trigs={trigs} />
+          <ViewportTracker onChange={setBounds} viewRef={viewRef} />
+          <FitToTrigs trigs={trigs} fittedRef={fittedRef} />
           {showHeatmap ? (
             <HeatmapLayer trigpoints={trigs} />
           ) : (
@@ -165,7 +219,22 @@ export function TrigsV2Map({
               />
             ))
           )}
+          {location && (
+            // Same blue as the location circle on the popup mini-maps
+            <CircleMarker
+              center={[location.lat, location.lon]}
+              radius={10}
+              pathOptions={{ color: "#2563eb", weight: 2, fillColor: "#3b82f6", fillOpacity: 0.3 }}
+            >
+              {location.name && <Tooltip direction="top">{location.name}</Tooltip>}
+            </CircleMarker>
+          )}
         </BaseMap>
+
+        {/* Above Leaflet's controls (z-index 1000) */}
+        <div className="absolute top-2 right-2 z-[1001]">
+          <TilesetSelector value={tileLayerId} onChange={handleTilesetChange} />
+        </div>
       </div>
     </div>
   );
