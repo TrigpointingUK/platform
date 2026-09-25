@@ -3,9 +3,9 @@
 
 # Alembic 1.16.5 is the last version supporting Python 3.9
 # (1.17+ requires Python 3.10+)
-alembic==1.19.1
+alembic==1.20.0
 
-sqlalchemy==2.0.53
+sqlalchemy==2.0.54
 psycopg2-binary==2.9.13
 python-dotenv==1.2.3
 
