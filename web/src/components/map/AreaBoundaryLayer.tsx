@@ -8,6 +8,8 @@ interface AreaBoundaryLayerProps {
   name: string;
   areaTypeName: string;
   fitBounds?: boolean;
+  /** Map pane to draw into (defaults to Leaflet's overlay pane) */
+  pane?: string;
 }
 
 /**
@@ -20,6 +22,7 @@ export default function AreaBoundaryLayer({
   name,
   areaTypeName,
   fitBounds = true,
+  pane,
 }: AreaBoundaryLayerProps) {
   const map = useMap();
 
@@ -40,6 +43,7 @@ export default function AreaBoundaryLayer({
 
     // Create GeoJSON layer with styling
     const geoJsonLayer = L.geoJSON(feature, {
+      ...(pane && { pane }),
       style: {
         color: "#2563eb", // Blue-600
         weight: 3,
@@ -75,7 +79,7 @@ export default function AreaBoundaryLayer({
     return () => {
       map.removeLayer(geoJsonLayer);
     };
-  }, [map, boundary, name, areaTypeName, fitBounds]);
+  }, [map, boundary, name, areaTypeName, fitBounds, pane]);
 
   return null;
 }

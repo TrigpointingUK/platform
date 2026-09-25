@@ -303,14 +303,15 @@ export function TrigCard({
               </div>
             )}
 
-            {/* Distance */}
-            <div className="text-right">
-              <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {/* Distance, with its unit on the same line. leading-none keeps
+                the line box to the text, so the arrow centres on it. */}
+            <div className="flex items-baseline gap-1 leading-none whitespace-nowrap">
+              <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {displayDistance.toFixed(1)}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
                 {distanceLabel}
-              </div>
+              </span>
             </div>
           </div>
         )}

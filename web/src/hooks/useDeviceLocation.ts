@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 interface GeolocationPosition {
   lat: number;
@@ -54,4 +54,25 @@ export function useDeviceLocation(options?: UseDeviceLocationOptions): UseDevice
   }, [options]);
 
   return { position, error, isLoading, requestLocation };
+}
+
+/**
+ * Follow the device's position while mounted. Null until there's a fix, and
+ * stays null if location is blocked or unavailable.
+ */
+export function useWatchedDeviceLocation(): GeolocationPosition | null {
+  const [position, setPosition] = useState<GeolocationPosition | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => setPosition({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      // Blocked or no fix - just don't show it
+      () => {},
+      { maximumAge: 60 * 1000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  return position;
 }
