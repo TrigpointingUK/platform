@@ -304,6 +304,9 @@ class provider extends base
                 'user_actkey'   => '', // No activation needed
                 'user_inactive_reason' => 0,
                 'user_inactive_time' => 0,
+                // user_add() defaults this to 0; ucp_register sets it explicitly, so must we,
+                // otherwise new users skip the Newly Registered Users group (post moderation)
+                'user_new' => ($this->config['new_member_post_limit']) ? 1 : 0,
             ];
             
             $newId = user_add($userData, false); // false = suppress validation error array
