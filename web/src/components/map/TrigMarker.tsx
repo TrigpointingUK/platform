@@ -75,7 +75,7 @@ export default function TrigMarker({
         <span className="text-xs">{trig.name}</span>
       </Tooltip>
       {showPopup && (
-        <Popup closeOnClick={false}>
+        <Popup>
           <div className="min-w-[200px]">
             <MiniMap
               lat={typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat}
