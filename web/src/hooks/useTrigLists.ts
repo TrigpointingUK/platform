@@ -47,6 +47,7 @@ export interface TrigSummary {
   wgs_lat: string | null;
   wgs_long: string | null;
   wgs_height: number | null;
+  osgb_height: number | null;
   type_code: string | null;
   type_name: string | null;
   category_code: string | null;

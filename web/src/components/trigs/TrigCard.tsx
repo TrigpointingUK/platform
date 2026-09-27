@@ -17,7 +17,7 @@ interface Trig {
   category_code?: string;
   category_name?: string;
   distance_km?: number;
-  wgs_height?: number;
+  osgb_height?: number;
   score?: number;
 }
 
@@ -34,6 +34,8 @@ interface TrigCardProps {
   position?: number;
   /** ISO date the trig was first logged by the user being looked at */
   firstLoggedDate?: string | null;
+  /** Tint the card, e.g. for trigs on the user's default list */
+  highlighted?: boolean;
 }
 
 function formatLoggedDate(isoDate: string): string {
@@ -138,6 +140,7 @@ export function TrigCard({
   noBorder = false,
   position,
   firstLoggedDate,
+  highlighted = false,
 }: TrigCardProps) {
   const { getConditionInfo } = useConditionInfo();
 
@@ -167,120 +170,72 @@ export function TrigCard({
   return (
     <Link
       to={`/trigs/${trig.id}`}
-      className={`block py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors${noBorder ? "" : " border-b border-gray-200 dark:border-gray-700"}`}
+      className={`block py-2 px-2 sm:py-3 sm:px-4 transition-colors ${
+        highlighted
+          ? "bg-trig-green-50 hover:bg-trig-green-100 dark:bg-trig-green-900/25 dark:hover:bg-trig-green-900/40"
+          : "hover:bg-gray-50 dark:hover:bg-gray-700"
+      }${noBorder ? "" : " border-b border-gray-200 dark:border-gray-700"}`}
     >
-      <div className="flex items-center justify-between gap-3">
-        {/* Left side: Main info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            {position !== undefined && (
-              <span
-                className="flex-shrink-0 min-w-10 text-right font-mono text-sm font-semibold text-gray-500 dark:text-gray-400"
-                title={`Number ${position} in this list`}
-              >
-                #{position.toLocaleString("en-GB")}
-              </span>
-            )}
+      {/* Top row: badges and name, with direction and distance at the far right */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {position !== undefined && (
+          <span
+            className="flex-shrink-0 min-w-10 text-right font-mono text-sm font-semibold text-gray-500 dark:text-gray-400"
+            title={`Number ${position} in this list`}
+          >
+            #{position.toLocaleString("en-GB")}
+          </span>
+        )}
 
-            {/* Category badge */}
-            {categoryInfo.icon ? (
-              <img
-                src={categoryInfo.icon}
-                alt={categoryInfo.abbrev}
-                className="w-6 h-6 object-contain"
-                width={24}
-                height={24}
-                title={trig.category_name || categoryInfo.name}
-              />
-            ) : (
-              <span
-                className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${categoryInfo.color}`}
-                title={trig.category_name || categoryInfo.name}
-              >
-                {categoryInfo.abbrev}
-              </span>
-            )}
+        {/* Category badge */}
+        {categoryInfo.icon ? (
+          <img
+            src={categoryInfo.icon}
+            alt={categoryInfo.abbrev}
+            className="w-6 h-6 object-contain"
+            width={24}
+            height={24}
+            title={trig.category_name || categoryInfo.name}
+          />
+        ) : (
+          <span
+            className={`inline-flex items-center justify-center min-w-6 h-6 px-1 text-xs font-bold text-white rounded ${categoryInfo.color}`}
+            title={trig.category_name || categoryInfo.name}
+          >
+            {categoryInfo.abbrev}
+          </span>
+        )}
 
-            {/* Trig condition indicator */}
-            <img
-              src={`/icons/conditions/${conditionInfo.icon}`}
-              alt={conditionInfo.label}
-              title={`Trig condition: ${conditionInfo.label}`}
-              className="w-4 h-4"
-              width={16}
-              height={16}
-            />
+        {/* Trig condition indicator */}
+        <img
+          src={`/icons/conditions/${conditionInfo.icon}`}
+          alt={conditionInfo.label}
+          title={`Trig condition: ${conditionInfo.label}`}
+          className="w-4 h-4"
+          width={16}
+          height={16}
+        />
 
-            {/* Name */}
-            <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
-              {trig.name}
-            </h3>
+        {/* Name */}
+        <h3 className="min-w-0 font-medium text-gray-900 dark:text-gray-100 truncate">
+          {trig.name}
+        </h3>
 
-            {/* Optional actions (e.g. add-to-list button) */}
-            {actions && (
-              <span className="flex-shrink-0" onClick={(e) => e.preventDefault()}>
-                {actions}
-              </span>
-            )}
+        {/* User's logged condition indicator */}
+        {logStatus?.hasLogged && logStatus.condition && (
+          <img
+            src={`/icons/conditions/${getConditionInfo(logStatus.condition).icon}`}
+            alt={getConditionInfo(logStatus.condition).label}
+            title={`Your log: ${getConditionInfo(logStatus.condition).label}`}
+            className="w-4 h-4"
+            width={16}
+            height={16}
+          />
+        )}
 
-            {/* User's logged condition indicator */}
-            {logStatus?.hasLogged && logStatus.condition && (
-              <img
-                src={`/icons/conditions/${getConditionInfo(logStatus.condition).icon}`}
-                alt={getConditionInfo(logStatus.condition).label}
-                title={`Your log: ${getConditionInfo(logStatus.condition).label}`}
-                className="w-4 h-4"
-                width={16}
-                height={16}
-              />
-            )}
-          </div>
-
-          {/* Grid reference, waypoint & type */}
-          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-mono">{trig.osgb_gridref}</span>
-            <span className="text-gray-400 dark:text-gray-500">•</span>
-            <span>{trig.waypoint}</span>
-            {trig.type_name && (
-              <>
-                <span className="text-gray-400 dark:text-gray-500">•</span>
-                <span className="text-gray-500 dark:text-gray-400 text-xs">
-                  {trig.type_code === trig.category_code
-                    ? trig.type_name
-                    : `${trig.category_name} · ${trig.type_name}`}
-                </span>
-              </>
-            )}
-            {trig.wgs_height != null && (
-              <>
-                <span className="text-gray-400 dark:text-gray-500">•</span>
-                <span className="text-gray-500 dark:text-gray-400 text-xs" title="Height above sea level">
-                  {trig.wgs_height.toFixed(0)}m
-                </span>
-              </>
-            )}
-            {firstLoggedDate && (
-              <>
-                <span className="text-gray-400 dark:text-gray-500">•</span>
-                <span className="text-trig-green-700 dark:text-trig-green-400 text-xs" title="First logged">
-                  Logged {formatLoggedDate(firstLoggedDate)}
-                </span>
-              </>
-            )}
-            {trig.score != null && (
-              <>
-                <span className="text-gray-400 dark:text-gray-500">•</span>
-                <span className="text-amber-600 dark:text-amber-400 text-xs font-medium" title="Trigpoint score">
-                  ★ {trig.score.toFixed(1)}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Right side: Direction arrow and Distance */}
+        {/* Direction arrow and distance, at the far right */}
         {showDistance && displayDistance !== undefined && (
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
             {/* Direction arrow */}
             {bearing !== null && (
               <div
@@ -314,6 +269,60 @@ export function TrigCard({
               </span>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Bottom row: grid reference, waypoint & type, with any actions (e.g. add-to-list) at the right */}
+      <div className="flex items-center justify-between gap-2 sm:gap-3 mt-0.5 sm:mt-1">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3 overflow-hidden whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+          {/* Monospace spaces are a full character wide; negative word-spacing narrows
+              them to about half, while copying still gives real spaces */}
+          <span className="font-mono [word-spacing:-0.3em]">{trig.osgb_gridref}</span>
+          <span className="text-gray-400 dark:text-gray-500">•</span>
+          <span>{trig.waypoint}</span>
+          {trig.type_name && (
+            <>
+              <span className="text-gray-400 dark:text-gray-500">•</span>
+              <span className="text-gray-500 dark:text-gray-400 text-xs">
+                {/* Small screens show just the type, e.g. "Rivet" not "Survey mark · Rivet" */}
+                {trig.type_code !== trig.category_code && (
+                  <span className="hidden sm:inline">{trig.category_name} · </span>
+                )}
+                {trig.type_name}
+              </span>
+            </>
+          )}
+          {trig.osgb_height != null && (
+            <>
+              <span className="text-gray-400 dark:text-gray-500">•</span>
+              <span className="text-gray-500 dark:text-gray-400 text-xs" title="Height above sea level">
+                {trig.osgb_height.toFixed(0)}m
+              </span>
+            </>
+          )}
+          {firstLoggedDate && (
+            <>
+              <span className="text-gray-400 dark:text-gray-500">•</span>
+              <span className="text-trig-green-700 dark:text-trig-green-400 text-xs" title="First logged">
+                Logged {formatLoggedDate(firstLoggedDate)}
+              </span>
+            </>
+          )}
+          {trig.score != null && (
+            <>
+              <span className="text-gray-400 dark:text-gray-500">•</span>
+              <span className="text-amber-600 dark:text-amber-400 text-xs font-medium" title="Trigpoint score">
+                ★ {trig.score.toFixed(1)}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Optional actions (e.g. add-to-list button) */}
+        {actions && (
+          <span className="ml-auto flex-shrink-0" onClick={(e) => e.preventDefault()}>
+            {actions}
+          </span>
         )}
       </div>
     </Link>

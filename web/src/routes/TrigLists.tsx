@@ -126,7 +126,7 @@ function SortableItemRow({ item, distanceUnit, canEdit, onUpdateDescription, onR
                 category_code: item.trig.category_code ?? undefined,
                 category_name: item.trig.category_name ?? undefined,
                 status_name: item.trig.status_name ?? undefined,
-                wgs_height: item.trig.wgs_height ?? undefined,
+                osgb_height: item.trig.osgb_height ?? undefined,
                 score: item.trig.score ?? undefined,
               }}
               showDistance={false}
