@@ -218,6 +218,7 @@ def get_list_items(
             Trig.wgs_lat,
             Trig.wgs_long,
             Trig.wgs_height,
+            Trig.osgb_height,
             TrigType.code.label("type_code"),
             TrigType.name.label("type_name"),
             TrigCategory.code.label("category_code"),

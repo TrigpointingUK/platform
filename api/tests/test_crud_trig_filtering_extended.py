@@ -382,3 +382,65 @@ class TestListTrigsFilteredByLoggedConditions:
 
         # Should return same results
         assert len(result_with_filter) == len(result_without_filter)
+
+
+class TestHeightAboveSeaLevel:
+    """Height is height above sea level (osgb_height), not above the ellipsoid."""
+
+    @pytest.fixture
+    def seed_ellipsoid_mismatch(self, db: Session):
+        """Two trigs whose WGS84 and OSGB heights rank them in opposite orders."""
+        base_id = abs(hash(uuid.uuid4().hex[:8])) % 20000 + 40000
+        heights = [(Decimal("150"), Decimal("100")), (Decimal("140"), Decimal("110"))]
+        trigs = []
+        for i, (wgs_height, osgb_height) in enumerate(heights):
+            trigs.append(
+                Trig(
+                    waypoint=f"TH{base_id + i}"[:8],
+                    name=f"Height order {base_id} {i}",
+                    fb_number=f"FB{base_id + i}",
+                    stn_number=f"STN{base_id + i}",
+                    status_id=10,
+                    user_added=0,
+                    current_use="none",
+                    historic_use="Primary",
+                    wgs_lat=Decimal("52.5") + Decimal(str(i * 0.01)),
+                    wgs_long=Decimal("-1.5"),
+                    wgs_height=wgs_height,
+                    osgb_eastings=430000,
+                    osgb_northings=290000 + i * 1000,
+                    osgb_gridref=f"SP {30000} {90000 + i * 1000}",
+                    osgb_height=osgb_height,
+                    condition="G",
+                    town="Coventry",
+                    permission_ind="Y",
+                    needs_attention=0,
+                    attention_comment="",
+                    crt_date=date(2023, 1, 1),
+                    crt_time=time(12, 0, 0),
+                    crt_ip_addr="127.0.0.1",
+                )
+            )
+        db.add_all(trigs)
+        db.flush()
+        return {"trigs": trigs, "name": f"Height order {base_id}"}
+
+    def test_height_order_uses_osgb_height(self, db: Session, seed_ellipsoid_mismatch):
+        """order=height ranks by height above sea level, highest first."""
+        data = seed_ellipsoid_mismatch
+        result = list_trigs_filtered(db, name=data["name"], order="height", limit=10)
+        assert [t.osgb_height for t in result] == [Decimal("110"), Decimal("100")]
+
+        result = list_trigs_filtered(db, name=data["name"], order="-height", limit=10)
+        assert [t.osgb_height for t in result] == [Decimal("100"), Decimal("110")]
+
+    def test_minimal_schema_includes_osgb_height(
+        self, db: Session, seed_ellipsoid_mismatch
+    ):
+        """List responses carry osgb_height alongside wgs_height."""
+        from api.schemas.trig import TrigMinimal
+
+        trig = seed_ellipsoid_mismatch["trigs"][0]
+        dumped = TrigMinimal.model_validate(trig).model_dump(mode="json")
+        assert dumped["osgb_height"] == 100.0
+        assert dumped["wgs_height"] == 150.0

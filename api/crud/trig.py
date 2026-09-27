@@ -462,11 +462,12 @@ def list_trigs_filtered_with_distance(
     elif key == "name":
         query = query.order_by(Trig.name.desc() if descending else Trig.name.asc())
     elif key == "height":
-        # "height" means highest first; "-height" lowest first
+        # "height" means highest first; "-height" lowest first. Height above
+        # sea level - wgs_height is above the ellipsoid, some 45-55m more.
         query = query.order_by(
-            Trig.wgs_height.asc().nulls_last()
+            Trig.osgb_height.asc().nulls_last()
             if descending
-            else Trig.wgs_height.desc().nulls_last()
+            else Trig.osgb_height.desc().nulls_last()
         )
     elif key == "score":
         # "score" means best first; "-score" worst first

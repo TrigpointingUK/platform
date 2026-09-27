@@ -79,7 +79,12 @@ class TrigMinimal(BaseModel):
     # Coordinates and grid ref
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")
     wgs_long: Decimal = Field(..., description="WGS84 longitude")
-    wgs_height: Optional[Decimal] = Field(None, description="WGS84 height in metres")
+    wgs_height: Optional[Decimal] = Field(
+        None, description="Height above the WGS84 ellipsoid in metres"
+    )
+    osgb_height: Optional[Decimal] = Field(
+        None, description="Height above mean sea level (OSGB/ODN) in metres"
+    )
     osgb_gridref: str = Field(..., description="Grid reference (OSGB or Irish format)")
 
     # Grid system classification
@@ -102,7 +107,7 @@ class TrigMinimal(BaseModel):
         """Serialize coordinates with full 8dp precision."""
         return round(float(value), 8)
 
-    @field_serializer("wgs_height")
+    @field_serializer("wgs_height", "osgb_height")
     def serialize_height(self, value: Optional[Decimal]) -> Optional[float]:
         """Serialize height as float for JSON output."""
         return float(value) if value is not None else None

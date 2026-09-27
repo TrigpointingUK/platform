@@ -462,6 +462,9 @@ def _row_to_item_response(row) -> TrigListItemResponse:
             wgs_lat=str(row.wgs_lat) if row.wgs_lat is not None else None,
             wgs_long=str(row.wgs_long) if row.wgs_long is not None else None,
             wgs_height=float(row.wgs_height) if row.wgs_height is not None else None,
+            osgb_height=(
+                float(row.osgb_height) if row.osgb_height is not None else None
+            ),
             type_code=row.type_code,
             type_name=row.type_name,
             category_code=row.category_code,
