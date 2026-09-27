@@ -8,10 +8,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { CircleMarker, Marker, Pane, Tooltip, useMap } from "react-leaflet";
-import { divIcon, latLngBounds } from "leaflet";
+import { divIcon, latLngBounds, type Map as LeafletMap } from "leaflet";
 import AreaBoundaryLayer from "../map/AreaBoundaryLayer";
 import BaseMap from "../map/BaseMap";
 import TrigMarker from "../map/TrigMarker";
+import ZoomToLocationControl from "../map/ZoomToLocationControl";
+import CompassWedge from "../map/CompassWedge";
 import HeatmapLayer from "../map/HeatmapLayer";
 import TilesetSelector from "../map/TilesetSelector";
 import AddToListButton from "../lists/AddToListButton";
@@ -24,6 +26,7 @@ import {
 } from "../../lib/mapConfig";
 import { useAreaBoundaries } from "../../hooks/useAreaBoundary";
 import { useWatchedDeviceLocation } from "../../hooks/useDeviceLocation";
+import { useCompassHeading } from "../../hooks/useCompassHeading";
 
 // Above this many markers in view, show a density heatmap instead
 const MAX_VISIBLE_MARKERS = 1000;
@@ -80,6 +83,63 @@ function ViewportTracker({
 // (e.g. with missing 0,0 coordinates) are ignored when fitting the view, so a
 // few bad positions can't drag the map off the UK.
 const FIT_REGION = { south: 49, north: 61.5, west: -11, east: 2.5 };
+
+// Added to a control while an open popup overlaps it
+const OVERLAPPED_CLASSES = ["opacity-0", "pointer-events-none"];
+
+/**
+ * Hide map controls while an open popup overlaps them. The controls sit above
+ * all of Leaflet's panes (popups can't be raised over them without lifting
+ * the whole map), so they get out of the way instead.
+ */
+function PopupOverlapWatcher({
+  getTargets,
+}: {
+  getTargets: (map: LeafletMap) => (HTMLElement | null | undefined)[];
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    let frame = 0;
+    let open = false;
+    const check = () => {
+      cancelAnimationFrame(frame);
+      // After Leaflet has positioned (and auto-panned) the popup
+      frame = requestAnimationFrame(() => {
+        const popup = open ? map.getContainer().querySelector(".leaflet-popup:last-of-type") : null;
+        const a = popup?.getBoundingClientRect();
+        for (const target of getTargets(map)) {
+          if (!target) continue;
+          const b = target.getBoundingClientRect();
+          const overlapping =
+            !!a && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+          for (const cls of OVERLAPPED_CLASSES) target.classList.toggle(cls, overlapping);
+        }
+      });
+    };
+    // A closing popup lingers in the DOM while it fades out, so track
+    // whether one is open rather than trusting the DOM alone
+    const opened = () => {
+      open = true;
+      check();
+    };
+    const closed = () => {
+      open = false;
+      check();
+    };
+    map.on("popupopen", opened);
+    map.on("popupclose", closed);
+    map.on("move zoomend", check);
+    return () => {
+      cancelAnimationFrame(frame);
+      map.off("popupopen", opened);
+      map.off("popupclose", closed);
+      map.off("move zoomend", check);
+    };
+  }, [map, getTargets]);
+
+  return null;
+}
 
 /**
  * Zoom to fit the trigpoints whenever the filtered set changes, or when
@@ -144,10 +204,12 @@ export function TrigsV2Map({
   fitRequest = 0,
 }: TrigsV2MapProps) {
   const [tileLayerId, setTileLayerId] = useState(getPreferredTileLayer);
+  const selectorRef = useRef<HTMLDivElement | null>(null);
   const [bounds, setBounds] = useState<MapBounds | null>(null);
   const fittedRef = useRef<{ trigs: TrigData[]; fitRequest: number } | null>(null);
   const areaBoundaries = useAreaBoundaries(areaIds);
   const deviceLocation = useWatchedDeviceLocation();
+  const compass = useCompassHeading();
 
   // The view the map starts from - only read when it mounts, i.e. first time
   // and whenever a change of projection remounts it
@@ -164,6 +226,16 @@ export function TrigsV2Map({
     };
   });
   const viewRef = useRef<MapView>(startView);
+
+  // Controls that get out of the way of popups
+  const getOverlapTargets = useCallback(
+    (map: LeafletMap) => [
+      selectorRef.current,
+      // The zoom and zoom-to-location buttons, together
+      map.getContainer().querySelector<HTMLElement>(".leaflet-top.leaflet-left"),
+    ],
+    [],
+  );
 
   // Keep the current view across a projection change (zoom levels differ
   // between projections, so convert it)
@@ -196,6 +268,24 @@ export function TrigsV2Map({
 
   const showHeatmap = visibleTrigs.length > MAX_VISIBLE_MARKERS;
 
+  // Rebuild the markers only when the set of visible trigs changes, not on
+  // every pan. Re-rendering a marker refreshes its open popup, whose auto-pan
+  // moves the map, which re-rendered the markers again - an endless creep.
+  const visibleIds = useMemo(() => visibleTrigs.map((t) => t.id).join(","), [visibleTrigs]);
+  const markers = useMemo(() => {
+    const ids = new Set(visibleIds.split(","));
+    return trigs
+      .filter((trig) => ids.has(String(trig.id)))
+      .map((trig) => (
+        <TrigMarker
+          key={trig.id}
+          trig={trig}
+          colorMode="condition"
+          actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
+        />
+      ));
+  }, [trigs, visibleIds, showListActions]);
+
   return (
     <div className="mx-4 mt-4">
       {truncated && (
@@ -219,6 +309,8 @@ export function TrigsV2Map({
           tileLayerId={tileLayerId}
         >
           <ViewportTracker onChange={setBounds} viewRef={viewRef} />
+          <PopupOverlapWatcher getTargets={getOverlapTargets} />
+          <ZoomToLocationControl location={deviceLocation} onActivate={compass.requestPermission} />
           <FitToTrigs trigs={trigs} fitRequest={fitRequest} fittedRef={fittedRef} />
           {/* Below the overlay pane (400), so outlines never cover the markers.
               The view fits the trigs, not the outlines. */}
@@ -237,14 +329,10 @@ export function TrigsV2Map({
           {showHeatmap ? (
             <HeatmapLayer trigpoints={trigs} />
           ) : (
-            visibleTrigs.map((trig) => (
-              <TrigMarker
-                key={trig.id}
-                trig={trig}
-                colorMode="condition"
-                actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
-              />
-            ))
+            markers
+          )}
+          {deviceLocation && compass.heading !== null && (
+            <CompassWedge lat={deviceLocation.lat} lon={deviceLocation.lon} heading={compass.heading} />
           )}
           {deviceLocation && (
             // Same blue as the location circle on the popup mini-maps
@@ -269,7 +357,10 @@ export function TrigsV2Map({
         </BaseMap>
 
         {/* Above Leaflet's controls (z-index 1000) */}
-        <div className="absolute top-2 right-2 z-[1001]">
+        <div
+          ref={selectorRef}
+          className="absolute top-2 right-2 z-[1001] transition-opacity"
+        >
           <TilesetSelector value={tileLayerId} onChange={handleTilesetChange} />
         </div>
         {isLoading && (
