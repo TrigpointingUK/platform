@@ -219,3 +219,22 @@ def test_unfiltered_responses_are_still_cached():
         endpoint(filters=_Filters(cacheable=False))
         assert cache_get.call_count == 1
         assert cache_set.call_count == 1
+
+
+def test_async_endpoints_also_skip_the_cache_when_uncacheable():
+    import asyncio
+
+    from api.utils.cache_decorator import cached
+
+    @cached(resource_type="trigs", ttl=60, subresource="list")
+    async def endpoint(filters=None):
+        return {"ok": True}
+
+    with (
+        patch("api.utils.cache_decorator.cache_get") as cache_get,
+        patch("api.utils.cache_decorator.cache_set") as cache_set,
+    ):
+        response = asyncio.run(endpoint(filters=_Filters(cacheable=False)))
+        assert response.headers["X-Cache-Status"] == "BYPASS"
+        cache_get.assert_not_called()
+        cache_set.assert_not_called()
