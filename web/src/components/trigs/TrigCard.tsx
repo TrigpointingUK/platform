@@ -172,7 +172,7 @@ export function TrigCard({
       to={`/trigs/${trig.id}`}
       className={`block py-2 px-2 sm:py-3 sm:px-4 transition-colors ${
         highlighted
-          ? "bg-trig-green-50 hover:bg-trig-green-100 dark:bg-trig-green-900/25 dark:hover:bg-trig-green-900/40"
+          ? "bg-trig-green-50 hover:bg-trig-green-100 dark:bg-trig-green-900/35 dark:hover:bg-trig-green-900/50"
           : "hover:bg-gray-50 dark:hover:bg-gray-700"
       }${noBorder ? "" : " border-b border-gray-200 dark:border-gray-700"}`}
     >
