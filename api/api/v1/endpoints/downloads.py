@@ -157,6 +157,8 @@ def download_trigs(
             detail="Cannot use both only_found and exclude_found simultaneously",
         )
 
+    filters.check_list_access(db, current_user)
+
     log_user_id = filters.resolve_log_user_id(db, current_user)
     validate_trig_order(order, log_user_id)
 
@@ -269,6 +271,8 @@ def download_trigs_count(
             status_code=400,
             detail="Cannot use both only_found and exclude_found simultaneously",
         )
+
+    filters.check_list_access(db, current_user)
 
     log_user_id = filters.resolve_log_user_id(db, current_user)
     count = trig_crud.count_trigs_filtered(db, **filters.crud_kwargs(log_user_id))

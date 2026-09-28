@@ -9,6 +9,8 @@ export { HistoricUseChip } from "./HistoricUseChip";
 export { CurrentUseChip } from "./CurrentUseChip";
 export { ConditionChip } from "./ConditionChip";
 export { LogsChip, type LogUser } from "./LogsChip";
+export { ListsChip } from "./ListsChip";
+export { NO_LIST_FILTER, type ListFilter } from "./listFilter";
 export { TypeChip } from "./TypeChip";
 export { AreaChip } from "./AreaChip";
 export { toggleAreaSelection, type SelectedArea } from "./areaSelection";

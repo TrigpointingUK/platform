@@ -89,6 +89,20 @@ class TrigFilters:
                 "the log user logged with these conditions"
             ),
         ),
+        in_lists: Optional[str] = Query(
+            None,
+            description=(
+                "Comma-separated trig list IDs - include only trigs in any of "
+                "them. Each list must be visible to the caller."
+            ),
+        ),
+        not_in_lists: Optional[str] = Query(
+            None,
+            description=(
+                "Comma-separated trig list IDs - exclude trigs in any of them. "
+                "Each list must be visible to the caller."
+            ),
+        ),
     ):
         self.name = name
         self.county = county
@@ -106,10 +120,20 @@ class TrigFilters:
         self.only_found = only_found
         self.exclude_found = exclude_found
         self.logged_conditions = _split_csv(logged_conditions)
+        self.in_lists = _split_csv_ints(in_lists, "in_lists")
+        self.not_in_lists = _split_csv_ints(not_in_lists, "not_in_lists")
 
     @property
     def has_centre(self) -> bool:
         return self.lat is not None and self.lon is not None
+
+    @property
+    def cacheable(self) -> bool:
+        """
+        False when results depend on trig list contents. List edits don't
+        invalidate the trig caches, so those responses mustn't be cached.
+        """
+        return not (self.in_lists or self.not_in_lists)
 
     def cache_key_params(self) -> dict[str, Any]:
         """Stable, JSON-serialisable form for cache-key hashing."""
@@ -142,6 +166,13 @@ class TrigFilters:
             return int(current_user.id)
         return None
 
+    def check_list_access(self, db: Session, current_user: Optional[User]) -> None:
+        """404 for any list filter naming a list the caller can't see."""
+        from api.api.v1.endpoints.lists import require_list_visible
+
+        for list_id in (self.in_lists or []) + (self.not_in_lists or []):
+            require_list_visible(list_id, db, current_user)
+
     def crud_kwargs(self, log_user_id: Optional[int]) -> dict[str, Any]:
         """Keyword arguments for the trig CRUD list/count/points functions."""
         return {
@@ -161,6 +192,8 @@ class TrigFilters:
             "current_use": self.current_use,
             "conditions": self.conditions,
             "logged_conditions": self.logged_conditions,
+            "in_list_ids": self.in_lists,
+            "not_in_list_ids": self.not_in_lists,
         }
 
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { readAreaIds, readSelection, writeSelection } from "../trigsPageParams";
+import {
+  readAreaIds,
+  readListFilter,
+  readSelection,
+  writeListFilter,
+  writeSelection,
+} from "../trigsPageParams";
 
 const ALL = ["G", "S", "D"];
 
@@ -64,5 +70,35 @@ describe("readAreaIds", () => {
 
   it("is empty when there's no area filter", () => {
     expect(readAreaIds(new URLSearchParams(""))).toEqual([]);
+  });
+});
+
+describe("list filter", () => {
+  function roundTripList(filter: Parameters<typeof writeListFilter>[1]) {
+    const params = new URLSearchParams();
+    writeListFilter(params, filter);
+    return { query: params.toString(), read: readListFilter(new URLSearchParams(params.toString())) };
+  }
+
+  it("round-trips 'in' lists", () => {
+    const { query, read } = roundTripList({ mode: "in", listIds: [3, 7] });
+    expect(query).toBe("lists=3%2C7");
+    expect(read).toEqual({ mode: "in", listIds: [3, 7] });
+  });
+
+  it("round-trips 'not in' lists", () => {
+    const { query, read } = roundTripList({ mode: "not_in", listIds: [3] });
+    expect(query).toBe("lists=3&listsMode=not");
+    expect(read).toEqual({ mode: "not_in", listIds: [3] });
+  });
+
+  it("leaves the URL alone when off, or when no list is picked", () => {
+    expect(roundTripList({ mode: "all", listIds: [3] }).query).toBe("");
+    expect(roundTripList({ mode: "in", listIds: [] }).query).toBe("");
+  });
+
+  it("ignores junk IDs, and listsMode without lists", () => {
+    expect(readListFilter(new URLSearchParams("lists=abc,5,-2"))).toEqual({ mode: "in", listIds: [5] });
+    expect(readListFilter(new URLSearchParams("listsMode=not"))).toEqual({ mode: "all", listIds: [] });
   });
 });

@@ -7,6 +7,8 @@
  * - otherwise: a comma-separated list of the selected values
  */
 
+import type { ListFilter } from "../components/experiment/chips/listFilter";
+
 /**
  * Read a selection from the URL. Values not in `all` are dropped; if that
  * leaves nothing from a non-empty list (e.g. an old link with codes that no
@@ -45,4 +47,27 @@ export function readAreaIds(params: URLSearchParams): number[] {
     .split(",")
     .map(Number)
     .filter((id) => Number.isInteger(id) && id > 0);
+}
+
+/**
+ * The trig list filter: `lists=1,2` keeps trigs on any of those lists, and
+ * `listsMode=not` turns it into "on none of them".
+ */
+export function readListFilter(params: URLSearchParams): ListFilter {
+  const listIds = (params.get("lists") ?? "")
+    .split(",")
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (listIds.length === 0) return { mode: "all", listIds: [] };
+  return { mode: params.get("listsMode") === "not" ? "not_in" : "in", listIds };
+}
+
+/** Write the trig list filter to the URL, omitting it when it's off. */
+export function writeListFilter(
+  params: URLSearchParams,
+  filter: ListFilter,
+): void {
+  if (filter.mode === "all" || filter.listIds.length === 0) return;
+  params.set("lists", filter.listIds.join(","));
+  if (filter.mode === "not_in") params.set("listsMode", "not");
 }

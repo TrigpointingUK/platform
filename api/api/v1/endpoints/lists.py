@@ -125,7 +125,7 @@ def _validate_admin_fields(
         )
 
 
-def _require_list_visible(list_id: int, db: Session, user: Optional[User]) -> TrigList:
+def require_list_visible(list_id: int, db: Session, user: Optional[User]) -> TrigList:
     trig_list = trig_list_crud.get_list(db, list_id)
     if trig_list is None:
         raise HTTPException(status_code=404, detail="List not found")
@@ -382,7 +382,7 @@ def get_list_detail(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    trig_list = _require_list_visible(list_id, db, current_user)
+    trig_list = require_list_visible(list_id, db, current_user)
     return _list_to_response(trig_list, db, current_user)
 
 
@@ -482,7 +482,7 @@ def get_list_items(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    _require_list_visible(list_id, db, current_user)
+    require_list_visible(list_id, db, current_user)
     rows, total = trig_list_crud.get_list_items(db, list_id, skip, limit)
     items = [_row_to_item_response(r) for r in rows]
     return TrigListItemsPage(items=items, total=total, has_more=(skip + limit < total))

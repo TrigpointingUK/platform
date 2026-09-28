@@ -18,11 +18,17 @@ import { TrigsV2Map } from "../../components/experiment/TrigsV2Map";
 import { useInfiniteTrigs } from "../../hooks/useInfiniteTrigs";
 import { useTrigPoints } from "../../hooks/useTrigPoints";
 import { buildTrigFilterParams, type TrigFilterOptions } from "../../lib/trigFilterParams";
-import { readAreaIds, readSelection, writeSelection } from "../../lib/trigsPageParams";
+import {
+  readAreaIds,
+  readListFilter,
+  readSelection,
+  writeListFilter,
+  writeSelection,
+} from "../../lib/trigsPageParams";
 import { useUserLoggedTrigs } from "../../hooks/useUserLoggedTrigs";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import AddToListButton from "../../components/lists/AddToListButton";
-import { useDefaultListTrigIds } from "../../hooks/useTrigLists";
+import { useDefaultListTrigIds, useMyLists } from "../../hooks/useTrigLists";
 import type { UserLogStatus } from "../../lib/mapIcons";
 
 // Import reference data hooks
@@ -42,6 +48,8 @@ import {
   CurrentUseChip,
   ConditionChip,
   LogsChip,
+  ListsChip,
+  NO_LIST_FILTER,
   TypeChip,
   AreaChip,
   toggleAreaSelection,
@@ -49,6 +57,7 @@ import {
   ALL_CATEGORY_IDS,
   type SortDirection,
   type LogUser,
+  type ListFilter,
   type SelectedArea,
 } from "../../components/experiment/chips";
 
@@ -272,6 +281,18 @@ export default function TrigsV2() {
   });
   const hasLogUser = logUser !== null || isAuthenticated;
 
+  // Trig list filter - the signed-in user's own lists only
+  const [listFilter, setListFilter] = useState<ListFilter>(() => readListFilter(searchParams));
+  const { data: myLists } = useMyLists();
+  // Drop lists that aren't the user's (e.g. from someone else's link) once
+  // their lists have loaded, rather than asking the API for them
+  const listFilterIds = useMemo(() => {
+    if (!isAuthenticated || listFilter.mode === "all") return [];
+    if (!myLists) return listFilter.listIds;
+    const mine = new Set(myLists.map((l) => l.id));
+    return listFilter.listIds.filter((id) => mine.has(id));
+  }, [isAuthenticated, listFilter, myLists]);
+
   // Area filter (for full area chip) - empty means no area filter. All
   // selected areas are of one area type (see toggleAreaSelection).
   const [selectedAreas, setSelectedAreas] = useState<SelectedArea[]>([]);
@@ -465,6 +486,7 @@ export default function TrigsV2() {
     setLogUser(null);
     setSelectedTypes(allTypeCodes);
     setSelectedAreas([]);
+    setListFilter(NO_LIST_FILTER);
   }, [allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
 
   // ==========================================================================
@@ -527,6 +549,9 @@ export default function TrigsV2() {
     if (selectedAreaIds.length > 0) {
       params.set("areas", selectedAreaIds.join(","));
     }
+
+    // Trig lists
+    writeListFilter(params, listFilter);
     
     // Update URL without triggering navigation
     setSearchParams(params, { replace: true });
@@ -535,7 +560,7 @@ export default function TrigsV2() {
     selectedCategories, selectedTypes, selectedConditions, selectedHistoricUse,
     selectedCurrentUse, selectedAreaIds, allTypeCodes, allConditionCodes,
     allHistoricUseValues, allCurrentUseValues, logUser, view,
-    deselectedLoggedConditions, showNotLogged, setSearchParams
+    deselectedLoggedConditions, showNotLogged, listFilter, setSearchParams
   ]);
 
   // ==========================================================================
@@ -595,6 +620,8 @@ export default function TrigsV2() {
           : undefined,
     }),
     areaIds: selectedAreaIds.length > 0 ? selectedAreaIds : undefined,
+    ...(listFilterIds.length > 0 &&
+      (listFilter.mode === "in" ? { inLists: listFilterIds } : { notInLists: listFilterIds })),
   };
 
   const {
@@ -668,11 +695,12 @@ export default function TrigsV2() {
     ) count++;
     if (selectedTypes.length !== allTypeCodes.length) count++;
     if (selectedAreas.length > 0) count++; // Area is active when any specific areas selected
+    if (listFilterIds.length > 0) count++;
     return count;
   }, [
     selectedCategories, maxKm, selectedHistoricUse, selectedCurrentUse,
     selectedConditions, deselectedLoggedConditions, showNotLogged, hasLogUser, logUser, selectedTypes,
-    selectedAreas, allTypeCodes.length, allConditionCodes.length,
+    selectedAreas, listFilterIds.length, allTypeCodes.length, allConditionCodes.length,
     allHistoricUseValues.length, allCurrentUseValues.length
   ]);
 
@@ -801,6 +829,10 @@ export default function TrigsV2() {
                   logUser={logUser}
                   onLogUserChange={handleLogUserChange}
                 />
+
+                {isAuthenticated && (
+                  <ListsChip lists={myLists} value={listFilter} onChange={setListFilter} />
+                )}
                 
                 {/* Area chip */}
                 <AreaChip
