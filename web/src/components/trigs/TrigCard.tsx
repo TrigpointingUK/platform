@@ -192,7 +192,7 @@ export function TrigCard({
           <img
             src={categoryInfo.icon}
             alt={categoryInfo.abbrev}
-            className="w-6 h-6 object-contain"
+            className="w-6 h-6 shrink-0 object-contain"
             width={24}
             height={24}
             title={trig.category_name || categoryInfo.name}
@@ -211,7 +211,7 @@ export function TrigCard({
           src={`/icons/conditions/${conditionInfo.icon}`}
           alt={conditionInfo.label}
           title={`Trig condition: ${conditionInfo.label}`}
-          className="w-4 h-4"
+          className="w-4 h-4 shrink-0"
           width={16}
           height={16}
         />
@@ -221,13 +221,14 @@ export function TrigCard({
           {trig.name}
         </h3>
 
-        {/* User's logged condition indicator */}
+        {/* User's logged condition indicator. The icons never shrink; the name
+            truncates instead, so this always shows. */}
         {logStatus?.hasLogged && logStatus.condition && (
           <img
             src={`/icons/conditions/${getConditionInfo(logStatus.condition).icon}`}
             alt={getConditionInfo(logStatus.condition).label}
             title={`Your log: ${getConditionInfo(logStatus.condition).label}`}
-            className="w-4 h-4"
+            className="w-4 h-4 shrink-0"
             width={16}
             height={16}
           />
