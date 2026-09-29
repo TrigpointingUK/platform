@@ -9,6 +9,7 @@ orientation-model:
 	dev-stack dev-stack-attach dev-stack-stop dev-stack-status \
 	test-db-start test-db-stop \
 	web-install web-dev web-build web-test web-lint web-type-check \
+	help-videos-install help-videos \
 	migration-create migration-history send-archives \
 	migrate-staging migrate-production migrate-status downgrade-staging \
 	dbt-staging dbt-production \
@@ -374,6 +375,12 @@ web-lint: ## Lint web application code
 
 web-type-check: ## Type check web application
 	cd web && npm run type-check
+
+help-videos-install: ## Install the help video recorder and its Chromium
+	cd help-videos && npm ci && npx playwright install chromium
+
+help-videos: ## Render help video clips to help-videos/out/ (ONLY="clip-id ..." to limit)
+	cd help-videos && npm run render -- $(ONLY)
 
 terraform-format-check: ## Check Terraform formatting; auto-format and fail if mismatches
 	@command -v terraform >/dev/null 2>&1 || { echo "❌ terraform not installed. Please install Terraform to run formatting checks."; exit 1; }

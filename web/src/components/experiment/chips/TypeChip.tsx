@@ -194,6 +194,8 @@ export function TypeChip({
                     <button
                       type="button"
                       onClick={() => toggleCategoryExpanded(category.code)}
+                      aria-label={`${isExpanded ? "Collapse" : "Expand"} ${category.name} types`}
+                      aria-expanded={isExpanded}
                       className="p-0.5 mr-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       {isExpanded ? (
