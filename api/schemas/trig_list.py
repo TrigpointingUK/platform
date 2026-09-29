@@ -103,6 +103,7 @@ class TrigSummary(BaseModel):
     wgs_lat: Optional[str] = None
     wgs_long: Optional[str] = None
     wgs_height: Optional[float] = None
+    osgb_height: Optional[float] = None
     type_code: Optional[str] = None
     type_name: Optional[str] = None
     category_code: Optional[str] = None

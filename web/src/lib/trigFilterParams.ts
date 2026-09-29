@@ -28,6 +28,8 @@ export interface TrigFilterOptions {
   loggedBy?: number; // Whose logs the log filters refer to (default: the signed-in user)
   areaId?: number; // Filter to trigpoints within a specific area (single)
   areaIds?: number[]; // Filter to trigpoints within any of the specified areas (multi)
+  inLists?: number[]; // Only trigs on any of these trig lists
+  notInLists?: number[]; // Only trigs on none of these trig lists
 }
 
 /**
@@ -58,6 +60,8 @@ export function buildTrigFilterParams(options: TrigFilterOptions): URLSearchPara
     loggedBy,
     areaId,
     areaIds,
+    inLists,
+    notInLists,
   } = options;
   const params = new URLSearchParams();
 
@@ -111,6 +115,13 @@ export function buildTrigFilterParams(options: TrigFilterOptions): URLSearchPara
     params.append("area_ids", areaIds.join(","));
   } else if (areaId !== undefined) {
     params.append("area_id", areaId.toString());
+  }
+
+  if (inLists && inLists.length > 0) {
+    params.append("in_lists", inLists.join(","));
+  }
+  if (notInLists && notInLists.length > 0) {
+    params.append("not_in_lists", notInLists.join(","));
   }
 
   return params;

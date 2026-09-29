@@ -44,6 +44,20 @@ describe("buildTrigFilterParams", () => {
   });
 });
 
+describe("list filters", () => {
+  it("sends in_lists and not_in_lists", () => {
+    const params = buildTrigFilterParams({ inLists: [1, 2], notInLists: [3] });
+    expect(params.get("in_lists")).toBe("1,2");
+    expect(params.get("not_in_lists")).toBe("3");
+  });
+
+  it("omits empty list filters", () => {
+    const params = buildTrigFilterParams({ inLists: [], notInLists: [] });
+    expect(params.has("in_lists")).toBe(false);
+    expect(params.has("not_in_lists")).toBe(false);
+  });
+});
+
 describe("selectsNothing", () => {
   it("is true when a filter has an empty selection", () => {
     expect(selectsNothing({ conditions: [] })).toBe(true);

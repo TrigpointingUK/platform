@@ -184,6 +184,24 @@ describe('TilesetSelector', () => {
     });
   });
 
+  describe('Compact on mobile', () => {
+    it('should render a labelled icon button select alongside the full selector', () => {
+      render(<TilesetSelector value="osm" onChange={onChangeMock} compactOnMobile />);
+      const compact = screen.getByLabelText('Map layer', { exact: true }) as HTMLSelectElement;
+      expect(compact.value).toBe('osm');
+      expect(compact.parentElement).toHaveClass('lg:hidden');
+      expect(screen.getByLabelText('Map Layer', { exact: true })).toBeInTheDocument();
+    });
+
+    it('should call onChange from the compact select', () => {
+      render(<TilesetSelector value="osm" onChange={onChangeMock} compactOnMobile />);
+      fireEvent.change(screen.getByLabelText('Map layer', { exact: true }), {
+        target: { value: 'osPaper' },
+      });
+      expect(onChangeMock).toHaveBeenCalledWith('osPaper');
+    });
+  });
+
   describe('Accessibility', () => {
     it('should have accessible label', () => {
       render(<TilesetSelector value="osm" onChange={onChangeMock} />);

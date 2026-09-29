@@ -18,10 +18,17 @@ import { TrigsV2Map } from "../../components/experiment/TrigsV2Map";
 import { useInfiniteTrigs } from "../../hooks/useInfiniteTrigs";
 import { useTrigPoints } from "../../hooks/useTrigPoints";
 import { buildTrigFilterParams, type TrigFilterOptions } from "../../lib/trigFilterParams";
-import { readAreaIds, readSelection, writeSelection } from "../../lib/trigsPageParams";
+import {
+  readAreaIds,
+  readListFilter,
+  readSelection,
+  writeListFilter,
+  writeSelection,
+} from "../../lib/trigsPageParams";
 import { useUserLoggedTrigs } from "../../hooks/useUserLoggedTrigs";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import AddToListButton from "../../components/lists/AddToListButton";
+import { useDefaultListTrigIds, useMyLists } from "../../hooks/useTrigLists";
 import type { UserLogStatus } from "../../lib/mapIcons";
 
 // Import reference data hooks
@@ -41,6 +48,8 @@ import {
   CurrentUseChip,
   ConditionChip,
   LogsChip,
+  ListsChip,
+  NO_LIST_FILTER,
   TypeChip,
   AreaChip,
   toggleAreaSelection,
@@ -48,6 +57,7 @@ import {
   ALL_CATEGORY_IDS,
   type SortDirection,
   type LogUser,
+  type ListFilter,
   type SelectedArea,
 } from "../../components/experiment/chips";
 
@@ -59,7 +69,16 @@ const DEFAULT_LOCATION_NAME = "Buxton";
 // What LocationSearch calls the device's own location
 const DEVICE_LOCATION_NAME = "Current location";
 
+// The site header is sticky and h-16; the filter panel pins just below it
+const SITE_HEADER_HEIGHT = 64;
+// How much of the panel stays visible above the results row once pinned
+const PINNED_PANEL_TOP_GAP = 4;
+
 const FILTERS_COLLAPSED_KEY = "trigsV2.filtersCollapsed";
+// Clicks on (or inside) these are left to the control; anywhere else in the
+// filter panel toggles it open or closed
+const FILTER_PANEL_CONTROLS =
+  'button, a, input, select, textarea, label, summary, [role="button"], [role="dialog"], [role="menu"], [role="listbox"], [role="option"], [role="checkbox"], [role="switch"], [role="group"]';
 const FILTER_TOGGLE_CLASSES =
   "shrink-0 p-1 -m-1 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700";
 
@@ -71,6 +90,10 @@ export default function TrigsV2() {
   
   // Fetch user profile to get preferences
   const { data: userProfile } = useUserProfile("me");
+
+  // Trigs on the user's default list get a tinted card (only when logged in)
+  const { data: defaultList } = useDefaultListTrigIds();
+  const defaultListIds = useMemo(() => new Set(defaultList?.trig_ids ?? []), [defaultList]);
   
   // Fetch user's logged trigpoints for badge indicator
   const { data: loggedTrigsMap } = useUserLoggedTrigs();
@@ -156,6 +179,32 @@ export default function TrigsV2() {
   // Bumped to make the map zoom back out to fit all the trigs
   const [mapFitRequest, setMapFitRequest] = useState(0);
 
+  // The filter panel is sticky. Its top offset is negative by however much of
+  // it sits above the results row, so when the filters are open they scroll
+  // away under the site header and only the results row stays pinned.
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
+  const resultsRowRef = useRef<HTMLDivElement | null>(null);
+  const [filterPanelTop, setFilterPanelTop] = useState(SITE_HEADER_HEIGHT);
+  useEffect(() => {
+    const panel = filterPanelRef.current;
+    const row = resultsRowRef.current;
+    if (!panel || !row) return;
+    const update = () => {
+      // Measured to the row's content, so its separator line scrolls away too
+      const rowStyle = getComputedStyle(row);
+      const above =
+        row.getBoundingClientRect().top -
+        panel.getBoundingClientRect().top +
+        parseFloat(rowStyle.borderTopWidth) +
+        parseFloat(rowStyle.paddingTop);
+      setFilterPanelTop(SITE_HEADER_HEIGHT - Math.max(0, above - PINNED_PANEL_TOP_GAP));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+
   // Filter panel collapsed to just the results row, to leave room on small
   // screens. Remembered per browser.
   const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(() => {
@@ -175,6 +224,26 @@ export default function TrigsV2() {
       return !prev;
     });
   }, []);
+
+  // A click that dismisses an open chip dropdown shouldn't also toggle the
+  // panel, so note at mousedown (before the chip closes) whether one was open
+  const dropdownOpenAtPressRef = useRef(false);
+  const handleFilterPanelMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    dropdownOpenAtPressRef.current = e.currentTarget.querySelector('[role="dialog"]') !== null;
+  }, []);
+  const handleFilterPanelClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as Element;
+      // Events from portals (e.g. dialogs) bubble through React but aren't in the panel
+      if (!e.currentTarget.contains(target)) return;
+      if (target.closest(FILTER_PANEL_CONTROLS)) return;
+      if (dropdownOpenAtPressRef.current) return;
+      // Dragging to select text isn't a click on the panel
+      if (window.getSelection()?.toString()) return;
+      toggleFiltersCollapsed();
+    },
+    [toggleFiltersCollapsed],
+  );
 
   // Historic use filter - starts empty, populated when API data loads
   const [selectedHistoricUse, setSelectedHistoricUse] = useState<string[]>([]);
@@ -211,6 +280,18 @@ export default function TrigsV2() {
     return id > 0 && name ? { id, name } : null;
   });
   const hasLogUser = logUser !== null || isAuthenticated;
+
+  // Trig list filter - the signed-in user's own lists only
+  const [listFilter, setListFilter] = useState<ListFilter>(() => readListFilter(searchParams));
+  const { data: myLists } = useMyLists();
+  // Drop lists that aren't the user's (e.g. from someone else's link) once
+  // their lists have loaded, rather than asking the API for them
+  const listFilterIds = useMemo(() => {
+    if (!isAuthenticated || listFilter.mode === "all") return [];
+    if (!myLists) return listFilter.listIds;
+    const mine = new Set(myLists.map((l) => l.id));
+    return listFilter.listIds.filter((id) => mine.has(id));
+  }, [isAuthenticated, listFilter, myLists]);
 
   // Area filter (for full area chip) - empty means no area filter. All
   // selected areas are of one area type (see toggleAreaSelection).
@@ -405,6 +486,7 @@ export default function TrigsV2() {
     setLogUser(null);
     setSelectedTypes(allTypeCodes);
     setSelectedAreas([]);
+    setListFilter(NO_LIST_FILTER);
   }, [allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
 
   // ==========================================================================
@@ -467,6 +549,9 @@ export default function TrigsV2() {
     if (selectedAreaIds.length > 0) {
       params.set("areas", selectedAreaIds.join(","));
     }
+
+    // Trig lists
+    writeListFilter(params, listFilter);
     
     // Update URL without triggering navigation
     setSearchParams(params, { replace: true });
@@ -475,7 +560,7 @@ export default function TrigsV2() {
     selectedCategories, selectedTypes, selectedConditions, selectedHistoricUse,
     selectedCurrentUse, selectedAreaIds, allTypeCodes, allConditionCodes,
     allHistoricUseValues, allCurrentUseValues, logUser, view,
-    deselectedLoggedConditions, showNotLogged, setSearchParams
+    deselectedLoggedConditions, showNotLogged, listFilter, setSearchParams
   ]);
 
   // ==========================================================================
@@ -535,6 +620,8 @@ export default function TrigsV2() {
           : undefined,
     }),
     areaIds: selectedAreaIds.length > 0 ? selectedAreaIds : undefined,
+    ...(listFilterIds.length > 0 &&
+      (listFilter.mode === "in" ? { inLists: listFilterIds } : { notInLists: listFilterIds })),
   };
 
   const {
@@ -608,11 +695,12 @@ export default function TrigsV2() {
     ) count++;
     if (selectedTypes.length !== allTypeCodes.length) count++;
     if (selectedAreas.length > 0) count++; // Area is active when any specific areas selected
+    if (listFilterIds.length > 0) count++;
     return count;
   }, [
     selectedCategories, maxKm, selectedHistoricUse, selectedCurrentUse,
     selectedConditions, deselectedLoggedConditions, showNotLogged, hasLogUser, logUser, selectedTypes,
-    selectedAreas, allTypeCodes.length, allConditionCodes.length,
+    selectedAreas, listFilterIds.length, allTypeCodes.length, allConditionCodes.length,
     allHistoricUseValues.length, allCurrentUseValues.length
   ]);
 
@@ -620,9 +708,19 @@ export default function TrigsV2() {
     <>
       <title>Trigpoints | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
-        {/* Main Filter Panel */}
-        <Card className={filtersCollapsed ? "mb-3 p-0!" : "mb-6"}>
-          <div className={filtersCollapsed ? "px-3 py-1.5" : "p-4"}>
+        {/* Main Filter Panel, pinned below the site header (see filterPanelTop) */}
+        <div
+          ref={filterPanelRef}
+          className={`sticky z-30 -mx-2 -mt-3 sm:mx-0 ${filtersCollapsed ? "mb-1.5" : "mb-4"}`}
+          style={{ top: filterPanelTop }}
+        >
+        <Card className="p-0!">
+          {/* Background clicks toggle the panel; the chevron buttons are the keyboard route */}
+          <div
+            className={filtersCollapsed ? "px-2.5 py-1" : "px-4 pt-4 pb-3"}
+            onMouseDown={handleFilterPanelMouseDown}
+            onClick={handleFilterPanelClick}
+          >
             {/* Hidden rather than unmounted when collapsed, so the chips keep
                 any state of their own */}
             <div id="trigs-filter-rows" hidden={filtersCollapsed}>
@@ -731,6 +829,10 @@ export default function TrigsV2() {
                   logUser={logUser}
                   onLogUserChange={handleLogUserChange}
                 />
+
+                {isAuthenticated && (
+                  <ListsChip lists={myLists} value={listFilter} onChange={setListFilter} />
+                )}
                 
                 {/* Area chip */}
                 <AreaChip
@@ -810,11 +912,14 @@ export default function TrigsV2() {
 
             {/* Results summary */}
             <div
-              className={`flex flex-wrap items-center justify-between gap-3 ${
-                filtersCollapsed ? "" : "mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"
+              ref={resultsRowRef}
+              className={`flex items-center justify-between gap-3 ${
+                filtersCollapsed ? "" : "mt-4 pt-3 border-t border-gray-200 dark:border-gray-700"
               }`}
             >
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              {/* Summary takes the leftover width and wraps within it, so the
+                  view and download buttons stay on the right */}
+              <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 {filtersCollapsed && (
                   <button
                     type="button"
@@ -836,18 +941,15 @@ export default function TrigsV2() {
                 {isLoading || centerLat === null || centerLon === null ? (
                   <span>Loading...</span>
                 ) : (
-                  <span>
+                  <span className="min-w-0">
                     <strong>{totalCount.toLocaleString("en-GB")}</strong> trigpoints
                     {maxKm !== null && locationName && ` within ${maxKm} km of ${locationName}`}
                     {logUser && ` · logs by ${logUser.name}`}
-                    {view === "list" && totalCount > allTrigs.length && (
-                      <> · showing {allTrigs.length.toLocaleString("en-GB")}</>
-                    )}
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 {/* List / map toggle */}
                 <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden" role="group" aria-label="View">
                   {([
@@ -888,6 +990,7 @@ export default function TrigsV2() {
             </div>
           </div>
         </Card>
+        </div>
 
         {view === "map" && (
           <TrigsV2Map
@@ -930,7 +1033,7 @@ export default function TrigsV2() {
             {allTrigs.length > 0 && (
               <>
                 {/* Trigpoint cards */}
-                <div className="bg-white dark:bg-gray-800 mx-4 mt-4 rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 -mx-4 mt-2 sm:mx-4 sm:mt-4 sm:rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
                   {allTrigs.map((trig, index) => (
                     <TrigCard
                       key={trig.id}
@@ -946,6 +1049,7 @@ export default function TrigsV2() {
                       centerLon={centerLon ?? 0}
                       distanceUnit={(userProfile?.prefs?.distance_ind as 'K' | 'M') || 'K'}
                       logStatus={getLogStatus(trig.id)}
+                      highlighted={defaultListIds.has(trig.id)}
                       actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
                     />
                   ))}

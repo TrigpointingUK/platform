@@ -7,22 +7,25 @@
 /* Targets devices with hover capability (mouse/trackpad, not touch-only) */
 @custom-variant can-hover (@media (hover: hover));
 
+/* Trig green palette. In @theme so Tailwind generates every utility for it
+   (bg-, text-, ring-, hover:, dark:, /opacity ...) in its normal order. */
+@theme {
+  --color-trig-green-50: #f0fdf4;
+  --color-trig-green-100: #dcfce7;
+  --color-trig-green-200: #bbf7d0;
+  --color-trig-green-300: #86efac;
+  --color-trig-green-400: #4ade80;
+  --color-trig-green-500: #22c55e;
+  --color-trig-green-600: #16a34a;
+  --color-trig-green-700: #15803d;
+  --color-trig-green-800: #166534;
+  --color-trig-green-900: #14532d;
+  --color-trig-green-950: #052e16;
+  --color-trig-green-980: #0c1410;
+}
+
 @layer theme {
   :root {
-    /* Trig green palette */
-    --color-trig-green-50: #f0fdf4;
-    --color-trig-green-100: #dcfce7;
-    --color-trig-green-200: #bbf7d0;
-    --color-trig-green-300: #86efac;
-    --color-trig-green-400: #4ade80;
-    --color-trig-green-500: #22c55e;
-    --color-trig-green-600: #16a34a;
-    --color-trig-green-700: #15803d;
-    --color-trig-green-800: #166534;
-    --color-trig-green-900: #14532d;
-    --color-trig-green-950: #052e16;
-    --color-trig-green-980: #0c1410;
-    
     /* Semantic colours for light mode */
     --color-bg-primary: #f9fafb;
     --color-bg-secondary: #ffffff;
@@ -48,61 +51,6 @@
 }
 
 @layer utilities {
-  .text-trig-green-50 { color: var(--color-trig-green-50); }
-  .text-trig-green-100 { color: var(--color-trig-green-100); }
-  .text-trig-green-200 { color: var(--color-trig-green-200); }
-  .text-trig-green-300 { color: var(--color-trig-green-300); }
-  .text-trig-green-400 { color: var(--color-trig-green-400); }
-  .text-trig-green-500 { color: var(--color-trig-green-500); }
-  .text-trig-green-600 { color: var(--color-trig-green-600); }
-  .text-trig-green-700 { color: var(--color-trig-green-700); }
-  .text-trig-green-800 { color: var(--color-trig-green-800); }
-  .text-trig-green-900 { color: var(--color-trig-green-900); }
-  .text-trig-green-950 { color: var(--color-trig-green-950); }
-  
-  .bg-trig-green-50 { background-color: var(--color-trig-green-50); }
-  .bg-trig-green-100 { background-color: var(--color-trig-green-100); }
-  .bg-trig-green-200 { background-color: var(--color-trig-green-200); }
-  .bg-trig-green-300 { background-color: var(--color-trig-green-300); }
-  .bg-trig-green-400 { background-color: var(--color-trig-green-400); }
-  .bg-trig-green-500 { background-color: var(--color-trig-green-500); }
-  .bg-trig-green-600 { background-color: var(--color-trig-green-600); }
-  .bg-trig-green-700 { background-color: var(--color-trig-green-700); }
-  .bg-trig-green-800 { background-color: var(--color-trig-green-800); }
-  .bg-trig-green-900 { background-color: var(--color-trig-green-900); }
-  .bg-trig-green-950 { background-color: var(--color-trig-green-950); }
-  .bg-trig-green-980 { background-color: var(--color-trig-green-980); }
-  .dark\:bg-trig-green-950:where(.dark, .dark *) { background-color: var(--color-trig-green-950); }
-  .dark\:bg-trig-green-980:where(.dark, .dark *) { background-color: var(--color-trig-green-980); }
-  .dark\:text-gray-100:where(.dark, .dark *) { color: #f3f4f6; }
-  .dark\:text-white:where(.dark, .dark *) { color: #ffffff; }
-  
-  .hover\:bg-trig-green-50:hover { background-color: var(--color-trig-green-50); }
-  .hover\:bg-trig-green-100:hover { background-color: var(--color-trig-green-100); }
-  .hover\:bg-trig-green-200:hover { background-color: var(--color-trig-green-200); }
-  .hover\:bg-trig-green-300:hover { background-color: var(--color-trig-green-300); }
-  .hover\:bg-trig-green-400:hover { background-color: var(--color-trig-green-400); }
-  .hover\:bg-trig-green-500:hover { background-color: var(--color-trig-green-500); }
-  .hover\:bg-trig-green-600:hover { background-color: var(--color-trig-green-600); }
-  .hover\:bg-trig-green-700:hover { background-color: var(--color-trig-green-700); }
-  .hover\:bg-trig-green-800:hover { background-color: var(--color-trig-green-800); }
-  .hover\:bg-trig-green-900:hover { background-color: var(--color-trig-green-900); }
-  .hover\:bg-trig-green-950:hover { background-color: var(--color-trig-green-950); }
-  
-  .border-trig-green-50 { border-color: var(--color-trig-green-50); }
-  .border-trig-green-100 { border-color: var(--color-trig-green-100); }
-  .border-trig-green-200 { border-color: var(--color-trig-green-200); }
-  .border-trig-green-300 { border-color: var(--color-trig-green-300); }
-  .border-trig-green-400 { border-color: var(--color-trig-green-400); }
-  .border-trig-green-500 { border-color: var(--color-trig-green-500); }
-  .border-trig-green-600 { border-color: var(--color-trig-green-600); }
-  .border-trig-green-700 { border-color: var(--color-trig-green-700); }
-  .border-trig-green-800 { border-color: var(--color-trig-green-800); }
-  .border-trig-green-900 { border-color: var(--color-trig-green-900); }
-  .border-trig-green-950 { border-color: var(--color-trig-green-950); }
-  .dark\:border-trig-green-600:where(.dark, .dark *) { border-color: var(--color-trig-green-600); }
-  .dark\:border-trig-green-700:where(.dark, .dark *) { border-color: var(--color-trig-green-700); }
-
   /* Hide scrollbar while maintaining scroll functionality */
   .scrollbar-hide {
     -ms-overflow-style: none;  /* IE and Edge */
@@ -166,19 +114,19 @@ html, body, #root {
   transition: opacity 0.2s;
 }
 
-/* Dark mode styles for Leaflet zoom controls */
-.dark .leaflet-control-zoom a {
+/* Dark mode styles for Leaflet bar controls (zoom, zoom-to-location, ...) */
+.dark .leaflet-bar a {
   background-color: #1f2937;
   color: #f3f4f6;
   border-color: #374151;
 }
 
-.dark .leaflet-control-zoom a:hover {
+.dark .leaflet-bar a:hover {
   background-color: #374151;
   color: #ffffff;
 }
 
-.dark .leaflet-control-zoom a.leaflet-disabled {
+.dark .leaflet-bar a.leaflet-disabled {
   background-color: #374151;
   color: #6b7280;
 }

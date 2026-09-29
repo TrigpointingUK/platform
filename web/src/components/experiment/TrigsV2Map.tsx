@@ -6,7 +6,7 @@
  * viewport and switches to a heatmap when too many would be visible.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { CircleMarker, Marker, Pane, Tooltip, useMap } from "react-leaflet";
 import { divIcon, latLngBounds, type Map as LeafletMap } from "leaflet";
 import AreaBoundaryLayer from "../map/AreaBoundaryLayer";
@@ -27,6 +27,7 @@ import {
 import { useAreaBoundaries } from "../../hooks/useAreaBoundary";
 import { useWatchedDeviceLocation } from "../../hooks/useDeviceLocation";
 import { useCompassHeading } from "../../hooks/useCompassHeading";
+import { useDefaultListTrigIds } from "../../hooks/useTrigLists";
 
 // Above this many markers in view, show a density heatmap instead
 const MAX_VISIBLE_MARKERS = 1000;
@@ -83,6 +84,13 @@ function ViewportTracker({
 // (e.g. with missing 0,0 coordinates) are ignored when fitting the view, so a
 // few bad positions can't drag the map off the UK.
 const FIT_REGION = { south: 49, north: 61.5, west: -11, east: 2.5 };
+
+// Where every trig in FIT_REGION lies (measured Sept 2026, rounded outwards).
+// The map opens fitted to this, so it's already where the unfiltered trigs
+// will fit it when they load, rather than jumping.
+const UK_TRIG_EXTENT = latLngBounds([49.867, -10.56], [60.856, 1.754]);
+
+const FIT_OPTIONS = { padding: [24, 24] as [number, number], maxZoom: 13 };
 
 // Added to a control while an open popup overlaps it
 const OVERLAPPED_CLASSES = ["opacity-0", "pointer-events-none"];
@@ -171,8 +179,26 @@ function FitToTrigs({
           lon <= FIT_REGION.east,
       );
     if (points.length === 0) return;
-    map.fitBounds(latLngBounds(points), { padding: [24, 24], maxZoom: 13 });
+    map.fitBounds(latLngBounds(points), FIT_OPTIONS);
   }, [map, trigs, fitRequest, fittedRef]);
+
+  return null;
+}
+
+/**
+ * Open the map fitted to the whole UK trig set. The fitted zoom depends on the
+ * map's size, so it can't be a fixed starting zoom. Only on first mount - a
+ * projection change remounts the map but keeps its view.
+ */
+function InitialFit({ doneRef }: { doneRef: MutableRefObject<boolean> }) {
+  const map = useMap();
+
+  // Before paint, so the default view never shows
+  useLayoutEffect(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    map.fitBounds(UK_TRIG_EXTENT, { ...FIT_OPTIONS, animate: false });
+  }, [map, doneRef]);
 
   return null;
 }
@@ -207,6 +233,7 @@ export function TrigsV2Map({
   const selectorRef = useRef<HTMLDivElement | null>(null);
   const [bounds, setBounds] = useState<MapBounds | null>(null);
   const fittedRef = useRef<{ trigs: TrigData[]; fitRequest: number } | null>(null);
+  const initialFitDoneRef = useRef(false);
   const areaBoundaries = useAreaBoundaries(areaIds);
   const deviceLocation = useWatchedDeviceLocation();
   const compass = useCompassHeading();
@@ -268,6 +295,11 @@ export function TrigsV2Map({
 
   const showHeatmap = visibleTrigs.length > MAX_VISIBLE_MARKERS;
 
+  // Trigs on the user's default list get the highlighted (_h) icons. Only
+  // fetched when logged in; toggling the star updates it optimistically.
+  const { data: defaultList } = useDefaultListTrigIds();
+  const defaultListIds = useMemo(() => new Set(defaultList?.trig_ids ?? []), [defaultList]);
+
   // Rebuild the markers only when the set of visible trigs changes, not on
   // every pan. Re-rendering a marker refreshes its open popup, whose auto-pan
   // moves the map, which re-rendered the markers again - an endless creep.
@@ -281,13 +313,14 @@ export function TrigsV2Map({
           key={trig.id}
           trig={trig}
           colorMode="condition"
+          highlighted={defaultListIds.has(trig.id)}
           actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
         />
       ));
-  }, [trigs, visibleIds, showListActions]);
+  }, [trigs, visibleIds, showListActions, defaultListIds]);
 
   return (
-    <div className="mx-4 mt-4">
+    <div className="-mx-4 mt-2 lg:mx-4 lg:mt-4">
       {truncated && (
         <div className="mb-2 p-2 text-sm rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200">
           Only the first {trigs.length.toLocaleString("en-GB")} trigpoints are shown - narrow your filters to see the rest.
@@ -301,7 +334,7 @@ export function TrigsV2Map({
       )}
 
       {/* relative z-0 contains Leaflet's pane z-indexes so the sticky footer stays on top */}
-      <div className="relative z-0 rounded-lg overflow-hidden shadow dark:shadow-gray-900/50">
+      <div className="relative z-0 lg:rounded-lg overflow-hidden shadow dark:shadow-gray-900/50">
         <BaseMap
           center={startView.center}
           zoom={startView.zoom}
@@ -311,6 +344,7 @@ export function TrigsV2Map({
           <ViewportTracker onChange={setBounds} viewRef={viewRef} />
           <PopupOverlapWatcher getTargets={getOverlapTargets} />
           <ZoomToLocationControl location={deviceLocation} onActivate={compass.requestPermission} />
+          <InitialFit doneRef={initialFitDoneRef} />
           <FitToTrigs trigs={trigs} fitRequest={fitRequest} fittedRef={fittedRef} />
           {/* Below the overlay pane (400), so outlines never cover the markers.
               The view fits the trigs, not the outlines. */}
@@ -361,7 +395,7 @@ export function TrigsV2Map({
           ref={selectorRef}
           className="absolute top-2 right-2 z-[1001] transition-opacity"
         >
-          <TilesetSelector value={tileLayerId} onChange={handleTilesetChange} />
+          <TilesetSelector value={tileLayerId} onChange={handleTilesetChange} compactOnMobile />
         </div>
         {isLoading && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1001] px-3 py-1 rounded-full text-sm bg-white/90 dark:bg-gray-800/90 text-gray-700 dark:text-gray-300 shadow">

@@ -83,6 +83,11 @@ def cached(
                         )
                     )
 
+            # Dependency objects (e.g. TrigFilters) can opt a request out of
+            # caching when its result depends on data that isn't invalidated
+            if any(getattr(v, "cacheable", True) is False for v in kwargs.values()):
+                bypass_cache = True
+
             # Generate cache key
             resource_id = None
             if resource_id_param and resource_id_param in kwargs:
@@ -236,6 +241,11 @@ def cached(
                             }
                         )
                     )
+
+            # Dependency objects (e.g. TrigFilters) can opt a request out of
+            # caching when its result depends on data that isn't invalidated
+            if any(getattr(v, "cacheable", True) is False for v in kwargs.values()):
+                bypass_cache = True
 
             # Generate cache key
             resource_id = None

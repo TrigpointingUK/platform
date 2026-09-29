@@ -133,6 +133,8 @@ export interface TilesetSelectorProps {
   className?: string;
   /** Whether to persist selection to localStorage (default: true) */
   persistSelection?: boolean;
+  /** Below the lg breakpoint, collapse to a single layers icon button (default: false) */
+  compactOnMobile?: boolean;
 }
 
 /**

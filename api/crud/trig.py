@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from api.crud.area import COUNTY_1991_AREA_TYPE_ID, TRIG_AREA
 from api.models.area import Area
 from api.models.trig import Trig
+from api.models.trig_list import TrigListItem
 from api.models.user import TLog
 
 # Import update_trigstats_distances lazily to avoid circular imports
@@ -218,6 +219,11 @@ def get_first_logs(
     return {int(row.id): (row.date, row.time) for row in rows}
 
 
+def _trigs_in_lists(list_ids: List[int]):
+    """Subquery of the trig IDs in any of the given trig lists."""
+    return select(TrigListItem.trig_id).where(TrigListItem.list_id.in_(list_ids))
+
+
 def _apply_trig_filters(
     query,
     db: Session,
@@ -238,6 +244,8 @@ def _apply_trig_filters(
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
+    in_list_ids: Optional[List[int]] = None,
+    not_in_list_ids: Optional[List[int]] = None,
 ):
     """Apply the shared trig filter set (used by list, count and points queries)."""
     # Global filter: exclude soft-deleted records (status >= 90) unless explicitly requested
@@ -299,6 +307,12 @@ def _apply_trig_filters(
         )
         query = query.filter(Trig.id.in_(logged_cond_subquery))
 
+    # Trig list membership (any of the lists / none of them)
+    if in_list_ids:
+        query = query.filter(Trig.id.in_(_trigs_in_lists(in_list_ids)))
+    if not_in_list_ids:
+        query = query.filter(~Trig.id.in_(_trigs_in_lists(not_in_list_ids)))
+
     if name:
         query = query.filter(Trig.name.ilike(f"%{name}%"))
     if county and _trig_area_table_exists(db):
@@ -353,6 +367,8 @@ def list_trigs_filtered(
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
+    in_list_ids: Optional[List[int]] = None,
+    not_in_list_ids: Optional[List[int]] = None,
     log_user_id: Optional[int] = None,
 ) -> list[Trig]:
     """
@@ -381,6 +397,8 @@ def list_trigs_filtered(
         current_use=current_use,
         conditions=conditions,
         logged_conditions=logged_conditions,
+        in_list_ids=in_list_ids,
+        not_in_list_ids=not_in_list_ids,
         log_user_id=log_user_id,
     )
     return [trig for trig, _ in results]
@@ -408,6 +426,8 @@ def list_trigs_filtered_with_distance(
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
+    in_list_ids: Optional[List[int]] = None,
+    not_in_list_ids: Optional[List[int]] = None,
     log_user_id: Optional[int] = None,
 ) -> list[tuple[Trig, Optional[float]]]:
     """
@@ -437,6 +457,8 @@ def list_trigs_filtered_with_distance(
         current_use=current_use,
         conditions=conditions,
         logged_conditions=logged_conditions,
+        in_list_ids=in_list_ids,
+        not_in_list_ids=not_in_list_ids,
     )
 
     has_centre = center_lat is not None and center_lon is not None
@@ -462,11 +484,12 @@ def list_trigs_filtered_with_distance(
     elif key == "name":
         query = query.order_by(Trig.name.desc() if descending else Trig.name.asc())
     elif key == "height":
-        # "height" means highest first; "-height" lowest first
+        # "height" means highest first; "-height" lowest first. Height above
+        # sea level - wgs_height is above the ellipsoid, some 45-55m more.
         query = query.order_by(
-            Trig.wgs_height.asc().nulls_last()
+            Trig.osgb_height.asc().nulls_last()
             if descending
-            else Trig.wgs_height.desc().nulls_last()
+            else Trig.osgb_height.desc().nulls_last()
         )
     elif key == "score":
         # "score" means best first; "-score" worst first
@@ -525,6 +548,8 @@ def count_trigs_filtered(
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
+    in_list_ids: Optional[List[int]] = None,
+    not_in_list_ids: Optional[List[int]] = None,
 ) -> int:
     query = _apply_trig_filters(
         db.query(func.count(Trig.id)),
@@ -545,6 +570,8 @@ def count_trigs_filtered(
         current_use=current_use,
         conditions=conditions,
         logged_conditions=logged_conditions,
+        in_list_ids=in_list_ids,
+        not_in_list_ids=not_in_list_ids,
     )
     return int(query.scalar() or 0)
 
@@ -569,6 +596,8 @@ def list_trig_points(
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
+    in_list_ids: Optional[List[int]] = None,
+    not_in_list_ids: Optional[List[int]] = None,
 ) -> list:
     """
     Lightweight rows (no full ORM objects) for every trig matching the filters.
@@ -612,6 +641,8 @@ def list_trig_points(
         current_use=current_use,
         conditions=conditions,
         logged_conditions=logged_conditions,
+        in_list_ids=in_list_ids,
+        not_in_list_ids=not_in_list_ids,
     )
     return query.order_by(Trig.id.asc()).limit(limit).all()
 

@@ -20,6 +20,7 @@ from api.core.logging import setup_logging
 from api.core.profiling import ProfilingMiddleware, should_enable_profiling
 from api.core.telemetry import initialize_telemetry
 from api.core.timing import TimingMiddleware
+from api.core.vary import VaryDedupeMiddleware
 from api.db.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -422,6 +423,10 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
         expose_headers=["Content-Disposition", "X-Trigpoint-Count", "X-Log-Count"],
     )
+
+# Outside CORSMiddleware, which appends its own "Origin" to any Vary an
+# endpoint has set
+app.add_middleware(VaryDedupeMiddleware)
 
 # Set up profiling middleware (development and staging only)
 if settings.PROFILING_ENABLED and should_enable_profiling(settings.ENVIRONMENT):

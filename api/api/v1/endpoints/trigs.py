@@ -828,6 +828,7 @@ def list_trig_points(
     Returns a compact table to keep the payload small: `fields` names the
     columns and each entry in `rows` is one trig in that column order.
     """
+    filters.check_list_access(db, current_user)
     log_user_id = filters.resolve_log_user_id(db, current_user)
     rows = trig_crud.list_trig_points(
         db, limit=TRIG_POINTS_LIMIT, **filters.crud_kwargs(log_user_id)
@@ -995,6 +996,8 @@ def list_trigs(
     if metrics:
         search_type = "nearby" if (filters.has_centre and filters.max_km) else "general"
         metrics.record_trig_search(search_type)
+
+    filters.check_list_access(db, current_user)
 
     log_user_id = filters.resolve_log_user_id(db, current_user)
     validate_trig_order(order, log_user_id)

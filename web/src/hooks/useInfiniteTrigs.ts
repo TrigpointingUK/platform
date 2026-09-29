@@ -24,6 +24,7 @@ interface Trig {
   category_name?: string;
   distance_km?: number;
   wgs_height?: number;
+  osgb_height?: number; // Above sea level; wgs_height is above the ellipsoid
   score?: number;
   first_logged_date?: string | null; // Present when a log user is being looked at
   first_logged_time?: string | null;
