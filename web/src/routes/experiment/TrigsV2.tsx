@@ -113,10 +113,13 @@ export default function TrigsV2() {
   // Reference Data (from API)
   // ==========================================================================
   
-  const { data: categories } = useTrigCategories();
-  const { data: conditions } = useConditions();
-  const { data: historicUseValues } = useHistoricUseValues();
-  const { data: currentUseValues } = useCurrentUseValues();
+  const { data: categories, error: categoriesError } = useTrigCategories();
+  const { data: conditions, error: conditionsError } = useConditions();
+  const { data: historicUseValues, error: historicUseError } = useHistoricUseValues();
+  const { data: currentUseValues, error: currentUseError } = useCurrentUseValues();
+  // The filters can't be set up without these, so nor can the trigs load
+  const referenceError =
+    categoriesError ?? conditionsError ?? historicUseError ?? currentUseError ?? null;
 
   // Computed "all" values from API data
   const allTypeCodes = useMemo(() => {
@@ -629,20 +632,24 @@ export default function TrigsV2() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isLoading,
+    isPending,
+    isSuccess,
     error,
-  } = useInfiniteTrigs({ ...filterOptions, order: orderParam });
+  } = useInfiniteTrigs({ ...filterOptions, order: orderParam, enabled: filtersReady });
 
   // The map plots the whole filtered set. The centre only matters to it
   // when it limits the radius, so leave it out otherwise (better caching).
   const {
     data: mapPoints,
-    isLoading: isMapLoading,
+    isPending: isMapLoading,
     error: mapError,
   } = useTrigPoints(
     maxKm === null ? { ...filterOptions, lat: undefined, lon: undefined } : filterOptions,
-    view === "map",
+    view === "map" && filtersReady,
   );
+
+  // The list can't load if the reference data behind the filters didn't
+  const listError = error ?? (filtersReady ? null : referenceError);
 
   // Number the rows when the list is someone's logged trigs in logging order,
   // so e.g. #1000 of their pillars is their 1000th pillar
@@ -938,7 +945,7 @@ export default function TrigsV2() {
                     {activeFilterCount} {activeFilterCount === 1 ? "filter" : "filters"}
                   </span>
                 )}
-                {isLoading || centerLat === null || centerLon === null ? (
+                {isPending || centerLat === null || centerLon === null ? (
                   <span>Loading...</span>
                 ) : (
                   <span className="min-w-0">
@@ -996,7 +1003,7 @@ export default function TrigsV2() {
           <TrigsV2Map
             trigs={mapPoints?.trigs ?? []}
             isLoading={isMapLoading}
-            error={mapError}
+            error={mapError ?? (filtersReady ? null : referenceError)}
             truncated={mapPoints?.truncated ?? false}
             showListActions={showListActions}
             areaIds={selectedAreaIds}
@@ -1012,13 +1019,25 @@ export default function TrigsV2() {
         {/* Trigpoint List */}
         {view === "list" && (
           <div>
-            {error && (
+            {listError && (
               <div className="mx-4 mt-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
-                Error loading trigpoints: {error.message}
+                Error loading trigpoints: {listError.message}
               </div>
             )}
 
-            {!isLoading && allTrigs.length === 0 && (
+            {/* Pending covers waiting for the device location too - the query is
+                disabled until then, which doesn't count as loading */}
+            {isPending && !listError && (
+              <div className="mx-4 mt-8 text-center py-12" role="status">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-trig-green-600 dark:border-trig-green-400 mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Loading trigs, please be patient...
+                </p>
+              </div>
+            )}
+
+            {/* Only once the API has actually answered with nothing */}
+            {isSuccess && allTrigs.length === 0 && (
               <div className="mx-4 mt-8 text-center py-12">
                 <div className="text-gray-400 dark:text-gray-500 text-5xl mb-4">📍</div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
@@ -1066,14 +1085,6 @@ export default function TrigsV2() {
                   </div>
                 )}
               </>
-            )}
-
-            {/* Initial loading indicator */}
-            {isLoading && (
-              <div className="mx-4 my-12 text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
-                <p className="mt-4 text-gray-500 dark:text-gray-400">Loading trigpoints...</p>
-              </div>
             )}
           </div>
         )}
