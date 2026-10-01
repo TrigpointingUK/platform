@@ -1,5 +1,5 @@
 import { LEEDS, type Clip } from "../../lib/clip.ts";
-import { chip, option, popover, resultCount, TRIGS_V2 } from "../../lib/trigsV2.ts";
+import { chip, collapseFilters, option, popover, resultCount, TRIGS_V2 } from "../../lib/trigsV2.ts";
 
 export const clip: Clip = {
   id: "damaged-pillars-west-yorkshire",
@@ -32,6 +32,10 @@ export const clip: Clip = {
     await d.click(option(page, "Area", "West Yorkshire"));
     await d.click(chip(page, "Area"));
     await d.settle();
+    if (d.mobile) {
+      await d.caption("Tap empty space to fold the filters and see the results", 300);
+      await collapseFilters(d);
+    }
 
     const count = (await resultCount(page).innerText()).trim();
     await d.hover(resultCount(page), 200);

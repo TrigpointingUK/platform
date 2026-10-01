@@ -1,10 +1,11 @@
 /**
  * Director - drives a Playwright page the way a person would, for recording.
  *
- * Playwright's own mouse is invisible in recordings, so we inject a cursor
- * overlay that follows real `mousemove` events, and move the mouse along
- * eased, slightly curved paths instead of teleporting. Randomness is seeded
- * from the clip id so re-renders are repeatable.
+ * Playwright's own mouse is invisible in recordings, so on desktop we inject a
+ * cursor overlay that follows real `mousemove` events, and move the mouse along
+ * eased, slightly curved paths instead of teleporting. On mobile there is no
+ * cursor: taps show a fingertip dot and scrolling is a visible swipe.
+ * Randomness is seeded from the clip id so re-renders are repeatable.
  */
 
 import type { BrowserContext, Locator, Page } from "playwright";
@@ -16,6 +17,7 @@ const OVERLAY_SCRIPT = `
 (() => {
   const install = () => {
     if (document.getElementById("__hv-cursor")) return;
+    if (window.__hvMode === "mobile") document.documentElement.setAttribute("data-hv", "mobile");
     const style = document.createElement("style");
     style.textContent = \`
       #__hv-cursor { position: fixed; left: 0; top: 0; z-index: 2147483647;
@@ -45,6 +47,17 @@ const OVERLAY_SCRIPT = `
         font-family: system-ui, -apple-system, "Segoe UI", sans-serif; transition: opacity .5s ease; }
       #__hv-title small { font-size: 18px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
       #__hv-title strong { font-size: 42px; font-weight: 700; line-height: 1.25; }
+      .__hv-touch { position: fixed; z-index: 2147483647; pointer-events: none;
+        width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+        background: rgba(40,40,40,.32); border: 2px solid rgba(255,255,255,.85);
+        box-shadow: 0 1px 4px rgba(0,0,0,.3); opacity: 0; transform: scale(.6);
+        transition: opacity .15s ease, transform .15s ease; }
+      .__hv-touch.__hv-down { opacity: 1; transform: scale(1); }
+      html[data-hv="mobile"] #__hv-cursor { display: none; }
+      html[data-hv="mobile"] #__hv-caption { bottom: 64px; max-width: 92%;
+        padding: 10px 14px; border-radius: 10px; font-size: 17px; }
+      html[data-hv="mobile"] #__hv-title small { font-size: 14px; }
+      html[data-hv="mobile"] #__hv-title strong { font-size: 28px; }
       @keyframes __hv-pulse { from { box-shadow: 0 0 0 2px rgba(245,158,11,.35); }
                               to   { box-shadow: 0 0 0 10px rgba(245,158,11,.05); } }
     \`;
@@ -67,6 +80,65 @@ const OVERLAY_SCRIPT = `
       setTimeout(() => r.remove(), 600);
     }, true);
   };
+  // Animated scroll used by Director.ensureVisible. Scrolls the nearest inner
+  // scroll box if that hides the element, otherwise the page; on mobile a
+  // fingertip dot drags with it.
+  window.__hvScroll = async (el, a) => {
+    const scrollable = (n) => {
+      const oy = getComputedStyle(n).overflowY;
+      return (oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight;
+    };
+    let inner = el.parentElement;
+    while (inner && inner !== document.body && !scrollable(inner)) inner = inner.parentElement;
+    let scroller = document.scrollingElement || document.documentElement;
+    let amount = a.delta;
+    if (inner && inner !== document.body) {
+      const r = inner.getBoundingClientRect();
+      const e = el.getBoundingClientRect();
+      if (e.top < r.top || e.bottom > r.bottom) {
+        scroller = inner;
+        amount = Math.round(e.top + e.height / 2 - (r.top + r.height / 2));
+      }
+    }
+    // Clamp to what the scroller can actually do; nothing to do means no swipe.
+    const start = scroller.scrollTop;
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    amount = Math.max(-start, Math.min(max - start, amount));
+    if (Math.abs(amount) < 4) return false;
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const drag = Math.max(-a.height * 0.45, Math.min(a.height * 0.45, amount));
+    const y0 = a.height / 2 + drag / 2;
+    let dot = null;
+    if (a.finger) {
+      dot = document.createElement("div");
+      dot.className = "__hv-touch";
+      dot.style.left = a.x + "px";
+      dot.style.top = y0 + "px";
+      document.documentElement.appendChild(dot);
+      void dot.offsetWidth;
+      dot.classList.add("__hv-down");
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    const t0 = performance.now();
+    await new Promise((resolve) => {
+      const step = (now) => {
+        const t = Math.min(1, (now - t0) / a.duration);
+        const k = ease(t);
+        scroller.scrollTo({ top: start + amount * k, behavior: "instant" });
+        if (dot) dot.style.top = (y0 - drag * k) + "px";
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      requestAnimationFrame(step);
+    });
+    if (dot) {
+      const d = dot;
+      d.classList.remove("__hv-down");
+      setTimeout(() => d.remove(), 300);
+    }
+    return true;
+  };
+
   if (document.documentElement) install();
   else document.addEventListener("DOMContentLoaded", install);
 })();
@@ -102,19 +174,27 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export class Director {
   readonly page: Page;
+  /** Touch device: taps and swipes instead of a mouse cursor. */
+  readonly mobile: boolean;
   private readonly rand: () => number;
   private pos: Point;
 
-  constructor(page: Page, seed: string) {
+  constructor(page: Page, seed: string, mobile = false) {
     this.page = page;
+    this.mobile = mobile;
     this.rand = seededRandom(seed);
     const vp = page.viewportSize() ?? { width: 1280, height: 800 };
     this.pos = { x: vp.width * 0.62, y: vp.height * 0.55 };
   }
 
   /** Install the overlay on every page (context) or one page, before its scripts run. */
-  static async install(target: BrowserContext | Page): Promise<void> {
+  static async install(target: BrowserContext | Page, mobile = false): Promise<void> {
+    await target.addInitScript(`window.__hvMode = ${JSON.stringify(mobile ? "mobile" : "desktop")};`);
     await target.addInitScript(OVERLAY_SCRIPT);
+  }
+
+  private viewport(): { width: number; height: number } {
+    return this.page.viewportSize() ?? { width: 1280, height: 800 };
   }
 
   private between(min: number, max: number): number {
@@ -170,27 +250,98 @@ export class Director {
     }
   }
 
-  /** Move to a slightly randomised spot inside the element. */
-  async moveTo(locator: Locator): Promise<void> {
+  /**
+   * Scroll until the element sits clear of the header, footer and captions:
+   * a finger swipe on mobile, a smooth wheel-like scroll on desktop. Scrolls
+   * an inner scroll box (e.g. a long popover list) first if that hides it.
+   */
+  async ensureVisible(locator: Locator): Promise<void> {
+    const { width, height } = this.viewport();
+    const top = this.mobile ? 76 : 80;
+    const bottom = height - (this.mobile ? 130 : 110);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const box = await locator.boundingBox();
+      if (!box) throw new Error(`No bounding box for ${locator}`);
+      if (box.y >= top && box.y + box.height <= bottom) return;
+      const delta = Math.round(box.y + box.height / 2 - (top + bottom) / 2);
+      const duration = Math.max(450, Math.min(1000, 350 + Math.abs(delta) * 0.6));
+      const moved = await locator.evaluate(
+        (el, args) => (window as unknown as { __hvScroll: (e: Element, a: object) => Promise<boolean> }).__hvScroll(el, args),
+        { delta, duration, height, x: width * 0.72, finger: this.mobile },
+      );
+      if (!moved) return;
+      await sleep(250);
+    }
     await locator.scrollIntoViewIfNeeded();
-    const box = await locator.boundingBox();
-    if (!box) throw new Error(`No bounding box for ${locator}`);
-    const x = box.x + box.width * this.between(0.35, 0.6);
-    const y = box.y + box.height * this.between(0.4, 0.6);
-    await this.moveToPoint({ x, y });
   }
 
+  /** A slightly randomised spot inside the element. */
+  private async pointIn(locator: Locator): Promise<Point> {
+    const box = await locator.boundingBox();
+    if (!box) throw new Error(`No bounding box for ${locator}`);
+    return {
+      x: box.x + box.width * this.between(0.35, 0.6),
+      y: box.y + box.height * this.between(0.4, 0.6),
+    };
+  }
+
+  /** Bring the element into view and, on desktop, move the cursor onto it. */
+  async moveTo(locator: Locator): Promise<void> {
+    await this.ensureVisible(locator);
+    if (!this.mobile) await this.moveToPoint(await this.pointIn(locator));
+  }
+
+  /** Desktop: rest the cursor on it. Mobile: just bring it into view. */
   async hover(locator: Locator, dwell = 600): Promise<void> {
     await this.moveTo(locator);
     await sleep(dwell);
   }
 
+  /** Click (desktop) or tap (mobile) the element. */
   async click(locator: Locator, after = 450): Promise<void> {
-    await this.moveTo(locator);
-    await sleep(this.between(120, 240));
-    await this.page.mouse.down();
-    await sleep(this.between(60, 110));
-    await this.page.mouse.up();
+    await this.ensureVisible(locator);
+    await this.pressAt(await this.pointIn(locator), after);
+  }
+
+  /** Click or tap empty space `dx` pixels to the right of an element. */
+  async clickBeside(locator: Locator, dx: number, after = 450): Promise<void> {
+    await this.ensureVisible(locator);
+    const box = await locator.boundingBox();
+    if (!box) throw new Error(`No bounding box for ${locator}`);
+    const x = Math.min(box.x + box.width + dx, this.viewport().width - 24);
+    await this.pressAt({ x, y: box.y + box.height / 2 }, after);
+  }
+
+  private async pressAt(p: Point, after: number): Promise<void> {
+    if (this.mobile) {
+      // Time for the finger to travel, then a visible press.
+      await sleep(this.between(250, 450));
+      await this.page.evaluate((pt) => {
+        document.getElementById("__hv-tap")?.remove();
+        const dot = document.createElement("div");
+        dot.id = "__hv-tap";
+        dot.className = "__hv-touch";
+        dot.style.left = `${pt.x}px`;
+        dot.style.top = `${pt.y}px`;
+        document.documentElement.appendChild(dot);
+        void dot.offsetWidth;
+        dot.classList.add("__hv-down");
+      }, p);
+      await sleep(this.between(90, 140));
+      await this.page.touchscreen.tap(p.x, p.y);
+      await sleep(this.between(80, 120));
+      await this.page.evaluate(() => {
+        const dot = document.getElementById("__hv-tap");
+        dot?.classList.remove("__hv-down");
+        setTimeout(() => dot?.remove(), 300);
+      });
+    } else {
+      await this.moveToPoint(p);
+      await sleep(this.between(120, 240));
+      await this.page.mouse.down();
+      await sleep(this.between(60, 110));
+      await this.page.mouse.up();
+    }
     await sleep(after);
   }
 
@@ -261,7 +412,7 @@ export class Director {
 
   /** Pulsing outline around an element for `ms`, then removed. */
   async highlight(locator: Locator, ms = 1800): Promise<void> {
-    await locator.scrollIntoViewIfNeeded();
+    await this.ensureVisible(locator);
     const box = await locator.boundingBox();
     if (!box) throw new Error(`No bounding box for ${locator}`);
     await this.page.evaluate((b) => {

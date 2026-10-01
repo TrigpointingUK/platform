@@ -379,8 +379,8 @@ web-type-check: ## Type check web application
 help-videos-install: ## Install the help video recorder and its Chromium
 	cd help-videos && npm ci && npx playwright install chromium
 
-help-videos: ## Render help video clips to help-videos/out/ (ONLY="clip-id ..." to limit)
-	cd help-videos && npm run render -- $(ONLY)
+help-videos: ## Render help clips to help-videos/out/<profile>/ (ONLY="clip-id ..." PROFILE=desktop|mobile to limit)
+	cd help-videos && HELP_VIDEO_PROFILE=$(PROFILE) npm run render -- $(ONLY)
 
 terraform-format-check: ## Check Terraform formatting; auto-format and fail if mismatches
 	@command -v terraform >/dev/null 2>&1 || { echo "❌ terraform not installed. Please install Terraform to run formatting checks."; exit 1; }

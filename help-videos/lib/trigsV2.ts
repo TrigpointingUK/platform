@@ -2,6 +2,8 @@
 
 import type { Page } from "playwright";
 
+import type { Director } from "./director.ts";
+
 export const TRIGS_V2 = "/experiment/trigs-v2";
 
 export const chip = (page: Page, label: string) =>
@@ -23,3 +25,18 @@ export const resultCards = (page: Page) =>
 
 export const resultCount = (page: Page) =>
   page.getByRole("main").locator("strong").filter({ hasText: /^[\d,]+$/ }).first();
+
+/**
+ * Fold the filter panel away by tapping empty space beside the "Sort"
+ * heading - any background tap in the panel toggles it (see TrigsV2.tsx).
+ */
+export async function collapseFilters(d: Director): Promise<void> {
+  await d.clickBeside(d.page.getByRole("main").getByText("Sort", { exact: true }), 90);
+  await d.settle();
+}
+
+/** Bring the filters back by tapping empty space in the results summary row. */
+export async function expandFilters(d: Director): Promise<void> {
+  await d.clickBeside(resultCount(d.page).locator("xpath=.."), 16);
+  await d.settle();
+}
