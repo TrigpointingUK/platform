@@ -36,6 +36,12 @@ vi.mock("lucide-react", () => ({
 }));
 
 // Mock API functions
+vi.mock("../../../hooks/useReferenceData", () => ({
+  useVariantGroups: () => ({
+    data: [{ code: "DETECTOR", name: "Detector material", values: [] }],
+  }),
+}));
+
 vi.mock("../../../lib/api", () => ({
   fetchCategoriesWithTypes: vi.fn(),
   createCategory: vi.fn(),

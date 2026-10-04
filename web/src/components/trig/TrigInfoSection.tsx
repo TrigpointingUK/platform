@@ -13,6 +13,7 @@ import FacebookShareButton from "../ui/FacebookShareButton";
 import AddToListButton from "../lists/AddToListButton";
 import { getCanonicalOrigin } from "../../lib/canonicalOrigin";
 import { Link2 } from "lucide-react";
+import { formatTypeName } from "../../lib/trigTypeName";
 
 interface TrigInfoSectionProps {
   trig: Trig;
@@ -215,10 +216,13 @@ export default function TrigInfoSection({
               <span className="font-semibold text-gray-700 dark:text-gray-300">Type:</span>{" "}
               {(() => {
                 // Determine display text: type_name if same as category, else "category · type"
-                const displayText = trig.type_name
+                const typeText = trig.type_name
+                  ? formatTypeName(trig.type_name, trig.variant_name)
+                  : null;
+                const displayText = typeText
                   ? trig.type_code === trig.category_code
-                    ? trig.type_name
-                    : `${trig.category_name} · ${trig.type_name}`
+                    ? typeText
+                    : `${trig.category_name} · ${typeText}`
                   : "Unknown";
                 
                 // Use type_wiki_url if available, otherwise fall back to name-based URL

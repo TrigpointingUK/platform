@@ -9,6 +9,7 @@ select
     current_use,
     historic_use,
     type_id,
+    variant_id,
     wgs_lat,
     wgs_long,
     wgs_height,

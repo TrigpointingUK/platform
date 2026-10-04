@@ -11,6 +11,11 @@ updates:
       interval: "weekly"
     target-branch: "develop" # PRs go to develop, not main
     open-pull-requests-limit: 50
+    ignore:
+      # 2.1 types plain Column() class attributes as Never, breaking mypy
+      # across api/ - lift once the models use Mapped[]/mapped_column()
+      - dependency-name: "sqlalchemy"
+        versions: [">=2.1"]
     groups:
       opentelemetry:
         patterns:

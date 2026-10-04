@@ -7,6 +7,7 @@ export { CategoryChip, CATEGORIES, ALL_CATEGORY_IDS } from "./CategoryChip";
 export { RadiusChip } from "./RadiusChip";
 export { HistoricUseChip } from "./HistoricUseChip";
 export { CurrentUseChip } from "./CurrentUseChip";
+export { VariantChip } from "./VariantChip";
 export { ConditionChip } from "./ConditionChip";
 export { LogsChip, type LogUser } from "./LogsChip";
 export { ListsChip } from "./ListsChip";

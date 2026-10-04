@@ -8,8 +8,19 @@ from typing import List, Optional
 
 from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
-from sqlalchemy import Float, bindparam, cast, false, func, select, text, true
+from sqlalchemy import (
+    Float,
+    bindparam,
+    cast,
+    false,
+    func,
+    or_,
+    select,
+    text,
+    true,
+)
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from api.crud.area import COUNTY_1991_AREA_TYPE_ID, TRIG_AREA
 from api.models.area import Area
@@ -243,6 +254,7 @@ def _apply_trig_filters(
     historic_use: Optional[List[str]] = None,
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
+    variant_codes: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
     in_list_ids: Optional[List[int]] = None,
     not_in_list_ids: Optional[List[int]] = None,
@@ -274,6 +286,20 @@ def _apply_trig_filters(
 
     if conditions:
         query = query.filter(Trig.condition.in_(conditions))
+
+    if variant_codes:
+        from api.models.trig_variant import NOT_RECORDED_CODE, TrigVariant
+
+        codes = [c.upper() for c in variant_codes]
+        variant_ids = (
+            db.query(TrigVariant.id)
+            .filter(TrigVariant.code.in_(codes))
+            .scalar_subquery()
+        )
+        variant_match: ColumnElement[bool] = Trig.variant_id.in_(variant_ids)
+        if NOT_RECORDED_CODE in codes:
+            variant_match = or_(variant_match, Trig.variant_id.is_(None))
+        query = query.filter(variant_match)
 
     if type_codes:
         type_id_list = _get_type_ids_for_codes(db, type_codes)
@@ -366,6 +392,7 @@ def list_trigs_filtered(
     historic_use: Optional[List[str]] = None,
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
+    variant_codes: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
     in_list_ids: Optional[List[int]] = None,
     not_in_list_ids: Optional[List[int]] = None,
@@ -396,6 +423,7 @@ def list_trigs_filtered(
         historic_use=historic_use,
         current_use=current_use,
         conditions=conditions,
+        variant_codes=variant_codes,
         logged_conditions=logged_conditions,
         in_list_ids=in_list_ids,
         not_in_list_ids=not_in_list_ids,
@@ -425,6 +453,7 @@ def list_trigs_filtered_with_distance(
     historic_use: Optional[List[str]] = None,
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
+    variant_codes: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
     in_list_ids: Optional[List[int]] = None,
     not_in_list_ids: Optional[List[int]] = None,
@@ -456,6 +485,7 @@ def list_trigs_filtered_with_distance(
         historic_use=historic_use,
         current_use=current_use,
         conditions=conditions,
+        variant_codes=variant_codes,
         logged_conditions=logged_conditions,
         in_list_ids=in_list_ids,
         not_in_list_ids=not_in_list_ids,
@@ -547,6 +577,7 @@ def count_trigs_filtered(
     historic_use: Optional[List[str]] = None,
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
+    variant_codes: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
     in_list_ids: Optional[List[int]] = None,
     not_in_list_ids: Optional[List[int]] = None,
@@ -569,6 +600,7 @@ def count_trigs_filtered(
         historic_use=historic_use,
         current_use=current_use,
         conditions=conditions,
+        variant_codes=variant_codes,
         logged_conditions=logged_conditions,
         in_list_ids=in_list_ids,
         not_in_list_ids=not_in_list_ids,
@@ -595,6 +627,7 @@ def list_trig_points(
     historic_use: Optional[List[str]] = None,
     current_use: Optional[List[str]] = None,
     conditions: Optional[List[str]] = None,
+    variant_codes: Optional[List[str]] = None,
     logged_conditions: Optional[List[str]] = None,
     in_list_ids: Optional[List[int]] = None,
     not_in_list_ids: Optional[List[int]] = None,
@@ -605,6 +638,7 @@ def list_trig_points(
     Intended for plotting a whole filtered set on a map in one request.
     """
     from api.models.trig_type import TrigCategory, TrigType
+    from api.models.trig_variant import TrigVariant
 
     query = (
         db.query(
@@ -617,10 +651,12 @@ def list_trig_points(
             Trig.osgb_gridref,
             TrigType.name.label("type_name"),
             TrigCategory.code.label("category_code"),
+            TrigVariant.name.label("variant_name"),
         )
         .select_from(Trig)
         .outerjoin(TrigType, TrigType.id == Trig.type_id)
         .outerjoin(TrigCategory, TrigCategory.id == TrigType.category_id)
+        .outerjoin(TrigVariant, TrigVariant.id == Trig.variant_id)
     )
     query = _apply_trig_filters(
         query,
@@ -640,6 +676,7 @@ def list_trig_points(
         historic_use=historic_use,
         current_use=current_use,
         conditions=conditions,
+        variant_codes=variant_codes,
         logged_conditions=logged_conditions,
         in_list_ids=in_list_ids,
         not_in_list_ids=not_in_list_ids,
@@ -824,6 +861,7 @@ def create_trig_admin(
         # Classification
         status_id=trig_data["status_id"],
         type_id=trig_data.get("type_id"),
+        variant_id=trig_data.get("variant_id"),
         current_use=trig_data.get("current_use", "none"),
         historic_use=trig_data.get("historic_use", "none"),
         condition=trig_data.get("condition", "G"),

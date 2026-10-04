@@ -18,6 +18,7 @@ export interface TrigType {
   name: string;
   description?: string;
   sort_order: number;
+  variant_group?: string | null;
 }
 
 export interface TrigCategory {
@@ -60,6 +61,13 @@ export interface Area {
 export interface ReferenceValue {
   value: string;
   label: string;
+}
+
+/** A variant group (e.g. Detector material) and its values */
+export interface VariantGroup {
+  code: string;
+  name: string;
+  values: ReferenceValue[];
 }
 
 // =============================================================================
@@ -131,6 +139,24 @@ export function useCurrentUseValues() {
       }
       const data = await response.json();
       return data.values;
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+  });
+}
+
+// =============================================================================
+// Variant Groups Hook
+// =============================================================================
+
+export function useVariantGroups() {
+  return useQuery<VariantGroup[]>({
+    queryKey: ["reference", "variantGroups"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/v1/reference/variant-groups`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch variant groups");
+      }
+      return response.json();
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });

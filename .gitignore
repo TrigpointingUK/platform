@@ -141,9 +141,22 @@ test.db
 *.tfstate
 *.tfstate.*
 *.tfplan
+# Saved plans embed full state and sensitive variables whatever they are called
+tfplan
+tfplan.*
+*.plan
+plan.out
+*.tfplan.json
 .terraform/
 .terraform.lock.hcl
 terraform.tfvars
+# tfvars are ignored by default; only examples and the secret-free auto tfvars are tracked
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+!*example*.tfvars
+!terraform/staging/staging.auto.tfvars
+!terraform/production/production.auto.tfvars
 
 # CloudFlare certificates (keep private)
 *cert*.tfvars

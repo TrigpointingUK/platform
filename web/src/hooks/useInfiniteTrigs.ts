@@ -57,16 +57,17 @@ interface TrigsResponse {
 
 export interface UseInfiniteTrigsOptions extends TrigFilterOptions {
   order?: string; // Sort order: distance | name | height | score | logged (prefix with - for desc)
+  enabled?: boolean; // Hold off fetching, e.g. until the filters are set up (default: true)
 }
 
 export function useInfiniteTrigs(options: UseInfiniteTrigsOptions = {}) {
-  const { order, ...filters } = options;
+  const { order, enabled = true, ...filters } = options;
   const { lat, lon } = filters;
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   return useInfiniteQuery<TrigsResponse>({
     queryKey: ["trigs", "infinite", filters, order],
-    enabled: lat !== undefined && lon !== undefined, // Only fetch when location is set
+    enabled: enabled && lat !== undefined && lon !== undefined, // Only fetch when location is set
     queryFn: async ({ pageParam }: { pageParam?: unknown }) => {
       // If any filter is an empty selection, return empty results (user selected nothing)
       if (selectsNothing(filters)) {

@@ -63,6 +63,9 @@ class TrigType(Base):
     wiki_url = Column(String(255), nullable=True)
     sort_order = Column(SmallInteger, nullable=False)
     legacy_physical_type = Column(String(25), nullable=True)
+    # Variant group (trig_variant.group_code) trigs of this type may choose
+    # from, e.g. "DETECTOR"; NULL = no variants
+    variant_group = Column(String(20), nullable=True)
 
     # Relationship to parent category (joined to avoid N+1 when accessing trig.trig_type.category)
     category = relationship("TrigCategory", back_populates="types", lazy="joined")

@@ -10,6 +10,10 @@ conditions as (
     select * from {{ ref('stg_conditions') }}
 ),
 
+trig_variants as (
+    select * from {{ ref('stg_trig_variants') }}
+),
+
 -- Derive county from the area hierarchy (county area_type_code)
 trig_counties as (
     select
@@ -26,6 +30,8 @@ select
     t.trig_name,
     tt.type_name,
     tt.category_name,
+    tv.variant_group_name,
+    tv.variant_name,
     c.condition_name,
     tc.county,
     t.town,
@@ -42,4 +48,5 @@ select
 from trigs t
 left join trig_types tt on t.type_id = tt.type_id
 left join conditions c on t.condition_code = c.condition_code
+left join trig_variants tv on t.variant_id = tv.variant_id
 left join trig_counties tc on t.trig_id = tc.trig_id

@@ -62,10 +62,19 @@ describe("selectsNothing", () => {
   it("is true when a filter has an empty selection", () => {
     expect(selectsNothing({ conditions: [] })).toBe(true);
     expect(selectsNothing({ types: ["HOTINE"], historicUse: [] })).toBe(true);
+    expect(selectsNothing({ variants: [] })).toBe(true);
   });
 
   it("treats an empty area selection as no filter", () => {
     expect(selectsNothing({ areaIds: [] })).toBe(false);
     expect(selectsNothing({})).toBe(false);
+  });
+});
+
+describe("variant filter", () => {
+  it("sends variants only when some are selected", () => {
+    expect(buildTrigFilterParams({}).has("variants")).toBe(false);
+    const params = buildTrigFilterParams({ variants: ["CONCRETE_RING", "NOT_RECORDED"] });
+    expect(params.get("variants")).toBe("CONCRETE_RING,NOT_RECORDED");
   });
 });

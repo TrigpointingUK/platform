@@ -107,6 +107,7 @@ def trigs_to_csv(
         "fb_number",
         "current_use",
         "historic_use",
+        "variant",
     ]
 
     if sequence:
@@ -150,6 +151,7 @@ def trigs_to_csv(
             "fb_number": trig.fb_number,
             "current_use": trig.current_use,
             "historic_use": trig.historic_use,
+            "variant": trig.variant_name or "",
         }
 
         # Add user log data if available

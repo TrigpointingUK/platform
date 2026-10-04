@@ -10,30 +10,16 @@ import { Tag, ChevronRight, ChevronDown, Loader2 } from "lucide-react";
 import { FilterChip, FilterListItem, FilterSelectionButtons, FilterCheckbox } from "../FilterChip";
 import { useTrigCategories, type TrigCategory } from "../../../hooks/useReferenceData";
 
-// Status ID to category code mapping (for the main UI toggle buttons)
-const STATUS_ID_TO_CATEGORY_CODE: Record<number, string> = {
-  10: "PILLAR",
-  20: "FBM",
-  30: "PASSIVE",
-  40: "INTERSECTED",
-  50: "ACTIVE",
-  60: "OTHER",
-};
-
 export interface TypeChipProps {
   selectedTypes: string[];
-  selectedCategories: number[]; // Status IDs for the main category buttons
   onToggleType: (typeCode: string) => void;
-  onToggleCategory: (categoryId: number) => void;
   onSelectAll: () => void;
   onSelectNone: () => void;
 }
 
 export function TypeChip({
   selectedTypes,
-  selectedCategories,
   onToggleType,
-  onToggleCategory,
   onSelectAll,
   onSelectNone,
 }: TypeChipProps) {
@@ -103,30 +89,11 @@ export function TypeChip({
     return selectedInCat.length > 0 && selectedInCat.length < category.types.length;
   };
 
-  // Find the status ID for a category code
-  const getStatusIdForCategory = (categoryCode: string): number | null => {
-    for (const [statusId, code] of Object.entries(STATUS_ID_TO_CATEGORY_CODE)) {
-      if (code === categoryCode) {
-        return parseInt(statusId, 10);
-      }
-    }
-    return null;
-  };
-
   // Handle toggling an entire category's types
   const handleCategoryToggle = (category: TrigCategory) => {
-    const isFullySelected = isCategoryFullySelected(category);
-    const statusId = getStatusIdForCategory(category.code);
-    const isCategorySelectedInMainUI = statusId !== null && selectedCategories.includes(statusId);
-    
     // Determine desired state: if fully selected, we want to deselect; otherwise select
-    const wantSelected = !isFullySelected;
-    
-    // Only toggle the main category button if its state doesn't match what we want
-    if (statusId !== null && wantSelected !== isCategorySelectedInMainUI) {
-      onToggleCategory(statusId);
-    }
-    
+    const wantSelected = !isCategoryFullySelected(category);
+
     // Toggle all types in this category to match the desired state
     category.types.forEach((type) => {
       const isSelected = selectedTypes.includes(type.code);
@@ -194,6 +161,8 @@ export function TypeChip({
                     <button
                       type="button"
                       onClick={() => toggleCategoryExpanded(category.code)}
+                      aria-label={`${isExpanded ? "Collapse" : "Expand"} ${category.name} types`}
+                      aria-expanded={isExpanded}
                       className="p-0.5 mr-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       {isExpanded ? (

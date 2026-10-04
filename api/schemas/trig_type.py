@@ -55,6 +55,10 @@ class TrigTypeResponse(TrigTypeBase):
     legacy_physical_type: Optional[str] = Field(
         None, description="Legacy physical_type value for mapping"
     )
+    variant_group: Optional[str] = Field(
+        None,
+        description="Variant group trigs of this type may choose from (e.g. DETECTOR)",
+    )
 
 
 class TrigTypeWithCategory(TrigTypeResponse):
@@ -148,6 +152,11 @@ class TrigTypeCreate(BaseModel):
     legacy_physical_type: Optional[str] = Field(
         None, max_length=25, description="Legacy physical_type value for mapping"
     )
+    variant_group: Optional[str] = Field(
+        None,
+        max_length=20,
+        description="Variant group trigs of this type may choose from (e.g. DETECTOR)",
+    )
 
 
 class TrigTypeUpdate(BaseModel):
@@ -171,6 +180,11 @@ class TrigTypeUpdate(BaseModel):
         None,
         max_length=25,
         description="Legacy physical_type value (empty string to clear)",
+    )
+    variant_group: Optional[str] = Field(
+        None,
+        max_length=20,
+        description="Variant group code (empty string to clear)",
     )
 
 

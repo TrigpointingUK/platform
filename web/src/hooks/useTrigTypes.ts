@@ -14,6 +14,7 @@ export interface TrigType {
   wiki_url: string | null;
   sort_order: number;
   category_id: number;
+  variant_group?: string | null;
 }
 
 export interface TrigCategory {

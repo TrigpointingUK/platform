@@ -45,9 +45,7 @@ from api.schemas.trig import (
     TrigDetails,
     TrigExport,
     TrigMinimal,
-)
-from api.schemas.trig import TrigStats as TrigStatsSchema
-from api.schemas.trig import (
+    TrigStats,
     TrigWithIncludes,
 )
 from api.services.cache_service import (
@@ -761,7 +759,7 @@ def _get_trig_cached(
 
     # Attach includes
     details_obj: Optional[TrigDetails] = None
-    stats_obj: Optional[TrigStatsSchema] = None
+    stats_obj: Optional[TrigStats] = None
     attrs_obj: Optional[list[TrigAttrsData]] = None
     if include:
         tokens = {t.strip() for t in include.split(",") if t.strip()}
@@ -783,7 +781,7 @@ def _get_trig_cached(
         if "stats" in tokens:
             stats = trigstats_crud.get_trigstats_by_id(db, trig_id=trig_id)
             if stats:
-                stats_obj = TrigStatsSchema.model_validate(stats)
+                stats_obj = TrigStats.model_validate(stats)
         if "attrs" in tokens:
             attrs_data = attr_crud.get_attrs_for_trig(db, trig_id=trig_id)
             if attrs_data:
@@ -804,6 +802,7 @@ TRIG_POINT_FIELDS = [
     "osgb_gridref",
     "type_name",
     "category_code",
+    "variant_name",
 ]
 
 
@@ -846,6 +845,7 @@ def list_trig_points(
                 row.osgb_gridref,
                 row.type_name,
                 row.category_code,
+                row.variant_name,
             ]
             for row in rows
         ],
@@ -1018,12 +1018,12 @@ def list_trigs(
     total = trig_crud.count_trigs_filtered(db, **crud_kwargs)
 
     # Batch-fetch scores for all returned trigs
-    from api.models.trigstats import TrigStats
+    from api.models.trigstats import TrigStats as TrigStatsModel
 
     trig_ids = [int(t.id) for t in items]
     scores_raw = (
-        db.query(TrigStats.id, TrigStats.score_baysian)
-        .filter(TrigStats.id.in_(trig_ids))
+        db.query(TrigStatsModel.id, TrigStatsModel.score_baysian)
+        .filter(TrigStatsModel.id.in_(trig_ids))
         .all()
     )
     scores_map = {

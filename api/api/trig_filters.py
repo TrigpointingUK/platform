@@ -68,6 +68,14 @@ class TrigFilters:
         conditions: Optional[str] = Query(
             None, description="Comma-separated condition codes to include"
         ),
+        variants: Optional[str] = Query(
+            None,
+            description=(
+                "Comma-separated variant codes to include "
+                "(e.g., 'CONCRETE_RING,BRONZE_RING'); NOT_RECORDED includes "
+                "trigs with no variant"
+            ),
+        ),
         logged_by: Optional[int] = Query(
             None,
             description=(
@@ -116,6 +124,7 @@ class TrigFilters:
         self.historic_use = _split_csv(historic_use)
         self.current_use = _split_csv(current_use)
         self.conditions = _split_csv(conditions)
+        self.variants = _split_csv(variants)
         self.logged_by = logged_by
         self.only_found = only_found
         self.exclude_found = exclude_found
@@ -191,6 +200,7 @@ class TrigFilters:
             "historic_use": self.historic_use,
             "current_use": self.current_use,
             "conditions": self.conditions,
+            "variant_codes": self.variants,
             "logged_conditions": self.logged_conditions,
             "in_list_ids": self.in_lists,
             "not_in_list_ids": self.not_in_lists,

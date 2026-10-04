@@ -35,6 +35,10 @@ export function parseTrigPoints(body: TrigPointsResponse): TrigPoints {
     osgb_gridref: row[index.osgb_gridref] as string,
     type_name: (row[index.type_name] as string | null) ?? undefined,
     category_code: (row[index.category_code] as string | null) ?? undefined,
+    variant_name:
+      index.variant_name === undefined
+        ? undefined
+        : ((row[index.variant_name] as string | null) ?? undefined),
   }));
   return { trigs, truncated: body.truncated };
 }

@@ -38,6 +38,7 @@ class Trig(Base):
     __table_args__ = (
         # Explicit index name to avoid collision with ix_trig_type_id (from trig_type.id)
         Index("ix_trig_typeid", "type_id"),
+        Index("ix_trig_variant_id", "variant_id"),
     )
 
     # Primary key
@@ -65,6 +66,12 @@ class Trig(Base):
         ForeignKey("trig_type.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # Optional variant qualifying the type (see TrigVariant); NULL = not recorded
+    variant_id = Column(
+        Integer,
+        ForeignKey("trig_variant.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     user_added = Column(SmallInteger, nullable=False, default=0)
     current_use = Column(String(25), nullable=False)  # e.g., "Passive station"
     historic_use = Column(String(30), nullable=False)  # e.g., "Primary"
@@ -72,6 +79,7 @@ class Trig(Base):
 
     # Relationship to trig_type
     trig_type = relationship("TrigType", back_populates="trigs", lazy="joined")
+    variant = relationship("TrigVariant", lazy="joined")
 
     # PostGIS Geography column for WGS84 coordinates
     # This stores coordinates as a GEOGRAPHY(POINT, 4326) type
@@ -139,6 +147,21 @@ class Trig(Base):
         if self.trig_type and self.trig_type.category:
             return self.trig_type.category.name
         return None
+
+    @property
+    def variant_code(self) -> str | None:
+        """Variant code, if recorded."""
+        return self.variant.code if self.variant else None
+
+    @property
+    def variant_name(self) -> str | None:
+        """Variant display name (e.g. "Concrete ring"), if recorded."""
+        return self.variant.name if self.variant else None
+
+    @property
+    def variant_group_name(self) -> str | None:
+        """Name of the variant's group (e.g. "Detector material"), if recorded."""
+        return self.variant.group_name if self.variant else None
 
     @property
     def physical_type(self) -> str | None:

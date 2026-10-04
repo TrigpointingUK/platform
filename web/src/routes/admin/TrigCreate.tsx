@@ -5,6 +5,9 @@ import Card from "../../components/ui/Card";
 import Spinner from "../../components/ui/Spinner";
 import Button from "../../components/ui/Button";
 import LinkedCoordinates from "../../components/admin/LinkedCoordinates";
+import TrigUseSelect from "../../components/admin/TrigUseSelect";
+import VariantSelect from "../../components/admin/VariantSelect";
+import { typeVariantGroup } from "../../lib/trigVariants";
 import RichTextEditor from "../../components/ui/RichTextEditor";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
@@ -38,22 +41,6 @@ const FALLBACK_CONDITION_OPTIONS = [
   { value: "P", label: "Inaccessible" },
   { value: "N", label: "Couldn't find it" },
   { value: "Z", label: "Not Logged" },
-];
-
-const CURRENT_USE_OPTIONS = [
-  "none",
-  "Passive station",
-  "Active station",
-];
-
-const HISTORIC_USE_OPTIONS = [
-  "none",
-  "Primary",
-  "Secondary",
-  "3rd order",
-  "4th order",
-  "Fundamental",
-  "Intersection",
 ];
 
 export default function TrigCreate() {
@@ -92,6 +79,7 @@ export default function TrigCreate() {
   const [stnNumberOsgb36, setStnNumberOsgb36] = useState("");
   const [statusId, setStatusId] = useState(10); // Default to a common status
   const [typeId, setTypeId] = useState<number | null>(null);
+  const [variant, setVariant] = useState<string | null>(null);
   const [currentUse, setCurrentUse] = useState("none");
   const [historicUse, setHistoricUse] = useState("none");
   const [condition, setCondition] = useState("U");
@@ -194,6 +182,8 @@ export default function TrigCreate() {
           stn_number_osgb36: stnNumberOsgb36,
           status_id: statusId,
           type_id: typeId,
+          // A variant left over from a previous type is dropped
+          variant_code: typeVariantGroup(typeCategories, typeId) ? variant : null,
           current_use: currentUse,
           historic_use: historicUse,
           condition,
@@ -363,6 +353,13 @@ export default function TrigCreate() {
                 </select>
               </div>
 
+              <VariantSelect
+                categories={typeCategories}
+                typeId={typeId}
+                value={variant}
+                onChange={setVariant}
+              />
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Status
@@ -380,39 +377,9 @@ export default function TrigCreate() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Recent Use
-                </label>
-                <select
-                  value={currentUse}
-                  onChange={(e) => setCurrentUse(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
-                >
-                  {CURRENT_USE_OPTIONS.map((use) => (
-                    <option key={use} value={use}>
-                      {use}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <TrigUseSelect kind="current" value={currentUse} onChange={setCurrentUse} />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Historic Use
-                </label>
-                <select
-                  value={historicUse}
-                  onChange={(e) => setHistoricUse(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 shadow-sm focus:border-trig-green-500 focus:ring-2 focus:ring-trig-green-400"
-                >
-                  {HISTORIC_USE_OPTIONS.map((use) => (
-                    <option key={use} value={use}>
-                      {use}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <TrigUseSelect kind="historic" value={historicUse} onChange={setHistoricUse} />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

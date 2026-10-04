@@ -38,6 +38,8 @@ export interface TrigData {
   category_code?: string;
   /** Category display name (e.g., Pillar) */
   category_name?: string;
+  /** Variant display name (e.g., Concrete ring) */
+  variant_name?: string | null;
 }
 
 /**

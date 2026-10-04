@@ -15,6 +15,7 @@ import {
   type MapLinkOption,
 } from "../hooks/useUserProfile";
 import { MAP_LINK_OPTIONS, MAP_LINK_DEFAULTS } from "../lib/mapLinks";
+import { DEFAULT_CATEGORY_CODES } from "../lib/trigsPageParams";
 
 // Trigpoint type categories - matches trig_category table
 const TYPE_CATEGORIES = [
@@ -56,8 +57,6 @@ const TYPE_CATEGORIES = [
   },
 ];
 
-// Default categories for new users (Pillar and FBM only)
-const DEFAULT_CATEGORIES = ["PILLAR", "FBM"];
 
 export default function Preferences() {
   const queryClient = useQueryClient();
@@ -151,7 +150,7 @@ export default function Preferences() {
   };
 
   // Get current categories from server state
-  const currentCategories = user?.prefs?.ui_prefs?.default_categories ?? DEFAULT_CATEGORIES;
+  const currentCategories = user?.prefs?.ui_prefs?.default_categories ?? DEFAULT_CATEGORY_CODES;
 
   const handleCategoryToggle = useCallback(async (categoryCode: string) => {
     const newCategories = currentCategories.includes(categoryCode)

@@ -1,7 +1,7 @@
 /**
  * HistoricUseChip - Filter chip for historic use of trigpoints
  * 
- * Values from trig.historic_use column (e.g., "Primary", "Secondary", "3rd order", "Other")
+ * Values maintained at /admin/historic-use (e.g., "Primary", "Secondary", "3rd order")
  */
 
 import { History, Loader2 } from "lucide-react";
