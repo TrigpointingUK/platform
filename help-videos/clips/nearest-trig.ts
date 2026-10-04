@@ -1,10 +1,8 @@
-import { LEEDS, type Clip } from "../../lib/clip.ts";
-import { chip, collapseFilters, expandFilters, option, resultCards, TRIGS_V2 } from "../../lib/trigsV2.ts";
+import { LEEDS, type Clip } from "../lib/clip.ts";
+import { chip, collapseFilters, expandFilters, option, resultCards, TRIGS_V2 } from "../lib/trigsV2.ts";
 
 export const clip: Clip = {
   id: "nearest-trig",
-  section: "Finding your first trigpoint",
-  question: "How do I find the nearest trigpoint?",
   path: TRIGS_V2,
   geolocation: LEEDS,
   async run(d) {

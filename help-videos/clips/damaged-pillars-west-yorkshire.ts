@@ -1,10 +1,8 @@
-import { LEEDS, type Clip } from "../../lib/clip.ts";
-import { chip, collapseFilters, option, popover, resultCount, TRIGS_V2 } from "../../lib/trigsV2.ts";
+import { LEEDS, type Clip } from "../lib/clip.ts";
+import { chip, collapseFilters, option, popover, resultCount, TRIGS_V2 } from "../lib/trigsV2.ts";
 
 export const clip: Clip = {
   id: "damaged-pillars-west-yorkshire",
-  section: "Data mining UK trigpoints",
-  question: "How many damaged pillars are there in West Yorkshire?",
   path: TRIGS_V2,
   geolocation: LEEDS,
   async run(d) {

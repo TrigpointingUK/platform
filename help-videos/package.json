@@ -8,7 +8,8 @@
   },
   "scripts": {
     "render": "tsx render.ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "status": "tsx status.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

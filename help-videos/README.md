@@ -14,7 +14,20 @@ make help-videos-install                  # once: npm ci + Chromium
 make help-videos                          # every clip, both profiles → out/<profile>/
 make help-videos ONLY=nearest-trig        # one clip (space-separate for several)
 make help-videos PROFILE=mobile           # one profile
+make help-videos-status                   # catalogue by section: scripted vs ideas
 ```
+
+## The catalogue
+
+Every help question lives in [web/src/help/catalogue.ts](../web/src/help/catalogue.ts),
+in display order: id, section, question, the answer shown with the video, a
+"try it" link and private notes. It is the single source for the FAQ page,
+tip-of-the-day and the videos (the title card comes from it), and lives in
+`web/` because the web build only sees that directory.
+
+An entry is an idea until `clips/<id>.ts` exists. To add one, append an entry
+with just an id, section and question. Renders print the URL each clip ends
+on, which is usually the right `tryIt` link.
 
 Frames come from the Chrome DevTools screencast (see
 [lib/screencast.ts](lib/screencast.ts)), not Playwright's `recordVideo`, which
@@ -26,9 +39,9 @@ Set `HELP_VIDEO_BASE_URL` to record against staging or a local dev server
 
 ## Writing a clip
 
-Add `clips/<section>/<id>.ts` exporting a `Clip` (see [lib/clip.ts](lib/clip.ts)).
-The recorder loads the page, shows the section and question as a title card,
-then calls `run(director)`. Use the `Director` ([lib/director.ts](lib/director.ts))
+Add `clips/<id>.ts` exporting a `Clip` (see [lib/clip.ts](lib/clip.ts)) whose
+id matches a catalogue entry. The recorder loads the page, shows the section
+and question as a title card, then calls `run(director)`. Use the `Director` ([lib/director.ts](lib/director.ts))
 for everything on camera: `click`, `hover`, `type`, `caption`, `highlight`,
 `settle` (waits for API calls and map tiles). The same calls tap and swipe on
 mobile; branch on `d.mobile` only where the page genuinely differs - e.g.

@@ -10,6 +10,6 @@
     "types": ["node"],
     "lib": ["ES2023", "DOM"]
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "../web/src/help/catalogue.ts"],
   "exclude": ["node_modules", "out"]
 }
