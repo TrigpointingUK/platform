@@ -1,5 +1,5 @@
 fastapi==0.141.1
-starlette>=1.6.0  # CVE-2025-62727 fix (DoS via Range header in FileResponse)
+starlette>=1.7.0  # CVE-2025-62727 fix (DoS via Range header in FileResponse)
 uvicorn[standard]==0.53.0
 sqlalchemy==2.0.54
 psycopg2-binary==2.9.13
@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.34.2
-boto3==1.43.99
+boto3==1.43.104
 types-requests==2.33.0.20260906
 
 # Redis/ElastiCache for token caching
@@ -41,7 +41,7 @@ pyproj==3.8.0
 
 # Profiling
 pyinstrument==5.1.3
-pyroscope-io==1.2.3
+pyroscope-io==1.2.4
 
 # OpenTelemetry - Distributed tracing and metrics
 # NOTE: instrumentation must be >=0.64b0 (api/sdk >=1.43.0). Earlier 0.63b1
@@ -49,17 +49,17 @@ pyroscope-io==1.2.3
 # `_IncludedRouter` objects FastAPI now puts in `app.routes` (AttributeError ->
 # unhandled 500 on every CORS-preflight/method-mismatch request). 0.64b0
 # flattens routers first. See api/tests/test_otel_instrumentation.py.
-opentelemetry-api==1.44.0
-opentelemetry-sdk==1.44.0
-opentelemetry-instrumentation-fastapi==0.65b0
-opentelemetry-instrumentation-sqlalchemy==0.65b0
-opentelemetry-exporter-otlp-proto-http==1.44.0
+opentelemetry-api==1.45.0
+opentelemetry-sdk==1.45.0
+opentelemetry-instrumentation-fastapi==0.66b0
+opentelemetry-instrumentation-sqlalchemy==0.66b0
+opentelemetry-exporter-otlp-proto-http==1.45.0
 
 # AI / RAG Chat Agent
-openai>=3.17.0
+openai>=3.20.0
 
 # Development dependencies
 black==26.5.1
-isort==8.0.1
+isort==9.0.2
 flake8==7.3.0
 mypy==2.3.1
