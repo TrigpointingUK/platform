@@ -1,7 +1,7 @@
-fastapi==0.141.1
+fastapi==0.142.2
 starlette>=1.7.0  # CVE-2025-62727 fix (DoS via Range header in FileResponse)
 uvicorn[standard]==0.54.0
-sqlalchemy==2.0.54
+sqlalchemy==2.1.1
 psycopg2-binary==2.9.13
 geoalchemy2==0.20.0
 cryptography==50.0.1
