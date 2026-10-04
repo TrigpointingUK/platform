@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_CATEGORY_CODES,
+  defaultTypeCodes,
   readAreaIds,
   readListFilter,
   readSelection,
   writeListFilter,
   writeSelection,
+  writeTypeSelection,
 } from "../trigsPageParams";
 
 const ALL = ["G", "S", "D"];
@@ -100,5 +103,59 @@ describe("list filter", () => {
   it("ignores junk IDs, and listsMode without lists", () => {
     expect(readListFilter(new URLSearchParams("lists=abc,5,-2"))).toEqual({ mode: "in", listIds: [5] });
     expect(readListFilter(new URLSearchParams("listsMode=not"))).toEqual({ mode: "all", listIds: [] });
+  });
+});
+
+describe("defaultTypeCodes", () => {
+  const category = (code: string, typeCodes: string[]) => ({
+    code,
+    types: typeCodes.map((t) => ({ code: t })),
+  });
+  const CATEGORIES = [
+    category("PILLAR", ["PILLAR"]),
+    category("FBM", ["FBM"]),
+    category("SURVEY_MARK", ["BOLT", "BURIED_BLOCK"]),
+  ];
+
+  it("selects the types in the preferred categories", () => {
+    expect(defaultTypeCodes(CATEGORIES, ["SURVEY_MARK", "FBM"])).toEqual([
+      "FBM",
+      "BOLT",
+      "BURIED_BLOCK",
+    ]);
+  });
+
+  it("falls back to the default categories without a preference", () => {
+    expect(DEFAULT_CATEGORY_CODES).toEqual(["PILLAR", "FBM"]);
+    expect(defaultTypeCodes(CATEGORIES, undefined)).toEqual(["PILLAR", "FBM"]);
+    expect(defaultTypeCodes(CATEGORIES, [])).toEqual(["PILLAR", "FBM"]);
+  });
+
+  it("falls back to every type if the preference matches no category", () => {
+    expect(defaultTypeCodes(CATEGORIES, ["GONE"])).toEqual([
+      "PILLAR",
+      "FBM",
+      "BOLT",
+      "BURIED_BLOCK",
+    ]);
+  });
+});
+
+describe("writeTypeSelection", () => {
+  const write = (selected: string[], defaults: string[]) => {
+    const params = new URLSearchParams();
+    writeTypeSelection(params, selected, ALL, defaults);
+    return params.get("types");
+  };
+
+  it("writes a partial selection, even when it is the default", () => {
+    expect(write(["G"], ["G"])).toBe("G");
+    expect(write([], ["G"])).toBe("");
+  });
+
+  it("writes everything as 'all' unless that is the default", () => {
+    expect(write(ALL, ["G"])).toBe("all");
+    expect(readSelection(new URLSearchParams("types=all"), "types", ALL)).toEqual(ALL);
+    expect(write(ALL, ALL)).toBeNull();
   });
 });

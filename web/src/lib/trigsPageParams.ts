@@ -41,6 +41,53 @@ export function writeSelection<T extends string | number>(
   params.set(key, selected.join(","));
 }
 
+/**
+ * The categories shown by default to guests and users who haven't set the
+ * "Default Trigpoint Types" preference (ui_prefs.default_categories).
+ */
+export const DEFAULT_CATEGORY_CODES = ["PILLAR", "FBM"];
+
+/**
+ * The types the trigs page selects when the URL doesn't say: those in the
+ * user's preferred categories, else in DEFAULT_CATEGORY_CODES. Falls back to
+ * every type if the preference matches no category.
+ */
+export function defaultTypeCodes(
+  categories: readonly { code: string; types: readonly { code: string }[] }[],
+  preferredCategoryCodes: readonly string[] | undefined,
+): string[] {
+  const wanted = new Set(
+    preferredCategoryCodes && preferredCategoryCodes.length > 0
+      ? preferredCategoryCodes
+      : DEFAULT_CATEGORY_CODES
+  );
+  const codes = categories
+    .filter((c) => wanted.has(c.code))
+    .flatMap((c) => c.types.map((t) => t.code));
+  return codes.length > 0 ? codes : categories.flatMap((c) => c.types.map((t) => t.code));
+}
+
+/**
+ * Write the type selection. Unlike the other filters an absent parameter
+ * means the user's default types rather than all of them, so a full
+ * selection is written as `types=all` unless that is the default anyway.
+ * (readSelection reads "all", matching no type code, as everything.)
+ */
+export function writeTypeSelection(
+  params: URLSearchParams,
+  selected: readonly string[],
+  all: readonly string[],
+  defaults: readonly string[],
+): void {
+  const isAll = (codes: readonly string[]) =>
+    all.length > 0 && all.every((code) => codes.includes(code));
+  if (!isAll(selected)) {
+    params.set("types", selected.join(","));
+  } else if (!isAll(defaults)) {
+    params.set("types", "all");
+  }
+}
+
 /** Area IDs from the URL (`areas=12,34`); an empty list means no area filter. */
 export function readAreaIds(params: URLSearchParams): number[] {
   return (params.get("areas") ?? "")

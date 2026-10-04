@@ -28,11 +28,13 @@ import {
   variantFilter,
 } from "../../lib/trigVariants";
 import {
+  defaultTypeCodes,
   readAreaIds,
   readListFilter,
   readSelection,
   writeListFilter,
   writeSelection,
+  writeTypeSelection,
 } from "../../lib/trigsPageParams";
 import { useUserLoggedTrigs } from "../../hooks/useUserLoggedTrigs";
 import { useUserProfile } from "../../hooks/useUserProfile";
@@ -95,12 +97,14 @@ const FILTER_TOGGLE_CLASSES =
 
 export default function TrigsV2() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth0();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth0();
   
   const showListActions = isAuthenticated;
   
   // Fetch user profile to get preferences
-  const { data: userProfile } = useUserProfile("me");
+  const { data: userProfile, isPending: isProfilePending } = useUserProfile("me");
+  // Until this settles we can't tell which types to select by default
+  const prefsLoading = isAuthLoading || (isAuthenticated && isProfilePending);
 
   // Trigs on the user's default list get a tinted card (only when logged in)
   const { data: defaultList } = useDefaultListTrigIds();
@@ -139,6 +143,16 @@ export default function TrigsV2() {
     if (!categories) return [];
     return categories.flatMap((c) => c.types.map((t) => t.code));
   }, [categories]);
+
+  // The types selected when the URL doesn't say, from the user's "Default
+  // Trigpoint Types" preference
+  const preferredCategories = isAuthenticated
+    ? userProfile?.prefs?.ui_prefs?.default_categories
+    : undefined;
+  const defaultTypes = useMemo(
+    () => defaultTypeCodes(categories ?? [], preferredCategories),
+    [categories, preferredCategories]
+  );
 
   // Type code -> the variant group its trigs may choose from, for types that have one
   const typeVariantGroups = useMemo(() => {
@@ -350,6 +364,10 @@ export default function TrigsV2() {
     if (!categories || !conditions || !historicUseValues || !currentUseValues || !initialAreas) return;
     if (!variantGroups && !variantGroupsError) return;
 
+    // Without a type selection in the URL, the user's default types apply
+    const urlHasTypes = initialParams.has("types") || initialParams.has("categories");
+    if (!urlHasTypes && prefsLoading) return;
+
     // Older links can also carry a category filter (`categories=10,30`), which
     // the type selection now covers on its own - keep just its types
     const linkedCategoryCodes = new Set(
@@ -365,9 +383,11 @@ export default function TrigsV2() {
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Initialising state from URL params on first data load
     setSelectedTypes(
-      readSelection(initialParams, "types", allTypeCodes).filter((code) =>
-        linkedCategoryTypes.has(code)
-      )
+      urlHasTypes
+        ? readSelection(initialParams, "types", allTypeCodes).filter((code) =>
+            linkedCategoryTypes.has(code)
+          )
+        : defaultTypes
     );
     setSelectedConditions(readSelection(initialParams, "conditions", allConditionCodes));
     setSelectedHistoricUse(readSelection(initialParams, "historicUse", allHistoricUseValues));
@@ -388,7 +408,7 @@ export default function TrigsV2() {
     );
 
     setFiltersReady(true);
-  }, [filtersReady, categories, conditions, historicUseValues, currentUseValues, variantGroups, variantGroupsError, initialAreas, initialParams, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues, allVariantValues]);
+  }, [filtersReady, categories, conditions, historicUseValues, currentUseValues, variantGroups, variantGroupsError, initialAreas, initialParams, prefsLoading, defaultTypes, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues, allVariantValues]);
 
   // ==========================================================================
   // Sort State
@@ -591,7 +611,7 @@ export default function TrigsV2() {
     }
     
     // Multi-select filters (only if not all selected)
-    writeSelection(params, "types", selectedTypes, allTypeCodes);
+    writeTypeSelection(params, selectedTypes, allTypeCodes, defaultTypes);
     writeSelection(params, "conditions", selectedConditions, allConditionCodes);
     writeSelection(params, "historicUse", selectedHistoricUse, allHistoricUseValues);
     writeSelection(params, "currentUse", selectedCurrentUse, allCurrentUseValues);
@@ -613,7 +633,7 @@ export default function TrigsV2() {
   }, [
     filtersReady, locationChosen, centerLat, centerLon, locationName, maxKm, sortKey, sortDirection,
     selectedTypes, selectedConditions, selectedHistoricUse,
-    selectedCurrentUse, variantsFilter, selectedAreaIds, allTypeCodes,
+    selectedCurrentUse, variantsFilter, selectedAreaIds, allTypeCodes, defaultTypes,
     allConditionCodes, allHistoricUseValues, allCurrentUseValues, logUser, view,
     deselectedLoggedConditions, showNotLogged, listFilter, setSearchParams
   ]);
