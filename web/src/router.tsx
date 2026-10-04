@@ -36,6 +36,7 @@ const AdminTrigCreate = lazy(() => import("./routes/admin/TrigCreate"));
 const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
 const AdminStatusAdmin = lazy(() => import("./routes/admin/StatusAdmin"));
 const AdminConditionAdmin = lazy(() => import("./routes/admin/ConditionAdmin"));
+const AdminTrigUseAdmin = lazy(() => import("./routes/admin/TrigUseAdmin"));
 const AdminOSNetComparison = lazy(() => import("./routes/admin/OSNetComparison"));
 const AdminIrelandImport = lazy(() => import("./routes/admin/IrelandImport"));
 const SurveyTimeline = lazy(() => import("./routes/SurveyTimeline"));
@@ -158,6 +159,8 @@ const router = createBrowserRouter(
         { path: "/admin/types", element: <AdminTypesAdmin /> },
         { path: "/admin/status", element: <AdminStatusAdmin /> },
         { path: "/admin/condition", element: <AdminConditionAdmin /> },
+        { path: "/admin/historic-use", element: <AdminTrigUseAdmin kind="historic" /> },
+        { path: "/admin/recent-use", element: <AdminTrigUseAdmin kind="current" /> },
         { path: "/admin/osnet", element: <AdminOSNetComparison /> },
         { path: "/admin/ireland-import", element: <AdminIrelandImport /> },
         { path: "*", element: <NotFound /> },

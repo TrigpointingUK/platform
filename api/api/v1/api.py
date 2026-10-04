@@ -28,6 +28,7 @@ from api.api.v1.endpoints import (
     stats,
     status_admin,
     tiles,
+    trig_use_admin,
     trigs,
     types,
     types_admin,
@@ -64,6 +65,9 @@ api_router.include_router(
 )
 api_router.include_router(
     condition_admin.router, prefix="/admin/condition", tags=["admin-condition"]
+)
+api_router.include_router(
+    trig_use_admin.router, prefix="/admin/trig-use", tags=["admin-trig-use"]
 )
 api_router.include_router(
     osnet_admin.router, prefix="/admin/osnet", tags=["admin-osnet"]

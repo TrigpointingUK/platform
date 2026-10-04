@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import type { UserLogStatus } from "../../lib/mapIcons";
 import { useConditionInfo } from "../../hooks/useConditionInfo";
+import { formatTypeName } from "../../lib/trigTypeName";
 
 interface Trig {
   id: number;
@@ -16,6 +17,7 @@ interface Trig {
   type_name?: string;
   category_code?: string;
   category_name?: string;
+  variant_name?: string | null;
   distance_km?: number;
   osgb_height?: number;
   score?: number;
@@ -289,7 +291,7 @@ export function TrigCard({
                 {trig.type_code !== trig.category_code && (
                   <span className="hidden sm:inline">{trig.category_name} · </span>
                 )}
-                {trig.type_name}
+                {formatTypeName(trig.type_name, trig.variant_name)}
               </span>
             </>
           )}

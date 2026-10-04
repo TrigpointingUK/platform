@@ -120,6 +120,19 @@ models:
       - name: condition_name
         description: Human-readable condition name
 
+  - name: stg_trig_variants
+    description: Variants qualifying a trig's type, grouped (e.g. Detector material)
+    columns:
+      - name: variant_id
+        description: Primary key
+        tests:
+          - unique
+          - not_null
+      - name: variant_group_name
+        description: Variant group display name (e.g. Detector material)
+      - name: variant_name
+        description: Variant display name (e.g. Concrete ring)
+
   - name: stg_trig_types
     description: Trig physical types joined with their parent categories
     columns:

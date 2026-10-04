@@ -10,6 +10,7 @@ import Input from "../../components/ui/Input";
 import Label from "../../components/ui/Label";
 import Textarea from "../../components/ui/Textarea";
 import AlertDialog from "../../components/ui/AlertDialog";
+import { useVariantGroups } from "../../hooks/useReferenceData";
 import {
   Dialog,
   DialogContent,
@@ -340,6 +341,7 @@ function SortableCategoryCard({
 
 export default function TypesAdmin() {
   const { getAccessTokenSilently } = useAuth0();
+  const { data: variantGroups } = useVariantGroups();
 
   // Data state
   const [categories, setCategories] = useState<TrigCategoryWithTypes[]>([]);
@@ -534,6 +536,7 @@ export default function TypesAdmin() {
       name: "",
       description: "",
       wiki_url: "",
+      variant_group: null,
     });
     setTypeDialogOpen(true);
   };
@@ -546,6 +549,7 @@ export default function TypesAdmin() {
       name: type.name,
       description: type.description || "",
       wiki_url: type.wiki_url || "",
+      variant_group: type.variant_group ?? null,
     });
     setTypeDialogOpen(true);
   };
@@ -567,6 +571,9 @@ export default function TypesAdmin() {
           updates.description = typeForm.description || null;
         if (typeForm.wiki_url !== (editingType.wiki_url || ""))
           updates.wiki_url = typeForm.wiki_url || null;
+        if ((typeForm.variant_group ?? null) !== (editingType.variant_group ?? null))
+          // Empty string clears the group
+          updates.variant_group = typeForm.variant_group || "";
 
         await updateType(editingType.id, updates, token);
         toast.success("Type updated");
@@ -986,6 +993,29 @@ export default function TypesAdmin() {
                 placeholder="https://wiki.trigpointing.uk/..."
                 maxLength={255}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="type-variant-group">Variants</Label>
+              <select
+                id="type-variant-group"
+                value={typeForm.variant_group ?? ""}
+                onChange={(e) =>
+                  setTypeForm((f) => ({ ...f, variant_group: e.target.value || null }))
+                }
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700"
+              >
+                <option value="">None</option>
+                {variantGroups?.map((group) => (
+                  <option key={group.code} value={group.code}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Trigs of this type can record one of these, e.g. a Buried Block&apos;s
+                detector material.
+              </p>
             </div>
           </div>
 

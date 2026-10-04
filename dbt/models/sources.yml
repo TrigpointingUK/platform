@@ -67,6 +67,12 @@ sources:
           - name: id
             description: Primary key
 
+      - name: trig_variant
+        description: Variants qualifying a trig's type, grouped by group_code (e.g. Detector material - Concrete ring, Bronze ring)
+        columns:
+          - name: id
+            description: Primary key
+
       - name: area
         description: Administrative/geographic regions with PostGIS boundaries
         columns:

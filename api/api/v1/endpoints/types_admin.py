@@ -3,6 +3,7 @@ Admin endpoints for managing trig_type and trig_category records.
 """
 
 import json
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -297,6 +298,15 @@ def reorder_categories(
 # ============================================================================
 
 
+def _check_variant_group(db: Session, group_code: Optional[str]) -> None:
+    """400 unless group_code is empty (none/clear) or a known variant group."""
+    if group_code and not trig_type_crud.variant_group_exists(db, group_code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown variant group '{group_code}'",
+        )
+
+
 @router.post(
     "/types",
     response_model=TrigTypeWithCategory,
@@ -342,6 +352,8 @@ def create_type(
             detail=f"Type with code '{type_data.code}' already exists",
         )
 
+    _check_variant_group(db, type_data.variant_group)
+
     # Auto-assign sort_order if not provided
     sort_order = type_data.sort_order
     if sort_order is None:
@@ -357,6 +369,7 @@ def create_type(
             description=type_data.description,
             wiki_url=type_data.wiki_url,
             legacy_physical_type=type_data.legacy_physical_type,
+            variant_group=type_data.variant_group,
         )
     except IntegrityError as e:
         db.rollback()
@@ -427,6 +440,8 @@ def update_type(
                 detail=f"Type with code '{update_data.code}' already exists",
             )
 
+    _check_variant_group(db, update_data.variant_group)
+
     try:
         trig_type = trig_type_crud.update_type(
             db,
@@ -438,6 +453,7 @@ def update_type(
             wiki_url=update_data.wiki_url,
             sort_order=update_data.sort_order,
             legacy_physical_type=update_data.legacy_physical_type,
+            variant_group=update_data.variant_group,
         )
     except IntegrityError as e:
         db.rollback()

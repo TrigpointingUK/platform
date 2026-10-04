@@ -22,6 +22,7 @@ export interface TrigFilterOptions {
   historicUse?: string[]; // Historic use values to filter by
   currentUse?: string[]; // Current use values to filter by
   conditions?: string[]; // Trig condition codes to filter by (e.g., ['G', 'R'])
+  variants?: string[]; // Variant codes (e.g. ['CONCRETE_RING', 'NOT_RECORDED']) to filter by
   showLogged?: boolean; // Show trigpoints logged by the log user (default: true)
   showNotLogged?: boolean; // Show trigpoints not logged by the log user (default: true)
   loggedConditions?: string[]; // Show trigs logged with these conditions (e.g., ['G', 'R'])
@@ -38,8 +39,8 @@ export interface TrigFilterOptions {
  * (An empty areaIds means "no area filter", not "no areas".)
  */
 export function selectsNothing(options: TrigFilterOptions): boolean {
-  const { types, historicUse, currentUse, conditions } = options;
-  return [types, historicUse, currentUse, conditions].some(
+  const { types, historicUse, currentUse, conditions, variants } = options;
+  return [types, historicUse, currentUse, conditions, variants].some(
     (values) => values !== undefined && values.length === 0,
   );
 }
@@ -54,6 +55,7 @@ export function buildTrigFilterParams(options: TrigFilterOptions): URLSearchPara
     historicUse,
     currentUse,
     conditions,
+    variants,
     showLogged = true,
     showNotLogged = true,
     loggedConditions,
@@ -94,6 +96,9 @@ export function buildTrigFilterParams(options: TrigFilterOptions): URLSearchPara
   }
   if (conditions && conditions.length > 0) {
     params.append("conditions", conditions.join(","));
+  }
+  if (variants && variants.length > 0) {
+    params.append("variants", variants.join(","));
   }
 
   if (loggedBy !== undefined) {

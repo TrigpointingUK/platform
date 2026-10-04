@@ -382,6 +382,12 @@ export interface Trig {
   category_code?: string;
   /** Category display name (e.g., Pillar, FBM, Survey mark) */
   category_name?: string;
+  /** Variant code qualifying the type, e.g. CONCRETE_RING */
+  variant_code?: string | null;
+  /** Variant display name, e.g. "Concrete ring" */
+  variant_name?: string | null;
+  /** Variant group display name, e.g. "Detector material" */
+  variant_group_name?: string | null;
   details?: TrigDetails;
   stats?: TrigStats;
   attrs?: TrigAttrsData[];
@@ -729,6 +735,8 @@ export interface TrigAdminDetail {
   stn_number_osgb36: string;
   status_id: number;
   type_id: number | null;
+  /** Variant code; null = not recorded */
+  variant_code: string | null;
   current_use: string;
   historic_use: string;
   condition: string;
@@ -785,6 +793,8 @@ export interface TrigAdminUpdate {
   stn_number_osgb36: string;
   status_id: number;
   type_id: number | null;
+  /** Variant code; null = not recorded */
+  variant_code: string | null;
   current_use: string;
   historic_use: string;
   condition: string;
@@ -815,6 +825,8 @@ export interface TrigAdminCreate {
   stn_number_osgb36: string;
   status_id: number;
   type_id: number | null;
+  /** Variant code; null = not recorded */
+  variant_code: string | null;
   current_use: string;
   historic_use: string;
   condition: string;
@@ -1222,6 +1234,8 @@ export interface TrigType {
   description: string | null;
   wiki_url: string | null;
   sort_order: number;
+  /** Variant group trigs of this type may choose from, e.g. DETECTOR */
+  variant_group?: string | null;
 }
 
 /**
@@ -1283,6 +1297,7 @@ export interface TrigTypeCreateInput {
   wiki_url?: string | null;
   sort_order?: number | null;
   legacy_physical_type?: string | null;
+  variant_group?: string | null;
 }
 
 /**
@@ -1296,6 +1311,7 @@ export interface TrigTypeUpdateInput {
   wiki_url?: string | null;
   sort_order?: number;
   legacy_physical_type?: string | null;
+  variant_group?: string | null;
 }
 
 /**
@@ -1668,6 +1684,109 @@ export async function fetchConditionUsage(
   token: string
 ): Promise<ConditionUsage> {
   return apiGet<ConditionUsage>(`/v1/admin/condition/conditions/${code}/usage`, token);
+}
+
+// ============================================================================
+// Historic Use / Recent Use Admin Types and Functions
+// ============================================================================
+
+/**
+ * Which lookup: "historic" (trig.historic_use) or "current" (trig.current_use,
+ * shown as "Recent use")
+ */
+export type TrigUseKind = "historic" | "current";
+
+/**
+ * Historic or recent use value. The name is what's stored on trigs.
+ */
+export interface TrigUse {
+  id: number;
+  name: string;
+  description: string | null;
+  sort_order: number;
+}
+
+export interface TrigUseCreateInput {
+  name: string;
+  description?: string;
+  sort_order: number;
+}
+
+export interface TrigUseUpdateInput {
+  name?: string;
+  description?: string;
+  sort_order?: number;
+}
+
+export interface TrigUseUsage {
+  id: number;
+  usage_count: number;
+}
+
+/**
+ * Get all values of a kind (admin)
+ */
+export async function fetchAllTrigUses(
+  kind: TrigUseKind,
+  token: string
+): Promise<TrigUse[]> {
+  return apiGet<TrigUse[]>(`/v1/admin/trig-use/${kind}`, token);
+}
+
+/**
+ * Create a value (admin)
+ */
+export async function createTrigUse(
+  kind: TrigUseKind,
+  data: TrigUseCreateInput,
+  token: string
+): Promise<TrigUse> {
+  return apiPost<TrigUse>(`/v1/admin/trig-use/${kind}`, data, token);
+}
+
+/**
+ * Update a value (admin). A new name is applied to every trig using the old one.
+ */
+export async function updateTrigUse(
+  kind: TrigUseKind,
+  id: number,
+  data: TrigUseUpdateInput,
+  token: string
+): Promise<TrigUse> {
+  return apiPatch<TrigUse>(`/v1/admin/trig-use/${kind}/${id}`, data, token);
+}
+
+/**
+ * Delete a value (admin). Will fail if any trigpoints are using it.
+ */
+export async function deleteTrigUse(
+  kind: TrigUseKind,
+  id: number,
+  token: string
+): Promise<void> {
+  const apiBase = import.meta.env.VITE_API_BASE as string;
+  const response = await fetch(`${apiBase}/v1/admin/trig-use/${kind}/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+}
+
+/**
+ * Get the number of trigpoints using a value (admin)
+ */
+export async function fetchTrigUseUsage(
+  kind: TrigUseKind,
+  id: number,
+  token: string
+): Promise<TrigUseUsage> {
+  return apiGet<TrigUseUsage>(`/v1/admin/trig-use/${kind}/${id}/usage`, token);
 }
 
 // ============================================================================

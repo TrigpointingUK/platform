@@ -802,6 +802,7 @@ TRIG_POINT_FIELDS = [
     "osgb_gridref",
     "type_name",
     "category_code",
+    "variant_name",
 ]
 
 
@@ -844,6 +845,7 @@ def list_trig_points(
                 row.osgb_gridref,
                 row.type_name,
                 row.category_code,
+                row.variant_name,
             ]
             for row in rows
         ],

@@ -17,7 +17,12 @@ import { DownloadButton } from "../../components/trigs/DownloadButton";
 import { TrigsV2Map } from "../../components/experiment/TrigsV2Map";
 import { useInfiniteTrigs } from "../../hooks/useInfiniteTrigs";
 import { useTrigPoints } from "../../hooks/useTrigPoints";
-import { buildTrigFilterParams, type TrigFilterOptions } from "../../lib/trigFilterParams";
+import {
+  STATUS_ID_TO_CATEGORY_CODE,
+  buildTrigFilterParams,
+  type TrigFilterOptions,
+} from "../../lib/trigFilterParams";
+import { allVariantFilterValues, relevantVariantGroups } from "../../lib/trigVariants";
 import {
   readAreaIds,
   readListFilter,
@@ -37,6 +42,7 @@ import {
   useConditions,
   useHistoricUseValues,
   useCurrentUseValues,
+  useVariantGroups,
   useAreasByIds,
 } from "../../hooks/useReferenceData";
 
@@ -46,6 +52,7 @@ import {
   RadiusChip,
   HistoricUseChip,
   CurrentUseChip,
+  VariantChip,
   ConditionChip,
   LogsChip,
   ListsChip,
@@ -117,6 +124,8 @@ export default function TrigsV2() {
   const { data: conditions, error: conditionsError } = useConditions();
   const { data: historicUseValues, error: historicUseError } = useHistoricUseValues();
   const { data: currentUseValues, error: currentUseError } = useCurrentUseValues();
+  // Optional: the page works without it, so its error doesn't block the filters
+  const { data: variantGroups, error: variantGroupsError } = useVariantGroups();
   // The filters can't be set up without these, so nor can the trigs load
   const referenceError =
     categoriesError ?? conditionsError ?? historicUseError ?? currentUseError ?? null;
@@ -127,10 +136,24 @@ export default function TrigsV2() {
     return categories.flatMap((c) => c.types.map((t) => t.code));
   }, [categories]);
 
+  // Type code -> the variant group its trigs may choose from, for types that have one
+  const typeVariantGroups = useMemo(() => {
+    const groups = new Map<string, string>();
+    for (const type of categories?.flatMap((c) => c.types) ?? []) {
+      if (type.variant_group) groups.set(type.code, type.variant_group);
+    }
+    return groups;
+  }, [categories]);
+
   const allConditionCodes = useMemo(() => {
     if (!conditions) return [];
     return conditions.map((c) => c.code);
   }, [conditions]);
+
+  const allVariantValues = useMemo(
+    () => allVariantFilterValues(variantGroups ?? []),
+    [variantGroups]
+  );
 
   const allHistoricUseValues = useMemo(() => {
     if (!historicUseValues) return [];
@@ -161,11 +184,6 @@ export default function TrigsV2() {
   const [centerLon, setCenterLon] = useState<number | null>(urlLocation?.lon ?? null);
   const [locationName, setLocationName] = useState<string>(urlLocation?.name ?? "");
   const [locationChosen, setLocationChosen] = useState(urlLocation !== null);
-
-  // Categories (status IDs: 10=Pillar, 20=FBM, etc.)
-  const [selectedCategories, setSelectedCategories] = useState<number[]>(() =>
-    readSelection(searchParams, "categories", ALL_CATEGORY_IDS)
-  );
 
   // Distance/radius - unlimited by default; the location still sets the
   // origin for sorting by distance
@@ -259,6 +277,7 @@ export default function TrigsV2() {
 
   // Type filter - starts empty, populated when API data loads
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedVariants, setSelectedVariants] = useState<string[]>([]);
 
   // Logs filter, with individual conditions for logged trigs. Stored as the
   // conditions switched *off*, so "all conditions" holds before the list has
@@ -314,12 +333,31 @@ export default function TrigsV2() {
 
     // Wait until all reference data, and any areas from the URL, have loaded
     if (!categories || !conditions || !historicUseValues || !currentUseValues || !initialAreas) return;
+    if (!variantGroups && !variantGroupsError) return;
+
+    // Older links can also carry a category filter (`categories=10,30`), which
+    // the type selection now covers on its own - keep just its types
+    const linkedCategoryCodes = new Set(
+      readSelection(initialParams, "categories", ALL_CATEGORY_IDS).map(
+        (id) => STATUS_ID_TO_CATEGORY_CODE[id]
+      )
+    );
+    const linkedCategoryTypes = new Set(
+      categories
+        .filter((c) => linkedCategoryCodes.has(c.code))
+        .flatMap((c) => c.types.map((t) => t.code))
+    );
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Initialising state from URL params on first data load
-    setSelectedTypes(readSelection(initialParams, "types", allTypeCodes));
+    setSelectedTypes(
+      readSelection(initialParams, "types", allTypeCodes).filter((code) =>
+        linkedCategoryTypes.has(code)
+      )
+    );
     setSelectedConditions(readSelection(initialParams, "conditions", allConditionCodes));
     setSelectedHistoricUse(readSelection(initialParams, "historicUse", allHistoricUseValues));
     setSelectedCurrentUse(readSelection(initialParams, "currentUse", allCurrentUseValues));
+    setSelectedVariants(readSelection(initialParams, "variants", allVariantValues));
 
     // Areas of one type only, as the chip allows (see toggleAreaSelection)
     const areaTypeId = initialAreas[0]?.area_type?.id ?? initialAreas[0]?.area_type_id;
@@ -335,7 +373,7 @@ export default function TrigsV2() {
     );
 
     setFiltersReady(true);
-  }, [filtersReady, categories, conditions, historicUseValues, currentUseValues, initialAreas, initialParams, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
+  }, [filtersReady, categories, conditions, historicUseValues, currentUseValues, variantGroups, variantGroupsError, initialAreas, initialParams, allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues, allVariantValues]);
 
   // ==========================================================================
   // Sort State
@@ -407,16 +445,6 @@ export default function TrigsV2() {
     []
   );
 
-  const handleToggleCategory = useCallback((categoryId: number) => {
-    setSelectedCategories((prev) => {
-      if (prev.includes(categoryId)) {
-        return prev.filter((c) => c !== categoryId);
-      } else {
-        return [...prev, categoryId];
-      }
-    });
-  }, []);
-
   const handleToggleHistoricUse = useCallback((value: string) => {
     setSelectedHistoricUse((prev) => {
       if (prev.includes(value)) {
@@ -435,6 +463,12 @@ export default function TrigsV2() {
         return [...prev, value];
       }
     });
+  }, []);
+
+  const handleToggleVariant = useCallback((code: string) => {
+    setSelectedVariants((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
   }, []);
 
   const handleToggleCondition = useCallback((code: string) => {
@@ -479,7 +513,6 @@ export default function TrigsV2() {
   }, [isAuthenticated]);
 
   const handleClearAllFilters = useCallback(() => {
-    setSelectedCategories(ALL_CATEGORY_IDS);
     setMaxKm(null);
     setSelectedHistoricUse(allHistoricUseValues);
     setSelectedCurrentUse(allCurrentUseValues);
@@ -488,9 +521,10 @@ export default function TrigsV2() {
     setShowNotLogged(true);
     setLogUser(null);
     setSelectedTypes(allTypeCodes);
+    setSelectedVariants(allVariantValues);
     setSelectedAreas([]);
     setListFilter(NO_LIST_FILTER);
-  }, [allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues]);
+  }, [allTypeCodes, allConditionCodes, allHistoricUseValues, allCurrentUseValues, allVariantValues]);
 
   // ==========================================================================
   // URL Parameter Sync
@@ -542,11 +576,11 @@ export default function TrigsV2() {
     }
     
     // Multi-select filters (only if not all selected)
-    writeSelection(params, "categories", selectedCategories, ALL_CATEGORY_IDS);
     writeSelection(params, "types", selectedTypes, allTypeCodes);
     writeSelection(params, "conditions", selectedConditions, allConditionCodes);
     writeSelection(params, "historicUse", selectedHistoricUse, allHistoricUseValues);
     writeSelection(params, "currentUse", selectedCurrentUse, allCurrentUseValues);
+    writeSelection(params, "variants", selectedVariants, allVariantValues);
 
     // Areas
     if (selectedAreaIds.length > 0) {
@@ -560,9 +594,9 @@ export default function TrigsV2() {
     setSearchParams(params, { replace: true });
   }, [
     filtersReady, locationChosen, centerLat, centerLon, locationName, maxKm, sortKey, sortDirection,
-    selectedCategories, selectedTypes, selectedConditions, selectedHistoricUse,
-    selectedCurrentUse, selectedAreaIds, allTypeCodes, allConditionCodes,
-    allHistoricUseValues, allCurrentUseValues, logUser, view,
+    selectedTypes, selectedConditions, selectedHistoricUse,
+    selectedCurrentUse, selectedVariants, selectedAreaIds, allTypeCodes, allConditionCodes,
+    allHistoricUseValues, allCurrentUseValues, allVariantValues, logUser, view,
     deselectedLoggedConditions, showNotLogged, listFilter, setSearchParams
   ]);
 
@@ -601,16 +635,23 @@ export default function TrigsV2() {
     return selectedConditions;
   }, [selectedConditions, allConditionCodes.length]);
 
+  // Only send variants filter when not all values are selected
+  const variantsFilter = useMemo(() => {
+    if (selectedVariants.length === 0) return []; // Show nothing
+    if (allVariantValues.every((v) => selectedVariants.includes(v))) return undefined; // Show all (no filter)
+    return selectedVariants;
+  }, [selectedVariants, allVariantValues]);
+
   // The complete filter set, shared by the list, the map and downloads
   const filterOptions: TrigFilterOptions = {
     lat: centerLat ?? undefined,
     lon: centerLon ?? undefined,
     maxKm: maxKm ?? undefined,
-    statusIds: selectedCategories.length > 0 ? selectedCategories : undefined,
     types: typesFilter,
     historicUse: historicUseFilter,
     currentUse: currentUseFilter,
     conditions: conditionsFilter,
+    variants: variantsFilter,
     ...(hasLogUser && {
       loggedBy: logUser?.id,
       showLogged: !noLoggedConditions,
@@ -687,11 +728,24 @@ export default function TrigsV2() {
       : { hasLogged: false };
   };
 
+  // The variant filter only appears once the Type filter includes types with
+  // variants (e.g. Buried Block), or while a variant filter is applied
+  const shownVariantGroups = useMemo(
+    () =>
+      relevantVariantGroups(
+        variantGroups ?? [],
+        selectedTypes,
+        allTypeCodes,
+        typeVariantGroups,
+        selectedVariants,
+      ),
+    [variantGroups, selectedTypes, allTypeCodes, typeVariantGroups, selectedVariants]
+  );
+
   // Count active filters (filters that are not at their default "all" state)
   // Note: Location is not counted. Radius counts when it's not infinity (null).
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (selectedCategories.length !== ALL_CATEGORY_IDS.length) count++;
     if (maxKm !== null) count++; // Count when radius is limited (not infinity)
     if (selectedHistoricUse.length !== allHistoricUseValues.length) count++;
     if (selectedCurrentUse.length !== allCurrentUseValues.length) count++;
@@ -701,12 +755,14 @@ export default function TrigsV2() {
       (deselectedLoggedConditions.length > 0 || !showNotLogged || logUser !== null)
     ) count++;
     if (selectedTypes.length !== allTypeCodes.length) count++;
+    if (variantsFilter !== undefined) count++;
     if (selectedAreas.length > 0) count++; // Area is active when any specific areas selected
     if (listFilterIds.length > 0) count++;
     return count;
   }, [
-    selectedCategories, maxKm, selectedHistoricUse, selectedCurrentUse,
+    maxKm, selectedHistoricUse, selectedCurrentUse,
     selectedConditions, deselectedLoggedConditions, showNotLogged, hasLogUser, logUser, selectedTypes,
+    variantsFilter,
     selectedAreas, listFilterIds.length, allTypeCodes.length, allConditionCodes.length,
     allHistoricUseValues.length, allCurrentUseValues.length
   ]);
@@ -797,12 +853,20 @@ export default function TrigsV2() {
               <div className="flex flex-wrap gap-2">
                 <TypeChip
                   selectedTypes={selectedTypes}
-                  selectedCategories={selectedCategories}
                   onToggleType={handleToggleType}
-                  onToggleCategory={handleToggleCategory}
                   onSelectAll={() => setSelectedTypes([...allTypeCodes])}
                   onSelectNone={() => setSelectedTypes([])}
                 />
+
+                {shownVariantGroups.length > 0 && (
+                  <VariantChip
+                    groups={shownVariantGroups}
+                    selectedValues={selectedVariants}
+                    onToggle={handleToggleVariant}
+                    onSelectAll={() => setSelectedVariants([...allVariantValues])}
+                    onSelectNone={() => setSelectedVariants([])}
+                  />
+                )}
 
                 <HistoricUseChip
                   selectedValues={selectedHistoricUse}

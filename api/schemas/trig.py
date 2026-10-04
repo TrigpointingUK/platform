@@ -75,6 +75,15 @@ class TrigMinimal(BaseModel):
     type_wiki_url: Optional[str] = Field(None, description="Wiki URL for this type")
     category_code: Optional[str] = Field(None, description="Type category code")
     category_name: Optional[str] = Field(None, description="Type category display name")
+    variant_code: Optional[str] = Field(
+        None, description="Variant code qualifying the type (e.g., CONCRETE_RING)"
+    )
+    variant_name: Optional[str] = Field(
+        None, description="Variant display name (e.g., Concrete ring)"
+    )
+    variant_group_name: Optional[str] = Field(
+        None, description="Variant group name (e.g., Detector material)"
+    )
 
     # Coordinates and grid ref
     wgs_lat: Decimal = Field(..., description="WGS84 latitude")

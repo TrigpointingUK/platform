@@ -274,6 +274,7 @@ def create_type(
     description: Optional[str] = None,
     wiki_url: Optional[str] = None,
     legacy_physical_type: Optional[str] = None,
+    variant_group: Optional[str] = None,
 ) -> TrigType:
     """Create a new trig type."""
     trig_type = TrigType(
@@ -284,6 +285,7 @@ def create_type(
         wiki_url=wiki_url,
         sort_order=sort_order,
         legacy_physical_type=legacy_physical_type,
+        variant_group=variant_group or None,
     )
     db.add(trig_type)
     db.commit()
@@ -301,6 +303,7 @@ def update_type(
     wiki_url: Optional[str] = None,
     sort_order: Optional[int] = None,
     legacy_physical_type: Optional[str] = None,
+    variant_group: Optional[str] = None,
 ) -> Optional[TrigType]:
     """Update an existing trig type."""
     trig_type = get_type_by_id(db, type_id)
@@ -326,6 +329,8 @@ def update_type(
         trig_type.sort_order = sort_order  # type: ignore[assignment]
     if legacy_physical_type is not None:
         trig_type.legacy_physical_type = legacy_physical_type if legacy_physical_type else None  # type: ignore[assignment]
+    if variant_group is not None:
+        trig_type.variant_group = variant_group if variant_group else None  # type: ignore[assignment]
 
     db.commit()
     db.refresh(trig_type)
@@ -396,3 +401,13 @@ def get_type_usage_count(db: Session, type_id: int) -> int:
     from api.models.trig import Trig
 
     return db.query(Trig).filter(Trig.type_id == type_id).count()
+
+
+def variant_group_exists(db: Session, group_code: str) -> bool:
+    """True if trig_variant has any values in the given group."""
+    from api.models.trig_variant import TrigVariant
+
+    return (
+        db.query(TrigVariant.id).filter(TrigVariant.group_code == group_code).first()
+        is not None
+    )

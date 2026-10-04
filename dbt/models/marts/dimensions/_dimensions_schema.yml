@@ -63,6 +63,10 @@ models:
         description: Physical type (e.g. Pillar, Bolt, Rivet)
       - name: category_name
         description: Type category (e.g. Triangulation, Levelling)
+      - name: variant_group_name
+        description: Group of the trig's variant (e.g. Detector material); null if no variant recorded
+      - name: variant_name
+        description: Variant qualifying the type (e.g. Concrete ring); null if not recorded
       - name: condition_name
         description: Current condition (e.g. Good, Damaged, Destroyed)
       - name: county

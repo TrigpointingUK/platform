@@ -30,6 +30,8 @@ from api.models import (  # noqa: F401
     AttrSetAttrVal,
     AttrSource,
     AttrVal,
+    CurrentUse,
+    HistoricUse,
     Postcode,
     Server,
     Status,
@@ -294,6 +296,21 @@ def setup_test_tables(setup_worker_schema):
                         (3, 'https://example.invalid/3/', '/', 'Test Server 3'),
                         (999, 'https://example.invalid/999/', '/', 'Test Server 999')
                     ON CONFLICT (id) DO NOTHING
+                    """))
+
+            # Historic / recent use values, as seeded by migration 0fa25efd1fbf
+            connection.execute(text("""
+                    INSERT INTO trig_historic_use (name, sort_order)
+                    VALUES ('none', 0), ('Primary', 10), ('Secondary', 20),
+                           ('3rd order', 30), ('4th order', 40),
+                           ('Fundamental', 50), ('Intersection', 60)
+                    ON CONFLICT (name) DO NOTHING
+                    """))
+            connection.execute(text("""
+                    INSERT INTO trig_current_use (name, sort_order)
+                    VALUES ('none', 0), ('Passive station', 10),
+                           ('Active station', 20)
+                    ON CONFLICT (name) DO NOTHING
                     """))
 
     except Exception:

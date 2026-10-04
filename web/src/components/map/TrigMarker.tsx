@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { getIconUrlForTrig } from "../../lib/mapIcons";
 import type { TrigMarkerProps } from "./types";
 import MiniMap from "./MiniMap";
+import { formatTypeName } from "../../lib/trigTypeName";
 
 /**
  * Individual trigpoint marker component
@@ -89,7 +90,10 @@ export default function TrigMarker({
             
             <div className="space-y-1 text-sm mb-3 text-gray-700 dark:text-gray-200">
               <div>
-                <span className="font-semibold">Type:</span> {trig.type_name || "Unknown"}
+                <span className="font-semibold">Type:</span>{" "}
+                {trig.type_name
+                  ? formatTypeName(trig.type_name, trig.variant_name)
+                  : "Unknown"}
               </div>
               <div>
                 <span className="font-semibold">Grid ref:</span> {trig.osgb_gridref}

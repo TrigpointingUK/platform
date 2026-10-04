@@ -1,7 +1,7 @@
 /**
  * CurrentUseChip - Filter chip for current/recent use of trigpoints
  * 
- * Values from trig.current_use column (e.g., "Passive station", "Active station")
+ * Values maintained at /admin/recent-use (e.g., "Passive station", "Active station")
  */
 
 import { Clock, Loader2 } from "lucide-react";

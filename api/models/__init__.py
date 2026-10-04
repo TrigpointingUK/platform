@@ -9,13 +9,17 @@ from .tphoto import TPhoto
 from .trig import Trig
 from .trig_list import TrigList, TrigListItem
 from .trig_type import TrigCategory, TrigType
+from .trig_use import CurrentUse, HistoricUse
+from .trig_variant import TrigVariant
 from .user import TLog, TPhotoVote, User, UserArchive
 
 __all__ = [
     "Area",
     "AreaType",
     "Condition",
+    "CurrentUse",
     "DocumentChunk",
+    "HistoricUse",
     "User",
     "UserArchive",
     "TLog",
@@ -26,6 +30,7 @@ __all__ = [
     "TrigList",
     "TrigListItem",
     "TrigType",
+    "TrigVariant",
     "TPhoto",
     "Server",
     "Town",

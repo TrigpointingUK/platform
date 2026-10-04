@@ -47,6 +47,9 @@ class TrigAdminDetail(BaseModel):
     stn_number_osgb36: Optional[str] = ""
     status_id: int
     type_id: Optional[int] = Field(None, description="Trig type ID (FK to trig_type)")
+    variant_code: Optional[str] = Field(
+        None, description="Variant code, e.g. CONCRETE_RING (null = not recorded)"
+    )
     current_use: Optional[str] = "none"
     historic_use: Optional[str] = "none"
     condition: Optional[str] = "G"
@@ -148,6 +151,13 @@ class TrigAdminUpdate(BaseModel):
         None,
         description="Trig type ID (FK to trig_type)",
     )
+    variant_code: Optional[str] = Field(
+        None,
+        max_length=20,
+        description=(
+            "Variant code; must be in the type's variant_group " "(null = not recorded)"
+        ),
+    )
     current_use: Optional[str] = Field(default="none", max_length=25)
     historic_use: Optional[str] = Field(default="none", max_length=30)
     condition: Optional[str] = Field(default="G", min_length=1, max_length=1)
@@ -195,6 +205,13 @@ class TrigAdminCreate(BaseModel):
     type_id: Optional[int] = Field(
         None,
         description="Trig type ID (FK to trig_type)",
+    )
+    variant_code: Optional[str] = Field(
+        None,
+        max_length=20,
+        description=(
+            "Variant code; must be in the type's variant_group " "(null = not recorded)"
+        ),
     )
     current_use: Optional[str] = Field(default="none", max_length=25)
     historic_use: Optional[str] = Field(default="none", max_length=30)

@@ -19,8 +19,11 @@ from api.crud import status as status_crud
 from api.crud import tlog as tlog_crud
 from api.crud import trig as trig_crud
 from api.crud import trig_type as trig_type_crud
+from api.crud import trig_use as trig_use_crud
 from api.crud import user as user_crud
 from api.crud import user_merge as user_merge_crud
+from api.crud.trig_use import CONFIG, TrigUseKind
+from api.models.trig_variant import TrigVariant
 from api.models.user import User
 from api.schemas.account_deletion import (
     AccountDeletionEmailBackupResponse,
@@ -919,6 +922,45 @@ def get_trig_for_admin(
     return TrigAdminDetail.model_validate(trig)
 
 
+def _resolve_variant_id(
+    db: Session, code: Optional[str], type_id: Optional[int]
+) -> Optional[int]:
+    """
+    Resolve a variant code for a trig of the given type.
+
+    Returns None when no code is given (not recorded). Raises 400 if the code
+    is unknown or isn't in the type's variant group.
+    """
+    if not code:
+        return None
+    variant = (
+        db.query(TrigVariant).filter(TrigVariant.code == code.upper()).one_or_none()
+    )
+    if variant is None:
+        raise HTTPException(status_code=400, detail=f"Invalid variant_code: {code}")
+    trig_type = trig_type_crud.get_type_by_id(db, type_id) if type_id else None
+    if trig_type is None or trig_type.variant_group != variant.group_code:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Variant {variant.code} does not apply to this type",
+        )
+    return int(variant.id)  # type: ignore[arg-type]
+
+
+def _check_use_value(db: Session, kind: TrigUseKind, value: Optional[str]) -> str:
+    """
+    Resolve a historic/recent use value, defaulting to "none". Raises 400 if
+    it isn't one of the values maintained in the admin screen.
+    """
+    value = value or "none"
+    if trig_use_crud.get_by_name(db, kind, value) is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid {CONFIG[kind].label.lower()}: {value}",
+        )
+    return value
+
+
 @router.post(
     "/trigs",
     response_model=TrigAdminDetail,
@@ -963,6 +1005,8 @@ def create_trig_admin(
             )
         type_id_value = int(trig_type.id)  # type: ignore[arg-type]
 
+    variant_id = _resolve_variant_id(db, create_data.variant_code, type_id_value)
+
     # Auto-set postcode based on WGS coordinates
     postcode_result = location_crud.find_nearest_postcode(
         db,
@@ -986,8 +1030,13 @@ def create_trig_admin(
         "stn_number_osgb36": create_data.stn_number_osgb36 or "",
         "status_id": create_data.status_id,
         "type_id": type_id_value,
-        "current_use": create_data.current_use or "none",
-        "historic_use": create_data.historic_use or "none",
+        "variant_id": variant_id,
+        "current_use": _check_use_value(
+            db, TrigUseKind.CURRENT, create_data.current_use
+        ),
+        "historic_use": _check_use_value(
+            db, TrigUseKind.HISTORIC, create_data.historic_use
+        ),
         "condition": create_data.condition or "G",
         "wgs_lat": create_data.wgs_lat,
         "wgs_long": create_data.wgs_long,
@@ -1110,6 +1159,8 @@ def update_trig_admin(
             )
         type_id_value = int(trig_type.id)  # type: ignore[arg-type]
 
+    variant_id = _resolve_variant_id(db, update_data.variant_code, type_id_value)
+
     # Prepare updates dictionary - convert None to empty string for text fields
     updates: dict = {
         "name": update_data.name,
@@ -1120,8 +1171,13 @@ def update_trig_admin(
         "stn_number_osgb36": update_data.stn_number_osgb36 or "",
         "status_id": update_data.status_id,
         "type_id": type_id_value,
-        "current_use": update_data.current_use or "none",
-        "historic_use": update_data.historic_use or "none",
+        "variant_id": variant_id,
+        "current_use": _check_use_value(
+            db, TrigUseKind.CURRENT, update_data.current_use
+        ),
+        "historic_use": _check_use_value(
+            db, TrigUseKind.HISTORIC, update_data.historic_use
+        ),
         "condition": update_data.condition or "G",
         "wgs_lat": update_data.wgs_lat,
         "wgs_long": update_data.wgs_long,
