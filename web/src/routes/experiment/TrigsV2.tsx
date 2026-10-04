@@ -82,11 +82,6 @@ const DEFAULT_LOCATION_NAME = "Buxton";
 // What LocationSearch calls the device's own location
 const DEVICE_LOCATION_NAME = "Current location";
 
-// The site header is sticky and h-16; the filter panel pins just below it
-const SITE_HEADER_HEIGHT = 64;
-// How much of the panel stays visible above the results row once pinned
-const PINNED_PANEL_TOP_GAP = 4;
-
 const FILTERS_COLLAPSED_KEY = "trigsV2.filtersCollapsed";
 // Clicks on (or inside) these are left to the control; anywhere else in the
 // filter panel toggles it open or closed
@@ -217,32 +212,12 @@ export default function TrigsV2() {
 
   // Bumped to make the map zoom back out to fit all the trigs
   const [mapFitRequest, setMapFitRequest] = useState(0);
+  // Bumped when the user picks a centre, to pan the map to it
+  const [mapCentreRequest, setMapCentreRequest] = useState(0);
 
-  // The filter panel is sticky. Its top offset is negative by however much of
-  // it sits above the results row, so when the filters are open they scroll
-  // away under the site header and only the results row stays pinned.
-  const filterPanelRef = useRef<HTMLDivElement | null>(null);
+  // The results row and the filters below it, which both toggle the filters
   const resultsRowRef = useRef<HTMLDivElement | null>(null);
-  const [filterPanelTop, setFilterPanelTop] = useState(SITE_HEADER_HEIGHT);
-  useEffect(() => {
-    const panel = filterPanelRef.current;
-    const row = resultsRowRef.current;
-    if (!panel || !row) return;
-    const update = () => {
-      // Measured to the row's content, so its separator line scrolls away too
-      const rowStyle = getComputedStyle(row);
-      const above =
-        row.getBoundingClientRect().top -
-        panel.getBoundingClientRect().top +
-        parseFloat(rowStyle.borderTopWidth) +
-        parseFloat(rowStyle.paddingTop);
-      setFilterPanelTop(SITE_HEADER_HEIGHT - Math.max(0, above - PINNED_PANEL_TOP_GAP));
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(panel);
-    return () => observer.disconnect();
-  }, []);
+  const filterRowsRef = useRef<HTMLDivElement | null>(null);
 
   // Filter panel collapsed to just the results row, to leave room on small
   // screens. Remembered per browser.
@@ -267,8 +242,10 @@ export default function TrigsV2() {
   // A click that dismisses an open chip dropdown shouldn't also toggle the
   // panel, so note at mousedown (before the chip closes) whether one was open
   const dropdownOpenAtPressRef = useRef(false);
-  const handleFilterPanelMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    dropdownOpenAtPressRef.current = e.currentTarget.querySelector('[role="dialog"]') !== null;
+  const handleFilterPanelMouseDown = useCallback(() => {
+    dropdownOpenAtPressRef.current = [resultsRowRef.current, filterRowsRef.current].some(
+      (part) => part?.querySelector('[role="dialog"]')
+    );
   }, []);
   const handleFilterPanelClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -476,6 +453,7 @@ export default function TrigsV2() {
       setCenterLon(lon);
       setLocationName(name);
       setLocationChosen(name !== DEVICE_LOCATION_NAME);
+      setMapCentreRequest((n) => n + 1);
     },
     []
   );
@@ -710,15 +688,20 @@ export default function TrigsV2() {
   } = useInfiniteTrigs({ ...filterOptions, order: orderParam, enabled: filtersReady });
 
   // The map plots the whole filtered set. The centre only matters to it
-  // when it limits the radius, so leave it out otherwise (better caching).
+  // when it limits the radius, so leave it out otherwise (better caching),
+  // but then wait for it rather than fetching every trig first.
   const {
     data: mapPoints,
     isPending: isMapLoading,
     error: mapError,
   } = useTrigPoints(
     maxKm === null ? { ...filterOptions, lat: undefined, lon: undefined } : filterOptions,
-    view === "map" && filtersReady,
+    view === "map" && filtersReady && (maxKm === null || centerLat !== null),
   );
+
+  // The map zooms to fit the trigs when asked to, or when these filters
+  // change, but not the others
+  const mapFitKey = `${mapFitRequest}|${selectedAreaIds.join(",")}|${maxKm ?? ""}`;
 
   // The list can't load if the reference data behind the filters didn't
   const listError = error ?? (filtersReady ? null : referenceError);
@@ -788,240 +771,32 @@ export default function TrigsV2() {
     <>
       <title>Trigpoints | TrigpointingUK</title>
       <div className="max-w-7xl mx-auto">
-        {/* Main Filter Panel, pinned below the site header (see filterPanelTop) */}
-        <div
-          ref={filterPanelRef}
-          className={`sticky z-30 -mx-2 -mt-3 sm:mx-0 ${filtersCollapsed ? "mb-1.5" : "mb-4"}`}
-          style={{ top: filterPanelTop }}
-        >
-        <Card className="p-0!">
-          {/* Background clicks toggle the panel; the chevron buttons are the keyboard route */}
-          <div
-            className={filtersCollapsed ? "px-2.5 py-1" : "px-4 pt-4 pb-3"}
-            onMouseDown={handleFilterPanelMouseDown}
-            onClick={handleFilterPanelClick}
-          >
-            {/* Hidden rather than unmounted when collapsed, so the chips keep
-                any state of their own */}
-            <div id="trigs-filter-rows" hidden={filtersCollapsed}>
-            {/* Row 1: Location chips */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                {/* Collapse at the top of the open form; expand is on the results row */}
-                <button
-                  type="button"
-                  onClick={toggleFiltersCollapsed}
-                  aria-expanded={true}
-                  aria-controls="trigs-filter-rows"
-                  aria-label="Hide filters"
-                  title="Hide filters"
-                  className={FILTER_TOGGLE_CLASSES}
-                >
-                  <ChevronUp className="w-5 h-5" />
-                </button>
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Location
-                </span>
-              </div>
-              
-              {/* Location chips */}
-              <div className="flex flex-wrap gap-2">
-                <LocationChip
-                  locationName={locationName}
-                  lat={centerLat}
-                  lon={centerLon}
-                  onSelectLocation={handleSelectLocation}
-                />
-                
-                <RadiusChip
-                  maxKm={maxKm}
-                  onChange={setMaxKm}
-                  disabled={centerLat === null}
-                />
-              </div>
-            </div>
-
-            {/* Row 2: Filter chips */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Filters
-                </span>
-                {activeFilterCount > 0 && (
-                  <span className="px-2 py-0.5 text-xs font-medium bg-trig-green-100 dark:bg-trig-green-900/30 text-trig-green-700 dark:text-trig-green-300 rounded-full">
-                    {activeFilterCount} active
-                  </span>
-                )}
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearAllFilters}
-                    className="ml-auto text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Clear all
-                  </button>
-                )}
-              </div>
-              
-              {/* Filter chips grid */}
-              <div className="flex flex-wrap gap-2">
-                <TypeChip
-                  selectedTypes={selectedTypes}
-                  onToggleType={handleToggleType}
-                  onSelectAll={() => setSelectedTypes([...allTypeCodes])}
-                  onSelectNone={() => setSelectedTypes([])}
-                />
-
-                {shownVariantGroups.length > 0 && (
-                  <VariantChip
-                    groups={shownVariantGroups}
-                    selectedValues={selectedVariants}
-                    onToggle={handleToggleVariant}
-                    onSelectAll={() => setSelectedVariants([...allVariantValues])}
-                    onSelectNone={() => setSelectedVariants([])}
-                  />
-                )}
-
-                <HistoricUseChip
-                  selectedValues={selectedHistoricUse}
-                  onToggle={handleToggleHistoricUse}
-                  onSelectAll={() => setSelectedHistoricUse([...allHistoricUseValues])}
-                  onSelectNone={() => setSelectedHistoricUse([])}
-                />
-                
-                <CurrentUseChip
-                  selectedValues={selectedCurrentUse}
-                  onToggle={handleToggleCurrentUse}
-                  onSelectAll={() => setSelectedCurrentUse([...allCurrentUseValues])}
-                  onSelectNone={() => setSelectedCurrentUse([])}
-                />
-                
-                <ConditionChip
-                  selectedConditions={selectedConditions}
-                  onToggle={handleToggleCondition}
-                  onSelectAll={() => setSelectedConditions([...allConditionCodes])}
-                  onSelectNone={() => setSelectedConditions([])}
-                />
-                
-                <LogsChip
-                  selectedLoggedConditions={selectedLoggedConditions}
-                  showNotLogged={showNotLogged}
-                  onToggleLoggedCondition={handleToggleLoggedCondition}
-                  onToggleNotLogged={() => setShowNotLogged((prev) => !prev)}
-                  onSelectAllLogged={() => setDeselectedLoggedConditions([])}
-                  onSelectNoneLogged={() => setDeselectedLoggedConditions([...allConditionCodes])}
-                  isAuthenticated={isAuthenticated}
-                  logUser={logUser}
-                  onLogUserChange={handleLogUserChange}
-                />
-
-                {isAuthenticated && (
-                  <ListsChip lists={myLists} value={listFilter} onChange={setListFilter} />
-                )}
-                
-                {/* Area chip */}
-                <AreaChip
-                  selectedAreas={selectedAreas}
-                  onToggleArea={handleToggleArea}
-                  onClear={() => setSelectedAreas([])}
-                  centerLat={centerLat}
-                  centerLon={centerLon}
-                  containingAreaId={null}
-                />
-              </div>
-            </div>
-
-            {/* Row 3: Sort chips */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <ArrowUpDown className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Sort
-                </span>
-              </div>
-              
-              {/* Sort chips */}
-              <div className="flex flex-wrap gap-2">
-                <SortChip
-                  label="Distance"
-                  sortKey="distance"
-                  activeSortKey={effectiveSortKey}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  icon={<MapPin className="w-3.5 h-3.5" />}
-                  requiresLocation
-                  hasLocation={centerLat !== null}
-                />
-                
-                <SortChip
-                  label="Alphabetically"
-                  sortKey="name"
-                  activeSortKey={effectiveSortKey}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  icon={<SortAsc className="w-3.5 h-3.5" />}
-                />
-                
-                <SortChip
-                  label="Score"
-                  sortKey="score"
-                  activeSortKey={effectiveSortKey}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  icon={<Trophy className="w-3.5 h-3.5" />}
-                />
-                
-                <SortChip
-                  label="Height"
-                  sortKey="height"
-                  activeSortKey={effectiveSortKey}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  icon={<Mountain className="w-3.5 h-3.5" />}
-                />
-
-                <SortChip
-                  label="Logged date"
-                  sortKey="logged"
-                  activeSortKey={effectiveSortKey}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  icon={<CalendarCheck className="w-3.5 h-3.5" />}
-                  disabled={!hasLogUser}
-                  disabledReason="Sign in, or pick a user in the Logs filter"
-                />
-              </div>
-            </div>
-
-            </div>
-
-            {/* Results summary */}
+        {/* Results row, pinned just below the (h-16) site header. The filters
+            below it scroll away underneath. */}
+        <div className="sticky top-16 z-30 -mx-2 -mt-3 mb-2 sm:mx-0">
+          <Card className="p-0!">
+            {/* Background clicks toggle the filters; the chevron button is the keyboard route */}
             <div
               ref={resultsRowRef}
-              className={`flex items-center justify-between gap-3 ${
-                filtersCollapsed ? "" : "mt-4 pt-3 border-t border-gray-200 dark:border-gray-700"
-              }`}
+              className="flex items-center justify-between gap-3 px-2.5 py-1"
+              onMouseDown={handleFilterPanelMouseDown}
+              onClick={handleFilterPanelClick}
             >
               {/* Summary takes the leftover width and wraps within it, so the
                   view and download buttons stay on the right */}
               <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                {filtersCollapsed && (
-                  <button
-                    type="button"
-                    onClick={toggleFiltersCollapsed}
-                    aria-expanded={false}
-                    aria-controls="trigs-filter-rows"
-                    aria-label="Show filters"
-                    title="Show filters"
-                    className={FILTER_TOGGLE_CLASSES}
-                  >
-                    <ChevronDown className="w-5 h-5" />
-                  </button>
-                )}
-                {filtersCollapsed && activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleFiltersCollapsed}
+                  aria-expanded={!filtersCollapsed}
+                  aria-controls="trigs-filter-rows"
+                  aria-label={filtersCollapsed ? "Show filters" : "Hide filters"}
+                  title={filtersCollapsed ? "Show filters" : "Hide filters"}
+                  className={FILTER_TOGGLE_CLASSES}
+                >
+                  {filtersCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                </button>
+                {activeFilterCount > 0 && (
                   <span className="shrink-0 px-2 py-0.5 text-xs font-medium bg-trig-green-100 dark:bg-trig-green-900/30 text-trig-green-700 dark:text-trig-green-300 rounded-full">
                     {activeFilterCount} {activeFilterCount === 1 ? "filter" : "filters"}
                   </span>
@@ -1076,8 +851,202 @@ export default function TrigsV2() {
                 )}
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
+
+        {/* Hidden rather than unmounted when collapsed, so the chips keep
+            any state of their own */}
+        <div id="trigs-filter-rows" hidden={filtersCollapsed} className="relative z-20 -mx-2 mb-4 sm:mx-0">
+          <Card className="p-0!">
+            <div
+              ref={filterRowsRef}
+              className="px-4 pt-4 pb-3"
+              onMouseDown={handleFilterPanelMouseDown}
+              onClick={handleFilterPanelClick}
+            >
+              {/* Row 1: Location chips */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Location
+                  </span>
+                </div>
+              
+                {/* Location chips */}
+                <div className="flex flex-wrap gap-2">
+                  <LocationChip
+                    locationName={locationName}
+                    lat={centerLat}
+                    lon={centerLon}
+                    onSelectLocation={handleSelectLocation}
+                  />
+                
+                  <RadiusChip
+                    maxKm={maxKm}
+                    onChange={setMaxKm}
+                    disabled={centerLat === null}
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Filter chips */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Filters
+                  </span>
+                  {activeFilterCount > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-trig-green-100 dark:bg-trig-green-900/30 text-trig-green-700 dark:text-trig-green-300 rounded-full">
+                      {activeFilterCount} active
+                    </span>
+                  )}
+                  {activeFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllFilters}
+                      className="ml-auto text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              
+                {/* Filter chips grid */}
+                <div className="flex flex-wrap gap-2">
+                  <TypeChip
+                    selectedTypes={selectedTypes}
+                    onToggleType={handleToggleType}
+                    onSelectAll={() => setSelectedTypes([...allTypeCodes])}
+                    onSelectNone={() => setSelectedTypes([])}
+                  />
+
+                  {shownVariantGroups.length > 0 && (
+                    <VariantChip
+                      groups={shownVariantGroups}
+                      selectedValues={selectedVariants}
+                      onToggle={handleToggleVariant}
+                      onSelectAll={() => setSelectedVariants([...allVariantValues])}
+                      onSelectNone={() => setSelectedVariants([])}
+                    />
+                  )}
+
+                  <HistoricUseChip
+                    selectedValues={selectedHistoricUse}
+                    onToggle={handleToggleHistoricUse}
+                    onSelectAll={() => setSelectedHistoricUse([...allHistoricUseValues])}
+                    onSelectNone={() => setSelectedHistoricUse([])}
+                  />
+                
+                  <CurrentUseChip
+                    selectedValues={selectedCurrentUse}
+                    onToggle={handleToggleCurrentUse}
+                    onSelectAll={() => setSelectedCurrentUse([...allCurrentUseValues])}
+                    onSelectNone={() => setSelectedCurrentUse([])}
+                  />
+                
+                  <ConditionChip
+                    selectedConditions={selectedConditions}
+                    onToggle={handleToggleCondition}
+                    onSelectAll={() => setSelectedConditions([...allConditionCodes])}
+                    onSelectNone={() => setSelectedConditions([])}
+                  />
+                
+                  <LogsChip
+                    selectedLoggedConditions={selectedLoggedConditions}
+                    showNotLogged={showNotLogged}
+                    onToggleLoggedCondition={handleToggleLoggedCondition}
+                    onToggleNotLogged={() => setShowNotLogged((prev) => !prev)}
+                    onSelectAllLogged={() => setDeselectedLoggedConditions([])}
+                    onSelectNoneLogged={() => setDeselectedLoggedConditions([...allConditionCodes])}
+                    isAuthenticated={isAuthenticated}
+                    logUser={logUser}
+                    onLogUserChange={handleLogUserChange}
+                  />
+
+                  {isAuthenticated && (
+                    <ListsChip lists={myLists} value={listFilter} onChange={setListFilter} />
+                  )}
+                
+                  {/* Area chip */}
+                  <AreaChip
+                    selectedAreas={selectedAreas}
+                    onToggleArea={handleToggleArea}
+                    onClear={() => setSelectedAreas([])}
+                    centerLat={centerLat}
+                    centerLon={centerLon}
+                    containingAreaId={null}
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Sort chips - only the list is sorted */}
+              {view === "list" && (
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Sort
+                    </span>
+                  </div>
+              
+                  {/* Sort chips */}
+                  <div className="flex flex-wrap gap-2">
+                    <SortChip
+                      label="Distance"
+                      sortKey="distance"
+                      activeSortKey={effectiveSortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      icon={<MapPin className="w-3.5 h-3.5" />}
+                      requiresLocation
+                      hasLocation={centerLat !== null}
+                    />
+                
+                    <SortChip
+                      label="Alphabetically"
+                      sortKey="name"
+                      activeSortKey={effectiveSortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      icon={<SortAsc className="w-3.5 h-3.5" />}
+                    />
+                
+                    <SortChip
+                      label="Score"
+                      sortKey="score"
+                      activeSortKey={effectiveSortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      icon={<Trophy className="w-3.5 h-3.5" />}
+                    />
+                
+                    <SortChip
+                      label="Height"
+                      sortKey="height"
+                      activeSortKey={effectiveSortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      icon={<Mountain className="w-3.5 h-3.5" />}
+                    />
+
+                    <SortChip
+                      label="Logged date"
+                      sortKey="logged"
+                      activeSortKey={effectiveSortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      icon={<CalendarCheck className="w-3.5 h-3.5" />}
+                      disabled={!hasLogUser}
+                      disabledReason="Sign in, or pick a user in the Logs filter"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
         </div>
 
         {view === "map" && (
@@ -1088,7 +1057,8 @@ export default function TrigsV2() {
             truncated={mapPoints?.truncated ?? false}
             showListActions={showListActions}
             areaIds={selectedAreaIds}
-            fitRequest={mapFitRequest}
+            fitKey={mapFitKey}
+            centreRequest={mapCentreRequest}
             centre={
               centerLat !== null && centerLon !== null
                 ? { lat: centerLat, lon: centerLon, name: locationName }
