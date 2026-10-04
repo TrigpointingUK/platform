@@ -13,6 +13,7 @@ import AreaBoundaryLayer from "../map/AreaBoundaryLayer";
 import BaseMap from "../map/BaseMap";
 import TrigMarker from "../map/TrigMarker";
 import ZoomToLocationControl from "../map/ZoomToLocationControl";
+import ViewLockControl from "../map/ViewLockControl";
 import CompassWedge from "../map/CompassWedge";
 import HeatmapLayer from "../map/HeatmapLayer";
 import TilesetSelector from "../map/TilesetSelector";
@@ -153,22 +154,28 @@ function PopupOverlapWatcher({
  * Zoom to fit the trigpoints whenever the filtered set changes, or when
  * `fitRequest` changes. `fittedRef` lives outside the map, so a remount (e.g.
  * switching to a layer with a different projection) keeps the user's view
- * rather than fitting again.
+ * rather than fitting again. While `locked`, a new set of trigs leaves the
+ * view alone; an explicit `fitRequest` still fits.
  */
 function FitToTrigs({
   trigs,
   fitRequest,
   fittedRef,
+  locked,
 }: {
   trigs: TrigData[];
   fitRequest: number;
   fittedRef: MutableRefObject<{ trigs: TrigData[]; fitRequest: number } | null>;
+  locked: boolean;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    if (fittedRef.current?.trigs === trigs && fittedRef.current.fitRequest === fitRequest) return;
+    const fitted = fittedRef.current;
+    if (fitted?.trigs === trigs && fitted.fitRequest === fitRequest) return;
     fittedRef.current = { trigs, fitRequest };
+    // Recorded as fitted either way, so unlocking doesn't jump the view
+    if (locked && fitted?.fitRequest === fitRequest) return;
     const points = trigs
       .map((t) => [Number(t.wgs_lat), Number(t.wgs_long)] as [number, number])
       .filter(
@@ -180,7 +187,7 @@ function FitToTrigs({
       );
     if (points.length === 0) return;
     map.fitBounds(latLngBounds(points), FIT_OPTIONS);
-  }, [map, trigs, fitRequest, fittedRef]);
+  }, [map, trigs, fitRequest, fittedRef, locked]);
 
   return null;
 }
@@ -234,6 +241,8 @@ export function TrigsV2Map({
   const [bounds, setBounds] = useState<MapBounds | null>(null);
   const fittedRef = useRef<{ trigs: TrigData[]; fitRequest: number } | null>(null);
   const initialFitDoneRef = useRef(false);
+  // Keep the view when the filters change, rather than fitting the trigs
+  const [viewLocked, setViewLocked] = useState(false);
   const areaBoundaries = useAreaBoundaries(areaIds);
   const deviceLocation = useWatchedDeviceLocation();
   const compass = useCompassHeading();
@@ -258,7 +267,7 @@ export function TrigsV2Map({
   const getOverlapTargets = useCallback(
     (map: LeafletMap) => [
       selectorRef.current,
-      // The zoom and zoom-to-location buttons, together
+      // The zoom, zoom-to-location and view lock buttons, together
       map.getContainer().querySelector<HTMLElement>(".leaflet-top.leaflet-left"),
     ],
     [],
@@ -344,8 +353,14 @@ export function TrigsV2Map({
           <ViewportTracker onChange={setBounds} viewRef={viewRef} />
           <PopupOverlapWatcher getTargets={getOverlapTargets} />
           <ZoomToLocationControl location={deviceLocation} onActivate={compass.requestPermission} />
+          <ViewLockControl locked={viewLocked} onChange={setViewLocked} />
           <InitialFit doneRef={initialFitDoneRef} />
-          <FitToTrigs trigs={trigs} fitRequest={fitRequest} fittedRef={fittedRef} />
+          <FitToTrigs
+            trigs={trigs}
+            fitRequest={fitRequest}
+            fittedRef={fittedRef}
+            locked={viewLocked}
+          />
           {/* Below the overlay pane (400), so outlines never cover the markers.
               The view fits the trigs, not the outlines. */}
           <Pane name="area-boundaries" style={{ zIndex: 350 }}>
