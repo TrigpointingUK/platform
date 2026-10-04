@@ -4,6 +4,7 @@ import {
   allVariantFilterValues,
   relevantVariantGroups,
   typeVariantGroup,
+  variantFilter,
 } from "../trigVariants";
 import type { TrigCategory } from "../../hooks/useTrigTypes";
 import type { VariantGroup } from "../../hooks/useReferenceData";
@@ -71,32 +72,70 @@ describe("relevantVariantGroups", () => {
   });
 
   it("offers nothing while every type is selected", () => {
-    expect(relevantVariantGroups(GROUPS, ALL, ALL, TYPE_GROUPS, EVERY)).toEqual([]);
+    expect(relevantVariantGroups(GROUPS, ALL, TYPE_GROUPS)).toEqual([]);
   });
 
-  it("offers the groups of the narrowed types", () => {
-    expect(codes(relevantVariantGroups(GROUPS, ["BURIED_BLOCK"], ALL, TYPE_GROUPS, EVERY))).toEqual([
+  it("offers the groups of the selected types when they all have variants", () => {
+    expect(codes(relevantVariantGroups(GROUPS, ["BURIED_BLOCK"], TYPE_GROUPS))).toEqual([
       "DETECTOR",
     ]);
-    expect(
-      codes(relevantVariantGroups(GROUPS, ["PILLAR", "BOLT"], ALL, TYPE_GROUPS, EVERY))
-    ).toEqual(["DETECTOR", "DESIGN"]);
+    expect(codes(relevantVariantGroups(GROUPS, ["BURIED_BLOCK", "BOLT"], TYPE_GROUPS))).toEqual([
+      "DETECTOR",
+    ]);
+    expect(codes(relevantVariantGroups(GROUPS, ["PILLAR", "BOLT"], TYPE_GROUPS))).toEqual([
+      "DETECTOR",
+      "DESIGN",
+    ]);
   });
 
-  it("offers nothing when the narrowed types have no variants", () => {
-    expect(relevantVariantGroups(GROUPS, ["RIVET"], ALL, TYPE_GROUPS, EVERY)).toEqual([]);
-    expect(relevantVariantGroups(GROUPS, [], ALL, TYPE_GROUPS, EVERY)).toEqual([]);
+  it("offers nothing once any selected type has no variants", () => {
+    expect(relevantVariantGroups(GROUPS, ["BOLT", "RIVET"], TYPE_GROUPS)).toEqual([]);
+    expect(relevantVariantGroups(GROUPS, ["RIVET"], TYPE_GROUPS)).toEqual([]);
   });
 
-  it("keeps a group with an unticked variant visible", () => {
-    expect(
-      codes(relevantVariantGroups(GROUPS, ALL, ALL, TYPE_GROUPS, ["HOTINE", VARIANT_NOT_RECORDED]))
-    ).toEqual(["DETECTOR"]);
+  it("offers nothing while no type is selected", () => {
+    expect(relevantVariantGroups(GROUPS, [], TYPE_GROUPS)).toEqual([]);
+  });
+});
+
+describe("variantFilter", () => {
+  const DETECTOR: VariantGroup = {
+    code: "DETECTOR",
+    name: "Detector material",
+    values: [
+      { value: "CONCRETE_RING", label: "Concrete ring" },
+      { value: "BRONZE_RING", label: "Bronze ring" },
+    ],
+  };
+  const DESIGN: VariantGroup = {
+    code: "DESIGN",
+    name: "Pillar design",
+    values: [{ value: "HOTINE", label: "Hotine" }],
+  };
+
+  it("doesn't filter while the filter is hidden, whatever is ticked", () => {
+    expect(variantFilter([], ["CONCRETE_RING"])).toBeUndefined();
+    expect(variantFilter([], [])).toBeUndefined();
   });
 
-  it("keeps every group visible while not recorded is unticked", () => {
+  it("doesn't filter while everything on offer is ticked", () => {
     expect(
-      codes(relevantVariantGroups(GROUPS, ALL, ALL, TYPE_GROUPS, ["CONCRETE_RING", "HOTINE"]))
-    ).toEqual(["DETECTOR", "DESIGN"]);
+      variantFilter([DETECTOR], ["CONCRETE_RING", "BRONZE_RING", VARIANT_NOT_RECORDED])
+    ).toBeUndefined();
+  });
+
+  it("ignores ticks outside the groups on offer", () => {
+    expect(
+      variantFilter([DETECTOR], ["CONCRETE_RING", "BRONZE_RING", VARIANT_NOT_RECORDED, "HOTINE"])
+    ).toBeUndefined();
+    expect(variantFilter([DETECTOR], ["CONCRETE_RING", "HOTINE"])).toEqual(["CONCRETE_RING"]);
+  });
+
+  it("filters by the ticked values, empty meaning nothing", () => {
+    expect(variantFilter([DETECTOR, DESIGN], ["HOTINE", VARIANT_NOT_RECORDED])).toEqual([
+      "HOTINE",
+      VARIANT_NOT_RECORDED,
+    ]);
+    expect(variantFilter([DETECTOR], [])).toEqual([]);
   });
 });

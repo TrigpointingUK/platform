@@ -34,30 +34,38 @@ export function typeVariantGroup(
 
 /**
  * The variant groups the trigs page's variant filter should offer: the groups
- * of the selected types once the Type filter has been narrowed, plus any group
- * with an unticked variant (so an applied filter is never hidden). Unticking
- * "not recorded" keeps every group visible. Empty means the filter is hidden.
+ * of the selected types, but only when every selected type has one (e.g. only
+ * Bolts and/or Buried Blocks). Selecting any type without variants, every
+ * type, or none at all hides the filter. Empty means the filter is hidden and
+ * doesn't apply.
  */
 export function relevantVariantGroups(
   groups: readonly VariantGroup[],
   selectedTypes: readonly string[],
-  allTypeCodes: readonly string[],
   typeGroups: ReadonlyMap<string, string>,
-  selectedVariants: readonly string[],
 ): VariantGroup[] {
-  const typesNarrowed = selectedTypes.length < allTypeCodes.length;
+  if (selectedTypes.length === 0) return [];
   const wanted = new Set<string>();
-  if (typesNarrowed) {
-    for (const code of selectedTypes) {
-      const group = typeGroups.get(code);
-      if (group) wanted.add(group);
-    }
+  for (const code of selectedTypes) {
+    const group = typeGroups.get(code);
+    if (!group) return [];
+    wanted.add(group);
   }
-  const notRecordedUnticked = !selectedVariants.includes(VARIANT_NOT_RECORDED);
-  return groups.filter(
-    (group) =>
-      notRecordedUnticked ||
-      wanted.has(group.code) ||
-      group.values.some((v) => !selectedVariants.includes(v.value))
-  );
+  return groups.filter((group) => wanted.has(group.code));
+}
+
+/**
+ * The variant values to filter by, given the groups on offer: undefined for
+ * no filter (the filter is hidden, or everything on offer is ticked), else the
+ * ticked values on offer (empty meaning show nothing).
+ */
+export function variantFilter(
+  shownGroups: readonly VariantGroup[],
+  selectedVariants: readonly string[],
+): string[] | undefined {
+  if (shownGroups.length === 0) return undefined;
+  const offered = allVariantFilterValues(shownGroups);
+  const selected = selectedVariants.filter((v) => offered.includes(v));
+  if (selected.length === offered.length) return undefined;
+  return selected;
 }

@@ -22,7 +22,11 @@ import {
   buildTrigFilterParams,
   type TrigFilterOptions,
 } from "../../lib/trigFilterParams";
-import { allVariantFilterValues, relevantVariantGroups } from "../../lib/trigVariants";
+import {
+  allVariantFilterValues,
+  relevantVariantGroups,
+  variantFilter,
+} from "../../lib/trigVariants";
 import {
   readAreaIds,
   readListFilter,
@@ -278,6 +282,17 @@ export default function TrigsV2() {
   // Type filter - starts empty, populated when API data loads
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<string[]>([]);
+
+  // The variant filter only appears, and only applies, while every selected
+  // type has variants (e.g. only Bolts and/or Buried Blocks)
+  const shownVariantGroups = useMemo(
+    () => relevantVariantGroups(variantGroups ?? [], selectedTypes, typeVariantGroups),
+    [variantGroups, selectedTypes, typeVariantGroups]
+  );
+  const variantsFilter = useMemo(
+    () => variantFilter(shownVariantGroups, selectedVariants),
+    [shownVariantGroups, selectedVariants]
+  );
 
   // Logs filter, with individual conditions for logged trigs. Stored as the
   // conditions switched *off*, so "all conditions" holds before the list has
@@ -580,7 +595,10 @@ export default function TrigsV2() {
     writeSelection(params, "conditions", selectedConditions, allConditionCodes);
     writeSelection(params, "historicUse", selectedHistoricUse, allHistoricUseValues);
     writeSelection(params, "currentUse", selectedCurrentUse, allCurrentUseValues);
-    writeSelection(params, "variants", selectedVariants, allVariantValues);
+    // Variants only while the filter applies (undefined = hidden or all ticked)
+    if (variantsFilter) {
+      params.set("variants", variantsFilter.join(","));
+    }
 
     // Areas
     if (selectedAreaIds.length > 0) {
@@ -595,8 +613,8 @@ export default function TrigsV2() {
   }, [
     filtersReady, locationChosen, centerLat, centerLon, locationName, maxKm, sortKey, sortDirection,
     selectedTypes, selectedConditions, selectedHistoricUse,
-    selectedCurrentUse, selectedVariants, selectedAreaIds, allTypeCodes, allConditionCodes,
-    allHistoricUseValues, allCurrentUseValues, allVariantValues, logUser, view,
+    selectedCurrentUse, variantsFilter, selectedAreaIds, allTypeCodes,
+    allConditionCodes, allHistoricUseValues, allCurrentUseValues, logUser, view,
     deselectedLoggedConditions, showNotLogged, listFilter, setSearchParams
   ]);
 
@@ -634,13 +652,6 @@ export default function TrigsV2() {
     if (selectedConditions.length === allConditionCodes.length) return undefined; // Show all (no filter)
     return selectedConditions;
   }, [selectedConditions, allConditionCodes.length]);
-
-  // Only send variants filter when not all values are selected
-  const variantsFilter = useMemo(() => {
-    if (selectedVariants.length === 0) return []; // Show nothing
-    if (allVariantValues.every((v) => selectedVariants.includes(v))) return undefined; // Show all (no filter)
-    return selectedVariants;
-  }, [selectedVariants, allVariantValues]);
 
   // The complete filter set, shared by the list, the map and downloads
   const filterOptions: TrigFilterOptions = {
@@ -727,20 +738,6 @@ export default function TrigsV2() {
       ? { hasLogged: true, condition }
       : { hasLogged: false };
   };
-
-  // The variant filter only appears once the Type filter includes types with
-  // variants (e.g. Buried Block), or while a variant filter is applied
-  const shownVariantGroups = useMemo(
-    () =>
-      relevantVariantGroups(
-        variantGroups ?? [],
-        selectedTypes,
-        allTypeCodes,
-        typeVariantGroups,
-        selectedVariants,
-      ),
-    [variantGroups, selectedTypes, allTypeCodes, typeVariantGroups, selectedVariants]
-  );
 
   // Count active filters (filters that are not at their default "all" state)
   // Note: Location is not counted. Radius counts when it's not infinity (null).
