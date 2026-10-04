@@ -1,6 +1,11 @@
 import { useEffect, useRef, useCallback } from "react";
 import { MapContainer, TileLayer, useMap, ScaleControl } from "react-leaflet";
-import { getTileLayer, MAP_CONFIG, type TileLayer as TileLayerType } from "../../lib/mapConfig";
+import {
+  calculateProjectionZoom,
+  getTileLayer,
+  MAP_CONFIG,
+  type TileLayer as TileLayerType,
+} from "../../lib/mapConfig";
 import { getCRS } from "../../lib/projections";
 import type { BaseMapProps } from "./types";
 
@@ -244,8 +249,12 @@ export default function BaseMap({
   
   const heightStyle = typeof height === 'number' ? `${height}px` : height;
   
-  // Use the most restrictive zoom limits from both global config and tileset
-  const minZoom = Math.max(tileLayer.minZoom ?? 0, MAP_CONFIG.minZoom);
+  // Use the most restrictive zoom limits from both global config and tileset.
+  // The global minimum is a Web Mercator zoom, so convert it for other grids.
+  const minZoom = Math.max(
+    tileLayer.minZoom ?? 0,
+    calculateProjectionZoom(MAP_CONFIG.minZoom, "EPSG:3857", tileLayer.crs || "EPSG:3857", tileLayer),
+  );
   const maxZoom = Math.min(tileLayer.maxZoom ?? 20, MAP_CONFIG.maxZoom);
   
   // Get CRS for this tileset (defaults to EPSG:3857)
