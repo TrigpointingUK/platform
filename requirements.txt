@@ -4,7 +4,7 @@ uvicorn[standard]==0.54.0
 sqlalchemy==2.0.54
 psycopg2-binary==2.9.13
 geoalchemy2==0.20.0
-cryptography==50.0.1
+cryptography==50.0.2
 PyJWT==2.15.1
 passlib[bcrypt]==1.7.4
 bcrypt==4.3.0
@@ -12,7 +12,7 @@ crypt-r>=3.13.1  # Replacement for removed crypt module (Python 3.13+)
 python-multipart==0.0.32  # CVE-2026-42561 fix
 pydantic[email]==2.13.5
 pydantic-settings==2.15.0
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 alembic==1.20.0
 
 # Testing dependencies
@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.34.2
-boto3==1.43.104
+boto3==1.43.106
 types-requests==2.33.0.20260906
 
 # Redis/ElastiCache for token caching
