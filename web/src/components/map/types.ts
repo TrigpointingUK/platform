@@ -7,7 +7,7 @@
 
 import type { ReactNode } from "react";
 import type { LatLngExpression } from "leaflet";
-import type { IconColorMode, UserLogStatus } from "../../lib/mapIcons";
+import type { IconColor, IconColorMode, UserLogStatus } from "../../lib/mapIcons";
 
 /**
  * @stable
@@ -40,6 +40,9 @@ export interface TrigData {
   category_name?: string;
   /** Variant display name (e.g., Concrete ring) */
   variant_name?: string | null;
+  /** Condition in the log user's latest log of it ("Z" if none recorded);
+   *  null if they haven't logged it */
+  logged_condition?: string | null;
 }
 
 /**
@@ -105,6 +108,8 @@ export interface TrigMarkerProps {
   showPopup?: boolean;
   /** Optional action elements rendered in the popup (e.g. add-to-list button) */
   actions?: ReactNode;
+  /** Icon colour to use instead of the one colorMode would pick */
+  iconColor?: IconColor;
 }
 
 /**

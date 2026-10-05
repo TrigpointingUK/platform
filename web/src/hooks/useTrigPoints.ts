@@ -39,6 +39,10 @@ export function parseTrigPoints(body: TrigPointsResponse): TrigPoints {
       index.variant_name === undefined
         ? undefined
         : ((row[index.variant_name] as string | null) ?? undefined),
+    logged_condition:
+      index.logged_condition === undefined
+        ? undefined
+        : (row[index.logged_condition] as string | null),
   }));
   return { trigs, truncated: body.truncated };
 }

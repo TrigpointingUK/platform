@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Filter, RotateCcw, ArrowUpDown, Mountain, Trophy, SortAsc, MapPin, CalendarCheck, List, Map as MapIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { Filter, RotateCcw, ArrowUpDown, Mountain, Trophy, SortAsc, MapPin, CalendarCheck, List, Map as MapIcon, ChevronDown, ChevronUp, Palette } from "lucide-react";
 
 import Card from "../../components/ui/Card";
 import { TrigCard } from "../../components/trigs/TrigCard";
@@ -40,7 +40,15 @@ import { useUserLoggedTrigs } from "../../hooks/useUserLoggedTrigs";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import AddToListButton from "../../components/lists/AddToListButton";
 import { useDefaultListTrigIds, useMyLists } from "../../hooks/useTrigLists";
-import type { UserLogStatus } from "../../lib/mapIcons";
+import type { IconColor, UserLogStatus } from "../../lib/mapIcons";
+import type { TrigData } from "../../components/map/types";
+import {
+  ICON_COLOURS,
+  ICON_COLOUR_MODES,
+  conditionScale,
+  trigIconColour,
+  type IconColourMode,
+} from "../../lib/iconColours";
 
 // Import reference data hooks
 import {
@@ -67,6 +75,7 @@ import {
   AreaChip,
   toggleAreaSelection,
   SortChip,
+  IconColourChips,
   ALL_CATEGORY_IDS,
   type SortDirection,
   type LogUser,
@@ -83,6 +92,8 @@ const DEFAULT_LOCATION_NAME = "Buxton";
 const DEVICE_LOCATION_NAME = "Current location";
 
 const FILTERS_COLLAPSED_KEY = "trigsV2.filtersCollapsed";
+
+const NO_TRIGS: TrigData[] = [];
 // Clicks on (or inside) these are left to the control; anywhere else in the
 // filter panel toggles it open or closed
 const FILTER_PANEL_CONTROLS =
@@ -408,6 +419,27 @@ export default function TrigsV2() {
   const effectiveSortKey = sortKey === "logged" && !hasLogUser ? "distance" : sortKey;
 
   // ==========================================================================
+  // Map Icon Colours
+  // ==========================================================================
+
+  const [iconColourMode, setIconColourMode] = useState<IconColourMode>(() => {
+    const mode = searchParams.get("colours") as IconColourMode;
+    return ICON_COLOUR_MODES.includes(mode) ? mode : "current";
+  });
+  // Colours whose icons the map leaves out
+  const [hiddenColours, setHiddenColours] = useState<IconColor[]>(() =>
+    ICON_COLOURS.filter((c) => searchParams.get("hideColours")?.split(",").includes(c))
+  );
+  const handleToggleColour = useCallback((colour: IconColor) => {
+    setHiddenColours((prev) =>
+      prev.includes(colour) ? prev.filter((c) => c !== colour) : [...prev, colour]
+    );
+  }, []);
+
+  // Logged and difference colours need someone's logs
+  const effectiveColourMode = iconColourMode !== "current" && !hasLogUser ? "current" : iconColourMode;
+
+  // ==========================================================================
   // Location Geolocation
   // ==========================================================================
 
@@ -587,6 +619,14 @@ export default function TrigsV2() {
     if (sortDirection !== "asc") {
       params.set("dir", sortDirection);
     }
+
+    // Map icon colours (only if not default)
+    if (iconColourMode !== "current") {
+      params.set("colours", iconColourMode);
+    }
+    if (hiddenColours.length > 0) {
+      params.set("hideColours", ICON_COLOURS.filter((c) => hiddenColours.includes(c)).join(","));
+    }
     
     // Multi-select filters (only if not all selected)
     writeTypeSelection(params, selectedTypes, allTypeCodes, defaultTypes);
@@ -613,7 +653,8 @@ export default function TrigsV2() {
     selectedTypes, selectedConditions, selectedHistoricUse,
     selectedCurrentUse, variantsFilter, selectedAreaIds, allTypeCodes, defaultTypes,
     allConditionCodes, allHistoricUseValues, allCurrentUseValues, logUser, view,
-    deselectedLoggedConditions, showNotLogged, listFilter, setSearchParams
+    deselectedLoggedConditions, showNotLogged, listFilter, iconColourMode, hiddenColours,
+    setSearchParams
   ]);
 
   // ==========================================================================
@@ -697,6 +738,27 @@ export default function TrigsV2() {
   } = useTrigPoints(
     maxKm === null ? { ...filterOptions, lat: undefined, lon: undefined } : filterOptions,
     view === "map" && filtersReady && (maxKm === null || centerLat !== null),
+  );
+
+  // Each map trig's icon colour, how many have each, and the trigs whose
+  // colours are shown
+  const scale = useMemo(() => conditionScale(conditions ?? []), [conditions]);
+  const mapTrigs = mapPoints?.trigs ?? NO_TRIGS;
+  const mapIconColours = useMemo(
+    () => new Map(mapTrigs.map((t) => [t.id, trigIconColour(t, effectiveColourMode, scale)])),
+    [mapTrigs, effectiveColourMode, scale]
+  );
+  const mapColourCounts = useMemo(() => {
+    const counts: Record<IconColor, number> = { green: 0, yellow: 0, red: 0, grey: 0 };
+    for (const colour of mapIconColours.values()) counts[colour]++;
+    return counts;
+  }, [mapIconColours]);
+  const shownMapTrigs = useMemo(
+    () =>
+      hiddenColours.length === 0
+        ? mapTrigs
+        : mapTrigs.filter((t) => !hiddenColours.includes(mapIconColours.get(t.id) ?? "grey")),
+    [mapTrigs, mapIconColours, hiddenColours]
   );
 
   // The map zooms to fit the trigs when asked to, or when these filters
@@ -1045,13 +1107,35 @@ export default function TrigsV2() {
                   </div>
                 </div>
               )}
+
+              {/* Row 4: Icon colours - only on the map */}
+              {view === "map" && (
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Palette className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Icon Colours
+                    </span>
+                  </div>
+                  <IconColourChips
+                    mode={effectiveColourMode}
+                    onModeChange={setIconColourMode}
+                    hasLogUser={hasLogUser}
+                    hiddenColours={hiddenColours}
+                    onToggleColour={handleToggleColour}
+                    counts={mapPoints ? mapColourCounts : undefined}
+                  />
+                </div>
+              )}
             </div>
           </Card>
         </div>
 
         {view === "map" && (
           <TrigsV2Map
-            trigs={mapPoints?.trigs ?? []}
+            trigs={shownMapTrigs}
+            loadedCount={mapTrigs.length}
+            iconColours={mapIconColours}
             isLoading={isMapLoading}
             error={mapError ?? (filtersReady ? null : referenceError)}
             truncated={mapPoints?.truncated ?? false}

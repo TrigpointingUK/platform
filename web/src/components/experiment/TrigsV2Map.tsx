@@ -18,6 +18,7 @@ import HeatmapLayer from "../map/HeatmapLayer";
 import TilesetSelector from "../map/TilesetSelector";
 import AddToListButton from "../lists/AddToListButton";
 import type { MapBounds, TrigData } from "../map/types";
+import type { IconColor } from "../../lib/mapIcons";
 import {
   calculateProjectionZoom,
   getPreferredTileLayer,
@@ -249,7 +250,12 @@ function InitialFit({ doneRef }: { doneRef: MutableRefObject<boolean> }) {
 }
 
 export interface TrigsV2MapProps {
+  /** The trigs to plot */
   trigs: TrigData[];
+  /** How many trigs were loaded, before any were hidden (default: all shown) */
+  loadedCount?: number;
+  /** Icon colour for each trig, by id (default: by condition) */
+  iconColours?: Map<number, IconColor>;
   isLoading: boolean;
   error: Error | null;
   truncated: boolean;
@@ -272,6 +278,8 @@ const NO_AREAS: number[] = [];
 
 export function TrigsV2Map({
   trigs,
+  loadedCount,
+  iconColours,
   isLoading,
   error,
   truncated,
@@ -377,17 +385,18 @@ export function TrigsV2Map({
           key={trig.id}
           trig={trig}
           colorMode="condition"
+          iconColor={iconColours?.get(trig.id)}
           highlighted={defaultListIds.has(trig.id)}
           actions={showListActions ? <AddToListButton trigId={trig.id} /> : undefined}
         />
       ));
-  }, [trigs, visibleIds, showListActions, defaultListIds]);
+  }, [trigs, visibleIds, showListActions, defaultListIds, iconColours]);
 
   return (
     <div className="-mx-4 mt-2 lg:mx-4 lg:mt-4">
       {truncated && (
         <div className="mb-2 p-2 text-sm rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200">
-          Only the first {trigs.length.toLocaleString("en-GB")} trigpoints are shown - narrow your filters to see the rest.
+          Only the first {(loadedCount ?? trigs.length).toLocaleString("en-GB")} trigpoints are shown - narrow your filters to see the rest.
         </div>
       )}
 

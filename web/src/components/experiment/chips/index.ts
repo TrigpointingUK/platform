@@ -18,3 +18,4 @@ export { toggleAreaSelection, type SelectedArea } from "./areaSelection";
 export { HistoricCountyChip } from "./HistoricCountyChip";
 export { HISTORIC_COUNTIES } from "./historicCountyData";
 export { SortChip, type SortDirection } from "./SortChip";
+export { IconColourChips } from "./IconColourChips";

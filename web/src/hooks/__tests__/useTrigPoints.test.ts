@@ -37,4 +37,17 @@ describe("parseTrigPoints", () => {
     expect(result.trigs[0].category_code).toBeUndefined();
     expect(result.truncated).toBe(true);
   });
+
+  it("keeps the logged condition, null where not logged", () => {
+    const result = parseTrigPoints({
+      fields: ["id", "waypoint", "name", "lat", "lon", "condition", "osgb_gridref", "logged_condition"],
+      rows: [
+        [7, "TP0007", "Kinder Low", 53.4, -1.87, "G", "SK 07900 87000", "D"],
+        [8, "TP0008", "Nowhere", 50, -3, "U", "", null],
+      ],
+      total: 2,
+      truncated: false,
+    });
+    expect(result.trigs.map((t) => t.logged_condition)).toEqual(["D", null]);
+  });
 });

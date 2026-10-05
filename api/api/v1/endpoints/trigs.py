@@ -803,6 +803,7 @@ TRIG_POINT_FIELDS = [
     "type_name",
     "category_code",
     "variant_name",
+    "logged_condition",
 ]
 
 
@@ -812,9 +813,15 @@ TRIG_POINT_FIELDS = [
         "beta", note="Every trig matching the filters, compact, for map plotting"
     ),
 )
+# 12 hours. Version 2 added logged_condition, so responses cached before it
+# aren't served without one.
 @cached(
-    resource_type="trigs", ttl=43200, subresource="points", vary_on_user=True
-)  # 12 hours
+    resource_type="trigs",
+    ttl=43200,
+    subresource="points",
+    vary_on_user=True,
+    version="v2",
+)
 def list_trig_points(
     filters: TrigFilters = Depends(),
     _lc=lifecycle("beta"),
@@ -826,11 +833,18 @@ def list_trig_points(
 
     Returns a compact table to keep the payload small: `fields` names the
     columns and each entry in `rows` is one trig in that column order.
+
+    `logged_condition` is the condition in the log user's latest published log
+    of the trig (the user the log filters refer to: `logged_by`, otherwise the
+    caller), "Z" if that log records none, or null if they haven't logged it.
     """
     filters.check_list_access(db, current_user)
     log_user_id = filters.resolve_log_user_id(db, current_user)
     rows = trig_crud.list_trig_points(
-        db, limit=TRIG_POINTS_LIMIT, **filters.crud_kwargs(log_user_id)
+        db,
+        limit=TRIG_POINTS_LIMIT,
+        log_user_id=log_user_id,
+        **filters.crud_kwargs(log_user_id),
     )
     return {
         "fields": TRIG_POINT_FIELDS,
@@ -846,6 +860,7 @@ def list_trig_points(
                 row.type_name,
                 row.category_code,
                 row.variant_name,
+                row.logged_condition,
             ]
             for row in rows
         ],
