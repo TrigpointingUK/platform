@@ -114,8 +114,10 @@ html, body, #root {
   transition: opacity 0.2s;
 }
 
-/* Dark mode styles for Leaflet bar controls (zoom, zoom-to-location, ...) */
-.dark .leaflet-bar a {
+/* Dark mode styles for Leaflet bar controls (zoom, view, ...). Leaflet
+   lightens focused buttons too, and a clicked button keeps focus. */
+.dark .leaflet-bar a,
+.dark .leaflet-bar a:focus {
   background-color: #1f2937;
   color: #f3f4f6;
   border-color: #374151;

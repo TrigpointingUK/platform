@@ -21,10 +21,10 @@ const NEXT_FOCUS: Record<MapFocus, MapFocus> = {
   all: "centre",
 };
 
-const FOCUS_LABELS: Record<MapFocus, string> = {
-  centre: "Showing the search centre - click to zoom to your location",
-  location: "Showing your location - click to zoom out to all the trigpoints",
-  all: "Showing all the trigpoints - click to zoom to the search centre",
+const ZOOM_LABELS: Record<MapFocus, string> = {
+  centre: "Zoom to the search centre",
+  location: "Zoom to my location",
+  all: "Zoom out to all the trigpoints",
 };
 
 // Great Britain and Northern Ireland, from the country boundaries in Web
@@ -37,12 +37,12 @@ const UK_OUTLINE_PATH =
   "L12.2 13.6L11.4 12.1L11.5 11.3L9.5 11.7L9.2 11.0L10.0 9.7L9.6 8.8L8.9 9.1L8.4 10.2L8.8 7.4Z" +
   "M5.0 12.2L6.2 10.8L7.4 10.3L8.0 10.4L8.9 12.1L8.0 13.3L7.2 13.2L6.7 12.6L5.9 13.0Z";
 
-function FocusIcon({ focus, pulse }: { focus: MapFocus; pulse: boolean }) {
-  if (focus === "centre") {
+function ViewIcon({ view, pulse }: { view: MapFocus; pulse: boolean }) {
+  if (view === "centre") {
     // As on the Centre on chip
     return <MapPin className="w-4 h-4" />;
   }
-  if (focus === "all") {
+  if (view === "all") {
     return (
       // A size up, as the tall, narrow outline looks small next to the others
       <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor" aria-hidden="true">
@@ -54,7 +54,7 @@ function FocusIcon({ focus, pulse }: { focus: MapFocus; pulse: boolean }) {
 }
 
 interface ViewCycleControlProps {
-  /** What the map is showing, as the button's icon */
+  /** What the map is showing, which decides where the next click goes */
   focus: MapFocus;
   /** Called once the button has moved the map to its next view */
   onFocusChange: (focus: MapFocus) => void;
@@ -100,7 +100,7 @@ function zoomForWidth(map: LeafletMap, lat: number, lon: number, widthMetres: nu
 /**
  * Button under the zoom buttons that steps through three views: a medium
  * zoom on the search centre, a close zoom on the device's location, and out
- * to every trigpoint. Its icon shows which of them the map is on.
+ * to every trigpoint. Its icon shows where the next click goes.
  */
 export default function ViewCycleControl({
   focus,
@@ -172,14 +172,15 @@ export default function ViewCycleControl({
     );
   };
 
+  // Skip a view there's nothing to show for (the location is always tried)
+  let next = NEXT_FOCUS[focus];
+  while ((next === "centre" && !centre) || (next === "all" && !allBounds)) {
+    next = NEXT_FOCUS[next];
+  }
+
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     if (isLocating) return;
-    // Skip a view there's nothing to show for (the location is always tried)
-    let next = NEXT_FOCUS[focus];
-    while ((next === "centre" && !centre) || (next === "all" && !allBounds)) {
-      next = NEXT_FOCUS[next];
-    }
     if (next === "centre" && centre) {
       zoomTo(centre.lat, centre.lon, centreWidthMetres);
       onFocusChange("centre");
@@ -193,8 +194,9 @@ export default function ViewCycleControl({
 
   if (!container) return null;
 
-  // A pulsing crosshair while waiting for a fix; if none comes, it goes back
-  const shown = isLocating ? "location" : focus;
+  // A pulsing crosshair while waiting for a fix; it moves on once the map is there
+  const shown = isLocating ? "location" : next;
+  const label = isLocating ? "Finding your location" : ZOOM_LABELS[next];
 
   return createPortal(
     <>
@@ -202,13 +204,13 @@ export default function ViewCycleControl({
       <a
         href="#"
         role="button"
-        title={isLocating ? "Finding your location" : FOCUS_LABELS[shown]}
-        aria-label={isLocating ? "Finding your location" : FOCUS_LABELS[shown]}
+        title={label}
+        aria-label={label}
         aria-disabled={isLocating}
         onClick={handleClick}
         className="flex! items-center justify-center"
       >
-        <FocusIcon focus={shown} pulse={isLocating} />
+        <ViewIcon view={shown} pulse={isLocating} />
       </a>
       {error && (
         <div className="absolute left-full top-0 ml-2 px-2 py-1 rounded text-xs whitespace-nowrap bg-red-100 dark:bg-red-900/60 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300">

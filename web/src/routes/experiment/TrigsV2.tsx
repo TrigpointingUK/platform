@@ -1064,6 +1064,7 @@ export default function TrigsV2() {
                 ? { lat: centerLat, lon: centerLon, name: locationName }
                 : undefined
             }
+            centreIsDeviceLocation={locationName === DEVICE_LOCATION_NAME}
           />
         )}
 

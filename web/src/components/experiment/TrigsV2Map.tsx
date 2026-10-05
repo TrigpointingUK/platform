@@ -254,8 +254,12 @@ export interface TrigsV2MapProps {
   error: Error | null;
   truncated: boolean;
   showListActions: boolean;
-  /** The search centre, marked with a star */
+  /** The search centre, marked with a pin */
   centre?: { lat: number; lon: number; name: string };
+  /** The centre is the device's own location, which the blue location
+   *  circle and the view button's location view already cover, so the map
+   *  leaves out the pin and the button its centre view */
+  centreIsDeviceLocation?: boolean;
   /** Areas the trigs are filtered to, outlined on the map */
   areaIds?: number[];
   /** Change (e.g. with the area or radius filter) to zoom to fit all the trigs */
@@ -273,6 +277,7 @@ export function TrigsV2Map({
   truncated,
   showListActions,
   centre,
+  centreIsDeviceLocation = false,
   areaIds = NO_AREAS,
   fitKey = "",
   centreRequest = 0,
@@ -286,7 +291,11 @@ export function TrigsV2Map({
   // What the map is showing, for the view button. It opens showing all the trigs.
   const [focus, setFocus] = useState<MapFocus>("all");
   const focusAll = useCallback(() => setFocus("all"), []);
-  const focusCentre = useCallback(() => setFocus("centre"), []);
+  // Panning to the device's location shows that, as the location view would
+  const focusPanned = useCallback(
+    () => setFocus(centreIsDeviceLocation ? "location" : "centre"),
+    [centreIsDeviceLocation],
+  );
   const areaBoundaries = useAreaBoundaries(areaIds);
   const deviceLocation = useWatchedDeviceLocation();
   const compass = useCompassHeading();
@@ -401,7 +410,7 @@ export function TrigsV2Map({
           <ViewCycleControl
             focus={focus}
             onFocusChange={setFocus}
-            centre={centre}
+            centre={centreIsDeviceLocation ? undefined : centre}
             location={deviceLocation}
             allBounds={allBounds}
             allFitOptions={FIT_OPTIONS}
@@ -419,7 +428,7 @@ export function TrigsV2Map({
             centre={centre}
             centreRequest={centreRequest}
             pannedRef={pannedRef}
-            onPan={focusCentre}
+            onPan={focusPanned}
           />
           {/* Below the overlay pane (400), so outlines never cover the markers.
               The view fits the trigs, not the outlines. */}
@@ -453,7 +462,8 @@ export function TrigsV2Map({
               <Tooltip direction="top">Your location</Tooltip>
             </CircleMarker>
           )}
-          {centre && (
+          {/* The blue location circle already marks a centre on the device */}
+          {centre && !centreIsDeviceLocation && (
             <Marker
               position={[centre.lat, centre.lon]}
               icon={CENTRE_ICON}
