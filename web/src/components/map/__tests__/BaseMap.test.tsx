@@ -208,10 +208,11 @@ describe('BaseMap', () => {
       const minZoom = parseInt(container.getAttribute('data-min-zoom') || '0');
       const maxZoom = parseInt(container.getAttribute('data-max-zoom') || '0');
       
-      // OS Paper has minZoom 6, maxZoom 12
-      // MAP_CONFIG has minZoom 4, maxZoom 20
-      // Should use max(6, 4) = 6 and min(12, 20) = 12
-      expect(minZoom).toBe(6);
+      // OS Paper has minZoom 0, maxZoom 12
+      // MAP_CONFIG has minZoom 4, maxZoom 20, but its minimum is a Web
+      // Mercator zoom: 4 - 7 = -3 on OS Paper's grid, below the layer's own
+      // Should use max(0, -3) = 0 and min(12, 20) = 12
+      expect(minZoom).toBe(0);
       expect(maxZoom).toBe(12);
     });
   });

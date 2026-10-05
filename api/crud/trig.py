@@ -14,6 +14,7 @@ from sqlalchemy import (
     cast,
     false,
     func,
+    null,
     or_,
     select,
     text,
@@ -631,11 +632,15 @@ def list_trig_points(
     logged_conditions: Optional[List[str]] = None,
     in_list_ids: Optional[List[int]] = None,
     not_in_list_ids: Optional[List[int]] = None,
+    log_user_id: Optional[int] = None,
 ) -> list:
     """
     Lightweight rows (no full ORM objects) for every trig matching the filters.
 
-    Intended for plotting a whole filtered set on a map in one request.
+    Intended for plotting a whole filtered set on a map in one request. Each
+    row's logged_condition is the condition in log_user_id's latest published
+    log of the trig ("Z", not logged, if that log has none), or None if they
+    haven't logged it or there's no log user.
     """
     from api.models.trig_type import TrigCategory, TrigType
     from api.models.trig_variant import TrigVariant
@@ -658,6 +663,27 @@ def list_trig_points(
         .outerjoin(TrigCategory, TrigCategory.id == TrigType.category_id)
         .outerjoin(TrigVariant, TrigVariant.id == Trig.variant_id)
     )
+    if log_user_id is not None:
+        latest_log = (
+            select(
+                TLog.trig_id,
+                func.coalesce(TLog.condition, "Z").label("condition"),
+            )
+            .where(TLog.user_id == log_user_id, TLog.status == "P")
+            .distinct(TLog.trig_id)
+            .order_by(
+                TLog.trig_id,
+                TLog.date.desc().nulls_last(),
+                TLog.time.desc().nulls_last(),
+                TLog.id.desc(),
+            )
+            .subquery()
+        )
+        query = query.add_columns(
+            latest_log.c.condition.label("logged_condition")
+        ).outerjoin(latest_log, latest_log.c.trig_id == Trig.id)
+    else:
+        query = query.add_columns(null().label("logged_condition"))
     query = _apply_trig_filters(
         query,
         db,

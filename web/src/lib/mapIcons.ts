@@ -256,6 +256,21 @@ export const getIconUrlForTrig = (
     }
   }
   
+  return getCategoryIconUrl(color, highlighted, categoryCode);
+};
+
+/**
+ * Get the icon URL for a trigpoint category in a given colour
+ *
+ * @param color - Icon colour
+ * @param highlighted - Whether to highlight the icon
+ * @param categoryCode - Category code (e.g., "PILLAR", "FBM"); pillar if not given
+ */
+export const getCategoryIconUrl = (
+  color: IconColor,
+  highlighted: boolean = false,
+  categoryCode?: string
+): string => {
   // Determine icon base name from category_code
   const baseName = categoryCode 
     ? getIconBaseNameFromCategory(categoryCode) 

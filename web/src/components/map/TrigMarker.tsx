@@ -1,7 +1,7 @@
 import { Marker, Popup, Tooltip } from "react-leaflet";
 import { Icon, type LatLngExpression } from "leaflet";
 import { Link } from "react-router-dom";
-import { getIconUrlForTrig } from "../../lib/mapIcons";
+import { getCategoryIconUrl, getIconUrlForTrig } from "../../lib/mapIcons";
 import type { TrigMarkerProps } from "./types";
 import MiniMap from "./MiniMap";
 import { formatTypeName } from "../../lib/trigTypeName";
@@ -35,20 +35,23 @@ export default function TrigMarker({
   onClick,
   showPopup = true,
   actions,
+  iconColor,
 }: TrigMarkerProps) {
   const position: LatLngExpression = [
     typeof trig.wgs_lat === 'string' ? parseFloat(trig.wgs_lat) : trig.wgs_lat,
     typeof trig.wgs_long === 'string' ? parseFloat(trig.wgs_long) : trig.wgs_long,
   ];
   
-  // Get the appropriate icon URL based on color mode
-  const iconUrl = getIconUrlForTrig(
-    trig.condition,
-    colorMode,
-    logStatus,
-    highlighted,
-    trig.category_code // Category code for icon selection
-  );
+  // Get the appropriate icon URL based on color mode, unless given a colour
+  const iconUrl = iconColor
+    ? getCategoryIconUrl(iconColor, highlighted, trig.category_code)
+    : getIconUrlForTrig(
+        trig.condition,
+        colorMode,
+        logStatus,
+        highlighted,
+        trig.category_code // Category code for icon selection
+      );
   
   // Create Leaflet icon
   const icon = new Icon({

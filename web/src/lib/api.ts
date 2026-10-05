@@ -1790,6 +1790,119 @@ export async function fetchTrigUseUsage(
 }
 
 // ============================================================================
+// Trig Variant Admin Types and Functions
+// ============================================================================
+
+/**
+ * A variant in the admin listing, with how many trigpoints record it
+ */
+export interface TrigVariantAdmin {
+  id: number;
+  code: string;
+  name: string;
+  sort_order: number;
+  trig_count: number;
+}
+
+/**
+ * A variant group (e.g. Detector material), the types offering it and its
+ * variants in display order
+ */
+export interface VariantGroupAdmin {
+  code: string;
+  name: string;
+  type_names: string[];
+  variants: TrigVariantAdmin[];
+}
+
+export interface TrigVariant {
+  id: number;
+  group_code: string;
+  group_name: string;
+  code: string;
+  name: string;
+  sort_order: number;
+}
+
+/**
+ * A new variant. A group code that doesn't exist yet starts a new group,
+ * which then needs a group name.
+ */
+export interface TrigVariantCreateInput {
+  group_code: string;
+  group_name?: string;
+  code: string;
+  name: string;
+  sort_order: number;
+}
+
+export interface TrigVariantUpdateInput {
+  name?: string;
+  sort_order?: number;
+}
+
+/**
+ * Get every variant group with its variants (admin)
+ */
+export async function fetchVariantGroupsAdmin(token: string): Promise<VariantGroupAdmin[]> {
+  return apiGet<VariantGroupAdmin[]>("/v1/admin/variants", token);
+}
+
+/**
+ * Create a variant, in an existing or a new group (admin)
+ */
+export async function createVariant(
+  data: TrigVariantCreateInput,
+  token: string
+): Promise<TrigVariant> {
+  return apiPost<TrigVariant>("/v1/admin/variants", data, token);
+}
+
+/**
+ * Update a variant's name and/or order (admin). Its code can't change.
+ */
+export async function updateVariant(
+  id: number,
+  data: TrigVariantUpdateInput,
+  token: string
+): Promise<TrigVariant> {
+  return apiPatch<TrigVariant>(`/v1/admin/variants/${id}`, data, token);
+}
+
+/**
+ * Rename a variant group (admin). Its code can't change.
+ */
+export async function renameVariantGroup(
+  groupCode: string,
+  name: string,
+  token: string
+): Promise<{ code: string; name: string }> {
+  return apiPatch<{ code: string; name: string }>(
+    `/v1/admin/variants/groups/${encodeURIComponent(groupCode)}`,
+    { name },
+    token
+  );
+}
+
+/**
+ * Delete a variant (admin). Fails if any trigpoints record it, or if it's the
+ * last of a group that types still offer.
+ */
+export async function deleteVariant(id: number, token: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/v1/admin/variants/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    parseAndThrowError(response.status, text, response.statusText);
+  }
+}
+
+// ============================================================================
 // Public Conditions API (no auth required)
 // ============================================================================
 

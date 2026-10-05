@@ -246,6 +246,72 @@ def test_points_without_filters_is_not_capped_by_pagination(
     assert resp.json()["total"] == 4
 
 
+def _logged_conditions(client: TestClient, w, **kwargs) -> dict[int, object]:
+    """Trig id -> logged_condition from the points for the world's category."""
+    params = {"categories": w.category, **kwargs.pop("params", {})}
+    resp = client.get(f"{TRIGS_URL}/points", params=params, **kwargs)
+    assert resp.status_code == 200, resp.json()
+    body = resp.json()
+    rows = [dict(zip(body["fields"], row)) for row in body["rows"]]
+    return {r["id"]: r["logged_condition"] for r in rows}
+
+
+def test_points_logged_condition_is_the_latest_published_log(
+    client: TestClient, pillar_world
+):
+    w = pillar_world
+    p1, p2, p3, p4 = w.trigs
+    conditions = _logged_conditions(client, w, params={"logged_by": w.logger.id})
+    # p1 was logged G in 2021 then D in 2024; p4 only has a draft
+    assert conditions == {p1.id: "D", p2.id: "G", p3.id: "G", p4.id: None}
+
+
+def test_points_logged_condition_defaults_to_the_caller(
+    client: TestClient, pillar_world
+):
+    w = pillar_world
+    p1, p2, p3, p4 = w.trigs
+    conditions = _logged_conditions(
+        client, w, headers={"Authorization": f"Bearer auth0_user_{w.other.id}"}
+    )
+    assert conditions == {p1.id: None, p2.id: None, p3.id: None, p4.id: "G"}
+
+
+def test_points_logged_condition_without_a_log_user(client: TestClient, pillar_world):
+    conditions = _logged_conditions(client, pillar_world)
+    assert len(conditions) == 4
+    assert set(conditions.values()) == {None}
+
+
+def test_points_logged_condition_not_recorded_is_z(
+    client: TestClient, db: Session, pillar_world
+):
+    w = pillar_world
+    p1, p2, p3, p4 = w.trigs
+    db.add(
+        TLog(
+            trig_id=p2.id,
+            user_id=w.other.id,
+            date=date(2023, 3, 3),
+            time=time(9, 0),
+            osgb_eastings=0,
+            osgb_northings=0,
+            osgb_gridref="",
+            fb_number="",
+            condition=None,
+            comment="",
+            score=5,
+            ip_addr="127.0.0.1",
+            source="W",
+            status="P",
+        )
+    )
+    db.commit()
+
+    conditions = _logged_conditions(client, w, params={"logged_by": w.other.id})
+    assert conditions == {p1.id: None, p2.id: "Z", p3.id: None, p4.id: "G"}
+
+
 def test_download_csv_numbers_rows_by_first_log(client: TestClient, pillar_world):
     w = pillar_world
     p1, p2, p3, _ = w.trigs

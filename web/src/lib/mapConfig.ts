@@ -83,7 +83,8 @@ export const TILE_LAYERS: Record<string, TileLayer> = {
     name: 'OS Paper',
     urlTemplate: `${getApiBase()}/v1/tiles/os/Leisure_27700/{z}/{x}/{y}.png`,
     attribution: '© Ordnance Survey',
-    minZoom: 6,
+    // Zooms 0-5 are OS's small-scale maps (free), so zooming right out works
+    minZoom: 0,
     maxZoom: 12, // EPSG:27700 has different zoom levels
     maxNativeZoom: 9,
     crs: 'EPSG:27700', // British National Grid
