@@ -34,6 +34,7 @@ const AdminLogsNeedsAttention = lazy(() => import("./routes/admin/LogsNeedsAtten
 const AdminTrigEdit = lazy(() => import("./routes/admin/TrigEdit"));
 const AdminTrigCreate = lazy(() => import("./routes/admin/TrigCreate"));
 const AdminTypesAdmin = lazy(() => import("./routes/admin/TypesAdmin"));
+const AdminVariantsAdmin = lazy(() => import("./routes/admin/VariantsAdmin"));
 const AdminStatusAdmin = lazy(() => import("./routes/admin/StatusAdmin"));
 const AdminConditionAdmin = lazy(() => import("./routes/admin/ConditionAdmin"));
 const AdminTrigUseAdmin = lazy(() => import("./routes/admin/TrigUseAdmin"));
@@ -157,6 +158,7 @@ const router = createBrowserRouter(
         { path: "/admin/trigs/new", element: <AdminTrigCreate /> },
         { path: "/admin/trigs/:trigId/edit", element: <AdminTrigEdit /> },
         { path: "/admin/types", element: <AdminTypesAdmin /> },
+        { path: "/admin/variants", element: <AdminVariantsAdmin /> },
         { path: "/admin/status", element: <AdminStatusAdmin /> },
         { path: "/admin/condition", element: <AdminConditionAdmin /> },
         { path: "/admin/historic-use", element: <AdminTrigUseAdmin kind="historic" /> },

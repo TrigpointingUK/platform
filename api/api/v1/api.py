@@ -33,6 +33,7 @@ from api.api.v1.endpoints import (
     types,
     types_admin,
     users,
+    variants_admin,
 )
 
 api_router = APIRouter()
@@ -68,6 +69,9 @@ api_router.include_router(
 )
 api_router.include_router(
     trig_use_admin.router, prefix="/admin/trig-use", tags=["admin-trig-use"]
+)
+api_router.include_router(
+    variants_admin.router, prefix="/admin/variants", tags=["admin-variants"]
 )
 api_router.include_router(
     osnet_admin.router, prefix="/admin/osnet", tags=["admin-osnet"]

@@ -1744,6 +1744,21 @@ export default function Admin() {
 
           <Card>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
+              Variants
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+              Manage the variants that qualify a type, e.g. a Buried Block&apos;s detector material.
+            </p>
+            <a
+              href="/admin/variants"
+              className="inline-block bg-trig-green-600 hover:bg-trig-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
+            >
+              Manage Variants →
+            </a>
+          </Card>
+
+          <Card>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
               Trigpoint Statuses
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
