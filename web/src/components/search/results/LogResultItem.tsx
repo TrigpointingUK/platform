@@ -51,6 +51,16 @@ export function LogResultItem({ item }: LogResultItemProps) {
                   </span>
                 </>
               )}
+              {item.trig_type_name && (
+                <>
+                  <span className="text-gray-400 dark:text-gray-500 mx-1">·</span>
+                  <span className="font-normal text-gray-500 dark:text-gray-400 text-sm">
+                    {item.trig_type_code === item.trig_category_code
+                      ? item.trig_type_name
+                      : `${item.trig_category_name} · ${item.trig_type_name}`}
+                  </span>
+                </>
+              )}
             </Link>
             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <span>

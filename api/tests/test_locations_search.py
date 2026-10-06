@@ -10,9 +10,11 @@ from datetime import date, time
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func
 
 from api.models.location import Postcode, Town
 from api.models.trig import Trig
+from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog, User
 
 
@@ -514,6 +516,103 @@ class TestSearchLogsRegex:
         assert response.status_code == 200
         data = response.json()
         assert "items" in data
+
+
+@pytest.fixture
+def typed_log_search_data(db, location_search_data):
+    """Give the location_search_data trig a type in its own category."""
+    suffix = location_search_data["suffix"]
+    max_cat_order = db.query(
+        func.coalesce(func.max(TrigCategory.sort_order), 0)
+    ).scalar()
+    category = TrigCategory(
+        code=f"SRCHCAT_{suffix}",
+        name="Search Category",
+        sort_order=max_cat_order + 1,
+    )
+    db.add(category)
+    db.flush()
+    trig_type = TrigType(
+        category_id=category.id,
+        code=f"SRCHTYPE_{suffix}",
+        name="Search Type",
+        sort_order=1,
+    )
+    db.add(trig_type)
+    db.flush()
+    location_search_data["trig"].type_id = trig_type.id
+    db.commit()
+    return location_search_data
+
+
+class TestLogSearchTrigType:
+    """Log search results carry the trig's type and category."""
+
+    @staticmethod
+    def _find_log(items, log_id):
+        matches = [item for item in items if item["id"] == log_id]
+        assert len(matches) == 1
+        return matches[0]
+
+    @staticmethod
+    def _assert_type_fields(item, suffix):
+        assert item["trig_type_code"] == f"SRCHTYPE_{suffix}"
+        assert item["trig_type_name"] == "Search Type"
+        assert item["trig_category_code"] == f"SRCHCAT_{suffix}"
+        assert item["trig_category_name"] == "Search Category"
+
+    def test_substring_includes_trig_type(
+        self, client: TestClient, typed_log_search_data
+    ):
+        suffix = typed_log_search_data["suffix"]
+        response = client.get(
+            f"/v1/locations/search/logs/substring?q=SearchableLogComment_{suffix}"
+        )
+
+        assert response.status_code == 200
+        item = self._find_log(response.json()["items"], typed_log_search_data["log"].id)
+        assert item["trig_name"] == f"SearchTestTrig_{suffix}"
+        assert item["user_name"] == f"SearchTestUser_{suffix}"
+        self._assert_type_fields(item, suffix)
+
+    def test_regex_includes_trig_type(self, client: TestClient, typed_log_search_data):
+        suffix = typed_log_search_data["suffix"]
+        response = client.get(
+            f"/v1/locations/search/logs/regex?q=SearchableLogComment_{suffix}.*"
+        )
+
+        assert response.status_code == 200
+        item = self._find_log(response.json()["items"], typed_log_search_data["log"].id)
+        self._assert_type_fields(item, suffix)
+
+    def test_unified_search_includes_trig_type(
+        self, client: TestClient, typed_log_search_data
+    ):
+        suffix = typed_log_search_data["suffix"]
+        response = client.get(
+            f"/v1/locations/search/all?q=SearchableLogComment_{suffix}.*"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        log_id = typed_log_search_data["log"].id
+        self._assert_type_fields(
+            self._find_log(data["log_regex"]["items"], log_id), suffix
+        )
+
+    def test_untyped_trig_still_returned(
+        self, client: TestClient, location_search_data
+    ):
+        suffix = location_search_data["suffix"]
+        response = client.get(
+            f"/v1/locations/search/logs/substring?q=SearchableLogComment_{suffix}"
+        )
+
+        assert response.status_code == 200
+        item = self._find_log(response.json()["items"], location_search_data["log"].id)
+        assert item["trig_name"] == f"SearchTestTrig_{suffix}"
+        assert item["trig_type_name"] is None
+        assert item["trig_category_name"] is None
 
 
 class TestSearchResultNewFields:
