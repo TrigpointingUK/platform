@@ -6,10 +6,12 @@ from datetime import date as DateType
 from typing import Iterable, List, Optional, Tuple
 
 from sqlalchemy import Float, asc, cast, desc, func, text
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from api.models.tphoto import TPhoto
 from api.models.trig import Trig
+from api.models.trig_type import TrigCategory, TrigType
 from api.models.user import TLog, User
 from api.services.cache_invalidator import (
     invalidate_log_caches,
@@ -598,11 +600,37 @@ def count_logs_by_regex(db: Session, regex_pattern: str) -> int:
     )
 
 
+def _log_search_query(db: Session):
+    """
+    Base query for log comment searches.
+
+    Each row is (TLog, trig_name, user_name, trig_type_code, trig_type_name,
+    trig_category_code, trig_category_name); joined values are None when the
+    trig, user or type is missing.
+    """
+    return (
+        db.query(
+            TLog,
+            Trig.name.label("trig_name"),
+            User.name.label("user_name"),
+            TrigType.code.label("trig_type_code"),
+            TrigType.name.label("trig_type_name"),
+            TrigCategory.code.label("trig_category_code"),
+            TrigCategory.name.label("trig_category_name"),
+        )
+        .select_from(TLog)
+        .outerjoin(Trig, TLog.trig_id == Trig.id)
+        .outerjoin(TrigType, Trig.type_id == TrigType.id)
+        .outerjoin(TrigCategory, TrigType.category_id == TrigCategory.id)
+        .outerjoin(User, TLog.user_id == User.id)
+    )
+
+
 def search_logs_by_text_with_names(
     db: Session, text_pattern: str, skip: int = 0, limit: int = 100
-) -> List[Tuple[TLog, Optional[str], Optional[str]]]:
+) -> List[Row]:
     """
-    Search logs by comment text with trig and user names joined.
+    Search logs by comment text with trig and user names and trig type joined.
 
     Args:
         db: Database session
@@ -611,33 +639,23 @@ def search_logs_by_text_with_names(
         limit: Maximum number of records to return
 
     Returns:
-        List of tuples (TLog, trig_name, user_name)
+        List of rows as described in _log_search_query
     """
-    rows = (
-        db.query(TLog, Trig.name, User.name)
-        .outerjoin(Trig, TLog.trig_id == Trig.id)
-        .outerjoin(User, TLog.user_id == User.id)
+    return (
+        _log_search_query(db)
         .filter(TLog.comment.ilike(f"%{text_pattern}%"))
         .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
         .offset(skip)
         .limit(limit)
         .all()
     )
-    return [
-        (
-            log,
-            trig_name if trig_name is not None else None,
-            user_name if user_name is not None else None,
-        )
-        for log, trig_name, user_name in rows
-    ]
 
 
 def search_logs_by_regex_with_names(
     db: Session, regex_pattern: str, skip: int = 0, limit: int = 100
-) -> List[Tuple[TLog, Optional[str], Optional[str]]]:
+) -> List[Row]:
     """
-    Search logs by regex pattern with trig and user names joined.
+    Search logs by regex pattern with trig and user names and trig type joined.
 
     Args:
         db: Database session
@@ -646,26 +664,16 @@ def search_logs_by_regex_with_names(
         limit: Maximum number of results to return
 
     Returns:
-        List of tuples (TLog, trig_name, user_name)
+        List of rows as described in _log_search_query
     """
-    rows = (
-        db.query(TLog, Trig.name, User.name)
-        .outerjoin(Trig, TLog.trig_id == Trig.id)
-        .outerjoin(User, TLog.user_id == User.id)
+    return (
+        _log_search_query(db)
         .filter(TLog.comment.op("~*")(regex_pattern))
         .order_by(desc(TLog.date), desc(TLog.time), desc(TLog.id))
         .offset(skip)
         .limit(limit)
         .all()
     )
-    return [
-        (
-            log,
-            trig_name if trig_name is not None else None,
-            user_name if user_name is not None else None,
-        )
-        for log, trig_name, user_name in rows
-    ]
 
 
 # ============================================================================

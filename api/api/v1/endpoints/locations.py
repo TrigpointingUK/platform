@@ -5,6 +5,7 @@ Location search endpoints for finding trigpoints by various means.
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.engine import Row
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm import Session
 
@@ -26,6 +27,43 @@ from api.schemas.locations import (
 from api.utils.cache_decorator import cached
 
 router = APIRouter()
+
+
+def _create_excerpt(text: str, max_length: int = 150) -> str:
+    """Truncate text to max_length characters for display."""
+    if len(text) <= max_length:
+        return text
+    return text[:max_length] + "..."
+
+
+def _to_log_search_result(row: Row) -> LogSearchResult:
+    """Build a LogSearchResult from a tlog_crud log search row."""
+    (
+        log,
+        trig_name,
+        user_name,
+        trig_type_code,
+        trig_type_name,
+        trig_category_code,
+        trig_category_name,
+    ) = row
+    return LogSearchResult(
+        id=log.id,
+        trig_id=log.trig_id,
+        trig_name=trig_name,
+        trig_type_code=trig_type_code,
+        trig_type_name=trig_type_name,
+        trig_category_code=trig_category_code,
+        trig_category_name=trig_category_name,
+        user_id=log.user_id,
+        user_name=user_name,
+        date=log.date,
+        time=log.time,
+        condition=log.condition,
+        comment=log.comment,
+        score=log.score,
+        comment_excerpt=_create_excerpt(log.comment),
+    )
 
 
 def _trig_description(trig: Trig) -> str:
@@ -309,12 +347,6 @@ def search_all(
     - Log text (regex) - only if query looks like a regex pattern
     """
 
-    # Helper function to create truncated excerpt
-    def create_excerpt(text: str, max_length: int = 150) -> str:
-        if len(text) <= max_length:
-            return text
-        return text[:max_length] + "..."
-
     # Coordinate searches
     coordinates_items: List[LocationSearchResult] = []
     latlon = locations_crud.parse_latlon_string(q)
@@ -412,22 +444,8 @@ def search_all(
     try:
         logs_text = tlog_crud.search_logs_by_text_with_names(db, q, limit=limit)
         log_substring_total = tlog_crud.count_logs_by_text(db, q)
-        for log, trig_name, user_name in logs_text:
-            log_substring_items.append(
-                LogSearchResult(
-                    id=log.id,  # type: ignore[arg-type]
-                    trig_id=log.trig_id,  # type: ignore[arg-type]
-                    trig_name=trig_name,
-                    user_id=log.user_id,  # type: ignore[arg-type]
-                    user_name=user_name,
-                    date=log.date,  # type: ignore[arg-type]
-                    time=log.time,  # type: ignore[arg-type]
-                    condition=log.condition,  # type: ignore[arg-type]
-                    comment=log.comment,  # type: ignore[arg-type]
-                    score=log.score,  # type: ignore[arg-type]
-                    comment_excerpt=create_excerpt(log.comment),  # type: ignore[arg-type]
-                )
-            )
+        for row in logs_text:
+            log_substring_items.append(_to_log_search_result(row))
     except Exception:
         log_substring_total = 0
 
@@ -440,22 +458,8 @@ def search_all(
         try:
             logs_regex = tlog_crud.search_logs_by_regex_with_names(db, q, limit=limit)
             log_regex_total = tlog_crud.count_logs_by_regex(db, q)
-            for log, trig_name, user_name in logs_regex:
-                log_regex_items.append(
-                    LogSearchResult(
-                        id=log.id,  # type: ignore[arg-type]
-                        trig_id=log.trig_id,  # type: ignore[arg-type]
-                        trig_name=trig_name,
-                        user_id=log.user_id,  # type: ignore[arg-type]
-                        user_name=user_name,
-                        date=log.date,  # type: ignore[arg-type]
-                        time=log.time,  # type: ignore[arg-type]
-                        condition=log.condition,  # type: ignore[arg-type]
-                        comment=log.comment,  # type: ignore[arg-type]
-                        score=log.score,  # type: ignore[arg-type]
-                        comment_excerpt=create_excerpt(log.comment),  # type: ignore[arg-type]
-                    )
-                )
+            for row in logs_regex:
+                log_regex_items.append(_to_log_search_result(row))
         except (DatabaseError, Exception):
             # Invalid regex or DB error, skip
             log_regex_total = 0
@@ -685,32 +689,11 @@ def search_logs_substring(
 ):
     """Search log comments by substring."""
 
-    def create_excerpt(text: str, max_length: int = 150) -> str:
-        if len(text) <= max_length:
-            return text
-        return text[:max_length] + "..."
-
     try:
         logs = tlog_crud.search_logs_by_text_with_names(db, q, skip=skip, limit=limit)
         total = tlog_crud.count_logs_by_text(db, q)
 
-        items: List[LogSearchResult] = []
-        for log, trig_name, user_name in logs:
-            items.append(
-                LogSearchResult(
-                    id=log.id,  # type: ignore[arg-type]
-                    trig_id=log.trig_id,  # type: ignore[arg-type]
-                    trig_name=trig_name,
-                    user_id=log.user_id,  # type: ignore[arg-type]
-                    user_name=user_name,
-                    date=log.date,  # type: ignore[arg-type]
-                    time=log.time,  # type: ignore[arg-type]
-                    condition=log.condition,  # type: ignore[arg-type]
-                    comment=log.comment,  # type: ignore[arg-type]
-                    score=log.score,  # type: ignore[arg-type]
-                    comment_excerpt=create_excerpt(log.comment),  # type: ignore[arg-type]
-                )
-            )
+        items = [_to_log_search_result(row) for row in logs]
 
         return SearchCategoryResults(
             total=total, items=items, has_more=total > skip + len(items), query=q
@@ -734,32 +717,11 @@ def search_logs_regex(
 ):
     """Search log comments by regex pattern."""
 
-    def create_excerpt(text: str, max_length: int = 150) -> str:
-        if len(text) <= max_length:
-            return text
-        return text[:max_length] + "..."
-
     try:
         logs = tlog_crud.search_logs_by_regex_with_names(db, q, skip=skip, limit=limit)
         total = tlog_crud.count_logs_by_regex(db, q)
 
-        items: List[LogSearchResult] = []
-        for log, trig_name, user_name in logs:
-            items.append(
-                LogSearchResult(
-                    id=log.id,  # type: ignore[arg-type]
-                    trig_id=log.trig_id,  # type: ignore[arg-type]
-                    trig_name=trig_name,
-                    user_id=log.user_id,  # type: ignore[arg-type]
-                    user_name=user_name,
-                    date=log.date,  # type: ignore[arg-type]
-                    time=log.time,  # type: ignore[arg-type]
-                    condition=log.condition,  # type: ignore[arg-type]
-                    comment=log.comment,  # type: ignore[arg-type]
-                    score=log.score,  # type: ignore[arg-type]
-                    comment_excerpt=create_excerpt(log.comment),  # type: ignore[arg-type]
-                )
-            )
+        items = [_to_log_search_result(row) for row in logs]
 
         return SearchCategoryResults(
             total=total, items=items, has_more=total > skip + len(items), query=q

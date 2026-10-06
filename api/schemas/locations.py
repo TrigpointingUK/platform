@@ -56,6 +56,16 @@ class LogSearchResult(BaseModel):
     id: int = Field(..., description="Log ID")
     trig_id: int = Field(..., description="Trigpoint ID")
     trig_name: Optional[str] = Field(None, description="Trigpoint name")
+    trig_type_code: Optional[str] = Field(None, description="Trigpoint type code")
+    trig_type_name: Optional[str] = Field(
+        None, description="Trigpoint type name (e.g. 'Hotine Pillar')"
+    )
+    trig_category_code: Optional[str] = Field(
+        None, description="Trigpoint type category code"
+    )
+    trig_category_name: Optional[str] = Field(
+        None, description="Trigpoint type category name (e.g. 'Pillar')"
+    )
     user_id: int = Field(..., description="User ID")
     user_name: Optional[str] = Field(None, description="Username")
     date: DateType = Field(..., description="Log date")
