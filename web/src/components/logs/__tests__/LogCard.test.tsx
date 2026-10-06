@@ -49,6 +49,24 @@ describe('LogCard', () => {
     expect(screen.getByText('TP12345')).toBeInTheDocument();
   });
 
+  it('should render the trig type with its variant', () => {
+    renderWithProviders(
+      <LogCard
+        log={{
+          ...mockLog,
+          trig_type_code: 'BURIED_BLOCK',
+          trig_type_name: 'Buried Block',
+          trig_category_code: 'SURVEY_MARK',
+          trig_category_name: 'Survey mark',
+          trig_variant_name: 'Concrete ring',
+        }}
+      />
+    );
+    expect(
+      screen.getByText('Survey mark · Buried Block (concrete ring)')
+    ).toBeInTheDocument();
+  });
+
   it('should render user information', () => {
     renderWithProviders(<LogCard log={mockLog} userName="John Doe" />);
     expect(screen.getByText('John Doe')).toBeInTheDocument();

@@ -49,6 +49,7 @@ class TLogResponse(TLogBase):
     trig_type_name: Optional[str] = None  # Type display name (e.g., "Hotine Pillar")
     trig_category_code: Optional[str] = None  # Category code (e.g., "PILLAR")
     trig_category_name: Optional[str] = None  # Category display name (e.g., "Pillar")
+    trig_variant_name: Optional[str] = None  # Variant name (e.g., "Concrete ring")
     location_distance_m: Optional[float] = (
         None  # Distance from log location to trig location
     )

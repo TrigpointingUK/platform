@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from api.models.tphoto import TPhoto
 from api.models.trig import Trig
 from api.models.trig_type import TrigCategory, TrigType
+from api.models.trig_variant import TrigVariant
 from api.models.user import TLog, User
 from api.services.cache_invalidator import (
     invalidate_log_caches,
@@ -604,9 +605,10 @@ def _log_search_query(db: Session):
     """
     Base query for log comment searches.
 
-    Each row is (TLog, trig_name, user_name, trig_type_code, trig_type_name,
-    trig_category_code, trig_category_name); joined values are None when the
-    trig, user or type is missing.
+    Each row is the TLog plus labelled trig_name, user_name, trig_type_code,
+    trig_type_name, trig_category_code, trig_category_name and
+    trig_variant_name; joined values are None when the trig, user, type or
+    variant is missing.
     """
     return (
         db.query(
@@ -617,11 +619,13 @@ def _log_search_query(db: Session):
             TrigType.name.label("trig_type_name"),
             TrigCategory.code.label("trig_category_code"),
             TrigCategory.name.label("trig_category_name"),
+            TrigVariant.name.label("trig_variant_name"),
         )
         .select_from(TLog)
         .outerjoin(Trig, TLog.trig_id == Trig.id)
         .outerjoin(TrigType, Trig.type_id == TrigType.id)
         .outerjoin(TrigCategory, TrigType.category_id == TrigCategory.id)
+        .outerjoin(TrigVariant, Trig.variant_id == TrigVariant.id)
         .outerjoin(User, TLog.user_id == User.id)
     )
 

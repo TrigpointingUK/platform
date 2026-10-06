@@ -20,6 +20,7 @@ export interface LogSearchResult {
   trig_type_name?: string | null;
   trig_category_code?: string | null;
   trig_category_name?: string | null;
+  trig_variant_name?: string | null;
   user_id: number;
   user_name?: string;
   date: string;
