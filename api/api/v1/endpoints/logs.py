@@ -17,6 +17,7 @@ from api.crud import tphoto as tphoto_crud
 from api.models.server import Server
 from api.models.trig import Trig
 from api.models.trig_type import TrigCategory, TrigType
+from api.models.trig_variant import TrigVariant
 from api.models.user import TLog as TLogModel
 from api.models.user import User
 from api.schemas.tlog import TLogCreate, TLogResponse, TLogUpdate, TLogWithIncludes
@@ -89,9 +90,11 @@ def enrich_logs_with_names(
             TrigType.name.label("type_name"),
             TrigCategory.code.label("category_code"),
             TrigCategory.name.label("category_name"),
+            TrigVariant.name.label("variant_name"),
         )
         .outerjoin(TrigType, Trig.type_id == TrigType.id)
         .outerjoin(TrigCategory, TrigType.category_id == TrigCategory.id)
+        .outerjoin(TrigVariant, Trig.variant_id == TrigVariant.id)
         .filter(Trig.id.in_(trig_ids))
         .all()
         if trig_ids
@@ -115,6 +118,7 @@ def enrich_logs_with_names(
             "type_name": str(t.type_name) if t.type_name else None,
             "category_code": str(t.category_code) if t.category_code else None,
             "category_name": str(t.category_name) if t.category_name else None,
+            "variant_name": str(t.variant_name) if t.variant_name else None,
         }
         for t in trigs
     }
@@ -135,6 +139,7 @@ def enrich_logs_with_names(
         log_dict["trig_type_name"] = trig_info.get("type_name")
         log_dict["trig_category_code"] = trig_info.get("category_code")
         log_dict["trig_category_name"] = trig_info.get("category_name")
+        log_dict["trig_variant_name"] = trig_info.get("variant_name")
         log_dict["user_name"] = user_names.get(log.user_id)
         log_dict["user_has_avatar"] = user_has_avatar.get(log.user_id, False)
 

@@ -11,6 +11,7 @@ can be scoped with `categories=` and ignore other test data.
 """
 
 import uuid
+from datetime import date, time
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session
 from api.core.config import settings
 from api.models.trig_type import TrigCategory, TrigType
 from api.models.trig_variant import TrigVariant
+from api.models.user import TLog
 
 TRIGS_URL = f"{settings.API_V1_STR}/trigs"
 ADMIN_AUTH = {"Authorization": "Bearer auth0_admin"}
@@ -193,6 +195,66 @@ def _patch_trig(client, trig, **overrides):
         json=_admin_payload(trig, **overrides),
         headers=ADMIN_AUTH,
     )
+
+
+@pytest.fixture
+def variant_logs(db: Session, test_user, variant_world):
+    """A log on the ringed Buried Block and one on the unrecorded one."""
+    tag = uuid.uuid4().hex[:8]
+
+    def make_log(trig):
+        log = TLog(
+            trig_id=trig.id,
+            user_id=test_user.id,
+            date=date(2024, 5, 1),
+            time=time(10, 0, 0),
+            osgb_eastings=100000,
+            osgb_northings=200000,
+            osgb_gridref="TQ 00000 00000",
+            fb_number="",
+            condition="G",
+            comment=f"VariantLogComment_{tag}",
+            score=7,
+            ip_addr="127.0.0.1",
+            source="W",
+        )
+        db.add(log)
+        return log
+
+    logs = SimpleNamespace(
+        tag=tag,
+        ring=make_log(variant_world.bb_ring),
+        plain=make_log(variant_world.bb_plain),
+    )
+    db.commit()
+    return logs
+
+
+class TestLogsCarryVariant:
+    def test_trig_logs(self, client, variant_world, variant_logs):
+        resp = client.get(f"{TRIGS_URL}/{variant_world.bb_ring.id}/logs")
+        assert resp.status_code == 200
+        [item] = resp.json()["items"]
+        assert item["trig_type_name"] == "Buried Block"
+        assert item["trig_variant_name"] == "Concrete ring"
+
+    def test_log_detail_without_variant(self, client, variant_logs):
+        resp = client.get(f"{settings.API_V1_STR}/logs/{variant_logs.plain.id}")
+        assert resp.status_code == 200
+        assert resp.json()["trig_type_name"] == "Buried Block"
+        assert resp.json()["trig_variant_name"] is None
+
+    def test_log_search(self, client, variant_logs):
+        resp = client.get(
+            f"{settings.API_V1_STR}/locations/search/logs/substring",
+            params={"q": f"VariantLogComment_{variant_logs.tag}"},
+        )
+        assert resp.status_code == 200
+        variants = {i["id"]: i["trig_variant_name"] for i in resp.json()["items"]}
+        assert variants == {
+            variant_logs.ring.id: "Concrete ring",
+            variant_logs.plain.id: None,
+        }
 
 
 class TestAdminVariant:

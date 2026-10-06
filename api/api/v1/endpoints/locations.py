@@ -38,25 +38,18 @@ def _create_excerpt(text: str, max_length: int = 150) -> str:
 
 def _to_log_search_result(row: Row) -> LogSearchResult:
     """Build a LogSearchResult from a tlog_crud log search row."""
-    (
-        log,
-        trig_name,
-        user_name,
-        trig_type_code,
-        trig_type_name,
-        trig_category_code,
-        trig_category_name,
-    ) = row
+    log = row.TLog
     return LogSearchResult(
         id=log.id,
         trig_id=log.trig_id,
-        trig_name=trig_name,
-        trig_type_code=trig_type_code,
-        trig_type_name=trig_type_name,
-        trig_category_code=trig_category_code,
-        trig_category_name=trig_category_name,
+        trig_name=row.trig_name,
+        trig_type_code=row.trig_type_code,
+        trig_type_name=row.trig_type_name,
+        trig_category_code=row.trig_category_code,
+        trig_category_name=row.trig_category_name,
+        trig_variant_name=row.trig_variant_name,
         user_id=log.user_id,
-        user_name=user_name,
+        user_name=row.user_name,
         date=log.date,
         time=log.time,
         condition=log.condition,

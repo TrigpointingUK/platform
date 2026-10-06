@@ -47,6 +47,25 @@ describe('LogResultItem', () => {
     expect(screen.getByText('Pillar · Hotine Pillar')).toBeInTheDocument();
   });
 
+  it('includes the variant, as on the trig pages', () => {
+    renderWithProviders(
+      <LogResultItem
+        item={{
+          ...baseItem,
+          trig_type_code: 'BURIED_BLOCK',
+          trig_type_name: 'Buried Block',
+          trig_category_code: 'SURVEY_MARK',
+          trig_category_name: 'Survey mark',
+          trig_variant_name: 'Concrete ring',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText('Survey mark · Buried Block (concrete ring)')
+    ).toBeInTheDocument();
+  });
+
   it('shows only the type when it is the whole category', () => {
     renderWithProviders(
       <LogResultItem
