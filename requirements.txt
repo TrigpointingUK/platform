@@ -56,7 +56,7 @@ opentelemetry-instrumentation-sqlalchemy==0.66b0
 opentelemetry-exporter-otlp-proto-http==1.45.0
 
 # AI / RAG Chat Agent
-openai>=3.22.1
+openai>=3.24.0
 
 # Development dependencies
 black==26.5.1
