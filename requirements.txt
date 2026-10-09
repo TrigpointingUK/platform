@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.34.2
-boto3==1.43.106
+boto3==1.43.108
 types-requests==2.33.0.20260906
 
 # Redis/ElastiCache for token caching
@@ -41,7 +41,7 @@ pyproj==3.8.0
 
 # Profiling
 pyinstrument==5.1.3
-pyroscope-io==1.2.4
+pyroscope-io==1.2.5
 
 # OpenTelemetry - Distributed tracing and metrics
 # NOTE: instrumentation must be >=0.64b0 (api/sdk >=1.43.0). Earlier 0.63b1
