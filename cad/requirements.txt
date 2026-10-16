@@ -1,5 +1,5 @@
 anytree==2.13.0
-bd_warehouse==0.3.0
+bd_warehouse==0.4.0
 build123d==0.13.0
 cadquery-ocp-novtk==8.0.1.0.0
 cadquery-ocp-proxy==8.0.1.0.0
