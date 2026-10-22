@@ -1,6 +1,7 @@
 # Build phpBB container image
 # Includes custom TUK branding (logo, green theme) and Auth0 SSO integration
-FROM php:8.2-apache
+# Pin the PHP patch release: 8.2.35 fixes CVE-2026-109618/109619 ("PHP2Shell")
+FROM php:8.2.35-apache
 ARG PHPBB_VERSION=3.3.15
 
 WORKDIR /var/www/html

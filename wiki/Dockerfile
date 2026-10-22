@@ -1,4 +1,5 @@
-FROM mediawiki:1.45
+# Pin the point release: 1.45.6 image ships PHP 8.3.36 (CVE-2026-109618/109619 "PHP2Shell")
+FROM mediawiki:1.45.6
 
 WORKDIR /var/www/html
 
