@@ -20,8 +20,9 @@ resource "aws_ecs_task_definition" "phpmyadmin" {
 
   container_definitions = jsonencode([
     {
-      name  = "${var.project_name}-phpmyadmin"
-      image = "phpmyadmin/phpmyadmin:latest"
+      name = "${var.project_name}-phpmyadmin"
+      # Official library image; phpmyadmin/phpmyadmin stopped receiving rebuilds in 2025
+      image = "phpmyadmin:5.2.3-apache"
       portMappings = [
         {
           containerPort = 80
