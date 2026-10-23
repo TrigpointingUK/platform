@@ -3,15 +3,15 @@ bd_warehouse==0.3.0
 build123d==0.13.0
 cadquery-ocp-novtk==8.0.1.0.0
 cadquery-ocp-proxy==8.0.1.0.0
-ezdxf==1.4.4
+ezdxf==1.4.5
 networkx==3.7
-numpy==2.5.3
+numpy==2.5.4
 ocpsvg==0.7.0
 scipy==1.18.1
 segno==1.6.6
 svgpathtools==1.8.0
 trianglesolver==1.2
-trimesh==5.1.0
+trimesh==5.1.1
 
 # Needed by the flush-bracket model as well as by fbfit. The casting draft on
 # the raised lettering is computed as a distance transform on a raster, because
