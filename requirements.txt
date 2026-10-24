@@ -1,7 +1,7 @@
 fastapi==0.142.2
 starlette>=1.7.0  # CVE-2025-62727 fix (DoS via Range header in FileResponse)
 uvicorn[standard]==0.54.0
-sqlalchemy==2.0.54
+sqlalchemy==2.0.55
 psycopg2-binary==2.9.13
 geoalchemy2==0.20.0
 cryptography==50.0.2
@@ -25,7 +25,7 @@ factory-boy==3.3.3
 
 # Auth0 dependencies
 requests==2.34.2
-boto3==1.43.106
+boto3==1.43.115
 types-requests==2.33.0.20260906
 
 # Redis/ElastiCache for token caching
@@ -33,7 +33,7 @@ redis==8.1.0
 
 # Image processing
 Pillow==12.3.0
-numpy==2.5.3
+numpy==2.5.4
 onnxruntime==1.30.0
 
 # Geodesy - accurate coordinate transformations
